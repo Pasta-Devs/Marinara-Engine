@@ -229,8 +229,18 @@ class GameAudioManager {
     } catch {
       // Some browsers do not allow seeking before metadata is ready.
     }
-    void audio
-      .play()
+    const playResult = audio.play() as Promise<void> | undefined;
+    if (!playResult || typeof playResult.then !== "function") {
+      audio.pause();
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Ignore unlock cleanup failures.
+      }
+      return;
+    }
+
+    void playResult
       .then(() => {
         audio.pause();
         try {

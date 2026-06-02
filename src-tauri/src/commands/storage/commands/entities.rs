@@ -1,6 +1,6 @@
 use super::{
-    avatars, characters, chats, connection_secrets, game_state_snapshots, lorebook_images,
-    media_uploads, prompts, shared,
+    avatars, characters, chats, connection_secrets, contracts, game_state_snapshots,
+    lorebook_images, media_uploads, prompts, shared,
 };
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
@@ -8,6 +8,16 @@ use marinara_core::{ensure_object, AppError};
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use tauri::State;
+
+fn validate_storage_entity(entity: &str) -> Result<(), AppError> {
+    if contracts::collection_contract(entity).is_some() {
+        Ok(())
+    } else {
+        Err(AppError::invalid_input(format!(
+            "Unsupported storage entity: {entity}"
+        )))
+    }
+}
 
 #[tauri::command]
 pub async fn storage_list(
@@ -21,11 +31,12 @@ pub async fn storage_list(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_list_inner(
+pub(crate) fn storage_list_inner(
     state: &AppState,
     entity: String,
     options: Option<Value>,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(&entity)?;
     let filters = options
         .as_ref()
         .and_then(|value| value.get("filters"))
@@ -48,6 +59,15 @@ fn storage_list_inner(
                         .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
                 } else if message_id_projection_only(options.as_ref()) {
                     state.storage.list_message_ids_for_chat(chat_id)?
+                } else if let Some(fields) = projection_fields
+                    .as_ref()
+                    .filter(|fields| !fields.is_empty())
+                {
+                    state.storage.list_messages_for_chat_projected(
+                        chat_id,
+                        &message_projection_fields_for_materialization(fields, options.as_ref()),
+                        shared::projection_field_selections(options.as_ref()),
+                    )?
                 } else {
                     state.storage.list_messages_for_chat(chat_id)?
                 }
@@ -167,6 +187,42 @@ fn message_id_projection_only(options: Option<&Value>) -> bool {
     fields.len() == 1 && fields.first().and_then(Value::as_str) == Some("id")
 }
 
+fn message_projection_fields_for_materialization(
+    fields: &[String],
+    options: Option<&Value>,
+) -> Vec<String> {
+    let mut projection = fields.to_vec();
+    for field in ["id", "sortOrder", "order", "createdAt"] {
+        if !projection.iter().any(|existing| existing == field) {
+            projection.push(field.to_string());
+        }
+    }
+    if let Some(order_by) = options
+        .and_then(|value| value.get("orderBy"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if !projection.iter().any(|existing| existing == order_by) {
+            projection.push(order_by.to_string());
+        }
+    }
+    let needs_swipes = fields.iter().any(|field| {
+        matches!(
+            field.as_str(),
+            "content" | "extra" | "activeSwipeIndex" | "swipeCount" | "swipePreviews"
+        )
+    });
+    if needs_swipes {
+        for field in ["activeSwipeIndex", "swipes"] {
+            if !projection.iter().any(|existing| existing == field) {
+                projection.push(field.to_string());
+            }
+        }
+    }
+    projection
+}
+
 fn message_page_options(options: Option<&Value>) -> Option<(usize, Option<String>)> {
     let options = options?;
     let limit = options.get("limit").and_then(Value::as_u64)? as usize;
@@ -192,13 +248,31 @@ pub async fn storage_get(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_get_inner(
+pub(crate) fn storage_get_inner(
     state: &AppState,
     entity: String,
     id: String,
     options: Option<Value>,
 ) -> Result<Value, AppError> {
-    let mut value = state.storage.get(&entity, &id)?.unwrap_or(Value::Null);
+    validate_storage_entity(&entity)?;
+    let projection_fields = shared::projection_fields(options.as_ref());
+    let mut value = if let Some(fields) = projection_fields
+        .as_ref()
+        .filter(|fields| !fields.is_empty())
+    {
+        let read_fields = storage_get_projection_fields_for_read(&entity, fields, options.as_ref());
+        state
+            .storage
+            .get_projected(
+                &entity,
+                &id,
+                &read_fields,
+                shared::projection_field_selections(options.as_ref()),
+            )?
+            .unwrap_or(Value::Null)
+    } else {
+        state.storage.get(&entity, &id)?.unwrap_or(Value::Null)
+    };
     if entity == "messages" {
         shared::materialize_message_swipe_fields(&mut value);
     }
@@ -206,6 +280,32 @@ fn storage_get_inner(
         connection_secrets::mask_connection_for_read(&mut value);
     }
     Ok(shared::project_record(value, options.as_ref()))
+}
+
+fn storage_get_projection_fields_for_read(
+    entity: &str,
+    fields: &[String],
+    options: Option<&Value>,
+) -> Vec<String> {
+    let mut projection = if entity == "messages" {
+        message_projection_fields_for_materialization(fields, options)
+    } else {
+        fields.to_vec()
+    };
+
+    if entity == "connections"
+        && fields
+            .iter()
+            .any(|field| matches!(field.as_str(), "apiKey" | "hasApiKey"))
+    {
+        for field in ["apiKey", "apiKeyEncrypted"] {
+            if !projection.iter().any(|existing| existing == field) {
+                projection.push(field.to_string());
+            }
+        }
+    }
+
+    projection
 }
 
 #[tauri::command]
@@ -220,7 +320,12 @@ pub async fn storage_create(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_create_inner(state: &AppState, entity: String, value: Value) -> Result<Value, AppError> {
+pub(crate) fn storage_create_inner(
+    state: &AppState,
+    entity: String,
+    value: Value,
+) -> Result<Value, AppError> {
+    validate_storage_entity(&entity)?;
     validate_connection_folder_for_create(state, &entity, &value)?;
     let created = state
         .storage
@@ -250,12 +355,13 @@ pub async fn storage_update(
         .map_err(|error| AppError::new("task_join_error", error.to_string()))?
 }
 
-fn storage_update_inner(
+pub(crate) fn storage_update_inner(
     state: &AppState,
     entity: String,
     id: String,
     patch: Value,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(&entity)?;
     if entity == "messages" {
         return Ok(shared::project_timeline_message(
             shared::patch_message_update(state, &id, patch)?,
@@ -461,6 +567,7 @@ pub(crate) fn delete_entity(
     id: &str,
     force: bool,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(entity)?;
     if entity == "connections" {
         return crate::connection_refs::delete_connection(state, id, force);
     }
@@ -769,6 +876,7 @@ pub(crate) fn duplicate_entity(
     entity: &str,
     id: &str,
 ) -> Result<Value, AppError> {
+    validate_storage_entity(entity)?;
     if entity == "characters" {
         return characters::duplicate_character(state, id);
     }
@@ -1016,6 +1124,82 @@ mod tests {
             .expect("connection should read")
             .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
             .unwrap_or(false)
+    }
+
+    #[test]
+    fn generic_storage_commands_reject_unsupported_entities() {
+        let state = test_state("unsupported-entity");
+
+        let create_error = storage_create_inner(
+            &state,
+            "typo-collection".to_string(),
+            json!({ "id": "row-1" }),
+        )
+        .expect_err("unsupported create should be rejected");
+        assert_eq!(create_error.code, "invalid_input");
+        assert!(create_error
+            .message
+            .contains("Unsupported storage entity: typo-collection"));
+        assert!(!state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("typo-collection.json")
+            .exists());
+
+        storage_list_inner(&state, "typo-collection".to_string(), None)
+            .expect_err("unsupported list should be rejected");
+        storage_get_inner(
+            &state,
+            "typo-collection".to_string(),
+            "row-1".to_string(),
+            None,
+        )
+        .expect_err("unsupported get should be rejected");
+        storage_update_inner(
+            &state,
+            "typo-collection".to_string(),
+            "row-1".to_string(),
+            json!({ "name": "Nope" }),
+        )
+        .expect_err("unsupported update should be rejected");
+        delete_entity(&state, "typo-collection", "row-1", false)
+            .expect_err("unsupported delete should be rejected");
+    }
+
+    #[test]
+    fn generic_storage_commands_still_accept_supported_entities() {
+        let state = test_state("supported-entity");
+
+        storage_create_inner(
+            &state,
+            "characters".to_string(),
+            json!({ "id": "char-1", "data": { "name": "Rina" } }),
+        )
+        .expect("supported create should succeed");
+
+        let read = storage_get_inner(&state, "characters".to_string(), "char-1".to_string(), None)
+            .expect("supported get should succeed");
+        assert_eq!(read["id"], "char-1");
+    }
+
+    #[test]
+    fn generic_storage_duplicate_rejects_unsupported_entities() {
+        let state = test_state("unsupported-duplicate-entity");
+
+        let error = duplicate_entity(&state, "typo-collection", "row-1")
+            .expect_err("unsupported duplicate should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Unsupported storage entity: typo-collection"));
+        assert!(!state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("typo-collection.json")
+            .exists());
     }
 
     #[test]
@@ -1345,6 +1529,140 @@ mod tests {
     }
 
     #[test]
+    fn storage_list_projected_messages_keeps_default_created_at_order() {
+        let state = test_state("message-projection-default-sort");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "new", "chatId": "chat-1", "createdAt": "2026-01-03T00:00:00Z", "content": "new" }),
+                    json!({ "id": "old", "chatId": "chat-1", "createdAt": "2026-01-01T00:00:00Z", "content": "old" }),
+                    json!({ "id": "other", "chatId": "chat-2", "createdAt": "2026-01-02T00:00:00Z", "content": "other" }),
+                ],
+            )
+            .expect("messages should be seeded");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content"]
+            })),
+        )
+        .expect("projected message list should succeed");
+
+        assert_eq!(
+            result,
+            json!([
+                { "id": "old", "content": "old" },
+                { "id": "new", "content": "new" }
+            ])
+        );
+    }
+
+    #[test]
+    fn storage_list_projected_messages_keeps_before_cursor_filter() {
+        let state = test_state("message-projection-before-cursor");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "older", "chatId": "chat-1", "createdAt": "2026-01-01T00:00:00Z", "content": "older" }),
+                    json!({ "id": "cursor", "chatId": "chat-1", "createdAt": "2026-01-02T00:00:00Z", "content": "cursor" }),
+                    json!({ "id": "newer", "chatId": "chat-1", "createdAt": "2026-01-03T00:00:00Z", "content": "newer" }),
+                ],
+            )
+            .expect("messages should be seeded");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content"],
+                "before": "2026-01-02T00:00:00Z|cursor"
+            })),
+        )
+        .expect("projected message list should succeed");
+
+        assert_eq!(result, json!([{ "id": "older", "content": "older" }]));
+    }
+
+    #[test]
+    fn message_projection_materialization_includes_internal_sort_fields() {
+        let fields = vec!["content".to_string()];
+        let projection = message_projection_fields_for_materialization(
+            &fields,
+            Some(&json!({ "orderBy": "score" })),
+        );
+
+        for field in [
+            "content",
+            "id",
+            "sortOrder",
+            "order",
+            "createdAt",
+            "score",
+            "activeSwipeIndex",
+            "swipes",
+        ] {
+            assert!(
+                projection.iter().any(|existing| existing == field),
+                "projection should include {field}"
+            );
+        }
+    }
+
+    #[test]
+    fn projected_message_get_materializes_active_swipe_fields() {
+        let state = test_state("message-projection-get-swipe-materialization");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "content": "stored parent content",
+                    "activeSwipeIndex": 1,
+                    "extra": { "thinking": "parent thought", "large": "parent payload" },
+                    "swipes": [
+                        { "content": "first swipe", "extra": { "thinking": "first thought" } },
+                        { "content": "active swipe", "extra": { "thinking": "active thought", "large": "ignored" } }
+                    ],
+                    "largePayload": "ignored"
+                })],
+            )
+            .expect("message should be seeded");
+
+        let read = storage_get_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            Some(json!({
+                "fields": ["id", "content", "extra", "swipeCount", "swipePreviews"],
+                "fieldSelections": { "extra": ["thinking"] }
+            })),
+        )
+        .expect("projected message should read");
+
+        assert_eq!(read["id"], "message-1");
+        assert_eq!(read["content"], "active swipe");
+        assert_eq!(read["swipeCount"], 2);
+        assert_eq!(
+            read["swipePreviews"],
+            json!([{ "content": "first swipe" }, { "content": "active swipe" }])
+        );
+        assert_eq!(read["extra"], json!({ "thinking": "active thought" }));
+        assert!(read.get("swipes").is_none());
+        assert!(read.get("activeSwipeIndex").is_none());
+        assert!(read.get("largePayload").is_none());
+    }
+
+    #[test]
     fn enabling_agent_default_connection_clears_previous_language_default() {
         let state = test_state("agent-default-exclusive-update");
         storage_create_inner(
@@ -1467,6 +1785,38 @@ mod tests {
         let runtime = connection_secrets::connection_for_runtime(&state, "secure-connection")
             .expect("runtime connection should decrypt");
         assert_eq!(runtime["apiKey"], "sk-secret");
+    }
+
+    #[test]
+    fn projected_connection_get_preserves_secret_mask_fields() {
+        let state = test_state("connection-secret-projected-get");
+        storage_create_inner(
+            &state,
+            "connections".to_string(),
+            json!({
+                "id": "secure-connection",
+                "name": "Secure",
+                "provider": "anthropic",
+                "model": "claude-opus-4-8",
+                "apiKey": "sk-secret"
+            }),
+        )
+        .expect("connection should be created");
+
+        let read = storage_get_inner(
+            &state,
+            "connections".to_string(),
+            "secure-connection".to_string(),
+            Some(json!({
+                "fields": ["id", "hasApiKey", "apiKey", "apiKeyEncrypted"]
+            })),
+        )
+        .expect("projected masked connection should read");
+
+        assert_eq!(read["id"], "secure-connection");
+        assert_eq!(read["hasApiKey"], true);
+        assert_eq!(read["apiKey"], connection_secrets::API_KEY_MASK);
+        assert!(read.get("apiKeyEncrypted").is_none());
     }
 
     #[test]

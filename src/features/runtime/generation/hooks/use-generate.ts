@@ -56,6 +56,7 @@ import {
 } from "../../../../engine/generation/generation-replay";
 import { findPersonaSnapshotForChat } from "../../../../engine/generation/persona-snapshot";
 import { readNonNegativeInteger } from "../../../../engine/generation/runtime-records";
+import { worldStatePatchFromAgentData } from "../../../../engine/generation/world-state-agent-result";
 import {
   applyQuestUpdatesToPlayerStats,
   parseCustomTrackerField,
@@ -78,6 +79,8 @@ type QueryClient = ReturnType<typeof useQueryClient>;
 type GenerationStreamFactory = (args: GenerateArgs, signal: AbortSignal) => AsyncGenerator<StreamEvent>;
 type AgentResultEffectOptions = {
   skipTrackerSync?: boolean;
+  cacheBackgroundResults?: boolean;
+  showTrackerBubbles?: boolean;
 };
 const HAPTIC_COMMAND_INTERVAL_MS = 225;
 const TYPEWRITER_MAX_FRAME_MS = 120;
@@ -85,6 +88,7 @@ const STREAM_BUFFER_COMMIT_INTERVAL_MS = 45;
 const AGENT_DEBUG_FLUSH_DELAY_MS = 80;
 const AGENT_DEBUG_FLUSH_CHUNK_SIZE = 8;
 const AGENT_DEBUG_FLUSH_CONTINUE_DELAY_MS = 16;
+const MANUAL_WORLD_STATE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
 const scheduledChatRefreshTimers = new Map<string, number>();
 const queuedAgentDebugEntries: Array<Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }> = [];
 let agentDebugFlushTimer: number | null = null;
@@ -375,7 +379,11 @@ async function characterNotificationInfo(characterId: string | null): Promise<{
   }
 }
 
-async function notifyOffChatAssistantMessage(queryClient: QueryClient, chatId: string, rawMessage: unknown): Promise<void> {
+async function notifyOffChatAssistantMessage(
+  queryClient: QueryClient,
+  chatId: string,
+  rawMessage: unknown,
+): Promise<void> {
   const state = useChatStore.getState();
   if (state.activeChatId === chatId) return;
 
@@ -573,6 +581,15 @@ async function buildPendingCardUpdates(
 }
 
 function formatAgentBubble(result: AgentResult, agentName: string): string | null {
+  if (result.agentType === "world-state" || result.type === "game_state_update") {
+    const patch = worldStatePatchFromAgentData(result.data, {
+      allowFreeform: result.agentType === "world-state",
+    });
+    if (!patch) return null;
+    const parts = [patch.location, patch.time, patch.weather].map((part) => readString(part).trim()).filter(Boolean);
+    return parts.length ? parts.join(" - ") : null;
+  }
+
   const data = parseMaybeRecord(result.data);
   if (!Object.keys(data).length) return null;
 
@@ -629,10 +646,6 @@ function formatAgentBubble(result: AgentResult, agentName: string): string | nul
           .filter(Boolean)
           .join("\n") || null
       );
-    }
-    case "world-state": {
-      const parts = [data.location, data.time, data.weather].map((part) => readString(part).trim()).filter(Boolean);
-      return parts.length ? parts.join(" - ") : null;
     }
     case "character-tracker": {
       const present = Array.isArray(data.presentCharacters) ? data.presentCharacters : [];
@@ -710,6 +723,25 @@ function formatAgentBubble(result: AgentResult, agentName: string): string | nul
   }
 }
 
+function isTrackerStyleAgentResult(result: AgentResult): boolean {
+  return (
+    result.agentType === "world-state" ||
+    result.agentType === "character-tracker" ||
+    result.agentType === "persona-stats" ||
+    result.agentType === "custom-tracker" ||
+    result.type === "game_state_update" ||
+    result.type === "character_tracker_update" ||
+    result.type === "persona_stats_update" ||
+    result.type === "custom_tracker_update"
+  );
+}
+
+function shouldCacheLiveAgentResult(result: AgentResult, options: AgentResultEffectOptions): boolean {
+  if (options.cacheBackgroundResults !== false) return true;
+  if (useUIStore.getState().debugMode) return true;
+  return result.agentType === "expression" || result.type === "sprite_change";
+}
+
 async function applyBackgroundChoice(chatId: string, chosen: unknown) {
   const metadataValue = readString(chosen).trim();
   const url = chatBackgroundMetadataToUrl(chosen);
@@ -773,6 +805,42 @@ function readNullableString(value: unknown): string | null {
   }
   if (typeof value === "number" || typeof value === "bigint") return String(value);
   return null;
+}
+
+function parseManualOverrides(value: unknown): Record<string, string> | null {
+  if (!isRecord(value)) return null;
+  const overrides = Object.fromEntries(
+    Object.entries(value)
+      .map(([key, overrideValue]) => [key.trim(), readNullableString(overrideValue)] as const)
+      .filter((entry): entry is readonly [string, string] => entry[0].length > 0 && entry[1] !== null),
+  );
+  return Object.keys(overrides).length ? overrides : null;
+}
+
+function preserveManualWorldStatePatch(previous: GameState, patch: Record<string, unknown>): Record<string, unknown> {
+  const manualOverrides = parseManualOverrides(previous.manualOverrides);
+  if (!manualOverrides) return patch;
+
+  const nextPatch: Record<string, unknown> = { ...patch };
+  const nextManualOverrides: Record<string, string> = { ...manualOverrides };
+  let manualOverridesChanged = false;
+  for (const field of MANUAL_WORLD_STATE_FIELDS) {
+    if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
+    const text = readNullableString(patch[field]);
+    const override = readNullableString(manualOverrides[field]);
+    if (text) {
+      if (Object.prototype.hasOwnProperty.call(nextManualOverrides, field)) {
+        delete nextManualOverrides[field];
+        manualOverridesChanged = true;
+      }
+    } else if (override) {
+      nextPatch[field] = override;
+    }
+  }
+  if (manualOverridesChanged) {
+    nextPatch.manualOverrides = Object.keys(nextManualOverrides).length ? nextManualOverrides : null;
+  }
+  return nextPatch;
 }
 
 function trackerTargetFromMessagePayload(value: unknown): WorldStateTarget | null {
@@ -842,16 +910,14 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
 }
 
 function gameStatePatchFromAgentResult(result: AgentResult, chatId: string): Record<string, unknown> | null {
+  if (result.agentType === "world-state" || result.type === "game_state_update") {
+    return worldStatePatchFromAgentData(result.data, {
+      allowFreeform: result.agentType === "world-state",
+    });
+  }
+
   const data = parseMaybeRecord(result.data);
   if (!Object.keys(data).length) return null;
-
-  if (result.agentType === "world-state" || result.type === "game_state_update") {
-    const patch: Record<string, unknown> = {};
-    for (const field of ["date", "time", "location", "weather", "temperature"] as const) {
-      if (Object.prototype.hasOwnProperty.call(data, field)) patch[field] = readNullableString(data[field]);
-    }
-    return Object.keys(patch).length ? patch : null;
-  }
 
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update") {
     const presentCharacters = Array.isArray(data.presentCharacters)
@@ -898,7 +964,8 @@ async function applyTrackerResultToGameState(chatId: string, result: AgentResult
 
   const store = useGameStateStore.getState();
   const previous = store.current?.chatId === chatId ? store.current : createEmptyGameState(chatId);
-  store.setGameState({ ...previous, ...patch } as GameState);
+  const visiblePatch = preserveManualWorldStatePatch(previous, patch);
+  store.setGameState({ ...previous, ...visiblePatch } as GameState);
 
   try {
     const saved = await worldStateApi.patch(chatId, { ...patch, targetVisible: false });
@@ -979,13 +1046,18 @@ async function applyAgentResultEffects(
     readString((rawResult as Record<string, unknown>).name).trim() ||
     result.agentType;
   const agentStore = useAgentStore.getState();
-  agentStore.addResult(result.agentId || result.agentType, result);
+  if (shouldCacheLiveAgentResult(result, options)) {
+    agentStore.addResult(result.agentId || result.agentType, result);
+  }
 
   if (!result.success) {
     agentStore.addFailedAgentFailure(toAgentFailure({ agentType: result.agentType, agentName, error: result.error }));
     return;
   }
-  const bubble = formatAgentBubble(result, agentName);
+  const bubble =
+    options.showTrackerBubbles === false && isTrackerStyleAgentResult(result)
+      ? null
+      : formatAgentBubble(result, agentName);
   if (bubble) agentStore.addThoughtBubble(result.agentType, agentName, bubble);
 
   const data = parseMaybeRecord(result.data);
@@ -1289,7 +1361,11 @@ export async function runGenerationWithUi(
       }
       const rawResult = pendingAgentResultEffects.shift();
       if (rawResult !== undefined) {
-        await applyAgentResultEffects(queryClient, chatId, rawResult, { skipTrackerSync: true });
+        await applyAgentResultEffects(queryClient, chatId, rawResult, {
+          cacheBackgroundResults: false,
+          showTrackerBubbles: false,
+          skipTrackerSync: true,
+        });
       }
       if (pendingAgentResultEffects.length > 0) drainAgentResultEffects();
     });
@@ -1297,6 +1373,8 @@ export async function runGenerationWithUi(
 
   let foregroundGenerationReleased = false;
   let groupTurnActive = false;
+  let groupTurnIndex = -1;
+  let groupTurnTotal = 0;
 
   const releaseForegroundGenerationUi = () => {
     if (foregroundGenerationReleased) return;
@@ -1383,7 +1461,8 @@ export async function runGenerationWithUi(
             await notifyOffChatAssistantMessage(queryClient, chatId, event.data);
             const trackerTarget = trackerTargetFromMessagePayload(event.data);
             runDeferredGenerationWork("game state refresh", () => refreshGameStateFromStorage(chatId, trackerTarget));
-            if (groupTurnActive) {
+            const hasPendingGroupTurn = groupTurnActive && groupTurnIndex + 1 < groupTurnTotal;
+            if (hasPendingGroupTurn) {
               resetLiveGenerationBuffers();
             } else {
               releaseForegroundGenerationUi();
@@ -1398,6 +1477,8 @@ export async function runGenerationWithUi(
           const data = parseMaybeRecord(event.data);
           const characterId = readString(data.characterId).trim();
           const characterName = readString(data.characterName).trim();
+          groupTurnIndex = typeof data.index === "number" && Number.isFinite(data.index) ? data.index : 0;
+          groupTurnTotal = typeof data.total === "number" && Number.isFinite(data.total) ? Math.max(1, data.total) : 1;
           if (useChatStore.getState().activeChatId === chatId) {
             useChatStore.getState().setStreamingCharacterId(characterId || null);
           }
@@ -1733,19 +1814,16 @@ export function useGenerate() {
             toast.error(readString(data.error, "Illustration generation failed."));
           }
         }
-        const deferredTasks = results.map((result) =>
-          runDeferredGenerationWork("agent retry result effects", () =>
-            applyAgentResultEffects(queryClient, chatId, result),
-          ),
-        );
-        deferredTasks.push(
-          runDeferredGenerationWork("agent retry refresh", async () => {
-            await refreshGameStateFromStorage(chatId, refreshTarget);
-            await queryClient.invalidateQueries({ queryKey: ["agents"] });
-          }),
-        );
         scheduleChatQueryRefresh(queryClient, chatId);
-        await Promise.all(deferredTasks);
+        for (const result of results) {
+          await runDeferredGenerationWork("agent retry result effects", () =>
+            applyAgentResultEffects(queryClient, chatId, result),
+          );
+        }
+        await runDeferredGenerationWork("agent retry refresh", async () => {
+          await refreshGameStateFromStorage(chatId, refreshTarget);
+          await queryClient.invalidateQueries({ queryKey: ["agents"] });
+        });
       } catch (error) {
         toast.error(errorMessage(error));
         throw error;

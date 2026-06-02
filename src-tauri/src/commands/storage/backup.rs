@@ -99,6 +99,7 @@ fn copy_dir_contents(source: &Path, target: &Path) -> AppResult<()> {
 }
 
 fn write_backup_payload(state: &AppState, target: &Path) -> AppResult<()> {
+    state.storage.flush()?;
     fs::create_dir_all(target)?;
     let profile = profile::profile_backup_snapshot(state)?;
     fs::write(

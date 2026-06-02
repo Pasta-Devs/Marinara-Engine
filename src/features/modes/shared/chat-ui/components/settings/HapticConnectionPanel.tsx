@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Vibrate } from "lucide-react";
 import { cn } from "../../../../../../shared/lib/utils";
+import { remoteRuntimeTarget } from "../../../../../../shared/api/remote-runtime";
 import {
   HAPTIC_INTIFACE_URL_STORAGE_KEY,
   useHapticCommand,
@@ -17,11 +18,20 @@ interface HapticConnectionPanelProps {
   onIntifaceUrlChange: (value: string | null) => void;
 }
 
+function hasRemoteRuntimeTarget(): boolean {
+  try {
+    return Boolean(remoteRuntimeTarget());
+  } catch {
+    return true;
+  }
+}
+
 export function HapticConnectionPanel({
   intifaceUrl: savedIntifaceUrl,
   onIntifaceUrlChange,
 }: HapticConnectionPanelProps) {
-  const { data: status, isLoading } = useHapticStatus();
+  const remoteRuntimeConfigured = hasRemoteRuntimeTarget();
+  const { data: status, isLoading } = useHapticStatus({ enabled: !remoteRuntimeConfigured });
   const connect = useHapticConnect();
   const disconnect = useHapticDisconnect();
   const startScan = useHapticStartScan();
@@ -60,11 +70,20 @@ export function HapticConnectionPanel({
   }, []);
 
   useEffect(() => {
+    if (remoteRuntimeConfigured) return;
     if (autoConnectAttempted || isLoading || !status || status.connected || connect.isPending) return;
     setAutoConnectAttempted(true);
     const trimmed = saveIntifaceUrl();
     connect.mutate(trimmed || undefined);
-  }, [autoConnectAttempted, connect, isLoading, saveIntifaceUrl, status]);
+  }, [autoConnectAttempted, connect, isLoading, remoteRuntimeConfigured, saveIntifaceUrl, status]);
+
+  if (remoteRuntimeConfigured) {
+    return (
+      <div className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+        Haptic controls require the embedded Tauri app shell. Remote Runtime mode does not expose Intiface commands.
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -96,7 +115,7 @@ export function HapticConnectionPanel({
           className="rounded-md bg-[var(--background)] px-2.5 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/55 focus:ring-[var(--primary)]/60"
         />
         <span className="text-[0.5625rem] leading-relaxed text-[var(--muted-foreground)]">
-          Blank uses the server default. Docker or remote browser setups usually need ws://CLIENT_IP:12345.
+          Blank uses the local app default. Haptics are available only in the embedded Tauri app shell.
         </span>
       </label>
 

@@ -4,7 +4,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../lib/dialogue-quotes";
-import { normalizeNotificationSoundId } from "../lib/notification-sound";
+import { normalizeCustomNotificationSound, normalizeNotificationSoundId } from "../lib/notification-sound";
+import { normalizeCustomTextBlipSound } from "../lib/text-blip-sound";
 import {
   DEFAULT_GAME_SETUP_LEARNED_OPTIONS,
   DEFAULT_GAME_SETUP_REMEMBERED_TEXT,
@@ -28,6 +29,7 @@ import {
   normalizeLearnedGameSetupOption,
   normalizeRememberedGameSetupText,
   normalizeSummaryPopoverSettings,
+  normalizeTextBlipMode,
   normalizeTrackerPanelSizeProfile,
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerTemperatureUnit,
@@ -44,6 +46,7 @@ import type {
   Panel,
   QuoteFormat,
   RoleplayAvatarStyle,
+  TextBlipMode,
   TrackerPanelSizeProfile,
   TrackerPanelSide,
   TrackerTemperatureUnit,
@@ -198,6 +201,8 @@ export const useUIStore = create<UIState>()(
       rpNotificationSound: true,
       notificationSound: "refactor",
       customNotificationSound: null,
+      textBlipMode: "off" as TextBlipMode,
+      customTextBlipSound: null,
       conversationBrowserNotifications: false,
       customConversationPrompt: null,
       scheduleGenerationPreferences: "",
@@ -472,7 +477,9 @@ export const useUIStore = create<UIState>()(
       setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
       setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
       setNotificationSound: (v) => set({ notificationSound: normalizeNotificationSoundId(v) }),
-      setCustomNotificationSound: (v) => set({ customNotificationSound: v }),
+      setCustomNotificationSound: (v) => set({ customNotificationSound: normalizeCustomNotificationSound(v) }),
+      setTextBlipMode: (v) => set({ textBlipMode: normalizeTextBlipMode(v) }),
+      setCustomTextBlipSound: (v) => set({ customTextBlipSound: normalizeCustomTextBlipSound(v) }),
       setConversationBrowserNotifications: (v) => set({ conversationBrowserNotifications: v }),
       setCustomConversationPrompt: (v) => set({ customConversationPrompt: v }),
       setScheduleGenerationPreferences: (v) => set({ scheduleGenerationPreferences: v }),

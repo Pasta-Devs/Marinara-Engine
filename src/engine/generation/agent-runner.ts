@@ -85,6 +85,7 @@ export interface GenerationAgentRuntimeInput {
   debugMode?: boolean;
   debugSink?: AgentContext["debugSink"];
   signal?: AbortSignal;
+  forCharacterId?: string | null;
   agentTypes?: Set<string>;
   bypassCustomAgentActivation?: boolean;
   hideAutomatedSummarySourceMessages?: boolean;
@@ -123,6 +124,7 @@ const KNOWLEDGE_AGENT_TYPES = new Set([KNOWLEDGE_RETRIEVAL_AGENT_TYPE, KNOWLEDGE
 const ASSISTANT_INTERVAL_AGENT_TYPES = new Set([DIRECTOR_AGENT_TYPE, ILLUSTRATOR_AGENT_TYPE]);
 const MAX_ASSISTANT_RUN_INTERVAL = 100;
 const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
+const MAX_AGENT_PARALLEL_JOBS = 16;
 const PROMPT_INJECTABLE_RESULT_TYPES = new Set(["context_injection", "director_event"]);
 type AutomaticIntervalMessageRole = "assistant" | "user";
 
@@ -263,6 +265,12 @@ function llmProvider(
 
 function agentSettings(agent: JsonRecord): Record<string, unknown> {
   return parseRecord(agent.settings);
+}
+
+function normalizeMaxParallelJobs(value: unknown): number {
+  const parsed = readNumber(value, 1);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.max(1, Math.min(MAX_AGENT_PARALLEL_JOBS, Math.trunc(parsed)));
 }
 
 function normalizePhase(agent: JsonRecord): string {
@@ -943,6 +951,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
       settings,
       provider: llmProvider(deps.llm, connectionId, parameters),
       model,
+      maxParallelJobs: normalizeMaxParallelJobs(connection.maxParallelJobs),
       toolContext: buildAgentToolContext(deps, input, agent, settings, customTools),
     });
   }
@@ -1267,6 +1276,7 @@ async function buildAgentContext(
         characterId: readString(message.characterId).trim() || undefined,
       })),
     mainResponse: null,
+    mainResponseCharacterId: readString(input.forCharacterId).trim() || null,
     gameState: isRecord(input.chat.gameState) ? (input.chat.gameState as unknown as AgentContext["gameState"]) : null,
     characters: input.characters.map((character) => ({
       id: character.id,

@@ -61,7 +61,7 @@ import {
   parseGameAssetExcludedFolders,
   serializeGameAssetSelection,
   type GameAssetSelectionStatus,
-} from "../../game/index";
+} from "../../game/assets";
 
 const PROTECTED_PATHS = new Set(["", "music", "sfx", "ambient", "sprites", "backgrounds"]);
 

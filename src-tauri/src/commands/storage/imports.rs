@@ -15,3 +15,12 @@ pub(crate) fn import_stream_channel(
 ) -> AppResult<()> {
     service::import_stream_channel(state, rest, body, on_event)
 }
+
+pub(crate) fn import_stream_callback(
+    state: &AppState,
+    rest: &[&str],
+    body: Value,
+    emit: impl FnMut(Value) -> AppResult<()>,
+) -> AppResult<()> {
+    service::import_stream_callback(state, rest, body, emit)
+}

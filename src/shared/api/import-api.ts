@@ -2,7 +2,7 @@ import { formDataToJson, CHAT_IMPORT_SIZE_ERROR, type FilePayloadOptions } from 
 import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
 import { Channel } from "@tauri-apps/api/core";
 import { invokeTauri } from "./tauri-client";
-import { remoteRuntimeTarget } from "./remote-runtime";
+import { remoteRuntimeTarget, streamRemoteJsonEvents } from "./remote-runtime";
 
 export interface ImportFilePayload {
   file: File;
@@ -68,8 +68,7 @@ export const importApi = {
   ): AsyncGenerator<{ type: string; data: unknown }> {
     if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     if (remoteRuntimeTarget()) {
-      const data = await invokeTauri("import_st_bulk_run", { payload });
-      yield { type: "done", data };
+      yield* streamRemoteJsonEvents("/api/import/st-bulk/run", payload, { signal, privileged: true });
       return;
     }
     const queue: Array<{ type?: unknown; data?: unknown; text?: unknown; [key: string]: unknown }> = [];

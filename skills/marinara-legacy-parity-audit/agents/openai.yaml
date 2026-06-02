@@ -1,0 +1,4 @@
+interface:
+  display_name: "Marinara Legacy Parity Audit"
+  short_description: "Compare refactor features against legacy behavior"
+  default_prompt: "Use $marinara-legacy-parity-audit, or say parityscan, to compare a Marinara refactor feature, contract, schema, storage format, or runtime behavior against legacy behavior."

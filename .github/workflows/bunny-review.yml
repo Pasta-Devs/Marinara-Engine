@@ -30,6 +30,7 @@ permissions:
   pull-requests: write
   issues: write
   actions: read # needed to read CI status
+  statuses: write
 
 concurrency:
   group: bunny-review-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
@@ -79,6 +80,20 @@ jobs:
           git status
           git fetch origin "pull/$PR_NUM/head:pr-$PR_NUM"
           git checkout "pr-$PR_NUM"
+          HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
+          echo "PR_HEAD_SHA=$HEAD_SHA" >> "$GITHUB_ENV"
+
+      - name: Mark Bunny status in progress
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/statuses/$PR_HEAD_SHA" \
+            -f state="pending" \
+            -f context="Bunny Review" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f description="The trusted Bunny reviewer is inspecting this pull request." >/dev/null
 
       - uses: actions/setup-python@v5
         with:
@@ -97,10 +112,15 @@ jobs:
           BUNNY_REVIEW_SKILL_PATH: /tmp/bunny-review-tool/.github/bunny-review/SKILL.md
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
+          if [ "$HEAD_SHA" != "$(git rev-parse HEAD)" ]; then
+            git fetch --force origin "pull/$PR_NUM/head:refs/remotes/bunny-review/pr-$PR_NUM"
+            git checkout --detach "$HEAD_SHA"
+          fi
+
           python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py produce &
           BUNNY_PID=$!
 
-          HEAD_SHA=$(gh pr view "$PR_NUM" --json headRefOid -q .headRefOid)
           TARGET_CHECKS='Frontend|Rust|Smoke'
           FOUND_ANY=0
           MISSING_CHECK_ATTEMPTS=18
@@ -162,3 +182,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python /tmp/bunny-review-tool/.github/bunny-review/bunny_review.py post
+
+      - name: Complete Bunny status
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            STATE="success"
+            DESCRIPTION="Bunny posted or updated its review for this pull request."
+          else
+            STATE="failure"
+            DESCRIPTION="Bunny Review did not complete. Inspect the trusted workflow run for details."
+          fi
+          if [ -f review.json ] && python -c 'import json, pathlib, sys; data=json.loads(pathlib.Path("review.json").read_text()); failed=any(str(item.get("name","")).lower()=="review failed" and str(item.get("status","")).lower() in {"fail","failed","failure"} for item in data.get("pre_merge_checks", [])); sys.exit(0 if failed else 1)'; then
+            STATE="failure"
+            DESCRIPTION="Bunny Review posted a failure report; rerun after repairing the review control."
+          fi
+
+          gh api \
+            --method POST \
+            "repos/${{ github.repository }}/statuses/$PR_HEAD_SHA" \
+            -f state="$STATE" \
+            -f context="Bunny Review" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f description="$DESCRIPTION" >/dev/null

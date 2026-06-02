@@ -9,6 +9,7 @@ import type {
 } from "../contracts/types/game-state";
 import { preserveTrackerCharacterUiFields } from "./generate-route-utils";
 import { boolish, isRecord, nowIso, parseRecord, readNonNegativeInteger, readString } from "./runtime-records";
+import { worldStatePatchFromAgentData } from "./world-state-agent-result";
 import {
   applyQuestUpdatesToPlayerStats,
   clonePlayerStats,
@@ -54,8 +55,11 @@ type TrackerStatePatch = Partial<
     | "recentEvents"
     | "playerStats"
     | "personaStats"
+    | "manualOverrides"
   >
 >;
+const MANUAL_OVERRIDE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
+type ManualOverrideField = (typeof MANUAL_OVERRIDE_FIELDS)[number];
 
 function readNullableString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -71,10 +75,48 @@ function parseManualOverrides(value: unknown): Record<string, string> | null {
   if (!isRecord(value)) return null;
   const overrides = Object.fromEntries(
     Object.entries(value)
-      .filter((entry): entry is [string, string] => entry[0].trim().length > 0 && typeof entry[1] === "string")
-      .map(([key, overrideValue]) => [key.trim(), overrideValue]),
+      .map(([key, overrideValue]) => [key.trim(), readNullableString(overrideValue)] as const)
+      .filter((entry): entry is readonly [string, string] => entry[0].length > 0 && entry[1] !== null),
   );
   return Object.keys(overrides).length ? overrides : null;
+}
+
+function manualOverrideValue(
+  manualOverrides: Record<string, string> | null,
+  field: ManualOverrideField,
+): string | null {
+  return readNullableString(manualOverrides?.[field]);
+}
+
+function hasManualOverrideField(patch: TrackerStatePatch, field: ManualOverrideField): boolean {
+  return Object.prototype.hasOwnProperty.call(patch, field);
+}
+
+function mergeWorldStatePatchWithManualOverrides(snapshot: GameState, patch: TrackerStatePatch): TrackerStatePatch {
+  const manualOverrides = parseManualOverrides(snapshot.manualOverrides);
+  if (!manualOverrides) return patch;
+
+  const nextPatch: TrackerStatePatch = { ...patch };
+  const nextManualOverrides: Record<string, string> = { ...manualOverrides };
+  let manualOverridesChanged = false;
+  for (const field of MANUAL_OVERRIDE_FIELDS) {
+    if (!hasManualOverrideField(patch, field)) continue;
+    const text = readNullableString(patch[field]);
+    const override = manualOverrideValue(manualOverrides, field);
+    if (text) {
+      if (Object.prototype.hasOwnProperty.call(nextManualOverrides, field)) {
+        delete nextManualOverrides[field];
+        manualOverridesChanged = true;
+      }
+    } else if (override) {
+      nextPatch[field] = override;
+    }
+  }
+
+  if (manualOverridesChanged) {
+    nextPatch.manualOverrides = Object.keys(nextManualOverrides).length ? nextManualOverrides : null;
+  }
+  return nextPatch;
 }
 
 function parsePresentCharacter(value: unknown): PresentCharacter | null {
@@ -117,16 +159,17 @@ function parsePresentCharacter(value: unknown): PresentCharacter | null {
 
 function normalizeGameState(value: unknown, chatId: string, target: TrackerSnapshotTurnTarget): GameState {
   const record = parseRecord(value);
+  const manualOverrides = parseManualOverrides(record.manualOverrides);
   return normalizeGameStateTrackerRows({
     id: readString(record.id),
     chatId,
     messageId: target.messageId,
     swipeIndex: target.swipeIndex,
-    date: readNullableString(record.date),
-    time: readNullableString(record.time),
-    location: readNullableString(record.location),
-    weather: readNullableString(record.weather),
-    temperature: readNullableString(record.temperature),
+    date: manualOverrideValue(manualOverrides, "date") ?? readNullableString(record.date),
+    time: manualOverrideValue(manualOverrides, "time") ?? readNullableString(record.time),
+    location: manualOverrideValue(manualOverrides, "location") ?? readNullableString(record.location),
+    weather: manualOverrideValue(manualOverrides, "weather") ?? readNullableString(record.weather),
+    temperature: manualOverrideValue(manualOverrides, "temperature") ?? readNullableString(record.temperature),
     presentCharacters: Array.isArray(record.presentCharacters)
       ? record.presentCharacters
           .map(parsePresentCharacter)
@@ -140,7 +183,7 @@ function normalizeGameState(value: unknown, chatId: string, target: TrackerSnaps
       ? record.personaStats.map(parseStat).filter((stat): stat is CharacterStat => !!stat)
       : null,
     committed: record.committed === undefined ? undefined : boolish(record.committed, false),
-    manualOverrides: parseManualOverrides(record.manualOverrides),
+    manualOverrides,
     createdAt: readString(record.createdAt) || nowIso(),
   });
 }
@@ -362,16 +405,15 @@ export async function commitTrackerSnapshotForTarget(
 
 function gameStatePatchFromAgentResult(result: AgentResult, snapshot: GameState): TrackerStatePatch | null {
   if (!result.success) return null;
+  if (result.agentType === "world-state" || result.type === "game_state_update") {
+    const patch = worldStatePatchFromAgentData(result.data, {
+      allowFreeform: result.agentType === "world-state",
+    }) as TrackerStatePatch | null;
+    return patch ? mergeWorldStatePatchWithManualOverrides(snapshot, patch) : null;
+  }
+
   const data = parseRecord(result.data);
   if (!Object.keys(data).length) return null;
-
-  if (result.agentType === "world-state" || result.type === "game_state_update") {
-    const patch: TrackerStatePatch = {};
-    for (const field of ["date", "time", "location", "weather", "temperature"] as const) {
-      if (Object.prototype.hasOwnProperty.call(data, field)) patch[field] = readNullableString(data[field]);
-    }
-    return Object.keys(patch).length ? patch : null;
-  }
 
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update") {
     const presentCharacters = Array.isArray(data.presentCharacters)

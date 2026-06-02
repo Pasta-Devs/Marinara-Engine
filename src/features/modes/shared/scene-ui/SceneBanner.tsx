@@ -99,6 +99,15 @@ export function SceneBanner({ variant, sceneChatId, sceneChatName, originChatId,
   );
 }
 
+interface EndSceneBarProps {
+  sceneChatId: string;
+  originChatId?: string;
+  onConclude: (id: string) => void | Promise<void>;
+  onAbandon?: (id: string) => void;
+  onFork?: (id: string, mode: SceneForkMode) => void;
+  isForking?: boolean;
+}
+
 /** End Scene bar — placed above the input area in scene chats */
 export function EndSceneBar({
   sceneChatId,
@@ -107,14 +116,7 @@ export function EndSceneBar({
   onAbandon,
   onFork,
   isForking,
-}: {
-  sceneChatId: string;
-  originChatId?: string;
-  onConclude: (id: string) => void | Promise<void>;
-  onAbandon?: (id: string) => void;
-  onFork?: (id: string, mode: SceneForkMode) => void;
-  isForking?: boolean;
-}) {
+}: EndSceneBarProps) {
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);

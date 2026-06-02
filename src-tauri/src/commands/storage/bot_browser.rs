@@ -1504,11 +1504,89 @@ async fn datacat_fresh(state: &AppState, route: &ParsedPath) -> AppResult<Value>
             query_param(route, "limitWeek", "20"),
         ),
     ];
-    datacat_json_get(
+    let fresh = datacat_json_get(
         state,
         &format!("/api/characters/fresh?{}", query_string_owned(&params)),
     )
-    .await
+    .await;
+
+    match fresh {
+        Ok(value) => Ok(value),
+        Err(error) if error.code == "upstream_json_error" => {
+            datacat_fresh_recent_fallback(state, route).await
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn datacat_fresh_recent_fallback(state: &AppState, route: &ParsedPath) -> AppResult<Value> {
+    let params = vec![
+        ("limit".to_string(), query_param(route, "limit24", "80")),
+        ("offset".to_string(), "0".to_string()),
+        ("summary".to_string(), "1".to_string()),
+        (
+            "minTotalTokens".to_string(),
+            query_param(route, "min_tokens", DATACAT_DEFAULT_MIN_TOTAL_TOKENS),
+        ),
+    ];
+    let recent = datacat_json_get(
+        state,
+        &format!(
+            "/api/characters/recent-public?{}",
+            query_string_owned(&params)
+        ),
+    )
+    .await?;
+    datacat_recent_as_fresh_response(recent)
+}
+
+fn datacat_recent_as_fresh_response(mut recent: Value) -> AppResult<Value> {
+    if recent.get("success").and_then(Value::as_bool) != Some(true) {
+        return Err(AppError::new(
+            "upstream_response_error",
+            "DataCat recent fallback did not report success",
+        ));
+    }
+    let characters = recent
+        .get_mut("characters")
+        .and_then(Value::as_array_mut)
+        .map(|items| Value::Array(std::mem::take(items)))
+        .ok_or_else(|| {
+            AppError::new(
+                "upstream_response_error",
+                "DataCat recent fallback did not include characters",
+            )
+        })?;
+    let count = characters.as_array().map(Vec::len).unwrap_or_default();
+    let unavailable_week = json!({
+        "count": 0,
+        "characters": [],
+        "available": false,
+        "unavailable": true,
+        "reason": "fresh endpoint returned invalid JSON; recent-public fallback cannot provide thisWeek"
+    });
+    Ok(json!({
+        "success": true,
+        "sortBy": "recent-public",
+        "fallback": {
+            "source": "recent-public",
+            "reason": "fresh endpoint returned invalid JSON",
+            "partial": true,
+            "unavailableWindows": ["thisWeek"]
+        },
+        "windows": {
+            "last24h": {
+                "count": count,
+                "characters": characters
+            },
+            "thisWeek": unavailable_week.clone()
+        },
+        "last24h": {
+            "count": count,
+            "characters": characters
+        },
+        "thisWeek": unavailable_week
+    }))
 }
 
 async fn datacat_tags(state: &AppState, route: &ParsedPath) -> AppResult<Value> {
@@ -1623,4 +1701,68 @@ fn datacat_headers(token: &str) -> Vec<Header> {
         header("Referer", format!("{DATACAT_API_BASE}/")),
         header("X-Session-Token", token),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn datacat_recent_fallback_matches_fresh_shape() {
+        let fallback = datacat_recent_as_fresh_response(json!({
+            "success": true,
+            "totalCount": 2,
+            "characters": [
+                { "characterId": "alpha", "chatName": "Alpha" },
+                { "characterId": "beta", "chatName": "Beta" }
+            ]
+        }))
+        .expect("valid recent data should become a fresh fallback");
+
+        let last24h = &fallback["windows"]["last24h"];
+        assert_eq!(last24h["count"], 2);
+        assert_eq!(last24h["characters"][0]["characterId"], "alpha");
+        assert_eq!(fallback["last24h"]["characters"][1]["characterId"], "beta");
+        assert_eq!(fallback["windows"]["thisWeek"]["count"], 0);
+        assert!(fallback["windows"]["thisWeek"]["characters"]
+            .as_array()
+            .is_some_and(Vec::is_empty));
+        assert_eq!(fallback["windows"]["thisWeek"]["available"], false);
+        assert_eq!(fallback["windows"]["thisWeek"]["unavailable"], true);
+        assert_eq!(fallback["fallback"]["source"], "recent-public");
+        assert_eq!(fallback["fallback"]["partial"], true);
+        assert_eq!(fallback["fallback"]["unavailableWindows"][0], "thisWeek");
+    }
+
+    #[test]
+    fn datacat_recent_fallback_rejects_unsuccessful_recent_payload() {
+        let error = datacat_recent_as_fresh_response(json!({
+            "success": false,
+            "characters": []
+        }))
+        .expect_err("unsuccessful recent payload should not become a success");
+
+        assert_eq!(error.code, "upstream_response_error");
+    }
+
+    #[test]
+    fn datacat_recent_fallback_rejects_missing_characters() {
+        let error = datacat_recent_as_fresh_response(json!({
+            "success": true,
+            "items": []
+        }))
+        .expect_err("missing character array should stay an upstream error");
+
+        assert_eq!(error.code, "upstream_response_error");
+    }
+
+    #[test]
+    fn datacat_recent_fallback_rejects_missing_success_flag() {
+        let error = datacat_recent_as_fresh_response(json!({
+            "characters": []
+        }))
+        .expect_err("missing success flag should stay an upstream error");
+
+        assert_eq!(error.code, "upstream_response_error");
+    }
 }

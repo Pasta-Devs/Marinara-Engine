@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { applyRegexReplacement } from "../../../engine/shared/regex/regex-replacement";
+import { applyRegexScriptReplacement } from "../../../engine/shared/regex/regex-script-application";
 import { useRegexScripts, type RegexScriptRow } from "./hooks/use-regex-scripts";
 
 type RegexPlacement = "ai_output" | "user_input";
@@ -65,11 +65,9 @@ function applyScripts(
       const findRegex = resolveText(script.findRegex, options);
       if (!findRegex) continue;
       const regex = new RegExp(findRegex, script.flags);
-      result = applyRegexReplacement(result, regex, script.replaceString, (value) => resolveText(value, options));
-      for (const trim of script.trimList) {
-        const resolvedTrim = resolveText(trim, options);
-        if (resolvedTrim) result = result.split(resolvedTrim).join("");
-      }
+      result = applyRegexScriptReplacement(result, regex, script.replaceString, script.trimList, (value) =>
+        resolveText(value, options),
+      );
     } catch {
       // Invalid user regexes are skipped; the editor remains the validation surface.
     }

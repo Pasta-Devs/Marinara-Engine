@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 
 const registryPath = "src/features/shell/discovery/discovery-entries.json";
 const validCategories = new Set([
@@ -160,10 +161,45 @@ function cleanReasonLine(line) {
     .trim();
 }
 
+function cleanDecisionLine(line) {
+  return cleanReasonLine(line).replace(/^feature discoverability\s*:\s*/i, "");
+}
+
+function readInlineNaReason(line) {
+  const cleaned = cleanDecisionLine(line);
+  const match = cleaned.match(/(?:^|\b)(?:n\/?a|not applicable|no discovery(?: metadata)?(?: update)? needed)\b(?:\s*(?:because|:|-|--)\s*)?(.*)$/i);
+  return match ? cleanReasonLine(match[1] ?? "") : "";
+}
+
+function isFeatureDiscoverabilityContextLine(line, inFeatureDiscoverabilitySection) {
+  const normalized = line.toLowerCase();
+  return (
+    inFeatureDiscoverabilitySection ||
+    normalized.includes("feature discoverability") ||
+    normalized.includes("src/features/shell/discovery") ||
+    normalized.includes("discovery metadata")
+  );
+}
+
 function readFeatureDiscoverabilityReason(body) {
   const lines = body.split(/\r?\n/);
   const reasonIndex = lines.findIndex((line) => /^#{0,6}\s*(feature discoverability\s+)?reason\s*:/i.test(line.trim()));
-  if (reasonIndex < 0) return "";
+  if (reasonIndex < 0) {
+    let inFeatureDiscoverabilitySection = false;
+    for (const line of lines) {
+      if (/^#{1,6}\s+feature discoverability\s*$/i.test(line.trim())) {
+        inFeatureDiscoverabilitySection = true;
+        continue;
+      }
+      if (inFeatureDiscoverabilitySection && /^#{1,6}\s+/.test(line.trim())) {
+        inFeatureDiscoverabilitySection = false;
+      }
+      if (!isFeatureDiscoverabilityContextLine(line, inFeatureDiscoverabilitySection)) continue;
+      const reason = readInlineNaReason(line);
+      if (reason && reason !== "-") return reason;
+    }
+    return "";
+  }
 
   const inlineReason = cleanReasonLine(lines[reasonIndex].replace(/^#{0,6}\s*(feature discoverability\s+)?reason\s*:/i, ""));
   if (inlineReason && inlineReason !== "-") return inlineReason;
@@ -176,7 +212,7 @@ function readFeatureDiscoverabilityReason(body) {
   return "";
 }
 
-function parseFeatureDiscoverabilityDecision(body) {
+export function parseFeatureDiscoverabilityDecision(body) {
   const decision = { updated: false, na: false, reason: readFeatureDiscoverabilityReason(body) };
   const lines = body.split(/\r?\n/);
   let inFeatureDiscoverabilitySection = false;
@@ -188,15 +224,29 @@ function parseFeatureDiscoverabilityDecision(body) {
     if (inFeatureDiscoverabilitySection && /^#{1,6}\s+/.test(line.trim())) {
       inFeatureDiscoverabilitySection = false;
     }
-    if (!/\[\s*[ x]\s*\]/i.test(line)) continue;
-    const normalized = line.toLowerCase();
-    const isFeatureDiscoverabilityLine =
-      inFeatureDiscoverabilitySection ||
-      normalized.includes("feature discoverability") ||
-      normalized.includes("src/features/shell/discovery");
-    if (!isFeatureDiscoverabilityLine || !checkboxChecked(line)) continue;
-    if (/\bn\/?a\b/i.test(line)) decision.na = true;
-    else decision.updated = true;
+    if (!isFeatureDiscoverabilityContextLine(line, inFeatureDiscoverabilitySection)) continue;
+
+    if (/\[\s*[ x]\s*\]/i.test(line)) {
+      if (!checkboxChecked(line)) continue;
+      if (/\bn\/?a\b/i.test(line)) decision.na = true;
+      else decision.updated = true;
+      continue;
+    }
+
+    const decisionLine = cleanDecisionLine(line);
+    const decisionText = decisionLine.toLowerCase();
+    if (!decisionText || decisionText === "-" || /^check exactly one:?$/i.test(decisionLine)) continue;
+    if (/\b(?:n\/?a|not applicable|no discovery(?: metadata)?(?: update)? needed)\b/i.test(decisionLine)) {
+      decision.na = true;
+      if (!hasText(decision.reason)) decision.reason = readInlineNaReason(decisionLine);
+    } else if (
+      /\bupdated?\b/i.test(decisionLine) &&
+      (inFeatureDiscoverabilitySection ||
+        decisionText.includes("src/features/shell/discovery") ||
+        decisionText.includes("discovery metadata"))
+    ) {
+      decision.updated = true;
+    }
   }
   return decision;
 }
@@ -229,58 +279,64 @@ function isLikelyUserFacingPath(path) {
   );
 }
 
-const registry = JSON.parse(await readFile(registryPath, "utf8"));
-const errors = validateRegistry(registry);
-if (errors.length > 0) {
-  console.error("Discovery metadata check failed:");
-  for (const error of errors) console.error(`- ${error}`);
-  process.exit(1);
+async function main() {
+  const registry = JSON.parse(await readFile(registryPath, "utf8"));
+  const errors = validateRegistry(registry);
+  if (errors.length > 0) {
+    console.error("Discovery metadata check failed:");
+    for (const error of errors) console.error(`- ${error}`);
+    process.exit(1);
+  }
+
+  const prAware = process.argv.includes("--pr-aware");
+  const changedFrom = getArgValue("--changed-from") ?? (prAware ? `origin/${process.env.GITHUB_BASE_REF || "refactor"}` : undefined);
+  const pullRequestBody = await readPullRequestBodyFromEvent();
+  const featureDiscoverabilityDecision = parseFeatureDiscoverabilityDecision(pullRequestBody);
+  const featureDiscoverabilityDecisionCount =
+    Number(featureDiscoverabilityDecision.updated) + Number(featureDiscoverabilityDecision.na);
+  const allowMissingDiscovery =
+    process.argv.includes("--allow-missing") ||
+    process.env.DISCOVERY_CHECK_ALLOW_MISSING === "1" ||
+    (featureDiscoverabilityDecision.na && hasText(featureDiscoverabilityDecision.reason));
+
+  if (changedFrom) {
+    const changed = gitChangedFiles(changedFrom);
+    const userFacing = changed.filter(isLikelyUserFacingPath);
+    const discoveryTouched = changed.some(isDiscoveryMetadataPath);
+    if (userFacing.length > 0 && pullRequestBody && featureDiscoverabilityDecisionCount > 1) {
+      console.error("Feature Discoverability has conflicting PR body decisions.");
+      console.error("- Say discovery metadata was updated, or mark it N/A with a short reason.");
+      console.error("- Do not mark both.");
+      process.exit(1);
+    }
+    if (
+      userFacing.length > 0 &&
+      !discoveryTouched &&
+      featureDiscoverabilityDecision.na &&
+      !hasText(featureDiscoverabilityDecision.reason)
+    ) {
+      console.error("Feature Discoverability N/A requires a non-empty Reason in the PR body.");
+      process.exit(1);
+    }
+    if (userFacing.length > 0 && !discoveryTouched && !allowMissingDiscovery) {
+      console.error(
+        `Discovery metadata was not updated, but ${userFacing.length} likely user-facing file(s) changed relative to ${changedFrom}.`,
+      );
+      for (const path of userFacing.slice(0, 12)) console.error(`- ${path}`);
+      console.error(
+        "Update src/features/shell/discovery/ or mark Feature Discoverability as N/A in the PR body with a reason.",
+      );
+      process.exit(1);
+    }
+    if (userFacing.length > 0 && !discoveryTouched && allowMissingDiscovery) {
+      console.log("Discovery metadata not updated; accepted explicit Feature Discoverability N/A marker.");
+    }
+    console.log(`Checked ${registry.length} discovery entries and ${changed.length} changed file(s).`);
+  } else {
+    console.log(`Checked ${registry.length} discovery entries.`);
+  }
 }
 
-const prAware = process.argv.includes("--pr-aware");
-const changedFrom = getArgValue("--changed-from") ?? (prAware ? `origin/${process.env.GITHUB_BASE_REF || "refactor"}` : undefined);
-const pullRequestBody = await readPullRequestBodyFromEvent();
-const featureDiscoverabilityDecision = parseFeatureDiscoverabilityDecision(pullRequestBody);
-const featureDiscoverabilityDecisionCount =
-  Number(featureDiscoverabilityDecision.updated) + Number(featureDiscoverabilityDecision.na);
-const allowMissingDiscovery =
-  process.argv.includes("--allow-missing") ||
-  process.env.DISCOVERY_CHECK_ALLOW_MISSING === "1" ||
-  (featureDiscoverabilityDecision.na && hasText(featureDiscoverabilityDecision.reason));
-
-if (changedFrom) {
-  const changed = gitChangedFiles(changedFrom);
-  const userFacing = changed.filter(isLikelyUserFacingPath);
-  const discoveryTouched = changed.some(isDiscoveryMetadataPath);
-  if (userFacing.length > 0 && pullRequestBody && featureDiscoverabilityDecisionCount !== 1) {
-    console.error("Feature Discoverability must check exactly one option in the PR body.");
-    console.error("- Updated src/features/shell/discovery/ metadata");
-    console.error("- N/A with a short reason");
-    process.exit(1);
-  }
-  if (
-    userFacing.length > 0 &&
-    !discoveryTouched &&
-    featureDiscoverabilityDecision.na &&
-    !hasText(featureDiscoverabilityDecision.reason)
-  ) {
-    console.error("Feature Discoverability N/A requires a non-empty Reason in the PR body.");
-    process.exit(1);
-  }
-  if (userFacing.length > 0 && !discoveryTouched && !allowMissingDiscovery) {
-    console.error(
-      `Discovery metadata was not updated, but ${userFacing.length} likely user-facing file(s) changed relative to ${changedFrom}.`,
-    );
-    for (const path of userFacing.slice(0, 12)) console.error(`- ${path}`);
-    console.error(
-      "Update src/features/shell/discovery/ or mark Feature Discoverability as N/A in the PR body with a reason.",
-    );
-    process.exit(1);
-  }
-  if (userFacing.length > 0 && !discoveryTouched && allowMissingDiscovery) {
-    console.log("Discovery metadata not updated; accepted explicit Feature Discoverability N/A marker.");
-  }
-  console.log(`Checked ${registry.length} discovery entries and ${changed.length} changed file(s).`);
-} else {
-  console.log(`Checked ${registry.length} discovery entries.`);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await main();
 }

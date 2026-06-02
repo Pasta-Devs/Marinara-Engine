@@ -483,6 +483,23 @@ pub(crate) fn import_stream_channel(
     }
 }
 
+pub(crate) fn import_stream_callback(
+    state: &AppState,
+    rest: &[&str],
+    body: Value,
+    mut emit: impl FnMut(Value) -> AppResult<()>,
+) -> AppResult<()> {
+    match rest {
+        ["st-bulk", "run"] | ["st-bulk", "run-stream"] => {
+            bulk_imports::run_st_bulk_import_channel(state, body, &mut emit)
+        }
+        _ => Err(AppError::new(
+            "stream_not_supported",
+            format!("Streaming is not supported for /import/{}", rest.join("/")),
+        )),
+    }
+}
+
 #[cfg(test)]
 #[path = "service_tests.rs"]
 mod tests;

@@ -15,6 +15,15 @@ function resolveAvatarCrop(crop: unknown): AvatarCropValue | null {
   }
 }
 
+function isLikelyFilesystemPath(value: string): boolean {
+  const normalized = value.replace(/\\/g, "/");
+  return (
+    /^[a-z]:\//i.test(normalized) ||
+    normalized.startsWith("//") ||
+    /^\/(Users|home|var|data|tmp|opt|private)\//i.test(normalized)
+  );
+}
+
 export function CharacterAvatarImage({
   src,
   avatarFilePath,
@@ -30,12 +39,19 @@ export function CharacterAvatarImage({
   crop?: unknown;
   className?: string;
 }) {
-  const initialSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath) ?? src ?? null;
+  const managedInitialSrc = avatarFileUrlFromPath(avatarFilename, avatarFilePath);
+  const hasManagedAvatarInput = Boolean(avatarFilename || avatarFilePath);
+  const initialSrc = managedInitialSrc ?? src ?? null;
   const [asyncSrc, setAsyncSrc] = useState<string | null>(initialSrc);
 
   useEffect(() => {
     let cancelled = false;
     setAsyncSrc(initialSrc);
+    if (!hasManagedAvatarInput || (managedInitialSrc && !isLikelyFilesystemPath(managedInitialSrc))) {
+      return () => {
+        cancelled = true;
+      };
+    }
     resolveAvatarFileUrl(avatarFilename, avatarFilePath)
       .then((url) => {
         if (!cancelled) setAsyncSrc(url ?? src ?? null);
@@ -46,7 +62,7 @@ export function CharacterAvatarImage({
     return () => {
       cancelled = true;
     };
-  }, [avatarFilename, avatarFilePath, initialSrc, src]);
+  }, [avatarFilename, avatarFilePath, hasManagedAvatarInput, initialSrc, managedInitialSrc, src]);
 
   const resolvedSrc = asyncSrc ?? initialSrc;
   if (!resolvedSrc) return null;

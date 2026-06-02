@@ -1,4 +1,4 @@
-import { applyRegexReplacement } from "../shared/regex/regex-replacement";
+import { applyRegexScriptReplacement } from "../shared/regex/regex-script-application";
 import type { StorageGateway } from "../capabilities/storage";
 import { bySortOrder, boolish, readString, stringArray, type JsonRecord } from "./runtime-records";
 
@@ -38,10 +38,7 @@ export async function applyRuntimeRegexScripts(
     try {
       const re = new RegExp(findRegex, flagsForScript(script));
       const replacement = readString(script.replaceString);
-      output = applyRegexReplacement(output, re, replacement);
-      for (const trim of stringArray(script.trimStrings)) {
-        output = output.split(trim).join("");
-      }
+      output = applyRegexScriptReplacement(output, re, replacement, stringArray(script.trimStrings));
     } catch {
       // Invalid user regexes are ignored during generation; the editor remains the validation surface.
     }

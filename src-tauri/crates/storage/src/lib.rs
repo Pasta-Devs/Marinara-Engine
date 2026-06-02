@@ -6,17 +6,33 @@ use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
-use std::io::{BufRead, BufReader, BufWriter, ErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{BufRead, BufReader, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, RwLock,
+};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const MESSAGE_REVERSE_READ_CHUNK_SIZE: u64 = 1024 * 1024;
+const STORAGE_SAVE_DEBOUNCE_MS: u64 = 750;
+
+#[derive(Default)]
+struct StorageCache {
+    collections: HashMap<String, CachedCollection>,
+}
+
+struct CachedCollection {
+    rows: Vec<Value>,
+    dirty: bool,
+}
 
 #[derive(Clone)]
 pub struct FileStorage {
     root: PathBuf,
     lock: Arc<RwLock<()>>,
+    cache: Arc<RwLock<StorageCache>>,
+    flush_scheduled: Arc<AtomicBool>,
 }
 
 impl FileStorage {
@@ -26,11 +42,21 @@ impl FileStorage {
         Ok(Self {
             root,
             lock: Arc::new(RwLock::new(())),
+            cache: Arc::new(RwLock::new(StorageCache::default())),
+            flush_scheduled: Arc::new(AtomicBool::new(false)),
         })
     }
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    pub fn flush(&self) -> AppResult<()> {
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.flush_dirty_collections_locked()
     }
 
     pub fn list(&self, collection: &str) -> AppResult<Vec<Value>> {
@@ -70,6 +96,18 @@ impl FileStorage {
         )
     }
 
+    pub fn list_messages_for_chat_projected(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_locked_or_recover(
+            || self.read_messages_for_chat_projected_no_recovery(chat_id, fields, field_selections),
+            || self.read_messages_for_chat_projected(chat_id, fields, field_selections),
+        )
+    }
+
     pub fn list_message_ids_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
         self.read_locked_or_recover(
             || self.read_message_ids_for_chat_no_recovery(chat_id),
@@ -103,6 +141,26 @@ impl FileStorage {
         )
     }
 
+    pub fn get_projected(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Option<Value>> {
+        self.read_locked_or_recover(
+            || {
+                self.read_collection_find_by_id_projected_no_recovery(
+                    collection,
+                    id,
+                    fields,
+                    field_selections,
+                )
+            },
+            || self.read_collection_find_by_id_projected(collection, id, fields, field_selections),
+        )
+    }
+
     pub fn create(&self, collection: &str, value: Value) -> AppResult<Value> {
         let _guard = self
             .lock
@@ -119,6 +177,11 @@ impl FileStorage {
             .filter(|id| !id.trim().is_empty())
             .map(ToOwned::to_owned)
             .unwrap_or_else(new_id);
+        if had_id && self.read_collection_find_by_id(collection, &id)?.is_some() {
+            return Err(AppError::invalid_input(format!(
+                "{collection}/{id} already exists"
+            )));
+        }
         let now = now_iso();
         object.insert("id".to_string(), Value::String(id.clone()));
         object
@@ -128,7 +191,10 @@ impl FileStorage {
             .entry("updatedAt".to_string())
             .or_insert_with(|| Value::String(now));
         let record = Value::Object(object);
-        if matches!(collection, "messages" | "chats") && !had_id {
+        if matches!(collection, "messages" | "chats")
+            && !had_id
+            && !self.is_collection_cached(collection)?
+        {
             self.append_collection_row(collection, &record)?;
             return Ok(record);
         }
@@ -209,7 +275,12 @@ impl FileStorage {
         Ok(updated)
     }
 
-    pub fn patch_if<F>(&self, collection: &str, id: &str, mut patch_row: F) -> AppResult<Option<Value>>
+    pub fn patch_if<F>(
+        &self,
+        collection: &str,
+        id: &str,
+        mut patch_row: F,
+    ) -> AppResult<Option<Value>>
     where
         F: FnMut(&mut Map<String, Value>) -> AppResult<bool>,
     {
@@ -333,10 +404,6 @@ impl FileStorage {
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
-        if let Some(deleted) = self.delete_pretty_messages_for_chats(chat_ids)? {
-            return Ok(deleted);
-        }
-
         let mut rows = self.read_collection("messages")?;
         let before = rows.len();
         rows.retain(|row| {
@@ -356,7 +423,7 @@ impl FileStorage {
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
-        self.write_collection(collection, &rows)
+        self.write_collection_immediate(collection, &rows)
     }
 
     pub fn replace_all_many(&self, replacements: Vec<(&str, Vec<Value>)>) -> AppResult<()> {
@@ -388,6 +455,7 @@ impl FileStorage {
             fs::remove_dir_all(&collections)?;
         }
         fs::create_dir_all(collections)?;
+        self.clear_collection_cache()?;
         Ok(())
     }
 
@@ -397,6 +465,108 @@ impl FileStorage {
             .root
             .join("collections")
             .join(format!("{collection}.json")))
+    }
+
+    fn cached_rows(&self, collection: &str) -> AppResult<Option<Vec<Value>>> {
+        validate_collection_name(collection)?;
+        let cache = self
+            .cache
+            .read()
+            .map_err(|_| AppError::new("lock_error", "Storage cache lock poisoned"))?;
+        Ok(cache
+            .collections
+            .get(collection)
+            .map(|cached| cached.rows.clone()))
+    }
+
+    fn is_collection_cached(&self, collection: &str) -> AppResult<bool> {
+        validate_collection_name(collection)?;
+        let cache = self
+            .cache
+            .read()
+            .map_err(|_| AppError::new("lock_error", "Storage cache lock poisoned"))?;
+        Ok(cache.collections.contains_key(collection))
+    }
+
+    fn cache_collection(&self, collection: &str, rows: &[Value], dirty: bool) -> AppResult<()> {
+        validate_collection_name(collection)?;
+        let mut cache = self
+            .cache
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage cache lock poisoned"))?;
+        cache.collections.insert(
+            collection.to_string(),
+            CachedCollection {
+                rows: rows.to_vec(),
+                dirty,
+            },
+        );
+        Ok(())
+    }
+
+    fn clear_collection_cache(&self) -> AppResult<()> {
+        let mut cache = self
+            .cache
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage cache lock poisoned"))?;
+        cache.collections.clear();
+        Ok(())
+    }
+
+    fn dirty_collection_count(&self) -> usize {
+        self.cache
+            .read()
+            .map(|cache| {
+                cache
+                    .collections
+                    .values()
+                    .filter(|collection| collection.dirty)
+                    .count()
+            })
+            .unwrap_or(0)
+    }
+
+    fn schedule_dirty_flush(&self) {
+        if self.flush_scheduled.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let storage = self.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(STORAGE_SAVE_DEBOUNCE_MS));
+            if let Err(error) = storage.flush() {
+                eprintln!("[storage] delayed flush failed: {}", error.message);
+            }
+            storage.flush_scheduled.store(false, Ordering::SeqCst);
+            if storage.dirty_collection_count() > 0 {
+                storage.schedule_dirty_flush();
+            }
+        });
+    }
+
+    fn flush_dirty_collections_locked(&self) -> AppResult<()> {
+        let dirty = {
+            let cache = self
+                .cache
+                .read()
+                .map_err(|_| AppError::new("lock_error", "Storage cache lock poisoned"))?;
+            cache
+                .collections
+                .iter()
+                .filter(|(_, cached)| cached.dirty)
+                .map(|(collection, cached)| (collection.clone(), cached.rows.clone()))
+                .collect::<Vec<_>>()
+        };
+        for (collection, rows) in dirty {
+            self.write_collection_file(&collection, &rows)?;
+            let mut cache = self
+                .cache
+                .write()
+                .map_err(|_| AppError::new("lock_error", "Storage cache lock poisoned"))?;
+            if let Some(cached) = cache.collections.get_mut(&collection) {
+                cached.dirty = false;
+            }
+        }
+        Ok(())
     }
 
     fn read_locked_or_recover<T>(
@@ -425,6 +595,24 @@ impl FileStorage {
     }
 
     fn read_collection(&self, collection: &str) -> AppResult<Vec<Value>> {
+        if let Some(rows) = self.cached_rows(collection)? {
+            return Ok(rows);
+        }
+        let rows = self.read_collection_from_disk(collection)?;
+        self.cache_collection(collection, &rows, false)?;
+        Ok(rows)
+    }
+
+    fn read_collection_no_recovery(&self, collection: &str) -> AppResult<Vec<Value>> {
+        if let Some(rows) = self.cached_rows(collection)? {
+            return Ok(rows);
+        }
+        let rows = self.read_collection_from_disk_no_recovery(collection)?;
+        self.cache_collection(collection, &rows, false)?;
+        Ok(rows)
+    }
+
+    fn read_collection_from_disk(&self, collection: &str) -> AppResult<Vec<Value>> {
         let path = self.collection_path(collection)?;
         if !path.exists() {
             return Ok(Vec::new());
@@ -437,7 +625,7 @@ impl FileStorage {
             .or_else(|error| self.recover_collection_after_read_error(collection, &path, error))
     }
 
-    fn read_collection_no_recovery(&self, collection: &str) -> AppResult<Vec<Value>> {
+    fn read_collection_from_disk_no_recovery(&self, collection: &str) -> AppResult<Vec<Value>> {
         let path = self.collection_path(collection)?;
         if !path.exists() {
             return Ok(Vec::new());
@@ -498,16 +686,23 @@ impl FileStorage {
         field_selections: &Map<String, Value>,
         recover_on_fallback: bool,
     ) -> AppResult<Vec<Value>> {
-        let path = self.collection_path(collection)?;
         if fields.is_empty() {
             return Ok(Vec::new());
         }
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        if let Some(rows) = self.cached_rows(collection)? {
+            return Ok(rows
+                .into_iter()
+                .map(|row| project_row(row, &field_set, &nested_field_sets))
+                .collect());
+        }
+
+        let path = self.collection_path(collection)?;
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(Vec::new());
         }
 
-        let field_set: HashSet<String> = fields.iter().cloned().collect();
-        let nested_field_sets = selected_nested_fields(field_selections);
         let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
@@ -542,15 +737,57 @@ impl FileStorage {
         self.read_collection_find_by_id_inner(collection, id, false)
     }
 
+    fn read_collection_find_by_id_projected(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Option<Value>> {
+        self.read_collection_find_by_id_projected_inner(
+            collection,
+            id,
+            fields,
+            field_selections,
+            true,
+        )
+    }
+
+    fn read_collection_find_by_id_projected_no_recovery(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Option<Value>> {
+        self.read_collection_find_by_id_projected_inner(
+            collection,
+            id,
+            fields,
+            field_selections,
+            false,
+        )
+    }
+
     fn read_collection_find_by_id_inner(
         &self,
         collection: &str,
         id: &str,
         recover_on_fallback: bool,
     ) -> AppResult<Option<Value>> {
+        if let Some(rows) = self.cached_rows(collection)? {
+            return Ok(rows
+                .into_iter()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(id)));
+        }
         let path = self.collection_path(collection)?;
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(None);
+        }
+        match read_pretty_record_by_id_from_file(&path, id) {
+            Ok(Some(row)) => return Ok(Some(row)),
+            Ok(None) => {}
+            Err(_) => {}
         }
         let file = fs::File::open(path)?;
         let reader = BufReader::new(file);
@@ -570,6 +807,65 @@ impl FileStorage {
         }
     }
 
+    fn read_collection_find_by_id_projected_inner(
+        &self,
+        collection: &str,
+        id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+        recover_on_fallback: bool,
+    ) -> AppResult<Option<Value>> {
+        if fields.is_empty() {
+            return self.read_collection_find_by_id_inner(collection, id, recover_on_fallback);
+        }
+
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        if let Some(rows) = self.cached_rows(collection)? {
+            return Ok(rows
+                .into_iter()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
+                .map(|row| project_row(row, &field_set, &nested_field_sets)));
+        }
+
+        let path = self.collection_path(collection)?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(None);
+        }
+
+        match read_pretty_projected_record_by_id_from_file(
+            &path,
+            id,
+            &field_set,
+            &nested_field_sets,
+        ) {
+            Ok(Some(row)) => return Ok(Some(row)),
+            Ok(None) => {}
+            Err(_) => {}
+        }
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        match deserializer.deserialize_seq(ProjectedRowByIdVisitor {
+            id,
+            fields: &field_set,
+            field_selections: &nested_field_sets,
+        }) {
+            Ok(row) => Ok(row),
+            Err(_) => {
+                let rows = if recover_on_fallback {
+                    self.read_collection(collection)?
+                } else {
+                    self.read_collection_no_recovery(collection)?
+                };
+                Ok(rows
+                    .into_iter()
+                    .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
+                    .map(|row| project_row(row, &field_set, &nested_field_sets)))
+            }
+        }
+    }
+
     fn read_messages_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
         self.read_messages_for_chat_inner(chat_id, true)
     }
@@ -578,11 +874,83 @@ impl FileStorage {
         self.read_messages_for_chat_inner(chat_id, false)
     }
 
+    fn read_messages_for_chat_projected(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_messages_for_chat_projected_inner(chat_id, fields, field_selections, true)
+    }
+
+    fn read_messages_for_chat_projected_no_recovery(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_messages_for_chat_projected_inner(chat_id, fields, field_selections, false)
+    }
+
+    fn read_messages_for_chat_projected_inner(
+        &self,
+        chat_id: &str,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+        recover_on_fallback: bool,
+    ) -> AppResult<Vec<Value>> {
+        if fields.is_empty() {
+            return Ok(Vec::new());
+        }
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        if let Some(rows) = self.cached_rows("messages")? {
+            return Ok(rows
+                .into_iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .map(|row| project_row(row, &field_set, &nested_field_sets))
+                .collect());
+        }
+
+        let path = self.collection_path("messages")?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        match deserializer.deserialize_seq(ProjectedMessageRowsForChatVisitor {
+            chat_id,
+            fields: &field_set,
+            field_selections: &nested_field_sets,
+        }) {
+            Ok(rows) => Ok(rows),
+            Err(_) => {
+                let rows = if recover_on_fallback {
+                    self.read_messages_for_chat(chat_id)?
+                } else {
+                    self.read_messages_for_chat_no_recovery(chat_id)?
+                };
+                Ok(rows
+                    .into_iter()
+                    .map(|row| project_row(row, &field_set, &nested_field_sets))
+                    .collect())
+            }
+        }
+    }
+
     fn read_messages_for_chat_inner(
         &self,
         chat_id: &str,
         recover_on_fallback: bool,
     ) -> AppResult<Vec<Value>> {
+        if let Some(rows) = self.cached_rows("messages")? {
+            return Ok(rows
+                .into_iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .collect());
+        }
         let path = self.collection_path("messages")?;
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(Vec::new());
@@ -619,6 +987,18 @@ impl FileStorage {
         chat_id: &str,
         recover_on_fallback: bool,
     ) -> AppResult<Vec<Value>> {
+        if let Some(rows) = self.cached_rows("messages")? {
+            return Ok(rows
+                .into_iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .filter_map(|row| {
+                    let id = row.get("id")?.clone();
+                    let mut object = Map::new();
+                    object.insert("id".to_string(), id);
+                    Some(Value::Object(object))
+                })
+                .collect());
+        }
         let path = self.collection_path("messages")?;
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(Vec::new());
@@ -661,6 +1041,12 @@ impl FileStorage {
         chat_id: &str,
         recover_on_fallback: bool,
     ) -> AppResult<usize> {
+        if let Some(rows) = self.cached_rows("messages")? {
+            return Ok(rows
+                .iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .count());
+        }
         let path = self.collection_path("messages")?;
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(0);
@@ -711,6 +1097,14 @@ impl FileStorage {
         if limit == 0 {
             return Ok(Vec::new());
         }
+        if let Some(rows) = self.cached_rows("messages")? {
+            let mut rows = rows
+                .into_iter()
+                .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
+                .collect::<Vec<_>>();
+            apply_message_page(&mut rows, limit, before);
+            return Ok(rows);
+        }
         let path = self.collection_path("messages")?;
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(Vec::new());
@@ -732,6 +1126,18 @@ impl FileStorage {
     }
 
     fn write_collection(&self, collection: &str, rows: &[Value]) -> AppResult<()> {
+        self.cache_collection(collection, rows, true)?;
+        self.schedule_dirty_flush();
+        Ok(())
+    }
+
+    fn write_collection_immediate(&self, collection: &str, rows: &[Value]) -> AppResult<()> {
+        self.write_collection_file(collection, rows)?;
+        self.cache_collection(collection, rows, false)?;
+        Ok(())
+    }
+
+    fn write_collection_file(&self, collection: &str, rows: &[Value]) -> AppResult<()> {
         let path = self.collection_path(collection)?;
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
@@ -747,7 +1153,7 @@ impl FileStorage {
             fs::create_dir_all(parent)?;
         }
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
-            self.write_collection(collection, std::slice::from_ref(record))?;
+            self.write_collection_immediate(collection, std::slice::from_ref(record))?;
             return Ok(());
         }
 
@@ -771,7 +1177,7 @@ impl FileStorage {
                 )),
             )?;
             rows.push(record.clone());
-            self.write_collection(collection, &rows)?;
+            self.write_collection_immediate(collection, &rows)?;
             return Ok(());
         }
 
@@ -809,91 +1215,6 @@ impl FileStorage {
         Ok(())
     }
 
-    fn delete_pretty_messages_for_chats(
-        &self,
-        chat_ids: &HashSet<String>,
-    ) -> AppResult<Option<usize>> {
-        let path = self.collection_path("messages")?;
-        if !path.exists() || fs::metadata(&path)?.len() == 0 {
-            return Ok(Some(0));
-        }
-
-        let file = fs::File::open(&path)?;
-        let mut reader = BufReader::new(file);
-        let tmp = unique_sibling_path(&path, "tmp")?;
-        let output = fs::File::create(&tmp)?;
-        let mut output = BufWriter::new(output);
-        output.write_all(b"[\n")?;
-
-        let mut line = String::new();
-        let mut record_lines: Vec<String> = Vec::new();
-        let mut in_record = false;
-        let mut saw_array_start = false;
-        let mut saw_record = false;
-        let mut wrote_record = false;
-        let mut deleted = 0;
-
-        loop {
-            line.clear();
-            if reader.read_line(&mut line)? == 0 {
-                break;
-            }
-            let trimmed = line.trim_start();
-
-            if !in_record {
-                if trimmed.starts_with('[') {
-                    saw_array_start = true;
-                    continue;
-                }
-                if trimmed.starts_with(']') {
-                    break;
-                }
-                if trimmed.trim().is_empty() {
-                    continue;
-                }
-                if trimmed.starts_with('{') {
-                    in_record = true;
-                    saw_record = true;
-                    record_lines.clear();
-                    record_lines.push(line.clone());
-                    continue;
-                }
-                let _ = fs::remove_file(&tmp);
-                return Ok(None);
-            }
-
-            record_lines.push(line.clone());
-            if is_pretty_top_level_record_end(&line) {
-                if pretty_message_record_matches_chat(&record_lines, chat_ids) {
-                    deleted += 1;
-                } else {
-                    write_pretty_record(&mut output, &record_lines, wrote_record)?;
-                    wrote_record = true;
-                }
-                in_record = false;
-                record_lines.clear();
-            }
-        }
-
-        if !saw_array_start || in_record || (!saw_record && deleted == 0) {
-            let _ = fs::remove_file(&tmp);
-            return Ok(None);
-        }
-
-        output.write_all(b"]\n")?;
-        output.flush()?;
-        output.get_ref().sync_all()?;
-
-        if deleted == 0 {
-            let _ = fs::remove_file(&tmp);
-            return Ok(Some(0));
-        }
-
-        refresh_collection_backup(&path)?;
-        fs::rename(tmp, path)?;
-        Ok(Some(deleted))
-    }
-
     fn recover_collection_after_read_error(
         &self,
         collection: &str,
@@ -911,7 +1232,7 @@ impl FileStorage {
                         error.message
                     );
                     preserve_corrupt_file(path)?;
-                    self.write_collection(collection, &rows)?;
+                    self.write_collection_immediate(collection, &rows)?;
                     return Ok(rows);
                 }
                 Err(backup_error) => {
@@ -924,7 +1245,7 @@ impl FileStorage {
                     );
                     preserve_corrupt_file(path)?;
                     preserve_corrupt_file(&backup)?;
-                    self.write_collection(collection, &[])?;
+                    self.write_collection_immediate(collection, &[])?;
                     return Ok(Vec::new());
                 }
             }
@@ -936,7 +1257,7 @@ impl FileStorage {
             error.message
         );
         preserve_corrupt_file(path)?;
-        self.write_collection(collection, &[])?;
+        self.write_collection_immediate(collection, &[])?;
         Ok(Vec::new())
     }
 
@@ -948,6 +1269,7 @@ impl FileStorage {
     where
         F: FnOnce() -> AppResult<()>,
     {
+        self.flush_dirty_collections_locked()?;
         let transaction_id = storage_transaction_id();
         let mut pending = Vec::new();
         let mut seen_paths = HashSet::new();
@@ -1018,7 +1340,18 @@ impl FileStorage {
         }
 
         cleanup_pending_collection_transaction_files(&pending);
+        for (collection, rows) in replacements {
+            self.cache_collection(collection, &rows, false)?;
+        }
         Ok(())
+    }
+}
+
+impl Drop for FileStorage {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.cache) == 1 && self.dirty_collection_count() > 0 {
+            let _ = self.flush();
+        }
     }
 }
 
@@ -1188,6 +1521,120 @@ impl<'de, 'a> Visitor<'de> for FindRowByIdRowVisitor<'a> {
                     continue;
                 }
             }
+            object.insert(key, value);
+        }
+
+        Ok(matches_id.unwrap_or(false).then_some(Value::Object(object)))
+    }
+}
+
+struct ProjectedRowByIdVisitor<'a> {
+    id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowByIdVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut found = None;
+        while let Some(row) = seq.next_element_seed(ProjectedRowByIdSeed {
+            id: self.id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })? {
+            if row.is_some() {
+                found = row;
+                break;
+            }
+        }
+        if found.is_some() {
+            while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
+        }
+        Ok(found)
+    }
+}
+
+struct ProjectedRowByIdSeed<'a> {
+    id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for ProjectedRowByIdSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(ProjectedRowByIdRowVisitor {
+            id: self.id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })
+    }
+}
+
+struct ProjectedRowByIdRowVisitor<'a> {
+    id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowByIdRowVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a record object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        let mut matches_id = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if matches_id == Some(false) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            if key == "id" {
+                let value = map.next_value::<Value>()?;
+                let is_match = value.as_str() == Some(self.id);
+                matches_id = Some(is_match);
+                if !is_match {
+                    object.clear();
+                    continue;
+                }
+                if self.fields.contains(&key) {
+                    object.insert(key, value);
+                }
+                continue;
+            }
+
+            if !self.fields.contains(&key) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = if let Some(nested_fields) = self.field_selections.get(&key) {
+                map.next_value_seed(ProjectedNestedSeed {
+                    fields: nested_fields,
+                })?
+            } else {
+                map.next_value::<Value>()?
+            };
             object.insert(key, value);
         }
 
@@ -1457,8 +1904,11 @@ impl<'de, 'a> Visitor<'de> for ProjectedNestedVisitor<'a> {
     where
         A: SeqAccess<'de>,
     {
-        while seq.next_element::<serde::de::IgnoredAny>()?.is_some() {}
-        Ok(Value::Array(Vec::new()))
+        let mut values = Vec::new();
+        while let Some(value) = seq.next_element::<Value>()? {
+            values.push(value);
+        }
+        Ok(Value::Array(values))
     }
 }
 
@@ -1538,6 +1988,113 @@ impl<'de, 'a> Visitor<'de> for MessageRowForChatVisitor<'a> {
                     continue;
                 }
             }
+            object.insert(key, value);
+        }
+
+        Ok(matches_chat
+            .unwrap_or(false)
+            .then_some(Value::Object(object)))
+    }
+}
+
+struct ProjectedMessageRowsForChatVisitor<'a> {
+    chat_id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedMessageRowsForChatVisitor<'a> {
+    type Value = Vec<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a messages JSON array")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut rows = Vec::new();
+        while let Some(row) = seq.next_element_seed(ProjectedMessageRowForChatSeed {
+            chat_id: self.chat_id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })? {
+            if let Some(row) = row {
+                rows.push(row);
+            }
+        }
+        Ok(rows)
+    }
+}
+
+struct ProjectedMessageRowForChatSeed<'a> {
+    chat_id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for ProjectedMessageRowForChatSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(ProjectedMessageRowForChatVisitor {
+            chat_id: self.chat_id,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })
+    }
+}
+
+struct ProjectedMessageRowForChatVisitor<'a> {
+    chat_id: &'a str,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedMessageRowForChatVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a message object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        let mut matches_chat = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if key == "chatId" {
+                let value = map.next_value::<Value>()?;
+                matches_chat = Some(value.as_str() == Some(self.chat_id));
+                if matches_chat == Some(true) && self.fields.contains(&key) {
+                    object.insert(key, value);
+                }
+                continue;
+            }
+
+            if matches_chat == Some(false) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            if !self.fields.contains(&key) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = if let Some(nested_fields) = self.field_selections.get(&key) {
+                map.next_value_seed(ProjectedNestedSeed {
+                    fields: nested_fields,
+                })?
+            } else {
+                map.next_value::<Value>()?
+            };
             object.insert(key, value);
         }
 
@@ -1735,46 +2292,6 @@ fn is_pretty_top_level_record_end(line: &str) -> bool {
     line.starts_with("  }") && matches!(line.trim(), "}" | "},")
 }
 
-fn pretty_message_record_matches_chat(record_lines: &[String], chat_ids: &HashSet<String>) -> bool {
-    record_lines.iter().any(|line| {
-        let trimmed = line.trim();
-        if !trimmed.starts_with("\"chatId\"") {
-            return false;
-        }
-        let Some((_, raw_value)) = trimmed.split_once(':') else {
-            return false;
-        };
-        let value = raw_value.trim().trim_end_matches(',');
-        serde_json::from_str::<String>(value).is_ok_and(|chat_id| chat_ids.contains(&chat_id))
-    })
-}
-
-fn write_pretty_record<W: Write>(
-    writer: &mut W,
-    record_lines: &[String],
-    needs_comma: bool,
-) -> AppResult<()> {
-    if needs_comma {
-        writer.write_all(b",\n")?;
-    }
-
-    for (index, line) in record_lines.iter().enumerate() {
-        if index + 1 == record_lines.len() {
-            writer.write_all(strip_record_trailing_comma(line).as_bytes())?;
-        } else {
-            writer.write_all(line.as_bytes())?;
-        }
-    }
-    Ok(())
-}
-
-fn strip_record_trailing_comma(line: &str) -> String {
-    let newline = if line.ends_with('\n') { "\n" } else { "" };
-    let without_newline = line.trim_end_matches('\n');
-    let without_comma = without_newline.strip_suffix(',').unwrap_or(without_newline);
-    format!("{without_comma}{newline}")
-}
-
 fn read_pretty_message_page_from_file(
     path: &Path,
     chat_id: &str,
@@ -1896,6 +2413,304 @@ fn strip_trailing_json_comma(bytes: &mut Vec<u8>) {
     if bytes.last() == Some(&b',') {
         bytes.pop();
     }
+}
+
+fn read_pretty_record_by_id_from_file(path: &Path, id: &str) -> AppResult<Option<Value>> {
+    let file = fs::File::open(path)?;
+    let mut reader = BufReader::new(file);
+    let mut record_lines: Vec<String> = Vec::new();
+    let mut in_record = false;
+    let mut saw_array_start = false;
+    let mut saw_record = false;
+    let expected_id_line = format!("\"id\": {}", serde_json::to_string(id)?);
+
+    let mut line = String::new();
+    loop {
+        line.clear();
+        if reader.read_line(&mut line)? == 0 {
+            break;
+        }
+        let line = line.trim_end_matches('\n').to_string();
+        let trimmed = line.trim_start();
+
+        if !in_record {
+            if trimmed.starts_with('[') {
+                saw_array_start = true;
+                continue;
+            }
+            if trimmed.starts_with(']') {
+                break;
+            }
+            if trimmed.trim().is_empty() {
+                continue;
+            }
+            if trimmed.starts_with('{') {
+                in_record = true;
+                saw_record = true;
+                record_lines.clear();
+                record_lines.push(line);
+                continue;
+            }
+            return Ok(None);
+        }
+
+        let is_id_line =
+            trimmed.strip_suffix(',').unwrap_or(trimmed).trim_end() == expected_id_line;
+        record_lines.push(line);
+        if is_id_line {
+            loop {
+                let mut next_line = String::new();
+                let bytes = reader.read_line(&mut next_line)?;
+                if bytes == 0 {
+                    return Ok(None);
+                }
+                let next_line = next_line.trim_end_matches('\n').to_string();
+                let is_end = is_pretty_top_level_record_end(&next_line);
+                record_lines.push(next_line);
+                if is_end {
+                    let mut raw = record_lines.join("\n").into_bytes();
+                    strip_trailing_json_comma(&mut raw);
+                    let row: Value = serde_json::from_slice(&raw)?;
+                    if row.get("id").and_then(Value::as_str) == Some(id) {
+                        return Ok(Some(row));
+                    }
+                    in_record = false;
+                    record_lines.clear();
+                    break;
+                }
+            }
+        }
+
+        if is_pretty_top_level_record_end(
+            record_lines.last().map(String::as_str).unwrap_or_default(),
+        ) {
+            in_record = false;
+            record_lines.clear();
+        }
+    }
+
+    if !saw_array_start || in_record || !saw_record {
+        return Ok(None);
+    }
+    Ok(None)
+}
+
+fn read_pretty_projected_record_by_id_from_file(
+    path: &Path,
+    id: &str,
+    fields: &HashSet<String>,
+    field_selections: &HashMap<String, HashSet<String>>,
+) -> AppResult<Option<Value>> {
+    let file = fs::File::open(path)?;
+    let mut reader = BufReader::new(file);
+    let mut in_record = false;
+    let mut saw_array_start = false;
+    let mut saw_record = false;
+    let mut matches_id = None;
+    let mut projected = Map::new();
+
+    while let Some(line) = read_json_line(&mut reader)? {
+        let trimmed = line.trim_start();
+
+        if !in_record {
+            if trimmed.starts_with('[') {
+                saw_array_start = true;
+                continue;
+            }
+            if trimmed.starts_with(']') {
+                break;
+            }
+            if trimmed.trim().is_empty() {
+                continue;
+            }
+            if trimmed.starts_with('{') {
+                in_record = true;
+                saw_record = true;
+                matches_id = None;
+                projected.clear();
+                continue;
+            }
+            return Ok(None);
+        }
+
+        if is_pretty_top_level_record_end(&line) {
+            if matches_id == Some(true) {
+                return Ok(Some(Value::Object(projected)));
+            }
+            in_record = false;
+            matches_id = None;
+            projected.clear();
+            continue;
+        }
+
+        let Some((field, value_start)) = pretty_json_field(&line, 4)? else {
+            continue;
+        };
+
+        if field == "id" {
+            let value = read_pretty_json_value(&mut reader, value_start)?;
+            let is_match = value.as_str() == Some(id);
+            matches_id = Some(is_match);
+            if is_match {
+                if fields.contains(&field) {
+                    projected.insert(field, value);
+                }
+            } else {
+                projected.clear();
+            }
+            continue;
+        }
+
+        if matches_id == Some(false) {
+            skip_pretty_json_value(&mut reader, value_start)?;
+            continue;
+        }
+
+        if fields.contains(&field) {
+            let value = if let Some(nested_fields) = field_selections.get(&field) {
+                read_pretty_projected_nested_value(&mut reader, value_start, nested_fields)?
+            } else {
+                read_pretty_json_value(&mut reader, value_start)?
+            };
+            projected.insert(field, value);
+        } else {
+            skip_pretty_json_value(&mut reader, value_start)?;
+        }
+    }
+
+    if !saw_array_start || in_record || !saw_record {
+        return Ok(None);
+    }
+    Ok(None)
+}
+
+fn read_pretty_projected_nested_value<R: BufRead>(
+    reader: &mut R,
+    first_value: String,
+    fields: &HashSet<String>,
+) -> AppResult<Value> {
+    let trimmed = first_value.trim();
+    if !trimmed.starts_with('{') || json_container_depth_delta(trimmed) <= 0 {
+        return read_pretty_json_value(reader, first_value)
+            .map(|value| project_nested_value(value, fields));
+    }
+
+    let mut projected = Map::new();
+    while let Some(line) = read_json_line(reader)? {
+        if is_pretty_nested_object_end(&line) {
+            return Ok(Value::Object(projected));
+        }
+
+        let Some((field, value_start)) = pretty_json_field(&line, 6)? else {
+            continue;
+        };
+        if fields.contains(&field) {
+            let value = read_pretty_json_value(reader, value_start)?;
+            projected.insert(field, value);
+        } else {
+            skip_pretty_json_value(reader, value_start)?;
+        }
+    }
+
+    Err(AppError::invalid_input(
+        "Projected pretty JSON object ended unexpectedly",
+    ))
+}
+
+fn read_pretty_json_value<R: BufRead>(reader: &mut R, first_value: String) -> AppResult<Value> {
+    let mut lines = vec![first_value];
+    let mut depth = json_container_depth_delta(lines[0].trim());
+    while depth > 0 {
+        let Some(line) = read_json_line(reader)? else {
+            return Err(AppError::invalid_input(
+                "Pretty JSON value ended unexpectedly",
+            ));
+        };
+        depth += json_container_depth_delta(line.trim());
+        lines.push(line);
+    }
+    parse_pretty_json_value(lines)
+}
+
+fn skip_pretty_json_value<R: BufRead>(reader: &mut R, first_value: String) -> AppResult<()> {
+    let mut depth = json_container_depth_delta(first_value.trim());
+    while depth > 0 {
+        let Some(line) = read_json_line(reader)? else {
+            return Err(AppError::invalid_input(
+                "Pretty JSON value ended unexpectedly",
+            ));
+        };
+        depth += json_container_depth_delta(line.trim());
+    }
+    Ok(())
+}
+
+fn parse_pretty_json_value(lines: Vec<String>) -> AppResult<Value> {
+    let mut raw = lines.join("\n").into_bytes();
+    strip_trailing_json_comma(&mut raw);
+    Ok(serde_json::from_slice(&raw)?)
+}
+
+fn pretty_json_field(line: &str, indent: usize) -> AppResult<Option<(String, String)>> {
+    if line.len() <= indent || !line.starts_with(&" ".repeat(indent)) {
+        return Ok(None);
+    }
+    if line
+        .as_bytes()
+        .get(indent)
+        .is_some_and(u8::is_ascii_whitespace)
+    {
+        return Ok(None);
+    }
+    let trimmed = line.trim_start();
+    if !trimmed.starts_with('"') {
+        return Ok(None);
+    }
+    let Some((raw_key, raw_value)) = trimmed.split_once(':') else {
+        return Ok(None);
+    };
+    let key = serde_json::from_str::<String>(raw_key)?;
+    Ok(Some((key, raw_value.trim_start().to_string())))
+}
+
+fn is_pretty_nested_object_end(line: &str) -> bool {
+    line.starts_with("    }") && matches!(line.trim(), "}" | "},")
+}
+
+fn read_json_line<R: BufRead>(reader: &mut R) -> AppResult<Option<String>> {
+    let mut line = String::new();
+    if reader.read_line(&mut line)? == 0 {
+        return Ok(None);
+    }
+    Ok(Some(line.trim_end_matches(['\r', '\n']).to_string()))
+}
+
+fn json_container_depth_delta(value: &str) -> i32 {
+    let mut depth = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+    for byte in value.bytes() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match byte {
+                b'\\' => escaped = true,
+                b'"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+
+        match byte {
+            b'"' => in_string = true,
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth -= 1,
+            _ => {}
+        }
+    }
+    depth
 }
 
 fn parse_storage_message_cursor(cursor: &str) -> (String, Option<String>) {
@@ -2241,6 +3056,54 @@ mod tests {
     }
 
     #[test]
+    fn create_rejects_duplicate_caller_provided_id_without_mutating_existing_row() {
+        let root = temp_storage_root("create-rejects-duplicate-id");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .create(
+                "characters",
+                json!({
+                    "id": "duplicate-test",
+                    "name": "Original"
+                }),
+            )
+            .expect("initial create should succeed");
+
+        let error = storage
+            .create(
+                "characters",
+                json!({
+                    "id": "duplicate-test",
+                    "name": "Replacement"
+                }),
+            )
+            .expect_err("duplicate create should fail");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.message, "characters/duplicate-test already exists");
+        let original = storage
+            .get("characters", "duplicate-test")
+            .unwrap()
+            .expect("original row should remain");
+        assert_eq!(original["name"], "Original");
+        assert_eq!(original["id"], "duplicate-test");
+        assert!(original.get("createdAt").is_some());
+        assert!(original.get("updatedAt").is_some());
+        assert_eq!(
+            storage.list("characters").unwrap(),
+            vec![json!({
+                "id": original["id"].clone(),
+                "name": original["name"].clone(),
+                "createdAt": original["createdAt"].clone(),
+                "updatedAt": original["updatedAt"].clone()
+            })]
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn get_consumes_remaining_rows_after_match() {
         let root = temp_storage_root("get-consumes-remaining-rows");
         let storage = FileStorage::new(&root).unwrap();
@@ -2261,6 +3124,177 @@ mod tests {
             .expect("matching row should be returned");
 
         assert_eq!(record["id"], "match");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_returns_matching_row_without_unrequested_fields() {
+        let root = temp_storage_root("get-projected-skips-unrequested-fields");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![
+                    json!({
+                        "id": "skip-me",
+                        "data": { "name": "Skip", "description": "ignore" },
+                        "avatar": "ignore"
+                    }),
+                    json!({
+                        "id": "target",
+                        "data": {
+                            "name": "Rina",
+                            "description": "large prompt text",
+                            "extensions": { "depth_prompt": { "prompt": "large nested prompt" } }
+                        },
+                        "avatar": "large image payload"
+                    }),
+                ],
+            )
+            .unwrap();
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should read")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_uses_pretty_id_fast_path_before_trailing_rows() {
+        let root = temp_storage_root("get-projected-pretty-id-fast-path");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[
+  {
+    "id": "target",
+    "data": {
+      "name": "Rina",
+      "description": "large prompt text"
+    },
+    "avatar": "large image payload"
+  },
+  {
+    "id": "trailing-row",
+    "data":
+"#,
+        )
+        .unwrap();
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should use the pretty id fast path")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_preserves_selected_array_fields() {
+        let root = temp_storage_root("get-projected-preserves-selected-arrays");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "alternateGreetings": [
+                        {
+                            "content": "hello",
+                            "metadata": { "tone": "warm" }
+                        }
+                    ],
+                    "avatar": "large image payload"
+                })],
+            )
+            .unwrap();
+        let fields = vec!["id".to_string(), "alternateGreetings".to_string()];
+        let mut selections = Map::new();
+        selections.insert("alternateGreetings".to_string(), json!(["content"]));
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should read")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({
+                "id": "target",
+                "alternateGreetings": [
+                    {
+                        "content": "hello",
+                        "metadata": { "tone": "warm" }
+                    }
+                ]
+            })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_projected_preserves_selected_array_fields() {
+        let root = temp_storage_root("list-projected-preserves-selected-arrays");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "alternateGreetings": [
+                        {
+                            "content": "hello",
+                            "metadata": { "tone": "warm" }
+                        }
+                    ],
+                    "avatar": "large image payload"
+                })],
+            )
+            .unwrap();
+        let fields = vec!["id".to_string(), "alternateGreetings".to_string()];
+        let mut selections = Map::new();
+        selections.insert("alternateGreetings".to_string(), json!(["content"]));
+
+        let rows = storage
+            .list_projected("characters", &fields, &selections)
+            .expect("projected list should read");
+
+        assert_eq!(
+            rows,
+            vec![json!({
+                "id": "target",
+                "alternateGreetings": [
+                    {
+                        "content": "hello",
+                        "metadata": { "tone": "warm" }
+                    }
+                ]
+            })]
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -2345,6 +3379,54 @@ mod tests {
     }
 
     #[test]
+    fn list_messages_for_chat_projected_skips_unrequested_fields() {
+        let root = temp_storage_root("list-messages-for-chat-projected");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({
+                        "id": "skip-me",
+                        "chatId": "chat-b",
+                        "content": "skip",
+                        "extra": { "large": "ignored" },
+                        "swipes": [{ "content": "skip swipe", "extra": { "thinking": "skip thought" } }]
+                    }),
+                    json!({
+                        "id": "target",
+                        "chatId": "chat-a",
+                        "content": "stored content",
+                        "extra": { "large": "ignored", "hiddenFromAI": true },
+                        "swipes": [{ "content": "active swipe", "extra": { "thinking": "visible thought", "large": "ignored" } }]
+                    }),
+                ],
+            )
+            .unwrap();
+        let fields = vec![
+            "id".to_string(),
+            "chatId".to_string(),
+            "content".to_string(),
+            "extra".to_string(),
+        ];
+        let mut selections = Map::new();
+        selections.insert("extra".to_string(), json!(["thinking", "hiddenFromAI"]));
+
+        let rows = storage
+            .list_messages_for_chat_projected("chat-a", &fields, &selections)
+            .unwrap();
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["id"], "target");
+        assert_eq!(rows[0]["chatId"], "chat-a");
+        assert_eq!(rows[0]["content"], "stored content");
+        assert_eq!(rows[0]["extra"], json!({ "hiddenFromAI": true }));
+        assert!(rows[0].get("swipes").is_none());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn count_messages_for_chat_counts_matching_rows_without_projection() {
         let root = temp_storage_root("count-messages-for-chat");
         let storage = FileStorage::new(&root).unwrap();
@@ -2363,6 +3445,94 @@ mod tests {
         assert_eq!(storage.count_messages_for_chat("chat-a").unwrap(), 2);
         assert_eq!(storage.count_messages_for_chat("chat-b").unwrap(), 1);
         assert_eq!(storage.count_messages_for_chat("missing").unwrap(), 0);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_reads_pretty_record_by_id_when_data_precedes_id() {
+        let root = temp_storage_root("get-pretty-record-by-id");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[
+  {
+    "data": {
+      "description": "large skipped payload",
+      "name": "Skip"
+    },
+    "id": "skip-me"
+  },
+  {
+    "data": {
+      "description": "target payload",
+      "name": "Target"
+    },
+    "id": "target"
+  }
+]"#,
+        )
+        .unwrap();
+
+        let row = storage.get("characters", "target").unwrap().unwrap();
+
+        assert_eq!(row["id"], "target");
+        assert_eq!(row["data"]["name"], "Target");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_pretty_record_by_id_ignores_nested_id_matches() {
+        let root = temp_storage_root("get-pretty-record-ignore-nested-id");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[
+  {
+    "id": "owner",
+    "data": {
+      "book": {
+        "id": "target"
+      },
+      "name": "Wrong"
+    }
+  },
+  {
+    "id": "target",
+    "data": {
+      "name": "Target"
+    }
+  }
+]"#,
+        )
+        .unwrap();
+
+        let row = storage.get("characters", "target").unwrap().unwrap();
+
+        assert_eq!(row["id"], "target");
+        assert_eq!(row["data"]["name"], "Target");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_falls_back_for_compact_collection_json() {
+        let root = temp_storage_root("get-compact-record-by-id");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            r#"[{"data":{"name":"Skip"},"id":"skip-me"},{"data":{"name":"Target"},"id":"target"}]"#,
+        )
+        .unwrap();
+
+        let row = storage.get("characters", "target").unwrap().unwrap();
+
+        assert_eq!(row["id"], "target");
+        assert_eq!(row["data"]["name"], "Target");
 
         fs::remove_dir_all(root).unwrap();
     }

@@ -235,7 +235,7 @@ function StatBar({
       <div className={cn(statTrackClass, isInstrument ? "mt-0.5" : isRoomy ? "mt-0.5" : "mt-0", barClass)}>
         <div
           className={statFillClass}
-          style={{ width: `${percent}%`, backgroundColor: stat.color || "var(--primary)" }}
+          style={{ transform: `scaleX(${percent / 100})`, backgroundColor: stat.color || "var(--primary)" }}
         />
       </div>
     </div>

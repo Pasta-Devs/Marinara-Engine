@@ -2,6 +2,11 @@
 // Agent Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import {
+  MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+  normalizeCustomAgentActivationKeywords,
+  normalizeCustomAgentActivationScanDepth,
+} from "../constants/agent-activation";
 import { DEFAULT_AGENT_CREDIT } from "../types/agent";
 
 const agentPhaseSchema = z.enum(["pre_generation", "parallel", "post_processing"]);
@@ -34,6 +39,23 @@ const agentResultTypeSchema = z.enum([
   "game_state_transition",
 ]);
 
+const customAgentActivationSettingsSchema = z
+  .object({
+    activationKeywords: z
+      .preprocess(
+        normalizeCustomAgentActivationKeywords,
+        z.array(z.string().trim().min(1)).max(100),
+      )
+      .optional(),
+    activationScanDepth: z
+      .preprocess(
+        normalizeCustomAgentActivationScanDepth,
+        z.number().int().min(1).max(MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH),
+      )
+      .optional(),
+  })
+  .catchall(z.unknown());
+
 export const createAgentConfigSchema = z.object({
   type: z.string().min(1),
   name: z.string().min(1).max(200),
@@ -44,7 +66,7 @@ export const createAgentConfigSchema = z.object({
   connectionId: z.string().nullable().default(null),
   resultType: agentResultTypeSchema.optional(),
   promptTemplate: z.string().default(""),
-  settings: z.record(z.unknown()).default({}),
+  settings: customAgentActivationSettingsSchema.default({}),
 });
 
 export const updateAgentConfigSchema = createAgentConfigSchema.partial();

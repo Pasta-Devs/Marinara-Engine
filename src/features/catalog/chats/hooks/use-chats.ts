@@ -60,6 +60,7 @@ export type { ChatTranscriptExportFormat } from "../lib/chat-transcript-export";
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_CHAT_MESSAGE_PAGE_SIZE = 20;
 const MAX_MEMORY_RECALL_IMPORT_BYTES = 25 * 1024 * 1024;
+const scheduledDeleteRefreshTimers = new Map<string, number>();
 
 type MessageCountResult = { count: number };
 
@@ -78,6 +79,20 @@ function pruneRecentMessageContentEdits(now = Date.now()) {
       recentMessageContentEdits.delete(messageId);
     }
   }
+}
+
+function scheduleDeleteRefresh(qc: QueryClient, chatId: string) {
+  const previous = scheduledDeleteRefreshTimers.get(chatId);
+  if (previous) window.clearTimeout(previous);
+  const timer = window.setTimeout(() => {
+    scheduledDeleteRefreshTimers.delete(chatId);
+    void Promise.all([
+      qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) }),
+      qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) }),
+      qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) }),
+    ]).catch((error) => console.warn("[chats] message delete refresh failed", error));
+  }, 75);
+  scheduledDeleteRefreshTimers.set(chatId, timer);
 }
 
 function findCachedMessage(data: InfiniteData<Message[]> | undefined, messageId: string): Message | null {
@@ -149,7 +164,7 @@ function isMemoryRecallExportEnvelope(value: unknown): value is ExportEnvelope<C
   return isRecord(data) && Array.isArray(data.chunks);
 }
 
-export async function readChatMemoryRecallImportFile(
+async function readChatMemoryRecallImportFile(
   file: File,
 ): Promise<ExportEnvelope<ChatMemoryRecallExportPayload>> {
   if (file.size > MAX_MEMORY_RECALL_IMPORT_BYTES) {
@@ -502,9 +517,7 @@ export function useDeleteMessage(chatId: string | null) {
     },
     onSettled: () => {
       if (chatId) {
-        qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
-        qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
-        qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        scheduleDeleteRefresh(qc, chatId);
       }
     },
   });
@@ -539,9 +552,7 @@ export function useDeleteMessages(chatId: string | null) {
     },
     onSettled: () => {
       if (chatId) {
-        qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
-        qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
-        qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
+        scheduleDeleteRefresh(qc, chatId);
       }
     },
   });
@@ -574,7 +585,13 @@ export function useUpdateMessage(chatId: string | null) {
     },
     onSuccess: (updated, { messageId, content }) => {
       if (chatId) {
-        rememberRecentMessageContentEdit(chatId, messageId, updated?.content ?? content, updated?.activeSwipeIndex);
+        const saved = updated ? preserveRecentMessageContentEdit(chatId, sanitizeTimelineMessage(updated)) : null;
+        rememberRecentMessageContentEdit(chatId, messageId, saved?.content ?? content, saved?.activeSwipeIndex);
+        if (saved) {
+          qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) =>
+            replaceCachedMessage(old, messageId, (msg) => ({ ...msg, ...saved })),
+          );
+        }
       }
     },
     onError: (_err, _vars, context) => {
@@ -587,13 +604,8 @@ export function useUpdateMessage(chatId: string | null) {
     },
     onSettled: () => {
       if (chatId) {
-        // Skip invalidation while this chat is actively streaming — a refetch
-        // could pick up the just-saved assistant message while the streaming
-        // overlay is still visible, causing the response to appear doubled.
-        // The generation's finally block will invalidate after streaming ends.
         const { streamingChatId, isStreaming } = useChatStore.getState();
         if (isStreaming && streamingChatId === chatId) return;
-        qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
         qc.invalidateQueries({ queryKey: lorebookKeys.active(chatId) });
       }
     },

@@ -1,6 +1,6 @@
 use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
-use crate::storage_commands::{fonts, llm, lorebook_images, prompts};
+use crate::storage_commands::{fonts, imports, llm, lorebook_images, prompts};
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode};
@@ -26,6 +26,7 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 
 const CSRF_HEADER_NAME: &str = "x-marinara-csrf";
 const CSRF_HEADER_VALUE: &str = "1";
+const ADMIN_SECRET_HEADER_NAME: &str = "x-admin-secret";
 const DEFAULT_CORS_ORIGINS: [&str; 7] = [
     "http://localhost:1420",
     "http://127.0.0.1:1420",
@@ -103,6 +104,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/api/invoke", post(invoke))
+        .route("/api/import/st-bulk/run", post(import_st_bulk_run_stream))
         .route("/api/sidecar/v1/embeddings", post(sidecar_embeddings))
         .route("/api/assets/:kind/*path", get(managed_asset))
         .route("/api/llm/stream", post(llm_stream))
@@ -121,6 +123,7 @@ pub fn router(state: AppState) -> Router {
                     header::CONTENT_TYPE,
                     header::ACCEPT,
                     HeaderName::from_static(CSRF_HEADER_NAME),
+                    HeaderName::from_static(ADMIN_SECRET_HEADER_NAME),
                 ])
                 .allow_credentials(true),
         )
@@ -294,11 +297,14 @@ fn content_type_for_path(path: &FsPath) -> &'static str {
 
 async fn invoke(
     State(state): State<HttpState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(request): Json<InvokeRequest>,
 ) -> Result<Json<Value>, HttpError> {
     let command = request.command.clone();
     let started = Instant::now();
     request_log(format!("invoke {command} started"));
+    require_admin_access_for_command(&command, &headers, addr.ip())?;
     match dispatch(&state.app, request).await {
         Ok(value) => {
             request_log(format!(
@@ -316,6 +322,107 @@ async fn invoke(
             ));
             Err(error.into())
         }
+    }
+}
+
+async fn import_st_bulk_run_stream(
+    State(state): State<HttpState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Sse<UnboundedReceiverStream<Result<Event, Infallible>>>, HttpError> {
+    require_admin_access_for_command("import_st_bulk_run", &headers, addr.ip())?;
+    let (tx, rx) = mpsc::unbounded_channel::<Result<Event, Infallible>>();
+    tokio::spawn(async move {
+        let started = Instant::now();
+        request_log("import_st_bulk_run_stream started");
+        let result =
+            imports::import_stream_callback(&state.app, &["st-bulk", "run"], body, |event| {
+                tx.send(Ok(Event::default().data(event.to_string())))
+                    .map_err(|error| AppError::new("sse_stream_error", error.to_string()))
+            });
+
+        match result {
+            Ok(()) => {
+                request_log(format!(
+                    "import_st_bulk_run_stream ok in {}ms",
+                    started.elapsed().as_millis()
+                ));
+            }
+            Err(error) => {
+                request_log(format!(
+                    "import_st_bulk_run_stream error code={} message={} in {}ms",
+                    error.code,
+                    error.message,
+                    started.elapsed().as_millis()
+                ));
+                let payload = json!({
+                    "type": "error",
+                    "data": {
+                        "code": error.code,
+                        "message": error.message,
+                        "details": error.details,
+                    },
+                });
+                let _ = tx.send(Ok(Event::default().data(payload.to_string())));
+            }
+        }
+    });
+
+    Ok(Sse::new(UnboundedReceiverStream::new(rx)).keep_alive(KeepAlive::default()))
+}
+
+fn is_privileged_remote_command(command: &str) -> bool {
+    matches!(
+        command,
+        "profile_export"
+            | "profile_import"
+            | "profile_import_upload"
+            | "backup_create"
+            | "backup_delete"
+            | "backup_download"
+            | "import_list_directory"
+            | "import_st_bulk_run"
+            | "admin_expunge_command"
+            | "admin_clear_all_command"
+            | "update_apply"
+    )
+}
+
+fn require_admin_access_for_command(
+    command: &str,
+    headers: &HeaderMap,
+    ip: IpAddr,
+) -> Result<(), AppError> {
+    if !is_privileged_remote_command(command) || is_loopback(ip) {
+        return Ok(());
+    }
+
+    let Some(expected) = env_value("ADMIN_SECRET") else {
+        return Err(AppError::new(
+            "admin_access_required",
+            "This remote command requires ADMIN_SECRET on the runtime.",
+        ));
+    };
+    let Some(header_value) = headers.get(HeaderName::from_static(ADMIN_SECRET_HEADER_NAME)) else {
+        return Err(AppError::new(
+            "admin_access_required",
+            "This remote command requires Admin Access.",
+        ));
+    };
+    let Ok(provided) = header_value.to_str() else {
+        return Err(AppError::new(
+            "admin_access_invalid",
+            "Admin Access header is invalid.",
+        ));
+    };
+    if constant_time_eq(provided.as_bytes(), expected.as_bytes()) {
+        Ok(())
+    } else {
+        Err(AppError::new(
+            "admin_access_invalid",
+            "Admin Access secret did not match.",
+        ))
     }
 }
 
@@ -511,6 +618,8 @@ impl IntoResponse for HttpError {
         let status = match self.0.code.as_str() {
             "not_found" => StatusCode::NOT_FOUND,
             "invalid_input" => StatusCode::BAD_REQUEST,
+            "admin_access_invalid" => StatusCode::UNAUTHORIZED,
+            "admin_access_required" => StatusCode::FORBIDDEN,
             "custom_tool_script_unsupported" => StatusCode::UNPROCESSABLE_ENTITY,
             "embedding_network_error" | "embedding_provider_error" | "embedding_response_error" => {
                 StatusCode::BAD_GATEWAY

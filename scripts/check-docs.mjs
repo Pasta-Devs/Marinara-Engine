@@ -37,6 +37,7 @@ const expectedSkillFiles = [
   "skills/marinara-bugfix-discipline/SKILL.md",
   "skills/marinara-getting-started/SKILL.md",
   "skills/marinara-agent-workflow/SKILL.md",
+  "skills/marinara-legacy-parity-audit/SKILL.md",
 ];
 
 const skillDocs = (await collectFiles("skills")).filter(

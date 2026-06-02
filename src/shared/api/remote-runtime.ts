@@ -178,6 +178,21 @@ const REMOTE_COMMANDS = new Set([
   "update_apply",
 ]);
 
+const PRIVILEGED_REMOTE_COMMANDS = new Set([
+  "profile_export",
+  "profile_import",
+  "profile_import_upload",
+  "backup_create",
+  "backup_delete",
+  "backup_download",
+  "import_list_directory",
+  "import_st_bulk_run",
+  "admin_expunge_command",
+  "admin_clear_all_command",
+  "update_apply",
+]);
+const ADMIN_SECRET_STORAGE_KEY = "marinara-admin-secret";
+
 export type RuntimeTarget = {
   baseUrl: string;
   authorization?: string;
@@ -249,6 +264,19 @@ export function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): Heade
     ...extra,
     "X-Marinara-CSRF": "1",
   };
+}
+
+function adminSecretHeader(): HeadersInit {
+  if (typeof window === "undefined") return {};
+  const secret = window.localStorage.getItem(ADMIN_SECRET_STORAGE_KEY)?.trim();
+  return secret ? { "X-Admin-Secret": secret } : {};
+}
+
+function remoteInvokeHeaders(target: RuntimeTarget, command: string): HeadersInit {
+  return remoteHeaders(target, {
+    "content-type": "application/json",
+    ...(PRIVILEGED_REMOTE_COMMANDS.has(command) ? adminSecretHeader() : {}),
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -386,11 +414,74 @@ export async function invokeRemote<T>(command: string, args?: Record<string, unk
   if (!target) throw new ApiError("Remote runtime URL is not configured", 400);
   const response = await fetch(`${target.baseUrl}/api/invoke`, {
     method: "POST",
-    headers: remoteHeaders(target, { "content-type": "application/json" }),
+    headers: remoteInvokeHeaders(target, command),
     body: JSON.stringify({ command, args: args ?? null }),
   });
   if (!response.ok) throw await readRemoteError(response);
   return (await response.json()) as T;
+}
+
+export async function* streamRemoteJsonEvents(
+  path: string,
+  body: unknown,
+  options: { signal?: AbortSignal; privileged?: boolean } = {},
+): AsyncGenerator<{ type: string; data: unknown }> {
+  const target = remoteRuntimeTarget();
+  if (!target) throw new ApiError("Remote runtime URL is not configured", 400);
+  const response = await fetch(`${target.baseUrl}${path}`, {
+    method: "POST",
+    headers: remoteHeaders(target, {
+      "content-type": "application/json",
+      accept: "text/event-stream",
+      ...(options.privileged ? adminSecretHeader() : {}),
+    }),
+    body: JSON.stringify(body ?? null),
+    signal: options.signal,
+  });
+  if (!response.ok) throw await readRemoteError(response);
+  if (!response.body) throw new ApiError("Remote runtime did not return an event stream", 500);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSseData(buffer);
+      buffer = parsed.rest;
+      for (const data of parsed.events) {
+        const event = JSON.parse(data) as { type?: unknown; data?: unknown; text?: unknown };
+        const type = typeof event.type === "string" ? event.type : "message";
+        if (type === "error") {
+          const errorData = isRecord(event.data) ? event.data : {};
+          throw new ApiError(
+            readString(errorData.message) || readString(errorData.error) || "Remote event stream failed",
+            500,
+            event,
+          );
+        }
+        yield { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
+      }
+    }
+    const finalParsed = parseSseData(`${buffer}\n\n`);
+    for (const data of finalParsed.events) {
+      const event = JSON.parse(data) as { type?: unknown; data?: unknown; text?: unknown };
+      const type = typeof event.type === "string" ? event.type : "message";
+      if (type === "error") {
+        const errorData = isRecord(event.data) ? event.data : {};
+        throw new ApiError(
+          readString(errorData.message) || readString(errorData.error) || "Remote event stream failed",
+          500,
+          event,
+        );
+      }
+      yield { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function parseSseData(buffer: string): { events: string[]; rest: string } {

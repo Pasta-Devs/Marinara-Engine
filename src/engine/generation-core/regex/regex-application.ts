@@ -1,4 +1,4 @@
-import { applyRegexReplacement } from "../../shared/regex/regex-replacement";
+import { applyRegexScriptReplacement } from "../../shared/regex/regex-script-application";
 
 type RegexPlacement = "ai_output" | "user_input";
 
@@ -91,11 +91,9 @@ function applyRegexScriptsToPromptText(
       const flags = typeof script.flags === "string" ? script.flags : "";
       const re = new RegExp(findRegex, flags);
       const replacement = typeof script.replaceString === "string" ? script.replaceString : "";
-      result = applyRegexReplacement(result, re, replacement, (value) => resolveScriptString(value, options));
-      for (const trim of parseTrimStrings(script.trimStrings)) {
-        const resolvedTrim = resolveScriptString(trim, options);
-        if (resolvedTrim) result = result.split(resolvedTrim).join("");
-      }
+      result = applyRegexScriptReplacement(result, re, replacement, parseTrimStrings(script.trimStrings), (value) =>
+        resolveScriptString(value, options),
+      );
     } catch {
       /* invalid regex — skip */
     }

@@ -179,6 +179,19 @@ function characterSearchValues(character: { id?: string; data: unknown; comment?
   ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 }
 
+function characterGreetingData(character: { data?: unknown } | null | undefined): {
+  firstMes: string;
+  altGreetings: string[];
+} {
+  const data = character?.data && typeof character.data === "object" ? (character.data as Record<string, unknown>) : {};
+  return {
+    firstMes: typeof data.first_mes === "string" ? data.first_mes : "",
+    altGreetings: Array.isArray(data.alternate_greetings)
+      ? data.alternate_greetings.filter((greeting): greeting is string => typeof greeting === "string")
+      : [],
+  };
+}
+
 function characterMatchesSearch(
   character: { id?: string; data: unknown; comment?: string | null },
   search: string,
@@ -1193,36 +1206,22 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         if (!userEditedName) updateData.name = buildAutoName(current);
         updateChat.mutate(updateData, {
           onSuccess: () => {
-            void storageApi
-              .get<{ data?: unknown }>("characters", charId)
-              .then((char) => {
-                const parsed =
-                  char?.data && typeof char.data === "object" ? (char.data as Record<string, unknown>) : {};
-                const firstMes = typeof parsed.first_mes === "string" ? parsed.first_mes : "";
-                const altGreetings = Array.isArray(parsed.alternate_greetings)
-                  ? parsed.alternate_greetings.filter((greeting): greeting is string => typeof greeting === "string")
-                  : [];
-                if (firstMes) {
-                  createMessage
-                    .mutateAsync({ role: "assistant", content: firstMes, characterId: charId })
-                    .then(async (msg) => {
-                      if (msg?.id && altGreetings.length > 0) {
-                        for (const greeting of altGreetings) {
-                          if (greeting.trim()) {
-                            await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting, { activate: false });
-                          }
-                        }
-                        queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
-                      }
-                    })
-                    .catch((error) => {
-                      toast.error(error instanceof Error ? error.message : "Failed to add character greeting.");
-                    });
+            void (async () => {
+              const selectedCharacter = await storageApi.get<{ data?: unknown }>("characters", charId);
+              const { firstMes, altGreetings } = characterGreetingData(selectedCharacter);
+              if (!firstMes) return;
+              const msg = await createMessage.mutateAsync({ role: "assistant", content: firstMes, characterId: charId });
+              if (msg?.id && altGreetings.length > 0) {
+                for (const greeting of altGreetings) {
+                  if (greeting.trim()) {
+                    await storageApi.addChatMessageSwipe(chat.id, msg.id, greeting, { activate: false });
+                  }
                 }
-              })
-              .catch((error) => {
-                toast.error(error instanceof Error ? error.message : "Failed to load character greeting.");
-              });
+                queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
+              }
+            })().catch((error) => {
+              toast.error(error instanceof Error ? error.message : "Failed to add character greeting.");
+            });
           },
         });
       }

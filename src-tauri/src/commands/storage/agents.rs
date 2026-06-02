@@ -88,6 +88,12 @@ fn run_agent_type(run: &Value) -> Option<&str> {
         .and_then(Value::as_str)
 }
 
+fn run_chat_id(run: &Value) -> Option<&str> {
+    run.get("chatId")
+        .or_else(|| run.get("chat_id"))
+        .and_then(Value::as_str)
+}
+
 fn run_agent_config_id(run: &Value) -> Option<&str> {
     run.get("agentConfigId")
         .or_else(|| run.get("agent_config_id"))
@@ -341,26 +347,13 @@ pub(crate) fn clear_agent_runs_and_memory_for_chat(
         }
     }
 
-    let mut filters = Map::new();
-    filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
+    let deleted_runs = state
+        .storage
+        .delete_where_matching("agent-runs", |row| run_chat_id(row) == Some(chat_id))?;
 
-    let mut deleted_runs = 0;
-    for row in list_agent_runs_for_chat(state, chat_id)? {
-        if let Some(id) = row.get("id").and_then(Value::as_str) {
-            if state.storage.delete("agent-runs", id)? {
-                deleted_runs += 1;
-            }
-        }
-    }
-
-    let mut deleted_memory = 0;
-    for row in state.storage.list_where("agent-memory", &filters)? {
-        if let Some(id) = row.get("id").and_then(Value::as_str) {
-            if state.storage.delete("agent-memory", id)? {
-                deleted_memory += 1;
-            }
-        }
-    }
+    let deleted_memory = state.storage.delete_where_matching("agent-memory", |row| {
+        row.get("chatId").and_then(Value::as_str) == Some(chat_id)
+    })?;
 
     let preserved_secret_plot_arc = secret_plot_config_id.is_some() && preserved_arc.is_some();
     if let (Some(config_id), Some(arc)) = (secret_plot_config_id, preserved_arc) {
@@ -461,25 +454,19 @@ fn clear_agent_memory(state: &AppState, agent_config_id: &str, chat_id: &str) ->
 }
 
 pub(crate) fn echo_messages(state: &AppState, method: &str, chat_id: &str) -> AppResult<Value> {
-    let rows = list_agent_runs_for_chat(state, chat_id)?;
     match method {
-        "GET" => Ok(Value::Array(
-            rows.into_iter()
-                .filter(|run| run_result_type(run) == Some("echo_message"))
-                .collect(),
-        )),
+        "GET" => {
+            let rows = list_agent_runs_for_chat(state, chat_id)?;
+            Ok(Value::Array(
+                rows.into_iter()
+                    .filter(|run| run_result_type(run) == Some("echo_message"))
+                    .collect(),
+            ))
+        }
         "DELETE" => {
-            let mut deleted = 0;
-            for row in rows
-                .into_iter()
-                .filter(|run| run_result_type(run) == Some("echo_message"))
-            {
-                if let Some(id) = row.get("id").and_then(Value::as_str) {
-                    if state.storage.delete("agent-runs", id)? {
-                        deleted += 1;
-                    }
-                }
-            }
+            let deleted = state.storage.delete_where_matching("agent-runs", |run| {
+                run_chat_id(run) == Some(chat_id) && run_result_type(run) == Some("echo_message")
+            })?;
             Ok(json!({ "deleted": deleted }))
         }
         _ => Err(AppError::new(

@@ -518,6 +518,26 @@ def model_call(client, messages, stats):
     return resp.choices[0].message.content or ""
 
 
+def extract_json_or_repair(client, messages, content, stats):
+    try:
+        return extract_json(content)
+    except ValueError:
+        repair_messages = [
+            *messages,
+            {"role": "assistant", "content": content},
+            {
+                "role": "user",
+                "content": (
+                    "The previous response did not contain a JSON object. Reply only "
+                    "with FINAL_REVIEW followed by one JSON object matching the required "
+                    "Bunny Review schema. Do not include prose, Markdown, or another "
+                    "context request."
+                ),
+            },
+        ]
+        return extract_json(model_call(client, repair_messages, stats))
+
+
 def review_packet_with_model(client, skill, triage_content, stats):
     messages = [
         {"role": "system", "content": skill},
@@ -526,7 +546,7 @@ def review_packet_with_model(client, skill, triage_content, stats):
     first_response = model_call(client, messages, stats)
     request = parse_context_request(first_response)
     if request is None:
-        return extract_json(first_response)
+        return extract_json_or_repair(client, messages, first_response, stats)
     extra_context = build_extra_context(request, stats)
     final_messages = [
         {"role": "system", "content": skill},
@@ -541,7 +561,8 @@ def review_packet_with_model(client, skill, triage_content, stats):
             ),
         },
     ]
-    return extract_json(model_call(client, final_messages, stats))
+    final_response = model_call(client, final_messages, stats)
+    return extract_json_or_repair(client, final_messages, final_response, stats)
 
 
 def skeptical_review_pass(client, skill, triage_content, stats):
@@ -561,7 +582,8 @@ def skeptical_review_pass(client, skill, triage_content, stats):
         {"role": "user", "content": triage_content},
         {"role": "user", "content": audit_prompt},
     ]
-    return extract_json(model_call(client, messages, stats))
+    response = model_call(client, messages, stats)
+    return extract_json_or_repair(client, messages, response, stats)
 
 
 def judge_review_pass(client, skill, triage_content, broad_review, skeptical_review, stats):
@@ -581,7 +603,8 @@ def judge_review_pass(client, skill, triage_content, broad_review, skeptical_rev
         {"role": "user", "content": triage_content},
         {"role": "user", "content": judge_prompt},
     ]
-    return extract_json(model_call(client, messages, stats))
+    response = model_call(client, messages, stats)
+    return extract_json_or_repair(client, messages, response, stats)
 
 
 def three_pass_review(client, skill, triage_content, stats):
@@ -703,13 +726,20 @@ def validate_findings(review_obj, base):
         if finding.severity not in severities:
             finding.severity = "medium"
         if not finding.path or finding.path not in allowed:
-            invalid.append(f"{finding.path or '<missing path>'}: not in changed files")
+            invalid.append(
+                f"{finding.severity} '{finding.title or '<untitled>'}' at "
+                f"{finding.path or '<missing path>'}: not in changed files"
+            )
             continue
         if not isinstance(finding.line, int):
-            invalid.append(f"{finding.path}: missing integer line for '{finding.title}'")
+            invalid.append(
+                f"{finding.severity} '{finding.title or '<untitled>'}' at "
+                f"{finding.path}: missing integer line"
+            )
             continue
         if finding.line not in allowed.get(finding.path, set()):
             invalid.append(
+                f"{finding.severity} '{finding.title or '<untitled>'}' at "
                 f"{finding.path}:{finding.line}: line is not an added/changed diff line"
             )
             continue
@@ -764,12 +794,12 @@ def commit_subject(head_sha):
     return " ".join(result.stdout.split())
 
 
-def commit_line(head_sha, message=None):
+def commit_line(head_sha, message=None, label="Commit"):
     subject = " ".join(str(message or "").split()) or commit_subject(head_sha)
     ref = short_ref(head_sha)
     if subject:
-        return f"Commit: {ref} - {subject}"
-    return f"Commit: {ref}"
+        return f"{label}: {ref} - {subject}"
+    return f"{label}: {ref}"
 
 
 def md_cell(value):
@@ -830,11 +860,20 @@ def finding_summary(findings):
     return f"{len(findings)} finding(s): " + ", ".join(pieces)
 
 
+def has_failed_review_check(pre_merge):
+    return any(
+        str(item.get("name", "")).strip().lower() == "review failed"
+        and status_meta(item.get("status"))["label"] == "FAIL"
+        for item in pre_merge
+    )
+
+
 def review_callout(findings, pre_merge):
     has_blocking = any(
         severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
         for finding in findings
     )
+    review_failed = has_failed_review_check(pre_merge)
     has_failed_check = any(
         status_meta(item.get("status"))["label"] == "FAIL" for item in pre_merge
     )
@@ -843,6 +882,14 @@ def review_callout(findings, pre_merge):
         for item in pre_merge
     )
     summary = finding_summary(findings)
+    if review_failed and not findings:
+        return "\n".join(
+            [
+                "> [!CAUTION]",
+                "> **Specimen unexamined.** Bunny Review did not complete, so no model findings are available.",
+                "> Repair the failed review control or rerun Bunny before treating this PR as reviewed.",
+            ]
+        )
     if has_blocking or has_failed_check:
         return "\n".join(
             [
@@ -877,8 +924,8 @@ def render_review_metadata(review_obj, head_sha):
         [
             "> [!NOTE]",
             f"> Mode: `{mode}`  ",
-            f"> {commit_line(head_sha, commit_message)}  ",
-            f"> Base: `{short_ref(base)}`",
+            f"> {commit_line(head_sha, commit_message, label='Head')}  ",
+            f"> {commit_line(base, label='Base')}",
         ]
     )
 
@@ -905,11 +952,7 @@ def agent_prompt_for_finding(finding):
 
 
 def render_agent_prompt(findings):
-    sections = [
-        "Use this as an implementation handoff, not as reviewer prose. Keep the response "
-        "concise, technical, and direct.",
-    ]
-    sections.extend(agent_prompt_for_finding(finding) for finding in findings)
+    sections = [agent_prompt_for_finding(finding) for finding in findings]
     return code_block_text("\n\n".join(sections))
 
 
@@ -1018,9 +1061,14 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         pre_merge = [item for item in pre_merge if not is_stale_ci_check(item)]
         checked = [item for item in checked if not is_stale_ci_text(str(item))]
         pre_merge = ci_status_to_pre_merge_checks(normalized_ci_status) + pre_merge
+    state_marker = (
+        f"<!-- bunny-review:last-reviewed-sha={head_sha} -->"
+        if head_sha and not has_failed_review_check(pre_merge)
+        else "<!-- bunny-review:last-reviewed-sha=unrecorded -->"
+    )
     body = [
         BUNNY_MARKER,
-        f"<!-- bunny-review:last-reviewed-sha={head_sha} -->",
+        state_marker,
         "## 🐰 Bunny Review",
         "",
         review_callout(findings, pre_merge),
@@ -1047,7 +1095,16 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
                 f"{md_cell(finding.title)} |"
             )
     else:
-        body.extend(["", "> [!TIP]", "> No actionable defects isolated."])
+        if has_failed_review_check(pre_merge):
+            body.extend(
+                [
+                    "",
+                    "> [!CAUTION]",
+                    "> No model findings are available because Bunny Review failed before completing inspection.",
+                ]
+            )
+        else:
+            body.extend(["", "> [!TIP]", "> No actionable defects isolated."])
     agent_prompt = render_agent_prompt_details(
         findings, "🤖 Repair prompt for isolated Bunny findings"
     )
@@ -1086,6 +1143,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
                 f"> Withheld {len(invalid_findings)} model finding(s) because their diff locations failed validation.",
             ]
         )
+        body.extend([f"- {note}" for note in invalid_findings[:5]])
     if normalized_ci_status:
         body.extend(["", "### 🧰 CI Status", normalized_ci_status])
     return "\n".join(body).strip() + "\n"
@@ -1151,11 +1209,91 @@ def model_failure_detail(exc):
     )
 
 
+def current_head_sha():
+    result = run(["git", "rev-parse", "HEAD"], timeout=30, check=True)
+    return result.stdout.strip()
+
+
+def ensure_local_head(head_sha, pr_num):
+    if not head_sha or current_head_sha() == head_sha:
+        return
+    if pr_num:
+        run(
+            [
+                "git",
+                "fetch",
+                "--force",
+                "origin",
+                f"pull/{pr_num}/head:refs/remotes/bunny-review/pr-{pr_num}",
+            ],
+            timeout=120,
+        )
+    checkout = run(["git", "checkout", "--detach", head_sha], timeout=90)
+    if checkout.returncode != 0:
+        raise RuntimeError(
+            "Local checkout does not contain the PR head GitHub reported: "
+            f"{head_sha}\n{checkout.stdout}{checkout.stderr}"
+        )
+    actual = current_head_sha()
+    if actual != head_sha:
+        raise RuntimeError(f"Local checkout is {actual}, expected PR head {head_sha}")
+
+
+def issue_comments(pr_num):
+    gh = run_gh(
+        [
+            "api",
+            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/{pr_num}/comments?per_page=100",
+            "--paginate",
+        ],
+        check=True,
+    )
+    return load_json_list(gh.stdout)
+
+
+def sorted_walkthrough_comments(pr_num):
+    walkthroughs = [
+        comment for comment in issue_comments(pr_num) if BUNNY_MARKER in comment.get("body", "")
+    ]
+    return sorted(
+        walkthroughs,
+        key=lambda comment: (
+            comment.get("updated_at") or "",
+            comment.get("created_at") or "",
+            comment.get("id") or 0,
+        ),
+    )
+
+
+def latest_walkthrough_comment(pr_num):
+    walkthroughs = sorted_walkthrough_comments(pr_num)
+    if not walkthroughs:
+        return None
+    return walkthroughs[-1]
+
+
+def is_completed_review_body(body):
+    if not STATE_MARKER_RE.search(body):
+        return False
+    lowered = body.lower()
+    failed_markers = (
+        "review failed",
+        "specimen unexamined",
+        "could not complete",
+        "no model findings are available",
+        "review skipped",
+    )
+    return not any(marker in lowered for marker in failed_markers)
+
+
 def discover_last_reviewed_sha(pr_num):
-    gh = run_gh(["pr", "view", pr_num, "--json", "comments", "--jq", ".comments[].body"])
-    matches = STATE_MARKER_RE.findall(gh.stdout)
-    if matches:
-        return matches[-1]
+    for comment in reversed(sorted_walkthrough_comments(pr_num)):
+        body = comment.get("body", "")
+        if not is_completed_review_body(body):
+            continue
+        matches = STATE_MARKER_RE.findall(body)
+        if matches:
+            return matches[-1]
     return None
 
 
@@ -1182,7 +1320,8 @@ def resolve_review_base(pr_num, requested_mode):
     previous = discover_last_reviewed_sha(pr_num)
     if previous:
         exists = run(["git", "cat-file", "-e", f"{previous}^{{commit}}"])
-        if exists.returncode == 0:
+        ancestor = run(["git", "merge-base", "--is-ancestor", previous, head_sha])
+        if exists.returncode == 0 and ancestor.returncode == 0:
             return previous, base_ref, head_sha, "incremental"
     return f"origin/{base_ref}", base_ref, head_sha, "full"
 
@@ -1210,6 +1349,7 @@ def produce_review(args):
     pr_num = os.environ.get("PR_NUM", "")
     requested_mode = args.mode or parse_command_mode()
     base, base_ref, head_sha, effective_mode = resolve_review_base(pr_num, requested_mode)
+    ensure_local_head(head_sha, pr_num)
     patch_command_status_running(pr_num, head_sha, effective_mode)
     ci_status = os.environ.get("CI_STATUS", "")
     files = changed_files(base)
@@ -1354,40 +1494,14 @@ def render_review(args):
 
 
 def find_walkthrough_comment(pr_num):
-    gh = run_gh(
-        [
-            "api",
-            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/{pr_num}/comments?per_page=100",
-            "--paginate",
-        ],
-        check=True,
-    )
-    try:
-        comments = json.loads(gh.stdout or "[]")
-    except json.JSONDecodeError:
-        comments = []
-        for line in gh.stdout.splitlines():
-            if not line.strip():
-                continue
-            loaded = json.loads(line)
-            if isinstance(loaded, list):
-                comments.extend(loaded)
-    for comment in comments:
-        if BUNNY_MARKER in comment.get("body", ""):
-            return comment.get("id")
+    comment = latest_walkthrough_comment(pr_num)
+    if comment:
+        return comment.get("id")
     return None
 
 
 def find_command_status_comment(pr_num):
-    gh = run_gh(
-        [
-            "api",
-            f"repos/{os.environ['GITHUB_REPOSITORY']}/issues/{pr_num}/comments?per_page=100",
-            "--paginate",
-        ],
-        check=True,
-    )
-    for comment in load_json_list(gh.stdout):
+    for comment in issue_comments(pr_num):
         if COMMAND_STATUS_MARKER in comment.get("body", ""):
             return comment.get("id")
     return None
@@ -1508,7 +1622,9 @@ def post_review(args):
     pr_num = os.environ["PR_NUM"]
     body = pathlib.Path(args.review_md).read_text("utf-8")
     head_sha_match = STATE_MARKER_RE.search(body)
-    head_sha = head_sha_match.group(1) if head_sha_match else ""
+    head_sha = head_sha_match.group(1) if head_sha_match else os.environ.get(
+        "PR_HEAD_SHA", ""
+    )
     comment_id = find_walkthrough_comment(pr_num)
     if comment_id:
         run_gh(

@@ -161,11 +161,13 @@
 }
 
 .tracker-stat-fill {
+  width: 100%;
   height: 100%;
   border-radius: inherit;
   background: var(--primary);
+  transform-origin: left center;
   transition-duration: 200ms;
-  transition-property: width;
+  transition-property: transform;
 }
 
 .tracker-stat-fill--instrument {

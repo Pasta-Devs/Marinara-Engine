@@ -54,6 +54,7 @@ import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { createMessageMacroResolver } from "../../../../../shared/lib/chat-macros";
 import { useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
+import { playTextBlip } from "../../../../../shared/lib/text-blip-sound";
 import { useTranslate } from "../../../../../shared/hooks/use-translate";
 import { storageApi } from "../../../../../shared/api/storage-api";
 import { ttsService } from "../../../../../shared/lib/tts-service";
@@ -1004,6 +1005,8 @@ export const ChatMessage = memo(function ChatMessage({
     collapseHiddenMessages,
     editMessagesOnDoubleClick,
     quoteFormat,
+    textBlipMode,
+    customTextBlipSound,
   } = useUIStore(
     useShallow((s) => ({
       chatFontSize: s.chatFontSize,
@@ -1022,6 +1025,8 @@ export const ChatMessage = memo(function ChatMessage({
       collapseHiddenMessages: s.summaryPopoverSettings.collapseHiddenMessages,
       editMessagesOnDoubleClick: s.editMessagesOnDoubleClick,
       quoteFormat: s.quoteFormat,
+      textBlipMode: s.textBlipMode,
+      customTextBlipSound: s.customTextBlipSound,
     })),
   );
   const isGuided = guideGenerations;
@@ -1081,6 +1086,7 @@ export const ChatMessage = memo(function ChatMessage({
   const scrollRestoreRef = useRef<{ el: HTMLElement; top: number } | null>(null);
   const lastMessageTapAtRef = useRef(0);
   const msgRef = useRef<HTMLDivElement>(null);
+  const blipContentRef = useRef<{ messageId: string; length: number }>({ messageId: message.id, length: 0 });
   const openImageLightbox = useCallback((url: string, prompt?: unknown) => {
     setAvatarLightbox(url);
     setAvatarLightboxPrompt(typeof prompt === "string" ? prompt.trim() : null);
@@ -1089,6 +1095,19 @@ export const ChatMessage = memo(function ChatMessage({
     setAvatarLightbox(null);
     setAvatarLightboxPrompt(null);
   }, []);
+
+  useEffect(() => {
+    const previous = blipContentRef.current;
+    const nextLength = message.content.length;
+    blipContentRef.current = { messageId: message.id, length: nextLength };
+
+    if (previous.messageId !== message.id) return;
+    if (!isStreaming || isUser || isSystem || editing) return;
+    if (nextLength <= previous.length) return;
+    if (!message.content.slice(previous.length).trim()) return;
+
+    playTextBlip({ mode: textBlipMode, customSound: customTextBlipSound });
+  }, [customTextBlipSound, editing, isStreaming, isSystem, isUser, message.content, message.id, textBlipMode]);
 
   // Translation
   const { translate, translations, translating } = useTranslate();

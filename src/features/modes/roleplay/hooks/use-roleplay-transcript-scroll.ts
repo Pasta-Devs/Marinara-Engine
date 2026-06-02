@@ -36,6 +36,7 @@ export function useRoleplayTranscriptScroll({
   const userScrolledAwayRef = useRef(false);
   const lastScrollTopRef = useRef(0);
   const userScrolledAtRef = useRef(0);
+  const openedAtBottomChatIdRef = useRef<string | null>(null);
   const streamBuffer = useChatStore((state) => state.streamBuffers.get(activeChatId) ?? state.streamBuffer);
   const thinkingBuffer = useChatStore((state) => state.thinkingBuffers.get(activeChatId) ?? state.thinkingBuffer);
 
@@ -83,6 +84,17 @@ export function useRoleplayTranscriptScroll({
   const newestMsgRole = messages?.[messages.length - 1]?.role;
   const isOptimistic = newestMsgId?.startsWith("__optimistic_");
   const forceScrollToNewest = isOptimistic || (isStreaming && newestMsgRole === "user");
+  useLayoutEffect(() => {
+    if (openedAtBottomChatIdRef.current === activeChatId || !messages?.length || isLoadingMoreRef.current) return;
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollTop = element.scrollHeight;
+    lastScrollTopRef.current = element.scrollTop;
+    isNearBottomRef.current = true;
+    userScrolledAwayRef.current = false;
+    openedAtBottomChatIdRef.current = activeChatId;
+  }, [activeChatId, messages?.length, newestMsgId]);
+
   useEffect(() => {
     if (isLoadingMoreRef.current) return;
     if (forceScrollToNewest || (isNearBottomRef.current && !userScrolledAwayRef.current)) {

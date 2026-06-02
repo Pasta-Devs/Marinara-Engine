@@ -4,6 +4,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
+import {
+  AlertTriangle,
+  BookOpen,
+  Folder,
+  Globe,
+  HelpCircle,
+  History,
+  Image,
+  ListRestart,
+  Loader2,
+  MoreHorizontal,
+  Play,
+  Plug,
+  RefreshCw,
+  RotateCcw,
+  ScrollText,
+  Settings2,
+  Square,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { gameApi } from "../api/game-api";
@@ -63,10 +85,7 @@ import { formatTextQuotes } from "../../../../shared/lib/dialogue-quotes";
 import { cn, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { audioManager } from "../lib/game-audio";
-import {
-  canStartGameWithConnection,
-  GAME_START_CONNECTION_REQUIRED_MESSAGE,
-} from "../lib/game-start-connection";
+import { canStartGameWithConnection, GAME_START_CONNECTION_REQUIRED_MESSAGE } from "../lib/game-start-connection";
 import {
   GAME_AUDIO_SETTINGS_STORAGE_KEY,
   getEffectiveVolume,
@@ -92,12 +111,11 @@ import { normalizeGameSegmentEdit, serializeGameSegmentEdit, type GameSegmentEdi
 import { useGameSceneAnalysis } from "../hooks/use-game-scene-analysis";
 import { usePartyTurn } from "../hooks/use-party-turn";
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
-import {
-  flushPendingGameMetadataPatches,
-  persistGameMetadataPatch,
-} from "../lib/game-metadata-persistence";
+import { flushPendingGameMetadataPatches, persistGameMetadataPatch } from "../lib/game-metadata-persistence";
 import { dispatchSpotifySceneTrackChange } from "../../../../shared/lib/spotify-playback-events";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
+import { Modal } from "../../../../shared/components/ui/Modal";
+import type { Chat, Message } from "../../../../engine/contracts/types/chat";
 import type {
   CombatInitState,
   CombatPartyMember,
@@ -115,6 +133,9 @@ import type {
   DiceRollResult,
   HudWidget,
   SkillCheckResult,
+  SessionSummary,
+  Combatant,
+  GameCombatStateSnapshot,
 } from "../../../../engine/contracts/types/game";
 import type { GameState, InventoryItem } from "../../../../engine/contracts/types/game-state";
 import type {
@@ -142,24 +163,19 @@ import { GameDiceResult } from "./GameDiceResult";
 import { GameSkillCheckResult } from "./GameSkillCheckResult";
 import { GameElementReaction } from "./GameElementReaction";
 import { GameTravelView } from "./GameTravelView";
-import { GameSessionHistory, type CurrentSessionSecrets } from "./GameSessionHistory";
+import type { CurrentSessionSecrets } from "./GameSessionHistory";
 import { GameTransitionManager } from "./GameTransitionManager";
 import { GameChoiceCards } from "./GameChoiceCards";
 import { GameQteOverlay } from "./GameQteOverlay";
-import { GameJournal } from "./GameJournal";
-import { GameCheckpoints } from "./GameCheckpoints";
 import { GameJsonRepairModal } from "./GameJsonRepairModal";
 import {
   ImagePromptReviewModal as GameImagePromptReviewModal,
   type ImagePromptOverride as GameImagePromptOverride,
   type ImagePromptReviewItem as GameImagePromptReviewItem,
 } from "../../../../shared/components/ui/ImagePromptReviewModal";
-import { GameTutorial } from "./GameTutorial";
 import { DirectionEngine } from "./DirectionEngine";
 import { GameWidgetPanel, GameWidgetSessionPrepModal, MobileWidgetPanel } from "./GameWidgetPanel";
 import { WeatherEffects } from "../../../runtime/visuals/index";
-import { GameInventory } from "./GameInventory";
-import { GameReadableDisplay } from "./GameReadableDisplay";
 import {
   buildMissingSceneAssetGenerationPayload,
   normalizeSceneAssetNameForGeneration,
@@ -167,6 +183,7 @@ import {
 import { ChatGalleryDrawer } from "../../shared/chat-ui/index";
 import type { ReadableTag } from "../lib/game-tag-parser";
 import type { DirectionCommand, GameNpc } from "../../../../engine/contracts/types/game";
+import type { CharacterMap, PersonaInfo } from "../../shared/chat-ui/types";
 
 type JournalReadable = ReadableTag & {
   sourceMessageId?: string | null;
@@ -1004,10 +1021,51 @@ const GameCombatUI = lazy(async () => {
   return { default: module.GameCombatUI };
 });
 
-import { Modal } from "../../../../shared/components/ui/Modal";
-import type { Chat, Message } from "../../../../engine/contracts/types/chat";
-import type { SessionSummary, Combatant, GameCombatStateSnapshot } from "../../../../engine/contracts/types/game";
-import type { CharacterMap, PersonaInfo } from "../../shared/chat-ui/types";
+const GameSessionHistory = lazy(async () => {
+  const module = await import("./GameSessionHistory");
+  return { default: module.GameSessionHistory };
+});
+
+const GameJournal = lazy(async () => {
+  const module = await import("./GameJournal");
+  return { default: module.GameJournal };
+});
+
+const GameCheckpoints = lazy(async () => {
+  const module = await import("./GameCheckpoints");
+  return { default: module.GameCheckpoints };
+});
+
+const GameInventory = lazy(async () => {
+  const module = await import("./GameInventory");
+  return { default: module.GameInventory };
+});
+
+const GameReadableDisplay = lazy(async () => {
+  const module = await import("./GameReadableDisplay");
+  return { default: module.GameReadableDisplay };
+});
+
+const GameTutorial = lazy(async () => {
+  const module = await import("./GameTutorial");
+  return { default: module.GameTutorial };
+});
+
+function GameOverlayLoadingFallback({ label, zClassName = "z-40" }: { label: string; zClassName?: string }) {
+  return (
+    <div
+      className={cn(
+        "pointer-events-auto absolute inset-0 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm",
+        zClassName,
+      )}
+    >
+      <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/70 px-3 py-2 text-xs font-semibold text-white/80 shadow-xl">
+        <Loader2 size={14} className="animate-spin" />
+        <span>{label}</span>
+      </div>
+    </div>
+  );
+}
 
 type InventoryNotificationKind = "gain" | "loss" | "use-pending" | "use-kept" | "use-consumed" | "error";
 
@@ -1547,29 +1605,6 @@ function renameInventoryItem<T extends { name: string; quantity: number }>(
     resolvedName: normalizeInventoryName(mergeTarget.name) || cleanedNextName,
   };
 }
-
-import {
-  AlertTriangle,
-  BookOpen,
-  Folder,
-  Globe,
-  HelpCircle,
-  History,
-  Image,
-  ListRestart,
-  Loader2,
-  MoreHorizontal,
-  Play,
-  Plug,
-  RefreshCw,
-  RotateCcw,
-  ScrollText,
-  Settings2,
-  Square,
-  Volume2,
-  VolumeX,
-  X,
-} from "lucide-react";
 
 /** Randomly sample up to `max` items from an array (Fisher-Yates shuffle). */
 function sampleTags(tags: string[], max: number): string[] {
@@ -5370,7 +5405,14 @@ export function GameSurface({
         toast.error(message);
       }
     },
-    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, showInventoryNotifications, updateChatMetadata],
+    [
+      activeChatId,
+      inventoryItems,
+      patchVisibleGameState,
+      publishSessionChat,
+      showInventoryNotifications,
+      updateChatMetadata,
+    ],
   );
 
   const handleClearInventoryItem = useCallback(
@@ -5439,7 +5481,14 @@ export function GameSurface({
         toast.error(message);
       }
     },
-    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, showInventoryNotifications, updateChatMetadata],
+    [
+      activeChatId,
+      inventoryItems,
+      patchVisibleGameState,
+      publishSessionChat,
+      showInventoryNotifications,
+      updateChatMetadata,
+    ],
   );
 
   const handleUseCombatInventoryItem = useCallback(
@@ -5507,7 +5556,14 @@ export function GameSurface({
         toast.error(message);
       }
     },
-    [activeChatId, inventoryItems, patchVisibleGameState, publishSessionChat, showInventoryNotifications, updateChatMetadata],
+    [
+      activeChatId,
+      inventoryItems,
+      patchVisibleGameState,
+      publishSessionChat,
+      showInventoryNotifications,
+      updateChatMetadata,
+    ],
   );
 
   const handleRenameInventoryItem = useCallback(
@@ -8141,7 +8197,11 @@ export function GameSurface({
   }
 
   return (
-    <div className="relative flex h-full overflow-hidden bg-black mari-card-css" data-chat-mode="game" style={{ isolation: "isolate" }}>
+    <div
+      className="relative flex h-full overflow-hidden bg-black mari-card-css"
+      data-chat-mode="game"
+      style={{ isolation: "isolate" }}
+    >
       <GameTransitionManager gameState={gameState} location={gameSnapshot?.location ?? null}>
         <DirectionEngine
           directions={activeDirections}
@@ -8994,65 +9054,69 @@ export function GameSurface({
                 )}
 
                 {/* Session history panel (full overlay) */}
-                {historyOpen && (
-                  <GameSessionHistory
-                    summaries={sessionSummaries}
-                    currentSessionNumber={displaySessionNumber}
-                    currentSessionDate={
-                      (chatMeta.gameCurrentSessionStartedAt as string | undefined) || chat.createdAt || chat.updatedAt
-                    }
-                    currentSecrets={currentSessionSecrets}
-                    savingSessionNumber={savingSessionSummary}
-                    savingCurrentSecrets={savingCurrentSessionSecrets}
-                    regeneratingSessionNumber={
-                      regenerateSessionConclusion.isPending
-                        ? (regenerateSessionConclusion.variables?.sessionNumber ?? null)
-                        : null
-                    }
-                    lorebookKeeperEnabled={chatMeta.gameLorebookKeeperEnabled === true}
-                    lorebookKeeperLastRun={
-                      chatMeta.gameLorebookKeeperLastRun &&
-                      typeof chatMeta.gameLorebookKeeperLastRun === "object" &&
-                      !Array.isArray(chatMeta.gameLorebookKeeperLastRun)
-                        ? (chatMeta.gameLorebookKeeperLastRun as {
-                            sessionNumber: number;
-                            status: "running" | "success" | "failed";
-                            updatedAt: string;
-                            entryCount?: number;
-                            error?: string;
-                          })
-                        : null
-                    }
-                    regeneratingLorebookSessionNumber={
-                      regenerateSessionLorebook.isPending
-                        ? (regenerateSessionLorebook.variables?.sessionNumber ?? null)
-                        : null
-                    }
-                    updatingPlotArcsSessionNumber={
-                      updateCampaignProgression.isPending
-                        ? (updateCampaignProgression.variables?.sessionNumber ?? null)
-                        : null
-                    }
-                    onSaveCurrentSecrets={handleSaveCurrentSessionSecrets}
-                    onSaveSession={handleSaveSessionDetails}
-                    onRegenerateSession={handleRegenerateSessionConclusion}
-                    onRegenerateLorebook={handleRegenerateSessionLorebook}
-                    onUpdatePlotArcs={handleUpdateCampaignProgression}
-                    onClose={() => setHistoryOpen(false)}
-                  />
-                )}
+                <Suspense fallback={<GameOverlayLoadingFallback label="Loading history..." />}>
+                  {historyOpen && (
+                    <GameSessionHistory
+                      summaries={sessionSummaries}
+                      currentSessionNumber={displaySessionNumber}
+                      currentSessionDate={
+                        (chatMeta.gameCurrentSessionStartedAt as string | undefined) || chat.createdAt || chat.updatedAt
+                      }
+                      currentSecrets={currentSessionSecrets}
+                      savingSessionNumber={savingSessionSummary}
+                      savingCurrentSecrets={savingCurrentSessionSecrets}
+                      regeneratingSessionNumber={
+                        regenerateSessionConclusion.isPending
+                          ? (regenerateSessionConclusion.variables?.sessionNumber ?? null)
+                          : null
+                      }
+                      lorebookKeeperEnabled={chatMeta.gameLorebookKeeperEnabled === true}
+                      lorebookKeeperLastRun={
+                        chatMeta.gameLorebookKeeperLastRun &&
+                        typeof chatMeta.gameLorebookKeeperLastRun === "object" &&
+                        !Array.isArray(chatMeta.gameLorebookKeeperLastRun)
+                          ? (chatMeta.gameLorebookKeeperLastRun as {
+                              sessionNumber: number;
+                              status: "running" | "success" | "failed";
+                              updatedAt: string;
+                              entryCount?: number;
+                              error?: string;
+                            })
+                          : null
+                      }
+                      regeneratingLorebookSessionNumber={
+                        regenerateSessionLorebook.isPending
+                          ? (regenerateSessionLorebook.variables?.sessionNumber ?? null)
+                          : null
+                      }
+                      updatingPlotArcsSessionNumber={
+                        updateCampaignProgression.isPending
+                          ? (updateCampaignProgression.variables?.sessionNumber ?? null)
+                          : null
+                      }
+                      onSaveCurrentSecrets={handleSaveCurrentSessionSecrets}
+                      onSaveSession={handleSaveSessionDetails}
+                      onRegenerateSession={handleRegenerateSessionConclusion}
+                      onRegenerateLorebook={handleRegenerateSessionLorebook}
+                      onUpdatePlotArcs={handleUpdateCampaignProgression}
+                      onClose={() => setHistoryOpen(false)}
+                    />
+                  )}
+                </Suspense>
 
-                {checkpointsOpen && (
-                  <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
-                    <div className="h-[82vh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/15 bg-[var(--card)] shadow-2xl">
-                      <GameCheckpoints
-                        chatId={activeChatId}
-                        onClose={() => setCheckpointsOpen(false)}
-                        onLoaded={handleCheckpointLoaded}
-                      />
+                <Suspense fallback={<GameOverlayLoadingFallback label="Loading checkpoints..." />}>
+                  {checkpointsOpen && (
+                    <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+                      <div className="h-[82vh] w-full max-w-3xl overflow-hidden rounded-xl border border-white/15 bg-[var(--card)] shadow-2xl">
+                        <GameCheckpoints
+                          chatId={activeChatId}
+                          onClose={() => setCheckpointsOpen(false)}
+                          onLoaded={handleCheckpointLoaded}
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </Suspense>
 
                 {combatLogsOpen && (
                   <div
@@ -9136,20 +9200,22 @@ export function GameSurface({
               </div>
 
               {/* Journal overlay — positioned on the outer column so it covers state indicator + content */}
-              {journalOpen && (
-                <GameJournal
-                  chatId={activeChatId}
-                  npcs={npcs}
-                  onClose={() => setJournalOpen(false)}
-                  onNpcPortraitClick={handleNpcPortraitClick}
-                  onNpcPortraitGenerate={handleNpcPortraitGenerate}
-                  npcPortraitGenerationEnabled={
-                    chatMeta.enableSpriteGeneration === true && typeof chatMeta.gameImageConnectionId === "string"
-                  }
-                  generatingNpcPortraitNames={generatingNpcPortraitNames}
-                  onNpcRemove={handleRemoveNpcFromJournal}
-                />
-              )}
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading journal..." />}>
+                {journalOpen && (
+                  <GameJournal
+                    chatId={activeChatId}
+                    npcs={npcs}
+                    onClose={() => setJournalOpen(false)}
+                    onNpcPortraitClick={handleNpcPortraitClick}
+                    onNpcPortraitGenerate={handleNpcPortraitGenerate}
+                    npcPortraitGenerationEnabled={
+                      chatMeta.enableSpriteGeneration === true && typeof chatMeta.gameImageConnectionId === "string"
+                    }
+                    generatingNpcPortraitNames={generatingNpcPortraitNames}
+                    onNpcRemove={handleRemoveNpcFromJournal}
+                  />
+                )}
+              </Suspense>
 
               <input
                 ref={npcPortraitUploadInputRef}
@@ -9168,7 +9234,7 @@ export function GameSurface({
               />
 
               {/* Gallery drawer */}
-              <Suspense fallback={null}>
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading gallery..." />}>
                 {galleryOpen && (
                   <ChatGalleryDrawer
                     chat={chat}
@@ -9180,34 +9246,42 @@ export function GameSurface({
               </Suspense>
 
               {/* Inventory overlay */}
-              <GameInventory
-                items={inventoryItems}
-                open={inventoryOpen}
-                onClose={() => setInventoryOpen(false)}
-                onAddItem={handleAddInventoryItem}
-                onRenameItem={handleRenameInventoryItem}
-                onRemoveItem={handleRemoveInventoryItem}
-                onClearItem={handleClearInventoryItem}
-                onIncrementItem={handleIncrementInventoryItem}
-                onReorderItem={handleReorderInventoryItem}
-                canInteract={sessionInteractive && narrationDone && !isStreaming}
-                onUseItem={handleUseInventoryItem}
-              />
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading inventory..." />}>
+                {inventoryOpen && (
+                  <GameInventory
+                    items={inventoryItems}
+                    open={inventoryOpen}
+                    onClose={() => setInventoryOpen(false)}
+                    onAddItem={handleAddInventoryItem}
+                    onRenameItem={handleRenameInventoryItem}
+                    onRemoveItem={handleRemoveInventoryItem}
+                    onClearItem={handleClearInventoryItem}
+                    onIncrementItem={handleIncrementInventoryItem}
+                    onReorderItem={handleReorderInventoryItem}
+                    canInteract={sessionInteractive && narrationDone && !isStreaming}
+                    onUseItem={handleUseInventoryItem}
+                  />
+                )}
+              </Suspense>
 
               {/* Readable document display (Notes / Books) */}
-              {activeReadable && (
-                <GameReadableDisplay
-                  type={activeReadable.type}
-                  content={activeReadable.content}
-                  onClose={() => {
-                    const next = readableQueueRef.current.shift();
-                    setActiveReadable(next ?? null);
-                  }}
-                />
-              )}
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading document..." />}>
+                {activeReadable && (
+                  <GameReadableDisplay
+                    type={activeReadable.type}
+                    content={activeReadable.content}
+                    onClose={() => {
+                      const next = readableQueueRef.current.shift();
+                      setActiveReadable(next ?? null);
+                    }}
+                  />
+                )}
+              </Suspense>
 
               {/* First-game spotlight tutorial (auto-opens once; (?) button re-opens) */}
-              <GameTutorial open={tutorialOpen} onClose={handleCloseTutorial} />
+              <Suspense fallback={<GameOverlayLoadingFallback label="Loading tutorial..." zClassName="z-[9999]" />}>
+                {tutorialOpen && <GameTutorial open={tutorialOpen} onClose={handleCloseTutorial} />}
+              </Suspense>
 
               {/* Inventory notifications */}
               {inventoryNotifications.length > 0 && (
@@ -9221,7 +9295,8 @@ export function GameSurface({
                         notification.kind === "loss" && "border-red-400/30 bg-red-900/80 text-red-200",
                         notification.kind === "use-pending" && "border-amber-300/35 bg-amber-950/85 text-amber-100",
                         notification.kind === "use-kept" && "border-sky-300/30 bg-sky-950/85 text-sky-100",
-                        notification.kind === "use-consumed" && "border-amber-300/35 bg-emerald-950/85 text-emerald-100",
+                        notification.kind === "use-consumed" &&
+                          "border-amber-300/35 bg-emerald-950/85 text-emerald-100",
                         notification.kind === "error" && "border-red-400/35 bg-red-950/85 text-red-100",
                       )}
                     >

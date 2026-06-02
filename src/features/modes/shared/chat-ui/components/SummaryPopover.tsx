@@ -2,7 +2,7 @@
 // Summary Popover — View / edit / generate chat summary
 // Shown via the scroll icon in the chat header bar.
 // ──────────────────────────────────────────────
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   useBulkSetMessagesHiddenFromAI,
@@ -197,30 +197,36 @@ export function SummaryPopover({
       : totalMessageCount > 0
         ? `Last ${Math.min(normalizedLastSize, totalMessageCount)} of ${totalMessageCount} messages`
         : "No messages yet";
-  const chatMetadata: Record<string, unknown> =
-    chatQuery.data?.metadata && typeof chatQuery.data.metadata === "object" ? chatQuery.data.metadata : {};
-  const promptTemplates: ChatSummaryPromptTemplate[] = Array.isArray(chatMetadata.summaryPromptTemplates)
-    ? chatMetadata.summaryPromptTemplates.filter((template: unknown): template is ChatSummaryPromptTemplate => {
-        if (!template || typeof template !== "object" || Array.isArray(template)) return false;
-        const record = template as Record<string, unknown>;
-        return (
-          typeof record.id === "string" &&
-          record.id.trim().length > 0 &&
-          typeof record.name === "string" &&
-          record.name.trim().length > 0 &&
-          typeof record.prompt === "string" &&
-          record.prompt.trim().length > 0
-        );
-      })
-    : [];
+  const chatMetadata = useMemo<Record<string, unknown>>(
+    () => (chatQuery.data?.metadata && typeof chatQuery.data.metadata === "object" ? chatQuery.data.metadata : {}),
+    [chatQuery.data?.metadata],
+  );
+  const promptTemplates = useMemo<ChatSummaryPromptTemplate[]>(
+    () =>
+      Array.isArray(chatMetadata.summaryPromptTemplates)
+        ? chatMetadata.summaryPromptTemplates.filter((template: unknown): template is ChatSummaryPromptTemplate => {
+            if (!template || typeof template !== "object" || Array.isArray(template)) return false;
+            const record = template as Record<string, unknown>;
+            return (
+              typeof record.id === "string" &&
+              record.id.trim().length > 0 &&
+              typeof record.name === "string" &&
+              record.name.trim().length > 0 &&
+              typeof record.prompt === "string" &&
+              record.prompt.trim().length > 0
+            );
+          })
+        : [],
+    [chatMetadata],
+  );
   const activeSummaryPromptTemplateId =
     typeof chatMetadata.activeSummaryPromptTemplateId === "string" ? chatMetadata.activeSummaryPromptTemplateId : "";
-  const summaryEntries = normalizeChatSummaryMetadata(chatMetadata).entries;
-  const enabledTokenEstimate = summaryEntries.reduce(
-    (total, entry) => (entry.enabled ? total + entry.tokenEstimate : total),
-    0,
+  const summaryEntries = useMemo(() => normalizeChatSummaryMetadata(chatMetadata).entries, [chatMetadata]);
+  const enabledTokenEstimate = useMemo(
+    () => summaryEntries.reduce((total, entry) => (entry.enabled ? total + entry.tokenEstimate : total), 0),
+    [summaryEntries],
   );
-  const disabledEntryCount = summaryEntries.filter((entry) => !entry.enabled).length;
+  const disabledEntryCount = useMemo(() => summaryEntries.filter((entry) => !entry.enabled).length, [summaryEntries]);
   const tokenWarning = enabledTokenEstimate > SUMMARY_TOKEN_WARNING_THRESHOLD;
   const hasTemplateDraft = templateNameDraft.trim().length > 0 && templatePromptDraft.trim().length > 0;
 

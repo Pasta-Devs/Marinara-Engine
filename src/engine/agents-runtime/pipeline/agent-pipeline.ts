@@ -15,6 +15,8 @@ import { executeKnowledgeRouter, type KnowledgeRouterCandidateOptions } from "..
 export interface ResolvedAgent extends AgentExecConfig {
   provider: BaseLLMProvider;
   model: string;
+  /** Maximum number of concurrent agent LLM jobs allowed for this connection. */
+  maxParallelJobs: number;
   /** Optional tool context for agents that need function calling (e.g., Spotify). */
   toolContext?: AgentToolContext;
   /** Source material selected for Knowledge Retrieval. */
@@ -39,21 +41,40 @@ export type AgentResultCallback = (result: AgentResult) => void;
 // ──────────────────────────────────────────────
 
 interface AgentGroup {
+  connectionKey: string;
   provider: BaseLLMProvider;
   model: string;
+  maxParallelJobs: number;
   agents: ResolvedAgent[];
+}
+
+function postProcessingDataAccessKey(agent: ResolvedAgent): string {
+  if (agent.phase !== "post_processing") return "turn-data:off";
+  return [
+    `pre:${agent.settings.includePreGenInjections === true ? "1" : "0"}`,
+    `parallel:${agent.settings.includeParallelResults === true ? "1" : "0"}`,
+  ].join(":");
+}
+
+function normalizeMaxParallelJobs(value: unknown): number {
+  const parsed = typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : 1;
+  return Math.max(1, Math.min(16, parsed));
 }
 
 function groupByProviderModel(agents: ResolvedAgent[]): AgentGroup[] {
   const groups = new Map<string, AgentGroup>();
 
   for (const agent of agents) {
-    const key = `${agent.connectionId ?? "default"}::${agent.model}`;
+    const maxParallelJobs = normalizeMaxParallelJobs(agent.maxParallelJobs);
+    const connectionKey = agent.connectionId ?? "default";
+    const key = `${connectionKey}::${agent.model}::${postProcessingDataAccessKey(agent)}::jobs:${maxParallelJobs}`;
     let group = groups.get(key);
     if (!group) {
       group = {
+        connectionKey,
         provider: agent.provider,
         model: agent.model,
+        maxParallelJobs,
         agents: [],
       };
       groups.set(key, group);
@@ -61,7 +82,52 @@ function groupByProviderModel(agents: ResolvedAgent[]): AgentGroup[] {
     group.agents.push(agent);
   }
 
-  return Array.from(groups.values());
+  return Array.from(groups.values()).flatMap(splitGroupByMaxParallelJobs);
+}
+
+function splitGroupByMaxParallelJobs(group: AgentGroup): AgentGroup[] {
+  const jobCount = Math.min(group.maxParallelJobs, group.agents.length);
+  if (jobCount <= 1) return [group];
+
+  const chunks = Array.from({ length: jobCount }, () => [] as ResolvedAgent[]);
+  group.agents.forEach((agent, index) => {
+    chunks[index % jobCount]!.push(agent);
+  });
+
+  return chunks
+    .filter((agents) => agents.length > 0)
+    .map((agents) => ({
+      connectionKey: group.connectionKey,
+      provider: group.provider,
+      model: group.model,
+      maxParallelJobs: group.maxParallelJobs,
+      agents,
+    }));
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = [];
+  let nextIndex = 0;
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        results[index] = { status: "fulfilled", value: await mapper(items[index]!) };
+      } catch (error) {
+        results[index] = { status: "rejected", reason: error };
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  return results;
 }
 
 function buildAgentContext(agentOrAgents: ResolvedAgent | ResolvedAgent[], context: AgentContext): AgentContext {
@@ -86,6 +152,9 @@ function buildAgentContext(agentOrAgents: ResolvedAgent | ResolvedAgent[], conte
 
 function shouldExecuteIndividually(agent: ResolvedAgent): boolean {
   return (
+    agent.type === "expression" ||
+    agent.type === "echo-chamber" ||
+    agent.type === "spotify" ||
     agent.type === "knowledge-retrieval" ||
     agent.type === "knowledge-router" ||
     Boolean(agent.toolContext?.tools.length)
@@ -214,8 +283,40 @@ async function executePhase(
     groups.map((g) => `[${g.agents.map((a) => a.type).join(", ")}] (model: ${g.model})`),
   );
 
-  // Run groups in parallel (different providers/models can work concurrently)
-  const settled = await Promise.allSettled(groups.map((group) => executeGroup(group, context, onResult)));
+  // Run groups in parallel across connections, while each connection honors its
+  // configured agent LLM job cap.
+  const groupsByConnection = new Map<string, Array<{ group: AgentGroup; index: number }>>();
+  for (let index = 0; index < groups.length; index += 1) {
+    const group = groups[index]!;
+    const connectionGroups = groupsByConnection.get(group.connectionKey) ?? [];
+    connectionGroups.push({ group, index });
+    groupsByConnection.set(group.connectionKey, connectionGroups);
+  }
+
+  const settled: PromiseSettledResult<AgentResult[]>[] = [];
+  await Promise.all(
+    Array.from(groupsByConnection.values()).map((connectionGroups) =>
+      mapWithConcurrency(
+        connectionGroups,
+        Math.max(...connectionGroups.map(({ group }) => group.maxParallelJobs)),
+        async ({ group, index }) => {
+          try {
+            const result = await executeGroup(group, context, onResult);
+            settled[index] = { status: "fulfilled", value: result };
+            return result;
+          } catch (error) {
+            settled[index] = { status: "rejected", reason: error };
+            throw error;
+          }
+        },
+      ),
+    ),
+  );
+  for (let index = 0; index < groups.length; index += 1) {
+    if (!settled[index]) {
+      settled[index] = { status: "rejected", reason: new Error("Agent group execution was not scheduled.") };
+    }
+  }
 
   const results: AgentResult[] = [];
   for (let i = 0; i < settled.length; i++) {

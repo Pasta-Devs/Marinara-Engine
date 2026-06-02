@@ -9,10 +9,11 @@ const HAPTIC_KEY = ["haptic", "status"] as const;
 export const HAPTIC_INTIFACE_URL_STORAGE_KEY = "marinara_haptic_intiface_url";
 
 /** Current haptic connection status and devices. */
-export function useHapticStatus() {
+export function useHapticStatus(options: { enabled?: boolean } = {}) {
   return useQuery<HapticStatus>({
     queryKey: HAPTIC_KEY,
     queryFn: () => hapticsApi.status(),
+    enabled: options.enabled !== false,
     refetchInterval: () => (document.hidden ? false : 15_000), // Pause while tab is hidden
   });
 }

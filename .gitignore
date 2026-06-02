@@ -13,6 +13,7 @@ dist-ssr
 *.local
 *.tsbuildinfo
 *.test.ts
+*.test.tsx
 .eslint-reports/
 
 # Bunny Review local output artifacts
@@ -49,6 +50,7 @@ src-tauri/gen/android/**/*.keystore
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo

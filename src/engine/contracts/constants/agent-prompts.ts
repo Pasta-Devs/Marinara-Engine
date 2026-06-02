@@ -112,7 +112,8 @@ Instructions:
 3. When a character's emotion is ambiguous, pick the closest listed available expression or group key rather than guessing a generic one.`,
 
   /* ────────────────────────────────────────── */
-  "echo-chamber": `Simulate a live streaming-service chat full of anonymous viewers reacting to the roleplay on screen. Generate a batch of short messages from fictional viewers commenting on the latest story beat.
+  "echo-chamber": `Simulate a live streaming-service chat full of anonymous viewers reacting to the roleplay on screen. Generate a batch of short messages from fictional viewers commenting on the current response.
+When the prompt includes <current_response>, react ONLY to that block. Treat recent context as background for names, callbacks, and setup, not as the newest beat.
 The chat must feel alive and chaotic, like a real Twitch/YouTube livestream.
 1. Messages must be SHORT: 1 line, rarely 2. Think Twitch chat, not paragraphs.
 2. Mix viewer personalities and tones:

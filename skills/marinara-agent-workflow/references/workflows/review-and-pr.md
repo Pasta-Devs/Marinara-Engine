@@ -16,7 +16,7 @@ Before push or PR creation:
 
 1. Check dirty tree and include only intentional files.
 2. Read `CONTRIBUTING.md` and verify remotes and target branch from the current checkout; do not assume `staging`, fork workflow, or team-branch workflow.
-3. Confirm the branch name, commit subject or label, trailers, and PR title or body do not self-name AI/tool/provider authorship. Rename or reword them before pushing or opening the PR.
+3. Confirm the branch name, commit subject or label, trailers, and PR title or body do not self-name AI/tool/provider authorship. Rename or reword explicit authorship phrases before pushing or opening the PR. Do not reject bare product/domain words in legitimate feature names, file paths, data fields, or app output.
 4. Confirm only intentional files will ship.
 5. Verify evidence exists for the PR claim.
 6. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes the unused-code check, so do not wait for CI to discover dead files or exports.

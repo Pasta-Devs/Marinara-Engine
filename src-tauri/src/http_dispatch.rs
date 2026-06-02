@@ -1,10 +1,9 @@
 use crate::state::AppState;
 use crate::storage_commands::{
-    admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats,
-    connection_secrets, custom_tools, entity_commands, exports, fonts, game_assets,
-    game_state_snapshots, generation, http, images, imports, integrations, knowledge, llm,
-    lorebook_images, mari, personas, profile, profile_commands, prompts, shared, sprites,
-    translation, updates,
+    admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
+    entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
+    imports, integrations, knowledge, llm, lorebook_images, mari, personas, profile,
+    profile_commands, prompts, shared, sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -867,179 +866,41 @@ fn chat_disconnect(state: &AppState, args: &Map<String, Value>) -> AppResult<Val
 }
 
 fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let options = args.get("options").filter(|value| !value.is_null());
-    let filters = options
-        .and_then(|value| value.get("filters"))
-        .and_then(Value::as_object);
-    let projection_fields = shared::projection_fields(options);
-    let empty_filters = filters.is_none_or(|filters| filters.is_empty());
-    let has_search = shared::has_storage_search(options);
-    let mut rows = match (entity, filters) {
-        ("messages", Some(filters))
-            if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
-        {
-            let chat_id = filters
-                .get("chatId")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            if !has_search {
-                if let Some((limit, before)) = message_page_options(options) {
-                    state
-                        .storage
-                        .list_messages_for_chat_page(chat_id, limit, before.as_deref())?
-                } else {
-                    state.storage.list_messages_for_chat(chat_id)?
-                }
-            } else {
-                state.storage.list_messages_for_chat(chat_id)?
-            }
-        }
-        (_, _)
-            if empty_filters
-                && has_search
-                && projection_fields
-                    .as_ref()
-                    .is_some_and(|fields| !fields.is_empty()) =>
-        {
-            let search_projection_fields = shared::search_projection_fields(options);
-            let search_projection_field_selections =
-                shared::search_projection_field_selections(options);
-            state.storage.list_projected(
-                entity,
-                &search_projection_fields,
-                &search_projection_field_selections,
-            )?
-        }
-        (_, _)
-            if empty_filters
-                && !has_search
-                && projection_fields
-                    .as_ref()
-                    .is_some_and(|fields| !fields.is_empty()) =>
-        {
-            state.storage.list_projected(
-                entity,
-                projection_fields.as_deref().unwrap_or(&[]),
-                shared::projection_field_selections(options),
-            )?
-        }
-        (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(entity, filters)?,
-        _ => state.storage.list(entity)?,
-    };
-    shared::apply_storage_search(&mut rows, options);
-
-    let order_by = options
-        .and_then(|value| value.get("orderBy"))
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty());
-    let descending = options
-        .and_then(|value| value.get("descending"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-
-    rows.sort_by(|a, b| {
-        let ordering = match order_by {
-            Some(field) => compare_json_values(a.get(field), b.get(field)),
-            None => compare_json_values(
-                a.get("sortOrder")
-                    .or_else(|| a.get("order"))
-                    .or_else(|| a.get("createdAt")),
-                b.get("sortOrder")
-                    .or_else(|| b.get("order"))
-                    .or_else(|| b.get("createdAt")),
-            ),
-        };
-        if descending {
-            ordering.reverse()
-        } else {
-            ordering
-        }
-    });
-
-    if entity == "messages" {
-        apply_message_pagination(&mut rows, options);
-        for row in &mut rows {
-            shared::materialize_message_swipe_fields(row);
-        }
-        return Ok(Value::Array(shared::project_list_rows(rows, options)));
-    }
-
-    if entity == "connections" {
-        connection_secrets::mask_connection_rows_for_read(&mut rows);
-    }
-
-    if let Some(limit) = options
-        .and_then(|value| value.get("limit"))
-        .and_then(Value::as_u64)
-        .map(|value| value as usize)
-    {
-        rows.truncate(limit);
-    }
-
-    Ok(Value::Array(shared::project_list_rows(rows, options)))
-}
-
-fn message_page_options(options: Option<&Value>) -> Option<(usize, Option<String>)> {
-    let options = options?;
-    let limit = options.get("limit").and_then(Value::as_u64)? as usize;
-    let before = options
-        .get("before")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
-    Some((limit, before))
+    entity_commands::storage_list_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        args.get("options")
+            .filter(|value| !value.is_null())
+            .cloned(),
+    )
 }
 
 fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let id = required_string(args, "id")?;
-    let mut value = state.storage.get(entity, id)?.unwrap_or(Value::Null);
-    if entity == "messages" {
-        shared::materialize_message_swipe_fields(&mut value);
-    }
-    if entity == "connections" {
-        connection_secrets::mask_connection_for_read(&mut value);
-    }
-    Ok(shared::project_record(value, args.get("options")))
+    entity_commands::storage_get_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        required_string(args, "id")?.to_string(),
+        args.get("options")
+            .filter(|value| !value.is_null())
+            .cloned(),
+    )
 }
 
 fn storage_create(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let value = optional_value(args, "value");
-    entity_commands::validate_connection_folder_for_create(state, entity, &value)?;
-    let value = entity_commands::prepare_entity_for_create(state, entity, value)?;
-    let created = state.storage.create(entity, value)?;
-    if entity == "messages" {
-        return Ok(shared::project_timeline_message(created));
-    }
-    if entity == "connections" {
-        let mut masked = created;
-        connection_secrets::mask_connection_for_read(&mut masked);
-        return Ok(masked);
-    }
-    Ok(created)
+    entity_commands::storage_create_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        optional_value(args, "value"),
+    )
 }
 
 fn storage_update(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let entity = required_string(args, "entity")?;
-    let id = required_string(args, "id")?;
-    if entity == "messages" {
-        return Ok(shared::project_timeline_message(
-            shared::patch_message_update(state, id, optional_value(args, "patch"))?,
-        ));
-    }
-    if entity == "characters" {
-        return characters::update_character(state, id, optional_value(args, "patch"));
-    }
-    let raw_patch = optional_value(args, "patch");
-    entity_commands::validate_connection_folder_for_patch(state, entity, &raw_patch)?;
-    let patch = shared::normalize_update_patch(entity, raw_patch)?;
-    if entity == "connections" {
-        return connection_secrets::patch_connection(state, id, patch);
-    }
-    state.storage.patch(entity, id, patch)
+    entity_commands::storage_update_inner(
+        state,
+        required_string(args, "entity")?.to_string(),
+        required_string(args, "id")?.to_string(),
+        optional_value(args, "patch"),
+    )
 }
 
 fn storage_delete(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -1120,10 +981,7 @@ fn chat_message_delete_swipe(state: &AppState, args: &Map<String, Value>) -> App
 }
 
 fn chat_evict_prompt_snapshots(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    let keep_last = args
-        .get("keepLast")
-        .and_then(Value::as_u64)
-        .unwrap_or(2) as usize;
+    let keep_last = args.get("keepLast").and_then(Value::as_u64).unwrap_or(2) as usize;
     chats::evict_prompt_snapshots(state, required_string(args, "chatId")?, keep_last)
 }
 
@@ -1232,74 +1090,6 @@ fn llm_stream_cancel(state: &AppState, args: &Map<String, Value>) -> AppResult<V
     llm::llm_stream_cancel(state, required_string(args, "streamId")?)
 }
 
-fn compare_json_values(left: Option<&Value>, right: Option<&Value>) -> std::cmp::Ordering {
-    match (left, right) {
-        (Some(Value::Number(a)), Some(Value::Number(b))) => a
-            .as_f64()
-            .partial_cmp(&b.as_f64())
-            .unwrap_or(std::cmp::Ordering::Equal),
-        (Some(Value::String(a)), Some(Value::String(b))) => a.cmp(b),
-        (Some(Value::Bool(a)), Some(Value::Bool(b))) => a.cmp(b),
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        _ => std::cmp::Ordering::Equal,
-    }
-}
-
-fn apply_message_pagination(rows: &mut Vec<Value>, options: Option<&Value>) {
-    rows.sort_by(|a, b| {
-        let (a_created_at, a_id) = message_cursor(a);
-        let (b_created_at, b_id) = message_cursor(b);
-        a_created_at.cmp(b_created_at).then_with(|| a_id.cmp(b_id))
-    });
-
-    let before = options
-        .and_then(|value| value.get("before"))
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .map(parse_message_cursor);
-
-    if let Some((before_created_at, before_id)) = before {
-        rows.retain(|row| {
-            let (created_at, id) = message_cursor(row);
-            created_at < before_created_at.as_str()
-                || (created_at == before_created_at.as_str()
-                    && before_id.as_deref().is_some_and(|cursor_id| id < cursor_id))
-        });
-    }
-
-    let Some(limit) = options
-        .and_then(|value| value.get("limit"))
-        .and_then(Value::as_u64)
-        .map(|value| value as usize)
-    else {
-        return;
-    };
-
-    if rows.len() > limit {
-        let keep_from = rows.len() - limit;
-        rows.drain(0..keep_from);
-    }
-}
-
-fn parse_message_cursor(cursor: &str) -> (String, Option<String>) {
-    let mut parts = cursor.splitn(2, '|');
-    let created_at = parts.next().unwrap_or_default().to_string();
-    let id = parts
-        .next()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned);
-    (created_at, id)
-}
-
-fn message_cursor(row: &Value) -> (&str, &str) {
-    (
-        row.get("createdAt").and_then(Value::as_str).unwrap_or(""),
-        row.get("id").and_then(Value::as_str).unwrap_or(""),
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1354,6 +1144,15 @@ mod tests {
         })
     }
 
+    fn default_for_agents(state: &AppState, id: &str) -> bool {
+        state
+            .storage
+            .get("connections", id)
+            .expect("connection should read")
+            .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
+            .unwrap_or(false)
+    }
+
     fn quoted_commands(source: &str) -> BTreeSet<String> {
         source
             .split('"')
@@ -1395,6 +1194,35 @@ mod tests {
                 (!command.is_empty()).then_some(command)
             })
             .collect()
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_create_rejects_unsupported_entity() {
+        let state = test_state("storage-create-unsupported-entity");
+
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_create".to_string(),
+                args: Some(json!({
+                    "entity": "typo-collection",
+                    "value": { "id": "row-1" }
+                })),
+            },
+        )
+        .await
+        .expect_err("remote storage_create should reject unsupported entities");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Unsupported storage entity: typo-collection"));
+        assert!(!state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join("typo-collection.json")
+            .exists());
     }
 
     #[test]
@@ -1460,6 +1288,164 @@ mod tests {
             result.get("mimeType"),
             Some(&Value::String("image/png".into()))
         );
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_list_uses_projected_message_reads() {
+        let state = test_state("storage-list-projected-messages");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({
+                        "id": "skip-me",
+                        "chatId": "chat-b",
+                        "content": "skip",
+                        "extra": { "large": "ignored" },
+                        "swipes": [{ "content": "skip swipe", "extra": { "thinking": "skip thought" } }]
+                    }),
+                    json!({
+                        "id": "message-1",
+                        "chatId": "chat-a",
+                        "content": "stored content",
+                        "extra": { "thinking": "visible thought", "large": "ignored" },
+                        "swipes": [{ "content": "active swipe", "extra": { "thinking": "swipe thought", "large": "ignored" } }]
+                    }),
+                ],
+            )
+            .expect("messages should be installed");
+
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_list".to_string(),
+                args: Some(json!({
+                    "entity": "messages",
+                    "options": {
+                        "filters": { "chatId": "chat-a" },
+                        "fields": ["id", "chatId", "content", "extra"],
+                        "fieldSelections": { "extra": ["thinking"] }
+                    }
+                })),
+            },
+        )
+        .await
+        .expect("remote storage_list should dispatch");
+
+        assert_eq!(
+            result,
+            json!([{
+                "id": "message-1",
+                "chatId": "chat-a",
+                "content": "active swipe",
+                "extra": { "thinking": "swipe thought" }
+            }])
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_create_connection_clears_previous_agent_default() {
+        let state = test_state("storage-create-connection-agent-default");
+        for (id, provider) in [("language-a", "anthropic"), ("language-b", "openai")] {
+            dispatch(
+                &state,
+                InvokeRequest {
+                    command: "storage_create".to_string(),
+                    args: Some(json!({
+                        "entity": "connections",
+                        "value": {
+                            "id": id,
+                            "name": id,
+                            "provider": provider,
+                            "defaultForAgents": true
+                        }
+                    })),
+                },
+            )
+            .await
+            .expect("remote connection create should dispatch");
+        }
+
+        assert!(!default_for_agents(&state, "language-a"));
+        assert!(default_for_agents(&state, "language-b"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_update_connection_clears_previous_agent_default() {
+        let state = test_state("storage-update-connection-agent-default");
+        for (id, default_for_agents) in [("language-a", true), ("language-b", false)] {
+            state
+                .storage
+                .create(
+                    "connections",
+                    json!({
+                        "id": id,
+                        "name": id,
+                        "provider": "openai",
+                        "defaultForAgents": default_for_agents
+                    }),
+                )
+                .expect("connection should be seeded");
+        }
+
+        dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_update".to_string(),
+                args: Some(json!({
+                    "entity": "connections",
+                    "id": "language-b",
+                    "patch": { "defaultForAgents": true }
+                })),
+            },
+        )
+        .await
+        .expect("remote connection update should dispatch");
+
+        assert!(!default_for_agents(&state, "language-a"));
+        assert!(default_for_agents(&state, "language-b"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_storage_update_protects_default_chat_preset_fields() {
+        let state = test_state("storage-update-default-chat-preset");
+        state
+            .storage
+            .create(
+                "chat-presets",
+                json!({
+                    "id": "default-chat-preset",
+                    "name": "Default Chat",
+                    "mode": "chat",
+                    "isDefault": true,
+                    "isActive": true
+                }),
+            )
+            .expect("default chat preset should be seeded");
+
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "storage_update".to_string(),
+                args: Some(json!({
+                    "entity": "chat-presets",
+                    "id": "default-chat-preset",
+                    "patch": { "name": "Mutated Default" }
+                })),
+            },
+        )
+        .await
+        .expect_err("default chat preset field mutations should be rejected remotely");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.message, "Default chat presets cannot be updated");
+        let preset = state
+            .storage
+            .get("chat-presets", "default-chat-preset")
+            .expect("chat preset should read")
+            .expect("chat preset should still exist");
+        assert_eq!(preset["name"], "Default Chat");
     }
 
     #[tokio::test]

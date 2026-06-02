@@ -26,6 +26,7 @@ import {
   LogOut,
   KeyRound,
   Cookie,
+  AlertTriangle,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -137,7 +138,7 @@ interface ProviderConfig {
   nsfwAvailable: boolean;
   /** "login" = show login modal, "wyvern" = show sort hint, true/false = normal */
   nsfwMode: "free" | "login" | "wyvern";
-  search: (params: SearchParams) => Promise<{ cards: BrowseCard[]; totalCount: number }>;
+  search: (params: SearchParams) => Promise<{ cards: BrowseCard[]; totalCount: number; notice?: string }>;
   fetchDetail: (card: BrowseCard) => Promise<CardDetail | null>;
   getAvatarUrl: (card: BrowseCard) => string;
   getExternalUrl: (card: BrowseCard) => string;
@@ -1013,6 +1014,7 @@ const datacatProvider: ProviderConfig = {
 
     let list: DatacatCharacter[] = [];
     let totalCount = 0;
+    let notice: string | undefined;
 
     if (useFresh) {
       const params = new URLSearchParams({
@@ -1024,6 +1026,9 @@ const datacatProvider: ProviderConfig = {
       // Response shape: { success, sortBy, windows: { last24h: { count, characters: [...] }, thisWeek: {...} } }
       const last24h = data?.windows?.last24h || data?.last24h;
       list = Array.isArray(last24h) ? last24h : (last24h?.characters ?? []);
+      if (data?.fallback?.partial === true && data.fallback.unavailableWindows?.includes("thisWeek")) {
+        notice = "DataCat Fresh is using recent-public results while the weekly window is unavailable.";
+      }
       // /fresh ignores `page` — the upstream `count` describes the full window
       // even when the response only carries `limit24` items. Reporting that as
       // `totalCount` would let the paginator advertise pages 2+ that just replay
@@ -1086,6 +1091,7 @@ const datacatProvider: ProviderConfig = {
         };
       }),
       totalCount,
+      notice,
     };
   },
   fetchDetail: async (card) => {
@@ -1186,6 +1192,7 @@ export function BotBrowserView() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resultNotice, setResultNotice] = useState<string | null>(null);
 
   const [selectedCard, setSelectedCard] = useState<BrowseCard | null>(null);
   const [detail, setDetail] = useState<CardDetail | null>(null);
@@ -1357,6 +1364,7 @@ export function BotBrowserView() {
     const requestCriteriaKey = searchCriteriaKey;
     setLoading(true);
     setError(null);
+    setResultNotice(null);
     try {
       const result = await provider.search({
         query,
@@ -1375,9 +1383,11 @@ export function BotBrowserView() {
       if (searchRequestIdRef.current !== requestId || searchCriteriaKeyRef.current !== requestCriteriaKey) return;
       setResults(result.cards);
       setTotalCount(result.totalCount);
+      setResultNotice(result.notice ?? null);
     } catch (err) {
       if (searchRequestIdRef.current !== requestId || searchCriteriaKeyRef.current !== requestCriteriaKey) return;
       setError(err instanceof Error ? err.message : "Search failed");
+      setResultNotice(null);
       setResults([]);
     } finally {
       if (searchRequestIdRef.current === requestId && searchCriteriaKeyRef.current === requestCriteriaKey) {
@@ -2177,17 +2187,25 @@ export function BotBrowserView() {
                     <RefreshCw size="0.75rem" /> Retry
                   </button>
                 </div>
-              ) : results.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center py-12 text-sm text-[var(--muted-foreground)]">
-                  No characters found
-                </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                    {results.map((card) => (
-                      <CardTile key={card.id} card={card} onClick={() => openDetail(card)} />
-                    ))}
-                  </div>
+                  {resultNotice && (
+                    <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                      <AlertTriangle size="0.875rem" aria-hidden="true" />
+                      <span>{resultNotice}</span>
+                    </div>
+                  )}
+                  {results.length === 0 ? (
+                    <div className="flex flex-1 items-center justify-center py-12 text-sm text-[var(--muted-foreground)]">
+                      No characters found
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                      {results.map((card) => (
+                        <CardTile key={card.id} card={card} onClick={() => openDetail(card)} />
+                      ))}
+                    </div>
+                  )}
                   {(totalPages > 1 || page > 1) && (
                     <div className="flex items-center justify-center gap-2 pt-2 pb-4">
                       <button

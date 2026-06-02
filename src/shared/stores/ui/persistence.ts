@@ -1,6 +1,7 @@
 import { createJSONStorage } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../../lib/dialogue-quotes";
 import { normalizeCustomNotificationSound, normalizeNotificationSoundId } from "../../lib/notification-sound";
+import { normalizeCustomTextBlipSound } from "../../lib/text-blip-sound";
 import {
   RIGHT_PANEL_WIDTH_DEFAULT,
   RIGHT_PANEL_WIDTH_MAX,
@@ -11,6 +12,7 @@ import {
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
   normalizeSummaryPopoverSettings,
+  normalizeTextBlipMode,
   normalizeTrackerPanelCollapsedSections,
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
@@ -163,6 +165,8 @@ export function partializeUiState(state: UIState) {
     rpNotificationSound: state.rpNotificationSound,
     notificationSound: state.notificationSound,
     customNotificationSound: state.customNotificationSound,
+    textBlipMode: state.textBlipMode,
+    customTextBlipSound: state.customTextBlipSound,
     conversationBrowserNotifications: state.conversationBrowserNotifications,
     customConversationPrompt: state.customConversationPrompt,
     scheduleGenerationPreferences: state.scheduleGenerationPreferences,
@@ -213,6 +217,8 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   persisted.userStatus = persisted.userStatusManual === "dnd" ? "dnd" : "active";
   persisted.notificationSound = normalizeNotificationSoundId(persisted.notificationSound);
   persisted.customNotificationSound = normalizeCustomNotificationSound(persisted.customNotificationSound);
+  persisted.textBlipMode = normalizeTextBlipMode(persisted.textBlipMode);
+  persisted.customTextBlipSound = normalizeCustomTextBlipSound(persisted.customTextBlipSound);
   delete persisted.trackerPanelWidth;
 
   return persisted;

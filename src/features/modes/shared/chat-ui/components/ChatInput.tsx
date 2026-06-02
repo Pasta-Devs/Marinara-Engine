@@ -149,6 +149,7 @@ export const ChatInput = memo(function ChatInput({
   const [charPickerOpen, setCharPickerOpen] = useState(false);
   const charPickerBtnRef = useRef<HTMLButtonElement>(null);
   const charPickerMenuRef = useRef<HTMLDivElement>(null);
+  const manualCharacterResponseRef = useRef<{ chatId: string; characterId: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
@@ -1076,6 +1077,8 @@ export const ChatInput = memo(function ChatInput({
   const handleCharacterResponse = useCallback(
     async (characterId: string) => {
       if (!activeChatId || isStreaming) return;
+      if (manualCharacterResponseRef.current?.chatId === activeChatId) return;
+      manualCharacterResponseRef.current = { chatId: activeChatId, characterId };
       setCharPickerOpen(false);
       setCharPickerPos(null);
       try {
@@ -1093,6 +1096,13 @@ export const ChatInput = memo(function ChatInput({
       } catch (error) {
         if (isAbortError(error)) return;
         console.error("Character response failed:", error);
+      } finally {
+        if (
+          manualCharacterResponseRef.current?.chatId === activeChatId &&
+          manualCharacterResponseRef.current.characterId === characterId
+        ) {
+          manualCharacterResponseRef.current = null;
+        }
       }
     },
     [activeChatId, isStreaming, generate, hasInput, currentInput, guideGenerations],
@@ -1358,6 +1368,7 @@ export const ChatInput = memo(function ChatInput({
         {/* Character picker — shown in group chats for manual response triggering */}
         {showCharPicker && (
           <button
+            type="button"
             ref={charPickerBtnRef}
             onClick={() => setCharPickerOpen((v) => !v)}
             className={cn(
@@ -1451,6 +1462,7 @@ export const ChatInput = memo(function ChatInput({
             <div className="overflow-y-auto p-1">
               {chatCharacters!.map((char) => (
                 <button
+                  type="button"
                   key={char.id}
                   onClick={() => handleCharacterResponse(char.id)}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"

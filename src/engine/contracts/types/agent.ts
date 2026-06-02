@@ -125,6 +125,8 @@ export interface AgentContext {
   }>;
   /** The main response text (available for post-processing agents) */
   mainResponse: string | null;
+  /** Character that produced mainResponse, when the current turn is scoped to one character. */
+  mainResponseCharacterId?: string | null;
   /** Current game state (if any) */
   gameState: import("./game-state.js").GameState | null;
   /**

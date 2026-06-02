@@ -2669,9 +2669,11 @@ summary[class*="cursor-pointer"],
 }
 
 .game-stats-bar-fill {
+  width: 100%;
   height: 100%;
   border-radius: 0.1875rem;
-  transition: width 0.5s ease;
+  transform-origin: left center;
+  transition: transform 0.5s ease;
 }
 
 .game-stats-bar-hp {
@@ -2948,7 +2950,7 @@ summary[class*="cursor-pointer"],
 }
 
 .game-stats-bar-fill {
-  will-change: width;
+  will-change: transform;
 }
 
 .overflow-y-auto {

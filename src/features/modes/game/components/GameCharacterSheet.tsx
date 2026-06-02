@@ -79,6 +79,16 @@ const DEFAULT_ATTRIBUTES = [
   { name: "CHA", value: 10 },
 ];
 
+function finiteNumber(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function clampUnitScale(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
+
 // Mirrors server's attributeModifier in skill-check.service.ts: floor((score - 10) / 2).
 function formatAttributeModifier(score: number): string {
   const mod = Math.floor((score - 10) / 2);
@@ -805,8 +815,9 @@ export function GameCharacterSheet({
               )}
               {hasRpgHp &&
                 (() => {
-                  const hpMax = Math.max(1, Number(previewGameCard.rpgStats.hp.max) || 1);
-                  const hpValue = Math.max(0, Math.min(hpMax, Number(previewGameCard.rpgStats.hp.value) || 0));
+                  const hpMax = Math.max(1, finiteNumber(previewGameCard.rpgStats.hp.max, 1));
+                  const hpValue = Math.max(0, Math.min(hpMax, finiteNumber(previewGameCard.rpgStats.hp.value, 0)));
+                  const hpScale = clampUnitScale(hpValue / hpMax);
                   return (
                     <div>
                       <div className="mb-0.5 flex items-center justify-between text-xs">
@@ -817,9 +828,9 @@ export function GameCharacterSheet({
                       </div>
                       <div className="h-2.5 overflow-hidden rounded-full bg-[var(--secondary)] ring-1 ring-[var(--border)]">
                         <div
-                          className="h-full rounded-full transition-all"
+                          className="h-full w-full origin-left rounded-full transition-transform"
                           style={{
-                            width: `${(hpValue / hpMax) * 100}%`,
+                            transform: `scaleX(${hpScale})`,
                             background: "#ef4444",
                           }}
                         />
@@ -835,9 +846,9 @@ export function GameCharacterSheet({
               <SectionHeader icon={<Shield size={12} />} title="Stats" className="text-[var(--muted-foreground)]" />
               <div className="space-y-2">
                 {card.stats.map((stat) => {
-                  const max = Math.max(1, stat.max ?? 100);
-                  const value = Math.max(0, Math.min(max, stat.value));
-                  const width = (value / max) * 100;
+                  const max = Math.max(1, finiteNumber(stat.max, 100));
+                  const value = Math.max(0, Math.min(max, finiteNumber(stat.value, 0)));
+                  const scale = clampUnitScale(value / max);
                   return (
                     <div key={stat.name}>
                       <div className="mb-0.5 flex items-center justify-between text-xs">
@@ -848,9 +859,9 @@ export function GameCharacterSheet({
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-[var(--secondary)] ring-1 ring-[var(--border)]">
                         <div
-                          className="h-full rounded-full transition-all"
+                          className="h-full w-full origin-left rounded-full transition-transform"
                           style={{
-                            width: `${width}%`,
+                            transform: `scaleX(${scale})`,
                             background: stat.color || "var(--primary)",
                           }}
                         />

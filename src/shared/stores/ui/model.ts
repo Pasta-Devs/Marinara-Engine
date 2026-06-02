@@ -2,8 +2,9 @@
 import { normalizeTemperatureUnit, type TemperatureUnit } from "../../lib/temperature-units";
 import type { QuoteFormat } from "../../lib/dialogue-quotes";
 import type { CustomNotificationSound, NotificationSoundId } from "../../lib/notification-sound";
+import type { CustomTextBlipSound, TextBlipMode } from "../../lib/text-blip-sound";
 
-export type { QuoteFormat };
+export type { QuoteFormat, TextBlipMode };
 
 export type Panel =
   | "chat"
@@ -145,6 +146,10 @@ export function normalizeTrackerThoughtBubbleDisplay(value: unknown): TrackerTho
 
 export function normalizeTrackerTemperatureUnit(value: unknown): TrackerTemperatureUnit {
   return normalizeTemperatureUnit(value);
+}
+
+export function normalizeTextBlipMode(value: unknown): TextBlipMode {
+  return value === "default" || value === "custom" ? value : "off";
 }
 
 export function normalizeTrackerPanelCollapsedSections(value: unknown): TrackerPanelCollapsedSections {
@@ -438,6 +443,10 @@ export interface UIState {
   notificationSound: NotificationSoundId;
   /** Optional browser-readable audio data URL for custom notification pings. */
   customNotificationSound: CustomNotificationSound | null;
+  /** Text reveal blip mode for generated Conversation, Roleplay, and Game text. */
+  textBlipMode: TextBlipMode;
+  /** Optional locally persisted custom blip sound, stored as a small data URL. */
+  customTextBlipSound: CustomTextBlipSound | null;
   /** When true, show native local notifications for new Conversation messages while Marinara is unfocused. */
   conversationBrowserNotifications: boolean;
 
@@ -627,6 +636,8 @@ export interface UIState {
   setRpNotificationSound: (v: boolean) => void;
   setNotificationSound: (v: NotificationSoundId) => void;
   setCustomNotificationSound: (v: CustomNotificationSound | null) => void;
+  setTextBlipMode: (v: TextBlipMode) => void;
+  setCustomTextBlipSound: (v: CustomTextBlipSound | null) => void;
   setConversationBrowserNotifications: (v: boolean) => void;
   setCustomConversationPrompt: (v: string | null) => void;
   setScheduleGenerationPreferences: (v: string) => void;

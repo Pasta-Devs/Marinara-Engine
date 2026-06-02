@@ -11,6 +11,7 @@ const VISIBLE_TARGET_MESSAGE_LIMIT = 200;
 const VISIBLE_TARGET_MESSAGE_FIELDS = ["id", "role", "activeSwipeIndex", "swipeIndex", "createdAt"];
 const OPERATIONAL_PATCH_KEYS = new Set(["manual", "clearOverrides", "targetVisible"]);
 const MANUAL_OVERRIDE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
+type ManualOverrideField = (typeof MANUAL_OVERRIDE_FIELDS)[number];
 
 interface WorldStateApi {
   /**
@@ -68,6 +69,21 @@ function readText(value: unknown): string | null {
   return null;
 }
 
+function hasPatchField(patch: WorldStatePatch, field: ManualOverrideField): boolean {
+  return Object.prototype.hasOwnProperty.call(patch, field);
+}
+
+function normalizeManualOverrides(value: unknown): Record<string, string> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const next: Record<string, string> = {};
+  for (const [key, rawValue] of Object.entries(value)) {
+    const field = key.trim();
+    const text = readText(rawValue);
+    if (field && text) next[field] = text;
+  }
+  return Object.keys(next).length ? next : null;
+}
+
 function removePatchControlFields(patch: WorldStatePatch): WorldStatePatch {
   return Object.fromEntries(
     Object.entries(patch).filter(
@@ -83,20 +99,46 @@ function updateManualOverrides(
   options: { manual: boolean; clearOverrides: boolean },
 ): Record<string, string> | null {
   if (options.clearOverrides) return null;
-  if (!options.manual) {
-    return current && typeof current === "object" && !Array.isArray(current)
-      ? (current as Record<string, string>)
-      : null;
-  }
-  const next =
-    current && typeof current === "object" && !Array.isArray(current) ? { ...(current as Record<string, string>) } : {};
+  const next = normalizeManualOverrides(current) ?? {};
   for (const field of MANUAL_OVERRIDE_FIELDS) {
-    if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
+    if (!hasPatchField(patch, field)) continue;
     const text = readText(patch[field]);
-    if (text) next[field] = text;
-    else delete next[field];
+    if (options.manual) {
+      if (text) next[field] = text;
+      else delete next[field];
+    } else if (text) {
+      delete next[field];
+    }
   }
   return Object.keys(next).length ? next : null;
+}
+
+function preserveManualOverrideFields(
+  patch: WorldStatePatch,
+  manualOverrides: Record<string, string> | null,
+  options: { manual: boolean; clearOverrides: boolean },
+): WorldStatePatch {
+  if (options.manual || options.clearOverrides || !manualOverrides) return patch;
+  const next = { ...patch };
+  for (const field of MANUAL_OVERRIDE_FIELDS) {
+    if (!hasPatchField(patch, field)) continue;
+    const override = readText(manualOverrides[field]);
+    if (override && !readText(patch[field])) {
+      next[field] = override;
+    }
+  }
+  return next;
+}
+
+function applyManualOverrides(state: WorldState): WorldState {
+  const manualOverrides = normalizeManualOverrides(state.manualOverrides);
+  if (!manualOverrides) return { ...state, manualOverrides: null };
+  const next = { ...state, manualOverrides };
+  for (const field of MANUAL_OVERRIDE_FIELDS) {
+    const override = readText(manualOverrides[field]);
+    if (override) next[field] = override;
+  }
+  return next;
 }
 
 function withTarget(state: WorldState, chatId: string, target: ResolvedWorldStateTarget | null): WorldState {
@@ -181,7 +223,7 @@ async function getWorldState(
   if (target) {
     const snapshot = await trackerSnapshotApi.get(chatId, target);
     throwIfAborted(init);
-    if (snapshot) return snapshot;
+    if (snapshot) return applyManualOverrides(snapshot);
   }
   if (
     canUseChatGameStateFallback(chat?.gameState, target, {
@@ -191,11 +233,11 @@ async function getWorldState(
     }) &&
     chat?.gameState
   ) {
-    return withTarget(chat.gameState, chatId, target);
+    return applyManualOverrides(withTarget(chat.gameState, chatId, target));
   }
   const latestSnapshot = !requestedTarget && target ? await trackerSnapshotApi.latest(chatId).catch(() => null) : null;
   throwIfAborted(init);
-  if (latestSnapshot) return withTarget(latestSnapshot, chatId, target);
+  if (latestSnapshot) return applyManualOverrides(withTarget(latestSnapshot, chatId, target));
   return null;
 }
 
@@ -221,28 +263,24 @@ export const worldStateApi: WorldStateApi = {
       target && !existingSnapshot ? await trackerSnapshotApi.latest(chatId).catch(() => null) : null;
     throwIfAborted(init);
     const existing = existingSnapshot ?? latestSnapshot ?? chat?.gameState ?? createEmptyWorldState(chatId);
-    const manualOverrides = updateManualOverrides(
-      target ? existingSnapshot?.manualOverrides : existing.manualOverrides,
-      statePatch,
-      {
-        manual,
-        clearOverrides,
-      },
-    );
-    const next = withTarget(
-      {
-        ...existing,
+    const manualOverrides = updateManualOverrides(existing.manualOverrides, statePatch, { manual, clearOverrides });
+    const protectedStatePatch = preserveManualOverrideFields(statePatch, manualOverrides, { manual, clearOverrides });
+    const next = applyManualOverrides(
+      withTarget(
+        {
+          ...existing,
+          chatId,
+          ...protectedStatePatch,
+          manualOverrides,
+          ...(target && !existingSnapshot ? { id: "", committed: false, createdAt: new Date().toISOString() } : {}),
+        } as unknown as WorldState,
         chatId,
-        ...statePatch,
-        manualOverrides,
-        ...(target && !existingSnapshot ? { id: "", committed: false, createdAt: new Date().toISOString() } : {}),
-      } as unknown as WorldState,
-      chatId,
-      target,
+        target,
+      ),
     );
     const saved = target ? await trackerSnapshotApi.save(chatId, next) : null;
     throwIfAborted(init);
     await storageApi.update("chats", chatId, { gameState: saved ?? next });
-    return saved ?? next;
+    return applyManualOverrides(saved ?? next);
   },
 };

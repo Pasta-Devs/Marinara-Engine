@@ -4,7 +4,7 @@
 import { Check, Folder, FolderOpen, Minus, MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { TreeNode } from "../hooks/use-game-assets";
-import type { GameAssetSelectionStatus } from "../../game/index";
+import type { GameAssetSelectionStatus } from "../../game/assets";
 import { formatBytes, formatDate } from "../../../../shared/lib/format";
 import { gameAssetFileUrlFromPath, resolveGameAssetFileUrl } from "../../../../shared/api/local-file-api";
 import { CATEGORY_ICONS } from "./constants";
@@ -62,15 +62,7 @@ function FolderSelectionMark({ status }: { status: GameAssetSelectionStatus }) {
   return null;
 }
 
-function GameAssetImage({
-  node,
-  alt,
-  className,
-}: {
-  node: TreeNode;
-  alt: string;
-  className: string;
-}) {
+function GameAssetImage({ node, alt, className }: { node: TreeNode; alt: string; className: string }) {
   const [src, setSrc] = useState(() => gameAssetFileUrlFromPath(node.path, node.absolutePath));
 
   useEffect(() => {

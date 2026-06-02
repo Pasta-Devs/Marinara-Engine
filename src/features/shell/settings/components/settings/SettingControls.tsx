@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, Play, Upload, X } from "lucide-react";
+import { Bell, Play, Upload, Volume2, X } from "lucide-react";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import {
   CUSTOM_NOTIFICATION_SOUND_ACCEPT,
@@ -10,6 +10,12 @@ import {
   validateCustomNotificationSoundFile,
   type CustomNotificationSound,
 } from "../../../../../shared/lib/notification-sound";
+import {
+  CUSTOM_TEXT_BLIP_SOUND_ACCEPT,
+  playTextBlip,
+  validateCustomTextBlipSoundFile,
+  type CustomTextBlipSound,
+} from "../../../../../shared/lib/text-blip-sound";
 import { HelpTooltip } from "../../../../../shared/components/ui/HelpTooltip";
 import {
   getLocalNotificationPermission,
@@ -26,12 +32,18 @@ export function ConversationSoundSetting() {
   const setNotificationSound = useUIStore((s) => s.setNotificationSound);
   const customNotificationSound = useUIStore((s) => s.customNotificationSound);
   const setCustomNotificationSound = useUIStore((s) => s.setCustomNotificationSound);
+  const textBlipMode = useUIStore((s) => s.textBlipMode);
+  const setTextBlipMode = useUIStore((s) => s.setTextBlipMode);
+  const customTextBlipSound = useUIStore((s) => s.customTextBlipSound);
+  const setCustomTextBlipSound = useUIStore((s) => s.setCustomTextBlipSound);
   const conversationBrowserNotifications = useUIStore((s) => s.conversationBrowserNotifications);
   const setConversationBrowserNotifications = useUIStore((s) => s.setConversationBrowserNotifications);
   const [localNotificationPermission, setLocalNotificationPermission] =
     useState<LocalNotificationPermission>("default");
   const [customSoundError, setCustomSoundError] = useState<string | null>(null);
   const customSoundInputRef = useRef<HTMLInputElement>(null);
+  const [customBlipError, setCustomBlipError] = useState<string | null>(null);
+  const customBlipInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +74,13 @@ export function ConversationSoundSetting() {
   const previewNotificationSound = (sound: CustomNotificationSound | null = customNotificationSound) => {
     playNotificationPing(notificationSound, sound);
   };
+  const previewTextBlipDisabled = textBlipMode === "off" || (textBlipMode === "custom" && !customTextBlipSound);
+  const textBlipModeButtonClass = (active: boolean) =>
+    `rounded-md border px-2.5 py-1 text-[0.6875rem] font-medium transition-colors ${
+      active
+        ? "border-[var(--primary)] bg-[var(--primary)]/15 text-[var(--primary)]"
+        : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]"
+    }`;
 
   const handleCustomSoundFile = (file: File | null) => {
     if (!file) return;
@@ -91,6 +110,36 @@ export function ConversationSoundSetting() {
       playNotificationPing("custom", nextSound);
     };
     reader.onerror = () => setCustomSoundError("Marinara could not read that audio file.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleCustomBlipFile = (file: File | null) => {
+    if (!file) return;
+    const validationError = validateCustomTextBlipSoundFile(file);
+    if (validationError) {
+      setCustomBlipError(validationError);
+      if (customBlipInputRef.current) customBlipInputRef.current.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        setCustomBlipError("Marinara could not read that audio file.");
+        return;
+      }
+      const sound: CustomTextBlipSound = {
+        name: file.name,
+        type: file.type || "audio/*",
+        size: file.size,
+        dataUrl: reader.result,
+      };
+      setCustomTextBlipSound(sound);
+      setTextBlipMode("custom");
+      setCustomBlipError(null);
+      playTextBlip({ mode: "custom", customSound: sound });
+    };
+    reader.onerror = () => setCustomBlipError("Marinara could not read that audio file.");
     reader.readAsDataURL(file);
   };
 
@@ -228,6 +277,100 @@ export function ConversationSoundSetting() {
           </p>
           {customSoundError && (
             <p className="text-[0.5625rem] leading-snug text-[var(--destructive)]">{customSoundError}</p>
+          )}
+        </div>
+      </div>
+      <div className="mt-1 grid gap-2 rounded-lg bg-[var(--background)]/45 p-2 ring-1 ring-[var(--border)]">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <Volume2 size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">Text blips</span>
+            <HelpTooltip text="Play a short blip while generated Conversation, Roleplay, and Game text appears." />
+          </div>
+          <button
+            type="button"
+            title="Preview text blip"
+            aria-label="Preview text blip"
+            disabled={previewTextBlipDisabled}
+            onClick={() => playTextBlip({ mode: textBlipMode, customSound: customTextBlipSound })}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Play size="0.75rem" />
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            className={textBlipModeButtonClass(textBlipMode === "off")}
+            onClick={() => setTextBlipMode("off")}
+          >
+            Off
+          </button>
+          <button
+            type="button"
+            className={textBlipModeButtonClass(textBlipMode === "default")}
+            onClick={() => {
+              setTextBlipMode("default");
+              playTextBlip({ mode: "default" });
+            }}
+          >
+            Default
+          </button>
+          <button
+            type="button"
+            className={textBlipModeButtonClass(textBlipMode === "custom")}
+            onClick={() => setTextBlipMode("custom")}
+          >
+            Custom
+          </button>
+        </div>
+        <div className="flex flex-col gap-1.5 rounded-md bg-[var(--secondary)]/35 p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              ref={customBlipInputRef}
+              type="file"
+              accept={CUSTOM_TEXT_BLIP_SOUND_ACCEPT}
+              className="hidden"
+              onChange={(event) => handleCustomBlipFile(event.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => customBlipInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--primary)] px-2 py-1 text-[0.6875rem] font-medium text-[var(--primary-foreground)] transition-colors hover:brightness-110"
+            >
+              <Upload size="0.75rem" />
+              Choose file
+            </button>
+            {customTextBlipSound && (
+              <>
+                <span
+                  className="min-w-0 max-w-full truncate text-[0.625rem] text-[var(--muted-foreground)]"
+                  title={customTextBlipSound.name}
+                >
+                  {customTextBlipSound.name}
+                </span>
+                <button
+                  type="button"
+                  title="Remove custom text blip"
+                  aria-label="Remove custom text blip"
+                  onClick={() => {
+                    setCustomTextBlipSound(null);
+                    if (textBlipMode === "custom") setTextBlipMode("off");
+                    setCustomBlipError(null);
+                    if (customBlipInputRef.current) customBlipInputRef.current.value = "";
+                  }}
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                >
+                  <X size="0.75rem" />
+                </button>
+              </>
+            )}
+          </div>
+          <p className="text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
+            Custom files are stored in local settings and must be 512 KB or smaller.
+          </p>
+          {customBlipError && (
+            <p className="text-[0.5625rem] leading-snug text-[var(--destructive)]">{customBlipError}</p>
           )}
         </div>
       </div>
