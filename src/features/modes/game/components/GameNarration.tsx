@@ -53,6 +53,7 @@ import { useGameAssetStore } from "../stores/game-asset.store";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { createMessageMacroResolver, findCharacterByName } from "../../../../shared/lib/chat-macros";
+import { playTextBlip } from "../../../../shared/lib/text-blip-sound";
 import { animateTextHtml } from "./AnimatedText";
 import { ttsService } from "../../../../shared/lib/tts-service";
 import { getOrCreateCachedTTSAudioBlob } from "../../../../shared/lib/tts-audio-cache";
@@ -1010,6 +1011,7 @@ export function GameNarration({
   /** Internal ref tracking the typewriter position so the RAF loop can run without
    *  visibleChars in the effect deps (avoids effect restart per character). */
   const twRef = useRef({ pos: 0 });
+  const blipVisibleRef = useRef<{ key: string; visibleChars: number }>({ key: "", visibleChars: 0 });
 
   // Track previous active segment so we can detect in-place edits
   const prevActiveRef = useRef<{ index: number; content?: string }>({ index: 0 });
@@ -2496,6 +2498,34 @@ export function GameNarration({
   const chatFontColor = useUIStore((s) => s.chatFontColor);
   const chatFontSize = useUIStore((s) => s.chatFontSize);
   const gameAvatarScale = useUIStore((s) => s.gameAvatarScale);
+  const textBlipMode = useUIStore((s) => s.textBlipMode);
+  const customTextBlipSound = useUIStore((s) => s.customTextBlipSound);
+  useEffect(() => {
+    const key = active ? `${active.sourceMessageId ?? ""}:${active.id}` : "";
+    const previous = blipVisibleRef.current;
+    blipVisibleRef.current = { key, visibleChars };
+
+    if (!active || previous.key !== key) return;
+    if (!isStreaming || visibleChars <= previous.visibleChars) return;
+    if (active.sourceRole === "user" || active.sourceRole === "system") return;
+    if (messageOffset > 0 || scenePreparing || directionsActive || logsOpen || editingContent !== null) return;
+    if (gameInstantTextReveal || gameTextSpeed >= 100) return;
+
+    playTextBlip({ mode: textBlipMode, customSound: customTextBlipSound });
+  }, [
+    active,
+    customTextBlipSound,
+    directionsActive,
+    editingContent,
+    gameInstantTextReveal,
+    gameTextSpeed,
+    isStreaming,
+    logsOpen,
+    messageOffset,
+    scenePreparing,
+    textBlipMode,
+    visibleChars,
+  ]);
   const narrationFontStyle = useMemo<CSSProperties>(() => ({ fontSize: `${chatFontSize}px` }), [chatFontSize]);
   const narrationStyle = useMemo<CSSProperties>(
     () => (chatFontColor ? { ...narrationFontStyle, color: chatFontColor } : narrationFontStyle),

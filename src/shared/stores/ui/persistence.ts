@@ -1,5 +1,6 @@
 import { createJSONStorage } from "zustand/middleware";
 import { normalizeQuoteFormat } from "../../lib/dialogue-quotes";
+import { normalizeCustomTextBlipSound } from "../../lib/text-blip-sound";
 import {
   RIGHT_PANEL_WIDTH_DEFAULT,
   RIGHT_PANEL_WIDTH_MAX,
@@ -10,6 +11,7 @@ import {
   normalizeTrackerPanelSectionOrder,
   normalizeTrackerPanelSizeProfile,
   normalizeSummaryPopoverSettings,
+  normalizeTextBlipMode,
   normalizeTrackerPanelCollapsedSections,
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
@@ -160,6 +162,8 @@ export function partializeUiState(state: UIState) {
     userActivity: state.userActivity,
     convoNotificationSound: state.convoNotificationSound,
     rpNotificationSound: state.rpNotificationSound,
+    textBlipMode: state.textBlipMode,
+    customTextBlipSound: state.customTextBlipSound,
     conversationBrowserNotifications: state.conversationBrowserNotifications,
     customConversationPrompt: state.customConversationPrompt,
     scheduleGenerationPreferences: state.scheduleGenerationPreferences,
@@ -203,6 +207,8 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   persisted.trackerPanelSectionOrder = normalizeTrackerPanelSectionOrder(persisted.trackerPanelSectionOrder);
   persisted.summaryPopoverSettings = normalizeSummaryPopoverSettings(persisted.summaryPopoverSettings);
   persisted.quoteFormat = normalizeQuoteFormat(persisted.quoteFormat);
+  persisted.textBlipMode = normalizeTextBlipMode(persisted.textBlipMode);
+  persisted.customTextBlipSound = normalizeCustomTextBlipSound(persisted.customTextBlipSound);
   persisted.editMessagesOnDoubleClick = persisted.editMessagesOnDoubleClick !== false;
   persisted.imagePromptIncludeAppearances = persisted.imagePromptIncludeAppearances !== false;
   persisted.imagePromptFormat = persisted.imagePromptFormat === "tags" ? "tags" : "descriptive";
