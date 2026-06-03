@@ -906,6 +906,7 @@ function ChatSettingsDrawerInner({
     0,
     100,
   );
+  const memoryRecallReadBehindMessages = normalizeNonNegativeInteger(metadata.memoryRecallReadBehindMessages, 1, 100);
   const lorebookKeeperReviewRequired = metadata.lorebookKeeperReviewRequired !== false;
 
   // Build the available tool list: built-in + custom tools from DB
@@ -1998,6 +1999,29 @@ function ChatSettingsDrawerInner({
             />
           </div>
         </button>
+        <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
+          <span className="font-medium text-[var(--foreground)]">Read Behind</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={memoryRecallReadBehindMessages}
+            onChange={(e) => {
+              const nextValue = e.target.value === "" ? 1 : Number.parseInt(e.target.value, 10);
+              updateMeta.mutate({
+                id: chat.id,
+                memoryRecallReadBehindMessages: Number.isFinite(nextValue)
+                  ? Math.max(0, Math.min(100, nextValue))
+                  : 1,
+              });
+            }}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          />
+          <span>
+            Ignore memory chunks from the newest messages. 1 protects the latest generated reply during swipes.
+          </span>
+        </label>
         <button
           type="button"
           onClick={() => setShowMemoriesModal(true)}

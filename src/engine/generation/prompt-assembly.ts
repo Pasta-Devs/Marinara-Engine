@@ -1360,6 +1360,8 @@ const MAX_MEMORY_RECALL_BUDGET_TOKENS = 2048;
 const MAX_RECALLED_MEMORY_TOKENS = 384;
 const MIN_RECALLED_MEMORY_TOKENS = 96;
 const MEMORY_RECALL_CONTEXT_SHARE = 0.15;
+const DEFAULT_MEMORY_RECALL_READ_BEHIND_MESSAGES = 1;
+const MAX_MEMORY_RECALL_READ_BEHIND_MESSAGES = 100;
 const RECALL_TRUNCATION_MARKER = "\n...[recalled memory truncated]...\n";
 
 function estimateTextTokens(text: string): number {
@@ -1445,9 +1447,67 @@ function memoryRecallEnabled(chat: JsonRecord): boolean {
   return mode === "conversation" || meta.sceneStatus === "active";
 }
 
+function memoryRecallReadBehind(chat: JsonRecord): number {
+  const meta = parseRecord(chat.metadata);
+  const raw = readNumber(meta.memoryRecallReadBehindMessages, DEFAULT_MEMORY_RECALL_READ_BEHIND_MESSAGES);
+  if (!Number.isFinite(raw)) return DEFAULT_MEMORY_RECALL_READ_BEHIND_MESSAGES;
+  return Math.max(0, Math.min(MAX_MEMORY_RECALL_READ_BEHIND_MESSAGES, Math.trunc(raw)));
+}
+
+function memoryRecallEligibleMessages(messages: JsonRecord[]): JsonRecord[] {
+  return messages.filter((message) => !hiddenFromAi(message) && !!readString(message.content).trim());
+}
+
+function recentMemoryRecallMessages(messages: JsonRecord[], readBehind: number): JsonRecord[] {
+  if (readBehind <= 0) return [];
+  return memoryRecallEligibleMessages(messages).slice(-readBehind);
+}
+
+function messageIdSet(messages: JsonRecord[]): Set<string> {
+  return new Set(messages.map((message) => readString(message.id).trim()).filter(Boolean));
+}
+
+function memoryChunkMessageIds(memory: JsonRecord): Set<string> {
+  const ids = new Set<string>();
+  for (const value of Array.isArray(memory.messageIds) ? memory.messageIds : []) {
+    const id = readString(value).trim();
+    if (id) ids.add(id);
+  }
+  for (const value of [memory.firstMessageId, memory.lastMessageId]) {
+    const id = readString(value).trim();
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+function memoryOverlapsRecentMessages(memory: JsonRecord, recentIds: Set<string>, recentStartAt: string): boolean {
+  if (recentIds.size === 0) return false;
+  const chunkIds = memoryChunkMessageIds(memory);
+  if (chunkIds.size > 0) {
+    for (const id of chunkIds) {
+      if (recentIds.has(id)) return true;
+    }
+    return false;
+  }
+
+  const lastMessageAt = readString(memory.lastMessageAt).trim();
+  return !!lastMessageAt && !!recentStartAt && lastMessageAt >= recentStartAt;
+}
+
+function memoriesAfterReadBehind(chat: JsonRecord, storedMessages: JsonRecord[], memories: JsonRecord[]): JsonRecord[] {
+  const readBehind = memoryRecallReadBehind(chat);
+  if (readBehind <= 0 || memories.length === 0) return memories;
+
+  const recentMessages = recentMemoryRecallMessages(storedMessages, readBehind);
+  const recentIds = messageIdSet(recentMessages);
+  const recentStartAt = readString(recentMessages[0]?.createdAt).trim();
+  return memories.filter((memory) => !memoryOverlapsRecentMessages(memory, recentIds, recentStartAt));
+}
+
 async function buildMemoryRecallBlock(
   storage: StorageGateway,
   chat: JsonRecord,
+  storedMessages: JsonRecord[],
   latestUserInput: string,
   maxContext?: number,
   embeddingSource?: { embed(texts: string[]): Promise<number[][] | null> } | null,
@@ -1462,6 +1522,7 @@ async function buildMemoryRecallBlock(
   } catch {
     memories = Array.isArray(chat.memories) ? chat.memories.filter(isRecord) : [];
   }
+  memories = memoriesAfterReadBehind(chat, storedMessages, memories);
   if (memories.length === 0) return null;
 
   let semanticQueryVector: number[] | null = null;
@@ -2416,6 +2477,7 @@ export async function assembleGenerationPrompt(
   const memoryRecallBlock = await buildMemoryRecallBlock(
     storage,
     input.chat,
+    input.storedMessages,
     input.latestUserInput,
     readNumber(input.connection.maxContext, 0) || undefined,
     embeddingSource,

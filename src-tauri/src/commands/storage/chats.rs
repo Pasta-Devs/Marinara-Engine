@@ -719,10 +719,33 @@ pub(crate) async fn refresh_chat_memories(state: &AppState, chat_id: &str) -> Ap
             .collect::<Vec<_>>()
             .join("\n");
         let mut memory = Map::new();
+        let message_ids = chunk
+            .iter()
+            .filter_map(|message| message.get("id").and_then(Value::as_str))
+            .filter(|id| !id.trim().is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>();
         memory.insert("id".to_string(), Value::String(new_id()));
         memory.insert("chatId".to_string(), Value::String(chat_id.to_string()));
         memory.insert("content".to_string(), Value::String(content.clone()));
         memory.insert("messageCount".to_string(), json!(chunk.len()));
+        memory.insert("messageIds".to_string(), json!(message_ids));
+        memory.insert(
+            "firstMessageId".to_string(),
+            chunk
+                .first()
+                .and_then(|message| message.get("id"))
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
+        memory.insert(
+            "lastMessageId".to_string(),
+            chunk
+                .last()
+                .and_then(|message| message.get("id"))
+                .cloned()
+                .unwrap_or(Value::Null),
+        );
         memory.insert(
             "firstMessageAt".to_string(),
             chunk
@@ -2555,6 +2578,9 @@ mod tests {
 
         assert_eq!(memories.len(), 1);
         assert_eq!(memories[0]["content"], json!("user: visible memory"));
+        assert_eq!(memories[0]["messageIds"], json!(["visible-1"]));
+        assert_eq!(memories[0]["firstMessageId"], json!("visible-1"));
+        assert_eq!(memories[0]["lastMessageId"], json!("visible-1"));
     }
 
     #[tokio::test]

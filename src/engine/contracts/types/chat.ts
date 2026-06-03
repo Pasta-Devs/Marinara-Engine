@@ -200,6 +200,8 @@ export interface ChatMetadata {
   manualTrackers?: boolean;
   /** Whether to recall memories from this chat during generation. Default: true for conversation/scenes, false for roleplay. */
   enableMemoryRecall?: boolean;
+  /** How many newest visible messages Memory Recall should ignore when selecting recalled chunks. Default: 1. */
+  memoryRecallReadBehindMessages?: number;
   /** Discord webhook URL to mirror messages to a Discord channel. */
   discordWebhookUrl?: string;
   /** Per-chat ephemeral / enabled overrides for lorebook entries (entryId → state).
