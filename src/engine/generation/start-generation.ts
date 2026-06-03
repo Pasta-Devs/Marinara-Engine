@@ -225,8 +225,8 @@ function generationEmbeddingSource(llm: LlmGateway, connection: JsonRecord) {
     embed: (texts: string[], request?: { connectionId?: string | null; model?: string | null }) =>
       llm.embed!({
         texts,
-        connectionId: request?.connectionId ?? connectionId,
-        model: request?.model ?? model,
+        connectionId: request?.connectionId !== undefined ? request.connectionId : connectionId,
+        model: request?.model !== undefined ? request.model : model,
       }),
   };
 }
