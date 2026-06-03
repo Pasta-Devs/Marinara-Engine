@@ -33,6 +33,7 @@ const CSRF_HEADER_VALUE: &str = "1";
 const ADMIN_SECRET_HEADER_NAME: &str = "x-admin-secret";
 const MAX_API_BODY_BYTES: usize = 256 * 1024 * 1024;
 const DEFAULT_API_RATE_LIMIT: u32 = 600;
+const INVOKE_PRE_EXTRACTION_API_RATE_LIMIT: u32 = DEFAULT_API_RATE_LIMIT * 10;
 const DEFAULT_API_RATE_WINDOW: Duration = Duration::from_secs(60);
 const RATE_LIMIT_SWEEP_INTERVAL: Duration = Duration::from_secs(60);
 const DEFAULT_CORS_ORIGINS: [&str; 7] = [
@@ -1094,6 +1095,12 @@ fn rate_limit_rule_for_path(path: &str) -> ApiRateLimitRule {
             limit: 20,
             window: DEFAULT_API_RATE_WINDOW,
         }
+    } else if api_route_matches(path, "/api/invoke") {
+        ApiRateLimitRule {
+            key: "invoke-pre-extraction",
+            limit: INVOKE_PRE_EXTRACTION_API_RATE_LIMIT,
+            window: DEFAULT_API_RATE_WINDOW,
+        }
     } else {
         default_api_rate_limit_rule()
     }
@@ -1944,7 +1951,7 @@ mod tests {
         let now = Instant::now();
 
         let api = limiter
-            .check(ip, "/api/invoke", now)
+            .check(ip, "/api/backup", now)
             .expect("API path should be rate limited");
         assert_eq!(api.limit, DEFAULT_API_RATE_LIMIT);
         assert!(api.is_allowed());
@@ -1971,8 +1978,41 @@ mod tests {
             rate_limit_rule_for_path("/api/sidecar/v1/embeddings").limit,
             20
         );
-        assert_eq!(rate_limit_rule_for_path("/api/invoke").limit, 600);
+        assert_eq!(
+            rate_limit_rule_for_path("/api/invoke").limit,
+            INVOKE_PRE_EXTRACTION_API_RATE_LIMIT
+        );
         assert_eq!(rate_limit_rule_for_path("/api/backup").limit, 600);
+    }
+
+    #[test]
+    fn api_invoke_pre_extraction_bucket_does_not_undercut_command_budget() {
+        let path_rule = rate_limit_rule_for_path("/api/invoke");
+        let command_rule = rate_limit_rule_for_invoke_command("storage_list");
+        assert_eq!(path_rule.key, "invoke-pre-extraction");
+        assert!(path_rule.limit > command_rule.limit);
+
+        let limiter = ApiRateLimiter::default();
+        let ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 12));
+        let now = Instant::now();
+
+        for _ in 0..DEFAULT_API_RATE_LIMIT {
+            let outcome = limiter
+                .check(ip, "/api/invoke", now)
+                .expect("invoke path should be rate limited before extraction");
+            assert!(outcome.is_allowed());
+        }
+
+        let coarse_after_command_budget = limiter
+            .check(ip, "/api/invoke", now)
+            .expect("invoke path should be rate limited before extraction");
+        assert!(coarse_after_command_budget.is_allowed());
+
+        let command_after_coarse_budget = limiter
+            .check_invoke_command(ip, "storage_list", now)
+            .expect("invoke command should be rate limited after extraction");
+        assert!(command_after_coarse_budget.is_allowed());
+        assert_eq!(command_after_coarse_budget.limit, DEFAULT_API_RATE_LIMIT);
     }
 
     #[test]
