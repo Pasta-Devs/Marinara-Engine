@@ -1860,7 +1860,6 @@ async function saveAssistantMessage(args: {
         ...(promptSnapshot
           ? {
               generationPromptSnapshot: promptSnapshot,
-              generationPromptSnapshotsBySwipe: { "0": promptSnapshot },
             }
           : {}),
         chatSummaryFingerprint: args.chatSummaryFingerprint,
@@ -1900,7 +1899,6 @@ async function saveAssistantMessage(args: {
       ...(promptSnapshot
         ? {
             generationPromptSnapshot: promptSnapshot,
-            generationPromptSnapshotsBySwipe: { "0": promptSnapshot },
           }
         : {}),
       chatSummaryFingerprint: args.chatSummaryFingerprint,
@@ -1936,14 +1934,12 @@ async function saveRegeneratedMessage(args: {
     spriteExpressions: args.spriteExpressions,
     agentExtra: args.agentExtra,
   });
-  const updated = await args.storage.addChatMessageSwipe(
+  await args.storage.addChatMessageSwipe(
     args.chatId,
     args.messageId,
     collapseExcessBlankLines(args.content),
     swipeOptionsWithCharacterId(swipeExtra, args),
   );
-  const updatedRecord = isRecord(updated) ? updated : {};
-  const activeSwipeIndex = Math.max(0, Math.trunc(readNumber(updatedRecord.activeSwipeIndex, 0)));
   const extraPatch = generationReplayExtraPatch({
     generationReplay: args.generationReplay,
     chatSummaryFingerprint: args.chatSummaryFingerprint,
@@ -1951,8 +1947,6 @@ async function saveRegeneratedMessage(args: {
     promptSnapshot: args.promptSnapshot,
     spriteExpressions: args.spriteExpressions,
     agentExtra: args.agentExtra,
-    activeSwipeIndex,
-    existingExtra: parseRecord(updatedRecord.extra),
   });
   return args.storage.patchChatMessageExtra(args.messageId, extraPatch);
 }
@@ -1996,8 +1990,6 @@ function generationReplayExtraPatch(args: {
   promptSnapshot?: GenerationPromptSnapshot | null;
   spriteExpressions?: Record<string, string> | null;
   agentExtra?: Record<string, unknown> | null;
-  activeSwipeIndex?: number | null;
-  existingExtra?: JsonRecord | null;
 }): Record<string, unknown> {
   const extraPatch: Record<string, unknown> = {};
   if (args.generationReplay) extraPatch.generationReplay = args.generationReplay;
@@ -2009,15 +2001,7 @@ function generationReplayExtraPatch(args: {
   }
   if (args.agentExtra) Object.assign(extraPatch, args.agentExtra);
   if (args.promptSnapshot) {
-    const activeSwipeIndex =
-      typeof args.activeSwipeIndex === "number" && Number.isFinite(args.activeSwipeIndex)
-        ? Math.max(0, Math.trunc(args.activeSwipeIndex))
-        : 0;
     extraPatch.generationPromptSnapshot = args.promptSnapshot;
-    extraPatch.generationPromptSnapshotsBySwipe = {
-      ...parseRecord(args.existingExtra?.generationPromptSnapshotsBySwipe),
-      [String(activeSwipeIndex)]: args.promptSnapshot,
-    };
   }
   return extraPatch;
 }

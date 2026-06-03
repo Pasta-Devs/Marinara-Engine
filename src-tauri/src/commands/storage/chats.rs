@@ -443,7 +443,9 @@ pub(crate) fn message_swipes(
     if let Some(character_id) = active_character_id {
         object.insert("characterId".to_string(), character_id);
     }
-    let updated = state.storage.patch("messages", message_id, message)?;
+    compact_message_for_storage(&mut message)?;
+    let mut updated = state.storage.patch("messages", message_id, message)?;
+    materialize_message_swipe_fields(&mut updated);
     Ok(updated)
 }
 
@@ -468,6 +470,7 @@ pub(crate) fn update_message_content_if_unchanged(
         let mut patch = Map::new();
         patch.insert("content".to_string(), Value::String(content.clone()));
         sync_message_patch_content_to_active_swipe(message, &patch);
+        compact_message_swipe_fields_for_storage(message);
         Ok(true)
     })?;
     Ok(match updated {
@@ -524,11 +527,12 @@ pub(crate) fn set_active_swipe(
                 }
             })
     else {
-        let updated = state.storage.patch(
+        let mut updated = state.storage.patch(
             "messages",
             message_id,
             json!({ "activeSwipeIndex": requested_index }),
         )?;
+        materialize_message_swipe_fields(&mut updated);
         return Ok(active_swipe_update_response(&updated));
     };
     object.insert("activeSwipeIndex".to_string(), json!(active_index));
@@ -550,7 +554,9 @@ pub(crate) fn set_active_swipe(
             clear_swipe_scoped_extra(object.get("extra")),
         );
     }
-    let updated = state.storage.patch("messages", message_id, message)?;
+    compact_message_for_storage(&mut message)?;
+    let mut updated = state.storage.patch("messages", message_id, message)?;
+    materialize_message_swipe_fields(&mut updated);
     Ok(active_swipe_update_response(&updated))
 }
 
@@ -592,7 +598,9 @@ pub(crate) fn delete_swipe(
         }
     }
     materialize_message_swipe_fields(&mut message);
-    let updated = state.storage.patch("messages", message_id, message)?;
+    compact_message_for_storage(&mut message)?;
+    let mut updated = state.storage.patch("messages", message_id, message)?;
+    materialize_message_swipe_fields(&mut updated);
     if removed_swipe {
         game_state_snapshots::delete_tracker_snapshot_swipe(
             state,
@@ -603,6 +611,14 @@ pub(crate) fn delete_swipe(
         game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
     }
     Ok(updated)
+}
+
+fn compact_message_for_storage(message: &mut Value) -> AppResult<()> {
+    let Some(object) = message.as_object_mut() else {
+        return Err(AppError::invalid_input("Message is not an object"));
+    };
+    compact_message_swipe_fields_for_storage(object);
+    Ok(())
 }
 
 pub(crate) fn bulk_delete_messages(
@@ -1786,12 +1802,25 @@ mod tests {
             .expect("message lookup should succeed")
             .expect("message should exist");
         assert_eq!(persisted["extra"]["hiddenFromAI"], json!(true));
+        assert!(persisted["extra"].get("generationInfo").is_none());
+        assert!(persisted["extra"].get("reasoning_content").is_none());
         assert_eq!(
-            persisted["extra"]["generationInfo"]["model"],
+            persisted["swipes"][0]["extra"]["generationInfo"]["model"],
             json!("first-model")
         );
         assert_eq!(
-            persisted["extra"]["reasoning_content"],
+            persisted["swipes"][0]["extra"]["reasoning_content"],
+            json!("first reasoning")
+        );
+
+        let mut materialized = persisted.clone();
+        materialize_message_swipe_fields(&mut materialized);
+        assert_eq!(
+            materialized["extra"]["generationInfo"]["model"],
+            json!("first-model")
+        );
+        assert_eq!(
+            materialized["extra"]["reasoning_content"],
             json!("first reasoning")
         );
     }
@@ -1859,7 +1888,7 @@ mod tests {
     }
 
     #[test]
-    fn message_swipes_keep_prompt_snapshot_map_global_while_switching_active_snapshot() {
+    fn message_swipes_store_prompt_snapshots_on_swipes_while_switching_active_snapshot() {
         let state = test_state("swipe-prompt-snapshots");
         state
             .storage
@@ -1909,17 +1938,24 @@ mod tests {
 
         assert_eq!(persisted["content"], json!("first"));
         assert_eq!(persisted["extra"]["hiddenFromAI"], json!(true));
+        assert!(persisted["extra"].get("generationPromptSnapshot").is_none());
+        assert!(persisted["extra"]
+            .get("generationPromptSnapshotsBySwipe")
+            .is_none());
         assert_eq!(
-            persisted["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            persisted["swipes"][0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
             json!("preset-first")
         );
         assert_eq!(
-            persisted["extra"]["generationPromptSnapshotsBySwipe"]["0"]["promptPresetId"],
-            json!("preset-first")
-        );
-        assert_eq!(
-            persisted["extra"]["generationPromptSnapshotsBySwipe"]["1"]["promptPresetId"],
+            persisted["swipes"][1]["extra"]["generationPromptSnapshot"]["promptPresetId"],
             json!("preset-second")
+        );
+
+        let mut materialized = persisted.clone();
+        materialize_message_swipe_fields(&mut materialized);
+        assert_eq!(
+            materialized["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
         );
     }
 

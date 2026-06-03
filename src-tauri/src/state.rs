@@ -16,8 +16,8 @@ use crate::storage_commands::{
     images::percent_encode_component,
     media_uploads::{file_path_asset_url, safe_filename, unique_file_path},
     shared::{
-        agent_run_config_info_from_rows, normalize_agent_run_row_fields,
-        normalize_typed_json_fields,
+        agent_run_config_info_from_rows, compact_message_legacy_prompt_snapshots,
+        normalize_agent_run_row_fields, normalize_typed_json_fields,
     },
 };
 
@@ -37,6 +37,8 @@ struct LlmStreamCancellations {
     pending: HashMap<String, Instant>,
 }
 
+const STARTUP_MIGRATIONS_SETTINGS_ID: &str = "startup-migrations";
+const MESSAGE_PROMPT_SNAPSHOT_COMPACTION_KEY: &str = "messagePromptSnapshotCompactionV1";
 const LLM_STREAM_PENDING_CANCEL_TTL: Duration = Duration::from_secs(60);
 
 impl AppState {
@@ -69,6 +71,7 @@ impl AppState {
         let backgrounds = AssetService::new(data_dir.join("backgrounds"))?;
         Self::seed_defaults(&storage, &game_assets, &backgrounds, default_data_roots)?;
         migrate_storage_json_fields(&storage)?;
+        migrate_message_prompt_snapshots_once(&storage)?;
         migrate_agent_run_rows(&storage)?;
         migrate_legacy_chat_group_roots(&storage)?;
         migrate_local_media_references(&storage, &data_dir)?;
@@ -221,6 +224,72 @@ fn migrate_collection_json_fields(storage: &FileStorage, collection: &str) -> Ap
         storage.replace_all(collection, normalized_rows)?;
     }
     Ok(())
+}
+
+fn migrate_message_prompt_snapshots_once(storage: &FileStorage) -> AppResult<()> {
+    if startup_migration_applied(storage, MESSAGE_PROMPT_SNAPSHOT_COMPACTION_KEY)? {
+        return Ok(());
+    }
+    compact_message_prompt_snapshots(storage)?;
+    mark_startup_migration_applied(storage, MESSAGE_PROMPT_SNAPSHOT_COMPACTION_KEY)
+}
+
+fn compact_message_prompt_snapshots(storage: &FileStorage) -> AppResult<()> {
+    let rows = storage.list("messages")?;
+    let mut changed = false;
+    let mut compacted_rows = Vec::with_capacity(rows.len());
+    for mut row in rows {
+        let before = row.clone();
+        if let Some(object) = row.as_object_mut() {
+            normalize_typed_json_fields("messages", object)?;
+            compact_message_legacy_prompt_snapshots(object);
+        }
+        changed = changed || row != before;
+        compacted_rows.push(row);
+    }
+    if changed {
+        storage.replace_all("messages", compacted_rows)?;
+    }
+    Ok(())
+}
+
+fn startup_migration_applied(storage: &FileStorage, key: &str) -> AppResult<bool> {
+    Ok(startup_migration_flags(storage)?
+        .get(key)
+        .and_then(Value::as_bool)
+        == Some(true))
+}
+
+fn mark_startup_migration_applied(storage: &FileStorage, key: &str) -> AppResult<()> {
+    let mut flags = startup_migration_flags(storage)?;
+    flags.insert(key.to_string(), Value::Bool(true));
+    storage.upsert_with_id(
+        "app-settings",
+        STARTUP_MIGRATIONS_SETTINGS_ID,
+        json!({ "value": Value::Object(flags) }),
+    )?;
+    Ok(())
+}
+
+fn startup_migration_flags(storage: &FileStorage) -> AppResult<Map<String, Value>> {
+    let Some(record) = storage.get("app-settings", STARTUP_MIGRATIONS_SETTINGS_ID)? else {
+        return Ok(Map::new());
+    };
+    Ok(record
+        .get("value")
+        .and_then(json_object_from_value)
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default())
+}
+
+fn json_object_from_value(value: &Value) -> Option<Value> {
+    match value {
+        Value::Object(_) => Some(value.clone()),
+        Value::String(raw) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .filter(Value::is_object),
+        _ => None,
+    }
 }
 
 fn migrate_agent_run_rows(storage: &FileStorage) -> AppResult<()> {
@@ -1291,6 +1360,166 @@ mod tests {
         assert_eq!(root_chat["groupId"], "root-1");
         assert_eq!(unrelated.get("groupId"), Some(&Value::Null));
         assert_eq!(already_grouped["groupId"], "existing-group");
+    }
+
+    #[test]
+    fn app_state_startup_compacts_legacy_message_prompt_snapshots_once() {
+        let root = temp_root("message-prompt-snapshot-compaction");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "second",
+                    "activeSwipeIndex": 1,
+                    "extra": {
+                        "hiddenFromAI": true,
+                        "generationPromptSnapshot": { "promptPresetId": "preset-second" },
+                        "generationPromptSnapshotsBySwipe": {
+                            "0": { "promptPresetId": "preset-first" },
+                            "1": { "promptPresetId": "preset-second" }
+                        }
+                    },
+                    "swipes": [
+                        { "content": "first", "extra": {} },
+                        { "content": "second", "extra": {} }
+                    ]
+                }),
+            )
+            .expect("message should be inserted");
+        persist_fixture_storage(&storage);
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let persisted = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should load")
+            .expect("message should exist");
+
+        assert_eq!(persisted["extra"]["hiddenFromAI"], json!(true));
+        assert!(persisted["extra"].get("generationPromptSnapshot").is_none());
+        assert!(persisted["extra"]
+            .get("generationPromptSnapshotsBySwipe")
+            .is_none());
+        assert_eq!(
+            persisted["swipes"][0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
+        );
+        assert_eq!(
+            persisted["swipes"][1]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-second")
+        );
+
+        let flags = state
+            .storage
+            .get("app-settings", STARTUP_MIGRATIONS_SETTINGS_ID)
+            .expect("migration marker should load")
+            .expect("migration marker should exist");
+        assert_eq!(
+            flags["value"][MESSAGE_PROMPT_SNAPSHOT_COMPACTION_KEY],
+            json!(true)
+        );
+    }
+
+    #[test]
+    fn app_state_startup_preserves_legacy_no_swipe_message_prompt_snapshots() {
+        let root = temp_root("message-prompt-snapshot-no-swipes");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "legacy",
+                    "extra": {
+                        "generationPromptSnapshot": { "promptPresetId": "preset-legacy" },
+                        "generationPromptSnapshotsBySwipe": {
+                            "0": { "promptPresetId": "preset-legacy" }
+                        }
+                    }
+                }),
+            )
+            .expect("message should be inserted");
+        persist_fixture_storage(&storage);
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let persisted = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should load")
+            .expect("message should exist");
+
+        assert!(persisted.get("swipes").is_none());
+        assert_eq!(
+            persisted["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-legacy")
+        );
+        assert_eq!(
+            persisted["extra"]["generationPromptSnapshotsBySwipe"]["0"]["promptPresetId"],
+            json!("preset-legacy")
+        );
+    }
+
+    #[test]
+    fn app_state_startup_skips_message_compaction_after_marker() {
+        let root = temp_root("message-prompt-snapshot-marker");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        let mut marker = Map::new();
+        marker.insert(
+            MESSAGE_PROMPT_SNAPSHOT_COMPACTION_KEY.to_string(),
+            Value::Bool(true),
+        );
+        storage
+            .upsert_with_id(
+                "app-settings",
+                STARTUP_MIGRATIONS_SETTINGS_ID,
+                json!({ "value": Value::Object(marker) }),
+            )
+            .expect("marker should be inserted");
+        storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "activeSwipeIndex": 0,
+                    "extra": {
+                        "generationPromptSnapshot": { "promptPresetId": "preset-first" },
+                        "generationPromptSnapshotsBySwipe": {
+                            "0": { "promptPresetId": "preset-first" }
+                        }
+                    },
+                    "swipes": [{ "content": "first", "extra": {} }]
+                }),
+            )
+            .expect("message should be inserted");
+        persist_fixture_storage(&storage);
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let persisted = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should load")
+            .expect("message should exist");
+
+        assert_eq!(
+            persisted["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
+        );
+        assert_eq!(
+            persisted["extra"]["generationPromptSnapshotsBySwipe"]["0"]["promptPresetId"],
+            json!("preset-first")
+        );
+        assert!(persisted["swipes"][0]["extra"]
+            .get("generationPromptSnapshot")
+            .is_none());
     }
 
     #[test]

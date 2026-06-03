@@ -461,7 +461,7 @@ export interface MessageExtra {
   } | null;
   /** Exact main-generation LLM request saved for Peek Prompt on the active response. */
   generationPromptSnapshot?: GenerationPromptSnapshot | null;
-  /** Exact main-generation LLM requests keyed by swipe index for regenerated alternatives. */
+  /** @deprecated Legacy input only. Prompt snapshots now live on swipes[index].extra. */
   generationPromptSnapshotsBySwipe?: Record<string, GenerationPromptSnapshot>;
 }
 

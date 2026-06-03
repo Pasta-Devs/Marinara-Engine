@@ -381,7 +381,7 @@ pub(crate) const COLLECTIONS: &[StorageCollectionContract] = &[
     contract(
         "messages",
         true,
-        true,
+        false,
         EMPTY_DEFAULTS,
         MESSAGE_FIELDS,
         MESSAGE_CLEANUP,

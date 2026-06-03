@@ -3,12 +3,14 @@ import type { Message } from "../../../../../engine/contracts/types/chat";
 type GenerationPromptSnapshot = Message["extra"]["generationPromptSnapshot"];
 
 /**
- * Resolve the prompt snapshot to show for a message, honoring per-swipe history.
+ * Resolve the prompt snapshot to show for a message, honoring legacy per-swipe
+ * history.
  *
- * Generation stores a snapshot per swipe in `generationPromptSnapshotsBySwipe`
- * (keyed by swipe index) plus a singular `generationPromptSnapshot` tracking the
- * active swipe. Prefer the entry for the active swipe, then fall back to the
- * singular field. Returns null when neither is present (caller then rebuilds).
+ * Newer storage records keep prompt snapshots on `swipes[].extra`; the storage
+ * projection materializes the active swipe into the singular
+ * `generationPromptSnapshot`. Prefer legacy `generationPromptSnapshotsBySwipe`
+ * only when it is still present on older records, then fall back to the singular
+ * field. Returns null when neither is present (caller then rebuilds).
  *
  * Imported legacy (v1.6.1-era) prompts live under `extra.cachedPrompt` and are
  * synthesized into `generationPromptSnapshot` at the storage projection boundary

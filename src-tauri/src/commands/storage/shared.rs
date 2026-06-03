@@ -159,6 +159,90 @@ pub(crate) fn materialize_message_swipe_fields(message: &mut Value) {
     }
 }
 
+pub(crate) fn compact_message_swipe_fields_for_storage(object: &mut Map<String, Value>) {
+    compact_message_legacy_prompt_snapshots(object);
+    let has_swipes = object
+        .get("swipes")
+        .and_then(Value::as_array)
+        .is_some_and(|swipes| !swipes.is_empty());
+    if !has_swipes {
+        return;
+    }
+    let Some(active_extra) = swipe_scoped_extra(object.get("extra")) else {
+        object.insert(
+            "extra".to_string(),
+            clear_swipe_scoped_extra(object.get("extra")),
+        );
+        return;
+    };
+    let active_index = object
+        .get("activeSwipeIndex")
+        .and_then(Value::as_u64)
+        .map(|value| value as usize)
+        .unwrap_or(0);
+    let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) else {
+        return;
+    };
+    let active_index = active_index.min(swipes.len().saturating_sub(1));
+    merge_swipe_extra_at_index(swipes, active_index, &active_extra);
+    object.insert(
+        "extra".to_string(),
+        clear_swipe_scoped_extra(object.get("extra")),
+    );
+}
+
+pub(crate) fn compact_message_legacy_prompt_snapshots(object: &mut Map<String, Value>) {
+    let parent_extra = json_object_value(object.get("extra"));
+    let requested_active_index = object
+        .get("activeSwipeIndex")
+        .and_then(Value::as_u64)
+        .map(|value| value as usize)
+        .unwrap_or(0);
+    let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) else {
+        return;
+    };
+    if swipes.is_empty() {
+        return;
+    }
+
+    let snapshots_by_swipe = parent_extra
+        .as_ref()
+        .and_then(|extra| extra.get("generationPromptSnapshotsBySwipe"))
+        .and_then(json_object_value_from_value);
+    if let Some(Value::Object(snapshots)) = snapshots_by_swipe {
+        for (index, snapshot) in snapshots {
+            let Ok(index) = index.parse::<usize>() else {
+                continue;
+            };
+            if index >= swipes.len() {
+                continue;
+            }
+            insert_swipe_prompt_snapshot_if_missing(swipes, index, snapshot);
+        }
+    }
+
+    let active_index = requested_active_index.min(swipes.len().saturating_sub(1));
+    if let Some(snapshot) = parent_extra
+        .as_ref()
+        .and_then(|extra| extra.get("generationPromptSnapshot"))
+        .cloned()
+    {
+        insert_swipe_prompt_snapshot_if_missing(swipes, active_index, snapshot);
+    }
+
+    let active_snapshot = swipe_prompt_snapshot(swipes, active_index);
+    let Some(extra) = object.get_mut("extra").and_then(Value::as_object_mut) else {
+        return;
+    };
+    extra.remove("generationPromptSnapshotsBySwipe");
+    if active_snapshot
+        .as_ref()
+        .is_some_and(|snapshot| extra.get("generationPromptSnapshot") == Some(snapshot))
+    {
+        extra.remove("generationPromptSnapshot");
+    }
+}
+
 const TIMELINE_MESSAGE_FIELDS: [&str; 14] = [
     "id",
     "chatId",
@@ -346,6 +430,62 @@ pub(crate) fn json_object_value(value: Option<&Value>) -> Option<Value> {
     }
 }
 
+fn json_object_value_from_value(value: &Value) -> Option<Value> {
+    json_object_value(Some(value))
+}
+
+fn merge_swipe_extra_at_index(swipes: &mut [Value], index: usize, extra: &Value) {
+    let Some(extra) = json_object_value(Some(extra)) else {
+        return;
+    };
+    let Some(extra) = extra.as_object() else {
+        return;
+    };
+    let Some(swipe) = swipes.get_mut(index) else {
+        return;
+    };
+    if !swipe.is_object() {
+        *swipe = json!({});
+    }
+    let Some(swipe) = swipe.as_object_mut() else {
+        return;
+    };
+    let mut merged = json_object_value(swipe.get("extra"))
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    for (key, value) in extra {
+        merged.insert(key.clone(), value.clone());
+    }
+    swipe.insert("extra".to_string(), Value::Object(merged));
+}
+
+fn insert_swipe_prompt_snapshot_if_missing(swipes: &mut [Value], index: usize, snapshot: Value) {
+    let Some(swipe) = swipes.get_mut(index) else {
+        return;
+    };
+    if !swipe.is_object() {
+        *swipe = json!({});
+    }
+    let Some(swipe) = swipe.as_object_mut() else {
+        return;
+    };
+    let mut extra = json_object_value(swipe.get("extra"))
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    extra
+        .entry("generationPromptSnapshot".to_string())
+        .or_insert(snapshot);
+    swipe.insert("extra".to_string(), Value::Object(extra));
+}
+
+fn swipe_prompt_snapshot(swipes: &[Value], index: usize) -> Option<Value> {
+    swipes
+        .get(index)
+        .and_then(|swipe| swipe.get("extra"))
+        .and_then(json_object_value_from_value)
+        .and_then(|extra| extra.get("generationPromptSnapshot").cloned())
+}
+
 pub(crate) fn non_negative_i64_value(value: Option<&Value>) -> Option<i64> {
     match value {
         Some(Value::Number(number)) => number
@@ -439,6 +579,7 @@ pub(crate) fn patch_message_update(
         .storage
         .patch_with("messages", message_id, normalized, |message, patch| {
             sync_message_patch_content_to_active_swipe(message, patch);
+            compact_message_swipe_fields_for_storage(message);
             Ok(())
         })
 }
@@ -526,6 +667,7 @@ pub(crate) fn normalize_typed_json_fields(
     }
     if collection == "messages" {
         normalize_message_text_fields(object);
+        compact_message_swipe_fields_for_storage(object);
     }
     Ok(())
 }
@@ -1314,6 +1456,103 @@ mod tests {
         assert_eq!(
             message["extra"]["cachedPrompt"][0]["content"],
             json!("old prompt")
+        );
+    }
+
+    #[test]
+    fn message_defaults_compact_parent_prompt_snapshots_into_swipe_extra() {
+        let mut row = with_entity_defaults(
+            "messages",
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 0,
+                "extra": {
+                    "hiddenFromAI": true,
+                    "generationPromptSnapshot": { "promptPresetId": "preset-first" },
+                    "generationPromptSnapshotsBySwipe": {
+                        "0": { "promptPresetId": "preset-first" }
+                    }
+                },
+                "swipes": [{ "content": "first", "extra": {} }]
+            }),
+        )
+        .expect("message should normalize");
+
+        assert_eq!(row["extra"]["hiddenFromAI"], json!(true));
+        assert!(row["extra"].get("generationPromptSnapshot").is_none());
+        assert!(row["extra"]
+            .get("generationPromptSnapshotsBySwipe")
+            .is_none());
+        assert_eq!(
+            row["swipes"][0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
+        );
+
+        materialize_message_swipe_fields(&mut row);
+        assert_eq!(
+            row["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
+        );
+    }
+
+    #[test]
+    fn message_extra_update_patch_compacts_parent_prompt_snapshot_after_syncing_swipe() {
+        let root = temp_root("message-patch-prompt-snapshot");
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        state
+            .storage
+            .create(
+                "messages",
+                with_entity_defaults(
+                    "messages",
+                    json!({
+                        "id": "message-1",
+                        "chatId": "chat-1",
+                        "role": "assistant",
+                        "content": "first",
+                        "activeSwipeIndex": 0,
+                        "extra": { "hiddenFromAI": true },
+                        "swipes": [{ "content": "first", "extra": {} }]
+                    }),
+                )
+                .expect("message defaults should apply"),
+            )
+            .expect("message should be created");
+
+        let mut updated = patch_message_update(
+            &state,
+            "message-1",
+            json!({
+                "extra": {
+                    "generationPromptSnapshot": { "promptPresetId": "preset-first" },
+                    "generationReplay": { "userMessage": "again" }
+                }
+            }),
+        )
+        .expect("message should update");
+
+        assert!(updated["extra"].get("generationPromptSnapshot").is_none());
+        assert!(updated["extra"].get("generationReplay").is_none());
+        assert_eq!(
+            updated["swipes"][0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
+        );
+        assert_eq!(
+            updated["swipes"][0]["extra"]["generationReplay"]["userMessage"],
+            json!("again")
+        );
+
+        materialize_message_swipe_fields(&mut updated);
+        assert_eq!(
+            updated["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
+        );
+        assert_eq!(
+            updated["extra"]["generationReplay"]["userMessage"],
+            json!("again")
         );
     }
 
