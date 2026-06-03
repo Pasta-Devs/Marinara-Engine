@@ -1358,6 +1358,40 @@ mod tests {
     }
 
     #[test]
+    fn batched_full_materialization_accepts_trimmed_legacy_sidecar_message_ids() {
+        let state = test_state("batch-full-materialize-trimmed-sidecar-message-id");
+        let mut messages = vec![json!({
+            "id": "message-1",
+            "chatId": "chat-1",
+            "role": "assistant",
+            "content": "active parent",
+            "activeSwipeIndex": 0
+        })];
+        state
+            .storage
+            .replace_all(
+                COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "chatId": "chat-1",
+                    "messageId": " message-1 ",
+                    "index": 0,
+                    "content": "legacy padded message id",
+                    "extra": { "thinking": "trimmed thought" }
+                })],
+            )
+            .expect("sidecars should seed");
+
+        materialize_messages_for_output(&state, &mut messages, MessageSwipeMaterialization::full())
+            .expect("messages should materialize");
+
+        assert_eq!(messages[0]["content"], "legacy padded message id");
+        assert_eq!(messages[0]["swipeCount"], json!(1));
+        assert_eq!(messages[0]["extra"]["thinking"], "trimmed thought");
+        assert_eq!(messages[0]["swipes"][0]["content"], "legacy padded message id");
+    }
+
+    #[test]
     fn create_message_keeps_response_compatible_but_persists_sidecar_swipes() {
         let state = test_state("create");
         let created = create_message(

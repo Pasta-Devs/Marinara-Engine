@@ -914,11 +914,7 @@ impl FileStorage {
         if let Some(rows) = self.cached_rows(collection)? {
             return Ok(rows
                 .into_iter()
-                .filter(|row| {
-                    row.get(filter_field)
-                        .and_then(Value::as_str)
-                        .is_some_and(|value| filter_values.contains(value))
-                })
+                .filter(|row| row_string_field_matches_in(row, filter_field, filter_values))
                 .collect());
         }
 
@@ -943,11 +939,7 @@ impl FileStorage {
                 };
                 Ok(rows
                     .into_iter()
-                    .filter(|row| {
-                        row.get(filter_field)
-                            .and_then(Value::as_str)
-                            .is_some_and(|value| filter_values.contains(value))
-                    })
+                    .filter(|row| row_string_field_matches_in(row, filter_field, filter_values))
                     .collect())
             }
         }
@@ -1070,11 +1062,7 @@ impl FileStorage {
         if let Some(rows) = self.cached_rows(collection)? {
             return Ok(rows
                 .into_iter()
-                .filter(|row| {
-                    row.get(filter_field)
-                        .and_then(Value::as_str)
-                        .is_some_and(|value| filter_values.contains(value))
-                })
+                .filter(|row| row_string_field_matches_in(row, filter_field, filter_values))
                 .map(|row| project_row(row, &field_set, &nested_field_sets))
                 .collect());
         }
@@ -1102,11 +1090,7 @@ impl FileStorage {
                 };
                 Ok(rows
                     .into_iter()
-                    .filter(|row| {
-                        row.get(filter_field)
-                            .and_then(Value::as_str)
-                            .is_some_and(|value| filter_values.contains(value))
-                    })
+                    .filter(|row| row_string_field_matches_in(row, filter_field, filter_values))
                     .map(|row| project_row(row, &field_set, &nested_field_sets))
                     .collect())
             }
@@ -1938,6 +1922,22 @@ fn row_matches_filters(row: &Value, filters: &Map<String, Value>) -> bool {
         .all(|(key, expected)| object.get(key) == Some(expected))
 }
 
+fn row_string_field_matches_in(
+    row: &Value,
+    filter_field: &str,
+    filter_values: &HashSet<String>,
+) -> bool {
+    row.get(filter_field)
+        .is_some_and(|value| string_value_matches_in(value, filter_values))
+}
+
+fn string_value_matches_in(value: &Value, filter_values: &HashSet<String>) -> bool {
+    value
+        .as_str()
+        .map(str::trim)
+        .is_some_and(|value| filter_values.contains(value))
+}
+
 struct FindRowByIdVisitor<'a> {
     id: &'a str,
 }
@@ -2296,9 +2296,7 @@ impl<'de, 'a> Visitor<'de> for FilteredRowWhereInVisitor<'a> {
         while let Some(key) = map.next_key::<String>()? {
             if key == self.filter_field {
                 let value = map.next_value::<Value>()?;
-                let is_match = value
-                    .as_str()
-                    .is_some_and(|value| self.filter_values.contains(value));
+                let is_match = string_value_matches_in(&value, self.filter_values);
                 matches_filter = Some(is_match);
                 if is_match {
                     object.insert(key, value);
@@ -2428,9 +2426,7 @@ impl<'de, 'a> Visitor<'de> for ProjectedRowWhereInVisitor<'a> {
         while let Some(key) = map.next_key::<String>()? {
             if key == self.filter_field {
                 let value = map.next_value::<Value>()?;
-                let is_match = value
-                    .as_str()
-                    .is_some_and(|value| self.filter_values.contains(value));
+                let is_match = string_value_matches_in(&value, self.filter_values);
                 matches_filter = Some(is_match);
                 if is_match && self.fields.contains(&key) {
                     object.insert(key, value);
@@ -4482,19 +4478,27 @@ mod tests {
                     "createdAt": "2026-01-01T00:00:01Z"
                 },
                 {
+                    "id": "message-1::swipe::2",
+                    "messageId": " message-1 ",
+                    "index": 2,
+                    "content": "trimmed legacy id",
+                    "extra": { "large": "ignored" },
+                    "createdAt": "2026-01-01T00:00:02Z"
+                },
+                {
                     "id": "message-2::swipe::0",
                     "messageId": "message-2",
                     "index": 0,
                     "content": "skip",
                     "extra": { "large": "ignored" },
-                    "createdAt": "2026-01-01T00:00:02Z"
+                    "createdAt": "2026-01-01T00:00:03Z"
                 },
                 {
                     "id": "missing-message-id",
                     "index": 0,
                     "content": "skip missing parent",
                     "extra": { "large": "ignored" },
-                    "createdAt": "2026-01-01T00:00:03Z"
+                    "createdAt": "2026-01-01T00:00:04Z"
                 }
             ]))
             .unwrap(),
@@ -4524,6 +4528,11 @@ mod tests {
                     "messageId": "message-1",
                     "index": 1,
                     "content": "second"
+                }),
+                json!({
+                    "messageId": " message-1 ",
+                    "index": 2,
+                    "content": "trimmed legacy id"
                 })
             ]
         );
@@ -4564,6 +4573,14 @@ mod tests {
                     "extra": { "thinking": "second thought" },
                     "createdAt": "2026-01-01T00:00:02Z",
                     "customField": "preserved"
+                },
+                {
+                    "id": "message-1::swipe::2",
+                    "messageId": " message-1 ",
+                    "index": 2,
+                    "content": "trimmed legacy id",
+                    "extra": { "thinking": "trimmed thought" },
+                    "createdAt": "2026-01-01T00:00:03Z"
                 }
             ]))
             .unwrap(),
@@ -4596,6 +4613,14 @@ mod tests {
                     "extra": { "thinking": "second thought" },
                     "createdAt": "2026-01-01T00:00:02Z",
                     "customField": "preserved"
+                }),
+                json!({
+                    "id": "message-1::swipe::2",
+                    "messageId": " message-1 ",
+                    "index": 2,
+                    "content": "trimmed legacy id",
+                    "extra": { "thinking": "trimmed thought" },
+                    "createdAt": "2026-01-01T00:00:03Z"
                 })
             ]
         );
