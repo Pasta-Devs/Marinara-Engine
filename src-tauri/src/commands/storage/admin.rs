@@ -1,7 +1,10 @@
 use super::shared::*;
 use super::*;
 
-pub(crate) fn admin_clear_all(state: &AppState) -> AppResult<Value> {
+pub(crate) fn admin_clear_all(state: &AppState, body: Value) -> AppResult<Value> {
+    if body.get("confirm").and_then(Value::as_bool) != Some(true) {
+        return Err(AppError::invalid_input("confirm must be true"));
+    }
     state.storage.clear_all()?;
     clear_runtime_media(state)?;
     Ok(json!({ "success": true, "cleared": "all" }))
@@ -154,6 +157,67 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp admin dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn seed_character(state: &AppState, id: &str) {
+        state
+            .storage
+            .upsert_with_id(
+                "characters",
+                id,
+                json!({
+                    "id": id,
+                    "name": "Seed Character"
+                }),
+            )
+            .expect("character should write");
+    }
+
+    fn character_exists(state: &AppState, id: &str) -> bool {
+        state
+            .storage
+            .get("characters", id)
+            .expect("characters should be readable")
+            .is_some()
+    }
+
+    #[test]
+    fn admin_clear_all_rejects_missing_confirmation_without_clearing_storage() {
+        let state = test_state("clear-all-missing-confirm");
+        seed_character(&state, "character-1");
+
+        let error = admin_clear_all(&state, json!({}))
+            .expect_err("clear all should reject missing confirmation");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("confirm must be true"));
+        assert!(character_exists(&state, "character-1"));
+    }
+
+    #[test]
+    fn admin_clear_all_rejects_false_confirmation_without_clearing_storage() {
+        let state = test_state("clear-all-false-confirm");
+        seed_character(&state, "character-1");
+
+        let error = admin_clear_all(&state, json!({ "confirm": false }))
+            .expect_err("clear all should reject false confirmation");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("confirm must be true"));
+        assert!(character_exists(&state, "character-1"));
+    }
+
+    #[test]
+    fn admin_clear_all_clears_storage_when_confirmed() {
+        let state = test_state("clear-all-confirmed");
+        seed_character(&state, "character-1");
+
+        let result =
+            admin_clear_all(&state, json!({ "confirm": true })).expect("clear all should succeed");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["cleared"], "all");
+        assert!(!character_exists(&state, "character-1"));
     }
 
     #[test]

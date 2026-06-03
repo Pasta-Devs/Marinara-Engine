@@ -52,8 +52,11 @@ pub fn admin_expunge_command(
 }
 
 #[tauri::command]
-pub fn admin_clear_all_command(state: State<'_, AppState>) -> Result<Value, AppError> {
-    admin::admin_clear_all(&state)
+pub fn admin_clear_all_command(
+    state: State<'_, AppState>,
+    confirm: Option<bool>,
+) -> Result<Value, AppError> {
+    admin::admin_clear_all(&state, json!({ "confirm": confirm }))
 }
 
 #[tauri::command]
