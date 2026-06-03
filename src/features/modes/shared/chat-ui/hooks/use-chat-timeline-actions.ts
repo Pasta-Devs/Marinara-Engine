@@ -121,6 +121,7 @@ export function useChatTimelineActions({
   const messagesRef = useLatestRef(messages);
 
   const swipeActionSeq = useRef(0);
+  const destructiveTimelineActionSeq = useRef(0);
   const peekPromptActionSeq = useRef(0);
   const pendingSwipeMutationsRef = useRef(new Map<string, Promise<void>>());
   const swipeRequestSeqCounterRef = useRef(0);
@@ -211,6 +212,7 @@ export function useChatTimelineActions({
     const messageId = deleteDialogMessageId;
     setDeleteDialogMessageId(null);
     if (!messageId) return;
+    destructiveTimelineActionSeq.current += 1;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
       try {
@@ -238,6 +240,7 @@ export function useChatTimelineActions({
     const index = deleteDialogActiveSwipeIndex;
     setDeleteDialogMessageId(null);
     if (!messageId || !deleteDialogCanDeleteSwipe) return;
+    destructiveTimelineActionSeq.current += 1;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
       try {
@@ -312,6 +315,7 @@ export function useChatTimelineActions({
   const handleBulkDelete = useCallback(() => {
     const messageIds = [...selectedMessageIds];
     if (messageIds.length === 0) return;
+    destructiveTimelineActionSeq.current += 1;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
       try {
@@ -469,6 +473,7 @@ export function useChatTimelineActions({
     (messageId: string, index: number) => {
       const actionId = ++swipeActionSeq.current;
       const requestId = ++swipeRequestSeqCounterRef.current;
+      const destructiveTimelineActionId = destructiveTimelineActionSeq.current;
       const previousMutation = pendingSwipeMutationsRef.current.get(messageId);
       let resolvePendingTransition: () => void = () => undefined;
       const pendingTransition = new Promise<void>((resolve) => {
@@ -477,7 +482,9 @@ export function useChatTimelineActions({
       swipeRequestSeqRef.current.set(messageId, requestId);
       pendingSwipeMutationsRef.current.set(messageId, pendingTransition);
       const isLatestSwipeRequest = () => swipeRequestSeqRef.current.get(messageId) === requestId;
-      const isActiveSwipeAction = () => swipeActionSeq.current === actionId && isLatestSwipeRequest();
+      const canPersistSwipeRequest = () =>
+        destructiveTimelineActionSeq.current === destructiveTimelineActionId && isLatestSwipeRequest();
+      const ownsTimelineSideEffects = () => swipeActionSeq.current === actionId && isLatestSwipeRequest();
       void (async () => {
         try {
           if (
@@ -485,12 +492,12 @@ export function useChatTimelineActions({
             !(await flushTrackerPatchesForTimelineAction(
               actionId,
               "Could not save tracker changes before switching swipes.",
-              isActiveSwipeAction,
+              canPersistSwipeRequest,
             ))
           ) {
             return;
           }
-          if (!isActiveSwipeAction()) return;
+          if (!canPersistSwipeRequest()) return;
           if (previousMutation) {
             try {
               await previousMutation;
@@ -498,13 +505,13 @@ export function useChatTimelineActions({
               // The active action below will report its own failure if needed.
             }
           }
-          if (!isActiveSwipeAction()) return;
+          if (!canPersistSwipeRequest()) return;
           const mutation = setActiveSwipeRef.current.mutateAsync({ messageId, index });
           await mutation;
-          if (!isActiveSwipeAction()) return;
+          if (!ownsTimelineSideEffects()) return;
           scheduleVisibleWorldStateRefresh(actionId);
         } catch (error) {
-          if (isActiveSwipeAction()) {
+          if (canPersistSwipeRequest()) {
             toast.error(error instanceof Error ? error.message : "Could not switch swipes.");
           }
         } finally {
