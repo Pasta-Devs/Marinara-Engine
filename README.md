@@ -116,9 +116,13 @@ Docker Compose stores remote-runtime data in its Compose-managed
 `marinara-server-data` volume by default. To test migration against app data,
 copy that app data into a throwaway host folder and point
 `MARINARA_HOST_DATA_DIR` at the copy before starting Compose so the container and
-host read the same `/data` tree without rewriting live desktop data. If you
-already tested with a host folder such as `.docker-marinara-data/`, keep using
-that folder by setting `MARINARA_HOST_DATA_DIR=./.docker-marinara-data`.
+host read the same `/data` tree without rewriting live desktop data. The runtime
+stores records under `/data/data`, so legacy Node data from `packages/server/data/`
+should be copied into the host folder as a `data/` child, for example
+`.docker-marinara-data/data/`; do not point `MARINARA_HOST_DATA_DIR` directly at
+the `packages/server/data/` folder. If you already tested with a host folder such
+as `.docker-marinara-data/`, keep using that folder by setting
+`MARINARA_HOST_DATA_DIR=./.docker-marinara-data`.
 
 The Compose file is intended for same-machine browser access by default. It binds
 the host port to `127.0.0.1:8787` and enables the Docker bridge auth bypass so a

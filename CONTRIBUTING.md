@@ -48,6 +48,9 @@ docker compose up --build
 - `docker compose up --build` builds and starts the remote Rust runtime container. Its `/data`
   directory uses the Compose-managed `marinara-server-data` volume by default; set
   `MARINARA_HOST_DATA_DIR` to a copied app data directory when validating Docker migration parity.
+  Because the runtime stores records under `/data/data`, legacy Node data from
+  `packages/server/data/` should be copied into the host folder as a `data/` child, not mounted as
+  `/data` itself.
   Binding live app data directly can leave root-owned files on the host, so use the named volume
   or a throwaway copied directory for Docker tests.
   If you already tested with a host folder such as `.docker-marinara-data/`, set

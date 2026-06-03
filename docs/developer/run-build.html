@@ -293,10 +293,14 @@ MARINARA_DATA_DIR=/path/to/data</code></pre>
           To verify migration against app data, copy that data into a throwaway
           host folder and set <code>MARINARA_HOST_DATA_DIR</code> to the copy
           before starting Compose so the container and host share the same data
-          tree without rewriting live desktop data. Binding live app data
-          directly can leave root-owned files on the host, so use the named
-          volume or a throwaway copied directory for Docker tests. If you
-          already tested with a host folder such as <code>.docker-marinara-data/</code>, set
+          tree without rewriting live desktop data. The runtime stores records
+          under <code>/data/data</code>, so legacy Node data from
+          <code>packages/server/data/</code> should be copied into the host
+          folder as a <code>data/</code> child, not mounted as <code>/data</code>
+          itself. Binding live app data directly can leave root-owned files on
+          the host, so use the named volume or a throwaway copied directory for
+          Docker tests. If you already tested with a host folder such as
+          <code>.docker-marinara-data/</code>, set
           <code>MARINARA_HOST_DATA_DIR=./.docker-marinara-data</code> to keep
           using that folder.
         </p>
