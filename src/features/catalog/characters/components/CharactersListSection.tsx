@@ -62,6 +62,7 @@ export function CharactersListSection({
     getScrollElement: () => listScrollRef.current,
     estimateSize: () => 74,
     overscan: 10,
+    useAnimationFrameWithResizeObserver: true,
   });
 
   return (
