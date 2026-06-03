@@ -1,5 +1,5 @@
 import type { LlmGateway, LlmMessage } from "../../../capabilities/llm";
-import type { StorageGateway } from "../../../capabilities/storage";
+import type { StorageEntity, StorageGateway } from "../../../capabilities/storage";
 import { parseJsonArray, parseJsonObject } from "../../../core/json";
 import { parseGameJsonish } from "../../../shared/parsing-jsonish";
 import { readString as stringValue } from "../../../shared/value-readers";
@@ -879,7 +879,7 @@ async function requireChat(storage: StorageGateway, chatId: string): Promise<Jso
 
 async function requireStorageRecord(
   storage: StorageGateway,
-  entity: string,
+  entity: StorageEntity,
   id: string,
   label: string,
 ): Promise<JsonRecord> {
@@ -890,7 +890,7 @@ async function requireStorageRecord(
 
 async function safeList<T extends JsonRecord>(
   storage: StorageGateway,
-  entity: string,
+  entity: StorageEntity,
   filters?: Record<string, unknown>,
 ): Promise<T[]> {
   try {

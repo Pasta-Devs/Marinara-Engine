@@ -12,6 +12,7 @@ import {
   updatePromptSectionSchema,
 } from "../../../../engine/contracts/schemas/prompt.schema";
 import { boolish } from "../../../../engine/generation/runtime-records";
+import type { StorageEntity } from "../../../../engine/capabilities/storage";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import type { PromptPreset, PromptGroup, PromptSection, ChoiceBlock } from "../../../../engine/contracts/types/prompt";
@@ -45,7 +46,7 @@ const PRESET_SUMMARY_OPTIONS = {
   fields: ["id", "name", "isDefault", "default"],
 };
 
-const promptNestedEntity: Record<PromptNestedKind, string> = {
+const promptNestedEntity: Record<PromptNestedKind, StorageEntity> = {
   groups: "prompt-groups",
   sections: "prompt-sections",
   variables: "prompt-variables",

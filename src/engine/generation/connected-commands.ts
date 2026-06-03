@@ -1,4 +1,4 @@
-import type { StorageGateway } from "../capabilities/storage";
+import type { StorageEntity, StorageGateway } from "../capabilities/storage";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway } from "../capabilities/llm";
 import type { VisualAssetGateway } from "../capabilities/visual-assets";
@@ -71,7 +71,7 @@ function matchesName(row: JsonRecord, name: string): boolean {
   return nameOf(row).trim().toLowerCase() === name.trim().toLowerCase();
 }
 
-async function findByName(storage: StorageGateway, entity: string, name: string): Promise<JsonRecord | null> {
+async function findByName(storage: StorageGateway, entity: StorageEntity, name: string): Promise<JsonRecord | null> {
   const rows = await storage.list<JsonRecord>(entity);
   return rows.find((row) => matchesName(row, name)) ?? null;
 }

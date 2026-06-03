@@ -1,39 +1,41 @@
-export type StorageEntity =
-  | "agents"
-  | "app-settings"
-  | "backgrounds"
-  | "characters"
-  | "character-groups"
-  | "character-gallery"
-  | "chat-folders"
-  | "chat-presets"
-  | "chats"
-  | "connections"
-  | "connection-folders"
-  | "custom-tools"
-  | "extensions"
-  | "gallery"
-  | "game-assets"
-  | "game-checkpoints"
-  | "game-state"
-  | "game-state-snapshots"
-  | "knowledge-sources"
-  | "agent-memory"
-  | "agent-runs"
-  | "character-versions"
-  | "lorebook-entries"
-  | "lorebook-folders"
-  | "lorebooks"
-  | "messages"
-  | "personas"
-  | "persona-groups"
-  | "prompt-groups"
-  | "prompt-overrides"
-  | "prompt-sections"
-  | "prompt-variables"
-  | "prompts"
-  | "regex-scripts"
-  | "themes";
+const GENERIC_STORAGE_ENTITIES = [
+  "characters",
+  "character-groups",
+  "character-versions",
+  "personas",
+  "persona-groups",
+  "lorebooks",
+  "lorebook-entries",
+  "lorebook-folders",
+  "prompts",
+  "prompt-groups",
+  "prompt-sections",
+  "prompt-variables",
+  "prompt-overrides",
+  "chat-presets",
+  "agents",
+  "agent-runs",
+  "agent-memory",
+  "themes",
+  "extensions",
+  "connections",
+  "connection-folders",
+  "chats",
+  "chat-folders",
+  "messages",
+  "custom-tools",
+  "regex-scripts",
+  "app-settings",
+  "gallery",
+  "character-gallery",
+  "background-metadata",
+  "sprites",
+  "knowledge-sources",
+  "game-state-snapshots",
+  "game-checkpoints",
+] as const;
+
+export type StorageEntity = (typeof GENERIC_STORAGE_ENTITIES)[number];
 
 export interface StorageListOptions {
   filters?: Record<string, unknown>;
@@ -53,15 +55,15 @@ export interface AddChatMessageSwipeOptions {
 }
 
 export interface StorageGateway {
-  list<T = unknown>(entity: StorageEntity | string, options?: StorageListOptions): Promise<T[]>;
+  list<T = unknown>(entity: StorageEntity, options?: StorageListOptions): Promise<T[]>;
   get<T = unknown>(
-    entity: StorageEntity | string,
+    entity: StorageEntity,
     id: string,
     options?: Pick<StorageListOptions, "fields" | "fieldSelections">,
   ): Promise<T | null>;
-  create<T = unknown>(entity: StorageEntity | string, value: Record<string, unknown>): Promise<T>;
-  update<T = unknown>(entity: StorageEntity | string, id: string, patch: Record<string, unknown>): Promise<T>;
-  delete(entity: StorageEntity | string, id: string): Promise<{ deleted: boolean }>;
+  create<T = unknown>(entity: StorageEntity, value: Record<string, unknown>): Promise<T>;
+  update<T = unknown>(entity: StorageEntity, id: string, patch: Record<string, unknown>): Promise<T>;
+  delete(entity: StorageEntity, id: string): Promise<{ deleted: boolean }>;
   listChatMessages<T = unknown>(chatId: string, options?: Omit<StorageListOptions, "filters">): Promise<T[]>;
   createChatMessage<T = unknown>(chatId: string, value: Record<string, unknown>): Promise<T>;
   updateChatMessage<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
