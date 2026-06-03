@@ -958,13 +958,9 @@ async fn api_controls_middleware(
         return response;
     }
 
-    let rate_limit = if path == "/api/invoke" {
-        None
-    } else {
-        controls
-            .rate_limiter
-            .check(remote_ip(&request), &path, Instant::now())
-    };
+    let rate_limit = controls
+        .rate_limiter
+        .check(remote_ip(&request), &path, Instant::now());
     if let Some(outcome) = rate_limit.as_ref().filter(|outcome| !outcome.is_allowed()) {
         let mut response = api_json_error_response(
             StatusCode::TOO_MANY_REQUESTS,
