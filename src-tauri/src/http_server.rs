@@ -216,8 +216,11 @@ fn apply_managed_asset_headers(
     }
 }
 
-fn cache_control_for_managed_asset(_kind: &str) -> &'static str {
-    "public, max-age=86400"
+fn cache_control_for_managed_asset(kind: &str) -> &'static str {
+    match kind {
+        "avatar" | "avatar-thumbnail" | "thumbnail" => "no-cache",
+        _ => "public, max-age=86400",
+    }
 }
 
 fn asset_etag(metadata: &std::fs::Metadata) -> Option<HeaderValue> {
@@ -1432,7 +1435,7 @@ mod tests {
             headers
                 .get(header::CACHE_CONTROL)
                 .and_then(|value| value.to_str().ok()),
-            Some("public, max-age=86400")
+            Some("no-cache")
         );
         assert!(
             headers.get(header::ETAG).is_some(),
