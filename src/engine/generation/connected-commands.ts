@@ -257,6 +257,30 @@ function activeCharacterId(chat: JsonRecord): string | null {
   return stringArray(chat.characterIds)[0] ?? null;
 }
 
+function isIllustratorAgent(agent: JsonRecord): boolean {
+  return (
+    readString(agent.id).trim() === "illustrator" ||
+    readString(agent.type || agent.agentType).trim() === "illustrator"
+  );
+}
+
+async function resolveIllustratorLlmConnectionId(
+  storage: StorageGateway,
+  fallbackConnectionId: string | null | undefined,
+): Promise<string | null> {
+  const agents = await storage.list<JsonRecord>("agents").catch(() => []);
+  const illustratorAgent = agents.find((agent) => boolish(agent.enabled, true) && isIllustratorAgent(agent));
+  const agentConnectionId = readString(illustratorAgent?.connectionId).trim();
+  if (agentConnectionId) return agentConnectionId;
+
+  const connections = await storage.list<JsonRecord>("connections").catch(() => []);
+  const defaultAgentConnection = connections.find(
+    (connection) =>
+      readString(connection.provider).trim() !== "image_generation" && boolish(connection.defaultForAgents, false),
+  );
+  return readString(defaultAgentConnection?.id).trim() || readString(fallbackConnectionId).trim() || null;
+}
+
 function parseSelfieSize(value: unknown): { width: number; height: number } {
   const text = readString(value).trim();
   const match = text.match(/^(\d{2,5})x(\d{2,5})$/i);
@@ -336,10 +360,13 @@ async function buildSelfiePrompt(args: {
     : `Generate a casual selfie of ${characterName} based on the current conversation context.`;
 
   let prompt = "";
-  if (args.llm && args.llmConnectionId) {
+  const promptConnectionId = args.llm
+    ? await resolveIllustratorLlmConnectionId(args.storage, args.llmConnectionId)
+    : null;
+  if (args.llm && promptConnectionId) {
     prompt = (
       await args.llm.complete({
-        connectionId: args.llmConnectionId,
+        connectionId: promptConnectionId,
         messages: [
           { role: "system", content: systemPrompt },
           {
