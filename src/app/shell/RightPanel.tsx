@@ -6,7 +6,7 @@ import { X, Users, BookOpen, FileText, Link, Sparkles, Settings, User, Bot } fro
 import { useUIStore } from "../../shared/stores/ui.store";
 
 const CharactersPanel = lazy(() =>
-  import("../../features/catalog/characters/shell").then((module) => ({ default: module.CharactersPanel })),
+  import("../../features/catalog/characters/panel").then((module) => ({ default: module.CharactersPanel })),
 );
 const LorebooksPanel = lazy(() =>
   import("../../features/catalog/lorebooks/shell").then((module) => ({ default: module.LorebooksPanel })),

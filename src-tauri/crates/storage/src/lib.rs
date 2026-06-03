@@ -1806,34 +1806,54 @@ fn project_row(
 
 fn project_nested_value(value: Value, fields: &HashSet<String>) -> Value {
     match value {
-        Value::Object(object) => {
-            let projected = fields
-                .iter()
-                .filter_map(|field| {
-                    object
-                        .get(field)
-                        .cloned()
-                        .map(|value| (field.clone(), value))
-                })
-                .collect();
-            Value::Object(projected)
-        }
+        Value::Object(object) => Value::Object(project_object_nested_fields(&object, fields)),
         Value::String(raw) => match serde_json::from_str::<Value>(&raw) {
-            Ok(Value::Object(object)) => {
-                let projected = fields
-                    .iter()
-                    .filter_map(|field| {
-                        object
-                            .get(field)
-                            .cloned()
-                            .map(|value| (field.clone(), value))
-                    })
-                    .collect();
-                Value::Object(projected)
-            }
+            Ok(Value::Object(object)) => Value::Object(project_object_nested_fields(&object, fields)),
             _ => Value::String(raw),
         },
         other => other,
+    }
+}
+
+fn project_object_nested_fields(object: &Map<String, Value>, fields: &HashSet<String>) -> Map<String, Value> {
+    let mut projected = Map::new();
+    for field in fields {
+        insert_projected_nested_field(&mut projected, object, field);
+    }
+    projected
+}
+
+fn insert_projected_nested_field(projected: &mut Map<String, Value>, source: &Map<String, Value>, path: &str) {
+    let Some((head, tail)) = path.split_once('.') else {
+        if let Some(value) = source.get(path) {
+            projected.insert(path.to_string(), value.clone());
+        }
+        return;
+    };
+    let Some(value) = source.get(head) else {
+        return;
+    };
+    let Some(nested_source) = object_value(value) else {
+        return;
+    };
+    let entry = projected
+        .entry(head.to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !entry.is_object() {
+        *entry = Value::Object(Map::new());
+    }
+    if let Some(nested_projected) = entry.as_object_mut() {
+        insert_projected_nested_field(nested_projected, &nested_source, tail);
+    }
+}
+
+fn object_value(value: &Value) -> Option<Map<String, Value>> {
+    match value {
+        Value::Object(object) => Some(object.clone()),
+        Value::String(raw) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .and_then(|value| value.as_object().cloned()),
+        _ => None,
     }
 }
 
@@ -1955,6 +1975,13 @@ impl<'de, 'a> Visitor<'de> for ProjectedNestedVisitor<'a> {
         while let Some(key) = map.next_key::<String>()? {
             if self.fields.contains(&key) {
                 object.insert(key, map.next_value::<Value>()?);
+            } else if let Some(child_fields) = selected_child_paths(self.fields, &key) {
+                let value = map.next_value_seed(ProjectedNestedSeed {
+                    fields: &child_fields,
+                })?;
+                if !value.as_object().is_some_and(Map::is_empty) {
+                    object.insert(key, value);
+                }
             } else {
                 let _ = map.next_value::<serde::de::IgnoredAny>()?;
             }
@@ -2033,6 +2060,15 @@ impl<'de, 'a> Visitor<'de> for ProjectedNestedVisitor<'a> {
         }
         Ok(Value::Array(values))
     }
+}
+
+fn selected_child_paths(fields: &HashSet<String>, key: &str) -> Option<HashSet<String>> {
+    let prefix = format!("{key}.");
+    let children = fields
+        .iter()
+        .filter_map(|field| field.strip_prefix(&prefix).map(ToOwned::to_owned))
+        .collect::<HashSet<_>>();
+    (!children.is_empty()).then_some(children)
 }
 
 struct MessageRowsForChatVisitor<'a> {
@@ -3471,6 +3507,73 @@ mod tests {
         assert_eq!(
             record,
             json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_applies_dotted_nested_field_selections() {
+        let root = temp_storage_root("get-projected-dotted-nested-fields");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "data": {
+                        "name": "Rina",
+                        "description": "large prompt text",
+                        "extensions": {
+                            "avatarCrop": { "x": 0.2 },
+                            "backstory": "large extension prompt",
+                            "fav": true,
+                            "importMetadata": {
+                                "card": { "spec": "chara_card_v2" },
+                                "embeddedLorebook": { "entries": ["large"] }
+                            },
+                            "nameColor": "#ff99aa"
+                        }
+                    },
+                    "avatar": "large image payload"
+                })],
+            )
+            .unwrap();
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert(
+            "data".to_string(),
+            json!([
+                "name",
+                "extensions.avatarCrop",
+                "extensions.fav",
+                "extensions.importMetadata.card",
+                "extensions.nameColor"
+            ]),
+        );
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should read")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({
+                "id": "target",
+                "data": {
+                    "name": "Rina",
+                    "extensions": {
+                        "avatarCrop": { "x": 0.2 },
+                        "fav": true,
+                        "importMetadata": {
+                            "card": { "spec": "chara_card_v2" }
+                        },
+                        "nameColor": "#ff99aa"
+                    }
+                }
+            })
         );
 
         fs::remove_dir_all(root).unwrap();

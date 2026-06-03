@@ -55,6 +55,28 @@ export type CharacterSummary = {
   updatedAt?: string;
 };
 
+export type CharacterPanelSummary = {
+  id: string;
+  data?: {
+    name?: string;
+    creator?: string;
+    character_version?: string;
+    tags?: unknown[];
+    extensions?: {
+      avatarCrop?: unknown;
+      fav?: unknown;
+      importMetadata?: unknown;
+      nameColor?: string;
+    };
+  };
+  comment?: string | null;
+  avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 const CHARACTER_LIST_FIELDS = [
   "id",
   "data",
@@ -91,6 +113,22 @@ const CHARACTER_SUMMARY_OPTIONS = {
 const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;
 const EMPTY_CHARACTER_SUMMARIES: CharacterSummary[] = [];
 
+const CHARACTER_PANEL_SUMMARY_OPTIONS = {
+  fields: CHARACTER_LIST_FIELDS,
+  fieldSelections: {
+    data: [
+      "name",
+      "creator",
+      "character_version",
+      "tags",
+      "extensions.avatarCrop",
+      "extensions.fav",
+      "extensions.importMetadata",
+      "extensions.nameColor",
+    ],
+  },
+};
+
 function isPresent<T>(value: T | null | undefined): value is NonNullable<T> {
   return value != null;
 }
@@ -107,6 +145,15 @@ async function listCharacterSummaries(search?: string): Promise<CharacterSummary
   const query = normalizeSearchQuery(search);
   const characters = await storageApi.list<CharacterSummary>("characters", {
     ...CHARACTER_SUMMARY_OPTIONS,
+    ...(query ? { search: query } : {}),
+  });
+  return characters.map(normalizeCharacterAvatarFields);
+}
+
+async function listCharacterPanelSummaries(search?: string): Promise<CharacterPanelSummary[]> {
+  const query = normalizeSearchQuery(search);
+  const characters = await storageApi.list<CharacterPanelSummary>("characters", {
+    ...CHARACTER_PANEL_SUMMARY_OPTIONS,
     ...(query ? { search: query } : {}),
   });
   return characters.map(normalizeCharacterAvatarFields);
@@ -149,6 +196,17 @@ export function useCharacterSummaries(enabled = true, search?: string) {
   return useQuery({
     queryKey: query ? characterKeys.summarySearch(query) : characterKeys.summaries(),
     queryFn: () => listCharacterSummaries(query),
+    enabled,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useCharacterPanelSummaries(enabled = true, search?: string) {
+  const query = normalizeSearchQuery(search);
+  return useQuery({
+    queryKey: query ? characterKeys.panelSummarySearch(query) : characterKeys.panelSummaries(),
+    queryFn: () => listCharacterPanelSummaries(query),
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,

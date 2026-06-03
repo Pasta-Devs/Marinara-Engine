@@ -4,7 +4,6 @@ import { getCharacterTitle } from "../../../../shared/lib/character-display";
 import { cn } from "../../../../shared/lib/utils";
 import { characterAvatarUrl } from "../lib/character-avatar-url";
 import { getText } from "../lib/character-library-model";
-import { estimateCharacterCardTokens, formatEstimatedTokens } from "../lib/character-token-count";
 import { getCharacterPreviewMetadata, getCharacterTags, type ParsedCharacterRow } from "../lib/characters-panel-model";
 import { CharacterAvatarImage } from "./CharacterAvatarImage";
 
@@ -65,9 +64,6 @@ export function CharacterListRow({
   const avatarUrl = characterAvatarUrl(character);
   const isInTargetGroup = assigningGroup?.memberIds.includes(character.id) ?? false;
   const previewMetadata = getCharacterPreviewMetadata(character);
-  const tokenEstimate = estimateCharacterCardTokens(character.parsed);
-  const tokenLabel = formatEstimatedTokens(tokenEstimate);
-  const detailLine = [previewMetadata, tokenLabel].filter(Boolean).join(" · ");
   const rowActionLabel = selectionMode
     ? `${isBulkSelected ? "Deselect" : "Select"} ${charName}`
     : assigningGroup
@@ -183,11 +179,15 @@ export function CharacterListRow({
           {charName}
         </div>
         {charTitle && <div className="truncate text-[0.625rem] italic text-[var(--muted-foreground)]">{charTitle}</div>}
-        {(isAssigning || detailLine) && (
+        {(isAssigning || previewMetadata) && (
           <div className="flex min-w-0 items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
             {!isAssigning && <Hash size="0.625rem" className="shrink-0" />}
             <span className="truncate">
-              {isAssigning ? (isInTargetGroup ? "In group — click to remove" : "Click to add to group") : detailLine}
+              {isAssigning
+                ? isInTargetGroup
+                  ? "In group — click to remove"
+                  : "Click to add to group"
+                : previewMetadata}
             </span>
           </div>
         )}

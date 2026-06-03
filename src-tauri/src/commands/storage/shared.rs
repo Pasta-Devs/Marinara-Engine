@@ -1284,6 +1284,61 @@ mod tests {
     }
 
     #[test]
+    fn project_list_rows_applies_dotted_field_selections_to_nested_data() {
+        let rows = vec![json!({
+            "id": "char-panel",
+            "data": {
+                "name": "Panel Rin",
+                "description": "large prompt",
+                "extensions": {
+                    "avatarCrop": { "x": 0.2 },
+                    "backstory": "large extension prompt",
+                    "fav": true,
+                    "importMetadata": {
+                        "card": { "spec": "chara_card_v2" },
+                        "embeddedLorebook": { "entries": ["large"] }
+                    },
+                    "nameColor": "#ff99aa"
+                }
+            }
+        })];
+
+        let projected = project_list_rows(
+            rows,
+            Some(&json!({
+                "fields": ["id", "data"],
+                "fieldSelections": {
+                    "data": [
+                        "name",
+                        "extensions.avatarCrop",
+                        "extensions.fav",
+                        "extensions.importMetadata.card",
+                        "extensions.nameColor"
+                    ]
+                }
+            })),
+        );
+
+        assert_eq!(
+            projected,
+            vec![json!({
+                "id": "char-panel",
+                "data": {
+                    "name": "Panel Rin",
+                    "extensions": {
+                        "avatarCrop": { "x": 0.2 },
+                        "fav": true,
+                        "importMetadata": {
+                            "card": { "spec": "chara_card_v2" }
+                        },
+                        "nameColor": "#ff99aa"
+                    }
+                }
+            })],
+        );
+    }
+
+    #[test]
     fn project_list_rows_keeps_only_legacy_avatar_path_for_summary_projection() {
         let rows = vec![
             json!({
@@ -2917,11 +2972,39 @@ fn project_nested_field(field: &str, value: Value, options: Option<&Value>) -> V
 fn project_object_nested_fields(object: &Map<String, Value>, nested_fields: &[String]) -> Value {
     let mut projected = Map::new();
     for nested_field in nested_fields {
-        if let Some(nested_value) = object.get(nested_field) {
-            projected.insert(nested_field.clone(), nested_value.clone());
-        }
+        insert_projected_nested_field(&mut projected, object, nested_field);
     }
     Value::Object(projected)
+}
+
+fn insert_projected_nested_field(
+    projected: &mut Map<String, Value>,
+    source: &Map<String, Value>,
+    path: &str,
+) {
+    let Some((head, tail)) = path.split_once('.') else {
+        if let Some(value) = source.get(path) {
+            projected.insert(path.to_string(), value.clone());
+        }
+        return;
+    };
+    let Some(value) = source.get(head) else {
+        return;
+    };
+    let Some(nested_source) =
+        json_object_value(Some(value)).and_then(|value| value.as_object().cloned())
+    else {
+        return;
+    };
+    let entry = projected
+        .entry(head.to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !entry.is_object() {
+        *entry = Value::Object(Map::new());
+    }
+    if let Some(nested_projected) = entry.as_object_mut() {
+        insert_projected_nested_field(nested_projected, &nested_source, tail);
+    }
 }
 
 fn option_string_array(options: Option<&Value>, key: &str) -> Option<Vec<String>> {
