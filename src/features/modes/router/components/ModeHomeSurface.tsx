@@ -111,7 +111,7 @@ export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?
           </div>
 
           <div
-            className={cn("flex flex-wrap justify-center gap-2 sm:gap-3", showEmptyStateEffects && "stagger-children")}
+            className={cn("grid w-full grid-cols-3 gap-2 px-3 sm:flex sm:w-auto sm:justify-center sm:gap-3 sm:px-0", showEmptyStateEffects && "stagger-children")}
           >
             <QuickStartCard
               icon={<MessageSquare size="1.125rem" />}
@@ -281,7 +281,7 @@ function QuickStartCard({
       title={tooltip}
       aria-label={`${comingSoon && !onClick ? "Show status for" : "Start"} ${label} chat`}
       className={cn(
-        "group card-3d-tilt btn-scanlines relative flex w-20 sm:w-28 flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] p-2.5 sm:p-4 text-center transition-all",
+        "group card-3d-tilt btn-scanlines relative flex w-full sm:w-28 flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] p-2.5 sm:p-4 text-center transition-all",
         "cursor-pointer hover:-translate-y-1 hover:border-[var(--primary)]/40 hover:shadow-lg",
       )}
       style={shadowColor ? { ["--tw-shadow-color" as string]: shadowColor } : undefined}
