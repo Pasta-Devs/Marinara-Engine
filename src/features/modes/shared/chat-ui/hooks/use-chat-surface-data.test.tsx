@@ -17,7 +17,7 @@ vi.mock("../../../../catalog/chats/index", () => ({
 
 vi.mock("../../../../catalog/characters/index", () => ({
   characterAvatarUrl: () => null,
-  useCharactersByIds: () => ({ data: [] }),
+  useCharacterSummariesByIds: () => ({ data: [] }),
 }));
 
 vi.mock("../../../../catalog/personas/index", () => ({
