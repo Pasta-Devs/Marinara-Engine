@@ -212,7 +212,6 @@ export function useChatTimelineActions({
     const messageId = deleteDialogMessageId;
     setDeleteDialogMessageId(null);
     if (!messageId) return;
-    destructiveTimelineActionSeq.current += 1;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
       try {
@@ -225,6 +224,7 @@ export function useChatTimelineActions({
           return;
         }
         if (swipeActionSeq.current !== actionId) return;
+        destructiveTimelineActionSeq.current += 1;
         await deleteMessage.mutateAsync(messageId);
         if (swipeActionSeq.current !== actionId) return;
         scheduleVisibleWorldStateRefresh(actionId);
@@ -240,7 +240,6 @@ export function useChatTimelineActions({
     const index = deleteDialogActiveSwipeIndex;
     setDeleteDialogMessageId(null);
     if (!messageId || !deleteDialogCanDeleteSwipe) return;
-    destructiveTimelineActionSeq.current += 1;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
       try {
@@ -253,6 +252,7 @@ export function useChatTimelineActions({
           return;
         }
         if (swipeActionSeq.current !== actionId) return;
+        destructiveTimelineActionSeq.current += 1;
         await deleteSwipe.mutateAsync({ messageId, index });
         if (swipeActionSeq.current !== actionId) return;
         scheduleVisibleWorldStateRefresh(actionId);
@@ -315,7 +315,6 @@ export function useChatTimelineActions({
   const handleBulkDelete = useCallback(() => {
     const messageIds = [...selectedMessageIds];
     if (messageIds.length === 0) return;
-    destructiveTimelineActionSeq.current += 1;
     const actionId = ++swipeActionSeq.current;
     void (async () => {
       try {
@@ -328,6 +327,7 @@ export function useChatTimelineActions({
           return;
         }
         if (swipeActionSeq.current !== actionId) return;
+        destructiveTimelineActionSeq.current += 1;
         await deleteMessages.mutateAsync(messageIds);
         if (swipeActionSeq.current !== actionId) return;
         scheduleVisibleWorldStateRefresh(actionId);
