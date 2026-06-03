@@ -935,6 +935,7 @@ export const ConversationMessage = memo(function ConversationMessage({
             onCreateNextSwipe={onRegenerate ? () => onRegenerate(message.id) : undefined}
             className="ml-14 mt-2 px-1 text-[0.6875rem] text-[var(--muted-foreground)]"
             buttonClassName="rounded p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
+            inputClassName="h-[1.5rem] w-[3rem] text-[0.6875rem]"
           />
         )}
 
@@ -1261,6 +1262,7 @@ export const ConversationMessage = memo(function ConversationMessage({
             onCreateNextSwipe={onRegenerate ? () => onRegenerate(message.id) : undefined}
             className="mt-1.5 text-[0.6875rem] text-[var(--muted-foreground)]"
             buttonClassName="rounded p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
+            inputClassName="h-[1.5rem] w-[3rem] text-[0.6875rem]"
           />
         )}
       </div>

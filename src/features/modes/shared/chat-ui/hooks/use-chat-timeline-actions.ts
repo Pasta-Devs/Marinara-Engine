@@ -122,6 +122,8 @@ export function useChatTimelineActions({
   const swipeActionSeq = useRef(0);
   const peekPromptActionSeq = useRef(0);
   const pendingSwipeMutationsRef = useRef(new Map<string, Promise<void>>());
+  const swipeRequestSeqCounterRef = useRef(0);
+  const swipeRequestSeqRef = useRef(new Map<string, number>());
   const [deleteDialogMessageId, setDeleteDialogMessageId] = useState<string | null>(null);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
@@ -150,19 +152,26 @@ export function useChatTimelineActions({
     [activeChatId, refreshWorldStateOnTimelineChange],
   );
 
-  const flushTrackerPatchesForTimelineAction = useCallback(async (actionId: number, errorMessage: string) => {
-    const flushPatch = useGameStateStore.getState().flushPatch;
-    if (!flushPatch) return true;
-    try {
-      await flushPatch();
-      return true;
-    } catch {
-      if (swipeActionSeq.current === actionId) {
-        toast.error(errorMessage);
+  const flushTrackerPatchesForTimelineAction = useCallback(
+    async (
+      actionId: number,
+      errorMessage: string,
+      shouldReportFailure: () => boolean = () => swipeActionSeq.current === actionId,
+    ) => {
+      const flushPatch = useGameStateStore.getState().flushPatch;
+      if (!flushPatch) return true;
+      try {
+        await flushPatch();
+        return true;
+      } catch {
+        if (shouldReportFailure()) {
+          toast.error(errorMessage);
+        }
+        return false;
       }
-      return false;
-    }
-  }, []);
+    },
+    [],
+  );
 
   const clearRefreshingTimeline = useCallback(
     (actionId: number) => {
@@ -458,27 +467,61 @@ export function useChatTimelineActions({
   const handleSetActiveSwipe = useCallback(
     (messageId: string, index: number) => {
       const actionId = ++swipeActionSeq.current;
-      const mutation = setActiveSwipeRef.current.mutateAsync({ messageId, index });
-      const trackedMutation = mutation.then(
-        () => undefined,
-        () => undefined,
-      );
-      pendingSwipeMutationsRef.current.set(messageId, trackedMutation);
+      const requestId = ++swipeRequestSeqCounterRef.current;
+      swipeRequestSeqRef.current.set(messageId, requestId);
+      const isLatestSwipeRequest = () => swipeRequestSeqRef.current.get(messageId) === requestId;
       void (async () => {
+        let trackedMutation: Promise<void> | null = null;
         try {
+          if (
+            refreshWorldStateOnTimelineChange &&
+            !(await flushTrackerPatchesForTimelineAction(
+              actionId,
+              "Could not save tracker changes before switching swipes.",
+              isLatestSwipeRequest,
+            ))
+          ) {
+            return;
+          }
+          if (!isLatestSwipeRequest()) return;
+          const previousMutation = pendingSwipeMutationsRef.current.get(messageId);
+          if (previousMutation) {
+            try {
+              await previousMutation;
+            } catch {
+              // The active action below will report its own failure if needed.
+            }
+          }
+          if (!isLatestSwipeRequest()) return;
+          const mutation = setActiveSwipeRef.current.mutateAsync({ messageId, index });
+          trackedMutation = mutation.then(
+            () => undefined,
+            () => undefined,
+          );
+          pendingSwipeMutationsRef.current.set(messageId, trackedMutation);
           await mutation;
+          if (swipeActionSeq.current !== actionId) return;
+          scheduleVisibleWorldStateRefresh(actionId);
         } catch (error) {
-          if (swipeActionSeq.current === actionId) {
+          if (isLatestSwipeRequest()) {
             toast.error(error instanceof Error ? error.message : "Could not switch swipes.");
           }
         } finally {
-          if (pendingSwipeMutationsRef.current.get(messageId) === trackedMutation) {
+          if (trackedMutation && pendingSwipeMutationsRef.current.get(messageId) === trackedMutation) {
             pendingSwipeMutationsRef.current.delete(messageId);
+          }
+          if (isLatestSwipeRequest()) {
+            swipeRequestSeqRef.current.delete(messageId);
           }
         }
       })();
     },
-    [setActiveSwipeRef],
+    [
+      flushTrackerPatchesForTimelineAction,
+      refreshWorldStateOnTimelineChange,
+      scheduleVisibleWorldStateRefresh,
+      setActiveSwipeRef,
+    ],
   );
 
   const handleEdit = useCallback(

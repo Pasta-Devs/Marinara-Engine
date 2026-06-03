@@ -2253,6 +2253,7 @@ export const ChatMessage = memo(function ChatMessage({
                 }
                 className="px-1 text-[0.75rem] text-white/40"
                 buttonClassName="rounded-md p-[0.25em] transition-colors hover:bg-white/10 disabled:opacity-30"
+                inputClassName="border-white/10 bg-white/5 text-white/70 [color-scheme:dark]"
                 iconSize={MESSAGE_SWIPE_ICON_SIZE}
               />
             )}
