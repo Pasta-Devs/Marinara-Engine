@@ -30,7 +30,7 @@ import {
   type MainToolDefinitions,
   type ToolRuntimeInput,
 } from "./tools-runtime";
-import { llmParameters, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
+import { llmParameters, loadChatMessage, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
 import {
   appendReadableAttachmentsToContent,
   extractImageAttachmentDataUrls,
@@ -149,6 +149,12 @@ interface CyoaChoice {
   label: string;
   text: string;
 }
+
+const DEFAULT_GENERATION_HISTORY_LIMIT = 300;
+const GENERATION_MESSAGE_LOAD_MARGIN = 20;
+const MIN_GENERATION_MESSAGE_LOAD_LIMIT = 40;
+const MAX_GENERATION_MESSAGE_LOAD_LIMIT = DEFAULT_GENERATION_HISTORY_LIMIT + GENERATION_MESSAGE_LOAD_MARGIN;
+const LOREBOOK_KEEPER_BACKFILL_TARGET_SCAN_FIELDS = ["id", "chatId", "role", "extra", "createdAt"];
 
 const LOREBOOK_KEEPER_AGENT_TYPE = "lorebook-keeper";
 const DEFAULT_LOREBOOK_KEEPER_RUN_INTERVAL = BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[LOREBOOK_KEEPER_AGENT_TYPE] ?? 8;
@@ -847,11 +853,49 @@ function generationMessageLoadOptions(
   chat: JsonRecord,
   input: StartGenerationInput,
 ): Parameters<StorageGateway["listChatMessages"]>[1] {
-  if (readString(input.regenerateMessageId).trim()) return undefined;
   const chatLimit = readNumber(parseRecord(chat.metadata).contextMessageLimit, 0);
-  if (chatLimit <= 0 && !Number.isFinite(Number(input.historyLimit))) return undefined;
-  const historyLimit = Math.max(1, Math.min(9999, chatLimit || readNumber(input.historyLimit, 300)));
-  return { limit: Math.max(40, Math.min(340, historyLimit + 20)) };
+  const requestedLimit = readNumber(input.historyLimit, DEFAULT_GENERATION_HISTORY_LIMIT);
+  const historyLimit = Math.max(
+    1,
+    Math.min(DEFAULT_GENERATION_HISTORY_LIMIT, chatLimit || requestedLimit || DEFAULT_GENERATION_HISTORY_LIMIT),
+  );
+  return {
+    limit: Math.max(
+      MIN_GENERATION_MESSAGE_LOAD_LIMIT,
+      Math.min(MAX_GENERATION_MESSAGE_LOAD_LIMIT, historyLimit + GENERATION_MESSAGE_LOAD_MARGIN),
+    ),
+  };
+}
+
+function messageCursor(message: JsonRecord): string | null {
+  const createdAt = readString(message.createdAt).trim();
+  const id = readString(message.id).trim();
+  return createdAt && id ? `${createdAt}|${id}` : null;
+}
+
+function targetBelongsToChat(target: JsonRecord | null, chatId: string): target is JsonRecord {
+  return !!target && readString(target.chatId).trim() === chatId;
+}
+
+async function loadMessagesForGenerationTarget(args: {
+  storage: StorageGateway;
+  chatId: string;
+  chat: JsonRecord;
+  input: StartGenerationInput;
+  targetMessageId?: string | null;
+}): Promise<JsonRecord[]> {
+  const options = generationMessageLoadOptions(args.chat, args.input);
+  const targetId = readString(args.targetMessageId ?? args.input.regenerateMessageId).trim();
+  if (!targetId) return loadChatMessages(args.storage, args.chatId, options);
+
+  const target = await loadChatMessage(args.storage, targetId).catch(() => null);
+  if (!targetBelongsToChat(target, args.chatId)) return loadChatMessages(args.storage, args.chatId);
+
+  const before = messageCursor(target);
+  if (!before) return loadChatMessages(args.storage, args.chatId);
+
+  const previousMessages = await loadChatMessages(args.storage, args.chatId, { ...options, before });
+  return [...previousMessages, target];
 }
 
 function withImageAttachments(messages: LlmMessage[], images: string[]): LlmMessage[] {
@@ -2186,7 +2230,11 @@ function lorebookKeeperBackfillTargets(
   const assistantMessages = storedMessages
     .filter((message) => !hiddenFromAi(message))
     .filter((message) => readString(message.role).trim() === "assistant")
-    .filter((message) => readString(message.id).trim() && readString(message.content).trim());
+    .filter((message) => {
+      if (!readString(message.id).trim()) return false;
+      if (!Object.prototype.hasOwnProperty.call(message, "content")) return true;
+      return !!readString(message.content).trim();
+    });
   const eligibleCount = Math.max(0, assistantMessages.length - options.readBehind);
   const targets: LorebookKeeperTarget[] = [];
 
@@ -2369,7 +2417,14 @@ async function runLorebookKeeperBackfill(
   const agent = await lorebookKeeperAgent(deps.storage, args.chat);
   if (!agent) return [];
 
-  const storedMessages = args.storedMessages ?? (await loadChatMessages(deps.storage, chatId));
+  const storedMessages =
+    args.storedMessages ??
+    (
+      await deps.storage.listChatMessages<unknown>(chatId, {
+        fields: LOREBOOK_KEEPER_BACKFILL_TARGET_SCAN_FIELDS,
+        fieldSelections: { extra: ["hiddenFromAI", "hiddenFromAi"] },
+      })
+    ).filter(isRecord);
   const processedMessageIds = await successfulLorebookKeeperMessageIds(deps.storage, chatId);
   const targets = lorebookKeeperBackfillTargets(storedMessages, processedMessageIds, {
     readBehind: lorebookKeeperReadBehind(args.chat),
@@ -2379,6 +2434,17 @@ async function runLorebookKeeperBackfill(
   const allResults: AgentResult[] = [];
 
   for (const target of targets) {
+    const targetMessages = await loadMessagesForGenerationTarget({
+      storage: deps.storage,
+      chatId,
+      chat: args.chat,
+      input,
+      targetMessageId: readString(target.message.id).trim(),
+    });
+    const hydratedTarget =
+      targetMessages.find((message) => readString(message.id).trim() === readString(target.message.id).trim()) ??
+      target.message;
+    if (!readString(hydratedTarget.content).trim()) continue;
     allResults.push(
       ...(
         await runGenerationAgentsForTarget({
@@ -2386,8 +2452,8 @@ async function runLorebookKeeperBackfill(
           input,
           chat: args.chat,
           connection: args.connection,
-          storedMessages,
-          target: target.message,
+          storedMessages: targetMessages,
+          target: hydratedTarget,
           agentTypes,
           signal: args.signal,
         })
@@ -2411,13 +2477,20 @@ export async function retryGenerationAgents(
   const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
   assertChatCanGenerate(chat);
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
-  const storedMessages = await loadChatMessages(deps.storage, chatId);
   if (isLorebookKeeperBackfill(input)) {
     return {
-      results: await runLorebookKeeperBackfill(deps, input, { chat, connection, storedMessages, signal }),
+      results: await runLorebookKeeperBackfill(deps, input, { chat, connection, signal }),
       events: [],
     };
   }
+  const targetMessageId = readString(input.options?.forMessageId).trim();
+  const storedMessages = await loadMessagesForGenerationTarget({
+    storage: deps.storage,
+    chatId,
+    chat,
+    input,
+    targetMessageId,
+  });
   const target = targetAssistantMessage(storedMessages, input.options);
   return runGenerationAgentsForTarget({ deps, input, chat, connection, storedMessages, target, agentTypes, signal });
 }
@@ -2460,7 +2533,7 @@ export async function* startGeneration(
       ? [...(storedMessages ?? []), savedTimelineMessage]
       : await loadChatMessages(deps.storage, chatId, messageLoadOptions);
   } else {
-    storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
+    storedMessages = await loadMessagesForGenerationTarget({ storage: deps.storage, chatId, chat, input });
   }
   let generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
   const latestUserInput =
@@ -2545,7 +2618,7 @@ export async function* startGeneration(
       };
       await abortableDelay(availability.delayMs, signal);
       throwIfAborted(signal);
-      storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
+      storedMessages = await loadMessagesForGenerationTarget({ storage: deps.storage, chatId, chat, input });
       generationMessages = messagesBeforeRegenerationTarget(storedMessages, input.regenerateMessageId);
     }
     if (characterNames.length > 0) {

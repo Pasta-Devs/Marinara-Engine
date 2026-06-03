@@ -81,6 +81,11 @@ export async function loadChatMessages(
   return Array.isArray(messages) ? messages.filter(isRecord) : [];
 }
 
+export async function loadChatMessage(storage: StorageGateway, messageId: string): Promise<JsonRecord | null> {
+  const message = await storage.get<unknown>("messages", messageId, withGenerationMessageProjection());
+  return isRecord(message) ? message : null;
+}
+
 export function llmParameters(
   connection: JsonRecord,
   input: { parameters?: Record<string, unknown> | null },

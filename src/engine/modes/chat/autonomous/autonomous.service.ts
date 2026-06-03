@@ -39,6 +39,9 @@ type StoredMessage = {
 
 type UserStatus = "active" | "idle" | "dnd";
 
+const AUTONOMOUS_ACTIVITY_MESSAGE_LIMIT = 80;
+const AUTONOMOUS_ACTIVITY_MESSAGE_FIELDS = ["role", "createdAt", "characterId"];
+
 function metadataRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
     try {
@@ -64,7 +67,10 @@ async function requireChat(storage: StorageGateway, chatId: string): Promise<Sto
 }
 
 async function chatMessages(storage: StorageGateway, chatId: string): Promise<StoredMessage[]> {
-  const rows = await storage.listChatMessages<unknown>(chatId);
+  const rows = await storage.listChatMessages<unknown>(chatId, {
+    limit: AUTONOMOUS_ACTIVITY_MESSAGE_LIMIT,
+    fields: AUTONOMOUS_ACTIVITY_MESSAGE_FIELDS,
+  });
   return Array.isArray(rows) ? (rows as StoredMessage[]) : [];
 }
 
