@@ -235,74 +235,83 @@ export function AvatarCropWidget({ src, alt, crop, onChange }: AvatarCropWidgetP
       </p>
 
       <div className="flex gap-4 max-md:flex-col max-md:items-center">
-        {/* Crop canvas — sized to fit the displayed image exactly so overlay
-            coords are also image coords. */}
+        {/* Crop stage reserves stable bounds while the measured image frame
+            stays exact, so overlay coords remain image coords. */}
         <div
-          className="relative overflow-hidden rounded-lg bg-black/40 select-none"
+          className="relative flex items-center justify-center overflow-hidden rounded-lg bg-black/40 select-none"
           style={{
-            width: imgRect?.w ?? MAX_DISPLAY_W,
-            height: imgRect?.h ?? MAX_DISPLAY_H,
+            width: MAX_DISPLAY_W,
+            height: MAX_DISPLAY_H,
           }}
         >
-          {/* key={src} forces remount when the source changes (e.g. switching
-              between personas/characters in the editor). Without this, only the
-              `src` attribute updates on the existing element, and if the new
-              image is already in browser cache the `load` event never fires for
-              React's onLoad listener — so `handleImgLoad` doesn't run and the
-              crop overlay never initializes. */}
-          <img
-            key={src}
-            ref={imgRef}
-            src={src}
-            alt={alt}
-            onLoad={handleImgLoad}
-            draggable={false}
-            className="block h-full w-full"
-            style={{ objectFit: "fill" }}
-          />
-          {cropPx && imgRect && (
-            <div
-              className="absolute touch-none"
-              style={{
-                left: cropPx.x,
-                top: cropPx.y,
-                width: cropPx.size,
-                height: cropPx.size,
-                boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
-                outline: "2px solid white",
-                cursor: "move",
-              }}
-              onPointerDown={(e) => onPointerDown(e, "pan")}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-            >
-              <CornerHandle
-                pos="tl"
-                onPointerDown={(e) => onPointerDown(e, "tl")}
+          <div
+            className="relative overflow-hidden"
+            style={{
+              width: imgRect?.w ?? MAX_DISPLAY_W,
+              height: imgRect?.h ?? MAX_DISPLAY_H,
+              visibility: imgRect ? "visible" : "hidden",
+            }}
+          >
+            {/* key={src} forces remount when the source changes (e.g. switching
+                between personas/characters in the editor). Without this, only the
+                `src` attribute updates on the existing element, and if the new
+                image is already in browser cache the `load` event never fires for
+                React's onLoad listener — so `handleImgLoad` doesn't run and the
+                crop overlay never initializes. */}
+            <img
+              key={src}
+              ref={imgRef}
+              src={src}
+              alt={alt}
+              onLoad={handleImgLoad}
+              draggable={false}
+              className="block h-full w-full"
+              style={{ objectFit: "fill" }}
+            />
+            {cropPx && imgRect && (
+              <div
+                className="absolute touch-none"
+                style={{
+                  left: cropPx.x,
+                  top: cropPx.y,
+                  width: cropPx.size,
+                  height: cropPx.size,
+                  boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
+                  outline: "2px solid white",
+                  cursor: "move",
+                }}
+                onPointerDown={(e) => onPointerDown(e, "pan")}
                 onPointerMove={onPointerMove}
                 onPointerUp={onPointerUp}
-              />
-              <CornerHandle
-                pos="tr"
-                onPointerDown={(e) => onPointerDown(e, "tr")}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-              />
-              <CornerHandle
-                pos="bl"
-                onPointerDown={(e) => onPointerDown(e, "bl")}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-              />
-              <CornerHandle
-                pos="br"
-                onPointerDown={(e) => onPointerDown(e, "br")}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-              />
-            </div>
-          )}
+                onPointerCancel={onPointerUp}
+              >
+                <CornerHandle
+                  pos="tl"
+                  onPointerDown={(e) => onPointerDown(e, "tl")}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                />
+                <CornerHandle
+                  pos="tr"
+                  onPointerDown={(e) => onPointerDown(e, "tr")}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                />
+                <CornerHandle
+                  pos="bl"
+                  onPointerDown={(e) => onPointerDown(e, "bl")}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                />
+                <CornerHandle
+                  pos="br"
+                  onPointerDown={(e) => onPointerDown(e, "br")}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Live preview — circle avatar at typical sidebar size */}
