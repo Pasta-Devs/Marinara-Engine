@@ -24,6 +24,7 @@ dist-ssr
 # Local environment and app/runtime data
 .env
 .marinara-legacy-profile-import.json
+.docker-marinara-data/
 packages/
 
 # Rust / Tauri

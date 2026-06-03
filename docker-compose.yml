@@ -19,7 +19,6 @@ services:
     ports:
       - "127.0.0.1:8787:8787"
     volumes:
-      - marinara-server-data:/data
-
-volumes:
-  marinara-server-data:
+      - type: bind
+        source: ${MARINARA_HOST_DATA_DIR:-./.docker-marinara-data}
+        target: /data

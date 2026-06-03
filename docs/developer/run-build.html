@@ -288,6 +288,13 @@ MARINARA_DATA_DIR=/path/to/data</code></pre>
         <p>The compose service is intended for same-machine browser access by default and exposes:</p>
         <pre><code>http://127.0.0.1:8787</code></pre>
         <p>
+          Compose bind-mounts <code>/data</code> from the host-visible
+          <code>.docker-marinara-data/</code> folder by default. To verify
+          migration against an existing app data directory, set
+          <code>MARINARA_HOST_DATA_DIR</code> to that directory before starting
+          Compose so the container and host share the same data tree.
+        </p>
+        <p>
           The default Compose port binding is limited to <code>127.0.0.1</code>. For LAN or
           reverse-proxy access, intentionally change the bind address and configure
           <code>BASIC_AUTH_USER</code>/<code>BASIC_AUTH_PASS</code>, <code>IP_ALLOWLIST</code>, or another
@@ -295,7 +302,7 @@ MARINARA_DATA_DIR=/path/to/data</code></pre>
         </p>
         <p>To build directly from GitHub, use Docker's remote git context:</p>
         <pre><code>docker build -t marinara-engine-server https://github.com/Pasta-Devs/Marinara-Engine.git#refactor
-docker run --rm -p 8787:8787 -v marinara-server-data:/data marinara-engine-server</code></pre>
+docker run --rm -p 127.0.0.1:8787:8787 -v "$(pwd)/.docker-marinara-data:/data" marinara-engine-server</code></pre>
 
         <h2>Checks</h2>
         <table>

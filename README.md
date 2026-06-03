@@ -112,6 +112,11 @@ With Docker Compose:
 docker compose up --build
 ```
 
+Docker Compose stores remote-runtime data in the host-visible
+`.docker-marinara-data/` folder by default. To test migration against an
+existing app data directory, point `MARINARA_HOST_DATA_DIR` at that directory
+before starting Compose so the container and host read the same `/data` tree.
+
 The Compose file is intended for same-machine browser access by default. It binds
 the host port to `127.0.0.1:8787` and enables the Docker bridge auth bypass so a
 host browser can reach the container through the mapped local port. For LAN or
