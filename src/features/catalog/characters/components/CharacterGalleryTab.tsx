@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Camera, Download, Trash2, Upload, X } from "lucide-react";
 
 import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploadDropzone";
+import { galleryThumbnailPath, resolveManagedAssetThumbnailFileUrl } from "../../../../shared/api/local-file-api";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import {
   type CharacterGalleryImage,
@@ -127,11 +128,7 @@ export function CharacterGalleryTab({ characterId, characterName }: { characterI
                 className="block aspect-square w-full bg-[var(--secondary)]"
                 onClick={() => setLightbox(image)}
               >
-                <img
-                  src={image.url}
-                  alt={image.prompt || characterName || "Character image"}
-                  className="h-full w-full object-cover"
-                />
+                <CharacterGalleryThumbnail image={image} alt={image.prompt || characterName || "Character image"} />
               </button>
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/25 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
                 <span className="max-w-[8rem] truncate text-[0.6875rem] font-medium text-white/85">
@@ -222,4 +219,32 @@ export function CharacterGalleryTab({ characterId, characterName }: { characterI
       )}
     </div>
   );
+}
+
+function CharacterGalleryThumbnail({
+  image,
+  alt,
+}: {
+  image: CharacterGalleryImage;
+  alt: string;
+}) {
+  const [src, setSrc] = useState(image.url);
+
+  useEffect(() => {
+    let cancelled = false;
+    const path = galleryThumbnailPath(image.filename, image.filePath);
+    setSrc(image.url);
+    resolveManagedAssetThumbnailFileUrl("gallery", path, 256)
+      .then((url) => {
+        if (!cancelled) setSrc(url || image.url);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(image.url);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [image.filePath, image.filename, image.url]);
+
+  return <img src={src} alt={alt} className="h-full w-full object-cover" loading="lazy" />;
 }

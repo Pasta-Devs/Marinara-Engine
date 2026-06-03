@@ -2,8 +2,8 @@ use crate::state::AppState;
 use crate::storage_commands::{
     admin, agents, avatars, backgrounds, backup, bot_browser, characters, chats, custom_tools,
     entity_commands, exports, fonts, game_assets, game_state_snapshots, generation, http, images,
-    imports, integrations, knowledge, llm, lorebook_images, mari, personas, profile,
-    profile_commands, prompts, shared, sprites, translation, updates,
+    imports, integrations, knowledge, llm, lorebook_images, managed_thumbnails, mari, personas,
+    profile, profile_commands, prompts, shared, sprites, translation, updates,
 };
 use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
@@ -272,6 +272,14 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         ),
         "game_assets_upload" => {
             game_assets::game_assets_upload(state, optional_value(&args, "body"))
+        }
+        "managed_asset_thumbnail_file_path" => {
+            managed_thumbnails::managed_asset_thumbnail_file_path(
+                state,
+                required_string(&args, "kind")?,
+                required_string(&args, "path")?,
+                optional_u32(&args, "size"),
+            )
         }
         "gif_search" => gif_search(&args).await,
         "tts_config" => integrations::tts_call(state, "GET", &["config"], Value::Null).await,

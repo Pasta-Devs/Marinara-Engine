@@ -137,6 +137,7 @@ pub fn run() {
             storage_commands::asset_commands::game_assets_open_folder,
             storage_commands::asset_commands::background_file_path,
             storage_commands::asset_commands::lorebook_image_file_path,
+            storage_commands::asset_commands::managed_asset_thumbnail_file_path,
             storage_commands::asset_commands::gif_search,
             storage_commands::integration_commands::tts_config,
             storage_commands::integration_commands::tts_update_config,

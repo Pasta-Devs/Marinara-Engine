@@ -166,6 +166,7 @@ const REMOTE_COMMANDS = new Set([
   "character_avatar_upload",
   "character_avatar_remove",
   "avatar_thumbnail_file_path",
+  "managed_asset_thumbnail_file_path",
   "character_restore_version",
   "persona_avatar_upload",
   "npc_avatar_upload",

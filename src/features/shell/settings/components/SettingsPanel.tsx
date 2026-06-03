@@ -36,8 +36,7 @@ import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../
 import {
   backgroundFileUrlFromPath,
   gameAssetFileUrlFromPath,
-  resolveBackgroundFileUrl,
-  resolveGameAssetFileUrl,
+  resolveManagedAssetThumbnailFileUrl,
   resolveManagedLocalAssetUrl,
   userBackgroundUrl,
 } from "../../../../shared/api/local-file-api";
@@ -2164,7 +2163,7 @@ function BackgroundThumbnail({ item }: { item: BackgroundLibraryItem }) {
     let cancelled = false;
     if (gameAssetPath) {
       setSrc(gameAssetFileUrlFromPath(gameAssetPath, item.absolutePath));
-      resolveGameAssetFileUrl(gameAssetPath)
+      resolveManagedAssetThumbnailFileUrl("game", gameAssetPath, 256)
         .then((url) => {
           if (!cancelled) setSrc(url || gameAssetFileUrlFromPath(gameAssetPath, item.absolutePath));
         })
@@ -2177,7 +2176,7 @@ function BackgroundThumbnail({ item }: { item: BackgroundLibraryItem }) {
     }
     if (filename) {
       setSrc(backgroundFileUrlFromPath(filename, item.absolutePath));
-      resolveBackgroundFileUrl(filename)
+      resolveManagedAssetThumbnailFileUrl("background", filename, 256)
         .then((url) => {
           if (!cancelled) setSrc(url || backgroundFileUrlFromPath(filename, item.absolutePath));
         })

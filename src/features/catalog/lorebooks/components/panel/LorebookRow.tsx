@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Camera, Trash2, UserRound } from "lucide-react";
 import type { Lorebook } from "../../../../../engine/contracts/types/lorebook";
-import { resolveManagedLocalAssetUrl } from "../../../../../shared/api/local-file-api";
+import { resolveManagedLocalAssetThumbnailUrl } from "../../../../../shared/api/local-file-api";
 import { cn } from "../../../../../shared/lib/utils";
 import { LOREBOOK_CATEGORY_COLORS, LOREBOOK_PANEL_CATEGORIES } from "./lorebook-panel-config";
 
@@ -34,7 +34,7 @@ export function LorebookRow({
     let cancelled = false;
     setResolvedImagePath(null);
     if (!lorebook.imagePath) return;
-    resolveManagedLocalAssetUrl(lorebook.imagePath)
+    resolveManagedLocalAssetThumbnailUrl(lorebook.imagePath, 64)
       .then((url) => {
         if (!cancelled) setResolvedImagePath(url);
       })

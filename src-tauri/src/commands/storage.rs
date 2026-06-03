@@ -52,6 +52,8 @@ pub(crate) mod knowledge;
 pub(crate) mod llm;
 #[path = "storage/lorebook_images.rs"]
 pub(crate) mod lorebook_images;
+#[path = "storage/managed_thumbnails.rs"]
+pub(crate) mod managed_thumbnails;
 #[path = "storage/mari.rs"]
 pub(crate) mod mari;
 #[path = "storage/media_uploads.rs"]

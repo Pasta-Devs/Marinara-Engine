@@ -1,6 +1,8 @@
 use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
-use crate::storage_commands::{avatars, fonts, imports, llm, lorebook_images, prompts};
+use crate::storage_commands::{
+    avatars, fonts, imports, llm, lorebook_images, managed_thumbnails, prompts,
+};
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Path, State};
 use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode};
@@ -216,7 +218,7 @@ fn apply_managed_asset_headers(
 
 fn cache_control_for_managed_asset(kind: &str) -> &'static str {
     match kind {
-        "avatar" | "avatar-thumbnail" => "no-cache",
+        "avatar" | "avatar-thumbnail" | "thumbnail" => "no-cache",
         _ => "public, max-age=86400",
     }
 }
@@ -247,9 +249,34 @@ fn managed_asset_path(state: &AppState, kind: &str, path: &str) -> Result<PathBu
                 .map(PathBuf::from)
                 .ok_or_else(|| AppError::not_found("Lorebook image was not found"))
         }
+        "thumbnail" => managed_thumbnail_asset_path(state, path),
         "sprite" => sprite_asset_path(state, path),
         _ => Err(AppError::not_found("Managed asset type was not found")),
     }
+}
+
+fn managed_thumbnail_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {
+    let mut segments = path.split('/');
+    let kind = managed_asset_path_segment(
+        segments
+            .next()
+            .ok_or_else(|| AppError::not_found("Managed thumbnail asset was not found"))?,
+        "Managed thumbnail asset was not found",
+    )?;
+    let size = managed_asset_path_segment(
+        segments
+            .next()
+            .ok_or_else(|| AppError::not_found("Managed thumbnail asset was not found"))?,
+        "Managed thumbnail asset was not found",
+    )?
+    .parse::<u32>()
+    .map_err(|_| AppError::invalid_input("Unsupported managed thumbnail size"))?;
+    let asset_path = segments.collect::<Vec<_>>().join("/");
+    if asset_path.trim().is_empty() {
+        return Err(AppError::not_found("Managed thumbnail asset was not found"));
+    }
+    let kind = managed_thumbnails::ManagedThumbnailKind::parse(&kind)?;
+    managed_thumbnails::managed_thumbnail_path(state, kind, &asset_path, size)
 }
 
 fn sprite_asset_path(state: &AppState, path: &str) -> Result<PathBuf, AppError> {

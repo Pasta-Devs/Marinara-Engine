@@ -82,7 +82,10 @@ export type RemoteManagedAssetKind =
   | "gallery"
   | "game"
   | "lorebook"
-  | "sprite";
+  | "sprite"
+  | "thumbnail";
+
+export type ManagedAssetThumbnailKind = "background" | "gallery" | "game" | "lorebook";
 
 function remoteManagedAssetPath(path: string | null | undefined): string | null {
   if (!path?.trim()) return null;
@@ -163,6 +166,15 @@ async function remoteManagedAssetResolvableUrl(
   return fetchRemoteManagedAssetBlobUrl(asset);
 }
 
+function managedAssetThumbnailRemotePath(
+  kind: ManagedAssetThumbnailKind,
+  path: string | null | undefined,
+  size: number,
+): string | null {
+  const encodedPath = remoteManagedAssetPath(path);
+  return encodedPath ? `${kind}/${size}/${encodedPath}` : null;
+}
+
 async function fetchRemoteManagedAssetBlobUrl(asset: RemoteManagedAsset): Promise<string> {
   const cacheKey = remoteManagedAssetCacheKey(asset);
   const cached = remoteAssetObjectUrls.get(cacheKey);
@@ -229,13 +241,18 @@ export function invalidateRemoteManagedAssetObjectUrls(kind?: RemoteManagedAsset
       );
     }
     if (asset) deleteRemoteAssetObjectUrl(remoteManagedAssetCacheKey(asset));
+    const routeMarker = `/api/assets/thumbnail/${kind}/`;
+    for (const cacheKey of [...remoteAssetObjectUrls.keys()]) {
+      if (cacheKey.includes(routeMarker)) deleteRemoteAssetObjectUrl(cacheKey);
+    }
     return;
   }
   if (kind) {
     remoteAssetInvalidationVersions.set(remoteAssetKindVersionKey(kind), nextRemoteAssetInvalidationVersion());
     const routeMarker = `/api/assets/${kind}/`;
+    const thumbnailRouteMarker = `/api/assets/thumbnail/${kind}/`;
     for (const cacheKey of [...remoteAssetObjectUrls.keys()]) {
-      if (cacheKey.includes(routeMarker)) {
+      if (cacheKey.includes(routeMarker) || cacheKey.includes(thumbnailRouteMarker)) {
         deleteRemoteAssetObjectUrl(cacheKey);
       }
     }
@@ -429,7 +446,22 @@ export async function resolveGameAssetFileUrl(path: string): Promise<string> {
   return filePathToAssetUrl(response.path ?? "");
 }
 
-export async function resolveBackgroundFileUrl(filename: string): Promise<string> {
+export async function resolveManagedAssetThumbnailFileUrl(
+  kind: ManagedAssetThumbnailKind,
+  path: string | null | undefined,
+  size = 256,
+): Promise<string | null> {
+  const remoteUrl = await remoteManagedAssetResolvableUrl(
+    "thumbnail",
+    managedAssetThumbnailRemotePath(kind, path, size),
+  );
+  if (remoteUrl) return remoteUrl;
+  if (!path?.trim()) return null;
+  const response = await invokeTauri<PathResponse>("managed_asset_thumbnail_file_path", { kind, path, size });
+  return filePathToAssetUrl(response.path ?? "");
+}
+
+async function resolveBackgroundFileUrl(filename: string): Promise<string> {
   const remoteUrl = await remoteManagedAssetResolvableUrl("background", filename);
   if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("background_file_path", { filename });
@@ -458,6 +490,13 @@ export async function resolveGalleryFileUrl(
   const remoteUrl = await remoteManagedAssetResolvableUrl("gallery", galleryRemoteManagedPath(filename, absolutePath));
   if (remoteUrl) return remoteUrl;
   return absolutePath && isAbsoluteFilesystemPath(absolutePath) ? filePathToAssetUrl(absolutePath) : null;
+}
+
+export function galleryThumbnailPath(
+  filename: string | null | undefined,
+  absolutePath?: string | null,
+): string | null {
+  return galleryRemoteManagedPath(filename, absolutePath);
 }
 
 function spriteRemoteManagedPath(
@@ -550,6 +589,31 @@ async function resolveLorebookImageFileUrl(filename: string): Promise<string> {
   if (remoteUrl) return remoteUrl;
   const response = await invokeTauri<PathResponse>("lorebook_image_file_path", { filename });
   return filePathToAssetUrl(response.path ?? "");
+}
+
+export async function resolveManagedLocalAssetThumbnailUrl(
+  url: string | null | undefined,
+  size = 128,
+): Promise<string | null> {
+  if (!url) return null;
+  if (url.startsWith(USER_BACKGROUND_URL_PREFIX)) {
+    return resolveManagedAssetThumbnailFileUrl(
+      "background",
+      decodeLocalAssetPath(url.slice(USER_BACKGROUND_URL_PREFIX.length)),
+      size,
+    );
+  }
+  if (url.startsWith(GAME_ASSET_URL_PREFIX)) {
+    return resolveManagedAssetThumbnailFileUrl("game", decodeLocalAssetPath(url.slice(GAME_ASSET_URL_PREFIX.length)), size);
+  }
+  if (url.startsWith(LOREBOOK_IMAGE_URL_PREFIX)) {
+    return resolveManagedAssetThumbnailFileUrl(
+      "lorebook",
+      decodeLocalAssetPath(url.slice(LOREBOOK_IMAGE_URL_PREFIX.length)),
+      size,
+    );
+  }
+  return filePathToAssetUrl(url);
 }
 
 export async function resolveManagedLocalAssetUrl(url: string | null | undefined): Promise<string | null> {

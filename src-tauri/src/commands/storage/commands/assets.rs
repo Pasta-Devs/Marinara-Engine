@@ -1,4 +1,4 @@
-use super::{backgrounds, fonts, game_assets, http, lorebook_images, shared};
+use super::{backgrounds, fonts, game_assets, http, lorebook_images, managed_thumbnails, shared};
 use crate::state::AppState;
 use marinara_core::AppError;
 use serde_json::{json, Value};
@@ -258,6 +258,16 @@ pub fn lorebook_image_file_path(
     filename: String,
 ) -> Result<Value, AppError> {
     lorebook_images::lorebook_image_file_path(&state, &filename)
+}
+
+#[tauri::command]
+pub fn managed_asset_thumbnail_file_path(
+    state: State<'_, AppState>,
+    kind: String,
+    path: String,
+    size: Option<u32>,
+) -> Result<Value, AppError> {
+    managed_thumbnails::managed_asset_thumbnail_file_path(&state, &kind, &path, size)
 }
 
 #[tauri::command]
