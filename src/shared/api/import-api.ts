@@ -119,9 +119,25 @@ export const importApi = {
     signal?: AbortSignal,
   ): AsyncGenerator<{ type: string; data: unknown }> {
     if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    let importCompleted = false;
+    let importFailed = false;
     if (remoteRuntimeTarget()) {
-      yield* streamRemoteJsonEvents("/api/import/st-bulk/run", payload, { signal, privileged: true });
-      invalidateImportManagedAssetObjectUrls();
+      try {
+        for await (const event of streamRemoteJsonEvents("/api/import/st-bulk/run", payload, {
+          signal,
+          privileged: true,
+        })) {
+          if (event.type === "done") importCompleted = true;
+          yield event;
+        }
+      } catch (error) {
+        importFailed = true;
+        throw error;
+      } finally {
+        if (importCompleted && !importFailed && !signal?.aborted) {
+          invalidateImportManagedAssetObjectUrls();
+        }
+      }
       return;
     }
     const queue: Array<{ type?: unknown; data?: unknown; text?: unknown; [key: string]: unknown }> = [];
@@ -133,6 +149,7 @@ export const importApi = {
       wake = null;
     };
     const abort = () => {
+      importFailed = true;
       failure = new DOMException("The operation was aborted.", "AbortError");
       notify();
     };
@@ -159,13 +176,20 @@ export const importApi = {
         }
         const event = queue.shift()!;
         const type = typeof event.type === "string" ? event.type : "message";
+        if (type === "done") importCompleted = true;
+        if (type === "error") importFailed = true;
         yield { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
       }
       await command;
-      if (failure) throw failure;
-      invalidateImportManagedAssetObjectUrls();
+      if (failure) {
+        importFailed = true;
+        throw failure;
+      }
     } finally {
       signal?.removeEventListener("abort", abort);
+      if (importCompleted && !importFailed && !signal?.aborted) {
+        invalidateImportManagedAssetObjectUrls();
+      }
     }
   },
   listDirectory: <T>(path: string, options?: { pickerSelected?: boolean }) =>
