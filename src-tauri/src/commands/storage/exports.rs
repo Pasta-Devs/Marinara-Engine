@@ -18,7 +18,10 @@ pub(crate) fn export_record(
     id: &str,
     format: Option<&str>,
 ) -> AppResult<Value> {
-    let record = get_required(state, collection, id)?;
+    let mut record = get_required(state, collection, id)?;
+    if collection == "messages" {
+        message_swipes::materialize_message(state, &mut record, true)?;
+    }
     if format == Some("compatible") {
         return compatible_record(collection, &record);
     }
@@ -39,7 +42,10 @@ pub(crate) fn export_records(
 
     let mut items = Vec::new();
     for id in ids {
-        if let Some(record) = state.storage.get(collection, &id)? {
+        if let Some(mut record) = state.storage.get(collection, &id)? {
+            if collection == "messages" {
+                message_swipes::materialize_message(state, &mut record, true)?;
+            }
             items.push(if format == Some("compatible") {
                 compatible_record(collection, &record)?
             } else {

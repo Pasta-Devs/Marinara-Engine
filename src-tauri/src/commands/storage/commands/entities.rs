@@ -1,6 +1,6 @@
 use super::{
     avatars, characters, chats, connection_secrets, contracts, game_state_snapshots,
-    lorebook_images, media_uploads, prompts, shared,
+    lorebook_images, media_uploads, message_swipes, prompts, shared,
 };
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
@@ -17,6 +17,15 @@ fn validate_storage_entity(entity: &str) -> Result<(), AppError> {
             "Unsupported storage entity: {entity}"
         )))
     }
+}
+
+fn reject_message_swipe_mutation(entity: &str) -> Result<(), AppError> {
+    if entity == message_swipes::COLLECTION {
+        return Err(AppError::invalid_input(
+            "message-swipes is internal sidecar storage; mutate swipes through message commands",
+        ));
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -125,6 +134,14 @@ pub(crate) fn storage_list_inner(
         (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
         _ => state.storage.list(&entity)?,
     };
+    let message_materialization = message_swipes::MessageSwipeMaterialization::for_message_output(
+        options.as_ref(),
+        has_search,
+    );
+    let materialized_message_swipes_for_search = entity == "messages" && has_search;
+    if materialized_message_swipes_for_search {
+        message_swipes::materialize_messages_for_output(state, &mut rows, message_materialization)?;
+    }
     shared::apply_storage_search(&mut rows, options.as_ref());
 
     let order_by = options
@@ -159,8 +176,19 @@ pub(crate) fn storage_list_inner(
 
     if entity == "messages" {
         apply_message_pagination(&mut rows, options.as_ref());
+        if !materialized_message_swipes_for_search {
+            message_swipes::materialize_messages_for_output(
+                state,
+                &mut rows,
+                message_materialization,
+            )?;
+        }
         for row in &mut rows {
-            shared::materialize_message_swipe_fields(row);
+            if !message_materialization.include_swipes {
+                if let Some(object) = row.as_object_mut() {
+                    object.remove("swipes");
+                }
+            }
             shared::synthesize_legacy_prompt_snapshot(row);
         }
         return Ok(Value::Array(shared::project_list_rows(
@@ -225,23 +253,14 @@ fn message_projection_fields_for_materialization(
             projection.push(order_by.to_string());
         }
     }
-    let needs_swipes = fields.iter().any(|field| {
-        matches!(
-            field.as_str(),
-            "content"
-                | "characterId"
-                | "extra"
-                | "activeSwipeIndex"
-                | "swipeCount"
-                | "swipePreviews"
-        )
-    });
-    if needs_swipes {
-        for field in ["activeSwipeIndex", "swipes"] {
-            if !projection.iter().any(|existing| existing == field) {
-                projection.push(field.to_string());
-            }
-        }
+    if fields
+        .iter()
+        .any(|field| matches!(field.as_str(), "extra" | "swipes"))
+        && !projection
+            .iter()
+            .any(|existing| existing == "activeSwipeIndex")
+    {
+        projection.push("activeSwipeIndex".to_string());
     }
     projection
 }
@@ -297,7 +316,14 @@ pub(crate) fn storage_get_inner(
         state.storage.get(&entity, &id)?.unwrap_or(Value::Null)
     };
     if entity == "messages" {
-        shared::materialize_message_swipe_fields(&mut value);
+        message_swipes::materialize_message_for_output(
+            state,
+            &mut value,
+            message_swipes::MessageSwipeMaterialization::for_message_output(
+                options.as_ref(),
+                false,
+            ),
+        )?;
     }
     if entity == "connections" {
         connection_secrets::mask_connection_for_read(&mut value);
@@ -349,7 +375,16 @@ pub(crate) fn storage_create_inner(
     value: Value,
 ) -> Result<Value, AppError> {
     validate_storage_entity(&entity)?;
+    reject_message_swipe_mutation(&entity)?;
     validate_connection_folder_for_create(state, &entity, &value)?;
+    if entity == "messages" {
+        return Ok(shared::project_timeline_message(
+            message_swipes::create_message(
+                state,
+                prepare_entity_for_create(state, &entity, value)?,
+            )?,
+        ));
+    }
     let should_remove_prepared_gallery_file = gallery_create_persists_inline_image(&entity, &value);
     let prepared = prepare_entity_for_create(state, &entity, value)?;
     let created = match state.storage.create(&entity, prepared.clone()) {
@@ -361,9 +396,6 @@ pub(crate) fn storage_create_inner(
             return Err(error);
         }
     };
-    if entity == "messages" {
-        return Ok(shared::project_timeline_message(created));
-    }
     if entity == "connections" {
         clear_other_default_agent_connections(state, &created)?;
         let mut masked = created;
@@ -393,9 +425,10 @@ pub(crate) fn storage_update_inner(
     patch: Value,
 ) -> Result<Value, AppError> {
     validate_storage_entity(&entity)?;
+    reject_message_swipe_mutation(&entity)?;
     if entity == "messages" {
         return Ok(shared::project_timeline_message(
-            shared::patch_message_update(state, &id, patch)?,
+            message_swipes::patch_message_update(state, &id, patch)?,
         ));
     }
     if entity == "characters" {
@@ -637,6 +670,7 @@ pub(crate) fn delete_entity(
     force: bool,
 ) -> Result<Value, AppError> {
     validate_storage_entity(entity)?;
+    reject_message_swipe_mutation(entity)?;
     if entity == "connections" {
         return crate::connection_refs::delete_connection(state, id, force);
     }
@@ -668,7 +702,11 @@ pub(crate) fn delete_entity(
     } else {
         None
     };
-    let deleted = state.storage.delete(entity, id)?;
+    let deleted = if entity == "messages" {
+        message_swipes::delete_message_rows_with_swipes(state, &[id.to_string()])? > 0
+    } else {
+        state.storage.delete(entity, id)?
+    };
     if deleted {
         if entity == "lorebooks" {
             delete_lorebook_children(state, id)?;
@@ -946,6 +984,7 @@ pub(crate) fn duplicate_entity(
     id: &str,
 ) -> Result<Value, AppError> {
     validate_storage_entity(entity)?;
+    reject_message_swipe_mutation(entity)?;
     if entity == "characters" {
         return characters::duplicate_character(state, id);
     }
@@ -958,8 +997,22 @@ pub(crate) fn duplicate_entity(
     if entity == "connections" {
         return duplicate_connection(state, id);
     }
+    if entity == "messages" {
+        return duplicate_message(state, id);
+    }
     let duplicated = shared::duplicate_record(state, entity, id)?;
     Ok(duplicated)
+}
+
+fn duplicate_message(state: &AppState, id: &str) -> Result<Value, AppError> {
+    let mut record = shared::get_required(state, "messages", id)?;
+    message_swipes::materialize_message(state, &mut record, true)?;
+    let object = record
+        .as_object_mut()
+        .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+    object.remove("id");
+    let duplicated = message_swipes::create_message(state, record)?;
+    Ok(shared::project_timeline_message(duplicated))
 }
 
 fn duplicate_connection(state: &AppState, id: &str) -> Result<Value, AppError> {
@@ -1317,6 +1370,111 @@ mod tests {
         assert!(
             !state.data_dir.join("gallery").join("rollback.png").exists(),
             "failed gallery create should remove the managed file it wrote"
+        );
+    }
+
+    #[test]
+    fn generic_storage_mutations_reject_message_swipe_sidecars() {
+        let state = test_state("message-swipe-sidecar-generic-mutation");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "chatId": "chat-1",
+                    "messageId": "message-1",
+                    "index": 0,
+                    "content": "keep sidecar"
+                })],
+            )
+            .expect("sidecar should seed");
+
+        let create_error = storage_create_inner(
+            &state,
+            message_swipes::COLLECTION.to_string(),
+            json!({
+                "id": "message-2::swipe::0",
+                "chatId": "chat-1",
+                "messageId": "message-2",
+                "index": 0,
+                "content": "raw create"
+            }),
+        )
+        .expect_err("direct sidecar create should be rejected");
+        assert_eq!(create_error.code, "invalid_input");
+        assert!(create_error.message.contains("internal sidecar storage"));
+
+        let update_error = storage_update_inner(
+            &state,
+            message_swipes::COLLECTION.to_string(),
+            "message-1::swipe::0".to_string(),
+            json!({ "content": "raw update" }),
+        )
+        .expect_err("direct sidecar update should be rejected");
+        assert_eq!(update_error.code, "invalid_input");
+
+        let delete_error = delete_entity(
+            &state,
+            message_swipes::COLLECTION,
+            "message-1::swipe::0",
+            false,
+        )
+        .expect_err("direct sidecar delete should be rejected");
+        assert_eq!(delete_error.code, "invalid_input");
+
+        let duplicate_error =
+            duplicate_entity(&state, message_swipes::COLLECTION, "message-1::swipe::0")
+                .expect_err("direct sidecar duplicate should be rejected");
+        assert_eq!(duplicate_error.code, "invalid_input");
+
+        let sidecars = state
+            .storage
+            .list(message_swipes::COLLECTION)
+            .expect("sidecars should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["content"], "keep sidecar");
+    }
+
+    #[test]
+    fn generic_message_create_normalizes_parent_contract_fields() {
+        let state = test_state("message-create-normalizes-parent-fields");
+
+        storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "images": "[]",
+                "attachments": "[]",
+                "extra": "{\"thinking\":\"parent thought\"}",
+                "swipes": [{
+                    "content": "first",
+                    "extra": "{\"thinking\":\"swipe thought\"}"
+                }]
+            }),
+        )
+        .expect("message create should normalize parent fields");
+
+        let stored = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should not fail")
+            .expect("message should be stored");
+        assert_eq!(stored["images"], json!([]));
+        assert_eq!(stored["attachments"], json!([]));
+        assert_eq!(stored["extra"], json!({}));
+        assert!(stored.get("swipes").is_none());
+
+        let sidecars = message_swipes::swipes_for_message(&state, "message-1")
+            .expect("message sidecars should read");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(
+            sidecars[0]["extra"],
+            json!({ "thinking": "parent thought" })
         );
     }
 
@@ -1740,6 +1898,11 @@ mod tests {
             .join("data")
             .join("collections")
             .join("messages.json");
+        let sidecar_collection = state
+            .data_dir
+            .join("data")
+            .join("collections")
+            .join(format!("{}.json", message_swipes::COLLECTION));
         std::fs::write(
             &collection,
             r#"[
@@ -1748,15 +1911,6 @@ mod tests {
     "chatId": "chat-1",
     "createdAt": "2026-01-01T00:00:01Z",
     "content": "stored older",
-    "activeSwipeIndex": 0,
-    "swipes": [
-      {
-        "content": "older swipe",
-        "extra": {
-          "thinking": "older thought"
-        }
-      }
-    ],
     "extra": {
       "thinking": "parent older",
       "large": {
@@ -1774,15 +1928,6 @@ mod tests {
     "chatId": "chat-1",
     "createdAt": "2026-01-01T00:00:02Z",
     "content": "stored target",
-    "activeSwipeIndex": 0,
-    "swipes": [
-      {
-        "content": "target swipe",
-        "extra": {
-          "thinking": "target thought"
-        }
-      }
-    ],
     "extra": {
       "thinking": "parent target",
       "large": {
@@ -1808,6 +1953,44 @@ mod tests {
 ]"#,
         )
         .expect("messages should be written");
+        std::fs::write(
+            &sidecar_collection,
+            r#"[
+  {
+    "id": "older::swipe::0",
+    "chatId": "chat-1",
+    "messageId": "older",
+    "index": 0,
+    "content": "older swipe",
+    "extra": {
+      "thinking": "older thought",
+      "unrequested": "ignored"
+    }
+  },
+  {
+    "id": "target::swipe::0",
+    "chatId": "chat-1",
+    "messageId": "target",
+    "index": 0,
+    "content": "target swipe",
+    "extra": {
+      "thinking": "target thought",
+      "unrequested": "ignored"
+    }
+  },
+  {
+    "id": "newer::swipe::0",
+    "chatId": "chat-1",
+    "messageId": "newer",
+    "index": 0,
+    "content": "newer swipe",
+    "extra": {
+      "unrequested": "ignored"
+    }
+  }
+]"#,
+        )
+        .expect("message swipe sidecars should be written");
 
         let result = storage_list_inner(
             &state,
@@ -1827,17 +2010,69 @@ mod tests {
             json!([
                 {
                     "id": "older",
-                    "content": "older swipe",
-                    "extra": { "thinking": "older thought" },
+                    "content": "stored older",
+                    "extra": { "thinking": "parent older" },
                     "swipeCount": 1,
                     "swipePreviews": [{ "content": "older swipe" }]
                 },
                 {
                     "id": "target",
-                    "content": "target swipe",
-                    "extra": { "thinking": "target thought" },
+                    "content": "stored target",
+                    "extra": { "thinking": "parent target" },
                     "swipeCount": 1,
                     "swipePreviews": [{ "content": "target swipe" }]
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn storage_list_projected_embedded_swipes_materializes_without_swipes_field() {
+        let state = test_state("message-projection-embedded-swipe-materialization");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "content": "parent content",
+                    "activeSwipeIndex": 1,
+                    "extra": { "thinking": "parent thought" },
+                    "swipes": [
+                        { "content": "first swipe", "extra": { "thinking": "first thought" } },
+                        { "content": "active swipe", "extra": { "thinking": "active thought" } }
+                    ]
+                })],
+            )
+            .expect("message should be seeded");
+        message_swipes::migrate_nested_message_swipes(&state.storage)
+            .expect("embedded message swipes should migrate before projected reads");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content", "extra", "swipeCount", "swipePreviews"],
+                "fieldSelections": { "extra": ["thinking"] }
+            })),
+        )
+        .expect("projected message list should materialize embedded swipes");
+
+        assert_eq!(
+            result,
+            json!([
+                {
+                    "id": "message-1",
+                    "content": "active swipe",
+                    "extra": { "thinking": "active thought" },
+                    "swipeCount": 2,
+                    "swipePreviews": [
+                        { "content": "first swipe" },
+                        { "content": "active swipe" }
+                    ]
                 }
             ])
         );
@@ -1851,25 +2086,22 @@ mod tests {
             Some(&json!({ "orderBy": "score" })),
         );
 
-        for field in [
-            "content",
-            "id",
-            "sortOrder",
-            "order",
-            "createdAt",
-            "score",
-            "activeSwipeIndex",
-            "swipes",
-        ] {
+        for field in ["content", "id", "sortOrder", "order", "createdAt", "score"] {
             assert!(
                 projection.iter().any(|existing| existing == field),
                 "projection should include {field}"
             );
         }
+        for field in ["activeSwipeIndex", "swipes"] {
+            assert!(
+                !projection.iter().any(|existing| existing == field),
+                "projection should not include sidecar field {field}"
+            );
+        }
     }
 
     #[test]
-    fn projected_message_get_materializes_active_swipe_fields() {
+    fn projected_message_get_materializes_swipe_summary_without_swipes_field() {
         let state = test_state("message-projection-get-swipe-materialization");
         state
             .storage
@@ -1889,6 +2121,8 @@ mod tests {
                 })],
             )
             .expect("message should be seeded");
+        message_swipes::migrate_nested_message_swipes(&state.storage)
+            .expect("nested message swipes should migrate");
 
         let read = storage_get_inner(
             &state,
@@ -1912,6 +2146,193 @@ mod tests {
         assert!(read.get("swipes").is_none());
         assert!(read.get("activeSwipeIndex").is_none());
         assert!(read.get("largePayload").is_none());
+    }
+
+    #[test]
+    fn projected_message_get_reads_parent_active_fields_without_sidecar_payload() {
+        let state = test_state("message-projection-parent-active-fields");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "content": "parent active content",
+                    "activeSwipeIndex": 1,
+                    "extra": { "thinking": "parent active thought", "large": "parent payload" }
+                })],
+            )
+            .expect("message should be seeded");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![
+                    json!({
+                        "id": "message-1::swipe::0",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 0,
+                        "content": "first sidecar",
+                        "extra": { "thinking": "first sidecar thought" }
+                    }),
+                    json!({
+                        "id": "message-1::swipe::1",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 1,
+                        "content": "stale active sidecar",
+                        "extra": { "thinking": "stale sidecar thought" }
+                    }),
+                ],
+            )
+            .expect("sidecars should be seeded");
+
+        let read = storage_get_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            Some(json!({
+                "fields": ["id", "content", "extra"],
+                "fieldSelections": { "extra": ["thinking"] }
+            })),
+        )
+        .expect("projected message should read");
+
+        assert_eq!(
+            read,
+            json!({
+                "id": "message-1",
+                "content": "parent active content",
+                "extra": { "thinking": "parent active thought" }
+            })
+        );
+    }
+
+    #[test]
+    fn projected_message_list_materializes_swipe_summary_without_sidecar_extra() {
+        let state = test_state("message-projection-sidecar-summary");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "content": "parent active content",
+                    "activeSwipeIndex": 1,
+                    "extra": { "thinking": "parent active thought", "large": "parent payload" }
+                })],
+            )
+            .expect("message should be seeded");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![
+                    json!({
+                        "id": "message-1::swipe::0",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 0,
+                        "content": "first sidecar",
+                        "extra": { "thinking": "first sidecar thought", "large": "ignored" }
+                    }),
+                    json!({
+                        "id": "message-1::swipe::1",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 1,
+                        "content": "second sidecar",
+                        "characterId": "character-1",
+                        "extra": { "thinking": "second sidecar thought", "large": "ignored" }
+                    }),
+                ],
+            )
+            .expect("sidecars should be seeded");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content", "extra", "swipeCount", "swipePreviews"],
+                "fieldSelections": { "extra": ["thinking"] }
+            })),
+        )
+        .expect("projected message list should read");
+
+        assert_eq!(
+            result,
+            json!([
+                {
+                    "id": "message-1",
+                    "content": "parent active content",
+                    "extra": { "thinking": "parent active thought" },
+                    "swipeCount": 2,
+                    "swipePreviews": [
+                        { "content": "first sidecar" },
+                        { "content": "second sidecar", "characterId": "character-1" }
+                    ]
+                }
+            ])
+        );
+    }
+
+    #[test]
+    fn storage_list_searches_sidecar_message_swipes_without_returning_unrequested_swipes() {
+        let state = test_state("message-search-sidecar-swipes");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "Visible active message.",
+                    "activeSwipeIndex": 0,
+                    "createdAt": "2026-01-01T00:00:00Z"
+                })],
+            )
+            .expect("message should seed");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "chatId": "chat-1",
+                    "messageId": "message-1",
+                    "index": 0,
+                    "content": "Alternate route through the moonlit archive."
+                })],
+            )
+            .expect("sidecar swipe should seed");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content", "swipeCount"],
+                "search": "moonlit"
+            })),
+        )
+        .expect("message search should succeed");
+
+        assert_eq!(
+            result,
+            json!([
+                {
+                    "id": "message-1",
+                    "content": "Visible active message.",
+                    "swipeCount": 1
+                }
+            ])
+        );
     }
 
     #[test]

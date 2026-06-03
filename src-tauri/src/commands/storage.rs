@@ -58,6 +58,8 @@ pub(crate) mod managed_thumbnails;
 pub(crate) mod mari;
 #[path = "storage/media_uploads.rs"]
 pub(crate) mod media_uploads;
+#[path = "storage/message_swipes.rs"]
+pub(crate) mod message_swipes;
 #[path = "storage/personas.rs"]
 pub(crate) mod personas;
 #[path = "storage/profile.rs"]

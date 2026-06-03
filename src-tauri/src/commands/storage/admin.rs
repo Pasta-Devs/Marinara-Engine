@@ -26,6 +26,7 @@ pub(crate) fn admin_expunge(state: &AppState, body: Value) -> AppResult<Value> {
                     "chats",
                     "chat-folders",
                     "messages",
+                    "message-swipes",
                     "gallery",
                     "agent-runs",
                     "knowledge-sources",

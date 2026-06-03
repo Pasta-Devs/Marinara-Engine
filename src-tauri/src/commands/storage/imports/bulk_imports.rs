@@ -975,7 +975,8 @@ fn import_st_chat_text(
                     object.insert("updatedAt".to_string(), Value::String(created_at));
                 }
             }
-            let message = state.storage.create("messages", message_payload)?;
+            let message =
+                crate::storage_commands::message_swipes::create_message(state, message_payload)?;
             created_message_ids.push(created_record_id(&message, "message")?);
             imported += 1;
         }
@@ -1898,10 +1899,12 @@ mod tests {
             Some("individual")
         );
 
-        let messages = state
+        let mut messages = state
             .storage
             .list("messages")
             .expect("messages should list");
+        crate::storage_commands::message_swipes::materialize_messages(&state, &mut messages, true)
+            .expect("messages should materialize sidecar swipes");
         let rendered_alice = row_with_content(&messages, "Raw Alice");
         assert_eq!(
             rendered_alice.get("characterId").and_then(Value::as_str),

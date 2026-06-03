@@ -4,7 +4,8 @@ use marinara_core::{ensure_object, AppError, AppResult};
 use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 
-use super::shared::{materialize_message_swipe_fields, non_negative_i64_value, swipe_index_value};
+use super::message_swipes;
+use super::shared::{non_negative_i64_value, swipe_index_value};
 
 const SNAPSHOT_COLLECTION: &str = "game-state-snapshots";
 const TRACKER_KIND: &str = "tracker";
@@ -333,9 +334,7 @@ fn visible_tracker_snapshot(state: &AppState, chat_id: &str) -> AppResult<Option
         let b_time = b.get("createdAt").and_then(Value::as_str).unwrap_or("");
         a_time.cmp(b_time)
     });
-    for message in &mut messages {
-        materialize_message_swipe_fields(message);
-    }
+    message_swipes::materialize_messages(state, &mut messages, true)?;
     for message in messages.into_iter().rev() {
         if message.get("role").and_then(Value::as_str) != Some("assistant") {
             continue;

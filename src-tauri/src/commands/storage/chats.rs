@@ -1,5 +1,6 @@
 use super::game_state_snapshots;
 use super::media_uploads::remove_managed_record_file;
+use super::message_swipes as message_swipe_storage;
 use super::prompts;
 use super::shared::*;
 use super::*;
@@ -10,17 +11,13 @@ const MEMORY_CHUNK_SIZE: usize = 5;
 const MEMORY_EMBEDDING_DIMS: usize = 256;
 
 pub(crate) fn messages_for_chat(state: &AppState, chat_id: &str) -> AppResult<Vec<Value>> {
-    let mut filters = Map::new();
-    filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
-    let mut rows = state.storage.list_where("messages", &filters)?;
+    let mut rows = state.storage.list_messages_for_chat(chat_id)?;
     rows.sort_by(|a, b| {
         let a_time = a.get("createdAt").and_then(Value::as_str).unwrap_or("");
         let b_time = b.get("createdAt").and_then(Value::as_str).unwrap_or("");
         a_time.cmp(b_time)
     });
-    for row in &mut rows {
-        materialize_message_swipe_fields(row);
-    }
+    message_swipe_storage::materialize_messages(state, &mut rows, true)?;
     Ok(rows)
 }
 
@@ -86,6 +83,7 @@ pub(crate) fn evict_prompt_snapshots(
     keep_last: usize,
 ) -> AppResult<Value> {
     let mut messages = state.storage.list_messages_for_chat(chat_id)?;
+    message_swipe_storage::materialize_messages(state, &mut messages, true)?;
     messages.sort_by(|a, b| {
         let a_time = a.get("createdAt").and_then(Value::as_str).unwrap_or("");
         let b_time = b.get("createdAt").and_then(Value::as_str).unwrap_or("");
@@ -122,6 +120,9 @@ pub(crate) fn evict_prompt_snapshots(
             state.storage.patch("messages", id, patch)?;
             evicted += 1;
         }
+    }
+    if evicted > 0 {
+        message_swipe_storage::migrate_nested_message_swipes(&state.storage)?;
     }
     Ok(json!({ "evicted": evicted }))
 }
@@ -348,6 +349,7 @@ pub(crate) fn message_swipes(
     body: Value,
 ) -> AppResult<Value> {
     let mut message = get_required(state, "messages", message_id)?;
+    message_swipe_storage::materialize_message(state, &mut message, true)?;
     if body.is_null() {
         return Ok(message.get("swipes").cloned().unwrap_or_else(|| json!([])));
     }
@@ -443,9 +445,9 @@ pub(crate) fn message_swipes(
     if let Some(character_id) = active_character_id {
         object.insert("characterId".to_string(), character_id);
     }
-    compact_message_for_storage(&mut message)?;
-    let mut updated = state.storage.patch("messages", message_id, message)?;
-    materialize_message_swipe_fields(&mut updated);
+    let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
+    let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
+    message_swipe_storage::materialize_message(state, &mut updated, true)?;
     Ok(updated)
 }
 
@@ -456,23 +458,13 @@ pub(crate) fn update_message_content_if_unchanged(
     expected_content: &str,
     content: &str,
 ) -> AppResult<Value> {
-    let content = collapse_excess_blank_lines(content);
-    let updated = state.storage.patch_if("messages", message_id, |message| {
-        let current_chat_id = message.get("chatId").and_then(Value::as_str).unwrap_or("");
-        if current_chat_id != chat_id {
-            return Ok(false);
-        }
-        let current_content = message.get("content").and_then(Value::as_str).unwrap_or("");
-        if current_content != expected_content {
-            return Ok(false);
-        }
-        message.insert("content".to_string(), Value::String(content.clone()));
-        let mut patch = Map::new();
-        patch.insert("content".to_string(), Value::String(content.clone()));
-        sync_message_patch_content_to_active_swipe(message, &patch);
-        compact_message_swipe_fields_for_storage(message);
-        Ok(true)
-    })?;
+    let updated = message_swipe_storage::update_message_content_if_unchanged(
+        state,
+        chat_id,
+        message_id,
+        expected_content,
+        content,
+    )?;
     Ok(match updated {
         Some(message) => json!({ "updated": true, "message": message }),
         None => json!({ "updated": false }),
@@ -491,6 +483,7 @@ pub(crate) fn set_active_swipe(
         .map(|value| value as usize)
         .unwrap_or(0);
     let mut message = get_required(state, "messages", message_id)?;
+    message_swipe_storage::materialize_message(state, &mut message, true)?;
     let object = message
         .as_object_mut()
         .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
@@ -554,9 +547,9 @@ pub(crate) fn set_active_swipe(
             clear_swipe_scoped_extra(object.get("extra")),
         );
     }
-    compact_message_for_storage(&mut message)?;
-    let mut updated = state.storage.patch("messages", message_id, message)?;
-    materialize_message_swipe_fields(&mut updated);
+    let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
+    let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
+    message_swipe_storage::materialize_message(state, &mut updated, true)?;
     Ok(active_swipe_update_response(&updated))
 }
 
@@ -570,7 +563,7 @@ pub(crate) fn delete_swipe(
         .parse::<usize>()
         .map_err(|_| AppError::invalid_input("Invalid swipe index"))?;
     let mut message = get_required(state, "messages", message_id)?;
-    let mut removed_swipe = false;
+    message_swipe_storage::materialize_message(state, &mut message, true)?;
     {
         let object = message
             .as_object_mut()
@@ -580,45 +573,36 @@ pub(crate) fn delete_swipe(
             .and_then(Value::as_u64)
             .map(|value| value as usize)
             .unwrap_or(0);
-        if let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) {
-            if index < swipes.len() {
-                swipes.remove(index);
-                removed_swipe = true;
-                let next_active_index = if swipes.is_empty() {
-                    0
-                } else if current_active_index > index {
-                    current_active_index - 1
-                } else if current_active_index == index {
-                    index.min(swipes.len().saturating_sub(1))
-                } else {
-                    current_active_index.min(swipes.len().saturating_sub(1))
-                };
-                object.insert("activeSwipeIndex".to_string(), json!(next_active_index));
-            }
+        let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) else {
+            return Err(AppError::invalid_input(
+                "Cannot delete the last remaining swipe",
+            ));
+        };
+        if swipes.len() <= 1 {
+            return Err(AppError::invalid_input(
+                "Cannot delete the last remaining swipe",
+            ));
         }
+        if index >= swipes.len() {
+            return Err(AppError::not_found("Swipe not found"));
+        }
+        swipes.remove(index);
+        let next_active_index = if current_active_index > index {
+            current_active_index - 1
+        } else if current_active_index == index {
+            index.min(swipes.len().saturating_sub(1))
+        } else {
+            current_active_index.min(swipes.len().saturating_sub(1))
+        };
+        object.insert("activeSwipeIndex".to_string(), json!(next_active_index));
     }
     materialize_message_swipe_fields(&mut message);
-    compact_message_for_storage(&mut message)?;
-    let mut updated = state.storage.patch("messages", message_id, message)?;
-    materialize_message_swipe_fields(&mut updated);
-    if removed_swipe {
-        game_state_snapshots::delete_tracker_snapshot_swipe(
-            state,
-            chat_id,
-            message_id,
-            index as i64,
-        )?;
-        game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
-    }
+    let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
+    let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
+    message_swipe_storage::materialize_message(state, &mut updated, true)?;
+    game_state_snapshots::delete_tracker_snapshot_swipe(state, chat_id, message_id, index as i64)?;
+    game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
     Ok(updated)
-}
-
-fn compact_message_for_storage(message: &mut Value) -> AppResult<()> {
-    let Some(object) = message.as_object_mut() else {
-        return Err(AppError::invalid_input("Message is not an object"));
-    };
-    compact_message_swipe_fields_for_storage(object);
-    Ok(())
 }
 
 pub(crate) fn bulk_delete_messages(
@@ -631,14 +615,19 @@ pub(crate) fn bulk_delete_messages(
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let mut deleted = 0;
+    let mut deleted_ids = Vec::new();
     for id in ids.iter().filter_map(Value::as_str) {
-        if state.storage.delete("messages", id)? {
-            game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
-            deleted += 1;
+        if state.storage.get("messages", id)?.is_some() {
+            deleted_ids.push(id.to_string());
         }
     }
+    deleted_ids.sort_unstable();
+    deleted_ids.dedup();
+    let deleted = message_swipe_storage::delete_message_rows_with_swipes(state, &deleted_ids)?;
     if deleted > 0 {
+        for id in &deleted_ids {
+            game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
+        }
         game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
     }
     touch_chat(state, chat_id)?;
@@ -965,7 +954,7 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
             obj.remove("id");
             obj.insert("chatId".to_string(), Value::String(new_chat_id.clone()));
         }
-        let created = state.storage.create("messages", message)?;
+        let created = message_swipe_storage::create_message(state, message)?;
         let target_message_id = created
             .get("id")
             .and_then(Value::as_str)
@@ -1053,7 +1042,7 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     game_state_snapshots::delete_tracker_snapshots_for_chats(state, &delete_ids)?;
     let delete_id_set = delete_ids.iter().cloned().collect::<HashSet<_>>();
     delete_gallery_for_chats(state, &delete_id_set)?;
-    state.storage.delete_messages_for_chats(&delete_id_set)?;
+    message_swipe_storage::delete_message_rows_for_chats_with_swipes(state, &delete_id_set)?;
 
     for delete_id in &delete_ids {
         state.storage.delete("chats", delete_id)?;
@@ -1804,17 +1793,21 @@ mod tests {
         assert_eq!(persisted["extra"]["hiddenFromAI"], json!(true));
         assert!(persisted["extra"].get("generationInfo").is_none());
         assert!(persisted["extra"].get("reasoning_content").is_none());
+        assert!(persisted.get("swipes").is_none());
+        let persisted_swipes = message_swipe_storage::swipes_for_message(&state, "message-1")
+            .expect("message sidecar swipes should read");
         assert_eq!(
-            persisted["swipes"][0]["extra"]["generationInfo"]["model"],
+            persisted_swipes[0]["extra"]["generationInfo"]["model"],
             json!("first-model")
         );
         assert_eq!(
-            persisted["swipes"][0]["extra"]["reasoning_content"],
+            persisted_swipes[0]["extra"]["reasoning_content"],
             json!("first reasoning")
         );
 
         let mut materialized = persisted.clone();
-        materialize_message_swipe_fields(&mut materialized);
+        message_swipe_storage::materialize_message(&state, &mut materialized, true)
+            .expect("message should materialize from sidecar swipes");
         assert_eq!(
             materialized["extra"]["generationInfo"]["model"],
             json!("first-model")
@@ -1868,12 +1861,15 @@ mod tests {
             .get("messages", "message-1")
             .expect("message lookup should succeed")
             .expect("message should exist");
+        assert!(persisted.get("swipes").is_none());
+        let persisted_swipes = message_swipe_storage::swipes_for_message(&state, "message-1")
+            .expect("message sidecar swipes should read");
         assert_eq!(
-            persisted["swipes"][0]["extra"]["attachments"][0]["galleryId"],
+            persisted_swipes[0]["extra"]["attachments"][0]["galleryId"],
             json!("gallery-1")
         );
         assert_eq!(
-            persisted["swipes"][0]["extra"]["generationInfo"]["model"],
+            persisted_swipes[0]["extra"]["generationInfo"]["model"],
             json!("first-model")
         );
 
@@ -1942,17 +1938,21 @@ mod tests {
         assert!(persisted["extra"]
             .get("generationPromptSnapshotsBySwipe")
             .is_none());
+        assert!(persisted.get("swipes").is_none());
+        let persisted_swipes = message_swipe_storage::swipes_for_message(&state, "message-1")
+            .expect("message sidecar swipes should read");
         assert_eq!(
-            persisted["swipes"][0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            persisted_swipes[0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
             json!("preset-first")
         );
         assert_eq!(
-            persisted["swipes"][1]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            persisted_swipes[1]["extra"]["generationPromptSnapshot"]["promptPresetId"],
             json!("preset-second")
         );
 
         let mut materialized = persisted.clone();
-        materialize_message_swipe_fields(&mut materialized);
+        message_swipe_storage::materialize_message(&state, &mut materialized, true)
+            .expect("message should materialize from sidecar swipes");
         assert_eq!(
             materialized["extra"]["generationPromptSnapshot"]["promptPresetId"],
             json!("preset-first")
@@ -2298,6 +2298,97 @@ mod tests {
         assert_eq!(updated["swipeCount"], json!(2));
         assert_eq!(updated["content"], json!("first"));
         assert_eq!(updated["swipes"][1]["content"], json!("second"));
+    }
+
+    #[test]
+    fn set_active_swipe_clamps_invalid_index() {
+        let state = test_state("set-active-invalid-index");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 0,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should seed");
+
+        let missing = set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 4 }))
+            .expect("missing swipe target should not fail transport");
+        let negative = set_active_swipe(&state, "chat-1", "message-1", json!({ "index": -1 }))
+            .expect("negative swipe target should not fail transport");
+
+        assert_eq!(missing["activeSwipeIndex"], json!(1));
+        assert_eq!(missing["content"], json!("second"));
+        assert_eq!(negative["activeSwipeIndex"], json!(0));
+        assert_eq!(negative["content"], json!("first"));
+        let persisted = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+        assert_eq!(persisted["activeSwipeIndex"], json!(0));
+        assert_eq!(persisted["content"], json!("first"));
+    }
+
+    #[test]
+    fn delete_swipe_rejects_last_and_missing_swipes() {
+        let state = test_state("delete-swipe-guards");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "single-message",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "only",
+                "swipes": [{ "content": "only" }]
+            }),
+        )
+        .expect("single-swipe message should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "multi-message",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("multi-swipe message should seed");
+
+        let last_error = delete_swipe(&state, "chat-1", "single-message", "0")
+            .expect_err("last swipe delete should fail");
+        let missing_error = delete_swipe(&state, "chat-1", "multi-message", "9")
+            .expect_err("missing swipe delete should fail");
+
+        assert_eq!(last_error.code, "invalid_input");
+        assert!(last_error
+            .message
+            .contains("Cannot delete the last remaining swipe"));
+        assert_eq!(missing_error.code, "not_found");
+        assert!(missing_error.message.contains("Swipe not found"));
+        assert_eq!(
+            message_swipe_storage::swipes_for_message(&state, "single-message")
+                .expect("single-message swipes should read")
+                .len(),
+            1
+        );
+        assert_eq!(
+            message_swipe_storage::swipes_for_message(&state, "multi-message")
+                .expect("multi-message swipes should read")
+                .len(),
+            2
+        );
     }
 
     #[test]

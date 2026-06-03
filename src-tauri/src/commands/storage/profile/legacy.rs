@@ -1,5 +1,5 @@
 use super::super::{
-    game_state_snapshots, new_id, now_iso,
+    game_state_snapshots, message_swipes, new_id, now_iso,
     shared::{
         agent_run_config_info_from_rows, materialize_message_swipe_fields, non_negative_i64_value,
         normalize_agent_run_row_fields, normalize_legacy_text_array_fields,
@@ -149,6 +149,11 @@ where
         imported.insert((*collection).to_string(), json!(rows.len()));
         replacements.push((*collection, rows));
     }
+    if tables.get("messages").is_some() {
+        imported.insert(message_swipes::COLLECTION.to_string(), json!(0));
+        replacements.push((message_swipes::COLLECTION, Vec::new()));
+    }
+    super::normalize_message_swipe_replacements(&mut replacements, &mut imported)?;
     state
         .storage
         .replace_all_many_and_then(replacements, install_assets)?;

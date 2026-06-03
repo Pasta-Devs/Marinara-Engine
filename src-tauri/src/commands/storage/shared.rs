@@ -569,6 +569,7 @@ pub(crate) fn normalize_update_patch(collection: &str, patch: Value) -> AppResul
     Ok(Value::Object(object))
 }
 
+#[cfg(test)]
 pub(crate) fn patch_message_update(
     state: &AppState,
     message_id: &str,

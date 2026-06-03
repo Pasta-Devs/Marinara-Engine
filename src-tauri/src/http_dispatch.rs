@@ -1342,6 +1342,8 @@ mod tests {
                 ],
             )
             .expect("messages should be installed");
+        crate::storage_commands::message_swipes::migrate_nested_message_swipes(&state.storage)
+            .expect("nested message swipes should migrate");
 
         let result = dispatch(
             &state,

@@ -37,6 +37,13 @@ pub(super) fn rollback_created_records(
     record_ids: &[String],
     rollback_errors: &mut Vec<String>,
 ) {
+    if collection == "messages" {
+        if let Err(error) =
+            crate::storage_commands::message_swipes::delete_for_messages(state, record_ids)
+        {
+            rollback_errors.push(format!("message-swipes for messages: {error}"));
+        }
+    }
     for record_id in record_ids.iter().rev() {
         if let Err(error) = state.storage.delete(collection, record_id) {
             rollback_errors.push(format!("{collection}/{record_id}: {error}"));

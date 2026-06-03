@@ -72,6 +72,7 @@ impl AppState {
         Self::seed_defaults(&storage, &game_assets, &backgrounds, default_data_roots)?;
         migrate_storage_json_fields(&storage)?;
         migrate_message_prompt_snapshots_once(&storage)?;
+        crate::storage_commands::message_swipes::migrate_nested_message_swipes(&storage)?;
         migrate_agent_run_rows(&storage)?;
         migrate_legacy_chat_group_roots(&storage)?;
         migrate_local_media_references(&storage, &data_dir)?;
@@ -1404,12 +1405,16 @@ mod tests {
         assert!(persisted["extra"]
             .get("generationPromptSnapshotsBySwipe")
             .is_none());
+        assert!(persisted.get("swipes").is_none());
+        let sidecar_swipes =
+            crate::storage_commands::message_swipes::swipes_for_message(&state, "message-1")
+                .expect("sidecar swipes should load");
         assert_eq!(
-            persisted["swipes"][0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            sidecar_swipes[0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
             json!("preset-first")
         );
         assert_eq!(
-            persisted["swipes"][1]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            sidecar_swipes[1]["extra"]["generationPromptSnapshot"]["promptPresetId"],
             json!("preset-second")
         );
 
@@ -1466,7 +1471,7 @@ mod tests {
     }
 
     #[test]
-    fn app_state_startup_skips_message_compaction_after_marker() {
+    fn app_state_startup_compacts_embedded_swipes_after_message_compaction_marker() {
         let root = temp_root("message-prompt-snapshot-marker");
         let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
         let mut marker = Map::new();
@@ -1509,17 +1514,18 @@ mod tests {
             .expect("message should load")
             .expect("message should exist");
 
-        assert_eq!(
-            persisted["extra"]["generationPromptSnapshot"]["promptPresetId"],
-            json!("preset-first")
-        );
-        assert_eq!(
-            persisted["extra"]["generationPromptSnapshotsBySwipe"]["0"]["promptPresetId"],
-            json!("preset-first")
-        );
-        assert!(persisted["swipes"][0]["extra"]
-            .get("generationPromptSnapshot")
+        assert!(persisted["extra"].get("generationPromptSnapshot").is_none());
+        assert!(persisted["extra"]
+            .get("generationPromptSnapshotsBySwipe")
             .is_none());
+        assert!(persisted.get("swipes").is_none());
+        let sidecar_swipes =
+            crate::storage_commands::message_swipes::swipes_for_message(&state, "message-1")
+                .expect("sidecar swipes should load");
+        assert_eq!(
+            sidecar_swipes[0]["extra"]["generationPromptSnapshot"]["promptPresetId"],
+            json!("preset-first")
+        );
     }
 
     #[test]

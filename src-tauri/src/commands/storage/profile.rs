@@ -207,6 +207,9 @@ pub(super) fn validate_native_profile_import(
                 )));
             }
             None => {
+                if collection == message_swipes::COLLECTION {
+                    continue;
+                }
                 return Err(AppError::invalid_input(format!(
                     "Native profile export is missing collection `{collection}`"
                 )));
@@ -261,6 +264,13 @@ where
         imported.insert(collection.to_string(), json!(rows.len()));
         replacements.push((collection, rows));
     }
+    if collections.get("messages").is_some()
+        && collections.get(message_swipes::COLLECTION).is_none()
+    {
+        imported.insert(message_swipes::COLLECTION.to_string(), json!(0));
+        replacements.push((message_swipes::COLLECTION, Vec::new()));
+    }
+    normalize_message_swipe_replacements(&mut replacements, &mut imported)?;
     state
         .storage
         .replace_all_many_and_then(replacements, install_assets)?;
@@ -273,6 +283,39 @@ where
     }
     insert_profile_import_aliases(&mut imported);
     Ok(json!({ "success": true, "imported": imported }))
+}
+
+pub(super) fn normalize_message_swipe_replacements(
+    replacements: &mut Vec<(&'static str, Vec<Value>)>,
+    imported: &mut Map<String, Value>,
+) -> AppResult<()> {
+    let Some(message_index) = replacements
+        .iter()
+        .position(|(collection, _)| *collection == "messages")
+    else {
+        return Ok(());
+    };
+    let sidecar_index = match replacements
+        .iter()
+        .position(|(collection, _)| *collection == message_swipes::COLLECTION)
+    {
+        Some(index) => index,
+        None => {
+            imported.insert(message_swipes::COLLECTION.to_string(), json!(0));
+            replacements.push((message_swipes::COLLECTION, Vec::new()));
+            replacements.len() - 1
+        }
+    };
+
+    let messages = std::mem::take(&mut replacements[message_index].1);
+    let sidecars = std::mem::take(&mut replacements[sidecar_index].1);
+    let (messages, sidecars) =
+        message_swipes::normalize_message_rows_and_sidecars(messages, sidecars)?;
+    let sidecar_count = sidecars.len();
+    replacements[message_index].1 = messages;
+    replacements[sidecar_index].1 = sidecars;
+    imported.insert(message_swipes::COLLECTION.to_string(), json!(sidecar_count));
+    Ok(())
 }
 
 fn normalize_profile_json_fields(collection: &str, rows: &mut [Value]) -> AppResult<()> {
@@ -499,6 +542,228 @@ mod tests {
             .get("characters", "char-1")
             .expect("character lookup should not fail")
             .is_some());
+    }
+
+    #[test]
+    fn native_profile_import_rejects_bad_swipes_without_wiping_existing_rows() {
+        let state = test_state("bad-message-swipes-no-wipe");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "old-message",
+                    "chatId": "old-chat",
+                    "content": "old content"
+                })],
+            )
+            .expect("old message should seed");
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "messages".to_string(),
+            json!([{
+                "id": "new-message",
+                "chatId": "new-chat",
+                "role": "assistant",
+                "content": "fresh import",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "bad swipe", "extra": "not json" }]
+            }]),
+        );
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect_err("bad nested swipe should reject before import commit");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "old-message")
+            .expect("old message lookup should not fail")
+            .is_some());
+        assert!(state
+            .storage
+            .get("messages", "new-message")
+            .expect("new message lookup should not fail")
+            .is_none());
+    }
+
+    #[test]
+    fn native_profile_import_without_message_swipes_clears_stale_sidecars() {
+        let state = test_state("missing-message-swipes-clears-stale");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "chatId": "old-chat",
+                    "messageId": "message-1",
+                    "index": 0,
+                    "content": "stale private sidecar"
+                })],
+            )
+            .expect("stale sidecar should seed");
+        let mut collections = complete_empty_profile_collections();
+        collections.remove(message_swipes::COLLECTION);
+        collections.insert(
+            "messages".to_string(),
+            json!([{
+                "id": "message-1",
+                "chatId": "new-chat",
+                "role": "assistant",
+                "content": "fresh import",
+                "activeSwipeIndex": 0
+            }]),
+        );
+
+        import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect("old native profile without message-swipes should import");
+
+        assert!(state
+            .storage
+            .list(message_swipes::COLLECTION)
+            .expect("message swipes should list")
+            .is_empty());
+        let mut message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should not fail")
+            .expect("message should import");
+        message_swipes::materialize_message(&state, &mut message, true)
+            .expect("message should materialize");
+        assert_eq!(message["content"], "fresh import");
+        assert!(message.get("swipes").is_none());
+    }
+
+    #[test]
+    fn legacy_profile_import_without_message_swipes_clears_stale_sidecars() {
+        let state = test_state("legacy-missing-message-swipes-clears-stale");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "chatId": "old-chat",
+                    "messageId": "message-1",
+                    "index": 0,
+                    "content": "stale legacy sidecar"
+                })],
+            )
+            .expect("stale sidecar should seed");
+
+        import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "fileStorage": {
+                        "tables": {
+                            "messages": [{
+                                "id": "message-1",
+                                "chatId": "new-chat",
+                                "role": "assistant",
+                                "content": "fresh legacy import",
+                                "activeSwipeIndex": 0
+                            }]
+                        }
+                    }
+                }
+            }),
+        )
+        .expect("legacy profile without message_swipes should import");
+
+        assert!(state
+            .storage
+            .list(message_swipes::COLLECTION)
+            .expect("message swipes should list")
+            .is_empty());
+        let mut message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should not fail")
+            .expect("message should import");
+        message_swipes::materialize_message(&state, &mut message, true)
+            .expect("message should materialize");
+        assert_eq!(message["content"], "fresh legacy import");
+        assert!(message.get("swipes").is_none());
+    }
+
+    #[test]
+    fn legacy_profile_import_rejects_bad_swipes_without_wiping_existing_rows() {
+        let state = test_state("legacy-bad-message-swipes-no-wipe");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "old-message",
+                    "chatId": "old-chat",
+                    "content": "old content"
+                })],
+            )
+            .expect("old message should seed");
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "fileStorage": {
+                        "tables": {
+                            "messages": [{
+                                "id": "new-message",
+                                "chatId": "new-chat",
+                                "role": "assistant",
+                                "content": "fresh legacy import",
+                                "activeSwipeIndex": 0
+                            }],
+                            "message_swipes": [{
+                                "messageId": "new-message",
+                                "index": 0,
+                                "content": "bad legacy swipe",
+                                "extra": "not json"
+                            }]
+                        }
+                    }
+                }
+            }),
+        )
+        .expect_err("bad legacy swipe should reject before import commit");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "old-message")
+            .expect("old message lookup should not fail")
+            .is_some());
+        assert!(state
+            .storage
+            .get("messages", "new-message")
+            .expect("new message lookup should not fail")
+            .is_none());
     }
 
     #[test]
