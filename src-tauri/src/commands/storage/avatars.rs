@@ -5,6 +5,7 @@ use super::media_uploads::{
 use super::*;
 use image::ImageFormat;
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 const AVATAR_THUMBNAIL_SIZES: &[u32] = &[64, 96, 128, 256];
@@ -38,14 +39,14 @@ pub(crate) fn update_character_avatar(
         collection,
         id,
         json!({
-            "avatar": stored.data_url,
-            "avatarPath": stored.data_url,
+            "avatar": stored.asset_url,
+            "avatarPath": stored.asset_url,
             "avatarFilePath": stored.absolute_path,
             "avatarFilename": stored.filename,
             "avatarUpdatedAt": now_iso()
         }),
     )?;
-    remove_avatar_file(state, collection, &previous);
+    remove_avatar_file_preserving_persona_snapshots(state, collection, &previous);
     Ok(updated)
 }
 
@@ -117,9 +118,9 @@ fn character_avatar_snapshot_record(state: &AppState, collection: &str, record: 
         if let Some(data_url) = managed_avatar_data_url(state, collection, record) {
             object.insert("avatar".to_string(), Value::String(data_url.clone()));
             object.insert("avatarPath".to_string(), Value::String(data_url));
+            object.insert("avatarFilePath".to_string(), Value::Null);
+            object.insert("avatarFilename".to_string(), Value::Null);
         }
-        object.insert("avatarFilePath".to_string(), Value::Null);
-        object.insert("avatarFilename".to_string(), Value::Null);
     }
     snapshot
 }
@@ -134,14 +135,27 @@ fn managed_avatar_data_url(state: &AppState, collection: &str, record: &Value) -
     )
     .ok()
     .flatten()?;
-    let bytes = fs::read(&path).ok()?;
-    let mime = avatar_mime_type(
+    avatar_data_url_from_path(
+        &path.to_string_lossy(),
         record
             .get("avatarFilename")
             .and_then(Value::as_str)
             .or_else(|| path.file_name().and_then(|value| value.to_str())),
-    );
-    Some(format!(
+    )
+    .ok()
+}
+
+fn avatar_data_url_from_path(path: &str, filename: Option<&str>) -> AppResult<String> {
+    let path = Path::new(path);
+    let bytes = fs::read(path).map_err(|error| {
+        AppError::new(
+            "avatar_file_read_error",
+            format!("Avatar file could not be read: {error}"),
+        )
+    })?;
+    let mime =
+        avatar_mime_type(filename.or_else(|| path.file_name().and_then(|value| value.to_str())));
+    Ok(format!(
         "data:{mime};base64,{}",
         general_purpose::STANDARD.encode(bytes)
     ))
@@ -174,6 +188,102 @@ pub(crate) fn remove_avatar_file(state: &AppState, collection: &str, record: &Va
         "avatarFilePath",
         "avatarFilename",
     )
+}
+
+pub(crate) fn remove_avatar_file_preserving_persona_snapshots(
+    state: &AppState,
+    collection: &str,
+    record: &Value,
+) {
+    if collection == "personas" {
+        match persona_avatar_referenced_by_messages(state, record) {
+            Ok(true) => return,
+            Ok(false) => {}
+            Err(error) => {
+                log::warn!(
+                    "skipping persona avatar cleanup because message snapshots could not be scanned: {error}"
+                );
+                return;
+            }
+        }
+    }
+    remove_avatar_file(state, collection, record);
+}
+
+fn persona_avatar_referenced_by_messages(state: &AppState, record: &Value) -> AppResult<bool> {
+    let Some(record_id) = record.get("id").and_then(Value::as_str) else {
+        return Ok(false);
+    };
+    let persona_id = record_id.trim();
+    if persona_id.is_empty() {
+        return Ok(false);
+    }
+
+    let url_candidates: HashSet<String> = ["avatar", "avatarPath", "avatarUrl"]
+        .into_iter()
+        .filter_map(|field| record.get(field).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect();
+    let file_path = record
+        .get("avatarFilePath")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    let messages = state.storage.list("messages")?;
+    Ok(messages.iter().any(|message| {
+        let Some(snapshot) = message
+            .get("extra")
+            .and_then(message_persona_snapshot_object)
+        else {
+            return false;
+        };
+        if snapshot
+            .get("personaId")
+            .and_then(Value::as_str)
+            .is_none_or(|value| value.trim() != persona_id)
+        {
+            return false;
+        }
+        if snapshot
+            .get("avatarUrl")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty() && url_candidates.contains(value))
+        {
+            return true;
+        }
+        if file_path.is_some_and(|path| {
+            snapshot
+                .get("avatarFilePath")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                == Some(path)
+        }) {
+            return true;
+        }
+        false
+    }))
+}
+
+fn message_persona_snapshot_object(value: &Value) -> Option<Map<String, Value>> {
+    match value {
+        Value::Object(object) => object
+            .get("personaSnapshot")
+            .and_then(Value::as_object)
+            .cloned(),
+        Value::String(text) => serde_json::from_str::<Value>(text)
+            .ok()
+            .and_then(|parsed| {
+                parsed
+                    .get("personaSnapshot")
+                    .and_then(Value::as_object)
+                    .cloned()
+            }),
+        _ => None,
+    }
 }
 
 fn remove_avatar_thumbnail_files(state: &AppState, collection: &str, record: &Value) {
@@ -481,10 +591,11 @@ pub(crate) fn update_npc_avatar(state: &AppState, chat_id: &str, body: Value) ->
         &body,
         "avatar",
     )?;
+    let avatar_path = avatar_data_url_from_path(&stored.absolute_path, Some(&stored.filename))?;
     Ok(json!({
         "chatId": chat_id,
         "name": name,
-        "avatarPath": stored.data_url,
+        "avatarPath": avatar_path,
         "avatarFilePath": stored.absolute_path,
         "avatarFilename": stored.filename
     }))
@@ -506,6 +617,311 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn small_png_data_url() -> &'static str {
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTmZsgAAAABJRU5ErkJggg=="
+    }
+
+    fn assert_managed_avatar_upload(value: &Value, collection: &str) {
+        let avatar_path = value
+            .get("avatarPath")
+            .and_then(Value::as_str)
+            .expect("avatarPath should be present");
+        assert!(
+            !avatar_path.starts_with("data:image/"),
+            "avatarPath should be a managed asset URL, not inline data"
+        );
+        assert_eq!(
+            value.get("avatar").and_then(Value::as_str),
+            value.get("avatarPath").and_then(Value::as_str)
+        );
+        let avatar_file_path = value
+            .get("avatarFilePath")
+            .and_then(Value::as_str)
+            .expect("avatarFilePath should be present");
+        let normalized_file_path = avatar_file_path.replace('\\', "/");
+        assert!(
+            normalized_file_path.contains(&format!("avatars/{collection}")),
+            "avatar file should be stored under managed {collection} avatars"
+        );
+        assert!(
+            Path::new(avatar_file_path).is_file(),
+            "managed avatar file should exist"
+        );
+        assert!(
+            value
+                .get("avatarFilename")
+                .and_then(Value::as_str)
+                .is_some_and(|filename| !filename.trim().is_empty()),
+            "avatarFilename should be present"
+        );
+    }
+
+    #[test]
+    fn avatar_data_url_from_path_reports_missing_file() {
+        let missing = std::env::temp_dir().join("marinara-missing-avatar.png");
+        let error = avatar_data_url_from_path(&missing.to_string_lossy(), Some("missing.png"))
+            .expect_err("missing avatar file should fail instead of falling back");
+
+        assert_eq!(error.code, "avatar_file_read_error");
+    }
+
+    #[test]
+    fn character_avatar_upload_stores_managed_asset_url() {
+        let state = test_state("character-avatar-upload-managed");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": { "name": "Rina" }
+                }),
+            )
+            .expect("character should be created");
+
+        let updated = update_character_avatar(
+            &state,
+            "characters",
+            "char-1",
+            json!({ "avatar": small_png_data_url() }),
+        )
+        .expect("avatar should update");
+
+        assert_managed_avatar_upload(&updated, "characters");
+    }
+
+    #[test]
+    fn persona_avatar_upload_stores_managed_asset_url() {
+        let state = test_state("persona-avatar-upload-managed");
+        state
+            .storage
+            .create(
+                "personas",
+                json!({
+                    "id": "persona-1",
+                    "name": "Xel"
+                }),
+            )
+            .expect("persona should be created");
+
+        let updated = update_character_avatar(
+            &state,
+            "personas",
+            "persona-1",
+            json!({ "avatar": small_png_data_url() }),
+        )
+        .expect("avatar should update");
+
+        assert_managed_avatar_upload(&updated, "personas");
+    }
+
+    #[test]
+    fn npc_avatar_upload_keeps_inline_url_for_url_only_consumers() {
+        let state = test_state("npc-avatar-upload-managed");
+
+        let updated = update_npc_avatar(
+            &state,
+            "chat-1",
+            json!({
+                "name": "Rina",
+                "avatar": small_png_data_url()
+            }),
+        )
+        .expect("npc avatar should update");
+
+        let avatar_path = updated
+            .get("avatarPath")
+            .and_then(Value::as_str)
+            .expect("avatarPath should be present");
+        assert!(
+            avatar_path.starts_with("data:image/"),
+            "NPC avatarPath should stay inline because game NPC rows only persist URL fields"
+        );
+        let avatar_file_path = updated
+            .get("avatarFilePath")
+            .and_then(Value::as_str)
+            .expect("avatarFilePath should be present");
+        assert!(Path::new(avatar_file_path).is_file());
+    }
+
+    #[test]
+    fn persona_avatar_update_removes_unreferenced_previous_file() {
+        let state = test_state("persona-avatar-unreferenced-cleanup");
+        state
+            .storage
+            .create(
+                "personas",
+                json!({
+                    "id": "persona-1",
+                    "name": "Xel"
+                }),
+            )
+            .expect("persona should be created");
+
+        let first = update_character_avatar(
+            &state,
+            "personas",
+            "persona-1",
+            json!({ "avatar": small_png_data_url(), "filename": "first.png" }),
+        )
+        .expect("first avatar should update");
+        let old_path = first
+            .get("avatarFilePath")
+            .and_then(Value::as_str)
+            .expect("first avatar path should be stored")
+            .to_string();
+
+        update_character_avatar(
+            &state,
+            "personas",
+            "persona-1",
+            json!({ "avatar": small_png_data_url(), "filename": "second.png" }),
+        )
+        .expect("second avatar should update");
+
+        assert!(
+            !Path::new(&old_path).exists(),
+            "unreferenced previous persona avatar should still be cleaned up"
+        );
+    }
+
+    #[test]
+    fn persona_avatar_update_preserves_message_snapshot_file() {
+        let state = test_state("persona-avatar-snapshot-preserve");
+        state
+            .storage
+            .create(
+                "personas",
+                json!({
+                    "id": "persona-1",
+                    "name": "Xel"
+                }),
+            )
+            .expect("persona should be created");
+
+        let first = update_character_avatar(
+            &state,
+            "personas",
+            "persona-1",
+            json!({ "avatar": small_png_data_url(), "filename": "first.png" }),
+        )
+        .expect("first avatar should update");
+        let old_path = first
+            .get("avatarFilePath")
+            .and_then(Value::as_str)
+            .expect("first avatar path should be stored")
+            .to_string();
+        let old_filename = first
+            .get("avatarFilename")
+            .and_then(Value::as_str)
+            .expect("first avatar filename should be stored")
+            .to_string();
+        let old_url = first
+            .get("avatarPath")
+            .and_then(Value::as_str)
+            .expect("first avatar URL should be stored")
+            .to_string();
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "msg-1",
+                    "chatId": "chat-1",
+                    "role": "user",
+                    "content": "hello",
+                    "extra": {
+                        "personaSnapshot": {
+                            "personaId": "persona-1",
+                            "name": "Xel",
+                            "avatarUrl": old_url,
+                            "avatarFilePath": old_path,
+                            "avatarFilename": old_filename
+                        }
+                    }
+                }),
+            )
+            .expect("message snapshot should be created");
+
+        update_character_avatar(
+            &state,
+            "personas",
+            "persona-1",
+            json!({ "avatar": small_png_data_url(), "filename": "second.png" }),
+        )
+        .expect("second avatar should update");
+
+        assert!(
+            Path::new(&old_path).is_file(),
+            "persona avatar referenced by a message snapshot should remain available"
+        );
+    }
+
+    #[test]
+    fn persona_avatar_update_ignores_filename_only_snapshot_match() {
+        let state = test_state("persona-avatar-filename-only");
+        state
+            .storage
+            .create(
+                "personas",
+                json!({
+                    "id": "persona-1",
+                    "name": "Xel"
+                }),
+            )
+            .expect("persona should be created");
+
+        let first = update_character_avatar(
+            &state,
+            "personas",
+            "persona-1",
+            json!({ "avatar": small_png_data_url(), "filename": "same-name.png" }),
+        )
+        .expect("first avatar should update");
+        let old_path = first
+            .get("avatarFilePath")
+            .and_then(Value::as_str)
+            .expect("first avatar path should be stored")
+            .to_string();
+        let old_filename = first
+            .get("avatarFilename")
+            .and_then(Value::as_str)
+            .expect("first avatar filename should be stored")
+            .to_string();
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "msg-1",
+                    "chatId": "chat-1",
+                    "role": "user",
+                    "content": "hello",
+                    "extra": {
+                        "personaSnapshot": {
+                            "personaId": "persona-1",
+                            "name": "Xel",
+                            "avatarFilename": old_filename
+                        }
+                    }
+                }),
+            )
+            .expect("message snapshot should be created");
+
+        update_character_avatar(
+            &state,
+            "personas",
+            "persona-1",
+            json!({ "avatar": small_png_data_url(), "filename": "second.png" }),
+        )
+        .expect("second avatar should update");
+
+        assert!(
+            !Path::new(&old_path).exists(),
+            "filename-only snapshot matches should not preserve unrelated avatar files"
+        );
     }
 
     #[test]
@@ -565,6 +981,32 @@ mod tests {
         assert_eq!(restored["avatarPath"], "data:image/png;base64,b2xk");
         assert_eq!(restored["avatarFilePath"], Value::Null);
         assert_eq!(restored["avatarFilename"], Value::Null);
+    }
+
+    #[test]
+    fn character_avatar_snapshot_preserves_metadata_when_inline_read_fails() {
+        let state = test_state("character-avatar-version-missing-file");
+        let missing_path = state
+            .data_dir
+            .join("avatars")
+            .join("characters")
+            .join("missing.png")
+            .to_string_lossy()
+            .to_string();
+        let record = json!({
+            "id": "char-1",
+            "data": { "name": "Rina" },
+            "avatar": "http://asset.localhost/missing.png",
+            "avatarPath": "http://asset.localhost/missing.png",
+            "avatarFilePath": missing_path,
+            "avatarFilename": "missing.png"
+        });
+
+        let snapshot = character_avatar_snapshot_record(&state, "characters", &record);
+
+        assert_eq!(snapshot["avatarPath"], "http://asset.localhost/missing.png");
+        assert_eq!(snapshot["avatarFilePath"], record["avatarFilePath"]);
+        assert_eq!(snapshot["avatarFilename"], "missing.png");
     }
 
     #[test]

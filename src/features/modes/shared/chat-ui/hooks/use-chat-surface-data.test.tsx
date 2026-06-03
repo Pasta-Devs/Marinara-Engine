@@ -21,8 +21,8 @@ vi.mock("../../../../catalog/characters/index", () => ({
 }));
 
 vi.mock("../../../../catalog/personas/index", () => ({
-  useActivePersona: () => ({ data: undefined }),
-  usePersona: () => ({ data: undefined }),
+  useActivePersonaSummary: () => ({ data: undefined }),
+  usePersonaSummary: () => ({ data: undefined }),
 }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

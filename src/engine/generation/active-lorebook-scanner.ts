@@ -416,7 +416,7 @@ function lorebookTimingStatesChanged(
   return false;
 }
 
-export async function loadLorebookEntriesForActivation(
+async function loadLorebookEntriesForActivation(
   storage: StorageGateway,
   lorebook: JsonRecord,
 ): Promise<LorebookEntry[]> {
@@ -426,6 +426,14 @@ export async function loadLorebookEntriesForActivation(
     storage.listLorebookEntries<JsonRecord>(id),
     storage.list<JsonRecord>("lorebook-folders", { filters: { lorebookId: id } }),
   ]);
+  return normalizeLorebookEntriesForActivation(lorebook, rows, folders);
+}
+
+function normalizeLorebookEntriesForActivation(
+  lorebook: JsonRecord,
+  rows: JsonRecord[],
+  folders: JsonRecord[],
+): LorebookEntry[] {
   const disabledFolderIds = new Set(
     folders
       .filter((folder) => !boolish(folder.enabled, true))
@@ -442,6 +450,64 @@ export async function loadLorebookEntriesForActivation(
     }))
     .filter((entry) => entry.enabled && entry.content.trim())
     .filter((entry) => !entry.folderId || !disabledFolderIds.has(entry.folderId));
+}
+
+export async function loadLorebookEntriesForActivationBatch(
+  storage: StorageGateway,
+  lorebooks: JsonRecord[],
+): Promise<Map<string, LorebookEntry[]>> {
+  const lorebooksById = new Map(
+    lorebooks
+      .map((book) => [readString(book.id), book] as const)
+      .filter((entry): entry is readonly [string, JsonRecord] => Boolean(entry[0])),
+  );
+  const lorebookIds = [...lorebooksById.keys()];
+  if (lorebookIds.length === 0) return new Map();
+
+  if (!storage.listLorebookEntriesByLorebookIds) {
+    return new Map(
+      await Promise.all(
+        lorebookIds.map(
+          async (id) => [id, await loadLorebookEntriesForActivation(storage, lorebooksById.get(id) ?? {})] as const,
+        ),
+      ),
+    );
+  }
+
+  const lorebookIdSet = new Set(lorebookIds);
+  const [rows, folders] = await Promise.all([
+    storage.listLorebookEntriesByLorebookIds<JsonRecord>(lorebookIds),
+    storage.list<JsonRecord>("lorebook-folders"),
+  ]);
+
+  const rowsByLorebookId = new Map<string, JsonRecord[]>();
+  for (const row of rows) {
+    const lorebookId = readString(row.lorebookId);
+    if (!lorebookIdSet.has(lorebookId)) continue;
+    const bucket = rowsByLorebookId.get(lorebookId) ?? [];
+    bucket.push(row);
+    rowsByLorebookId.set(lorebookId, bucket);
+  }
+
+  const foldersByLorebookId = new Map<string, JsonRecord[]>();
+  for (const folder of folders) {
+    const lorebookId = readString(folder.lorebookId);
+    if (!lorebookIdSet.has(lorebookId)) continue;
+    const bucket = foldersByLorebookId.get(lorebookId) ?? [];
+    bucket.push(folder);
+    foldersByLorebookId.set(lorebookId, bucket);
+  }
+
+  return new Map(
+    lorebookIds.map((id) => [
+      id,
+      normalizeLorebookEntriesForActivation(
+        lorebooksById.get(id) ?? {},
+        rowsByLorebookId.get(id) ?? [],
+        foldersByLorebookId.get(id) ?? [],
+      ),
+    ]),
+  );
 }
 
 function scanLorebookEntries(
@@ -554,14 +620,16 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
       return [id, readString(book.name, id || "Lorebook")] as const;
     }),
   );
-  const entriesByBook = await Promise.all(
-    lorebooks.map(async (book) => ({
+  const entriesForActivationByBookId = await loadLorebookEntriesForActivationBatch(input.storage, lorebooks);
+  const entriesByBook = lorebooks.map((book) => {
+    const id = readString(book.id);
+    return {
       book,
-      entries: (await loadLorebookEntriesForActivation(input.storage, book)).map((entry) =>
+      entries: (entriesForActivationByBookId.get(id) ?? []).map((entry) =>
         entryWithChatState(entry, previousEntryStateOverrides),
       ),
-    })),
-  );
+    };
+  });
   const vectorizedEntryCount = entriesByBook.reduce(
     (sum, item) => sum + countSemanticCandidateEntries(item.entries),
     0,

@@ -64,7 +64,9 @@ fn optional_u32_strict(args: &Map<String, Value>, key: &str) -> AppResult<Option
         return Ok(None);
     };
     let Some(value) = value.as_u64() else {
-        return Err(AppError::invalid_input(format!("{key} must be a positive integer")));
+        return Err(AppError::invalid_input(format!(
+            "{key} must be a positive integer"
+        )));
     };
     u32::try_from(value)
         .map(Some)
@@ -524,6 +526,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             required_string(&args, "chatId")?,
         ),
         "storage_list" => storage_list(state, &args),
+        "lorebook_entries_list_by_lorebook_ids" => {
+            lorebook_entries_list_by_lorebook_ids(state, &args)
+        }
         "storage_get" => storage_get(state, &args),
         "storage_create" => storage_create(state, &args),
         "storage_update" => storage_update(state, &args),
@@ -616,7 +621,9 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             state,
             json!({ "confirm": true, "scopes": required_string_vec(&args, "scopes")? }),
         ),
-        "admin_clear_all_command" => admin::admin_clear_all(state),
+        "admin_clear_all_command" => {
+            admin::admin_clear_all(state, json!({ "confirm": optional_bool(&args, "confirm") }))
+        }
         "agent_memory_get" => agents::agent_memory(
             state,
             "GET",
@@ -902,6 +909,16 @@ fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
     )
 }
 
+fn lorebook_entries_list_by_lorebook_ids(
+    state: &AppState,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    entity_commands::lorebook_entries_list_by_lorebook_ids_inner(
+        state,
+        required_string_vec(args, "lorebookIds")?,
+    )
+}
+
 fn storage_get(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
     entity_commands::storage_get_inner(
         state,
@@ -1180,6 +1197,28 @@ mod tests {
             .unwrap_or(false)
     }
 
+    fn seed_character(state: &AppState, id: &str) {
+        state
+            .storage
+            .upsert_with_id(
+                "characters",
+                id,
+                json!({
+                    "id": id,
+                    "name": "Seed Character"
+                }),
+            )
+            .expect("character should write");
+    }
+
+    fn character_exists(state: &AppState, id: &str) -> bool {
+        state
+            .storage
+            .get("characters", id)
+            .expect("characters should be readable")
+            .is_some()
+    }
+
     fn quoted_commands(source: &str) -> BTreeSet<String> {
         source
             .split('"')
@@ -1318,6 +1357,51 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dispatch_admin_clear_all_requires_confirmation_without_clearing_storage() {
+        for (label, args) in [
+            ("admin-clear-all-missing-confirm", json!({})),
+            ("admin-clear-all-false-confirm", json!({ "confirm": false })),
+        ] {
+            let state = test_state(label);
+            seed_character(&state, "character-1");
+
+            let error = dispatch(
+                &state,
+                InvokeRequest {
+                    command: "admin_clear_all_command".to_string(),
+                    args: Some(args),
+                },
+            )
+            .await
+            .expect_err("remote clear all should reject missing or false confirmation");
+
+            assert_eq!(error.code, "invalid_input");
+            assert!(error.message.contains("confirm must be true"));
+            assert!(character_exists(&state, "character-1"));
+        }
+    }
+
+    #[tokio::test]
+    async fn dispatch_admin_clear_all_clears_storage_when_confirmed() {
+        let state = test_state("admin-clear-all-confirmed");
+        seed_character(&state, "character-1");
+
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "admin_clear_all_command".to_string(),
+                args: Some(json!({ "confirm": true })),
+            },
+        )
+        .await
+        .expect("remote clear all should accept explicit confirmation");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["cleared"], "all");
+        assert!(!character_exists(&state, "character-1"));
+    }
+
+    #[tokio::test]
     async fn dispatch_storage_list_uses_projected_message_reads() {
         let state = test_state("storage-list-projected-messages");
         state
@@ -1372,6 +1456,40 @@ mod tests {
                 "extra": { "thinking": "swipe thought" }
             }])
         );
+    }
+
+    #[tokio::test]
+    async fn dispatch_lorebook_entries_list_by_lorebook_ids_reads_matching_books() {
+        let state = test_state("remote-lorebook-entries-where-in");
+        state
+            .storage
+            .replace_all(
+                "lorebook-entries",
+                vec![
+                    json!({ "id": "entry-a", "lorebookId": "book-a", "content": "A" }),
+                    json!({ "id": "entry-b", "lorebookId": "book-b", "content": "B" }),
+                    json!({ "id": "entry-c", "lorebookId": "book-c", "content": "C" }),
+                ],
+            )
+            .expect("entries should seed");
+
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "lorebook_entries_list_by_lorebook_ids".to_string(),
+                args: Some(json!({ "lorebookIds": ["book-a", "book-c"] })),
+            },
+        )
+        .await
+        .expect("remote batched lorebook entries should dispatch");
+
+        let ids: Vec<_> = result
+            .as_array()
+            .expect("result should be an array")
+            .iter()
+            .filter_map(|row| row.get("id").and_then(Value::as_str))
+            .collect();
+        assert_eq!(ids, vec!["entry-a", "entry-c"]);
     }
 
     #[tokio::test]

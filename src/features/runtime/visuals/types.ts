@@ -32,6 +32,8 @@ export type PersonaInfo = {
   appearance?: string;
   scenario?: string;
   avatarUrl?: string;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   avatarCrop?: AvatarCropValue | null;
   nameColor?: string;
   dialogueColor?: string;

@@ -1,12 +1,6 @@
 use super::*;
 use std::path::{Path, PathBuf};
 
-pub(crate) struct StoredImageUpload {
-    pub(crate) data_url: String,
-    pub(crate) absolute_path: String,
-    pub(crate) filename: String,
-}
-
 pub(crate) struct StoredManagedImage {
     pub(crate) asset_url: String,
     pub(crate) absolute_path: String,
@@ -19,7 +13,7 @@ pub(crate) fn persist_image_upload(
     id: &str,
     body: &Value,
     field_name: &str,
-) -> AppResult<StoredImageUpload> {
+) -> AppResult<StoredManagedImage> {
     let image = body
         .get(field_name)
         .and_then(Value::as_str)
@@ -43,17 +37,7 @@ pub(crate) fn persist_image_upload(
     fs::create_dir_all(&dir)?;
     let target = unique_file_path(&dir.join(&filename))?;
     fs::write(&target, &bytes)?;
-    Ok(StoredImageUpload {
-        data_url: format!(
-            "data:{mime};base64,{}",
-            general_purpose::STANDARD.encode(bytes)
-        ),
-        absolute_path: target.to_string_lossy().to_string(),
-        filename: target
-            .file_name()
-            .map(|value| value.to_string_lossy().to_string())
-            .unwrap_or(filename),
-    })
+    stored_managed_image(target)
 }
 
 pub(crate) fn persist_image_file_copy(

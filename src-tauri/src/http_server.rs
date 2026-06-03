@@ -557,6 +557,7 @@ fn is_privileged_remote_command(command: &str) -> bool {
             | "profile_import"
             | "profile_import_upload"
             | "backup_create"
+            | "backup_list"
             | "backup_delete"
             | "backup_download"
             | "import_list_directory"
@@ -1323,6 +1324,7 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
 
     fn test_state(label: &str) -> AppState {
         let root = std::env::temp_dir().join(format!(
@@ -1374,6 +1376,32 @@ mod tests {
                 general_purpose::STANDARD.encode(format!("{user}:{pass}"))
             )
             .into_bytes(),
+        }
+    }
+
+    fn admin_secret_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    struct AdminSecretGuard {
+        original: Option<String>,
+    }
+
+    impl AdminSecretGuard {
+        fn capture() -> Self {
+            Self {
+                original: env::var("ADMIN_SECRET").ok(),
+            }
+        }
+    }
+
+    impl Drop for AdminSecretGuard {
+        fn drop(&mut self) {
+            match &self.original {
+                Some(value) => env::set_var("ADMIN_SECRET", value),
+                None => env::remove_var("ADMIN_SECRET"),
+            }
         }
     }
 
@@ -1653,6 +1681,23 @@ mod tests {
     }
 
     #[test]
+    fn hostable_security_requires_admin_access_for_remote_backup_list() {
+        let headers = HeaderMap::new();
+        let remote_ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10));
+
+        let error = require_admin_access_for_command("backup_list", &headers, remote_ip)
+            .expect_err("remote backup_list should require Admin Access");
+        assert_eq!(error.code, "admin_access_required");
+        assert!(require_admin_access_for_command(
+            "backup_list",
+            &headers,
+            IpAddr::V4(Ipv4Addr::LOCALHOST)
+        )
+        .is_ok());
+        assert!(require_admin_access_for_command("storage_list", &headers, remote_ip).is_ok());
+    }
+
+    #[test]
     fn hostable_security_requires_basic_auth_when_configured() {
         let mut security = test_security();
         security.basic_auth = Some(basic_auth("user", "pass"));
@@ -1688,6 +1733,70 @@ mod tests {
             &[("authorization", "Basic dXNlcjpwYXNz")],
         );
         assert!(security.evaluate_request(&correct).is_ok());
+    }
+
+    #[test]
+    fn remote_admin_clear_all_rejects_non_loopback_without_admin_secret() {
+        let _guard = admin_secret_lock()
+            .lock()
+            .expect("admin secret test lock should acquire");
+        let _admin_secret = AdminSecretGuard::capture();
+        env::remove_var("ADMIN_SECRET");
+        let headers = HeaderMap::new();
+
+        let error = require_admin_access_for_command(
+            "admin_clear_all_command",
+            &headers,
+            IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)),
+        )
+        .expect_err("non-loopback clear all should require ADMIN_SECRET");
+
+        assert_eq!(error.code, "admin_access_required");
+    }
+
+    #[test]
+    fn remote_admin_clear_all_rejects_invalid_admin_secret() {
+        let _guard = admin_secret_lock()
+            .lock()
+            .expect("admin secret test lock should acquire");
+        let _admin_secret = AdminSecretGuard::capture();
+        env::set_var("ADMIN_SECRET", "expected-secret");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            HeaderName::from_static(ADMIN_SECRET_HEADER_NAME),
+            HeaderValue::from_static("wrong-secret"),
+        );
+
+        let error = require_admin_access_for_command(
+            "admin_clear_all_command",
+            &headers,
+            IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)),
+        )
+        .expect_err("non-loopback clear all should reject invalid ADMIN_SECRET");
+
+        assert_eq!(error.code, "admin_access_invalid");
+    }
+
+    #[test]
+    fn remote_admin_clear_all_accepts_valid_admin_secret() {
+        let _guard = admin_secret_lock()
+            .lock()
+            .expect("admin secret test lock should acquire");
+        let _admin_secret = AdminSecretGuard::capture();
+        env::set_var("ADMIN_SECRET", "expected-secret");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            HeaderName::from_static(ADMIN_SECRET_HEADER_NAME),
+            HeaderValue::from_static("expected-secret"),
+        );
+
+        let result = require_admin_access_for_command(
+            "admin_clear_all_command",
+            &headers,
+            IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)),
+        );
+
+        assert!(result.is_ok());
     }
 
     #[test]

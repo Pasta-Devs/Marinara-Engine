@@ -177,7 +177,7 @@ function cachedPersonaSnapshot(queryClient: QueryClient, chatId: string) {
   const personas: unknown[] = [];
   addPersonaRows(personas, queryClient.getQueryData(personaKeys.list));
   addPersonaRows(personas, queryClient.getQueryData(personaKeys.summaries));
-  addPersonaRows(personas, queryClient.getQueryData(personaKeys.active));
+  addPersonaRows(personas, queryClient.getQueryData(personaKeys.activeSummary));
   if (personaId) {
     addPersonaRows(personas, queryClient.getQueryData(personaKeys.detail(personaId)));
     addPersonaRows(personas, queryClient.getQueryData(personaKeys.summaryDetail(personaId)));

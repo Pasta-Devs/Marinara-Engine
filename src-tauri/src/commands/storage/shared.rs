@@ -785,213 +785,134 @@ fn normalize_json_field(
     )))
 }
 
+fn insert_default(object: &mut Map<String, Value>, field: &str, value: Value) {
+    object.entry(field.to_string()).or_insert(value);
+}
+
+fn insert_character_data_default(object: &mut Map<String, Value>) -> AppResult<()> {
+    if let Some(data) = object.get("data") {
+        normalize_character_data_for_storage(data)?;
+        return Ok(());
+    }
+
+    let mut data = Map::new();
+    let name = object
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("New Character");
+    data.insert("name".to_string(), Value::String(name.to_string()));
+    data.insert("description".to_string(), Value::String(String::new()));
+    data.insert("personality".to_string(), Value::String(String::new()));
+    data.insert("scenario".to_string(), Value::String(String::new()));
+    data.insert("first_mes".to_string(), Value::String(String::new()));
+    data.insert("mes_example".to_string(), Value::String(String::new()));
+    data.insert("creator_notes".to_string(), Value::String(String::new()));
+    data.insert("system_prompt".to_string(), Value::String(String::new()));
+    data.insert(
+        "post_history_instructions".to_string(),
+        Value::String(String::new()),
+    );
+    data.insert("tags".to_string(), json!([]));
+    data.insert("creator".to_string(), Value::String(String::new()));
+    data.insert(
+        "character_version".to_string(),
+        Value::String("1.0".to_string()),
+    );
+    data.insert("alternate_greetings".to_string(), json!([]));
+    data.insert("extensions".to_string(), json!({ "altDescriptions": [] }));
+    data.insert("character_book".to_string(), Value::Null);
+    object.insert("data".to_string(), Value::Object(data));
+    Ok(())
+}
+
+fn apply_create_default_field(
+    collection: &str,
+    field: &str,
+    object: &mut Map<String, Value>,
+) -> AppResult<()> {
+    match (collection, field) {
+        ("chats", "metadata") | ("chats", "gameState") => {
+            insert_default(object, field, json!({}));
+        }
+        ("chats", "characterIds") => insert_default(object, field, json!([])),
+        ("connections", "enabled") => insert_default(object, field, Value::Bool(true)),
+        ("connection-folders", "color") => {
+            insert_default(object, field, Value::String("#38bdf8".to_string()));
+        }
+        ("connection-folders", "collapsed") => insert_default(object, field, Value::Bool(false)),
+        ("connection-folders", "sortOrder") | ("connection-folders", "order") => {
+            insert_default(object, field, json!(0));
+        }
+        ("characters", "data") => insert_character_data_default(object)?,
+        ("characters", "comment") => insert_default(object, field, Value::String(String::new())),
+        ("characters", "avatarPath") => insert_default(object, field, Value::Null),
+        ("lorebooks", "description")
+        | ("personas", "description")
+        | ("personas", "comment")
+        | ("personas", "personality")
+        | ("personas", "scenario")
+        | ("personas", "backstory")
+        | ("personas", "appearance")
+        | ("prompts", "description") => insert_default(object, field, Value::String(String::new())),
+        ("lorebooks", "category") => {
+            insert_default(object, field, Value::String("uncategorized".to_string()));
+        }
+        ("lorebooks", "imagePath")
+        | ("lorebooks", "characterId")
+        | ("lorebooks", "personaId")
+        | ("lorebooks", "chatId")
+        | ("lorebooks", "generatedBy")
+        | ("lorebooks", "sourceAgentId")
+        | ("personas", "avatarPath")
+        | ("personas", "avatarCrop") => insert_default(object, field, Value::Null),
+        ("lorebooks", "scanDepth") => insert_default(object, field, json!(2)),
+        ("lorebooks", "tokenBudget") => insert_default(object, field, json!(2048)),
+        ("lorebooks", "maxRecursionDepth") => insert_default(object, field, json!(3)),
+        ("lorebooks", "recursiveScanning")
+        | ("lorebooks", "isGlobal")
+        | ("lorebooks", "excludeFromVectorization")
+        | ("personas", "isActive")
+        | ("prompts", "isDefault")
+        | ("chat-presets", "isDefault")
+        | ("chat-presets", "default")
+        | ("chat-presets", "isActive")
+        | ("chat-presets", "active") => insert_default(object, field, Value::Bool(false)),
+        ("lorebooks", "enabled") | ("agents", "enabled") => {
+            insert_default(object, field, Value::Bool(true));
+        }
+        ("lorebooks", "characterIds")
+        | ("lorebooks", "personaIds")
+        | ("lorebooks", "tags")
+        | ("personas", "tags")
+        | ("personas", "altDescriptions")
+        | ("prompts", "sectionOrder")
+        | ("prompts", "groupOrder")
+        | ("prompts", "variableGroups") => insert_default(object, field, json!([])),
+        ("prompts", "variableValues")
+        | ("prompts", "parameters")
+        | ("prompts", "defaultChoices")
+        | ("chat-presets", "settings") => insert_default(object, field, json!({})),
+        ("agents", "credit") => insert_default(
+            object,
+            field,
+            Value::String("Marinara Dev Team".to_string()),
+        ),
+        _ => {
+            return Err(AppError::invalid_input(format!(
+                "No executable create default registered for {collection}.{field}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<Value> {
     let mut object = ensure_object(body)?;
-    match collection {
-        "chats" => {
-            object
-                .entry("metadata".to_string())
-                .or_insert_with(|| json!({}));
-            object
-                .entry("gameState".to_string())
-                .or_insert_with(|| json!({}));
-            object
-                .entry("characterIds".to_string())
-                .or_insert_with(|| json!([]));
+    if let Some(contract) = contracts::collection_contract(collection) {
+        for field in contract.create_default_fields {
+            apply_create_default_field(collection, field, &mut object)?;
         }
-        "connections" => {
-            object
-                .entry("enabled".to_string())
-                .or_insert(Value::Bool(true));
-        }
-        "connection-folders" => {
-            object
-                .entry("color".to_string())
-                .or_insert_with(|| Value::String("#38bdf8".to_string()));
-            object
-                .entry("collapsed".to_string())
-                .or_insert(Value::Bool(false));
-            object.entry("sortOrder".to_string()).or_insert(json!(0));
-            object.entry("order".to_string()).or_insert(json!(0));
-        }
-        "characters" => {
-            if let Some(data) = object.get("data") {
-                normalize_character_data_for_storage(data)?;
-            } else {
-                let mut data = Map::new();
-                let name = object
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .filter(|value| !value.trim().is_empty())
-                    .unwrap_or("New Character");
-                data.insert("name".to_string(), Value::String(name.to_string()));
-                data.insert("description".to_string(), Value::String(String::new()));
-                data.insert("personality".to_string(), Value::String(String::new()));
-                data.insert("scenario".to_string(), Value::String(String::new()));
-                data.insert("first_mes".to_string(), Value::String(String::new()));
-                data.insert("mes_example".to_string(), Value::String(String::new()));
-                data.insert("creator_notes".to_string(), Value::String(String::new()));
-                data.insert("system_prompt".to_string(), Value::String(String::new()));
-                data.insert(
-                    "post_history_instructions".to_string(),
-                    Value::String(String::new()),
-                );
-                data.insert("tags".to_string(), json!([]));
-                data.insert("creator".to_string(), Value::String(String::new()));
-                data.insert(
-                    "character_version".to_string(),
-                    Value::String("1.0".to_string()),
-                );
-                data.insert("alternate_greetings".to_string(), json!([]));
-                data.insert("extensions".to_string(), json!({ "altDescriptions": [] }));
-                data.insert("character_book".to_string(), Value::Null);
-                object.insert("data".to_string(), Value::Object(data));
-            }
-            object
-                .entry("comment".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("avatarPath".to_string())
-                .or_insert(Value::Null);
-        }
-        "lorebooks" => {
-            object
-                .entry("description".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("category".to_string())
-                .or_insert(Value::String("uncategorized".to_string()));
-            object.entry("imagePath".to_string()).or_insert(Value::Null);
-            object.entry("scanDepth".to_string()).or_insert(json!(2));
-            object
-                .entry("tokenBudget".to_string())
-                .or_insert(json!(2048));
-            object
-                .entry("recursiveScanning".to_string())
-                .or_insert(Value::Bool(false));
-            object
-                .entry("maxRecursionDepth".to_string())
-                .or_insert(json!(3));
-            object
-                .entry("characterId".to_string())
-                .or_insert(Value::Null);
-            object
-                .entry("characterIds".to_string())
-                .or_insert(json!([]));
-            object.entry("personaId".to_string()).or_insert(Value::Null);
-            object.entry("personaIds".to_string()).or_insert(json!([]));
-            object.entry("chatId".to_string()).or_insert(Value::Null);
-            object
-                .entry("isGlobal".to_string())
-                .or_insert(Value::Bool(false));
-            object
-                .entry("enabled".to_string())
-                .or_insert(Value::Bool(true));
-            object
-                .entry("excludeFromVectorization".to_string())
-                .or_insert(Value::Bool(false));
-            object.entry("tags".to_string()).or_insert(json!([]));
-            object
-                .entry("generatedBy".to_string())
-                .or_insert(Value::Null);
-            object
-                .entry("sourceAgentId".to_string())
-                .or_insert(Value::Null);
-        }
-        "personas" => {
-            normalize_typed_json_fields(collection, &mut object)?;
-            object
-                .entry("description".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("comment".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("personality".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("scenario".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("backstory".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("appearance".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("avatarPath".to_string())
-                .or_insert(Value::Null);
-            object
-                .entry("isActive".to_string())
-                .or_insert(Value::Bool(false));
-            object
-                .entry("tags".to_string())
-                .or_insert_with(|| json!([]));
-            object
-                .entry("altDescriptions".to_string())
-                .or_insert_with(|| json!([]));
-            object
-                .entry("avatarCrop".to_string())
-                .or_insert(Value::Null);
-        }
-        "prompts" => {
-            normalize_typed_json_fields(collection, &mut object)?;
-            object
-                .entry("description".to_string())
-                .or_insert(Value::String(String::new()));
-            object
-                .entry("sectionOrder".to_string())
-                .or_insert_with(|| json!([]));
-            object
-                .entry("groupOrder".to_string())
-                .or_insert_with(|| json!([]));
-            object
-                .entry("variableGroups".to_string())
-                .or_insert_with(|| json!([]));
-            object
-                .entry("variableValues".to_string())
-                .or_insert_with(|| json!({}));
-            object
-                .entry("parameters".to_string())
-                .or_insert_with(|| json!({}));
-            object
-                .entry("defaultChoices".to_string())
-                .or_insert_with(|| json!({}));
-            object
-                .entry("isDefault".to_string())
-                .or_insert(Value::Bool(false));
-        }
-        "chat-presets" => {
-            normalize_typed_json_fields(collection, &mut object)?;
-            object
-                .entry("settings".to_string())
-                .or_insert_with(|| json!({}));
-            object
-                .entry("isDefault".to_string())
-                .or_insert(Value::Bool(false));
-            object
-                .entry("default".to_string())
-                .or_insert(Value::Bool(false));
-            object
-                .entry("isActive".to_string())
-                .or_insert(Value::Bool(false));
-            object
-                .entry("active".to_string())
-                .or_insert(Value::Bool(false));
-        }
-        "prompt-sections" | "prompt-variables" => {
-            normalize_typed_json_fields(collection, &mut object)?;
-        }
-        "agents" => {
-            normalize_typed_json_fields(collection, &mut object)?;
-            object
-                .entry("enabled".to_string())
-                .or_insert(Value::Bool(true));
-            object
-                .entry("credit".to_string())
-                .or_insert_with(|| Value::String("Marinara Dev Team".to_string()));
-        }
-        _ => {}
     }
     normalize_typed_json_fields(collection, &mut object)?;
     Ok(Value::Object(object))
@@ -1788,6 +1709,27 @@ mod tests {
             .expect("lorebook defaults should apply");
 
         assert_eq!(row["excludeFromVectorization"], json!(false));
+    }
+
+    #[test]
+    fn registered_create_defaults_are_executable() {
+        for contract in contracts::COLLECTIONS {
+            let row = with_entity_defaults(contract.name, json!({ "name": "Defaults" }))
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} defaults should apply from the contract registry: {}",
+                        contract.name, error.message
+                    )
+                });
+            for field in contract.create_default_fields {
+                assert!(
+                    row.get(*field).is_some(),
+                    "{} registered default field {} should be present",
+                    contract.name,
+                    field
+                );
+            }
+        }
     }
 
     #[test]

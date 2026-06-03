@@ -74,7 +74,6 @@ async function importProfileUpload<T>(file: File): Promise<T> {
 export type ManagedBackup = {
   name: string;
   createdAt: string;
-  path?: string;
 };
 
 async function createBackup(): Promise<{ success: boolean; backupName: string }> {

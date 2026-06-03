@@ -132,7 +132,6 @@ fn backup_entry(path: &Path) -> AppResult<Value> {
     Ok(json!({
         "name": name,
         "createdAt": created_at,
-        "path": path.to_string_lossy(),
     }))
 }
 
@@ -340,6 +339,7 @@ mod tests {
             .clone();
         assert_eq!(backups.len(), 1);
         assert_eq!(backups[0]["name"], name);
+        assert!(backups[0].get("path").is_none());
 
         let downloaded =
             download_backup(&state, Some(name)).expect("managed backup should download");

@@ -37,6 +37,7 @@ import {
   messageAttachmentImageSource,
   messageAttachmentsFromExtra,
   readStoredThinking,
+  ResolvedAvatarImage,
   resolvePromptSnapshotFromExtra,
 } from "../../shared/chat-ui/index";
 import { ImagePromptPanel } from "../../shared/chat-ui/index";
@@ -423,9 +424,25 @@ export const ConversationMessage = memo(function ConversationMessage({
   // to preserve the correct persona name/avatar even after switching personas.
   // Fall back to the current personaInfo prop for older messages without snapshots.
   const msgPersona = isUser && extra.personaSnapshot ? extra.personaSnapshot : null;
-  const avatarUrl = isUser ? (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null) : (charInfo?.avatarUrl ?? null);
+  const avatarUrl = isUser
+    ? msgPersona
+      ? (msgPersona.avatarUrl ?? null)
+      : (personaInfo?.avatarUrl ?? null)
+    : (charInfo?.avatarUrl ?? null);
+  const avatarFilePath = isUser
+    ? msgPersona
+      ? (msgPersona.avatarFilePath ?? null)
+      : (personaInfo?.avatarFilePath ?? null)
+    : (charInfo?.avatarFilePath ?? null);
+  const avatarFilename = isUser
+    ? msgPersona
+      ? (msgPersona.avatarFilename ?? null)
+      : (personaInfo?.avatarFilename ?? null)
+    : (charInfo?.avatarFilename ?? null);
   const personaAvatarCrop = isUser
-    ? (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
+    ? msgPersona
+      ? parseAvatarCropJson(msgPersona.avatarCrop)
+      : (personaInfo?.avatarCrop ?? null)
     : null;
   const avatarCropStyle = isUser ? getAvatarCropStyle(personaAvatarCrop) : getAvatarCropStyle(charInfo?.avatarCrop);
   const displayName = isUser
@@ -1092,10 +1109,14 @@ export const ConversationMessage = memo(function ConversationMessage({
           <>
             <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
               {avatarUrl ? (
-                <img
+                <ResolvedAvatarImage
                   src={avatarUrl}
+                  avatarFilePath={avatarFilePath}
+                  avatarFilename={avatarFilename}
                   alt={displayName}
                   loading="lazy"
+                  decoding="async"
+                  thumbnailSize={128}
                   className="h-full w-full object-cover"
                   style={avatarCropStyle}
                 />

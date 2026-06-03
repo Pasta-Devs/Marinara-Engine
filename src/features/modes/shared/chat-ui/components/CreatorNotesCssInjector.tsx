@@ -11,7 +11,7 @@ type CardCssMode = "disabled" | "exclusive" | "chat";
 
 type CharacterRow = {
   id: string;
-  data: string;
+  data: Record<string, unknown> | string;
 };
 
 interface CreatorNotesCssInjectorProps {

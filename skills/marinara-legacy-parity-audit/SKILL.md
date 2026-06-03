@@ -35,16 +35,29 @@ Before auditing:
 
 Treat user-provided topic skills, local notes, GitHub issues, and PRs as optional leads. Do not require personal skills or private notes. Confirm every finding with code, runtime, or artifact evidence.
 
-## Optional Local Parity Ledger
+## GitHub Parity Tracking
 
-If `scratch/parity/README.md` exists in the current refactor worktree, treat it as an optional local parity ledger for this operator:
+Use GitHub issues as the durable parityscan tracker so the workflow works for all
+contributors, not only one operator's local checkout:
 
-1. Read `scratch/parity/README.md` and `scratch/parity/INDEX.md` before numbered tracker scans.
-2. Read `scratch/parity/targets/<target>.md` when a matching target record exists.
-3. Use ledger state to distinguish `scan_status`, `parity_verdict`, and `proof_level`; do not treat a checked public tracker item or closed follow-up issue as proof that a target is on par.
-4. Update or create the local target record and `INDEX.md` only when the user asks to track, update, post, or preserve parityscan results.
+1. Treat #1904 as the source-of-truth parityscan index for target order,
+   target-level status, status vocabulary, report links, and follow-up state.
+2. Use target detail issues when they exist, such as #2011, #2028, and #2050,
+   instead of local `scratch/parity/targets/<target>.md` records.
+3. If a target detail exists only as a user-provided project draft, read it as a
+   planning lead when available, but do not publish, convert, or update draft
+   issues unless the user explicitly asks.
+4. If no target detail issue exists, post the parityscan report to #1904 and ask
+   before opening or publishing a new target detail issue.
+5. Use issue state to distinguish `scan_status`, `parity_verdict`, and
+   `proof_level`; do not treat a checked #1904 target row or closed follow-up
+   issue as proof that a target is on par.
 
-If `scratch/parity/README.md` is missing, skip this hook silently. Do not ask for it, create it, or require it on other checkouts.
+If old local scratch parity files exist, treat them as migration inputs only.
+They may help recover prior surface inventories or proof notes, but GitHub issue
+bodies and comments supersede them. Do not create or update
+`scratch/parity/INDEX.md` or `scratch/parity/targets/*.md` as durable tracker
+state.
 
 ## Audit Flow
 
@@ -53,7 +66,7 @@ If `scratch/parity/README.md` is missing, skip this hook silently. Do not ask fo
 3. Trace the full path for runtime behavior: refactor UI to engine/shared API/Tauri/Rust, and legacy UI to client/server/shared. Do not stop at a visible button when persistence, prompt assembly, generation, import/export, or asset resolution matters.
 4. For contracts and storage formats, trace producers, consumers, migrations or compatibility repair, import/export, and user-visible workflows.
 5. Check `docs/REFACTOR_PARITY_PIPELINE.md#known-intentional-divergences` before classifying a legacy/refactor difference as a gap.
-6. Search open issues and PRs for the target when GitHub access or `gh` is available. Treat issue bodies as leads, not proof.
+6. Search open issues and PRs for the target when GitHub access or `gh` is available. Treat issue bodies, project drafts, and #1904 tracker rows as leads, not proof.
 7. Load `references/audit-checklists.md` when the target touches CRUD, editors, import/export, runtime behavior, media, storage, performance, UX, architecture, or proof coverage.
 8. Load `references/classification-guide.md` before classifying final findings.
 9. Load `references/report-template.md` when drafting the final audit.

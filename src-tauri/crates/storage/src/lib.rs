@@ -1926,6 +1926,7 @@ impl FileStorage {
 
         cleanup_pending_collection_transaction_files(&pending);
         for (collection, rows) in replacements {
+            self.invalidate_projected_cache_for_collection(collection)?;
             self.cache_collection(collection, &rows, false)?;
         }
         Ok(())
@@ -2303,28 +2304,12 @@ fn collection_file_stamp(path: &Path) -> AppResult<Option<CollectionFileStamp>> 
 }
 
 fn collection_content_signature(path: &Path, len: u64) -> AppResult<u64> {
-    const SAMPLE_SIZE: usize = 4096;
     let mut file = fs::File::open(path)?;
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     len.hash(&mut hasher);
-    if len <= (SAMPLE_SIZE as u64) * 3 {
-        let mut bytes = Vec::with_capacity(len as usize);
-        file.read_to_end(&mut bytes)?;
-        bytes.hash(&mut hasher);
-        return Ok(hasher.finish());
-    }
-
-    let mut buffer = vec![0_u8; SAMPLE_SIZE];
-    file.read_exact(&mut buffer)?;
-    buffer.hash(&mut hasher);
-
-    file.seek(SeekFrom::Start(len / 2))?;
-    file.read_exact(&mut buffer)?;
-    buffer.hash(&mut hasher);
-
-    file.seek(SeekFrom::Start(len.saturating_sub(SAMPLE_SIZE as u64)))?;
-    file.read_exact(&mut buffer)?;
-    buffer.hash(&mut hasher);
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    bytes.hash(&mut hasher);
     Ok(hasher.finish())
 }
 
@@ -4659,6 +4644,29 @@ mod tests {
     }
 
     #[test]
+    fn collection_content_signature_hashes_large_unsampled_bytes() {
+        let root = temp_storage_root("collection-content-signature-large");
+        let collection = root.join("collections").join("characters.json");
+        fs::create_dir_all(collection.parent().unwrap()).unwrap();
+
+        let mut bytes = vec![b'a'; 20_000];
+        fs::write(&collection, &bytes).unwrap();
+        let len = fs::metadata(&collection).unwrap().len();
+        let first_signature = collection_content_signature(&collection, len).unwrap();
+
+        bytes[6_000] = b'b';
+        fs::write(&collection, &bytes).unwrap();
+
+        assert_eq!(fs::metadata(&collection).unwrap().len(), len);
+        assert_ne!(
+            collection_content_signature(&collection, len).unwrap(),
+            first_signature
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn list_projected_cache_is_invalidated_by_writes() {
         let root = temp_storage_root("list-projected-cache-invalidated-by-writes");
         let storage = FileStorage::new(&root).unwrap();
@@ -4711,6 +4719,67 @@ mod tests {
         let rows = storage
             .list_projected("characters", &fields, &selections)
             .expect("projected list should read updated dirty rows");
+        assert_eq!(rows, vec![json!({ "id": "target", "data": { "name": "After" } })]);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_projected_cache_is_invalidated_by_replace_all_many() {
+        let root = temp_storage_root("list-projected-cache-invalidated-by-replace-many");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "data": { "name": "Before", "description": "large prompt" },
+                    "avatar": "large image payload"
+                })],
+            )
+            .unwrap();
+
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        storage
+            .list_projected("characters", &fields, &selections)
+            .expect("projected list should read");
+        assert_eq!(
+            storage
+                .cache
+                .read()
+                .expect("cache lock should be readable")
+                .projected_lists
+                .len(),
+            1
+        );
+
+        storage
+            .replace_all_many(vec![(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "data": { "name": "After", "description": "changed prompt" },
+                    "avatar": "large image payload"
+                })],
+            )])
+            .expect("replace_all_many should update character");
+
+        assert_eq!(
+            storage
+                .cache
+                .read()
+                .expect("cache lock should be readable")
+                .projected_lists
+                .len(),
+            0
+        );
+        let rows = storage
+            .list_projected("characters", &fields, &selections)
+            .expect("projected list should read replaced rows");
         assert_eq!(rows, vec![json!({ "id": "target", "data": { "name": "After" } })]);
 
         fs::remove_dir_all(root).unwrap();

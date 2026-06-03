@@ -1453,13 +1453,27 @@ export const ChatMessage = memo(function ChatMessage({
 
   const displayName = isUser ? userName : charName;
   const baseAvatarUrl = isUser
-    ? (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
+    ? msgPersona
+      ? (msgPersona.avatarUrl ?? null)
+      : (personaInfo?.avatarUrl ?? null)
     : (charInfo?.avatarUrl ?? null);
   const expressionAvatarUrl =
     !isUser && message.characterId ? (expressionAvatarResolver?.(message, message.characterId) ?? null) : null;
   const avatarUrl = expressionAvatarUrl ?? baseAvatarUrl;
-  const avatarFilePath = !isUser && !expressionAvatarUrl ? (charInfo?.avatarFilePath ?? null) : null;
-  const avatarFilename = !isUser && !expressionAvatarUrl ? (charInfo?.avatarFilename ?? null) : null;
+  const avatarFilePath = expressionAvatarUrl
+    ? null
+    : isUser
+      ? msgPersona
+        ? (msgPersona.avatarFilePath ?? null)
+        : (personaInfo?.avatarFilePath ?? null)
+      : (charInfo?.avatarFilePath ?? null);
+  const avatarFilename = expressionAvatarUrl
+    ? null
+    : isUser
+      ? msgPersona
+        ? (msgPersona.avatarFilename ?? null)
+        : (personaInfo?.avatarFilename ?? null)
+      : (charInfo?.avatarFilename ?? null);
   const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -1479,7 +1493,9 @@ export const ChatMessage = memo(function ChatMessage({
     setResolvedAvatarUrl(src);
   }, []);
   const personaAvatarCrop = isUser
-    ? (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
+    ? msgPersona
+      ? parseAvatarCropJson(msgPersona.avatarCrop)
+      : (personaInfo?.avatarCrop ?? null)
     : null;
   const avatarCropStyle = expressionAvatarUrl
     ? {}

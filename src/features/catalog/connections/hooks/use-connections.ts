@@ -40,16 +40,29 @@ const CONNECTION_SUMMARY_OPTIONS = {
     "default",
     "useForRandom",
     "defaultParameters",
+    "promptPresetId",
     "embeddingModel",
     "createdAt",
     "updatedAt",
   ],
 };
 
+export type ConnectionSummary = Pick<
+  ConnectionRow,
+  "id" | "name" | "provider" | "model" | "baseUrl" | "useForRandom" | "createdAt" | "updatedAt"
+> & {
+  folderId?: string | null;
+  isDefault?: string | boolean | null;
+  default?: string | boolean | null;
+  defaultParameters?: Record<string, unknown> | null;
+  promptPresetId?: string | null;
+  embeddingModel?: string | null;
+};
+
 export function useConnections(enabled = true) {
   return useQuery({
     queryKey: connectionKeys.list(),
-    queryFn: () => storageApi.list<ConnectionRow>("connections", CONNECTION_SUMMARY_OPTIONS),
+    queryFn: () => storageApi.list<ConnectionSummary>("connections", CONNECTION_SUMMARY_OPTIONS),
     enabled,
     staleTime: 5 * 60_000,
   });

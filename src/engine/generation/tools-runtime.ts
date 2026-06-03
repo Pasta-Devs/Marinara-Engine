@@ -6,7 +6,7 @@ import type { LorebookEntry } from "../contracts/types/lorebook";
 import type { LLMToolCall, LLMToolDefinition } from "../generation-core/llm/base-provider";
 import { lorebookEntryPassesContextFilters } from "../generation-core/lorebooks/keyword-scanner";
 import { appendChatSummaryEntryToMetadata } from "../shared/text/chat-summary-entries";
-import { loadLorebookEntriesForActivation, lorebookAppliesToContext } from "./active-lorebook-scanner";
+import { loadLorebookEntriesForActivationBatch, lorebookAppliesToContext } from "./active-lorebook-scanner";
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
 import {
   boolish,
@@ -244,8 +244,8 @@ async function loadSearchableStoredLorebookEntries(
   const lorebooks = (await storage.list<JsonRecord>("lorebooks")).filter((book) =>
     lorebookAppliesToContext(book, input.chat, input.characters, input.persona),
   );
-  const entries = await Promise.all(lorebooks.map((book) => loadLorebookEntriesForActivation(storage, book)));
-  return entries.flat().filter((entry) => lorebookToolEntryPassesContext(entry, input));
+  const entriesByBook = await loadLorebookEntriesForActivationBatch(storage, lorebooks);
+  return [...entriesByBook.values()].flat().filter((entry) => lorebookToolEntryPassesContext(entry, input));
 }
 
 async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInput, args: JsonRecord) {

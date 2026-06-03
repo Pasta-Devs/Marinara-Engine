@@ -111,7 +111,10 @@ function normalizeStorageWrite(entity: StorageEntity, value: Record<string, unkn
   return entity === "messages" ? normalizeMessageWrite(value) : value;
 }
 
-function storageWriteInvalidationKinds(entity: StorageEntity, value?: Record<string, unknown>): RemoteManagedAssetKind[] {
+function storageWriteInvalidationKinds(
+  entity: StorageEntity,
+  value?: Record<string, unknown>,
+): RemoteManagedAssetKind[] {
   switch (entity) {
     case "gallery":
     case "character-gallery":
@@ -308,6 +311,12 @@ export const storageApi: StorageGateway = {
   saveTrackerSnapshot: <T = unknown>(chatId: string, snapshot: Record<string, unknown>) =>
     trackerSnapshotApi.save(chatId, snapshot as unknown as TrackerSnapshotInput) as Promise<T>,
   listLorebookEntries: (lorebookId) => storageApi.list("lorebook-entries", { filters: { lorebookId } }),
+  listLorebookEntriesByLorebookIds: (lorebookIds) =>
+    lorebookIds.length
+      ? invokeTauri("lorebook_entries_list_by_lorebook_ids", {
+          lorebookIds: Array.from(new Set(lorebookIds.map((id) => id.trim()).filter(Boolean))),
+        })
+      : Promise.resolve([]),
   createLorebookEntries: async (lorebookId, entries) =>
     Promise.all(entries.map((entry) => storageApi.create("lorebook-entries", { ...entry, lorebookId }))) as Promise<
       never[]
