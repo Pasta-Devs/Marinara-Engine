@@ -279,9 +279,9 @@ echo    Press Ctrl+C to stop
 echo  ==========================================
 echo.
 
-:: Open browser after a short delay (use explorer.exe as fallback)
+:: Open browser after a short delay.
 if defined AUTO_OPEN_BROWSER_ENABLED (
-    start "" cmd /c "timeout /t 4 /nobreak >nul && start %PROTOCOL%://127.0.0.1:%PORT% || explorer %PROTOCOL%://127.0.0.1:%PORT%"
+    start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 4; Start-Process '%PROTOCOL%://127.0.0.1:%PORT%'"
 ) else (
     echo  [OK] Auto-open disabled ^(AUTO_OPEN_BROWSER=%AUTO_OPEN_BROWSER%^)
 )
