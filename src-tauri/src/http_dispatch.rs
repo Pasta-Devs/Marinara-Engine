@@ -59,6 +59,18 @@ fn optional_u32(args: &Map<String, Value>, key: &str) -> Option<u32> {
         .and_then(|value| u32::try_from(value).ok())
 }
 
+fn optional_u32_strict(args: &Map<String, Value>, key: &str) -> AppResult<Option<u32>> {
+    let Some(value) = args.get(key) else {
+        return Ok(None);
+    };
+    let Some(value) = value.as_u64() else {
+        return Err(AppError::invalid_input(format!("{key} must be a positive integer")));
+    };
+    u32::try_from(value)
+        .map(Some)
+        .map_err(|_| AppError::invalid_input(format!("{key} is too large")))
+}
+
 fn required_string_vec(args: &Map<String, Value>, key: &str) -> AppResult<Vec<String>> {
     let values = args
         .get(key)
@@ -278,7 +290,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
                 state,
                 required_string(&args, "kind")?,
                 required_string(&args, "path")?,
-                optional_u32(&args, "size"),
+                optional_u32_strict(&args, "size")?,
             )
         }
         "gif_search" => gif_search(&args).await,
@@ -1578,6 +1590,30 @@ mod tests {
         assert_eq!(
             result.get("originalName").and_then(Value::as_str),
             Some("background.png")
+        );
+    }
+
+    #[tokio::test]
+    async fn dispatch_rejects_invalid_managed_thumbnail_size_arguments() {
+        let state = test_state("managed-thumbnail-size");
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "managed_asset_thumbnail_file_path".to_string(),
+                args: Some(json!({
+                    "kind": "gallery",
+                    "path": "scene.png",
+                    "size": "256"
+                })),
+            },
+        )
+        .await
+        .expect_err("invalid size should be rejected before command defaults");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(
+            error.message.contains("size"),
+            "size validation error should mention size"
         );
     }
 

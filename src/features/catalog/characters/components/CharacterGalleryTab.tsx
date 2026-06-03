@@ -228,12 +228,12 @@ function CharacterGalleryThumbnail({
   image: CharacterGalleryImage;
   alt: string;
 }) {
-  const [src, setSrc] = useState(image.url);
+  const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const path = galleryThumbnailPath(image.filename, image.filePath);
-    setSrc(image.url);
+    setSrc(null);
     resolveManagedAssetThumbnailFileUrl("gallery", path, 256)
       .then((url) => {
         if (!cancelled) setSrc(url || image.url);
@@ -246,5 +246,6 @@ function CharacterGalleryThumbnail({
     };
   }, [image.filePath, image.filename, image.url]);
 
+  if (!src) return <div className="h-full w-full bg-[var(--secondary)]" aria-hidden="true" />;
   return <img src={src} alt={alt} className="h-full w-full object-cover" loading="lazy" />;
 }

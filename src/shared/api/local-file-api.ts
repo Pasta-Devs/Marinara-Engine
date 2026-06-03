@@ -115,11 +115,28 @@ function remoteAssetPathVersionKey(kind: RemoteManagedAssetKind, encodedPath: st
   return `path:${kind}:${encodedPath}`;
 }
 
+function sourceThumbnailPathVersionKey(kind: RemoteManagedAssetKind, encodedPath: string): string {
+  return `thumbnail:${kind}:${encodedPath}`;
+}
+
 function remoteManagedAssetInvalidationVersion(kind: RemoteManagedAssetKind, encodedPath: string): number {
+  const thumbnailSourceVersion =
+    kind === "thumbnail" ? remoteManagedAssetThumbnailSourceInvalidationVersion(encodedPath) : 0;
   return Math.max(
     remoteAssetGlobalInvalidationVersion,
     remoteAssetInvalidationVersions.get(remoteAssetKindVersionKey(kind)) ?? 0,
     remoteAssetInvalidationVersions.get(remoteAssetPathVersionKey(kind, encodedPath)) ?? 0,
+    thumbnailSourceVersion,
+  );
+}
+
+function remoteManagedAssetThumbnailSourceInvalidationVersion(encodedPath: string): number {
+  const [kind, , ...sourceSegments] = encodedPath.split("/");
+  const sourcePath = sourceSegments.join("/");
+  if (!kind || !sourcePath) return 0;
+  return Math.max(
+    remoteAssetInvalidationVersions.get(remoteAssetKindVersionKey(kind as RemoteManagedAssetKind)) ?? 0,
+    remoteAssetInvalidationVersions.get(sourceThumbnailPathVersionKey(kind as RemoteManagedAssetKind, sourcePath)) ?? 0,
   );
 }
 
@@ -171,8 +188,19 @@ function managedAssetThumbnailRemotePath(
   path: string | null | undefined,
   size: number,
 ): string | null {
-  const encodedPath = remoteManagedAssetPath(path);
-  return encodedPath ? `${kind}/${size}/${encodedPath}` : null;
+  const normalizedPath = remoteManagedAssetRawPath(path);
+  return normalizedPath ? `${kind}/${size}/${normalizedPath}` : null;
+}
+
+function remoteManagedAssetRawPath(path: string | null | undefined): string | null {
+  if (!path?.trim()) return null;
+  const normalizedPath = path
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment && segment !== "." && segment !== "..")
+    .join("/");
+  return normalizedPath || null;
 }
 
 async function fetchRemoteManagedAssetBlobUrl(asset: RemoteManagedAsset): Promise<string> {
@@ -237,6 +265,10 @@ export function invalidateRemoteManagedAssetObjectUrls(kind?: RemoteManagedAsset
     if (encodedPath) {
       remoteAssetInvalidationVersions.set(
         remoteAssetPathVersionKey(kind, encodedPath),
+        nextRemoteAssetInvalidationVersion(),
+      );
+      remoteAssetInvalidationVersions.set(
+        sourceThumbnailPathVersionKey(kind, encodedPath),
         nextRemoteAssetInvalidationVersion(),
       );
     }

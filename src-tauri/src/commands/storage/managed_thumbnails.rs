@@ -86,6 +86,11 @@ pub(crate) fn managed_thumbnail_path(
     if !is_resizable_image_file(&source) {
         return Ok(source);
     }
+    if is_unsupported_thumbnail_file(&source) {
+        return Err(AppError::invalid_input(
+            "AVIF managed thumbnails are unsupported by the current image decoder",
+        ));
+    }
 
     let root = canonical_root(state, kind)?;
     let relative = source.strip_prefix(&root).map_err(|_| {
@@ -157,7 +162,18 @@ fn is_resizable_image_file(path: &Path) -> bool {
             .unwrap_or_default()
             .to_ascii_lowercase()
             .as_str(),
-        "png" | "jpg" | "jpeg" | "webp" | "gif"
+        "png" | "jpg" | "jpeg" | "webp" | "gif" | "avif"
+    )
+}
+
+fn is_unsupported_thumbnail_file(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "avif"
     )
 }
 
@@ -256,5 +272,21 @@ mod tests {
                 .expect_err("path traversal should be rejected");
 
         assert_eq!(error.code, "not_found");
+    }
+
+    #[test]
+    fn managed_thumbnail_rejects_avif_sources_until_decoder_support_exists() {
+        let state = test_state("avif");
+        let source = state.data_dir.join("backgrounds").join("still.avif");
+        std::fs::write(&source, b"not-an-avif").expect("avif fixture should be written");
+
+        let error = managed_asset_thumbnail_file_path(&state, "background", "still.avif", Some(128))
+            .expect_err("avif thumbnails should currently reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(
+            error.message.contains("AVIF"),
+            "error should explain current avif thumbnail contract"
+        );
     }
 }
