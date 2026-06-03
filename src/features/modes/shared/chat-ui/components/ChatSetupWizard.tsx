@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { cn, type AvatarCrop } from "../../../../../shared/lib/utils";
 import { useConnections } from "../../../../catalog/connections/index";
-import { usePresets, usePresetFull, useDefaultPreset } from "../../../../catalog/presets/index";
+import { usePresets, usePresetFull, useDefaultPresetSummary } from "../../../../catalog/presets/index";
 import {
   CharacterAvatarImage as CatalogCharacterAvatarImage,
   characterAvatarUrl,
@@ -1049,7 +1049,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
   const { data: connections } = useConnections();
   const { data: presets } = usePresets();
-  const { data: defaultPreset } = useDefaultPreset();
+  const { data: defaultPreset } = useDefaultPresetSummary();
   const { data: allPersonas } = usePersonaSummaries();
   const {
     data: searchedCharacters,
@@ -1231,7 +1231,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
               const selectedCharacter = await storageApi.get<{ data?: unknown }>("characters", charId);
               const { firstMes, altGreetings } = characterGreetingData(selectedCharacter);
               if (!firstMes) return;
-              const msg = await createMessage.mutateAsync({ role: "assistant", content: firstMes, characterId: charId });
+              const msg = await createMessage.mutateAsync({
+                role: "assistant",
+                content: firstMes,
+                characterId: charId,
+              });
               if (msg?.id && altGreetings.length > 0) {
                 for (const greeting of altGreetings) {
                   if (greeting.trim()) {

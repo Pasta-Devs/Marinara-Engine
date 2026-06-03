@@ -6,6 +6,7 @@ use serde_json::{json, Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader, Cursor, ErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -44,6 +45,7 @@ struct ProjectionShape {
 struct CollectionFileStamp {
     len: u64,
     modified_nanos: u128,
+    content_signature: u64,
 }
 
 struct CachedProjectedList {
@@ -2296,7 +2298,34 @@ fn collection_file_stamp(path: &Path) -> AppResult<Option<CollectionFileStamp>> 
     Ok(Some(CollectionFileStamp {
         len: metadata.len(),
         modified_nanos,
+        content_signature: collection_content_signature(path, metadata.len())?,
     }))
+}
+
+fn collection_content_signature(path: &Path, len: u64) -> AppResult<u64> {
+    const SAMPLE_SIZE: usize = 4096;
+    let mut file = fs::File::open(path)?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    len.hash(&mut hasher);
+    if len <= (SAMPLE_SIZE as u64) * 3 {
+        let mut bytes = Vec::with_capacity(len as usize);
+        file.read_to_end(&mut bytes)?;
+        bytes.hash(&mut hasher);
+        return Ok(hasher.finish());
+    }
+
+    let mut buffer = vec![0_u8; SAMPLE_SIZE];
+    file.read_exact(&mut buffer)?;
+    buffer.hash(&mut hasher);
+
+    file.seek(SeekFrom::Start(len / 2))?;
+    file.read_exact(&mut buffer)?;
+    buffer.hash(&mut hasher);
+
+    file.seek(SeekFrom::Start(len.saturating_sub(SAMPLE_SIZE as u64)))?;
+    file.read_exact(&mut buffer)?;
+    buffer.hash(&mut hasher);
+    Ok(hasher.finish())
 }
 
 fn project_row(
@@ -4571,6 +4600,59 @@ mod tests {
         assert_eq!(
             changed,
             vec![json!({ "id": "target", "data": { "name": "Changed" } })]
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_projected_cache_detects_same_length_rewrite() {
+        let root = temp_storage_root("list-projected-cache-same-length-rewrite");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "data": { "name": "Alpha", "description": "large prompt" },
+                    "avatar": "large image payload"
+                })],
+            )
+            .unwrap();
+
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        let first = storage
+            .list_projected("characters", &fields, &selections)
+            .expect("first projected list should read");
+        assert_eq!(first, vec![json!({ "id": "target", "data": { "name": "Alpha" } })]);
+
+        let collection = root.join("collections").join("characters.json");
+        let replacement = serde_json::to_vec_pretty(&json!([
+            {
+                "id": "target",
+                "data": { "name": "Bravo", "description": "large prompt" },
+                "avatar": "large image payload"
+            }
+        ]))
+        .unwrap();
+        assert_eq!(
+            replacement.len() as u64,
+            fs::metadata(&collection)
+                .expect("collection should exist")
+                .len()
+        );
+        fs::write(&collection, replacement).unwrap();
+
+        let changed = storage
+            .list_projected("characters", &fields, &selections)
+            .expect("projected list should notice same-length file rewrite");
+        assert_eq!(
+            changed,
+            vec![json!({ "id": "target", "data": { "name": "Bravo" } })]
         );
 
         fs::remove_dir_all(root).unwrap();
