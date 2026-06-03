@@ -27,6 +27,16 @@ struct CachedCollection {
     dirty: bool,
 }
 
+struct AtomicUpdateGuard {
+    active: Arc<AtomicBool>,
+}
+
+impl Drop for AtomicUpdateGuard {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::SeqCst);
+    }
+}
+
 pub struct AtomicCollectionRows {
     collection: String,
     rows: Vec<Value>,
@@ -52,6 +62,7 @@ pub struct FileStorage {
     lock: Arc<RwLock<()>>,
     cache: Arc<RwLock<StorageCache>>,
     flush_scheduled: Arc<AtomicBool>,
+    atomic_update_active: Arc<AtomicBool>,
 }
 
 impl FileStorage {
@@ -63,6 +74,7 @@ impl FileStorage {
             lock: Arc::new(RwLock::new(())),
             cache: Arc::new(RwLock::new(StorageCache::default())),
             flush_scheduled: Arc::new(AtomicBool::new(false)),
+            atomic_update_active: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -241,10 +253,12 @@ impl FileStorage {
     }
 
     pub fn create(&self, collection: &str, value: Value) -> AppResult<Value> {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let mut object = ensure_object(value)?;
         let had_id = object
             .get("id")
@@ -285,10 +299,12 @@ impl FileStorage {
     }
 
     pub fn upsert_with_id(&self, collection: &str, id: &str, value: Value) -> AppResult<Value> {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let mut rows = self.read_collection(collection)?;
         let mut object = ensure_object(value)?;
         let now = now_iso();
@@ -315,10 +331,12 @@ impl FileStorage {
         collection: &str,
         patches: Vec<(String, Value)>,
     ) -> AppResult<Vec<Value>> {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let normalized_patches = patches
             .into_iter()
             .map(|(id, patch)| Ok((id, ensure_object(patch)?)))
@@ -363,10 +381,12 @@ impl FileStorage {
     where
         F: FnMut(&mut Map<String, Value>) -> AppResult<bool>,
     {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let mut rows = self.read_collection(collection)?;
         let mut found = false;
         let mut patched = None;
@@ -407,10 +427,12 @@ impl FileStorage {
     where
         F: FnMut(&mut Map<String, Value>, &Map<String, Value>) -> AppResult<()>,
     {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let mut rows = self.read_collection(collection)?;
         let patch = ensure_object(patch)?;
         let mut found = None;
@@ -439,10 +461,12 @@ impl FileStorage {
     }
 
     pub fn delete(&self, collection: &str, id: &str) -> AppResult<bool> {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let mut rows = self.read_collection(collection)?;
         let before = rows.len();
         rows.retain(|row| row.get("id").and_then(Value::as_str) != Some(id));
@@ -461,10 +485,12 @@ impl FileStorage {
     where
         F: FnMut(&Value) -> bool,
     {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let mut rows = self.read_collection(collection)?;
         let before = rows.len();
         rows.retain(|row| !predicate(row));
@@ -479,10 +505,12 @@ impl FileStorage {
         if chat_ids.is_empty() {
             return Ok(0);
         }
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let mut rows = self.read_collection("messages")?;
         let before = rows.len();
         rows.retain(|row| {
@@ -498,10 +526,12 @@ impl FileStorage {
     }
 
     pub fn replace_all(&self, collection: &str, rows: Vec<Value>) -> AppResult<()> {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         self.write_collection_immediate(collection, &rows)
     }
 
@@ -517,6 +547,7 @@ impl FileStorage {
     where
         F: FnOnce(&mut [AtomicCollectionRows]) -> AppResult<T>,
     {
+        let _atomic_update = self.begin_atomic_update()?;
         let mut entries = {
             let _guard = self
                 .lock
@@ -577,18 +608,22 @@ impl FileStorage {
     where
         F: FnOnce() -> AppResult<()>,
     {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         self.replace_all_many_locked(replacements, after_install)
     }
 
     pub fn clear_all(&self) -> AppResult<()> {
+        self.ensure_writes_available()?;
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
         let collections = self.root.join("collections");
         if collections.exists() {
             fs::remove_dir_all(&collections)?;
@@ -604,6 +639,30 @@ impl FileStorage {
             .root
             .join("collections")
             .join(format!("{collection}.json")))
+    }
+
+    fn begin_atomic_update(&self) -> AppResult<AtomicUpdateGuard> {
+        self.atomic_update_active
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| {
+                AppError::new(
+                    "storage_transaction_active",
+                    "Storage atomic update is already active",
+                )
+            })?;
+        Ok(AtomicUpdateGuard {
+            active: self.atomic_update_active.clone(),
+        })
+    }
+
+    fn ensure_writes_available(&self) -> AppResult<()> {
+        if self.atomic_update_active.load(Ordering::SeqCst) {
+            return Err(AppError::new(
+                "storage_transaction_active",
+                "Storage writes cannot run during an atomic collection update",
+            ));
+        }
+        Ok(())
     }
 
     fn cached_rows(&self, collection: &str) -> AppResult<Option<Vec<Value>>> {
@@ -3637,7 +3696,7 @@ mod tests {
     }
 
     #[test]
-    fn update_collections_atomically_rejects_reentrant_target_writes() {
+    fn update_collections_atomically_rejects_reentrant_writes_without_side_effects() {
         let root = temp_storage_root("update-collections-reentrant");
         let storage = FileStorage::new(&root).unwrap();
         storage
@@ -3650,29 +3709,28 @@ mod tests {
         let error = storage
             .update_collections_atomically(vec!["messages"], |collections| {
                 assert_eq!(collections[0].collection(), "messages");
+                assert_eq!(storage.list("messages")?.len(), 1);
                 storage.create(
-                    "messages",
-                    json!({ "id": "message-2", "content": "reentrant" }),
+                    "personas",
+                    json!({ "id": "persona-1", "name": "reentrant" }),
                 )?;
                 collections[0]
                     .rows_mut()
-                    .push(json!({ "id": "message-3", "content": "callback" }));
+                    .push(json!({ "id": "message-2", "content": "callback" }));
                 Ok(())
             })
-            .expect_err("reentrant target writes should reject instead of deadlocking");
+            .expect_err("reentrant writes should reject instead of deadlocking or persisting");
 
-        assert_eq!(error.code, "storage_conflict");
+        assert_eq!(error.code, "storage_transaction_active");
         let rows = storage.list("messages").unwrap();
-        assert_eq!(rows.len(), 2);
+        assert_eq!(rows.len(), 1);
         assert!(rows
             .iter()
             .any(|row| row.get("id").and_then(Value::as_str) == Some("message-1")));
-        assert!(rows
-            .iter()
-            .any(|row| row.get("id").and_then(Value::as_str) == Some("message-2")));
         assert!(!rows
             .iter()
-            .any(|row| row.get("id").and_then(Value::as_str) == Some("message-3")));
+            .any(|row| row.get("id").and_then(Value::as_str) == Some("message-2")));
+        assert!(storage.list("personas").unwrap().is_empty());
 
         fs::remove_dir_all(root).unwrap();
     }
