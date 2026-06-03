@@ -10,6 +10,7 @@ import {
 } from "../../features/catalog/chat-presets/index";
 import { useCreateChat } from "../../features/catalog/chats/sidebar";
 import { connectionKeys } from "../../features/catalog/connections/index";
+import { checkRemoteRuntimeHealth } from "../../shared/api/remote-runtime";
 import { storageApi } from "../../shared/api/storage-api";
 import { filterLanguageGenerationConnections } from "../../shared/lib/connection-filters";
 import { useChatStore } from "../../shared/stores/chat.store";
@@ -34,23 +35,41 @@ export function useStartNewChat() {
 
   return useCallback(
     async (mode: ChatMode) => {
-      if (!hasEmbeddedTauriIpc() && remoteRuntimeUrl.trim().length === 0) {
+      const isNewChatMode = mode === "conversation" || mode === "roleplay" || mode === "game";
+      const remoteRuntime = remoteRuntimeUrl.trim();
+      const needsRemoteRuntime = !hasEmbeddedTauriIpc();
+
+      if (needsRemoteRuntime && remoteRuntime.length === 0) {
         if (mode === "conversation" || mode === "roleplay" || mode === "game") {
           setPendingNewChatMode(mode);
         }
         return;
       }
 
-      const connections = await queryClient.fetchQuery({
-        queryKey: connectionKeys.list(),
-        queryFn: () => storageApi.list<Record<string, unknown>>("connections"),
-        staleTime: 5 * 60_000,
-      });
+      if (needsRemoteRuntime) {
+        const health = await checkRemoteRuntimeHealth(remoteRuntime);
+        if (health.status !== "ok") {
+          if (isNewChatMode) setPendingNewChatMode(mode);
+          return;
+        }
+      }
+
+      let connections: Record<string, unknown>[];
+      try {
+        connections = await queryClient.fetchQuery({
+          queryKey: connectionKeys.list(),
+          queryFn: () => storageApi.list<Record<string, unknown>>("connections"),
+          staleTime: 5 * 60_000,
+        });
+      } catch {
+        if (isNewChatMode) setPendingNewChatMode(mode);
+        return;
+      }
       const connectionRows = filterLanguageGenerationConnections(
         (connections ?? []) as Array<{ id: string; provider?: string }>,
       ).filter((connection) => !!connection.id);
       if (connectionRows.length === 0) {
-        if (mode === "conversation" || mode === "roleplay" || mode === "game") {
+        if (isNewChatMode) {
           setPendingNewChatMode(mode);
         }
         return;

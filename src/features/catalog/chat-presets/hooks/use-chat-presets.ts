@@ -162,10 +162,11 @@ async function setOnlyActivePreset(id: string): Promise<ChatPreset> {
   return { ...normalizeChatPresetFlags(selected), isActive: true, active: true } as ChatPreset;
 }
 
-export function useChatPresets(mode?: ChatMode | null) {
+export function useChatPresets(mode?: ChatMode | null, enabled = true) {
   return useQuery({
     queryKey: chatPresetKeys.list(mode ?? null),
     queryFn: () => listChatPresets(mode),
+    enabled,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });

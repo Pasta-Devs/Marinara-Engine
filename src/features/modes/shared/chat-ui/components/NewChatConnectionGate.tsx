@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { BookOpen, Loader2, MessageCircle, Plug, Settings, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Loader2, MessageCircle, Plug, Settings, X } from "lucide-react";
 import { useCreateChat } from "../../../../catalog/chats/index";
 import { findUserStarredChatPreset, useApplyChatPreset, useChatPresets } from "../../../../catalog/chat-presets/index";
 import { useConnections } from "../../../../catalog/connections/index";
+import { checkRemoteRuntimeHealth, type RemoteRuntimeHealthCheck } from "../../../../../shared/api/remote-runtime";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
 import { cn } from "../../../../../shared/lib/utils";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
@@ -15,6 +16,8 @@ const MODE_META: Record<Mode, { label: string; icon: React.ReactNode }> = {
   roleplay: { label: "Roleplay", icon: <BookOpen size="0.875rem" /> },
   game: { label: "Game", icon: <BookOpen size="0.875rem" /> },
 };
+
+type RemoteRuntimeGateState = RemoteRuntimeHealthCheck | { status: "checking"; message: string };
 
 function hasEmbeddedTauriIpc(): boolean {
   return (
@@ -31,14 +34,44 @@ interface NewChatConnectionGateProps {
 export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGateProps) {
   const dialogTitleId = useId();
   const dialogDescriptionId = useId();
-  const { data: connections, isLoading } = useConnections();
-  const createChat = useCreateChat();
-  const { data: chatPresetsData } = useChatPresets();
-  const applyChatPreset = useApplyChatPreset();
   const openRightPanel = useUIStore((state) => state.openRightPanel);
   const setSettingsTab = useUIStore((state) => state.setSettingsTab);
   const remoteRuntimeUrl = useUIStore((state) => state.remoteRuntimeUrl);
   const [connectionId, setConnectionId] = useState<string>("");
+  const [remoteRuntimeHealth, setRemoteRuntimeHealth] = useState<RemoteRuntimeGateState | null>(null);
+  const embeddedTauriIpc = hasEmbeddedTauriIpc();
+  const remoteRuntime = remoteRuntimeUrl.trim();
+  const needsRemoteRuntimeUrl = !embeddedTauriIpc && remoteRuntime.length === 0;
+  const shouldCheckRemoteRuntime = !embeddedTauriIpc && remoteRuntime.length > 0;
+  const remoteRuntimeReady = !shouldCheckRemoteRuntime || remoteRuntimeHealth?.status === "ok";
+  const { data: connections, isLoading, isError, error } = useConnections(remoteRuntimeReady);
+  const createChat = useCreateChat();
+  const { data: chatPresetsData } = useChatPresets(undefined, remoteRuntimeReady);
+  const applyChatPreset = useApplyChatPreset();
+
+  useEffect(() => {
+    if (!shouldCheckRemoteRuntime) {
+      setRemoteRuntimeHealth(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setRemoteRuntimeHealth({ status: "checking", message: "Checking Remote Runtime readiness..." });
+
+    void checkRemoteRuntimeHealth(remoteRuntime, { signal: controller.signal })
+      .then((result) => {
+        if (!controller.signal.aborted) setRemoteRuntimeHealth(result);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setRemoteRuntimeHealth({
+          status: "unreachable",
+          message: err instanceof Error ? err.message : "Remote runtime health check failed.",
+        });
+      });
+
+    return () => controller.abort();
+  }, [remoteRuntime, shouldCheckRemoteRuntime]);
 
   const connectionRows = useMemo(
     () =>
@@ -88,8 +121,13 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
     );
   };
 
-  const showEmptyState = !isLoading && connectionRows.length === 0;
-  const needsRemoteRuntimeUrl = showEmptyState && !hasEmbeddedTauriIpc() && remoteRuntimeUrl.trim().length === 0;
+  const remoteRuntimeBlocked =
+    needsRemoteRuntimeUrl ||
+    (shouldCheckRemoteRuntime && remoteRuntimeHealth !== null && remoteRuntimeHealth.status !== "ok");
+  const checkingRemoteRuntime =
+    shouldCheckRemoteRuntime && (remoteRuntimeHealth === null || remoteRuntimeHealth.status === "checking");
+  const showConnectionListError = remoteRuntimeReady && !isLoading && isError;
+  const showEmptyState = remoteRuntimeReady && !isLoading && !isError && connectionRows.length === 0;
 
   const handleOpenConnections = () => {
     openRightPanel("connections");
@@ -153,6 +191,50 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
                   Open Advanced Settings
                 </button>
               </div>
+            ) : checkingRemoteRuntime ? (
+              <div className="rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/8 p-4">
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                  <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
+                  Checking Remote Runtime
+                </div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Verifying that the configured runtime is reachable and storage is writable.
+                </p>
+              </div>
+            ) : remoteRuntimeBlocked ? (
+              <div className="rounded-xl border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-4">
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                  <AlertTriangle size="0.875rem" className="text-[var(--destructive)]" />
+                  Remote Runtime unavailable
+                </div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {remoteRuntimeHealth?.message ?? "Remote Runtime is not ready."}
+                </p>
+                <button
+                  onClick={handleOpenRemoteRuntimeSettings}
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
+                >
+                  <Settings size="0.75rem" />
+                  Open Advanced Settings
+                </button>
+              </div>
+            ) : showConnectionListError ? (
+              <div className="rounded-xl border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-4">
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
+                  <AlertTriangle size="0.875rem" className="text-[var(--destructive)]" />
+                  Connections unavailable
+                </div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {error instanceof Error ? error.message : "Marinara could not load connections from storage."}
+                </p>
+                <button
+                  onClick={handleOpenRemoteRuntimeSettings}
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
+                >
+                  <Settings size="0.75rem" />
+                  Open Advanced Settings
+                </button>
+              </div>
             ) : showEmptyState ? (
               <div className="rounded-xl border border-[var(--primary)]/20 bg-[var(--primary)]/8 p-4">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--foreground)]">
@@ -201,10 +283,12 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
             </button>
             <button
               onClick={handleCreate}
-              disabled={showEmptyState || !connectionId || createChat.isPending}
+              disabled={
+                remoteRuntimeBlocked || isLoading || isError || showEmptyState || !connectionId || createChat.isPending
+              }
               className={cn(
                 "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium shadow-sm transition-all active:scale-95",
-                showEmptyState || !connectionId || createChat.isPending
+                remoteRuntimeBlocked || isLoading || isError || showEmptyState || !connectionId || createChat.isPending
                   ? "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)] opacity-60"
                   : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90",
               )}
