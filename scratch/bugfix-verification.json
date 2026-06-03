@@ -5,6 +5,10 @@
     "title": "[Issue]: remote runtime JSON API calls lack legacy no-store cache policy",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2070"
   },
+  "pr": {
+    "number": 2090,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2090"
+  },
   "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
   "assignment": {
     "assignee": "cha1latte",
