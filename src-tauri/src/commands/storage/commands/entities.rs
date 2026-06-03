@@ -708,33 +708,63 @@ pub(crate) fn delete_entity(
         state.storage.delete(entity, id)?
     };
     if deleted {
-        if entity == "lorebooks" {
-            delete_lorebook_children(state, id)?;
-            clear_deleted_lorebook_references(state, id)?;
-        }
-        if entity == "prompts" {
-            prompts::delete_prompt_preset_children(state, id)?;
-        }
-        if entity == "chat-presets" {
-            if let Some(record) = existing.as_ref() {
-                activate_default_chat_preset_if_needed(state, record)?;
-            }
-        }
-        if entity == "connection-folders" {
-            unfile_connections_in_folder(state, id)?;
-        }
-        if let Some(record) = existing.as_ref() {
-            remove_owned_media(state, entity, record);
-        }
-        if entity == "characters" {
-            delete_character_gallery(state, id)?;
-        }
-        if let Some(chat_id) = message_chat_id {
-            game_state_snapshots::delete_tracker_snapshots_for_message(state, &chat_id, id)?;
-            game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, &chat_id)?;
-        }
+        apply_delete_cleanup(
+            state,
+            entity,
+            id,
+            existing.as_ref(),
+            message_chat_id.as_deref(),
+        )?;
     }
     Ok(json!({ "deleted": deleted }))
+}
+
+fn apply_delete_cleanup(
+    state: &AppState,
+    entity: &str,
+    id: &str,
+    existing: Option<&Value>,
+    message_chat_id: Option<&str>,
+) -> Result<(), AppError> {
+    let Some(contract) = contracts::collection_contract(entity) else {
+        return Ok(());
+    };
+    for cleanup in contract.delete_cleanup {
+        match cleanup {
+            contracts::DeleteCleanup::ActivateDefaultChatPreset => {
+                if let Some(record) = existing {
+                    activate_default_chat_preset_if_needed(state, record)?;
+                }
+            }
+            contracts::DeleteCleanup::ClearConnectionFolder => {
+                unfile_connections_in_folder(state, id)?
+            }
+            contracts::DeleteCleanup::ClearLorebookReferences => {
+                clear_deleted_lorebook_references(state, id)?;
+            }
+            contracts::DeleteCleanup::DeleteCharacterGallery => {
+                delete_character_gallery(state, id)?
+            }
+            contracts::DeleteCleanup::DeleteLorebookChildren => {
+                delete_lorebook_children(state, id)?
+            }
+            contracts::DeleteCleanup::DeleteMessageTrackerSnapshots => {
+                if let Some(chat_id) = message_chat_id {
+                    game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
+                    game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
+                }
+            }
+            contracts::DeleteCleanup::DeletePromptChildren => {
+                prompts::delete_prompt_preset_children(state, id)?;
+            }
+            contracts::DeleteCleanup::RemoveOwnedMedia => {
+                if let Some(record) = existing {
+                    remove_owned_media(state, entity, record);
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -946,11 +976,27 @@ fn owned_record_for_delete(
     entity: &str,
     id: &str,
 ) -> Result<Option<Value>, AppError> {
-    match entity {
-        "characters" | "personas" | "lorebooks" | "messages" | "gallery" | "character-gallery"
-        | "chat-presets" => state.storage.get(entity, id),
-        _ => Ok(None),
+    let Some(contract) = contracts::collection_contract(entity) else {
+        return Ok(None);
+    };
+    if contract
+        .delete_cleanup
+        .iter()
+        .any(delete_cleanup_needs_existing_record)
+    {
+        state.storage.get(entity, id)
+    } else {
+        Ok(None)
     }
+}
+
+fn delete_cleanup_needs_existing_record(cleanup: &contracts::DeleteCleanup) -> bool {
+    matches!(
+        cleanup,
+        contracts::DeleteCleanup::ActivateDefaultChatPreset
+            | contracts::DeleteCleanup::DeleteMessageTrackerSnapshots
+            | contracts::DeleteCleanup::RemoveOwnedMedia
+    )
 }
 
 fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
@@ -1246,6 +1292,13 @@ mod tests {
             .expect("connection should read")
             .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
             .unwrap_or(false)
+    }
+
+    fn cleanup_registered(collection: &str, cleanup: contracts::DeleteCleanup) -> bool {
+        contracts::collection_contract(collection)
+            .expect("collection should be registered")
+            .delete_cleanup
+            .contains(&cleanup)
     }
 
     #[test]
@@ -1717,6 +1770,203 @@ mod tests {
         assert!(character
             .pointer("/data/extensions/importMetadata/embeddedLorebook")
             .is_none());
+    }
+
+    #[test]
+    fn deleting_prompt_uses_registered_child_cleanup() {
+        assert!(cleanup_registered(
+            "prompts",
+            contracts::DeleteCleanup::DeletePromptChildren
+        ));
+        let state = test_state("prompt-delete-children");
+        state
+            .storage
+            .create(
+                "prompts",
+                json!({ "id": "prompt-delete", "name": "Delete me" }),
+            )
+            .expect("prompt should be created");
+        state
+            .storage
+            .create("prompts", json!({ "id": "prompt-keep", "name": "Keep me" }))
+            .expect("other prompt should be created");
+        for (collection, delete_id, keep_id) in [
+            ("prompt-groups", "group-delete", "group-keep"),
+            ("prompt-sections", "section-delete", "section-keep"),
+            ("prompt-variables", "variable-delete", "variable-keep"),
+        ] {
+            state
+                .storage
+                .create(
+                    collection,
+                    json!({ "id": delete_id, "presetId": "prompt-delete", "name": "Delete" }),
+                )
+                .expect("prompt child should be created");
+            state
+                .storage
+                .create(
+                    collection,
+                    json!({ "id": keep_id, "presetId": "prompt-keep", "name": "Keep" }),
+                )
+                .expect("other prompt child should be created");
+        }
+
+        delete_entity(&state, "prompts", "prompt-delete", false).expect("delete should succeed");
+
+        for (collection, keep_id) in [
+            ("prompt-groups", "group-keep"),
+            ("prompt-sections", "section-keep"),
+            ("prompt-variables", "variable-keep"),
+        ] {
+            let mut delete_filters = Map::new();
+            delete_filters.insert(
+                "presetId".to_string(),
+                Value::String("prompt-delete".to_string()),
+            );
+            assert!(
+                state
+                    .storage
+                    .list_where(collection, &delete_filters)
+                    .expect("prompt child collection should be readable")
+                    .is_empty(),
+                "{collection} rows for deleted prompt should be removed"
+            );
+            assert!(state
+                .storage
+                .get(collection, keep_id)
+                .expect("kept prompt child should read")
+                .is_some());
+        }
+    }
+
+    #[test]
+    fn deleting_active_chat_preset_uses_registered_default_activation() {
+        assert!(cleanup_registered(
+            "chat-presets",
+            contracts::DeleteCleanup::ActivateDefaultChatPreset
+        ));
+        let state = test_state("chat-preset-delete-activate-default");
+        state
+            .storage
+            .patch(
+                "chat-presets",
+                "default-chat-preset-roleplay",
+                json!({ "isActive": false, "active": false }),
+            )
+            .expect("seeded default preset should be deactivated");
+        state
+            .storage
+            .create(
+                "chat-presets",
+                json!({
+                    "id": "custom-roleplay",
+                    "name": "Custom Roleplay",
+                    "mode": "roleplay",
+                    "isDefault": false,
+                    "default": false,
+                    "isActive": true,
+                    "active": true
+                }),
+            )
+            .expect("active preset should be created");
+
+        delete_entity(&state, "chat-presets", "custom-roleplay", false)
+            .expect("active preset delete should succeed");
+
+        let default = state
+            .storage
+            .get("chat-presets", "default-chat-preset-roleplay")
+            .expect("default preset should read")
+            .expect("default preset should remain");
+        assert_eq!(default["isActive"], json!(true));
+        assert_eq!(default["active"], json!(true));
+    }
+
+    #[test]
+    fn deleting_gallery_row_uses_registered_managed_media_cleanup() {
+        assert!(cleanup_registered(
+            "gallery",
+            contracts::DeleteCleanup::RemoveOwnedMedia
+        ));
+        let state = test_state("gallery-delete-managed-file");
+        let gallery_dir = state.data_dir.join("gallery");
+        std::fs::create_dir_all(&gallery_dir).expect("gallery dir should be created");
+        let image_path = gallery_dir.join("gallery.png");
+        std::fs::write(&image_path, b"managed").expect("managed image should be written");
+        state
+            .storage
+            .create(
+                "gallery",
+                json!({
+                    "id": "gallery-image",
+                    "chatId": "chat-1",
+                    "filePath": "gallery.png",
+                    "filename": "gallery.png",
+                    "url": "tauri-api:/gallery/gallery.png"
+                }),
+            )
+            .expect("gallery row should be created");
+
+        delete_entity(&state, "gallery", "gallery-image", false).expect("delete should succeed");
+
+        assert!(
+            !image_path.exists(),
+            "managed gallery file should be removed"
+        );
+    }
+
+    #[test]
+    fn deleting_message_uses_registered_tracker_snapshot_cleanup() {
+        assert!(cleanup_registered(
+            "messages",
+            contracts::DeleteCleanup::DeleteMessageTrackerSnapshots
+        ));
+        let state = test_state("message-delete-tracker-snapshots");
+        state
+            .storage
+            .create("chats", json!({ "id": "chat-1", "name": "Chat" }))
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "tracked"
+                }),
+            )
+            .expect("message should be created");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "message-1",
+                "location": "Harbor"
+            }),
+        )
+        .expect("tracker snapshot should save");
+
+        delete_entity(&state, "messages", "message-1", false).expect("delete should succeed");
+
+        let mut filters = Map::new();
+        filters.insert("chatId".to_string(), Value::String("chat-1".to_string()));
+        filters.insert(
+            "messageId".to_string(),
+            Value::String("message-1".to_string()),
+        );
+        assert!(state
+            .storage
+            .list_where("game-state-snapshots", &filters)
+            .expect("snapshots should be readable")
+            .is_empty());
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(chat["gameState"].is_null());
     }
 
     #[test]
