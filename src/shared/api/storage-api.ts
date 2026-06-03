@@ -116,6 +116,8 @@ function storageWriteInvalidationKinds(entity: StorageEntity, value?: Record<str
     case "gallery":
     case "character-gallery":
       return ["gallery"];
+    case "background-metadata":
+      return ["background"];
     case "lorebooks":
     case "lorebook-entries":
       return value && ("image" in value || "imagePath" in value || "imageFilename" in value) ? ["lorebook"] : [];
@@ -139,6 +141,8 @@ function storageDeleteInvalidationKinds(entity: StorageEntity): RemoteManagedAss
     case "gallery":
     case "character-gallery":
       return ["gallery"];
+    case "background-metadata":
+      return ["background"];
     case "lorebooks":
     case "lorebook-entries":
       return ["lorebook"];
