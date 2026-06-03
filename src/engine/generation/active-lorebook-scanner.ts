@@ -83,6 +83,11 @@ interface LorebookEmbeddingSource {
   embed(texts: string[], request?: LorebookEmbeddingRequest): Promise<number[][] | null>;
 }
 
+type LorebookEmbeddingRequestSelection =
+  | { type: "default" }
+  | { type: "target"; request: LorebookEmbeddingRequest }
+  | { type: "ambiguous" };
+
 interface LoadedLorebookBudgetSkippedEntry {
   activatedEntry: ActivatedEntry;
   lorebookName: string;
@@ -574,17 +579,17 @@ function lorebookEntryHasEmbedding(entry: LorebookEntry): boolean {
   );
 }
 
-function vectorEmbeddingRequest(entries: LorebookEntry[]): LorebookEmbeddingRequest | null {
+function vectorEmbeddingRequest(entries: LorebookEntry[]): LorebookEmbeddingRequestSelection {
   const requests = entries.filter(lorebookEntryHasEmbedding).map((entry) => ({
     connectionId: readString(entry.embeddingConnectionId).trim() || null,
     model: readString(entry.embeddingModel).trim() || null,
   }));
-  if (requests.length === 0) return null;
+  if (requests.length === 0) return { type: "default" };
   const unique = new Set(requests.map((request) => `${request.connectionId ?? ""}\0${request.model ?? ""}`));
-  if (unique.size !== 1) return null;
+  if (unique.size !== 1) return { type: "ambiguous" };
   const [request] = requests;
-  if (!request || (!request.connectionId && !request.model)) return null;
-  return request;
+  if (!request || (!request.connectionId && !request.model)) return { type: "default" };
+  return { type: "target", request };
 }
 
 async function resolveSemanticChatEmbedding(
@@ -592,7 +597,7 @@ async function resolveSemanticChatEmbedding(
   latestUserInput: string | undefined,
   embeddingSource: LorebookEmbeddingSource | null | undefined,
   vectorizedEntryCount: number,
-  embeddingRequest: LorebookEmbeddingRequest | null,
+  embeddingRequest: LorebookEmbeddingRequestSelection,
 ): Promise<{ chatEmbedding: number[] | null; status: LorebookSemanticScanStatus }> {
   if (vectorizedEntryCount === 0) {
     return { chatEmbedding: null, status: { state: "not_applicable", vectorizedEntryCount } };
@@ -600,12 +605,18 @@ async function resolveSemanticChatEmbedding(
   if (!embeddingSource) {
     return { chatEmbedding: null, status: { state: "missing_embedding_source", vectorizedEntryCount } };
   }
+  if (embeddingRequest.type === "ambiguous") {
+    return { chatEmbedding: null, status: { state: "unavailable", vectorizedEntryCount } };
+  }
   const query = semanticQueryText(messages, latestUserInput);
   if (!query) {
     return { chatEmbedding: null, status: { state: "empty_query", vectorizedEntryCount } };
   }
   try {
-    const sourceEmbedding = await embeddingSource.embed([query], embeddingRequest ?? undefined);
+    const sourceEmbedding = await embeddingSource.embed(
+      [query],
+      embeddingRequest.type === "target" ? embeddingRequest.request : undefined,
+    );
     const vector = sourceEmbedding?.[0]?.filter((value): value is number => Number.isFinite(value));
     if (!vector?.length) {
       return { chatEmbedding: null, status: { state: "unavailable", vectorizedEntryCount } };
