@@ -566,7 +566,7 @@ impl FileStorage {
                 }
                 loaded.push(AtomicCollectionRows {
                     collection: collection.to_string(),
-                    rows: self.read_collection(collection)?,
+                    rows: self.read_collection_no_recovery(collection)?,
                 });
             }
             loaded
@@ -585,7 +585,7 @@ impl FileStorage {
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.flush_dirty_collections_locked()?;
         for (collection, rows) in &original_rows {
-            if self.read_collection(collection)? != *rows {
+            if self.read_collection_no_recovery(collection)? != *rows {
                 return Err(AppError::new(
                     "storage_conflict",
                     format!("Collection changed during atomic update: {collection}"),
@@ -782,11 +782,17 @@ impl FileStorage {
 
         match read_result {
             Ok(value) => Ok(value),
-            Err(_) => {
+            Err(error) => {
+                if self.atomic_update_active.load(Ordering::SeqCst) {
+                    return Err(error);
+                }
                 let _guard = self
                     .lock
                     .write()
                     .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+                if self.atomic_update_active.load(Ordering::SeqCst) {
+                    return Err(error);
+                }
                 recover()
             }
         }
@@ -3625,6 +3631,19 @@ mod tests {
         path
     }
 
+    fn corruption_sentinel_count(root: &Path, file_name: &str) -> usize {
+        fs::read_dir(root.join("collections"))
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(&format!("{file_name}.corrupted-"))
+            })
+            .count()
+    }
+
     #[test]
     fn replace_all_many_updates_multiple_collections() {
         let root = temp_storage_root("replace-many");
@@ -3731,6 +3750,69 @@ mod tests {
             .iter()
             .any(|row| row.get("id").and_then(Value::as_str) == Some("message-2")));
         assert!(storage.list("personas").unwrap().is_empty());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn update_collections_atomically_reads_targets_without_recovery_side_effects() {
+        let root = temp_storage_root("update-collections-no-target-recovery");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("messages.json");
+        let backup = root.join("collections").join("messages.json.bak");
+        fs::write(&collection, b"\0\0\0not-json").unwrap();
+        fs::write(
+            &backup,
+            serde_json::to_vec_pretty(&json!([{ "id": "message-1" }])).unwrap(),
+        )
+        .unwrap();
+        let mut update_ran = false;
+
+        storage
+            .update_collections_atomically(vec!["messages"], |_| {
+                update_ran = true;
+                Ok(())
+            })
+            .expect_err("atomic target reads should fail instead of recovering in place");
+
+        assert!(!update_ran);
+        assert_eq!(fs::read(&collection).unwrap(), b"\0\0\0not-json");
+        assert!(backup.exists());
+        assert_eq!(corruption_sentinel_count(&root, "messages.json"), 0);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn update_collections_atomically_reentrant_reads_do_not_recover_collections() {
+        let root = temp_storage_root("update-collections-no-read-recovery");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .replace_all("messages", vec![json!({ "id": "message-1" })])
+            .unwrap();
+        let collection = root.join("collections").join("personas.json");
+        let backup = root.join("collections").join("personas.json.bak");
+        fs::write(&collection, b"\0\0\0not-json").unwrap();
+        fs::write(
+            &backup,
+            serde_json::to_vec_pretty(&json!([{ "id": "persona-1" }])).unwrap(),
+        )
+        .unwrap();
+
+        storage
+            .update_collections_atomically(vec!["messages"], |_| {
+                storage.list("personas")?;
+                Ok(())
+            })
+            .expect_err("reentrant read recovery should not write during atomic update");
+
+        assert_eq!(fs::read(&collection).unwrap(), b"\0\0\0not-json");
+        assert!(backup.exists());
+        assert_eq!(corruption_sentinel_count(&root, "personas.json"), 0);
+        assert_eq!(
+            storage.list("messages").unwrap(),
+            vec![json!({ "id": "message-1" })]
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
