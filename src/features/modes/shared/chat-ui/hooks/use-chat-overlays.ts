@@ -6,6 +6,11 @@ type IdleWindow = Window & {
   cancelIdleCallback?: (handle: number) => void;
 };
 
+type PendingSetupOverlayOpen = {
+  key: string;
+  cancel: () => void;
+};
+
 function scheduleSetupOverlayOpen(run: () => void): () => void {
   if (typeof window === "undefined") {
     run();
@@ -47,22 +52,32 @@ export function useChatOverlays(activeChatId: string) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [spriteArrangeMode, setSpriteArrangeMode] = useState(false);
-  const cancelSetupOverlayOpenRef = useRef<(() => void) | null>(null);
-  const pendingSetupOverlayKeyRef = useRef<string | null>(null);
+  const pendingSetupOverlayOpenRef = useRef<PendingSetupOverlayOpen | null>(null);
 
   const newChatSetupIntent = useChatStore((state) => state.newChatSetupIntent);
   const shouldOpenSettings = useChatStore((state) => state.shouldOpenSettings);
   const shouldOpenWizard = useChatStore((state) => state.shouldOpenWizard);
 
-  const queueSetupOverlayOpen = useCallback((key: string, run: () => void): boolean => {
-    if (pendingSetupOverlayKeyRef.current === key) return false;
-    cancelSetupOverlayOpenRef.current?.();
-    pendingSetupOverlayKeyRef.current = key;
-    cancelSetupOverlayOpenRef.current = scheduleSetupOverlayOpen(() => {
-      pendingSetupOverlayKeyRef.current = null;
-      cancelSetupOverlayOpenRef.current = null;
+  const queueSetupOverlayOpen = useCallback((key: string, run: () => void, onCancel?: () => void): boolean => {
+    if (pendingSetupOverlayOpenRef.current?.key === key) return false;
+    pendingSetupOverlayOpenRef.current?.cancel();
+
+    let settled = false;
+    const cancelScheduledOpen = scheduleSetupOverlayOpen(() => {
+      settled = true;
+      pendingSetupOverlayOpenRef.current = null;
       run();
     });
+    pendingSetupOverlayOpenRef.current = {
+      key,
+      cancel: () => {
+        if (settled) return;
+        settled = true;
+        cancelScheduledOpen();
+        if (pendingSetupOverlayOpenRef.current?.key === key) pendingSetupOverlayOpenRef.current = null;
+        onCancel?.();
+      },
+    };
     return true;
   }, []);
 
@@ -72,9 +87,8 @@ export function useChatOverlays(activeChatId: string) {
 
   useEffect(
     () => () => {
-      cancelSetupOverlayOpenRef.current?.();
-      cancelSetupOverlayOpenRef.current = null;
-      pendingSetupOverlayKeyRef.current = null;
+      pendingSetupOverlayOpenRef.current?.cancel();
+      pendingSetupOverlayOpenRef.current = null;
     },
     [activeChatId],
   );
@@ -96,14 +110,19 @@ export function useChatOverlays(activeChatId: string) {
     }
 
     if (shouldOpenSettings && !newChatSetupIntent) {
-      const queued = queueSetupOverlayOpen(`legacy:${activeChatId}:${shouldOpenWizard ? "wizard" : "settings"}`, () => {
-        if (shouldOpenWizard) setWizardOpen(true);
-        else setSettingsOpen(true);
-      });
-      if (queued) {
+      const clearLegacyFlags = () => {
         useChatStore.getState().setShouldOpenWizard(false);
         useChatStore.getState().setShouldOpenSettings(false);
-      }
+      };
+      queueSetupOverlayOpen(
+        `legacy:${activeChatId}:${shouldOpenWizard ? "wizard" : "settings"}`,
+        () => {
+          if (shouldOpenWizard) setWizardOpen(true);
+          else setSettingsOpen(true);
+          clearLegacyFlags();
+        },
+        clearLegacyFlags,
+      );
     }
   }, [newChatSetupIntent, queueSetupOverlayOpen, shouldOpenSettings, shouldOpenWizard, activeChatId]);
 
