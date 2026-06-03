@@ -42,7 +42,9 @@ import {
 } from "../../../../shared/api/local-file-api";
 import {
   checkRemoteRuntimeHealth,
+  readAdminSecretStorage,
   unconfiguredRemoteRuntimeHealth,
+  writeAdminSecretStorage,
   type RemoteRuntimeHealthCheck,
 } from "../../../../shared/api/remote-runtime";
 import React, { useRef, useState, useCallback, useEffect } from "react";
@@ -170,8 +172,6 @@ const EXPUNGE_SCOPE_OPTIONS: Array<{ id: ExpungeScope; label: string; descriptio
     description: "Backgrounds, avatars, sprites, gallery items, fonts, and knowledge-source files.",
   },
 ];
-
-const ADMIN_SECRET_STORAGE_KEY = "marinara-admin-secret";
 
 const ROLEPLAY_AVATAR_STYLE_OPTIONS: Array<{ id: RoleplayAvatarStyle; label: string; desc: string }> = [
   {
@@ -3285,7 +3285,7 @@ function AdvancedSettings() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [openingUpdate, setOpeningUpdate] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckResponse | null>(null);
-  const [adminSecret, setAdminSecret] = useState(() => localStorage.getItem(ADMIN_SECRET_STORAGE_KEY) ?? "");
+  const [adminSecret, setAdminSecret] = useState(readAdminSecretStorage);
   const [quickRepliesDrawerOpen, setQuickRepliesDrawerOpen] = useState(true);
   const remoteRuntimeSectionRef = useRef<HTMLDivElement>(null);
   const remoteRuntimeHealthAbortRef = useRef<AbortController | null>(null);
@@ -3508,11 +3508,10 @@ function AdvancedSettings() {
 
   const saveAdminSecret = useCallback(() => {
     const trimmed = adminSecret.trim();
+    writeAdminSecretStorage(trimmed);
     if (trimmed) {
-      localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, trimmed);
       toast.success("Admin secret saved for this browser");
     } else {
-      localStorage.removeItem(ADMIN_SECRET_STORAGE_KEY);
       toast.info("Admin secret cleared");
     }
   }, [adminSecret]);

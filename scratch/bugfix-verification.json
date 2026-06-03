@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "issue": {
+    "number": "2063",
+    "title": "Admin Access should migrate the legacy browser secret key",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2063"
+  },
+  "pr": {
+    "number": "2087",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2087"
+  },
+  "coreClaim": "Refactor web shell reads and migrates the legacy marinara_admin_secret Admin Access localStorage value to the current marinara-admin-secret key.",
+  "reproduction": {
+    "attempted": true,
+    "reproducedBeforeFix": true,
+    "method": "Static source repro plus scratch helper proof",
+    "evidence": {
+      "0": "origin/refactor remote-runtime has no marinara_admin_secret/readAdminSecretStorage/writeAdminSecretStorage matches"
+    }
+  },
+  "verification": {
+    "originalReproPassed": true,
+    "baselinePassed": true,
+    "baselineCommand": "pnpm check",
+    "baselineEvidence": "pnpm check passed after rebase onto current origin/refactor",
+    "edgeCases": {
+      "0": "Legacy-only localStorage value is trimmed, returned, migrated to marinara-admin-secret, and legacy key removed",
+      "1": "Current key wins when both current and legacy keys exist; stale legacy key is removed",
+      "2": "Saving a nonblank Admin Access value trims it, writes the current key, and removes the legacy key",
+      "3": "Saving blank Admin Access clears both current and legacy keys",
+      "4": "No-window/server-side read returns empty"
+    },
+    "visualProof": "scratch/repro-2063-output.txt"
+  },
+  "manualBlockers": [],
+  "notes": {
+    "0": "Issue assigned to cha1latte before edits",
+    "1": "No local 2063 branch/worktree existed before worktree creation",
+    "2": "Proof gate helper unavailable at C:\\Users\\celia\\.codex\\tools\\marinara-proof-gate.mjs",
+    "3": "Rebased cleanly onto current origin/refactor before push",
+    "4": "PR body marks Feature Discoverability as N/A with reason for PR-aware discovery CI"
+  },
+  "riskClaimMatrix": {
+    "coreClaim": "Refactor web shell reads and migrates legacy Admin Access browser storage without requiring users to re-enter the secret.",
+    "riskType": "legacy browser localStorage compatibility",
+    "entrypoints": {
+      "0": "Settings Advanced Admin Access field initialization/save/clear",
+      "1": "shared remote-runtime privileged command header"
+    },
+    "currentPathsOrFormats": {
+      "0": "marinara-admin-secret localStorage key"
+    },
+    "legacyPathsOrFormats": {
+      "0": "marinara_admin_secret localStorage key"
+    },
+    "positiveRowsTested": {
+      "0": "legacy-only value migrates and is read",
+      "1": "current+legacy prefers current and cleans legacy",
+      "2": "save writes current key and removes legacy"
+    },
+    "negativeRowsTested": {
+      "0": "blank save clears both keys",
+      "1": "no-window read returns empty"
+    },
+    "groundTruthFacts": {
+      "0": "origin/refactor had only marinara-admin-secret in SettingsPanel and remote-runtime"
+    },
+    "userActionCopy": "No user action required when a legacy browser secret exists; clearing Admin Access clears both browser keys."
+  },
+  "finalDoneGate": {
+    "didFixBug": true,
+    "hasProfessionalVisualProof": true,
+    "prWouldBeAccepted": true,
+    "claimBoundariesProven": true
+  }
+}

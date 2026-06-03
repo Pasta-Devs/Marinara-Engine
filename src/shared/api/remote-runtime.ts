@@ -197,6 +197,7 @@ const PRIVILEGED_REMOTE_COMMANDS = new Set([
   "update_apply",
 ]);
 const ADMIN_SECRET_STORAGE_KEY = "marinara-admin-secret";
+const LEGACY_ADMIN_SECRET_STORAGE_KEY = "marinara_admin_secret";
 
 export type RuntimeTarget = {
   baseUrl: string;
@@ -271,9 +272,35 @@ export function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): Heade
   };
 }
 
+export function readAdminSecretStorage(): string {
+  if (typeof window === "undefined") return "";
+  const current = window.localStorage.getItem(ADMIN_SECRET_STORAGE_KEY)?.trim() ?? "";
+  if (current) {
+    window.localStorage.removeItem(LEGACY_ADMIN_SECRET_STORAGE_KEY);
+    return current;
+  }
+
+  const legacy = window.localStorage.getItem(LEGACY_ADMIN_SECRET_STORAGE_KEY)?.trim() ?? "";
+  if (!legacy) return "";
+
+  window.localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, legacy);
+  window.localStorage.removeItem(LEGACY_ADMIN_SECRET_STORAGE_KEY);
+  return legacy;
+}
+
+export function writeAdminSecretStorage(secret: string): void {
+  if (typeof window === "undefined") return;
+  const trimmed = secret.trim();
+  if (trimmed) {
+    window.localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, trimmed);
+  } else {
+    window.localStorage.removeItem(ADMIN_SECRET_STORAGE_KEY);
+  }
+  window.localStorage.removeItem(LEGACY_ADMIN_SECRET_STORAGE_KEY);
+}
+
 function adminSecretHeader(): HeadersInit {
-  if (typeof window === "undefined") return {};
-  const secret = window.localStorage.getItem(ADMIN_SECRET_STORAGE_KEY)?.trim();
+  const secret = readAdminSecretStorage();
   return secret ? { "X-Admin-Secret": secret } : {};
 }
 
