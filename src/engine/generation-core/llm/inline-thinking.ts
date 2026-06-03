@@ -41,6 +41,12 @@ export function createInlineThinkingStreamParser() {
           buffer = buffer.slice(opening[0].length);
           continue;
         }
+        const orphanClosing = buffer.match(CLOSE_THINKING_TAG_RE);
+        if (orphanClosing) {
+          buffer = buffer.slice(orphanClosing[0].length);
+          continue;
+        }
+        if (!final && possibleTagPrefix(buffer, true)) break;
         if (!final && possibleTagPrefix(buffer, false)) break;
         parts.push({ type: "content", text: buffer[0]! });
         buffer = buffer.slice(1);
