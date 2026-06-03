@@ -30,7 +30,13 @@ import {
   type MainToolDefinitions,
   type ToolRuntimeInput,
 } from "./tools-runtime";
-import { llmParameters, loadChatMessage, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
+import {
+  llmParameters,
+  loadChatMessage,
+  loadChatMessages,
+  requireRecord,
+  resolveGenerationConnection,
+} from "./context";
 import {
   appendReadableAttachmentsToContent,
   extractImageAttachmentDataUrls,
@@ -216,11 +222,11 @@ function generationEmbeddingSource(llm: LlmGateway, connection: JsonRecord) {
   const connectionId = readString(connection.id).trim() || null;
   const model = readString(connection.embeddingModel).trim() || null;
   return {
-    embed: (texts: string[]) =>
+    embed: (texts: string[], request?: { connectionId?: string | null; model?: string | null }) =>
       llm.embed!({
         texts,
-        connectionId,
-        model,
+        connectionId: request?.connectionId ?? connectionId,
+        model: request?.model ?? model,
       }),
   };
 }

@@ -194,6 +194,12 @@ export interface LorebookEntry {
   excludeFromVectorization: boolean;
   /** Pre-computed embedding vector for semantic matching (null if not vectorized) */
   embedding: number[] | null;
+  /** Embedding model used to generate the stored vector, when known. */
+  embeddingModel?: string | null;
+  /** Connection used to generate the stored vector, when known. */
+  embeddingConnectionId?: string | null;
+  /** ISO timestamp for the stored vector, when known. */
+  embeddingUpdatedAt?: string | null;
 
   createdAt: string;
   updatedAt: string;

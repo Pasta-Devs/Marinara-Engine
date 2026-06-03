@@ -121,7 +121,12 @@ export interface PromptAssemblyInput {
   request: JsonRecord;
   latestUserInput: string;
   agentData?: Record<string, string>;
-  embeddingSource?: { embed(texts: string[]): Promise<number[][] | null> } | null;
+  embeddingSource?: {
+    embed(
+      texts: string[],
+      request?: { connectionId?: string | null; model?: string | null },
+    ): Promise<number[][] | null>;
+  } | null;
   persistPromptVariables?: boolean;
 }
 

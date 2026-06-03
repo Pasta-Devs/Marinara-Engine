@@ -34,6 +34,9 @@ const lorebookScheduleSchema = z.object({
 });
 
 const lorebookEmbeddingSchema = z.array(z.number()).nullable();
+const lorebookEmbeddingModelSchema = z.string().nullable();
+const lorebookEmbeddingConnectionIdSchema = z.string().nullable();
+const lorebookEmbeddingUpdatedAtSchema = z.string().nullable();
 
 // ──────────────────────────────────────────────
 // Folders — collapsible containers for entries
@@ -181,6 +184,9 @@ export const createLorebookEntrySchema = z.object({
   schedule: lorebookScheduleSchema.nullable().default(null),
   excludeFromVectorization: z.boolean().default(false),
   embedding: lorebookEmbeddingSchema.optional(),
+  embeddingModel: lorebookEmbeddingModelSchema.optional(),
+  embeddingConnectionId: lorebookEmbeddingConnectionIdSchema.optional(),
+  embeddingUpdatedAt: lorebookEmbeddingUpdatedAtSchema.optional(),
 });
 
 export const updateLorebookEntrySchema = z.object({
@@ -228,6 +234,9 @@ export const updateLorebookEntrySchema = z.object({
   schedule: lorebookScheduleSchema.nullable().optional(),
   excludeFromVectorization: z.boolean().optional(),
   embedding: lorebookEmbeddingSchema.optional(),
+  embeddingModel: lorebookEmbeddingModelSchema.optional(),
+  embeddingConnectionId: lorebookEmbeddingConnectionIdSchema.optional(),
+  embeddingUpdatedAt: lorebookEmbeddingUpdatedAtSchema.optional(),
 });
 
 export type CreateLorebookInput = z.input<typeof createLorebookSchema>;
