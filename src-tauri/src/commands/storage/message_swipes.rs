@@ -100,6 +100,17 @@ fn sidecar_index(row: &Value) -> usize {
         .unwrap_or(0)
 }
 
+fn sidecar_message_id(row: &Value) -> Option<&str> {
+    row.get("messageId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+}
+
+fn sidecar_matches_message_id(row: &Value, message_id: &str) -> bool {
+    sidecar_message_id(row) == Some(message_id)
+}
+
 fn sort_swipes(swipes: &mut [Value]) {
     swipes.sort_by(|a, b| {
         sidecar_index(a).cmp(&sidecar_index(b)).then_with(|| {
@@ -370,9 +381,7 @@ fn write_message_and_swipes(
             }
 
             let sidecars = collections[1].rows_mut();
-            sidecars.retain(|row| {
-                row.get("messageId").and_then(Value::as_str) != Some(message_id.as_str())
-            });
+            sidecars.retain(|row| !sidecar_matches_message_id(row, &message_id));
             sidecars.extend(replacement);
             sort_sidecar_rows(sidecars);
 
@@ -592,7 +601,9 @@ pub(crate) fn materialize_message_for_output(
     let Some(id) = message
         .get("id")
         .and_then(Value::as_str)
-        .map(str::to_string)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(ToOwned::to_owned)
     else {
         return Ok(());
     };
@@ -609,17 +620,13 @@ pub(crate) fn materialize_message_for_output(
         }
         return Ok(());
     }
-    let mut filters = Map::new();
-    filters.insert("messageId".to_string(), Value::String(id));
+    let filter_values = HashSet::from([id.clone()]);
     let mut swipes = if materialization.include_swipes {
-        state.storage.list_where(COLLECTION, &filters)?
+        state
+            .storage
+            .list_where_in(COLLECTION, "messageId", &filter_values)?
     } else {
         let fields = sidecar_summary_fields(materialization);
-        let filter_values = HashSet::from([filters
-            .get("messageId")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string()]);
         state.storage.list_projected_where_in(
             COLLECTION,
             "messageId",
@@ -717,12 +724,8 @@ pub(crate) fn materialize_messages_for_output(
 
 #[cfg(test)]
 pub(crate) fn swipes_for_message(state: &AppState, message_id: &str) -> AppResult<Vec<Value>> {
-    let mut filters = Map::new();
-    filters.insert(
-        "messageId".to_string(),
-        Value::String(message_id.to_string()),
-    );
-    let mut swipes = state.storage.list_where(COLLECTION, &filters)?;
+    let ids = HashSet::from([message_id.to_string()]);
+    let mut swipes = state.storage.list_where_in(COLLECTION, "messageId", &ids)?;
     sort_swipes(&mut swipes);
     Ok(public_swipes_from_rows(&swipes))
 }
@@ -736,9 +739,7 @@ pub(crate) fn delete_for_messages(state: &AppState, message_ids: &[String]) -> A
         .map(String::as_str)
         .collect::<HashSet<_>>();
     state.storage.delete_where_matching(COLLECTION, |row| {
-        row.get("messageId")
-            .and_then(Value::as_str)
-            .is_some_and(|message_id| ids.contains(message_id))
+        sidecar_message_id(row).is_some_and(|message_id| ids.contains(message_id))
     })
 }
 
@@ -778,9 +779,7 @@ pub(crate) fn delete_message_rows_with_swipes(
 
             let sidecars = collections[1].rows_mut();
             sidecars.retain(|row| {
-                row.get("messageId")
-                    .and_then(Value::as_str)
-                    .is_none_or(|message_id| !deleted_ids.contains(message_id))
+                sidecar_message_id(row).is_none_or(|message_id| !deleted_ids.contains(message_id))
             });
 
             Ok(deleted)
@@ -820,9 +819,7 @@ pub(crate) fn delete_message_rows_for_chats_with_swipes(
                     .get("chatId")
                     .and_then(Value::as_str)
                     .is_some_and(|chat_id| chat_ids.contains(chat_id));
-                let matches_deleted_message = row
-                    .get("messageId")
-                    .and_then(Value::as_str)
+                let matches_deleted_message = sidecar_message_id(row)
                     .is_some_and(|message_id| deleted_message_ids.contains(message_id));
                 !(matches_chat || matches_deleted_message)
             });
@@ -1388,7 +1385,145 @@ mod tests {
         assert_eq!(messages[0]["content"], "legacy padded message id");
         assert_eq!(messages[0]["swipeCount"], json!(1));
         assert_eq!(messages[0]["extra"]["thinking"], "trimmed thought");
-        assert_eq!(messages[0]["swipes"][0]["content"], "legacy padded message id");
+        assert_eq!(
+            messages[0]["swipes"][0]["content"],
+            "legacy padded message id"
+        );
+    }
+
+    #[test]
+    fn single_full_materialization_accepts_trimmed_legacy_sidecar_message_ids() {
+        let state = test_state("single-full-materialize-trimmed-sidecar-message-id");
+        let mut message = json!({
+            "id": "message-1",
+            "chatId": "chat-1",
+            "role": "assistant",
+            "content": "active parent",
+            "activeSwipeIndex": 0
+        });
+        state
+            .storage
+            .replace_all(
+                COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "chatId": "chat-1",
+                    "messageId": " message-1 ",
+                    "index": 0,
+                    "content": "legacy padded message id",
+                    "extra": { "thinking": "trimmed thought" }
+                })],
+            )
+            .expect("sidecars should seed");
+
+        materialize_message_for_output(&state, &mut message, MessageSwipeMaterialization::full())
+            .expect("message should materialize");
+
+        assert_eq!(message["content"], "legacy padded message id");
+        assert_eq!(message["swipeCount"], json!(1));
+        assert_eq!(message["extra"]["thinking"], "trimmed thought");
+        assert_eq!(message["swipes"][0]["messageId"], " message-1 ");
+        assert_eq!(message["swipes"][0]["content"], "legacy padded message id");
+    }
+
+    #[test]
+    fn replacing_message_swipes_removes_trimmed_legacy_sidecar_rows() {
+        let state = test_state("replace-trimmed-legacy-sidecar-message-id");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "old",
+                    "activeSwipeIndex": 0
+                })],
+            )
+            .expect("message should seed");
+        state
+            .storage
+            .replace_all(
+                COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "chatId": "chat-1",
+                    "messageId": " message-1 ",
+                    "index": 0,
+                    "content": "legacy padded message id"
+                })],
+            )
+            .expect("sidecars should seed");
+
+        replace_message_with_swipes(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "replacement",
+                "activeSwipeIndex": 0
+            }),
+            vec![json!({ "content": "replacement" })],
+        )
+        .expect("message should replace");
+
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecars should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["messageId"], "message-1");
+        assert_eq!(sidecars[0]["content"], "replacement");
+    }
+
+    #[test]
+    fn deleting_message_rows_removes_trimmed_legacy_sidecar_rows() {
+        let state = test_state("delete-trimmed-legacy-sidecar-message-id");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![
+                    json!({ "id": "message-1", "chatId": "chat-1", "content": "delete me" }),
+                    json!({ "id": "message-2", "chatId": "chat-1", "content": "keep me" }),
+                ],
+            )
+            .expect("messages should seed");
+        state
+            .storage
+            .replace_all(
+                COLLECTION,
+                vec![
+                    json!({
+                        "id": "message-1::swipe::0",
+                        "chatId": "stale-chat-id",
+                        "messageId": " message-1 ",
+                        "index": 0,
+                        "content": "delete sidecar"
+                    }),
+                    json!({
+                        "id": "message-2::swipe::0",
+                        "chatId": "chat-1",
+                        "messageId": "message-2",
+                        "index": 0,
+                        "content": "keep sidecar"
+                    }),
+                ],
+            )
+            .expect("sidecars should seed");
+
+        let deleted = delete_message_rows_with_swipes(&state, &["message-1".to_string()])
+            .expect("message and trimmed sidecar should delete together");
+
+        assert_eq!(deleted, 1);
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecars should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["messageId"], "message-2");
     }
 
     #[test]
