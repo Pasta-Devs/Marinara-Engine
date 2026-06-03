@@ -46,8 +46,8 @@ docker compose up --build
 - `pnpm dev` runs the web shell only. Tauri-only capabilities will not all work there.
 - `marinara-server` runs the hostable Rust HTTP runtime. It hosts the Rust API only, not the React UI.
 - `docker compose up --build` builds and starts the remote Rust runtime container. Its `/data`
-  directory bind-mounts to `.docker-marinara-data/` by default; set `MARINARA_HOST_DATA_DIR`
-  to an existing app data directory when validating Docker migration parity.
+  directory uses the existing `marinara-server-data` named volume by default; set
+  `MARINARA_HOST_DATA_DIR` to a copied app data directory when validating Docker migration parity.
 
 ## Current Source Shape
 

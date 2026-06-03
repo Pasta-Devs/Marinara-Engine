@@ -288,11 +288,12 @@ MARINARA_DATA_DIR=/path/to/data</code></pre>
         <p>The compose service is intended for same-machine browser access by default and exposes:</p>
         <pre><code>http://127.0.0.1:8787</code></pre>
         <p>
-          Compose bind-mounts <code>/data</code> from the host-visible
-          <code>.docker-marinara-data/</code> folder by default. To verify
-          migration against an existing app data directory, set
-          <code>MARINARA_HOST_DATA_DIR</code> to that directory before starting
-          Compose so the container and host share the same data tree.
+          Compose stores <code>/data</code> in the existing
+          <code>marinara-server-data</code> named volume by default. To verify
+          migration against app data, copy that data into a throwaway host
+          folder and set <code>MARINARA_HOST_DATA_DIR</code> to the copy before
+          starting Compose so the container and host share the same data tree
+          without rewriting live desktop data.
         </p>
         <p>
           The default Compose port binding is limited to <code>127.0.0.1</code>. For LAN or
