@@ -771,12 +771,12 @@ fn provider_model_catalog(provider: &str) -> Vec<Value> {
         ],
         "claude_subscription" => &[
             "claude-opus-4-8",
-            "claude-opus-4-7",
-            "claude-opus-4-6",
+            "claude-opus-4-8[1m]",
             "claude-sonnet-4-6",
-            "claude-opus-4-5",
-            "claude-sonnet-4-5",
             "claude-haiku-4-5",
+            "claude-opus-4-7",
+            "claude-opus-4-7[1m]",
+            "claude-opus-4-6",
         ],
         "google" | "google_vertex" => &["gemini-1.5-pro", "gemini-1.5-flash", "text-embedding-004"],
         "openrouter" => &[

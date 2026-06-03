@@ -16,6 +16,8 @@ const OPENAI_CHATGPT_CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api/cod
 const OPENAI_CHATGPT_REFRESH_URL: &str = "https://auth.openai.com/oauth/token";
 const OPENAI_CHATGPT_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const APP_VERSION: &str = "1.6.1";
+const CLAUDE_SUBSCRIPTION_1M_SUFFIX: &str = "[1m]";
+const CLAUDE_SUBSCRIPTION_1M_BETA: &str = "context-1m-2025-08-07";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SseBlockStatus {
@@ -1621,6 +1623,43 @@ fn claude_subscription_command() -> String {
         .unwrap_or_else(|| "claude".to_string())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ClaudeSubscriptionModelSelection {
+    configured_model: String,
+    cli_model: String,
+    long_context_beta: bool,
+}
+
+fn claude_subscription_model_selection(model: &str) -> ClaudeSubscriptionModelSelection {
+    let configured_model = model.trim().to_string();
+    let Some(base_model) = configured_model
+        .strip_suffix(CLAUDE_SUBSCRIPTION_1M_SUFFIX)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return ClaudeSubscriptionModelSelection {
+            cli_model: configured_model.clone(),
+            configured_model,
+            long_context_beta: false,
+        };
+    };
+    let cli_model = base_model.to_string();
+    ClaudeSubscriptionModelSelection {
+        configured_model,
+        cli_model,
+        long_context_beta: true,
+    }
+}
+
+fn claude_subscription_model_args(selection: &ClaudeSubscriptionModelSelection) -> Vec<String> {
+    let mut args = vec!["--model".to_string(), selection.cli_model.clone()];
+    if selection.long_context_beta {
+        args.push("--betas".to_string());
+        args.push(CLAUDE_SUBSCRIPTION_1M_BETA.to_string());
+    }
+    args
+}
+
 pub fn check_claude_subscription_available() -> AppResult<String> {
     let command_name = claude_subscription_command();
     let mut command = Command::new(&command_name);
@@ -1833,8 +1872,8 @@ fn parse_claude_subscription_json_output(raw: &str) -> Option<Value> {
 }
 
 pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppResult<Value> {
-    let requested_model = model.trim();
-    if requested_model.is_empty() {
+    let selection = claude_subscription_model_selection(model);
+    if selection.configured_model.is_empty() {
         return Err(AppError::invalid_input(
             "No model configured. Pick a model first.",
         ));
@@ -1843,8 +1882,6 @@ pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppRe
     let mut command = Command::new(claude_subscription_command());
     command
         .arg("-p")
-        .arg("--model")
-        .arg(requested_model)
         .arg("--output-format")
         .arg("json")
         .arg("--permission-mode")
@@ -1858,6 +1895,7 @@ pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppRe
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    command.args(claude_subscription_model_args(&selection));
     command.env("ENABLE_CLAUDEAI_MCP_SERVERS", "false");
     #[cfg(windows)]
     {
@@ -1916,15 +1954,17 @@ pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppRe
                 "model": model,
                 "inputTokens": usage.get("input_tokens").and_then(Value::as_u64),
                 "outputTokens": usage.get("output_tokens").and_then(Value::as_u64),
-                "role": if model == requested_model { "requested" } else { "auxiliary" },
+                "role": if model == &selection.cli_model { "requested" } else { "auxiliary" },
             })
         })
         .collect::<Vec<_>>();
     let response = claude_subscription_text_from_json(&value).unwrap_or_default();
-    let downgraded = !model_usage.is_empty() && !model_usage.contains_key(requested_model);
+    let downgraded = !model_usage.is_empty() && !model_usage.contains_key(&selection.cli_model);
     Ok(json!({
         "success": !downgraded,
-        "requestedModel": requested_model,
+        "requestedModel": selection.cli_model,
+        "configuredModel": selection.configured_model,
+        "longContextBeta": selection.long_context_beta,
         "modelsBilled": models_billed,
         "modelUsageDetail": model_usage_detail,
         "fastModeState": value.get("fast_mode_state").and_then(Value::as_str),
@@ -1936,11 +1976,10 @@ pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppRe
 
 async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> {
     let prompt_selection = claude_subscription_prompt(&request);
+    let model_selection = claude_subscription_model_selection(&request.connection.model);
     let mut command = Command::new(claude_subscription_command());
     command
         .arg("-p")
-        .arg("--model")
-        .arg(&request.connection.model)
         .arg("--output-format")
         .arg("json")
         .arg("--permission-mode")
@@ -1953,6 +1992,7 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    command.args(claude_subscription_model_args(&model_selection));
     if let Some(system_prompt) = prompt_selection.system_prompt.as_ref() {
         command.arg("--append-system-prompt").arg(system_prompt);
     }
@@ -1973,7 +2013,9 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
         "claude-code://local",
         &request,
         &json!({
-            "model": request.connection.model.clone(),
+            "model": model_selection.cli_model.clone(),
+            "configuredModel": model_selection.configured_model.clone(),
+            "longContextBeta": model_selection.long_context_beta,
             "outputFormat": "json",
             "permissionMode": "bypassPermissions",
             "fastMode": request.connection.claude_fast_mode,
@@ -2020,7 +2062,7 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
             })),
         ));
     }
-    parse_claude_subscription_output(&stdout, &request.connection.model)
+    parse_claude_subscription_output(&stdout, &model_selection.cli_model)
 }
 
 fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
@@ -3614,6 +3656,36 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
         assert_eq!(prompt.prompt, "User: Regenerate from here.");
         assert_eq!(prompt.session_id, None);
         assert_eq!(prompt.prompt_shape, "transcript-fold");
+    }
+
+    #[test]
+    fn claude_subscription_1m_suffix_maps_to_beta_arg_and_base_model() {
+        let selection = claude_subscription_model_selection("claude-opus-4-8[1m]");
+
+        assert_eq!(selection.configured_model, "claude-opus-4-8[1m]");
+        assert_eq!(selection.cli_model, "claude-opus-4-8");
+        assert!(selection.long_context_beta);
+        assert_eq!(
+            claude_subscription_model_args(&selection),
+            vec![
+                "--model".to_string(),
+                "claude-opus-4-8".to_string(),
+                "--betas".to_string(),
+                "context-1m-2025-08-07".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn claude_subscription_plain_model_does_not_add_beta_arg() {
+        let selection = claude_subscription_model_selection("claude-sonnet-4-6");
+
+        assert_eq!(selection.cli_model, "claude-sonnet-4-6");
+        assert!(!selection.long_context_beta);
+        assert_eq!(
+            claude_subscription_model_args(&selection),
+            vec!["--model".to_string(), "claude-sonnet-4-6".to_string()]
+        );
     }
 
     #[test]
