@@ -28,7 +28,11 @@ import {
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "../../shared/scene-ui";
-import { ChatBranchSelector } from "../../shared/chat-ui/index";
+import {
+  ChatBranchSelector,
+  getTranscriptRenderWindow,
+  TRANSCRIPT_RENDER_WINDOW_STEP,
+} from "../../shared/chat-ui/index";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -496,6 +500,7 @@ export function ConversationView({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef(0);
   const isLoadingMoreRef = useRef(false);
+  const [transcriptWindowStart, setTranscriptWindowStart] = useState<number | null>(null);
   const isNearBottomRef = useRef(true);
   const userScrolledAwayRef = useRef(false);
   const lastScrollTopRef = useRef(0);
@@ -580,6 +585,10 @@ export function ConversationView({
     fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
+  useEffect(() => {
+    setTranscriptWindowStart(null);
+  }, [chatId]);
+
   // ── Build message list with day separators ──
   // Assistant messages with multiple lines are split into separate visual
   // messages so each line appears as its own bubble (Discord-style).
@@ -590,26 +599,56 @@ export function ConversationView({
       .replace(/^(\s*\[\d{1,2}[:.]\d{2}\]\s*)+/gm, "")
       .replace(/^(\s*\[\d{1,2}\.\d{1,2}\.\d{4}\]\s*)+/gm, "")
       .trim();
+  const transcriptWindow = useMemo(
+    () => getTranscriptRenderWindow(messages, { startIndex: transcriptWindowStart }),
+    [messages, transcriptWindowStart],
+  );
+
+  const handleShowOlderMessages = useCallback(() => {
+    if (transcriptWindow.hiddenBeforeCount > 0) {
+      setTranscriptWindowStart(Math.max(0, transcriptWindow.startIndex - TRANSCRIPT_RENDER_WINDOW_STEP));
+      return;
+    }
+    if (!hasNextPage || isFetchingNextPage) return;
+    setTranscriptWindowStart(0);
+    handleLoadMore();
+  }, [
+    handleLoadMore,
+    hasNextPage,
+    isFetchingNextPage,
+    transcriptWindow.hiddenBeforeCount,
+    transcriptWindow.startIndex,
+  ]);
+
+  const handleShowNewerMessages = useCallback(() => {
+    setTranscriptWindowStart((currentStart) => {
+      const current = currentStart ?? transcriptWindow.startIndex;
+      const next = Math.min(transcriptWindow.latestStartIndex, current + TRANSCRIPT_RENDER_WINDOW_STEP);
+      return next >= transcriptWindow.latestStartIndex ? null : next;
+    });
+  }, [transcriptWindow.latestStartIndex, transcriptWindow.startIndex]);
 
   const renderedItems = useMemo(() => {
-    if (!messages) return [];
+    const visibleMessages = transcriptWindow.messages;
+    if (!visibleMessages) return [];
     // Offset so message numbers reflect absolute position in the full chat history,
     // not just the position within the paginated window.
-    const messageOffset = totalMessageCount - messages.length;
+    const messageOffset = totalMessageCount - transcriptWindow.totalLoadedCount;
     const items: Array<
       | { type: "separator"; key: string; label: string }
       | { type: "message"; key: string; msg: Message; isGrouped: boolean; index: number }
     > = [];
     let lastDay = "";
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i]!;
+    for (let i = 0; i < visibleMessages.length; i++) {
+      const msg = visibleMessages[i]!;
+      const originalIndex = transcriptWindow.startIndex + i;
       if (isHiddenFromUser(msg)) continue;
       const day = getDayKey(msg.createdAt);
       if (day !== lastDay) {
         items.push({ type: "separator", key: `sep-${day}`, label: formatDaySeparator(msg.createdAt) });
         lastDay = day;
       }
-      const prev = i > 0 ? messages[i - 1]! : null;
+      const prev = i > 0 ? visibleMessages[i - 1]! : null;
       // Break grouping if >5 minutes apart (like Discord)
       const TIME_GAP_MS = 5 * 60 * 1000;
       const timeTooFar = prev
@@ -660,7 +699,7 @@ export function ConversationView({
                     extra: { displayText: null, isGenerated: false, tokenCount: null, generationInfo: null },
                   },
               isGrouped: bi === 0 ? grouped : true,
-              index: messageOffset + i,
+              index: messageOffset + originalIndex,
             });
           });
           continue;
@@ -678,10 +717,16 @@ export function ConversationView({
         }
       }
       const displayMsg = displayContent !== msg.content ? { ...msg, content: displayContent } : msg;
-      items.push({ type: "message", key: msg.id, msg: displayMsg, isGrouped: grouped, index: messageOffset + i });
+      items.push({
+        type: "message",
+        key: msg.id,
+        msg: displayMsg,
+        isGrouped: grouped,
+        index: messageOffset + originalIndex,
+      });
     }
     return items;
-  }, [messages, characterMap, chatCharIds, totalMessageCount]);
+  }, [transcriptWindow, characterMap, chatCharIds, totalMessageCount]);
 
   // ── Staggered reveal for split assistant lines ──
   // When a new multi-line assistant message arrives, show lines one by one
@@ -973,15 +1018,15 @@ export function ConversationView({
         </div>
 
         {/* Load More */}
-        {hasNextPage && (
+        {(hasNextPage || transcriptWindow.hiddenBeforeCount > 0) && (
           <div className="flex justify-center py-3">
             <button
-              onClick={handleLoadMore}
+              onClick={handleShowOlderMessages}
               disabled={isFetchingNextPage}
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] disabled:opacity-50"
             >
               {isFetchingNextPage ? <Loader2 size="0.75rem" className="animate-spin" /> : <ChevronUp size="0.75rem" />}
-              Load More
+              {transcriptWindow.hiddenBeforeCount > 0 ? "Older Messages" : "Load More"}
             </button>
           </div>
         )}
@@ -1119,6 +1164,17 @@ export function ConversationView({
           }
           return elements;
         })()}
+
+        {transcriptWindow.hiddenAfterCount > 0 && (
+          <div className="flex justify-center py-3">
+            <button
+              onClick={handleShowNewerMessages}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
+            >
+              Newer Messages
+            </button>
+          </div>
+        )}
 
         {/* Delayed indicator (DND/idle — waiting for character to become available) */}
         {delayedCharacterInfo && isStreaming && !streamBuffer && !thinkingBuffer && (

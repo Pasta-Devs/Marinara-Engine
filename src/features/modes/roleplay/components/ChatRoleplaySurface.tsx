@@ -32,7 +32,7 @@ import { resolveManagedLocalAssetUrl } from "../../../../shared/api/local-file-a
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useGameStateStore } from "../../../runtime/world-state/index";
-import { ChatMessage } from "../../shared/chat-ui/index";
+import { ChatMessage, getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../shared/chat-ui/index";
 import { ChatInput } from "../../shared/chat-ui/index";
 import { CyoaChoices } from "./CyoaChoices";
 import { ChatBranchSelector } from "../../shared/chat-ui/index";
@@ -92,8 +92,7 @@ const PANEL_BACKDROP =
   "fixed inset-0 z-[9999] flex items-center justify-center p-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]";
 const TRACKER_FOREGROUND_AVOIDANCE_CLASS =
   "pl-[var(--tracker-chat-avoid-left)] pr-[var(--tracker-chat-avoid-right)] transition-[padding] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]";
-const TRACKER_SCROLL_AVOIDANCE_CLASS =
-  "transition-[padding] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]";
+const TRACKER_SCROLL_AVOIDANCE_CLASS = "transition-[padding] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]";
 const PANEL_CONTAINER =
   "relative max-h-[calc(100dvh-4rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in";
 
@@ -748,6 +747,7 @@ export function ChatRoleplaySurface({
       };
   const hideEchoChamberOnMobile =
     sidebarOpen || rightPanelOpen || settingsOpen || filesOpen || galleryOpen || wizardOpen;
+  const [transcriptWindowStart, setTranscriptWindowStart] = useState<number | null>(null);
   const inactiveCharacterIdSet = useMemo(
     () => new Set(metadataStringArray(chatMeta.inactiveCharacterIds)),
     [chatMeta.inactiveCharacterIds],
@@ -760,6 +760,26 @@ export function ChatRoleplaySurface({
     () => activeChatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),
     [activeChatCharIds, characterMap],
   );
+  const transcriptWindow = useMemo(
+    () => getTranscriptRenderWindow(messages, { startIndex: transcriptWindowStart }),
+    [messages, transcriptWindowStart],
+  );
+  const handleShowOlderMessages = () => {
+    if (transcriptWindow.hiddenBeforeCount > 0) {
+      setTranscriptWindowStart(Math.max(0, transcriptWindow.startIndex - TRANSCRIPT_RENDER_WINDOW_STEP));
+      return;
+    }
+    if (!hasNextPage || isFetchingNextPage) return;
+    setTranscriptWindowStart(0);
+    onLoadMore();
+  };
+  const handleShowNewerMessages = () => {
+    setTranscriptWindowStart((currentStart) => {
+      const current = currentStart ?? transcriptWindow.startIndex;
+      const next = Math.min(transcriptWindow.latestStartIndex, current + TRANSCRIPT_RENDER_WINDOW_STEP);
+      return next >= transcriptWindow.latestStartIndex ? null : next;
+    });
+  };
   const overlaySpriteDisplayModes = useMemo(
     () => (expressionAvatarsEnabled ? spriteDisplayModes.filter((mode) => mode !== "expressions") : spriteDisplayModes),
     [expressionAvatarsEnabled, spriteDisplayModes],
@@ -769,6 +789,7 @@ export function ChatRoleplaySurface({
 
   useEffect(() => {
     setAddonsReady(false);
+    setTranscriptWindowStart(null);
     const id = window.setTimeout(() => setAddonsReady(true), 180);
     return () => window.clearTimeout(id);
   }, [activeChatId]);
@@ -1007,10 +1028,10 @@ export function ChatRoleplaySurface({
                   centerCompact ? "px-3" : "px-3 md:px-[15%]",
                 )}
               >
-                {hasNextPage && (
+                {(hasNextPage || transcriptWindow.hiddenBeforeCount > 0) && (
                   <div className="mb-3 flex justify-center">
                     <button
-                      onClick={onLoadMore}
+                      onClick={handleShowOlderMessages}
                       disabled={isFetchingNextPage}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/10 bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-foreground/70 backdrop-blur-sm transition-all hover:bg-[var(--accent)] hover:text-foreground/90 disabled:opacity-50"
                     >
@@ -1019,7 +1040,7 @@ export function ChatRoleplaySurface({
                       ) : (
                         <ChevronUp size="0.75rem" />
                       )}
-                      Load More
+                      {transcriptWindow.hiddenBeforeCount > 0 ? "Older Messages" : "Load More"}
                     </button>
                   </div>
                 )}
@@ -1030,9 +1051,13 @@ export function ChatRoleplaySurface({
                   </div>
                 )}
 
-                {messages?.map((msg, i) => {
+                {transcriptWindow.messages?.map((msg, i) => {
                   if (isHiddenFromUser(msg)) return null;
                   const isRegenerating = isStreaming && regenerateMessageId === msg.id;
+                  const originalIndex = transcriptWindow.startIndex + i;
+                  const messageOrderIndex = totalMessageCount - transcriptWindow.totalLoadedCount + originalIndex;
+                  const messageDepth = transcriptWindow.totalLoadedCount - 1 - originalIndex;
+                  const grouped = i > 0 && isGrouped(originalIndex);
                   return (
                     <div
                       key={msg.id}
@@ -1060,10 +1085,10 @@ export function ChatRoleplaySurface({
                           characterMap={characterMap}
                           personaInfo={personaInfo}
                           chatMode={chatMode}
-                          messageDepth={messages.length - 1 - i}
-                          messageIndex={totalMessageCount - messages.length + i + 1}
-                          messageOrderIndex={totalMessageCount - messages.length + i}
-                          isGrouped={isGrouped(i)}
+                          messageDepth={messageDepth}
+                          messageIndex={messageOrderIndex + 1}
+                          messageOrderIndex={messageOrderIndex}
+                          isGrouped={grouped}
                           groupChatMode={groupChatMode}
                           chatCharacterIds={chatCharIds}
                           expressionAvatarResolver={expressionAvatarResolver}
@@ -1089,10 +1114,10 @@ export function ChatRoleplaySurface({
                           characterMap={characterMap}
                           personaInfo={personaInfo}
                           chatMode={chatMode}
-                          messageDepth={messages.length - 1 - i}
-                          messageIndex={totalMessageCount - messages.length + i + 1}
-                          messageOrderIndex={totalMessageCount - messages.length + i}
-                          isGrouped={isGrouped(i)}
+                          messageDepth={messageDepth}
+                          messageIndex={messageOrderIndex + 1}
+                          messageOrderIndex={messageOrderIndex}
+                          isGrouped={grouped}
                           groupChatMode={groupChatMode}
                           chatCharacterIds={chatCharIds}
                           expressionAvatarResolver={expressionAvatarResolver}
@@ -1106,6 +1131,17 @@ export function ChatRoleplaySurface({
                 })}
 
                 {!isConcludedScene && !isStreaming && <CyoaChoices messages={messages} />}
+
+                {transcriptWindow.hiddenAfterCount > 0 && (
+                  <div className="flex justify-center py-3">
+                    <button
+                      onClick={handleShowNewerMessages}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/10 bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-foreground/70 backdrop-blur-sm transition-all hover:bg-[var(--accent)] hover:text-foreground/90"
+                    >
+                      Newer Messages
+                    </button>
+                  </div>
+                )}
 
                 {isStreaming && !regenerateMessageId && (
                   <StreamingIndicator
