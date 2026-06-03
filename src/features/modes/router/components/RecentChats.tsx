@@ -23,7 +23,7 @@ export function RecentChats() {
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
 
   const recentCharacterIds = useMemo(
-    () => Array.from(new Set((recentChats ?? []).flatMap((c) => c.characterIds ?? []))),
+    () => Array.from(new Set((recentChats ?? []).flatMap((c) => Array.isArray(c.characterIds) ? c.characterIds : []))),
     [recentChats],
   );
   const { data: recentCharacters } = useCharacterSummariesByIds(recentCharacterIds, recentCharacterIds.length > 0);
