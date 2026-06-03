@@ -59,6 +59,8 @@ export type CharacterPanelSummary = {
   id: string;
   data?: {
     name?: string;
+    description?: string;
+    personality?: string;
     creator?: string;
     character_version?: string;
     tags?: unknown[];
@@ -118,6 +120,8 @@ const CHARACTER_PANEL_SUMMARY_OPTIONS = {
   fieldSelections: {
     data: [
       "name",
+      "description",
+      "personality",
       "creator",
       "character_version",
       "tags",
