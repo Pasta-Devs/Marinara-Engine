@@ -272,6 +272,13 @@ export function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): Heade
   };
 }
 
+function remoteFetchInit(init: RequestInit): RequestInit {
+  return {
+    ...init,
+    cache: "no-store",
+  };
+}
+
 function tryWriteAdminSecretStorage(write: () => void): void {
   try {
     write();
@@ -357,11 +364,11 @@ export async function checkRemoteRuntimeHealth(
   }
 
   try {
-    const response = await fetch(`${target.baseUrl}/health`, {
+    const response = await fetch(`${target.baseUrl}/health`, remoteFetchInit({
       method: "GET",
       headers: remoteHeaders(target, { accept: "application/json" }),
       signal: options.signal,
-    });
+    }));
 
     if (!response.ok) {
       return { status: "unreachable", message: `Remote runtime returned ${response.status}.` };
@@ -380,7 +387,7 @@ export async function checkRemoteRuntimeHealth(
       };
     }
 
-    const invokeReady = await fetch(`${target.baseUrl}/api/invoke`, {
+    const invokeReady = await fetch(`${target.baseUrl}/api/invoke`, remoteFetchInit({
       method: "POST",
       headers: remoteHeaders(target, { "content-type": "application/json" }),
       body: JSON.stringify({
@@ -391,7 +398,7 @@ export async function checkRemoteRuntimeHealth(
         },
       }),
       signal: options.signal,
-    });
+    }));
 
     if (!invokeReady.ok) {
       return {
@@ -454,11 +461,11 @@ function normalizeRemoteLlmChunk(event: LlmChunk): LlmChunk {
 export async function invokeRemote<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   const target = remoteRuntimeTarget();
   if (!target) throw new ApiError("Remote runtime URL is not configured", 400);
-  const response = await fetch(`${target.baseUrl}/api/invoke`, {
+  const response = await fetch(`${target.baseUrl}/api/invoke`, remoteFetchInit({
     method: "POST",
     headers: remoteInvokeHeaders(target, command),
     body: JSON.stringify({ command, args: args ?? null }),
-  });
+  }));
   if (!response.ok) throw await readRemoteError(response);
   return (await response.json()) as T;
 }
@@ -470,7 +477,7 @@ export async function* streamRemoteJsonEvents(
 ): AsyncGenerator<{ type: string; data: unknown }> {
   const target = remoteRuntimeTarget();
   if (!target) throw new ApiError("Remote runtime URL is not configured", 400);
-  const response = await fetch(`${target.baseUrl}${path}`, {
+  const response = await fetch(`${target.baseUrl}${path}`, remoteFetchInit({
     method: "POST",
     headers: remoteHeaders(target, {
       "content-type": "application/json",
@@ -479,7 +486,7 @@ export async function* streamRemoteJsonEvents(
     }),
     body: JSON.stringify(body ?? null),
     signal: options.signal,
-  });
+  }));
   if (!response.ok) throw await readRemoteError(response);
   if (!response.body) throw new ApiError("Remote runtime did not return an event stream", 500);
 
@@ -548,12 +555,12 @@ export async function* streamRemoteLlm(
   target: RuntimeTarget,
   signal?: AbortSignal,
 ): AsyncGenerator<LlmChunk> {
-  const response = await fetch(`${target.baseUrl}/api/llm/stream`, {
+  const response = await fetch(`${target.baseUrl}/api/llm/stream`, remoteFetchInit({
     method: "POST",
     headers: remoteHeaders(target, { "content-type": "application/json", accept: "text/event-stream" }),
     body: JSON.stringify({ streamId, request }),
     signal,
-  });
+  }));
   if (!response.ok) throw await readRemoteError(response);
   if (!response.body) throw new ApiError("Remote runtime did not return a stream", 500);
 
@@ -584,10 +591,10 @@ export async function cancelRemoteLlmStream(streamId: string, target: RuntimeTar
     "remote",
     streamId,
     (async () => {
-      const response = await fetch(`${target.baseUrl}/api/llm/stream/${encodeURIComponent(streamId)}/cancel`, {
+      const response = await fetch(`${target.baseUrl}/api/llm/stream/${encodeURIComponent(streamId)}/cancel`, remoteFetchInit({
         method: "POST",
         headers: remoteHeaders(target),
-      });
+      }));
       if (!response.ok) throw await readRemoteError(response);
     })(),
   );

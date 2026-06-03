@@ -1,75 +1,85 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": "2063",
-    "title": "Admin Access should migrate the legacy browser secret key",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2063"
+    "number": 2070,
+    "title": "[Issue]: remote runtime JSON API calls lack legacy no-store cache policy",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2070"
   },
-  "pr": {
-    "number": "2087",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2087"
+  "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
+  "assignment": {
+    "assignee": "cha1latte",
+    "assignedBeforeWork": true
   },
-  "coreClaim": "Refactor web shell reads and migrates the legacy marinara_admin_secret Admin Access localStorage value to the current marinara-admin-secret key.",
+  "preflight": {
+    "noAssociatedPr": true,
+    "details": "workflow-health did not flag a duplicate for #2070; gh PR search for direct #2070 links returned no matches."
+  },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Static source repro plus scratch helper proof",
-    "evidence": {
-      "0": "origin/refactor remote-runtime has no marinara_admin_secret/readAdminSecretStorage/writeAdminSecretStorage matches"
-    }
+    "method": "Static source repro plus regression test coverage",
+    "evidence": "Baseline HEAD src/shared/api/remote-runtime.ts did not contain cache: \"no-store\" fetch options; current tests assert the restored policy on every remote JSON/SSE fetch path."
   },
   "verification": {
     "originalReproPassed": true,
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after Bunny storage-mutation fix",
-    "edgeCases": {
-      "0": "Legacy-only localStorage value is trimmed, returned, migrated to marinara-admin-secret, and legacy key removed",
-      "1": "Current key wins when both current and legacy keys exist; stale legacy key is removed",
-      "2": "Saving a nonblank Admin Access value trims it, writes the current key, and removes the legacy key",
-      "3": "Saving blank Admin Access clears both current and legacy keys",
-      "4": "No-window/server-side read returns empty",
-      "5": "Current-key read survives failed legacy cleanup removeItem",
-      "6": "Legacy-only read returns the secret even if migration setItem throws"
-    },
-    "visualProof": "scratch/repro-2063-output.txt"
-  },
-  "manualBlockers": [],
-  "notes": {
-    "0": "Issue assigned to cha1latte before edits",
-    "1": "No local 2063 branch/worktree existed before worktree creation",
-    "2": "Proof gate helper unavailable at C:\\Users\\celia\\.codex\\tools\\marinara-proof-gate.mjs",
-    "3": "Rebased cleanly onto current origin/refactor before push",
-    "4": "PR body marks Feature Discoverability as N/A with reason for PR-aware discovery CI",
-    "5": "Addressed Bunny finding: legacy read can fail on migration write"
+    "baselineEvidence": "pnpm check passed after the final diff.",
+    "focusedProof": [
+      "pnpm test -- src/shared/api/remote-runtime.test.ts: passed 5 tests.",
+      "cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: passed 1 test."
+    ],
+    "edgeCases": [
+      "Health and invoke readiness probes set cache: \"no-store\".",
+      "Normal /api/invoke command calls set cache: \"no-store\".",
+      "Generic JSON event streams, including /api/import/st-bulk/run, set cache: \"no-store\".",
+      "LLM stream and cancel calls set cache: \"no-store\".",
+      "Rust hostable response helper preserves explicit managed asset cache headers while applying no-store to JSON API responses."
+    ],
+    "visualProof": "Backend/logic proof captured as focused terminal command output in Codex transcript; no UI state exists for this cache-policy regression."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Refactor web shell reads and migrates legacy Admin Access browser storage without requiring users to re-enter the secret.",
-    "riskType": "legacy browser localStorage compatibility",
-    "entrypoints": {
-      "0": "Settings Advanced Admin Access field initialization/save/clear",
-      "1": "shared remote-runtime privileged command header"
-    },
-    "currentPathsOrFormats": {
-      "0": "marinara-admin-secret localStorage key"
-    },
-    "legacyPathsOrFormats": {
-      "0": "marinara_admin_secret localStorage key"
-    },
-    "positiveRowsTested": {
-      "0": "legacy-only value migrates and is read",
-      "1": "current+legacy prefers current and cleans legacy",
-      "2": "save writes current key and removes legacy"
-    },
-    "negativeRowsTested": {
-      "0": "blank save clears both keys",
-      "1": "no-window read returns empty"
-    },
-    "groundTruthFacts": {
-      "0": "origin/refactor had only marinara-admin-secret in SettingsPanel and remote-runtime"
-    },
-    "userActionCopy": "No user action required when a legacy browser secret exists; clearing Admin Access clears both browser keys."
+    "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
+    "riskType": "remote runtime cache-policy compatibility",
+    "entrypoints": [
+      "src/shared/api/remote-runtime.ts health probe",
+      "src/shared/api/remote-runtime.ts /api/invoke calls",
+      "src/shared/api/remote-runtime.ts generic JSON/SSE stream calls",
+      "src/shared/api/remote-runtime.ts LLM stream and cancel calls",
+      "src-tauri/src/http_server.rs hostable HTTP response middleware"
+    ],
+    "currentPathsOrFormats": [
+      "/health",
+      "/api/invoke",
+      "/api/import/st-bulk/run",
+      "/api/llm/stream",
+      "/api/llm/stream/:stream_id/cancel",
+      "/api/assets/:kind/*path"
+    ],
+    "legacyPathsOrFormats": [
+      "legacy client shared API fetch cache: \"no-store\"",
+      "legacy server /api/* Cache-Control: no-store hook"
+    ],
+    "positiveRowsTested": [
+      "client health fetch",
+      "client invoke readiness fetch",
+      "client invoke fetch",
+      "client generic JSON event stream fetch",
+      "client LLM stream fetch",
+      "client LLM stream cancel fetch",
+      "server /api/invoke response helper"
+    ],
+    "negativeRowsTested": [
+      "server managed asset route preserves explicit public/no-cache headers",
+      "server non-api asset path does not receive API no-store header"
+    ],
+    "groundTruthFacts": [
+      "Harness-proven by cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: http_server.rs applies no-store to API headers and preserves explicit managed asset cache headers.",
+      "Derived from git show HEAD:src/shared/api/remote-runtime.ts plus Select-String: baseline remote-runtime.ts lacked cache: \"no-store\" fetch options before this patch."
+    ],
+    "userActionCopy": "No user action required."
   },
+  "manualBlockers": [],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
