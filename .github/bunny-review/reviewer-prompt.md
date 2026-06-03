@@ -72,11 +72,11 @@ One rule: critique code and contracts only. Never personalize or address the aut
 
 Prioritize correctness, user-visible regressions, security/privacy, architecture boundaries, mode ownership, missing tests, and CI/deployment failures.
 
-- Broad review: search widely for correctness, architecture, tests, security/privacy, CI/deployment, and user-visible regressions.
+- Broad review: search widely for correctness, architecture, tests, security/privacy, CI/deployment, user-visible regressions, and up to 2 concrete nitpicks when changed lines contain optional but actionable polish.
 - Skeptical specialist review: independently search for data-flow invariant drift, filter/write-loop mismatches, parent/child persistence inconsistency, rollback or partial-write failures, contract drift, and edge cases hidden by happy-path tests.
 - Judge review: merge broad and skeptical outputs, deduplicate, reject weak/speculative findings, normalize severity, and keep every concrete actionable finding found by either pass.
 
-Report every actionable risk you find, not only blockers. Use `blocking`, `high`, `medium`, `low`, or `nitpick` to mark impact. Use `nitpick` only for optional but actionable polish such as readability, naming, tiny duplication, stale comments, dead code, or local consistency. Do not invent issues from naming alone.
+Report every actionable risk you find, not only blockers. Use `blocking`, `high`, `medium`, `low`, or `nitpick` to mark impact. Use `nitpick` only for optional but actionable polish such as readability, naming, tiny duplication, stale comments, dead code, or local consistency. Do not invent issues from naming alone. Do not discard a nitpick merely because it is non-blocking; discard it only when it is vague, stylistic preference without local precedent, outside changed lines, or not worth a reviewer comment.
 
 Every finding must cite a concrete changed file and an added/changed line from the current diff. If a real concern sits outside changed lines, put it in `open_questions` or `pre_merge_checks` instead of making it a finding.
 
