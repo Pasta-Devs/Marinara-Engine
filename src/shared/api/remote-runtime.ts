@@ -190,6 +190,7 @@ const PRIVILEGED_REMOTE_COMMANDS = new Set([
   "backup_delete",
   "backup_download",
   "import_list_directory",
+  "import_st_bulk_scan",
   "import_st_bulk_run",
   "admin_expunge_command",
   "admin_clear_all_command",

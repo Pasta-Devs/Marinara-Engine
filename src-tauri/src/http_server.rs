@@ -561,6 +561,7 @@ fn is_privileged_remote_command(command: &str) -> bool {
             | "backup_delete"
             | "backup_download"
             | "import_list_directory"
+            | "import_st_bulk_scan"
             | "import_st_bulk_run"
             | "admin_expunge_command"
             | "admin_clear_all_command"
@@ -1695,6 +1696,36 @@ mod tests {
         )
         .is_ok());
         assert!(require_admin_access_for_command("storage_list", &headers, remote_ip).is_ok());
+    }
+
+    #[test]
+    fn remote_st_bulk_scan_requires_admin_access() {
+        let _guard = admin_secret_lock()
+            .lock()
+            .expect("admin secret test lock should acquire");
+        let _admin_secret = AdminSecretGuard::capture();
+        let remote_ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10));
+        env::remove_var("ADMIN_SECRET");
+
+        let missing_secret = require_admin_access_for_command(
+            "import_st_bulk_scan",
+            &HeaderMap::new(),
+            remote_ip,
+        )
+        .expect_err("non-loopback bulk scan should require ADMIN_SECRET");
+
+        assert_eq!(missing_secret.code, "admin_access_required");
+
+        env::set_var("ADMIN_SECRET", "expected-secret");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            HeaderName::from_static(ADMIN_SECRET_HEADER_NAME),
+            HeaderValue::from_static("expected-secret"),
+        );
+
+        let result = require_admin_access_for_command("import_st_bulk_scan", &headers, remote_ip);
+
+        assert!(result.is_ok());
     }
 
     #[test]
