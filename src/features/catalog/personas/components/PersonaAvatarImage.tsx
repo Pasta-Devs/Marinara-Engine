@@ -39,6 +39,64 @@ function resolveAvatarCrop(crop: unknown): AvatarCropValue | null {
   }
 }
 
+function waitForImageResolveSlot(element: HTMLElement, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  const waitForViewport = new Promise<void>((resolve) => {
+    if (typeof IntersectionObserver !== "function") {
+      resolve();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          resolve();
+        }
+      },
+      { rootMargin: "240px" },
+    );
+    signal.addEventListener(
+      "abort",
+      () => {
+        observer.disconnect();
+        resolve();
+      },
+      { once: true },
+    );
+    observer.observe(element);
+  });
+
+  return waitForViewport.then(
+    () =>
+      new Promise<void>((resolve) => {
+        if (signal.aborted) {
+          resolve();
+          return;
+        }
+        const idleWindow = window as Window & {
+          requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+          cancelIdleCallback?: (handle: number) => void;
+        };
+        const requestIdle = idleWindow.requestIdleCallback;
+        let handle: number | null = null;
+        const finish = () => {
+          if (handle !== null && typeof idleWindow.cancelIdleCallback === "function") {
+            idleWindow.cancelIdleCallback(handle);
+          } else if (handle !== null) {
+            window.clearTimeout(handle);
+          }
+          resolve();
+        };
+        signal.addEventListener("abort", finish, { once: true });
+        if (typeof requestIdle === "function") {
+          handle = requestIdle(finish, { timeout: 600 });
+          return;
+        }
+        handle = window.setTimeout(finish, 80);
+      }),
+  );
+}
+
 export function PersonaAvatarImage({
   persona,
   alt,
@@ -74,6 +132,7 @@ export function PersonaAvatarImage({
 
   useEffect(() => {
     let cancelled = false;
+    const abort = new AbortController();
     setAsyncSrc(initialSrc);
     if (
       !hasResolvableAvatarInput ||
@@ -81,17 +140,24 @@ export function PersonaAvatarImage({
     ) {
       return () => {
         cancelled = true;
+        abort.abort();
       };
     }
-    const resolveUrl = effectiveThumbnailSize
-      ? resolveAvatarThumbnailFileUrl(
-          persona.avatarFilename,
-          persona.avatarFilePath,
-          effectiveThumbnailSize,
-          persona.avatarPath,
-        )
-      : resolveAvatarFileUrl(persona.avatarFilename, persona.avatarFilePath);
-    resolveUrl
+    const resolveUrl = async () => {
+      if (effectiveThumbnailSize && imageRef.current) {
+        await waitForImageResolveSlot(imageRef.current, abort.signal);
+      }
+      if (cancelled) return null;
+      return effectiveThumbnailSize
+        ? resolveAvatarThumbnailFileUrl(
+            persona.avatarFilename,
+            persona.avatarFilePath,
+            effectiveThumbnailSize,
+            persona.avatarPath,
+          )
+        : resolveAvatarFileUrl(persona.avatarFilename, persona.avatarFilePath);
+    };
+    resolveUrl()
       .then((url) => {
         if (!cancelled) setAsyncSrc(url ?? persona.avatarPath ?? null);
       })
@@ -100,6 +166,7 @@ export function PersonaAvatarImage({
       });
     return () => {
       cancelled = true;
+      abort.abort();
     };
   }, [
     effectiveThumbnailSize,
