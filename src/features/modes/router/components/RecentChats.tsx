@@ -5,9 +5,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { MessageSquare, BookOpen, Theater } from "lucide-react";
 import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
-import { characterAvatarUrl, useCharacterSummariesByIds } from "../../../catalog/characters/index";
+import { CharacterAvatarImage, characterAvatarUrl, useCharacterSummariesByIds } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
-import { cn, getAvatarCropStyle, parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
+import { cn, parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
   conversation: {
@@ -51,7 +51,16 @@ export function RecentChats() {
   const { data: recentCharacters } = useCharacterSummariesByIds(recentCharacterIds, recentCharacterIds.length > 0);
 
   const charLookup = useMemo(() => {
-    const map = new Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }>();
+    const map = new Map<
+      string,
+      {
+        name: string;
+        avatarUrl: string | null;
+        avatarFilePath?: string | null;
+        avatarFilename?: string | null;
+        avatarCrop?: AvatarCropValue | null;
+      }
+    >();
     if (!recentCharacters) return map;
     for (const char of recentCharacters as Array<{
       id: string;
@@ -68,6 +77,8 @@ export function RecentChats() {
       map.set(char.id, {
         name: typeof parsed.name === "string" ? parsed.name : "Unknown",
         avatarUrl: characterAvatarUrl(char),
+        avatarFilePath: char.avatarFilePath,
+        avatarFilename: char.avatarFilename,
         avatarCrop: readAvatarCrop(extensions.avatarCrop),
       });
     }
@@ -96,7 +107,16 @@ function RecentChatChip({
   onClick,
 }: {
   chat: ChatListItem;
-  charLookup: Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }>;
+  charLookup: Map<
+    string,
+    {
+      name: string;
+      avatarUrl: string | null;
+      avatarFilePath?: string | null;
+      avatarFilename?: string | null;
+      avatarCrop?: AvatarCropValue | null;
+    }
+  >;
   onClick: () => void;
 }) {
   const mode = MODE_BADGE[chat.mode] ?? MODE_BADGE.conversation;
@@ -155,7 +175,13 @@ function RecentChatChip({
 function RecentChatAvatar({
   avatar,
 }: {
-  avatar: { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null };
+  avatar: {
+    name: string;
+    avatarUrl: string | null;
+    avatarFilePath?: string | null;
+    avatarFilename?: string | null;
+    avatarCrop?: AvatarCropValue | null;
+  };
 }) {
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -173,11 +199,14 @@ function RecentChatAvatar({
 
   return (
     <span className="relative block h-5 w-5 overflow-hidden rounded-md">
-      <img
+      <CharacterAvatarImage
         src={avatar.avatarUrl}
+        avatarFilePath={avatar.avatarFilePath}
+        avatarFilename={avatar.avatarFilename}
         alt={avatar.name}
         className="h-full w-full object-cover"
-        style={getAvatarCropStyle(avatar.avatarCrop)}
+        crop={avatar.avatarCrop}
+        thumbnailSize={64}
         onError={() => setImageFailed(true)}
       />
     </span>

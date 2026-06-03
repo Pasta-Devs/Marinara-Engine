@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BookOpen, HelpCircle, MessageSquare, Theater } from "lucide-react";
 import { APP_VERSION } from "../../../../engine/contracts/constants/defaults";
 import { useConnections } from "../../../catalog/connections/index";
@@ -12,10 +12,44 @@ import { RecentChats } from "./RecentChats";
 
 type QuickStartMode = "conversation" | "roleplay" | "game";
 
+const quickStartModePreloads: Record<QuickStartMode, () => Promise<unknown>> = {
+  conversation: () => import("../../conversation/index"),
+  roleplay: () => import("../../roleplay/index"),
+  game: () => import("../../game/index"),
+};
+const preloadedQuickStartModes = new Set<QuickStartMode>();
+
+function prewarmQuickStartMode(mode: QuickStartMode): void {
+  if (preloadedQuickStartModes.has(mode)) return;
+  preloadedQuickStartModes.add(mode);
+  quickStartModePreloads[mode]().catch(() => preloadedQuickStartModes.delete(mode));
+}
+
+function prewarmAllQuickStartModes(): void {
+  prewarmQuickStartMode("conversation");
+  prewarmQuickStartMode("roleplay");
+  prewarmQuickStartMode("game");
+}
+
 export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?: ReactNode }) {
   const { data: connections } = useConnections();
   const createChat = useCreateChat();
   const pendingNewChatMode = useChatStore((state) => state.pendingNewChatMode);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    const requestIdle = idleWindow.requestIdleCallback;
+    if (typeof requestIdle === "function") {
+      const handle = requestIdle(prewarmAllQuickStartModes, { timeout: 1800 });
+      return () => idleWindow.cancelIdleCallback?.(handle);
+    }
+    const handle = window.setTimeout(prewarmAllQuickStartModes, 600);
+    return () => window.clearTimeout(handle);
+  }, []);
 
   const handleQuickStart = useCallback(
     (mode: QuickStartMode) => {
@@ -85,6 +119,7 @@ export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?
               bg="linear-gradient(135deg, #4de5dd, #3ab8b1)"
               shadowColor="rgba(77,229,221,0.15)"
               tooltip="General chat with one or more characters, or a model itself"
+              onPrewarm={() => prewarmQuickStartMode("conversation")}
               onClick={() => handleQuickStart("conversation")}
             />
             <QuickStartCard
@@ -93,6 +128,7 @@ export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?
               bg="linear-gradient(135deg, #eb8951, #d97530)"
               shadowColor="rgba(235,137,81,0.15)"
               tooltip="For roleplaying or creative writing with one or more characters"
+              onPrewarm={() => prewarmQuickStartMode("roleplay")}
               onClick={() => handleQuickStart("roleplay")}
             />
             <QuickStartCard
@@ -101,6 +137,7 @@ export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?
               bg="linear-gradient(135deg, #e15c8c, #c94776)"
               shadowColor="rgba(225,92,140,0.15)"
               tooltip="AI-managed singleplayer RPG with a Game Master, party, dice, maps, and quests"
+              onPrewarm={() => prewarmQuickStartMode("game")}
               onClick={() => handleQuickStart("game")}
             />
           </div>
@@ -210,6 +247,7 @@ function QuickStartCard({
   bg,
   shadowColor,
   onClick,
+  onPrewarm,
   comingSoon,
   tooltip,
 }: {
@@ -218,6 +256,7 @@ function QuickStartCard({
   bg: string;
   shadowColor?: string;
   onClick?: () => void;
+  onPrewarm?: () => void;
   comingSoon?: boolean;
   tooltip?: string;
 }) {
@@ -229,6 +268,7 @@ function QuickStartCard({
       setTimeout(() => setShowComingSoon(false), 1500);
       return;
     }
+    onPrewarm?.();
     onClick?.();
   };
 
@@ -236,6 +276,8 @@ function QuickStartCard({
     <button
       type="button"
       onClick={handleClick}
+      onPointerEnter={onPrewarm}
+      onFocus={onPrewarm}
       title={tooltip}
       aria-label={`${comingSoon && !onClick ? "Show status for" : "Start"} ${label} chat`}
       className={cn(

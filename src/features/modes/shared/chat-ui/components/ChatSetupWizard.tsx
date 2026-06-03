@@ -21,10 +21,11 @@ import {
   ArrowLeft,
   UserRound,
 } from "lucide-react";
-import { cn, getAvatarCropStyle, type AvatarCrop } from "../../../../../shared/lib/utils";
+import { cn, type AvatarCrop } from "../../../../../shared/lib/utils";
 import { useConnections } from "../../../../catalog/connections/index";
 import { usePresets, usePresetFull, useDefaultPreset } from "../../../../catalog/presets/index";
 import {
+  CharacterAvatarImage as CatalogCharacterAvatarImage,
   characterAvatarUrl,
   useCharacterSummaries,
   useCharacterSummariesByIds,
@@ -282,19 +283,25 @@ function CharacterAvatarImage({
   alt,
   className,
 }: {
-  character: { data: unknown };
+  character: {
+    data: unknown;
+    avatarFilePath?: string | null;
+    avatarFilename?: string | null;
+  };
   src: string;
   alt: string;
   className: string;
 }) {
   return (
     <span className={cn("relative block shrink-0 overflow-hidden", className)}>
-      <img
+      <CatalogCharacterAvatarImage
         src={src}
+        avatarFilePath={character.avatarFilePath}
+        avatarFilename={character.avatarFilename}
         alt={alt}
-        loading="lazy"
         className="h-full w-full object-cover"
-        style={getAvatarCropStyle(getCharacterAvatarCrop(character))}
+        crop={getCharacterAvatarCrop(character)}
+        thumbnailSize={64}
       />
     </span>
   );

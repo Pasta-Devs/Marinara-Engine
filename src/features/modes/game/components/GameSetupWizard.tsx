@@ -23,7 +23,7 @@ import {
 import type { GameSetupConfig, GameGmMode } from "../../../../engine/contracts/types/game";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../../../shared/lib/character-display";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
-import { cn, getAvatarCropStyle, parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
+import { cn, parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
 import { Modal } from "../../../../shared/components/ui/Modal";
 import {
   GenerationParametersFields,
@@ -34,6 +34,7 @@ import {
 import { useConnections } from "../../../catalog/connections/index";
 import {
   characterAvatarUrl,
+  CharacterAvatarImage,
   useCharacterSummaries,
   useCharacterSummariesByIds,
   type CharacterSummary,
@@ -65,6 +66,8 @@ type SetupCharacterInfo = {
   name: string;
   comment?: string | null;
   avatarUrl?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   avatarCrop?: AvatarCropValue | null;
   searchText: string[];
 };
@@ -99,6 +102,8 @@ function CharacterAvatar({
   character: {
     name: string;
     avatarUrl?: string | null;
+    avatarFilePath?: string | null;
+    avatarFilename?: string | null;
     avatarCrop?: AvatarCropValue | null;
   };
   className?: string;
@@ -112,12 +117,14 @@ function CharacterAvatar({
   }
   return (
     <span className={cn("relative block shrink-0 overflow-hidden", className)}>
-      <img
+      <CharacterAvatarImage
         src={character.avatarUrl}
+        avatarFilePath={character.avatarFilePath}
+        avatarFilename={character.avatarFilename}
         alt={character.name}
-        loading="lazy"
         className="h-full w-full object-cover"
-        style={getAvatarCropStyle(character.avatarCrop)}
+        crop={character.avatarCrop}
+        thumbnailSize={64}
       />
     </span>
   );
@@ -484,6 +491,8 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
           name: display.name,
           comment: display.comment,
           avatarUrl: characterAvatarUrl(character),
+          avatarFilePath: character.avatarFilePath,
+          avatarFilename: character.avatarFilename,
           avatarCrop: parseAvatarCropValue(rawCrop),
           searchText: characterSearchValues(character, display),
         };

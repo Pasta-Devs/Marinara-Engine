@@ -96,6 +96,7 @@ export function CharacterAvatarImage({
   crop,
   className,
   thumbnailSize,
+  onError,
 }: {
   src?: string | null;
   avatarFilePath?: string | null;
@@ -104,6 +105,7 @@ export function CharacterAvatarImage({
   crop?: unknown;
   className?: string;
   thumbnailSize?: 64 | 96 | 128 | 256;
+  onError?: () => void;
 }) {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const effectiveThumbnailSize =
@@ -162,6 +164,7 @@ export function CharacterAvatarImage({
       draggable={false}
       className={cn("h-full w-full object-cover", className)}
       style={getAvatarCropStyle(resolveAvatarCrop(crop))}
+      onError={onError}
     />
   );
 }
