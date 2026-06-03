@@ -182,7 +182,6 @@ test("remote managed assets render as Basic Auth blobs and refresh after invalid
       }),
     ).toBe(true);
 
-    await page.screenshot({ fullPage: true, path: "scratch/bug-after-basic-auth-managed-assets.png" });
   } finally {
     await closeServer(assetServer);
   }
