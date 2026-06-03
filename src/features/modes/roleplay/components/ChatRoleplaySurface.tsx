@@ -748,6 +748,10 @@ export function ChatRoleplaySurface({
   const hideEchoChamberOnMobile =
     sidebarOpen || rightPanelOpen || settingsOpen || filesOpen || galleryOpen || wizardOpen;
   const [transcriptWindowStart, setTranscriptWindowStart] = useState<number | null>(null);
+  const previousTailRef = useRef<{ messageId: string | undefined; isStreaming: boolean }>({
+    messageId: undefined,
+    isStreaming: false,
+  });
   const inactiveCharacterIdSet = useMemo(
     () => new Set(metadataStringArray(chatMeta.inactiveCharacterIds)),
     [chatMeta.inactiveCharacterIds],
@@ -764,6 +768,18 @@ export function ChatRoleplaySurface({
     () => getTranscriptRenderWindow(messages, { startIndex: transcriptWindowStart }),
     [messages, transcriptWindowStart],
   );
+  const newestMsgId = messages?.[messages.length - 1]?.id;
+  useEffect(() => {
+    const previousTail = previousTailRef.current;
+    const tailMessageChanged =
+      !!newestMsgId && !!previousTail.messageId && previousTail.messageId !== newestMsgId;
+    const streamingStarted = isStreaming && !previousTail.isStreaming;
+    if (transcriptWindowStart !== null && (tailMessageChanged || streamingStarted)) {
+      setTranscriptWindowStart(null);
+    }
+    previousTailRef.current = { messageId: newestMsgId, isStreaming };
+  }, [isStreaming, newestMsgId, transcriptWindowStart]);
+
   const handleShowOlderMessages = () => {
     if (transcriptWindow.hiddenBeforeCount > 0) {
       setTranscriptWindowStart(Math.max(0, transcriptWindow.startIndex - TRANSCRIPT_RENDER_WINDOW_STEP));

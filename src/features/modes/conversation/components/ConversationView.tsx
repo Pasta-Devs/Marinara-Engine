@@ -506,6 +506,10 @@ export function ConversationView({
   const lastScrollTopRef = useRef(0);
   const userScrolledAtRef = useRef(0);
   const openedAtBottomChatIdRef = useRef<string | null>(null);
+  const previousTailRef = useRef<{ messageId: string | undefined; isStreaming: boolean }>({
+    messageId: undefined,
+    isStreaming: false,
+  });
 
   // ── Scroll tracking ──
   useEffect(() => {
@@ -550,6 +554,17 @@ export function ConversationView({
   // Auto-scroll on new messages / streaming / staggered reveals
   const newestMsgId = messages?.[messages.length - 1]?.id;
   const isOptimistic = newestMsgId?.startsWith("__optimistic_");
+  useEffect(() => {
+    const previousTail = previousTailRef.current;
+    const tailMessageChanged =
+      !!newestMsgId && !!previousTail.messageId && previousTail.messageId !== newestMsgId;
+    const streamingStarted = isStreaming && !previousTail.isStreaming;
+    if (transcriptWindowStart !== null && !isLoadingMoreRef.current && (tailMessageChanged || streamingStarted)) {
+      setTranscriptWindowStart(null);
+    }
+    previousTailRef.current = { messageId: newestMsgId, isStreaming };
+  }, [isStreaming, newestMsgId, transcriptWindowStart]);
+
   useLayoutEffect(() => {
     if (openedAtBottomChatIdRef.current === chatId || !messages?.length || isLoadingMoreRef.current) return;
     const el = scrollRef.current;
