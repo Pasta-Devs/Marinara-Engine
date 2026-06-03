@@ -195,6 +195,7 @@ pub fn run() {
             storage_commands::agent_commands::agent_toggle_by_type,
             storage_commands::agent_commands::agent_cadence_status,
             storage_commands::entity_commands::storage_list,
+            storage_commands::entity_commands::lorebook_entries_list_by_lorebook_ids,
             storage_commands::entity_commands::storage_get,
             storage_commands::entity_commands::storage_create,
             storage_commands::entity_commands::storage_update,

@@ -216,6 +216,47 @@ pub(crate) fn storage_list_inner(
     )))
 }
 
+#[tauri::command]
+pub async fn lorebook_entries_list_by_lorebook_ids(
+    state: State<'_, AppState>,
+    lorebook_ids: Vec<String>,
+) -> Result<Value, AppError> {
+    let state = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        lorebook_entries_list_by_lorebook_ids_inner(&state, lorebook_ids)
+    })
+    .await
+    .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+}
+
+pub(crate) fn lorebook_entries_list_by_lorebook_ids_inner(
+    state: &AppState,
+    lorebook_ids: Vec<String>,
+) -> Result<Value, AppError> {
+    let lorebook_ids: HashSet<String> = lorebook_ids
+        .into_iter()
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty())
+        .collect();
+    if lorebook_ids.is_empty() {
+        return Ok(Value::Array(Vec::new()));
+    }
+    let mut rows = state
+        .storage
+        .list_where_in("lorebook-entries", "lorebookId", &lorebook_ids)?;
+    rows.sort_by(|a, b| {
+        compare_json_values(
+            a.get("sortOrder")
+                .or_else(|| a.get("order"))
+                .or_else(|| a.get("createdAt")),
+            b.get("sortOrder")
+                .or_else(|| b.get("order"))
+                .or_else(|| b.get("createdAt")),
+        )
+    });
+    Ok(Value::Array(rows))
+}
+
 fn message_id_projection_only(options: Option<&Value>) -> bool {
     let Some(options) = options else {
         return false;
@@ -1303,6 +1344,36 @@ mod tests {
         let read = storage_get_inner(&state, "characters".to_string(), "char-1".to_string(), None)
             .expect("supported get should succeed");
         assert_eq!(read["id"], "char-1");
+    }
+
+    #[test]
+    fn lorebook_entries_list_by_lorebook_ids_reads_matching_books_once() {
+        let state = test_state("lorebook-entries-where-in");
+        state
+            .storage
+            .replace_all(
+                "lorebook-entries",
+                vec![
+                    json!({ "id": "entry-b", "lorebookId": "book-b", "content": "B", "order": 2 }),
+                    json!({ "id": "entry-a", "lorebookId": "book-a", "content": "A", "order": 1 }),
+                    json!({ "id": "entry-c", "lorebookId": "book-c", "content": "C", "order": 3 }),
+                ],
+            )
+            .expect("entries should seed");
+
+        let result = lorebook_entries_list_by_lorebook_ids_inner(
+            &state,
+            vec!["book-b".to_string(), "book-a".to_string()],
+        )
+        .expect("batched lorebook entries should read");
+
+        let ids: Vec<_> = result
+            .as_array()
+            .expect("result should be an array")
+            .iter()
+            .filter_map(|row| row.get("id").and_then(Value::as_str))
+            .collect();
+        assert_eq!(ids, vec!["entry-a", "entry-b"]);
     }
 
     #[test]

@@ -100,6 +100,7 @@ const REMOTE_COMMANDS = new Set([
   "agent_toggle_by_type",
   "agent_cadence_status",
   "storage_list",
+  "lorebook_entries_list_by_lorebook_ids",
   "storage_get",
   "storage_create",
   "storage_update",
