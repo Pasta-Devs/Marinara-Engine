@@ -1924,9 +1924,14 @@ mod tests {
         assert!(asset_headers.get(header::CACHE_CONTROL).is_none());
     }
 
-    #[test]
-    fn api_body_size_rejects_oversized_unsafe_api_requests() {
-        for path in ["/api/invoke", "/api/import/st-bulk/run", "/api/llm/stream"] {
+    #[tokio::test]
+    async fn api_body_size_rejects_oversized_unsafe_api_requests() {
+        for path in [
+            "/api/invoke",
+            "/api/import/st-bulk/run",
+            "/api/sidecar/v1/embeddings",
+            "/api/llm/stream",
+        ] {
             let request = request(
                 Method::POST,
                 path,
@@ -1937,13 +1942,21 @@ mod tests {
             let response = reject_oversized_api_body(&request)
                 .unwrap_or_else(|| panic!("{path} should reject oversized API bodies"));
             assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+            let cache_control = response
+                .headers()
+                .get(header::CACHE_CONTROL)
+                .and_then(|value| value.to_str().ok())
+                .map(ToOwned::to_owned);
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .expect("oversized body response should be readable");
+            let payload: Value =
+                serde_json::from_slice(&bytes).expect("oversized body response should be JSON");
             assert_eq!(
-                response
-                    .headers()
-                    .get(header::CACHE_CONTROL)
-                    .and_then(|value| value.to_str().ok()),
-                Some("no-store")
+                payload.get("code").and_then(Value::as_str),
+                Some("request_body_too_large")
             );
+            assert_eq!(cache_control.as_deref(), Some("no-store"));
         }
     }
 
