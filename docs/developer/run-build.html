@@ -289,11 +289,14 @@ MARINARA_DATA_DIR=/path/to/data</code></pre>
         <pre><code>http://127.0.0.1:8787</code></pre>
         <p>
           Compose stores <code>/data</code> in the existing
-          <code>marinara-server-data</code> named volume by default. To verify
-          migration against app data, copy that data into a throwaway host
-          folder and set <code>MARINARA_HOST_DATA_DIR</code> to the copy before
-          starting Compose so the container and host share the same data tree
-          without rewriting live desktop data.
+          Compose-managed <code>marinara-server-data</code> volume by default.
+          To verify migration against app data, copy that data into a throwaway
+          host folder and set <code>MARINARA_HOST_DATA_DIR</code> to the copy
+          before starting Compose so the container and host share the same data
+          tree without rewriting live desktop data. If you already tested with a
+          host folder such as <code>.docker-marinara-data/</code>, set
+          <code>MARINARA_HOST_DATA_DIR=./.docker-marinara-data</code> to keep
+          using that folder.
         </p>
         <p>
           The default Compose port binding is limited to <code>127.0.0.1</code>. For LAN or
