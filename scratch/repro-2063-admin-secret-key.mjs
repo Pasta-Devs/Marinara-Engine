@@ -23,11 +23,32 @@ function makeStorage(entries = {}) {
   };
 }
 
+function makeThrowingStorage(entries = {}, throws = {}) {
+  const storage = makeStorage(entries);
+  return {
+    ...storage,
+    setItem(key, value) {
+      if (throws.setItem) throw new Error("setItem blocked");
+      storage.setItem(key, value);
+    },
+    removeItem(key) {
+      if (throws.removeItem) throw new Error("removeItem blocked");
+      storage.removeItem(key);
+    },
+  };
+}
+
 const helperExports = {};
 const helperContext = { exports: helperExports };
 
 function installStorage(entries) {
   const localStorage = makeStorage(entries);
+  helperContext.window = { localStorage };
+  return localStorage;
+}
+
+function installThrowingStorage(entries, throws) {
+  const localStorage = makeThrowingStorage(entries, throws);
   helperContext.window = { localStorage };
   return localStorage;
 }
@@ -72,6 +93,12 @@ storage = installStorage({ [currentKey]: " current-secret ", [legacyKey]: "legac
 assert(readAdminSecretStorage() === "current-secret", "current key should take precedence when both keys exist");
 assert(storage.getItem(currentKey) === " current-secret ", "read should not rewrite an existing current key");
 assert(storage.getItem(legacyKey) === null, "read should clean stale legacy data when current exists");
+
+storage = installThrowingStorage({ [currentKey]: "current-secret", [legacyKey]: "legacy-secret" }, { removeItem: true });
+assert(readAdminSecretStorage() === "current-secret", "current read should survive failed legacy cleanup");
+
+storage = installThrowingStorage({ [legacyKey]: "legacy-secret" }, { setItem: true });
+assert(readAdminSecretStorage() === "legacy-secret", "legacy read should survive failed migration write");
 
 storage = installStorage({ [legacyKey]: "legacy-secret" });
 writeAdminSecretStorage(" saved-secret ");

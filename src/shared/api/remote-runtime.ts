@@ -272,19 +272,29 @@ export function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): Heade
   };
 }
 
+function tryWriteAdminSecretStorage(write: () => void): void {
+  try {
+    write();
+  } catch {
+    // Reading a usable Admin Access value should not depend on best-effort key migration.
+  }
+}
+
 export function readAdminSecretStorage(): string {
   if (typeof window === "undefined") return "";
   const current = window.localStorage.getItem(ADMIN_SECRET_STORAGE_KEY)?.trim() ?? "";
   if (current) {
-    window.localStorage.removeItem(LEGACY_ADMIN_SECRET_STORAGE_KEY);
+    tryWriteAdminSecretStorage(() => window.localStorage.removeItem(LEGACY_ADMIN_SECRET_STORAGE_KEY));
     return current;
   }
 
   const legacy = window.localStorage.getItem(LEGACY_ADMIN_SECRET_STORAGE_KEY)?.trim() ?? "";
   if (!legacy) return "";
 
-  window.localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, legacy);
-  window.localStorage.removeItem(LEGACY_ADMIN_SECRET_STORAGE_KEY);
+  tryWriteAdminSecretStorage(() => {
+    window.localStorage.setItem(ADMIN_SECRET_STORAGE_KEY, legacy);
+    window.localStorage.removeItem(LEGACY_ADMIN_SECRET_STORAGE_KEY);
+  });
   return legacy;
 }
 

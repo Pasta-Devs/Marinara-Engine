@@ -22,13 +22,15 @@
     "originalReproPassed": true,
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after rebase onto current origin/refactor",
+    "baselineEvidence": "pnpm check passed after Bunny storage-mutation fix",
     "edgeCases": {
       "0": "Legacy-only localStorage value is trimmed, returned, migrated to marinara-admin-secret, and legacy key removed",
       "1": "Current key wins when both current and legacy keys exist; stale legacy key is removed",
       "2": "Saving a nonblank Admin Access value trims it, writes the current key, and removes the legacy key",
       "3": "Saving blank Admin Access clears both current and legacy keys",
-      "4": "No-window/server-side read returns empty"
+      "4": "No-window/server-side read returns empty",
+      "5": "Current-key read survives failed legacy cleanup removeItem",
+      "6": "Legacy-only read returns the secret even if migration setItem throws"
     },
     "visualProof": "scratch/repro-2063-output.txt"
   },
@@ -38,7 +40,8 @@
     "1": "No local 2063 branch/worktree existed before worktree creation",
     "2": "Proof gate helper unavailable at C:\\Users\\celia\\.codex\\tools\\marinara-proof-gate.mjs",
     "3": "Rebased cleanly onto current origin/refactor before push",
-    "4": "PR body marks Feature Discoverability as N/A with reason for PR-aware discovery CI"
+    "4": "PR body marks Feature Discoverability as N/A with reason for PR-aware discovery CI",
+    "5": "Addressed Bunny finding: legacy read can fail on migration write"
   },
   "riskClaimMatrix": {
     "coreClaim": "Refactor web shell reads and migrates legacy Admin Access browser storage without requiring users to re-enter the secret.",
