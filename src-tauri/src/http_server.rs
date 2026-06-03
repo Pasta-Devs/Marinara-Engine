@@ -829,6 +829,23 @@ fn is_storage_unavailable_io_error(error: &AppError) -> bool {
         .to_ascii_lowercase();
     let message = error.message.to_ascii_lowercase();
 
+    let storage_unavailable_message = [
+        "permission denied",
+        "read-only",
+        "read only",
+        "readonly",
+        "database is locked",
+        "database is busy",
+        "resource busy",
+        "storage is unavailable",
+        "storage full",
+        "no space left on device",
+        "disk full",
+        "quota exceeded",
+    ]
+    .iter()
+    .any(|needle| message.contains(needle));
+
     matches!(
         details.as_str(),
         "permission denied"
@@ -840,12 +857,7 @@ fn is_storage_unavailable_io_error(error: &AppError) -> bool {
             | "storage full"
             | "quota exceeded"
             | "write zero"
-    ) || message.contains("read-only")
-        || message.contains("readonly")
-        || message.contains("database is locked")
-        || message.contains("database is busy")
-        || message.contains("resource busy")
-        || message.contains("storage is unavailable")
+    ) || storage_unavailable_message
 }
 
 #[derive(Debug, Clone)]
@@ -1554,6 +1566,15 @@ mod tests {
         let response = HttpError::from(error).into_response();
 
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn message_only_storage_io_errors_map_to_storage_unavailable_http_status() {
+        for message in ["Permission denied", "No space left on device"] {
+            let response = HttpError::from(AppError::new("io_error", message)).into_response();
+
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        }
     }
 
     #[test]
