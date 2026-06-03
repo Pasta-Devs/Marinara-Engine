@@ -35,7 +35,12 @@ import {
   chatKeys,
 } from "../../../catalog/chats/index";
 import { characterKeys } from "../../../catalog/characters/index";
-import { personaKeys, useActivePersona, usePersona, useUpdatePersona } from "../../../catalog/personas/index";
+import {
+  personaKeys,
+  useActivePersonaSummary,
+  usePersonaSummary,
+  useUpdatePersona,
+} from "../../../catalog/personas/index";
 import {
   matchSlashCommand,
   getSlashCompletions,
@@ -238,8 +243,8 @@ export function ConversationInput({
   const updateMessageExtra = useUpdateMessageExtra(activeChatId);
   const activeChatPersonaId =
     typeof activeChat?.personaId === "string" && activeChat.personaId.trim() ? activeChat.personaId.trim() : null;
-  const { data: chatPersona } = usePersona(activeChatPersonaId, !!activeChatPersonaId);
-  const { data: fallbackPersona } = useActivePersona(!activeChatPersonaId && activeChat?.mode !== "game");
+  const { data: chatPersona } = usePersonaSummary(activeChatPersonaId, !!activeChatPersonaId);
+  const { data: fallbackPersona } = useActivePersonaSummary(!activeChatPersonaId && activeChat?.mode !== "game");
   const updatePersona = useUpdatePersona();
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);

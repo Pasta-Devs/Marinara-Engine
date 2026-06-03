@@ -1042,7 +1042,8 @@ fn delete_cleanup_needs_existing_record(cleanup: &contracts::DeleteCleanup) -> b
 
 fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
     match entity {
-        "characters" | "personas" => avatars::remove_avatar_file(state, entity, record),
+        "characters" => avatars::remove_avatar_file(state, entity, record),
+        "personas" => avatars::remove_avatar_file_preserving_persona_snapshots(state, entity, record),
         "lorebooks" => lorebook_images::remove_lorebook_image_file(state, record),
         "gallery" | "character-gallery" => remove_gallery_file(state, record),
         _ => {}

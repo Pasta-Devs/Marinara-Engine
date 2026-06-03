@@ -46,6 +46,8 @@ function personaSnapshotFromRecord(value: unknown): PersonaMessageSnapshot | nul
       optionalString(field(value, data, "avatarPath")) ??
       optionalString(field(value, data, "avatarUrl")) ??
       optionalString(field(value, data, "avatar")),
+    avatarFilePath: optionalString(field(value, data, "avatarFilePath")),
+    avatarFilename: optionalString(field(value, data, "avatarFilename")),
     avatarCrop: avatarCropSnapshot(field(value, data, "avatarCrop")),
     nameColor: optionalString(field(value, data, "nameColor")),
     dialogueColor: optionalString(field(value, data, "dialogueColor")),

@@ -17,12 +17,15 @@ vi.mock("../../../../catalog/chats/index", () => ({
 
 vi.mock("../../../../catalog/characters/index", () => ({
   characterAvatarUrl: () => null,
+  useCharacterSummariesByIds: () => ({ data: [] }),
   useCharactersByIds: () => ({ data: [] }),
 }));
 
 vi.mock("../../../../catalog/personas/index", () => ({
   useActivePersona: () => ({ data: undefined }),
+  useActivePersonaSummary: () => ({ data: undefined }),
   usePersona: () => ({ data: undefined }),
+  usePersonaSummary: () => ({ data: undefined }),
 }));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

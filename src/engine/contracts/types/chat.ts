@@ -428,6 +428,8 @@ export interface MessageExtra {
     appearance?: string | null;
     scenario?: string | null;
     avatarUrl?: string | null;
+    avatarFilePath?: string | null;
+    avatarFilename?: string | null;
     /** JSON-encoded AvatarCrop captured at send time so re-edits don't restyle past messages. */
     avatarCrop?: string | null;
     nameColor?: string | null;

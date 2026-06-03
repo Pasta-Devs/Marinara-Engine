@@ -17,6 +17,8 @@ export type PersonaSummary = {
   scenario?: string;
   backstory?: string;
   appearance?: string;
+  altDescriptions?: Array<{ active?: boolean; content?: string }>;
+  savedStatusOptions?: string | string[] | null;
   tags?: string[];
   avatarPath?: string | null;
   avatarFilePath?: string | null;
@@ -32,6 +34,9 @@ export type PersonaSummary = {
 
 const PERSONA_SUMMARY_OPTIONS = {
   fields: [...PERSONA_SUMMARY_FIELDS],
+};
+const PERSONA_CHAT_SUMMARY_OPTIONS = {
+  fields: [...PERSONA_SUMMARY_FIELDS, "altDescriptions", "savedStatusOptions"],
 };
 
 function personaIsActive(persona: PersonaSummary): boolean {
@@ -62,9 +67,19 @@ async function getPersona(id: string): Promise<unknown> {
   return normalizePersonaAvatarFields(await storageApi.get<unknown>("personas", id));
 }
 
+async function getPersonaSummary(id: string): Promise<PersonaSummary | null> {
+  const persona = await storageApi.get<PersonaSummary | null>("personas", id, PERSONA_CHAT_SUMMARY_OPTIONS);
+  return persona ? normalizePersonaAvatarFields(persona) : null;
+}
+
 async function listPersonaSummaries(): Promise<PersonaSummary[]> {
   const personas = await storageApi.list<PersonaSummary>("personas", PERSONA_SUMMARY_OPTIONS);
   return personas.map(normalizePersonaAvatarFields);
+}
+
+async function getActivePersonaSummary(): Promise<PersonaSummary | null> {
+  const activePersona = (await listPersonaSummaries()).find(personaIsActive);
+  return activePersona?.id ? getPersonaSummary(activePersona.id) : null;
 }
 
 export function usePersonas(enabled = true) {
@@ -87,6 +102,16 @@ export function usePersonaSummaries(enabled = true) {
   });
 }
 
+export function usePersonaSummary(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: personaKeys.summaryDetail(id ?? ""),
+    queryFn: () => getPersonaSummary(id!),
+    enabled: enabled && !!id,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
 export function usePersona(id: string | null, enabled = true) {
   return useQuery({
     queryKey: personaKeys.detail(id ?? ""),
@@ -97,13 +122,10 @@ export function usePersona(id: string | null, enabled = true) {
   });
 }
 
-export function useActivePersona(enabled = true) {
+export function useActivePersonaSummary(enabled = true) {
   return useQuery({
-    queryKey: personaKeys.active,
-    queryFn: async () => {
-      const activePersona = (await listPersonaSummaries()).find(personaIsActive);
-      return activePersona?.id ? getPersona(activePersona.id) : null;
-    },
+    queryKey: personaKeys.activeSummary,
+    queryFn: getActivePersonaSummary,
     enabled,
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -113,6 +135,7 @@ export function useActivePersona(enabled = true) {
 export function invalidatePersonaCollectionQueries(queryClient: Pick<QueryClient, "invalidateQueries">): void {
   queryClient.invalidateQueries({ queryKey: personaKeys.list, exact: true });
   queryClient.invalidateQueries({ queryKey: personaKeys.summaries, exact: true });
+  queryClient.invalidateQueries({ queryKey: personaKeys.activeSummary, exact: true });
 }
 
 export function useCreatePersona() {
@@ -186,7 +209,7 @@ export function useUpdatePersona() {
       invalidatePersonaCollectionQueries(qc);
       qc.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.summaryDetail(variables.id) });
-      qc.invalidateQueries({ queryKey: personaKeys.active });
+      qc.invalidateQueries({ queryKey: personaKeys.activeSummary });
     },
   });
 }
@@ -199,7 +222,7 @@ export function useDeletePersona() {
       qc.removeQueries({ queryKey: personaKeys.detail(id) });
       qc.removeQueries({ queryKey: personaKeys.summaryDetail(id) });
       invalidatePersonaCollectionQueries(qc);
-      qc.invalidateQueries({ queryKey: personaKeys.active });
+      qc.invalidateQueries({ queryKey: personaKeys.activeSummary });
     },
   });
 }
@@ -220,7 +243,7 @@ export function useActivatePersona() {
     mutationFn: (id: string) => personaApi.activate(id),
     onSuccess: () => {
       invalidatePersonaCollectionQueries(qc);
-      qc.invalidateQueries({ queryKey: personaKeys.active });
+      qc.invalidateQueries({ queryKey: personaKeys.activeSummary });
     },
   });
 }
@@ -234,7 +257,7 @@ export function useUploadPersonaAvatar() {
       invalidatePersonaCollectionQueries(qc);
       qc.invalidateQueries({ queryKey: personaKeys.detail(variables.id) });
       qc.invalidateQueries({ queryKey: personaKeys.summaryDetail(variables.id) });
-      qc.invalidateQueries({ queryKey: personaKeys.active });
+      qc.invalidateQueries({ queryKey: personaKeys.activeSummary });
     },
   });
 }

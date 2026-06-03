@@ -6,8 +6,8 @@ import {
   type Chat,
   type ChatMode,
 } from "../../../../catalog/chats/index";
-import { characterAvatarUrl, useCharactersByIds } from "../../../../catalog/characters/index";
-import { useActivePersona, usePersona } from "../../../../catalog/personas/index";
+import { characterAvatarUrl, useCharacterSummariesByIds } from "../../../../catalog/characters/index";
+import { useActivePersonaSummary, usePersonaSummary } from "../../../../catalog/personas/index";
 import { ApiError } from "../../../../../shared/api/api-errors";
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../../../../shared/lib/chat-display";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
@@ -46,6 +46,8 @@ type PersonaRow = {
   appearance?: string;
   altDescriptions?: Array<{ active?: boolean; content?: string }>;
   avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   avatarCrop?: string;
   nameColor?: string;
   dialogueColor?: string;
@@ -163,6 +165,8 @@ function buildPersonaInfo(persona: PersonaRow | null | undefined): PersonaInfo |
     backstory: persona.backstory || undefined,
     appearance: persona.appearance || undefined,
     avatarUrl: persona.avatarPath || undefined,
+    avatarFilePath: persona.avatarFilePath ?? null,
+    avatarFilename: persona.avatarFilename ?? null,
     avatarCrop: parseAvatarCropJson(persona.avatarCrop),
     nameColor: persona.nameColor || undefined,
     dialogueColor: persona.dialogueColor || undefined,
@@ -261,7 +265,7 @@ export function useChatSurfaceData({
     () => normalizeIds([...chatCharIds, ...extractMessageCharacterIds(messages), ...collectGameCharacterIds(chatMeta)]),
     [chatCharIds, chatMeta, messages],
   );
-  const { data: characterRows } = useCharactersByIds(neededCharacterIds, neededCharacterIds.length > 0);
+  const { data: characterRows } = useCharacterSummariesByIds(neededCharacterIds, neededCharacterIds.length > 0);
   const characterMap: CharacterMap = useMemo(() => {
     const map: CharacterMap = new Map();
     for (const character of (characterRows ?? []) as CharacterRow[]) {
@@ -310,8 +314,8 @@ export function useChatSurfaceData({
     typeof (chat as unknown as { personaId?: unknown } | null | undefined)?.personaId === "string"
       ? (chat as unknown as { personaId: string }).personaId.trim() || null
       : null;
-  const { data: chatPersona } = usePersona(chatPersonaId, !!chatPersonaId);
-  const { data: activePersona } = useActivePersona(personaFallback === "active-persona" && !chatPersonaId);
+  const { data: chatPersona } = usePersonaSummary(chatPersonaId, !!chatPersonaId);
+  const { data: activePersona } = useActivePersonaSummary(personaFallback === "active-persona" && !chatPersonaId);
   const personaInfo = useMemo(
     () => buildPersonaInfo((chatPersona ?? activePersona) as PersonaRow | null | undefined),
     [activePersona, chatPersona],
