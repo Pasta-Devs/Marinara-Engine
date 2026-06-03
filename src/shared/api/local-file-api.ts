@@ -17,7 +17,11 @@ type RemoteAssetObjectUrlEntry = {
   objectUrl?: string;
 };
 
+const REMOTE_MANAGED_ASSET_INVALIDATION_QUERY = "mriAssetV";
 const remoteAssetObjectUrls = new Map<string, RemoteAssetObjectUrlEntry>();
+const remoteAssetInvalidationVersions = new Map<string, number>();
+let remoteAssetInvalidationVersion = 0;
+let remoteAssetGlobalInvalidationVersion = 0;
 const pendingAvatarThumbnailResolutions = new Map<string, Promise<string | null>>();
 let activeAvatarThumbnailResolutions = 0;
 const queuedAvatarThumbnailResolutions: Array<() => void> = [];
@@ -70,7 +74,7 @@ function filePathToAssetUrl(path: string | null | undefined): string {
   }
 }
 
-type RemoteManagedAssetKind =
+export type RemoteManagedAssetKind =
   | "avatar"
   | "avatar-thumbnail"
   | "background"
@@ -80,13 +84,8 @@ type RemoteManagedAssetKind =
   | "lorebook"
   | "sprite";
 
-function remoteManagedAsset(
-  kind: RemoteManagedAssetKind,
-  path: string | null | undefined,
-  query?: string,
-): RemoteManagedAsset | null {
-  const target = remoteRuntimeTarget();
-  if (!target || !path?.trim()) return null;
+function remoteManagedAssetPath(path: string | null | undefined): string | null {
+  if (!path?.trim()) return null;
   const encodedPath = path
     .replace(/\\/g, "/")
     .split("/")
@@ -94,7 +93,52 @@ function remoteManagedAsset(
     .filter((segment) => segment && segment !== "." && segment !== "..")
     .map(encodeURIComponent)
     .join("/");
-  const querySuffix = query ? `?${query}` : "";
+  return encodedPath || null;
+}
+
+function nextRemoteAssetInvalidationVersion(): number {
+  remoteAssetInvalidationVersion += 1;
+  if (!Number.isSafeInteger(remoteAssetInvalidationVersion)) {
+    remoteAssetInvalidationVersion = 1;
+  }
+  return remoteAssetInvalidationVersion;
+}
+
+function remoteAssetKindVersionKey(kind: RemoteManagedAssetKind): string {
+  return `kind:${kind}`;
+}
+
+function remoteAssetPathVersionKey(kind: RemoteManagedAssetKind, encodedPath: string): string {
+  return `path:${kind}:${encodedPath}`;
+}
+
+function remoteManagedAssetInvalidationVersion(kind: RemoteManagedAssetKind, encodedPath: string): number {
+  return Math.max(
+    remoteAssetGlobalInvalidationVersion,
+    remoteAssetInvalidationVersions.get(remoteAssetKindVersionKey(kind)) ?? 0,
+    remoteAssetInvalidationVersions.get(remoteAssetPathVersionKey(kind, encodedPath)) ?? 0,
+  );
+}
+
+function mergeQueryParts(...parts: Array<string | undefined>): string | undefined {
+  const query = parts.filter((part): part is string => Boolean(part)).join("&");
+  return query || undefined;
+}
+
+function remoteManagedAsset(
+  kind: RemoteManagedAssetKind,
+  path: string | null | undefined,
+  query?: string,
+): RemoteManagedAsset | null {
+  const target = remoteRuntimeTarget();
+  const encodedPath = remoteManagedAssetPath(path);
+  if (!target || !encodedPath) return null;
+  const invalidationVersion = remoteManagedAssetInvalidationVersion(kind, encodedPath);
+  const invalidationQuery = invalidationVersion
+    ? `${REMOTE_MANAGED_ASSET_INVALIDATION_QUERY}=${invalidationVersion}`
+    : undefined;
+  const mergedQuery = mergeQueryParts(query, invalidationQuery);
+  const querySuffix = mergedQuery ? `?${mergedQuery}` : "";
   return encodedPath ? { url: `${target.baseUrl}/api/assets/${kind}/${encodedPath}${querySuffix}`, target } : null;
 }
 
@@ -177,10 +221,18 @@ function deleteRemoteAssetObjectUrl(cacheKey: string): void {
 export function invalidateRemoteManagedAssetObjectUrls(kind?: RemoteManagedAssetKind, path?: string | null): void {
   if (kind && path) {
     const asset = remoteManagedAsset(kind, path);
+    const encodedPath = remoteManagedAssetPath(path);
+    if (encodedPath) {
+      remoteAssetInvalidationVersions.set(
+        remoteAssetPathVersionKey(kind, encodedPath),
+        nextRemoteAssetInvalidationVersion(),
+      );
+    }
     if (asset) deleteRemoteAssetObjectUrl(remoteManagedAssetCacheKey(asset));
     return;
   }
   if (kind) {
+    remoteAssetInvalidationVersions.set(remoteAssetKindVersionKey(kind), nextRemoteAssetInvalidationVersion());
     const routeMarker = `/api/assets/${kind}/`;
     for (const cacheKey of [...remoteAssetObjectUrls.keys()]) {
       if (cacheKey.includes(routeMarker)) {
@@ -190,9 +242,21 @@ export function invalidateRemoteManagedAssetObjectUrls(kind?: RemoteManagedAsset
     return;
   }
 
+  remoteAssetGlobalInvalidationVersion = nextRemoteAssetInvalidationVersion();
   for (const cacheKey of [...remoteAssetObjectUrls.keys()]) {
     deleteRemoteAssetObjectUrl(cacheKey);
   }
+}
+
+export async function invalidateRemoteManagedAssetObjectUrlsAfter<T>(
+  operation: Promise<T>,
+  kinds: RemoteManagedAssetKind | RemoteManagedAssetKind[],
+): Promise<T> {
+  const result = await operation;
+  for (const kind of Array.isArray(kinds) ? kinds : [kinds]) {
+    invalidateRemoteManagedAssetObjectUrls(kind);
+  }
+  return result;
 }
 
 function filenameFromPath(path: string | null | undefined): string | null {
@@ -252,11 +316,7 @@ function inlineImageDataUrl(value: string | null | undefined): string | null {
 }
 
 function inlineAvatarThumbnailRemotePath(path: string | null | undefined, size: number): string | null {
-  const filename = path
-    ?.replace(/\\/g, "/")
-    .split("/")
-    .filter(Boolean)
-    .pop();
+  const filename = path?.replace(/\\/g, "/").split("/").filter(Boolean).pop();
   if (!filename || !/^[a-f0-9]{64}\.thumb\.png$/i.test(filename)) return null;
   return `${size}/inline/${filename}`;
 }
@@ -475,11 +535,13 @@ export async function resolveAvatarThumbnailFileUrl(
     return filePathToAssetUrl(response.path ?? "");
   });
   pendingAvatarThumbnailResolutions.set(cacheKey, promise);
-  promise.finally(() => {
-    if (pendingAvatarThumbnailResolutions.get(cacheKey) === promise) {
-      pendingAvatarThumbnailResolutions.delete(cacheKey);
-    }
-  }).catch(() => {});
+  promise
+    .finally(() => {
+      if (pendingAvatarThumbnailResolutions.get(cacheKey) === promise) {
+        pendingAvatarThumbnailResolutions.delete(cacheKey);
+      }
+    })
+    .catch(() => {});
   return promise;
 }
 

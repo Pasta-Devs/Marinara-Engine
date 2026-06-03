@@ -1,4 +1,5 @@
 import { invokeTauri } from "./tauri-client";
+import { invalidateRemoteManagedAssetObjectUrlsAfter } from "./local-file-api";
 
 export interface LorebookVectorizeInput {
   connectionId?: string;
@@ -9,7 +10,10 @@ export interface LorebookVectorizeInput {
 
 export const lorebookCommandApi = {
   uploadImage: <T = unknown>(id: string, image: string, filename?: string) =>
-    invokeTauri<T>("lorebook_image_upload", { id, body: { image, filename } }),
+    invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri<T>("lorebook_image_upload", { id, body: { image, filename } }),
+      "lorebook",
+    ),
   vectorize: <T = unknown>(id: string, body: LorebookVectorizeInput) =>
     invokeTauri<T>("lorebook_vectorize", { id, body }),
 };

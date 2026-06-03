@@ -1,7 +1,7 @@
 import { fileToUploadPayload, GAME_ASSET_SIZE_ERROR } from "./file-payload";
 import { MAX_FILE_SIZES } from "../../engine/contracts/constants/defaults";
 import { invokeTauri } from "./tauri-client";
-import { invalidateRemoteManagedAssetObjectUrls } from "./local-file-api";
+import { invalidateRemoteManagedAssetObjectUrlsAfter } from "./local-file-api";
 
 interface GameAssetFileInfo {
   name: string;
@@ -27,7 +27,7 @@ async function uploadGameAsset({
   category: string;
   subcategory?: string;
 }) {
-  return invalidateGameAssetObjectUrlsAfter(
+  return invalidateRemoteManagedAssetObjectUrlsAfter(
     invokeTauri("game_assets_upload", {
       body: {
         category,
@@ -38,13 +38,8 @@ async function uploadGameAsset({
         }),
       },
     }),
+    "game",
   );
-}
-
-async function invalidateGameAssetObjectUrlsAfter<T>(operation: Promise<T>): Promise<T> {
-  const result = await operation;
-  invalidateRemoteManagedAssetObjectUrls("game");
-  return result;
 }
 
 const gameAssetCommands = {
@@ -53,33 +48,38 @@ const gameAssetCommands = {
   list: (path?: string) => invokeTauri<unknown[]>("game_assets_list", { path: path ?? null }),
   createFolder: (path: string) => invokeTauri("game_assets_create_folder", { path }),
   deleteFolder: (path: string, recursive?: boolean) =>
-    invalidateGameAssetObjectUrlsAfter(
+    invalidateRemoteManagedAssetObjectUrlsAfter(
       invokeTauri("game_assets_delete_folder", { path, recursive: recursive ?? false }),
+      "game",
     ),
   rename: (path: string, newName: string) =>
-    invalidateGameAssetObjectUrlsAfter(invokeTauri("game_assets_rename", { path, newName })),
+    invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri("game_assets_rename", { path, newName }), "game"),
   move: (path: string, targetFolder: string) =>
-    invalidateGameAssetObjectUrlsAfter(invokeTauri("game_assets_move", { path, targetFolder })),
+    invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri("game_assets_move", { path, targetFolder }), "game"),
   copy: (path: string, targetFolder: string) => invokeTauri("game_assets_copy", { path, targetFolder }),
   deleteFile: (path: string) =>
-    invalidateGameAssetObjectUrlsAfter(invokeTauri<void>("game_assets_delete_file", { path })),
+    invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri<void>("game_assets_delete_file", { path }), "game"),
   openFolder: (subfolder?: string) => invokeTauri<void>("game_assets_open_folder", { subfolder: subfolder ?? null }),
-  rescan: () => invalidateGameAssetObjectUrlsAfter(invokeTauri("game_assets_rescan")),
+  rescan: () => invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri("game_assets_rescan"), "game"),
   upload: uploadGameAsset,
   updateFolderDescription: (path: string, description: string) =>
     invokeTauri("game_assets_folder_description", { path, description }),
   readText: <T = { content: string }>(path: string) => invokeTauri<T>("game_assets_read_text", { path }),
   writeText: (path: string, content: string) =>
-    invalidateGameAssetObjectUrlsAfter(invokeTauri<void>("game_assets_write_text", { path, content })),
+    invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri<void>("game_assets_write_text", { path, content }), "game"),
   fileInfo: (path: string) => invokeTauri<GameAssetFileInfo>("game_assets_file_info", { path }),
   moveBulk: (paths: string[], targetFolder: string) =>
-    invalidateGameAssetObjectUrlsAfter(
+    invalidateRemoteManagedAssetObjectUrlsAfter(
       invokeTauri<BulkOperationResult & { targetFolder: string }>("game_assets_move_bulk", { paths, targetFolder }),
+      "game",
     ),
   copyBulk: (paths: string[], targetFolder: string) =>
     invokeTauri<BulkOperationResult & { targetFolder: string }>("game_assets_copy_bulk", { paths, targetFolder }),
   deleteBulk: (paths: string[]) =>
-    invalidateGameAssetObjectUrlsAfter(invokeTauri<BulkOperationResult>("game_assets_delete_bulk", { paths })),
+    invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri<BulkOperationResult>("game_assets_delete_bulk", { paths }),
+      "game",
+    ),
 };
 
 export const gameAssetsApi = {

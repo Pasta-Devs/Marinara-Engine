@@ -1,6 +1,6 @@
 import { invokeTauri } from "./tauri-client";
 import { fileToUploadPayload, IMAGE_UPLOAD_SIZE_ERROR, MAX_IMAGE_UPLOAD_BYTES } from "./file-payload";
-import { resolveSpriteFileUrl } from "./local-file-api";
+import { invalidateRemoteManagedAssetObjectUrlsAfter, resolveSpriteFileUrl } from "./local-file-api";
 
 export type SpriteOwnerType = "character" | "persona";
 
@@ -92,7 +92,7 @@ export const spriteApi = {
   upload: async <T = unknown>(characterId: string, body: Record<string, unknown>, options?: SpriteOwnerOptions) => {
     const owner = spriteOwnerArgs(characterId, options);
     return resolveSpriteResponse(
-      await invokeTauri<T>("sprite_upload", { ...owner, body }),
+      await invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri<T>("sprite_upload", { ...owner, body }), "sprite"),
       owner.characterId,
       owner.ownerType,
     );
@@ -100,13 +100,19 @@ export const spriteApi = {
   bulkUpload: async <T = unknown>(characterId: string, body: Record<string, unknown>, options?: SpriteOwnerOptions) => {
     const owner = spriteOwnerArgs(characterId, options);
     return resolveSpriteResponse(
-      await invokeTauri<T>("sprite_upload_bulk", { ...owner, body }),
+      await invalidateRemoteManagedAssetObjectUrlsAfter(
+        invokeTauri<T>("sprite_upload_bulk", { ...owner, body }),
+        "sprite",
+      ),
       owner.characterId,
       owner.ownerType,
     );
   },
   delete: <T = unknown>(characterId: string, expression: string, options?: SpriteOwnerOptions) =>
-    invokeTauri<T>("sprite_delete", { ...spriteOwnerArgs(characterId, options), expression }),
+    invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri<T>("sprite_delete", { ...spriteOwnerArgs(characterId, options), expression }),
+      "sprite",
+    ),
   cleanupSaved: async <T = unknown>(
     characterId: string,
     body: Record<string, unknown>,
@@ -114,7 +120,10 @@ export const spriteApi = {
   ) => {
     const owner = spriteOwnerArgs(characterId, options);
     return resolveSpriteResponse(
-      await invokeTauri<T>("sprite_cleanup_saved", { ...owner, body }),
+      await invalidateRemoteManagedAssetObjectUrlsAfter(
+        invokeTauri<T>("sprite_cleanup_saved", { ...owner, body }),
+        "sprite",
+      ),
       owner.characterId,
       owner.ownerType,
     );
@@ -126,7 +135,10 @@ export const spriteApi = {
   ) => {
     const owner = spriteOwnerArgs(characterId, options);
     return resolveSpriteResponse(
-      await invokeTauri<T>("sprite_cleanup_restore", { ...owner, body }),
+      await invalidateRemoteManagedAssetObjectUrlsAfter(
+        invokeTauri<T>("sprite_cleanup_restore", { ...owner, body }),
+        "sprite",
+      ),
       owner.characterId,
       owner.ownerType,
     );
@@ -146,13 +158,19 @@ export const galleryApi = {
       maxBytes: MAX_IMAGE_UPLOAD_BYTES,
       tooLargeMessage: IMAGE_UPLOAD_SIZE_ERROR,
     });
-    return invokeTauri<T>("character_gallery_upload", { characterId, body: { file: payload } });
+    return invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri<T>("character_gallery_upload", { characterId, body: { file: payload } }),
+      "gallery",
+    );
   },
   uploadChat: async <T = unknown>(chatId: string, file: File) => {
     const payload = await fileToUploadPayload(file, {
       maxBytes: MAX_IMAGE_UPLOAD_BYTES,
       tooLargeMessage: IMAGE_UPLOAD_SIZE_ERROR,
     });
-    return invokeTauri<T>("chat_gallery_upload", { chatId, body: { file: payload } });
+    return invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri<T>("chat_gallery_upload", { chatId, body: { file: payload } }),
+      "gallery",
+    );
   },
 };

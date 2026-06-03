@@ -1,5 +1,6 @@
 import { fileToUploadPayload, IMAGE_UPLOAD_SIZE_ERROR, MAX_IMAGE_UPLOAD_BYTES } from "./file-payload";
 import { invokeTauri } from "./tauri-client";
+import { invalidateRemoteManagedAssetObjectUrlsAfter } from "./local-file-api";
 
 export const fontsApi = {
   list: <T = unknown>() => invokeTauri<T>("fonts_list"),
@@ -15,10 +16,15 @@ export const backgroundsApi = {
       maxBytes: MAX_IMAGE_UPLOAD_BYTES,
       tooLargeMessage: IMAGE_UPLOAD_SIZE_ERROR,
     });
-    return invokeTauri<T>("background_upload", { body: { file: payload } });
+    return invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri<T>("background_upload", { body: { file: payload } }),
+      "background",
+    );
   },
-  delete: <T = unknown>(filename: string) => invokeTauri<T>("background_delete", { filename }),
+  delete: <T = unknown>(filename: string) =>
+    invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri<T>("background_delete", { filename }), "background"),
   updateTags: <T = unknown>(filename: string, tags: string[]) =>
     invokeTauri<T>("background_tags_update", { filename, tags }),
-  rename: <T = unknown>(filename: string, name: string) => invokeTauri<T>("background_rename", { filename, name }),
+  rename: <T = unknown>(filename: string, name: string) =>
+    invalidateRemoteManagedAssetObjectUrlsAfter(invokeTauri<T>("background_rename", { filename, name }), "background"),
 };

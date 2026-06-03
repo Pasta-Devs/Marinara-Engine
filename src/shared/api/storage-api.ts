@@ -1,6 +1,7 @@
 import type { AddChatMessageSwipeOptions, StorageGateway, StorageListOptions } from "../../engine/capabilities/storage";
 import { collapseExcessBlankLines } from "../../engine/shared/text/newlines";
 import { ApiError } from "./api-errors";
+import { invalidateRemoteManagedAssetObjectUrlsAfter, type RemoteManagedAssetKind } from "./local-file-api";
 import { invokeTauri } from "./tauri-client";
 import { trackerSnapshotApi, type TrackerSnapshotInput } from "./tracker-snapshot-api";
 
@@ -105,6 +106,48 @@ function normalizeStorageWrite(entity: string, value: Record<string, unknown>): 
   return entity === "messages" ? normalizeMessageWrite(value) : value;
 }
 
+function storageWriteInvalidationKinds(entity: string, value?: Record<string, unknown>): RemoteManagedAssetKind[] {
+  switch (entity) {
+    case "gallery":
+    case "character-gallery":
+      return ["gallery"];
+    case "backgrounds":
+      return ["background"];
+    case "lorebooks":
+    case "lorebook-entries":
+      return value && ("image" in value || "imagePath" in value || "imageFilename" in value) ? ["lorebook"] : [];
+    case "characters":
+      return value && ("avatarPath" in value || "avatarFilePath" in value || "avatarFilename" in value)
+        ? ["avatar", "avatar-thumbnail"]
+        : [];
+    case "personas":
+      return value && ("avatarPath" in value || "avatarFilePath" in value || "avatarFilename" in value)
+        ? ["avatar", "avatar-thumbnail"]
+        : [];
+    default:
+      return [];
+  }
+}
+
+function storageDeleteInvalidationKinds(entity: string): RemoteManagedAssetKind[] {
+  switch (entity) {
+    case "gallery":
+    case "character-gallery":
+      return ["gallery"];
+    case "backgrounds":
+      return ["background"];
+    case "lorebooks":
+    case "lorebook-entries":
+      return ["lorebook"];
+    case "characters":
+      return ["avatar", "avatar-thumbnail", "gallery", "sprite"];
+    case "personas":
+      return ["avatar", "avatar-thumbnail", "sprite"];
+    default:
+      return [];
+  }
+}
+
 function normalizeStorageReadResult(entity: string, value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => normalizeStorageRecord(entity, item));
   return normalizeStorageRecord(entity, value);
@@ -177,28 +220,35 @@ export const storageApi: StorageGateway = {
         options: options ?? null,
       }),
     ) as never,
-  create: async (entity: string, value: Record<string, unknown>) =>
-    normalizeStorageReadResult(
-      entity,
-      await invokeTauri("storage_create", {
+  create: async (entity: string, value: Record<string, unknown>) => {
+    const result = await invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri("storage_create", {
         entity,
         value: normalizeStorageWrite(entity, value),
       }),
-    ) as never,
-  update: async (entity: string, id: string, patch: Record<string, unknown>) =>
-    normalizeStorageReadResult(
-      entity,
-      await invokeTauri("storage_update", {
+      storageWriteInvalidationKinds(entity, value),
+    );
+    return normalizeStorageReadResult(entity, result) as never;
+  },
+  update: async (entity: string, id: string, patch: Record<string, unknown>) => {
+    const result = await invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri("storage_update", {
         entity,
         id,
         patch: normalizeStorageWrite(entity, patch),
       }),
-    ) as never,
+      storageWriteInvalidationKinds(entity, patch),
+    );
+    return normalizeStorageReadResult(entity, result) as never;
+  },
   delete: (entity: string, id: string) =>
-    invokeTauri("storage_delete", {
-      entity,
-      id,
-    }),
+    invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri("storage_delete", {
+        entity,
+        id,
+      }),
+      storageDeleteInvalidationKinds(entity),
+    ),
   listChatMessages: (chatId, options) =>
     storageApi.list("messages", {
       ...options,
