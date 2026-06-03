@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Remote managed asset probe</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 24px;
+      }
+
+      img {
+        display: block;
+        height: 32px;
+        margin: 8px 0;
+        width: 32px;
+      }
+
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Remote managed asset probe</h1>
+      <pre id="status">Ready</pre>
+      <div id="renders" aria-label="Rendered assets"></div>
+    </main>
+
+    <script type="module">
+      import {
+        USER_BACKGROUND_URL_PREFIX,
+        invalidateRemoteManagedAssetObjectUrls,
+        resolveAvatarFileUrl,
+        resolveAvatarThumbnailFileUrl,
+        resolveFontFileUrl,
+        resolveGalleryFileUrl,
+        resolveGameAssetFileUrl,
+        resolveManagedAssetThumbnailFileUrl,
+        resolveManagedLocalAssetUrl,
+        resolveSpriteFileUrl,
+      } from "/src/shared/api/local-file-api.ts";
+      import { useUIStore } from "/src/shared/stores/ui.store.ts";
+
+      const status = document.querySelector("#status");
+      const renders = document.querySelector("#renders");
+      const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+      const originalRevokeObjectURL = URL.revokeObjectURL.bind(URL);
+      const objectUrls = [];
+      const revokedObjectUrls = [];
+
+      URL.createObjectURL = (blob) => {
+        const url = originalCreateObjectURL(blob);
+        objectUrls.push({ url, size: blob.size, type: blob.type });
+        return url;
+      };
+
+      URL.revokeObjectURL = (url) => {
+        revokedObjectUrls.push(url);
+        return originalRevokeObjectURL(url);
+      };
+
+      function assert(condition, message) {
+        if (!condition) throw new Error(message);
+      }
+
+      function renderImage(name, url) {
+        return new Promise((resolve, reject) => {
+          const img = document.createElement("img");
+          img.alt = name;
+          img.onload = () => {
+            resolve({ name, height: img.naturalHeight, width: img.naturalWidth });
+          };
+          img.onerror = () => {
+            reject(new Error(`Failed to render ${name}`));
+          };
+          img.src = url;
+          renders.append(img);
+        });
+      }
+
+      async function readBlobText(url) {
+        const response = await fetch(url);
+        return response.text();
+      }
+
+      window.__runRemoteManagedAssetProbe = async ({ runtimeUrl }) => {
+        useUIStore.getState().setRemoteRuntimeUrl(runtimeUrl);
+
+        const cases = [
+          {
+            name: "avatar",
+            render: true,
+            resolve: () => resolveAvatarFileUrl(null, "C:/Marinara/avatars/characters/alice/avatar.svg"),
+          },
+          {
+            name: "avatar-thumbnail",
+            render: true,
+            resolve: () =>
+              resolveAvatarThumbnailFileUrl(
+                "avatar.svg",
+                "C:/Marinara/avatars/characters/alice/avatar.svg",
+                128,
+              ),
+          },
+          {
+            name: "background",
+            render: true,
+            resolve: () => resolveManagedLocalAssetUrl(`${USER_BACKGROUND_URL_PREFIX}sky.svg`),
+          },
+          {
+            name: "font",
+            render: false,
+            resolve: () => resolveFontFileUrl("Serif.woff2"),
+          },
+          {
+            name: "gallery",
+            render: true,
+            resolve: () => resolveGalleryFileUrl("gallery.svg"),
+          },
+          {
+            name: "game",
+            render: true,
+            resolve: () => resolveGameAssetFileUrl("scene/hero.svg"),
+          },
+          {
+            name: "lorebook",
+            render: true,
+            resolve: () => resolveManagedLocalAssetUrl("marinara-lorebook-image:lore.svg"),
+          },
+          {
+            name: "sprite",
+            render: true,
+            resolve: () => resolveSpriteFileUrl("character", "char-1", "pose.svg"),
+          },
+          {
+            name: "thumbnail",
+            render: true,
+            resolve: () => resolveManagedAssetThumbnailFileUrl("gallery", "gallery.svg", 256),
+          },
+        ];
+
+        const resolved = [];
+        const rendered = [];
+
+        for (const assetCase of cases) {
+          const url = await assetCase.resolve();
+          assert(typeof url === "string" && url.startsWith("blob:"), `${assetCase.name} did not resolve to a blob URL`);
+          assert(!url.includes("mari") && !url.includes("sauce"), `${assetCase.name} leaked credentials in its URL`);
+          resolved.push({ name: assetCase.name, url });
+          if (assetCase.render) {
+            rendered.push(await renderImage(assetCase.name, url));
+          }
+        }
+
+        const firstGameUrl = resolved.find((entry) => entry.name === "game").url;
+        const cachedGameUrl = await resolveGameAssetFileUrl("scene/hero.svg");
+        assert(cachedGameUrl === firstGameUrl, "game asset object URL was not reused before invalidation");
+
+        const firstGameText = await readBlobText(firstGameUrl);
+        invalidateRemoteManagedAssetObjectUrls("game", "scene/hero.svg");
+        const refreshedGameUrl = await resolveGameAssetFileUrl("scene/hero.svg");
+        assert(refreshedGameUrl !== firstGameUrl, "game asset object URL was not regenerated after invalidation");
+        const refreshedGameText = await readBlobText(refreshedGameUrl);
+        const refreshedGameRender = await renderImage("game-refreshed", refreshedGameUrl);
+
+        const result = {
+          firstGameText,
+          objectUrls,
+          refreshedGameRender,
+          refreshedGameText,
+          rendered,
+          resolved,
+          revokedObjectUrls,
+        };
+        status.textContent = JSON.stringify(result, null, 2);
+        return result;
+      };
+    </script>
+  </body>
+</html>
