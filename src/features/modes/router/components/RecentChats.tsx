@@ -3,7 +3,7 @@ import { MessageSquare, BookOpen, Theater } from "lucide-react";
 import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
 import { CharacterAvatarImage, characterAvatarUrl, useCharacterSummariesByIds } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
-import { cn, parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
+import { parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
   conversation: { icon: <MessageSquare size="0.75rem" />, bg: "linear-gradient(135deg, #4de5dd, #3ab8b1)", label: "Conversation" },
@@ -134,7 +134,7 @@ function RecentChatAvatar({
         alt={avatar.name}
         className="h-full w-full object-cover"
         crop={avatar.avatarCrop}
-        thumbnailSize={80}
+        thumbnailSize={96}
         onError={() => setImageFailed(true)}
       />
     </span>
