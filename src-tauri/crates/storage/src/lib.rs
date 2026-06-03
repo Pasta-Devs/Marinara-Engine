@@ -2307,9 +2307,14 @@ fn collection_content_signature(path: &Path, len: u64) -> AppResult<u64> {
     let mut file = fs::File::open(path)?;
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     len.hash(&mut hasher);
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
-    bytes.hash(&mut hasher);
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.write(&buffer[..bytes_read]);
+    }
     Ok(hasher.finish())
 }
 

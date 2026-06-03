@@ -39,6 +39,7 @@ const CONNECTION_SUMMARY_OPTIONS = {
     "isDefault",
     "default",
     "useForRandom",
+    "defaultForAgents",
     "defaultParameters",
     "promptPresetId",
     "embeddingModel",
@@ -54,6 +55,7 @@ export type ConnectionSummary = Pick<
   folderId?: string | null;
   isDefault?: string | boolean | null;
   default?: string | boolean | null;
+  defaultForAgents?: string | boolean | null;
   defaultParameters?: Record<string, unknown> | null;
   promptPresetId?: string | null;
   embeddingModel?: string | null;
