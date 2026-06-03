@@ -187,6 +187,33 @@ fn array_from_envelope(data: &Value, envelope: &Map<String, Value>, key: &str) -
         .unwrap_or_default()
 }
 
+fn remap_imported_child_order(
+    value: Option<&Value>,
+    id_map: &HashMap<String, String>,
+    fallback: &[String],
+) -> Vec<String> {
+    let mut ordered = Vec::new();
+    if let Some(items) = value.and_then(Value::as_array) {
+        for item in items {
+            let Some(old_id) = item.as_str() else {
+                continue;
+            };
+            let Some(new_id) = id_map.get(old_id) else {
+                continue;
+            };
+            if !ordered.iter().any(|id| id == new_id) {
+                ordered.push(new_id.clone());
+            }
+        }
+    }
+    for new_id in fallback {
+        if !ordered.iter().any(|id| id == new_id) {
+            ordered.push(new_id.clone());
+        }
+    }
+    ordered
+}
+
 fn native_character_avatar_payload(data: &Value) -> Value {
     let mut payload = data.clone();
     let Some(avatar) = data_image_string(data.get("avatar")) else {
@@ -455,7 +482,7 @@ fn import_marinara_lorebook(
         let record = state.storage.create("lorebooks", lorebook)?;
         let lorebook_id = created_record_id(&record, "lorebook")?;
         created_lorebook_id = Some(lorebook_id.clone());
-        let folder_id_map = import_parented_records(
+        let (folder_id_map, folder_order) = import_parented_records(
             state,
             array_from_envelope(&data, envelope, "folders"),
             "lorebook-folders",
@@ -464,7 +491,7 @@ fn import_marinara_lorebook(
             "parentFolderId",
             "lorebook folder",
         )?;
-        created_folder_ids.extend(folder_id_map.values().cloned());
+        created_folder_ids.extend(folder_order);
 
         let mut exported_entries = array_from_envelope(&data, envelope, "entries");
         if exported_entries.is_empty() {
@@ -547,7 +574,7 @@ fn import_marinara_preset(
         let record = state.storage.create("prompts", record_value)?;
         let preset_id = created_record_id(&record, "preset")?;
         created_preset_id = Some(preset_id.clone());
-        let group_id_map = import_parented_records(
+        let (group_id_map, group_order) = import_parented_records(
             state,
             array_from_envelope(&data, envelope, "groups"),
             "prompt-groups",
@@ -556,10 +583,16 @@ fn import_marinara_preset(
             "parentGroupId",
             "prompt group",
         )?;
-        created_group_ids.extend(group_id_map.values().cloned());
+        created_group_ids.extend(group_order.iter().cloned());
 
         let mut sections_imported = 0usize;
+        let mut section_id_map = HashMap::new();
+        let mut section_order = Vec::new();
         for section in array_from_envelope(&data, envelope, "sections") {
+            let old_section_id = section
+                .get("id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
             let mut section_record = ensure_object(section)?;
             section_record.remove("id");
             section_record.remove("presetId");
@@ -576,16 +609,27 @@ fn import_marinara_preset(
             let section = state
                 .storage
                 .create("prompt-sections", Value::Object(section_record))?;
-            created_section_ids.push(created_record_id(&section, "prompt section")?);
+            let section_id = created_record_id(&section, "prompt section")?;
+            created_section_ids.push(section_id.clone());
+            section_order.push(section_id.clone());
+            if let Some(old_section_id) = old_section_id {
+                section_id_map.insert(old_section_id, section_id);
+            }
             sections_imported += 1;
         }
 
         let mut variables_imported = 0usize;
+        let mut variable_id_map = HashMap::new();
+        let mut variable_order = Vec::new();
         let mut variables = array_from_envelope(&data, envelope, "choiceBlocks");
         if variables.is_empty() {
             variables = array_from_envelope(&data, envelope, "variables");
         }
         for variable in variables {
+            let old_variable_id = variable
+                .get("id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned);
             let mut variable_record = ensure_object(variable)?;
             variable_record.remove("id");
             variable_record.remove("presetId");
@@ -593,9 +637,24 @@ fn import_marinara_preset(
             let variable = state
                 .storage
                 .create("prompt-variables", Value::Object(variable_record))?;
-            created_variable_ids.push(created_record_id(&variable, "prompt variable")?);
+            let variable_id = created_record_id(&variable, "prompt variable")?;
+            created_variable_ids.push(variable_id.clone());
+            variable_order.push(variable_id.clone());
+            if let Some(old_variable_id) = old_variable_id {
+                variable_id_map.insert(old_variable_id, variable_id);
+            }
             variables_imported += 1;
         }
+
+        let record = state.storage.patch(
+            "prompts",
+            &preset_id,
+            json!({
+                "groupOrder": remap_imported_child_order(preset_data.get("groupOrder"), &group_id_map, &group_order),
+                "sectionOrder": remap_imported_child_order(preset_data.get("sectionOrder"), &section_id_map, &section_order),
+                "variableOrder": remap_imported_child_order(preset_data.get("variableOrder"), &variable_id_map, &variable_order)
+            }),
+        )?;
 
         flush_import_writes(state)?;
         Ok(json!({

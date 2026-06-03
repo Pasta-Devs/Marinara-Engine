@@ -465,3 +465,120 @@ fn marinara_preset_import_remaps_nested_groups_and_section_groups() {
     assert_eq!(orphan.get("groupId"), Some(&Value::Null));
     assert_eq!(malformed.get("groupId"), Some(&Value::Null));
 }
+
+#[test]
+fn marinara_preset_import_remaps_root_child_order_arrays() {
+    let state = test_state("preset-order");
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_preset",
+            "version": 1,
+            "data": {
+                "preset": {
+                    "id": "old-preset",
+                    "name": "Ordered Preset",
+                    "groupOrder": ["old-child", "missing-group", "old-child"],
+                    "sectionOrder": ["old-second", "missing-section", "old-first", "old-second"],
+                    "variableOrder": ["old-variable-b", "missing-variable", "old-variable-a"]
+                },
+                "groups": [
+                    { "id": "old-root", "name": "Root", "presetId": "old-preset" },
+                    { "id": "old-child", "name": "Child", "parentGroupId": "old-root", "presetId": "old-preset" }
+                ],
+                "sections": [
+                    { "id": "old-first", "name": "First", "content": "first", "groupId": "old-root", "presetId": "old-preset" },
+                    { "id": "old-second", "name": "Second", "content": "second", "groupId": "old-child", "presetId": "old-preset" }
+                ],
+                "variables": [
+                    { "id": "old-variable-a", "name": "Tone", "presetId": "old-preset" },
+                    { "id": "old-variable-b", "name": "Style", "presetId": "old-preset" }
+                ]
+            }
+        }),
+    )
+    .expect("preset import should succeed");
+    let preset_id = test_string(&imported, "id");
+
+    let preset = state
+        .storage
+        .get("prompts", preset_id)
+        .expect("preset should be readable")
+        .expect("preset should exist");
+    let groups = state
+        .storage
+        .list("prompt-groups")
+        .expect("groups should be readable")
+        .into_iter()
+        .filter(|group| group.get("presetId").and_then(Value::as_str) == Some(preset_id))
+        .collect::<Vec<_>>();
+    let sections = state
+        .storage
+        .list("prompt-sections")
+        .expect("sections should be readable")
+        .into_iter()
+        .filter(|section| section.get("presetId").and_then(Value::as_str) == Some(preset_id))
+        .collect::<Vec<_>>();
+    let variables = state
+        .storage
+        .list("prompt-variables")
+        .expect("variables should be readable")
+        .into_iter()
+        .filter(|variable| variable.get("presetId").and_then(Value::as_str) == Some(preset_id))
+        .collect::<Vec<_>>();
+
+    let root_group_id = test_string(record_with_field(&groups, "name", "Root"), "id");
+    let child_group_id = test_string(record_with_field(&groups, "name", "Child"), "id");
+    let first_section_id = test_string(record_with_field(&sections, "name", "First"), "id");
+    let second_section_id = test_string(record_with_field(&sections, "name", "Second"), "id");
+    let tone_variable_id = test_string(record_with_field(&variables, "name", "Tone"), "id");
+    let style_variable_id = test_string(record_with_field(&variables, "name", "Style"), "id");
+
+    assert_eq!(
+        preset.get("groupOrder"),
+        Some(&json!([child_group_id, root_group_id]))
+    );
+    assert_eq!(
+        preset.get("sectionOrder"),
+        Some(&json!([second_section_id, first_section_id]))
+    );
+    assert_eq!(
+        preset.get("variableOrder"),
+        Some(&json!([style_variable_id, tone_variable_id]))
+    );
+    for stale_id in [
+        "old-root",
+        "old-child",
+        "old-first",
+        "old-second",
+        "old-variable-a",
+        "old-variable-b",
+        "missing-group",
+        "missing-section",
+        "missing-variable",
+    ] {
+        assert!(
+            !preset
+                .get("groupOrder")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .chain(
+                    preset
+                        .get("sectionOrder")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten(),
+                )
+                .chain(
+                    preset
+                        .get("variableOrder")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten(),
+                )
+                .any(|id| id.as_str() == Some(stale_id)),
+            "preset order arrays should not keep stale id {stale_id}"
+        );
+    }
+}

@@ -8,9 +8,9 @@ pub(super) fn import_parented_records(
     owner_id: &str,
     parent_field: &str,
     label: &str,
-) -> AppResult<HashMap<String, String>> {
+) -> AppResult<(HashMap<String, String>, Vec<String>)> {
     let mut created_ids = Vec::new();
-    let result = (|| -> AppResult<HashMap<String, String>> {
+    let result = (|| -> AppResult<(HashMap<String, String>, Vec<String>)> {
         let mut id_map = HashMap::new();
         let mut pending_parents = Vec::new();
         for item in items {
@@ -51,7 +51,7 @@ pub(super) fn import_parented_records(
                     .patch(collection, &record_id, Value::Object(patch))?;
             }
         }
-        Ok(id_map)
+        Ok((id_map, created_ids.clone()))
     })();
 
     result.map_err(|error| rollback_created_records_error(state, collection, &created_ids, error))
