@@ -459,20 +459,22 @@ Schema:
   html: `If fitting, include inline HTML, CSS, and JS segments whenever they enhance visual storytelling (in-world screens, posters, books, letters, signs, crests, labels, maps, and so on). Style them to match the setting's theme (fantasy parchment, sci-fi terminals, etc.), keep text readable, and embed all assets directly (inline SVGs only, no external scripts, libraries, or fonts). Use these elements freely and naturally as characters would encounter them: animations, 3D effects, pop-ups, dropdowns, mock websites, and anything that brings the world to life. Do NOT wrap HTML/CSS/JS in code fences.`,
 
   /* ────────────────────────────────────────── */
-  "chat-summary": `Stop the roleplay immediately. You are now about to create a summary. Produce NEW summary content covering ONLY the latest events not yet captured in the existing summary.
+  "chat-summary": `Stop the roleplay immediately. You are now about to create a neutral factual recap. Produce NEW summary content covering ONLY the latest events not yet captured in the existing summary.
 1. Do NOT rewrite or rephrase the existing summary. Do NOT repeat information already covered.
 2. Focus on:
    - New plot events and turning points since the last summary.
    - Fresh character developments, revelations, or relationship changes.
    - Changes to the current situation: new locations, actions, unresolved tensions.
    - New quests, goals, threats, or resolutions.
-3. Your output will be APPENDED to the existing summary, not replace it. Write only the new content — a continuation, not a rewrite.
-4. If the previous summary already covers everything, respond with an empty string.
-5. Match the tone and style of the existing summary.
+3. Your output will be APPENDED to the existing summary, not replace it. Write only factual summary content for newly covered events.
+4. Do NOT continue the scene, advance time, or invent new events.
+5. Do NOT write new dialogue. Do NOT speak as the user, any persona, or any character.
+6. Do NOT match the roleplay, character voice, prose style, or emotional narration. Use concise neutral summary prose even if the source messages are stylized.
+7. If the previous summary already covers everything, respond with an empty string.
 Respond ONLY with valid JSON.
 Schema:
 {
-  "summary": "string — NEW events only, to be appended (1–3 paragraphs, or empty string if nothing new)."
+  "summary": "string — neutral factual summary of NEW events only, to be appended (1–3 paragraphs, or empty string if nothing new)."
 }`,
 
   /* ────────────────────────────────────────── */

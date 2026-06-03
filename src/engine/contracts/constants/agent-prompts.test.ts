@@ -21,4 +21,18 @@ describe("DEFAULT_AGENT_PROMPTS", () => {
     expect(prompt).toMatch(/content[^.]+concise neutral lore note/i);
     expect(prompt).toMatch(/each bullet/i);
   });
+
+  it("instructs Chat Summary to summarize neutrally instead of continuing the scene", () => {
+    const prompt = DEFAULT_AGENT_PROMPTS["chat-summary"];
+
+    expect(prompt).toMatch(/neutral factual recap/i);
+    expect(prompt).toMatch(/do not continue the scene/i);
+    expect(prompt).toMatch(/do not speak as/i);
+    expect(prompt).toMatch(/do not write new dialogue/i);
+    expect(prompt).toMatch(/do not match the roleplay/i);
+    expect(prompt).toMatch(/appended to the existing summary/i);
+    expect(prompt).toMatch(/new events only/i);
+    expect(prompt).not.toMatch(/a continuation, not a rewrite/i);
+    expect(prompt).not.toMatch(/match the tone and style/i);
+  });
 });
