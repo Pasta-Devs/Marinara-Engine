@@ -7,26 +7,35 @@ const candidatePathPattern =
 const forbiddenPatterns = [
   {
     name: "nested cmd delayed browser open",
-    pattern: /cmd\s+\/c[\s\S]{0,240}timeout\s+\/t[\s\S]{0,240}\bstart\b[\s\S]{0,240}\|\|[\s\S]{0,240}\bexplorer\b/i,
+    pattern: /cmd(?:\.exe)?\s+\/c[\s\S]{0,240}timeout\s+\/t[\s\S]{0,240}\bstart\b[\s\S]{0,240}\|\|[\s\S]{0,240}\bexplorer\b/i,
     reason:
       "Issue #2089 reported AV warnings for the legacy Windows auto-open chain. Use PowerShell Start-Sleep/Start-Process or a platform API instead.",
   },
 ];
 
-if (process.argv.includes("--self-test")) {
-  const dangerous = [
+function buildDangerousFixture(shellToken) {
+  return [
     `start ""`,
-    ["c", "md /c"].join(""),
+    shellToken,
     `"${["time", "out /t"].join("")} 4 /nobreak >nul &&`,
     `start %PROTOCOL%://127.0.0.1:%PORT% ||`,
     `${["ex", "plorer"].join("")} %PROTOCOL%://127.0.0.1:%PORT%"`,
   ].join(" ");
+}
+
+function runSelfTest() {
+  const dangerousFixtures = [
+    buildDangerousFixture(["c", "md /c"].join("")),
+    buildDangerousFixture(["c", "md.exe /c"].join("")),
+  ];
   const safe = `start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 4; Start-Process '%PROTOCOL%://127.0.0.1:%PORT%'"`;
   const [browserOpenPattern] = forbiddenPatterns;
 
-  if (!browserOpenPattern.pattern.test(dangerous)) {
-    console.error("Launcher safety self-test failed: reported issue #2089 command was not detected.");
-    process.exit(1);
+  for (const dangerous of dangerousFixtures) {
+    if (!browserOpenPattern.pattern.test(dangerous)) {
+      console.error("Launcher safety self-test failed: reported issue #2089 command was not detected.");
+      process.exit(1);
+    }
   }
 
   if (browserOpenPattern.pattern.test(safe)) {
@@ -35,6 +44,11 @@ if (process.argv.includes("--self-test")) {
   }
 
   console.log("Launcher safety self-test passed.");
+}
+
+runSelfTest();
+
+if (process.argv.includes("--self-test")) {
   process.exit(0);
 }
 
