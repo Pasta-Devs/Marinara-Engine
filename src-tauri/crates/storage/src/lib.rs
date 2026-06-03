@@ -27,6 +27,25 @@ struct CachedCollection {
     dirty: bool,
 }
 
+pub struct AtomicCollectionRows {
+    collection: String,
+    rows: Vec<Value>,
+}
+
+impl AtomicCollectionRows {
+    pub fn collection(&self) -> &str {
+        &self.collection
+    }
+
+    pub fn rows(&self) -> &[Value] {
+        &self.rows
+    }
+
+    pub fn rows_mut(&mut self) -> &mut Vec<Value> {
+        &mut self.rows
+    }
+}
+
 #[derive(Clone)]
 pub struct FileStorage {
     root: PathBuf,
@@ -496,27 +515,56 @@ impl FileStorage {
         update: F,
     ) -> AppResult<T>
     where
-        F: FnOnce(&mut Vec<(&str, Vec<Value>)>) -> AppResult<T>,
+        F: FnOnce(&mut [AtomicCollectionRows]) -> AppResult<T>,
     {
+        let mut entries = {
+            let _guard = self
+                .lock
+                .write()
+                .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+            self.flush_dirty_collections_locked()?;
+
+            let mut loaded = Vec::with_capacity(collections.len());
+            let mut seen_paths = HashSet::new();
+            for collection in collections {
+                let path = self.collection_path(collection)?;
+                if !seen_paths.insert(path) {
+                    return Err(AppError::invalid_input(format!(
+                        "Duplicate collection update: {collection}"
+                    )));
+                }
+                loaded.push(AtomicCollectionRows {
+                    collection: collection.to_string(),
+                    rows: self.read_collection(collection)?,
+                });
+            }
+            loaded
+        };
+
+        let original_rows = entries
+            .iter()
+            .map(|entry| (entry.collection.clone(), entry.rows.clone()))
+            .collect::<Vec<_>>();
+
+        let output = update(&mut entries)?;
+
         let _guard = self
             .lock
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.flush_dirty_collections_locked()?;
-
-        let mut replacements = Vec::with_capacity(collections.len());
-        let mut seen_paths = HashSet::new();
-        for collection in collections {
-            let path = self.collection_path(collection)?;
-            if !seen_paths.insert(path) {
-                return Err(AppError::invalid_input(format!(
-                    "Duplicate collection update: {collection}"
-                )));
+        for (collection, rows) in &original_rows {
+            if self.read_collection(collection)? != *rows {
+                return Err(AppError::new(
+                    "storage_conflict",
+                    format!("Collection changed during atomic update: {collection}"),
+                ));
             }
-            replacements.push((collection, self.read_collection(collection)?));
         }
-
-        let output = update(&mut replacements)?;
+        let replacements = entries
+            .iter()
+            .map(|entry| (entry.collection.as_str(), entry.rows.clone()))
+            .collect::<Vec<_>>();
         self.replace_all_many_locked(replacements, || Ok(()))?;
         Ok(output)
     }
@@ -3552,17 +3600,79 @@ mod tests {
 
         let updated = storage
             .update_collections_atomically(vec!["messages", "message-swipes"], |collections| {
-                collections[0].1.push(json!({ "id": "message-2", "content": "new" }));
+                collections[0]
+                    .rows_mut()
+                    .push(json!({ "id": "message-2", "content": "new" }));
                 collections[1]
-                    .1
+                    .rows_mut()
                     .push(json!({ "id": "message-2::swipe::0", "messageId": "message-2" }));
-                Ok(collections[0].1.len())
+                Ok(collections[0].rows().len())
             })
             .unwrap();
 
         assert_eq!(updated, 2);
         assert_eq!(storage.list("messages").unwrap().len(), 2);
         assert_eq!(storage.list("message-swipes").unwrap().len(), 2);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn update_collections_atomically_rejects_duplicate_collections_before_update() {
+        let root = temp_storage_root("update-collections-duplicate");
+        let storage = FileStorage::new(&root).unwrap();
+        let mut update_ran = false;
+
+        let error = storage
+            .update_collections_atomically(vec!["messages", "messages"], |_| {
+                update_ran = true;
+                Ok(())
+            })
+            .expect_err("duplicate collections should reject before update runs");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(!update_ran);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn update_collections_atomically_rejects_reentrant_target_writes() {
+        let root = temp_storage_root("update-collections-reentrant");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .replace_all(
+                "messages",
+                vec![json!({ "id": "message-1", "content": "old" })],
+            )
+            .unwrap();
+
+        let error = storage
+            .update_collections_atomically(vec!["messages"], |collections| {
+                assert_eq!(collections[0].collection(), "messages");
+                storage.create(
+                    "messages",
+                    json!({ "id": "message-2", "content": "reentrant" }),
+                )?;
+                collections[0]
+                    .rows_mut()
+                    .push(json!({ "id": "message-3", "content": "callback" }));
+                Ok(())
+            })
+            .expect_err("reentrant target writes should reject instead of deadlocking");
+
+        assert_eq!(error.code, "storage_conflict");
+        let rows = storage.list("messages").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert!(rows
+            .iter()
+            .any(|row| row.get("id").and_then(Value::as_str) == Some("message-1")));
+        assert!(rows
+            .iter()
+            .any(|row| row.get("id").and_then(Value::as_str) == Some("message-2")));
+        assert!(!rows
+            .iter()
+            .any(|row| row.get("id").and_then(Value::as_str) == Some("message-3")));
 
         fs::remove_dir_all(root).unwrap();
     }
