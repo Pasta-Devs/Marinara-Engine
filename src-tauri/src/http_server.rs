@@ -794,18 +794,7 @@ impl From<AppError> for HttpError {
 
 impl IntoResponse for HttpError {
     fn into_response(self) -> Response {
-        let status = match self.0.code.as_str() {
-            "not_found" => StatusCode::NOT_FOUND,
-            "invalid_input" => StatusCode::BAD_REQUEST,
-            "admin_access_invalid" => StatusCode::UNAUTHORIZED,
-            "admin_access_required" => StatusCode::FORBIDDEN,
-            "custom_tool_script_unsupported" => StatusCode::UNPROCESSABLE_ENTITY,
-            "embedding_network_error" | "embedding_provider_error" | "embedding_response_error" => {
-                StatusCode::BAD_GATEWAY
-            }
-            "unsupported_command" => StatusCode::NOT_IMPLEMENTED,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
+        let status = http_status_for_app_error(&self.0);
         let payload = json!({
             "code": self.0.code,
             "message": self.0.message,
@@ -813,6 +802,50 @@ impl IntoResponse for HttpError {
         });
         (status, Json(payload)).into_response()
     }
+}
+
+fn http_status_for_app_error(error: &AppError) -> StatusCode {
+    match error.code.as_str() {
+        "not_found" => StatusCode::NOT_FOUND,
+        "invalid_input" => StatusCode::BAD_REQUEST,
+        "admin_access_invalid" => StatusCode::UNAUTHORIZED,
+        "admin_access_required" => StatusCode::FORBIDDEN,
+        "custom_tool_script_unsupported" => StatusCode::UNPROCESSABLE_ENTITY,
+        "embedding_network_error" | "embedding_provider_error" | "embedding_response_error" => {
+            StatusCode::BAD_GATEWAY
+        }
+        "unsupported_command" => StatusCode::NOT_IMPLEMENTED,
+        "io_error" if is_storage_unavailable_io_error(error) => StatusCode::SERVICE_UNAVAILABLE,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
+
+fn is_storage_unavailable_io_error(error: &AppError) -> bool {
+    let details = error
+        .details
+        .as_ref()
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let message = error.message.to_ascii_lowercase();
+
+    matches!(
+        details.as_str(),
+        "permission denied"
+            | "read-only filesystem"
+            | "resource busy"
+            | "operation would block"
+            | "timed out"
+            | "operation interrupted"
+            | "storage full"
+            | "quota exceeded"
+            | "write zero"
+    ) || message.contains("read-only")
+        || message.contains("readonly")
+        || message.contains("database is locked")
+        || message.contains("database is busy")
+        || message.contains("resource busy")
+        || message.contains("storage is unavailable")
 }
 
 #[derive(Debug, Clone)]
@@ -1495,6 +1528,45 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&root).expect("health test directory should be removed");
+    }
+
+    #[test]
+    fn io_errors_map_to_storage_unavailable_http_status() {
+        let error = AppError::with_details(
+            "io_error",
+            "database is read-only",
+            std::io::ErrorKind::PermissionDenied.to_string(),
+        );
+
+        let response = HttpError::from(error).into_response();
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn locked_database_io_errors_map_to_storage_unavailable_http_status() {
+        let error = AppError::with_details(
+            "io_error",
+            "database is locked",
+            std::io::ErrorKind::Other.to_string(),
+        );
+
+        let response = HttpError::from(error).into_response();
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    }
+
+    #[test]
+    fn uncategorized_io_errors_keep_internal_server_error_status() {
+        let error = AppError::with_details(
+            "io_error",
+            "Collection path is not a regular file",
+            std::io::ErrorKind::Other.to_string(),
+        );
+
+        let response = HttpError::from(error).into_response();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
     #[test]
