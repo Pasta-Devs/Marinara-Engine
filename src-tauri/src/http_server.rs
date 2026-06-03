@@ -87,6 +87,7 @@ fn request_log(message: impl AsRef<str>) {
 #[derive(Clone)]
 pub struct HttpState {
     app: AppState,
+    controls: HttpControls,
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,10 +138,13 @@ pub fn router(state: AppState) -> Router {
         )
         .layer(DefaultBodyLimit::max(MAX_API_BODY_BYTES))
         .layer(middleware::from_fn_with_state(
-            controls,
+            controls.clone(),
             api_controls_middleware,
         ))
-        .with_state(HttpState { app: state })
+        .with_state(HttpState {
+            app: state,
+            controls,
+        })
 }
 
 async fn health(State(state): State<HttpState>) -> Json<Value> {
@@ -485,18 +489,42 @@ async fn invoke(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(request): Json<InvokeRequest>,
-) -> Result<Json<Value>, HttpError> {
+) -> Response {
     let command = request.command.clone();
     let started = Instant::now();
     request_log(format!("invoke {command} started"));
-    require_admin_access_for_command(&command, &headers, addr.ip())?;
+    let rate_limit =
+        state
+            .controls
+            .rate_limiter
+            .check_invoke_command(addr.ip(), &command, Instant::now());
+    if let Some(outcome) = rate_limit.as_ref().filter(|outcome| !outcome.is_allowed()) {
+        let mut response = api_json_error_response(
+            StatusCode::TOO_MANY_REQUESTS,
+            "rate_limited",
+            "Too many requests",
+        );
+        apply_rate_limit_headers(response.headers_mut(), outcome);
+        return response;
+    }
+    if let Err(error) = require_admin_access_for_command(&command, &headers, addr.ip()) {
+        let mut response = app_error_response(error);
+        if let Some(outcome) = &rate_limit {
+            apply_rate_limit_headers(response.headers_mut(), outcome);
+        }
+        return response;
+    }
     match dispatch(&state.app, request).await {
         Ok(value) => {
             request_log(format!(
                 "invoke {command} ok in {}ms",
                 started.elapsed().as_millis()
             ));
-            Ok(Json(value))
+            let mut response = Json(value).into_response();
+            if let Some(outcome) = &rate_limit {
+                apply_rate_limit_headers(response.headers_mut(), outcome);
+            }
+            response
         }
         Err(error) => {
             request_log(format!(
@@ -505,7 +533,11 @@ async fn invoke(
                 error.message,
                 started.elapsed().as_millis()
             ));
-            Err(error.into())
+            let mut response = app_error_response(error);
+            if let Some(outcome) = &rate_limit {
+                apply_rate_limit_headers(response.headers_mut(), outcome);
+            }
+            response
         }
     }
 }
@@ -799,6 +831,10 @@ impl From<AppError> for HttpError {
     }
 }
 
+fn app_error_response(error: AppError) -> Response {
+    HttpError(error).into_response()
+}
+
 impl IntoResponse for HttpError {
     fn into_response(self) -> Response {
         let status = match self.0.code.as_str() {
@@ -922,9 +958,13 @@ async fn api_controls_middleware(
         return response;
     }
 
-    let rate_limit = controls
-        .rate_limiter
-        .check(remote_ip(&request), &path, Instant::now());
+    let rate_limit = if path == "/api/invoke" {
+        None
+    } else {
+        controls
+            .rate_limiter
+            .check(remote_ip(&request), &path, Instant::now())
+    };
     if let Some(outcome) = rate_limit.as_ref().filter(|outcome| !outcome.is_allowed()) {
         let mut response = api_json_error_response(
             StatusCode::TOO_MANY_REQUESTS,
@@ -965,6 +1005,19 @@ impl ApiRateLimiter {
         }
 
         let rule = rate_limit_rule_for_path(path);
+        Some(self.check_rule(ip, rule, now))
+    }
+
+    fn check_invoke_command(
+        &self,
+        ip: IpAddr,
+        command: &str,
+        now: Instant,
+    ) -> Option<ApiRateLimitOutcome> {
+        Some(self.check_rule(ip, rate_limit_rule_for_invoke_command(command), now))
+    }
+
+    fn check_rule(&self, ip: IpAddr, rule: ApiRateLimitRule, now: Instant) -> ApiRateLimitOutcome {
         let key = format!("{}:{ip}", rule.key);
         let mut state = self
             .state
@@ -993,12 +1046,12 @@ impl ApiRateLimiter {
             .unwrap_or_default();
         let retry_after = (bucket.count > rule.limit).then_some(reset_after);
 
-        Some(ApiRateLimitOutcome {
+        ApiRateLimitOutcome {
             limit: rule.limit,
             remaining,
             reset_after,
             retry_after,
-        })
+        }
     }
 }
 
@@ -1021,7 +1074,13 @@ fn sweep_expired_rate_limit_buckets(state: &mut ApiRateLimiterState, now: Instan
 }
 
 fn rate_limit_rule_for_path(path: &str) -> ApiRateLimitRule {
-    if api_route_matches(path, "/api/llm/stream") {
+    if api_llm_stream_cancel_path(path) {
+        ApiRateLimitRule {
+            key: "llm-stream-cancel",
+            limit: DEFAULT_API_RATE_LIMIT,
+            window: DEFAULT_API_RATE_WINDOW,
+        }
+    } else if api_route_matches(path, "/api/llm/stream") {
         ApiRateLimitRule {
             key: "generate",
             limit: 60,
@@ -1039,25 +1098,51 @@ fn rate_limit_rule_for_path(path: &str) -> ApiRateLimitRule {
             limit: 20,
             window: DEFAULT_API_RATE_WINDOW,
         }
-    } else if api_route_matches(path, "/api/backup") {
+    } else {
+        default_api_rate_limit_rule()
+    }
+}
+
+fn rate_limit_rule_for_invoke_command(command: &str) -> ApiRateLimitRule {
+    if command == "update_apply" {
         ApiRateLimitRule {
-            key: "backup",
-            limit: 30,
-            window: DEFAULT_API_RATE_WINDOW,
-        }
-    } else if api_route_matches(path, "/api/updates/apply") {
-        ApiRateLimitRule {
-            key: "updates-apply",
+            key: "command-updates-apply",
             limit: 5,
             window: DEFAULT_API_RATE_WINDOW,
         }
-    } else {
+    } else if command.starts_with("backup_") {
         ApiRateLimitRule {
-            key: "default",
-            limit: DEFAULT_API_RATE_LIMIT,
+            key: "command-backup",
+            limit: 30,
             window: DEFAULT_API_RATE_WINDOW,
         }
+    } else if matches!(command, "import_st_bulk_run" | "import_st_bulk_scan") {
+        ApiRateLimitRule {
+            key: "command-bulk-import",
+            limit: 20,
+            window: DEFAULT_API_RATE_WINDOW,
+        }
+    } else if command == "haptic_command" {
+        ApiRateLimitRule {
+            key: "command-haptic",
+            limit: 30,
+            window: DEFAULT_API_RATE_WINDOW,
+        }
+    } else {
+        default_api_rate_limit_rule()
     }
+}
+
+fn default_api_rate_limit_rule() -> ApiRateLimitRule {
+    ApiRateLimitRule {
+        key: "default",
+        limit: DEFAULT_API_RATE_LIMIT,
+        window: DEFAULT_API_RATE_WINDOW,
+    }
+}
+
+fn api_llm_stream_cancel_path(path: &str) -> bool {
+    path.starts_with("/api/llm/stream/") && path.ends_with("/cancel")
 }
 
 fn api_route_matches(path: &str, prefix: &str) -> bool {
@@ -1826,15 +1911,15 @@ mod tests {
 
         for _ in 0..5 {
             let outcome = limiter
-                .check(ip, "/api/updates/apply", now)
-                .expect("API path should be rate limited");
+                .check_invoke_command(ip, "update_apply", now)
+                .expect("invoke command should be rate limited");
             assert!(outcome.is_allowed());
             assert!(outcome.retry_after.is_none());
         }
 
         let blocked = limiter
-            .check(ip, "/api/updates/apply", now)
-            .expect("API path should be rate limited");
+            .check_invoke_command(ip, "update_apply", now)
+            .expect("invoke command should be rate limited");
         assert!(!blocked.is_allowed());
         assert_eq!(blocked.limit, 5);
         assert_eq!(blocked.remaining, 0);
@@ -1842,12 +1927,12 @@ mod tests {
 
         let mut headers = HeaderMap::new();
         apply_rate_limit_headers(&mut headers, &blocked);
-        assert_eq!(
-            headers
-                .get(header::RETRY_AFTER)
-                .and_then(|value| value.to_str().ok()),
-            Some("60")
-        );
+        let retry_after = headers
+            .get(header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok())
+            .expect("retry-after should be present");
+        assert!((1..=60).contains(&retry_after));
         assert_eq!(
             headers
                 .get("ratelimit-limit")
@@ -1875,6 +1960,14 @@ mod tests {
     fn api_route_specific_rules_cover_dedicated_remote_paths() {
         assert_eq!(rate_limit_rule_for_path("/api/llm/stream").limit, 60);
         assert_eq!(
+            rate_limit_rule_for_path("/api/llm/stream/stream-1/cancel").key,
+            "llm-stream-cancel"
+        );
+        assert_eq!(
+            rate_limit_rule_for_path("/api/llm/stream/stream-1/cancel").limit,
+            DEFAULT_API_RATE_LIMIT
+        );
+        assert_eq!(
             rate_limit_rule_for_path("/api/import/st-bulk/run").limit,
             20
         );
@@ -1883,7 +1976,74 @@ mod tests {
             20
         );
         assert_eq!(rate_limit_rule_for_path("/api/invoke").limit, 600);
-        assert_eq!(rate_limit_rule_for_path("/api/backup").limit, 30);
+        assert_eq!(rate_limit_rule_for_path("/api/backup").limit, 600);
+    }
+
+    #[test]
+    fn api_invoke_command_rules_cover_sensitive_dispatch_commands() {
+        assert_eq!(rate_limit_rule_for_invoke_command("backup_list").limit, 30);
+        assert_eq!(rate_limit_rule_for_invoke_command("update_apply").limit, 5);
+        assert_eq!(
+            rate_limit_rule_for_invoke_command("import_st_bulk_run").limit,
+            20
+        );
+        assert_eq!(
+            rate_limit_rule_for_invoke_command("haptic_command").limit,
+            30
+        );
+        assert_eq!(
+            rate_limit_rule_for_invoke_command("storage_list").limit,
+            DEFAULT_API_RATE_LIMIT
+        );
+    }
+
+    #[tokio::test]
+    async fn api_invoke_enforces_command_specific_rate_limit_at_dispatch_boundary() {
+        let state = HttpState {
+            app: test_state("invoke-command-rate-limit"),
+            controls: HttpControls::new(test_security()),
+        };
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 54321);
+
+        for _ in 0..5 {
+            let response = invoke(
+                State(state.clone()),
+                ConnectInfo(addr),
+                HeaderMap::new(),
+                Json(InvokeRequest {
+                    command: "update_apply".to_string(),
+                    args: Some(json!({ "input": { "confirm": false } })),
+                }),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            assert_eq!(
+                response
+                    .headers()
+                    .get("ratelimit-limit")
+                    .and_then(|value| value.to_str().ok()),
+                Some("5")
+            );
+        }
+
+        let blocked = invoke(
+            State(state),
+            ConnectInfo(addr),
+            HeaderMap::new(),
+            Json(InvokeRequest {
+                command: "update_apply".to_string(),
+                args: Some(json!({ "input": { "confirm": false } })),
+            }),
+        )
+        .await;
+        assert_eq!(blocked.status(), StatusCode::TOO_MANY_REQUESTS);
+        let retry_after = blocked
+            .headers()
+            .get(header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<u64>().ok())
+            .expect("retry-after should be present");
+        assert!((1..=60).contains(&retry_after));
     }
 
     #[tokio::test]
