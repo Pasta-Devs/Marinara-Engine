@@ -108,3 +108,4 @@ export function extractLeadingThinkingBlocks(text: string): LeadingThinkingExtra
     stripped,
   };
 }
+
