@@ -118,6 +118,7 @@ export function useChatTimelineActions({
   const setActiveSwipeRef = useLatestRef(setActiveSwipe);
   const peekPromptRef = useLatestRef(peekPrompt);
   const branchChatRef = useLatestRef(branchChat);
+  const messagesRef = useLatestRef(messages);
 
   const swipeActionSeq = useRef(0);
   const peekPromptActionSeq = useRef(0);
@@ -468,23 +469,28 @@ export function useChatTimelineActions({
     (messageId: string, index: number) => {
       const actionId = ++swipeActionSeq.current;
       const requestId = ++swipeRequestSeqCounterRef.current;
+      const previousMutation = pendingSwipeMutationsRef.current.get(messageId);
+      let resolvePendingTransition: () => void = () => undefined;
+      const pendingTransition = new Promise<void>((resolve) => {
+        resolvePendingTransition = resolve;
+      });
       swipeRequestSeqRef.current.set(messageId, requestId);
+      pendingSwipeMutationsRef.current.set(messageId, pendingTransition);
       const isLatestSwipeRequest = () => swipeRequestSeqRef.current.get(messageId) === requestId;
+      const isActiveSwipeAction = () => swipeActionSeq.current === actionId && isLatestSwipeRequest();
       void (async () => {
-        let trackedMutation: Promise<void> | null = null;
         try {
           if (
             refreshWorldStateOnTimelineChange &&
             !(await flushTrackerPatchesForTimelineAction(
               actionId,
               "Could not save tracker changes before switching swipes.",
-              isLatestSwipeRequest,
+              isActiveSwipeAction,
             ))
           ) {
             return;
           }
-          if (!isLatestSwipeRequest()) return;
-          const previousMutation = pendingSwipeMutationsRef.current.get(messageId);
+          if (!isActiveSwipeAction()) return;
           if (previousMutation) {
             try {
               await previousMutation;
@@ -492,22 +498,18 @@ export function useChatTimelineActions({
               // The active action below will report its own failure if needed.
             }
           }
-          if (!isLatestSwipeRequest()) return;
+          if (!isActiveSwipeAction()) return;
           const mutation = setActiveSwipeRef.current.mutateAsync({ messageId, index });
-          trackedMutation = mutation.then(
-            () => undefined,
-            () => undefined,
-          );
-          pendingSwipeMutationsRef.current.set(messageId, trackedMutation);
           await mutation;
-          if (swipeActionSeq.current !== actionId) return;
+          if (!isActiveSwipeAction()) return;
           scheduleVisibleWorldStateRefresh(actionId);
         } catch (error) {
-          if (isLatestSwipeRequest()) {
+          if (isActiveSwipeAction()) {
             toast.error(error instanceof Error ? error.message : "Could not switch swipes.");
           }
         } finally {
-          if (trackedMutation && pendingSwipeMutationsRef.current.get(messageId) === trackedMutation) {
+          resolvePendingTransition();
+          if (pendingSwipeMutationsRef.current.get(messageId) === pendingTransition) {
             pendingSwipeMutationsRef.current.delete(messageId);
           }
           if (isLatestSwipeRequest()) {
@@ -582,9 +584,9 @@ export function useChatTimelineActions({
           if (pendingSwipeMutationsRef.current.get(messageId) === pendingSwipeMutation) break;
         }
         if (peekPromptActionSeq.current !== actionId) return;
+        const latestMessage = messageId ? messagesRef.current?.find((message) => message.id === messageId) : undefined;
         const savedSnapshot =
-          promptSnapshotToPeekPromptData(options?.promptSnapshot) ??
-          promptSnapshotForMessage(messages?.find((message) => message.id === messageId));
+          promptSnapshotForMessage(latestMessage) ?? promptSnapshotToPeekPromptData(options?.promptSnapshot);
         if (savedSnapshot) {
           setPeekPromptData(savedSnapshot);
           return;
@@ -621,7 +623,7 @@ export function useChatTimelineActions({
         );
       })();
     },
-    [activeChatId, messages, peekPromptRef],
+    [activeChatId, messagesRef, peekPromptRef],
   );
 
   const closePeekPrompt = useCallback(() => {

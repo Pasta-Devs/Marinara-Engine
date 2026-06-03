@@ -43,9 +43,10 @@ export function SwipeJumpControl({
     if (!Number.isFinite(displayIndex)) return;
     setActiveIndex(displayIndex - 1);
   };
+  const parseDisplayIndex = (value: string) => (/^\d+$/.test(value) ? Number.parseInt(value, 10) : Number.NaN);
   const handleInputChange = (value: string) => {
     setInputValue(value);
-    const displayIndex = Number.parseInt(value, 10);
+    const displayIndex = parseDisplayIndex(value);
     if (Number.isNaN(displayIndex) || displayIndex < 1 || displayIndex > swipeCount) return;
     setSwipeByDisplayIndex(displayIndex);
   };
@@ -79,7 +80,7 @@ export function SwipeJumpControl({
         pattern="[0-9]*"
         value={inputValue}
         onChange={(event) => handleInputChange(event.target.value)}
-        onBlur={() => setSwipeByDisplayIndex(Number.parseInt(inputValue, 10) || activeSwipeIndex + 1)}
+        onBlur={() => setSwipeByDisplayIndex(parseDisplayIndex(inputValue) || activeSwipeIndex + 1)}
         onClick={(event) => event.stopPropagation()}
         onFocus={(event) => event.currentTarget.select()}
         onKeyDown={(event) => event.stopPropagation()}
