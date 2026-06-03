@@ -2336,6 +2336,78 @@ mod tests {
     }
 
     #[test]
+    fn storage_list_search_materializes_active_sidecar_extra_without_returning_swipes() {
+        let state = test_state("message-search-sidecar-active-extra");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "Visible active message.",
+                    "activeSwipeIndex": 1,
+                    "extra": { "hiddenFromAI": true },
+                    "createdAt": "2026-01-01T00:00:00Z"
+                })],
+            )
+            .expect("message should seed");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![
+                    json!({
+                        "id": "message-1::swipe::0",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 0,
+                        "content": "Search-only moonlit sidecar.",
+                        "extra": { "thinking": "inactive thought" }
+                    }),
+                    json!({
+                        "id": "message-1::swipe::1",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 1,
+                        "content": "Visible active message.",
+                        "extra": { "thinking": "active sidecar thought" }
+                    }),
+                ],
+            )
+            .expect("sidecar swipes should seed");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "filters": { "chatId": "chat-1" },
+                "fields": ["id", "content", "extra", "swipeCount", "swipePreviews"],
+                "fieldSelections": { "extra": ["hiddenFromAI", "thinking"] },
+                "search": "moonlit"
+            })),
+        )
+        .expect("message search should succeed");
+
+        assert_eq!(
+            result,
+            json!([
+                {
+                    "id": "message-1",
+                    "content": "Visible active message.",
+                    "extra": { "hiddenFromAI": true, "thinking": "active sidecar thought" },
+                    "swipeCount": 2,
+                    "swipePreviews": [
+                        { "content": "Search-only moonlit sidecar." },
+                        { "content": "Visible active message." }
+                    ]
+                }
+            ])
+        );
+    }
+
+    #[test]
     fn enabling_agent_default_connection_clears_previous_language_default() {
         let state = test_state("agent-default-exclusive-update");
         storage_create_inner(

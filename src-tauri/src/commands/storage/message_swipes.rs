@@ -57,7 +57,7 @@ impl MessageSwipeMaterialization {
             include_swipe_count: has_field("swipeCount"),
             include_swipe_previews: has_field("swipePreviews"),
             search_swipes: has_search,
-            materialize_active_swipe: has_field("swipes") || (!has_search && has_field("extra")),
+            materialize_active_swipe: has_field("swipes") || has_field("extra"),
         }
     }
 
