@@ -268,12 +268,12 @@ async function resolveIllustratorLlmConnectionId(
   storage: StorageGateway,
   fallbackConnectionId: string | null | undefined,
 ): Promise<string | null> {
-  const agents = await storage.list<JsonRecord>("agents").catch(() => []);
+  const agents = await storage.list<JsonRecord>("agents");
   const illustratorAgent = agents.find((agent) => boolish(agent.enabled, true) && isIllustratorAgent(agent));
   const agentConnectionId = readString(illustratorAgent?.connectionId).trim();
   if (agentConnectionId) return agentConnectionId;
 
-  const connections = await storage.list<JsonRecord>("connections").catch(() => []);
+  const connections = await storage.list<JsonRecord>("connections");
   const defaultAgentConnection = connections.find(
     (connection) =>
       readString(connection.provider).trim() !== "image_generation" && boolish(connection.defaultForAgents, false),

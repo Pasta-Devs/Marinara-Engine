@@ -265,4 +265,58 @@ describe("persistConnectedCommandTags", () => {
     expect(llmCalls[0]?.connectionId).toBe("chat-llm");
     expect(imageCalls[0]?.connectionId).toBe("selfie-image");
   });
+
+  it("emits a selfie error instead of falling back when agent configuration cannot be read", async () => {
+    const llmCalls: LlmRequest[] = [];
+    const imageCalls: Row[] = [];
+    const baseStorage = createStorage({
+      characters: [{ id: "char-1", data: { name: "Robin", appearance: "green jacket" } }],
+      connections: [
+        { id: "chat-llm", provider: "openai" },
+        { id: "selfie-image", provider: "image_generation" },
+      ],
+      gallery: [],
+    });
+    const storage: StorageGateway = {
+      ...baseStorage,
+      async list<T = unknown>(entity: StorageEntity, options?: StorageListOptions): Promise<T[]> {
+        if (entity === "agents") throw new Error("agent configuration unavailable");
+        return baseStorage.list<T>(entity, options);
+      },
+    };
+    const llm: LlmGateway = {
+      async complete(request) {
+        llmCalls.push(request);
+        return "Robin selfie, green jacket";
+      },
+      async *stream() {
+        yield { type: "done" };
+      },
+      async listModels() {
+        return [];
+      },
+    };
+
+    const result = await persistConnectedCommandTags(
+      storage,
+      {
+        id: "chat-1",
+        mode: "conversation",
+        characterIds: ["char-1"],
+        metadata: { characterCommands: true, imageGenConnectionId: "selfie-image" },
+      },
+      "[selfie]",
+      createImageIntegration(imageCalls),
+      llm,
+      "chat-llm",
+    );
+
+    expect(result.executedCommands).toEqual([]);
+    expect(result.events).toContainEqual({
+      type: "selfie_error",
+      data: { characterId: "char-1", error: "agent configuration unavailable" },
+    });
+    expect(llmCalls).toHaveLength(0);
+    expect(imageCalls).toHaveLength(0);
+  });
 });
