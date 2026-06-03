@@ -522,6 +522,11 @@ fn apply_sidecar_swipes(
         materialize_message_swipe_fields(message);
     } else if materialization.materialize_active_swipe {
         materialize_missing_active_swipe_extra(message);
+        if !materialization.search_swipes {
+            if let Some(object) = message.as_object_mut() {
+                object.remove("swipes");
+            }
+        }
     }
 }
 
@@ -665,7 +670,7 @@ pub(crate) fn materialize_messages_for_output(
     }
     let mut grouped: HashMap<String, Vec<Value>> = HashMap::new();
     let sidecars = if materialization.include_swipes {
-        state.storage.list(COLLECTION)?
+        state.storage.list_where_in(COLLECTION, "messageId", &ids)?
     } else {
         let fields = sidecar_summary_fields(materialization);
         state.storage.list_projected_where_in(
@@ -1285,6 +1290,71 @@ mod tests {
             .expect("stored message should exist")
             .get("swipes")
             .is_none());
+    }
+
+    #[test]
+    fn active_extra_projection_uses_sidecar_without_returning_swipes() {
+        let state = test_state("active-extra-projection-strips-sidecars");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "active parent",
+                    "activeSwipeIndex": 1,
+                    "extra": { "persistent": "keep" }
+                })],
+            )
+            .expect("messages should seed");
+        state
+            .storage
+            .replace_all(
+                COLLECTION,
+                vec![
+                    json!({
+                        "id": "message-1::swipe::0",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 0,
+                        "content": "first",
+                        "extra": { "thinking": "first thought" }
+                    }),
+                    json!({
+                        "id": "message-1::swipe::1",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 1,
+                        "content": "active parent",
+                        "extra": { "thinking": "active thought" }
+                    }),
+                ],
+            )
+            .expect("sidecars should seed");
+
+        let mut message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should not fail")
+            .expect("message should exist");
+        materialize_message_for_output(
+            &state,
+            &mut message,
+            MessageSwipeMaterialization {
+                include_swipes: false,
+                include_swipe_count: false,
+                include_swipe_previews: false,
+                search_swipes: false,
+                materialize_active_swipe: true,
+            },
+        )
+        .expect("message should materialize");
+
+        assert!(message.get("swipes").is_none());
+        assert_eq!(message["extra"]["persistent"], "keep");
+        assert_eq!(message["extra"]["thinking"], "active thought");
     }
 
     #[test]
