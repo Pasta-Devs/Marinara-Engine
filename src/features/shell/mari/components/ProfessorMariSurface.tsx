@@ -12,13 +12,14 @@ import {
 import { llmApi } from "../../../../shared/api/llm-api";
 import { mariApi, type ProfessorMariPreferences } from "../../../../shared/api/mari-api";
 import { useConnections } from "../../../catalog/connections/index";
-import { usePersonaSummaries } from "../../../catalog/personas/index";
+import { PersonaAvatarImage, usePersonaSummaries } from "../../../catalog/personas/index";
 import { ConversationMessage } from "../../../modes/conversation/message-shell";
 import type { CharacterMap, PersonaInfo } from "../../../modes/shared/chat-ui/types";
 import type { Message } from "../../../../engine/contracts/types/chat";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { isSendShortcut } from "../../../../shared/lib/send-shortcuts";
-import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../shared/lib/utils";
+import type { AvatarCropValue } from "../../../../shared/lib/utils";
+import { cn, parseAvatarCropJson } from "../../../../shared/lib/utils";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 
 const MARI_AVATAR_URL = "/sprites/mari/Mari_profile.png";
@@ -48,7 +49,9 @@ type MariPersona = {
   id: string;
   name: string;
   avatarPath?: string | null;
-  avatarCrop?: string;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  avatarCrop?: unknown;
   comment?: string | null;
   description?: string | null;
   personality?: string | null;
@@ -81,6 +84,17 @@ function formatDaySeparator(value: string) {
 function getDayKey(value: string) {
   const date = new Date(value);
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function parseMariAvatarCrop(value: unknown): AvatarCropValue | null {
+  if (!value) return null;
+  if (typeof value === "string") return parseAvatarCropJson(value);
+  if (typeof value !== "object") return null;
+  try {
+    return parseAvatarCropJson(JSON.stringify(value));
+  } catch {
+    return null;
+  }
 }
 
 function toConversationMessage(message: MariMessage): Message {
@@ -174,7 +188,7 @@ export function ProfessorMariSurface() {
       name: selectedPersona.name,
       description: selectedPersona.description ?? undefined,
       avatarUrl: selectedPersona.avatarPath ?? undefined,
-      avatarCrop: parseAvatarCropJson(selectedPersona.avatarCrop),
+      avatarCrop: parseMariAvatarCrop(selectedPersona.avatarCrop),
     };
   }, [selectedPersona]);
   const welcomeMessage = useMemo<MariMessage>(
@@ -634,11 +648,10 @@ export function ProfessorMariSurface() {
             aria-label="Quick Persona Switcher"
           >
             {selectedPersona?.avatarPath ? (
-              <img
-                src={selectedPersona.avatarPath}
+              <PersonaAvatarImage
+                persona={selectedPersona}
                 alt=""
                 className="h-full w-full rounded-lg object-cover"
-                style={getAvatarCropStyle(parseAvatarCropJson(selectedPersona.avatarCrop))}
                 draggable={false}
               />
             ) : (
@@ -844,12 +857,12 @@ function MariContextMenu({
                 >
                   {persona.avatarPath ? (
                     <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-[var(--border)]">
-                      <img
-                        src={persona.avatarPath}
+                      <PersonaAvatarImage
+                        persona={persona}
                         alt=""
                         className="h-full w-full object-cover"
-                        style={getAvatarCropStyle(parseAvatarCropJson(persona.avatarCrop))}
                         draggable={false}
+                        thumbnailSize={64}
                       />
                     </div>
                   ) : (

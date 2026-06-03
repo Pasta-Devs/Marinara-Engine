@@ -8,6 +8,9 @@ export type PersonaPanelRow = {
   backstory?: string;
   appearance?: string;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  avatarCrop?: unknown;
   isActive: string | boolean;
   createdAt?: string;
   tags?: string[];

@@ -16,6 +16,7 @@ import { useRef } from "react";
 
 import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../../shared/lib/utils";
+import { PersonaAvatarImage } from "../PersonaAvatarImage";
 import type { PersonaPanelGroup, PersonaPanelRow } from "../../lib/personas-panel-model";
 
 interface PersonaGroupsSectionProps {
@@ -233,10 +234,11 @@ export function PersonaGroupsSection({
                               <div key={personaId} className="flex items-center gap-2 rounded-lg px-1 py-1 text-xs">
                                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
                                   {persona.avatarPath ? (
-                                    <img
-                                      src={persona.avatarPath}
+                                    <PersonaAvatarImage
+                                      persona={persona}
                                       alt=""
                                       className="h-full w-full rounded-lg object-cover"
+                                      thumbnailSize={64}
                                     />
                                   ) : (
                                     <User size="0.625rem" />

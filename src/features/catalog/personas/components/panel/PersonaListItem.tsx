@@ -2,6 +2,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { Camera, Check, Copy, Star, Trash2, User } from "lucide-react";
 
 import { cn } from "../../../../../shared/lib/utils";
+import { PersonaAvatarImage } from "../PersonaAvatarImage";
 import type { PersonaPanelGroup, PersonaPanelRow } from "../../lib/personas-panel-model";
 
 interface PersonaListItemProps {
@@ -96,7 +97,7 @@ export function PersonaListItem({
         aria-label={`Change avatar for ${persona.name}`}
       >
         {persona.avatarPath ? (
-          <img src={persona.avatarPath} alt="" loading="lazy" className="h-full w-full rounded-xl object-cover" />
+          <PersonaAvatarImage persona={persona} alt="" className="h-full w-full rounded-xl object-cover" />
         ) : (
           <User size="1rem" />
         )}

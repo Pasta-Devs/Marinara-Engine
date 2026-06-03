@@ -72,6 +72,7 @@ import {
   ROLEPLAY_PARAMETER_DEFAULTS,
 } from "../../../../../shared/components/ui/GenerationParametersEditor";
 import { ChoiceSelectionModal } from "../../../../catalog/presets/index";
+import { PersonaAvatarImage } from "../../../../catalog/personas/index";
 import { SummariesEditorModal } from "./SummariesEditorModal";
 import {
   AgentCategorySection,
@@ -267,6 +268,8 @@ type DrawerPersona = {
   name: string;
   comment: string;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   avatarCrop?: AvatarCrop | string | null;
 };
 
@@ -2478,11 +2481,11 @@ function ChatSettingsDrawerInner({
                       return p ? (
                         <>
                           {p.avatarPath ? (
-                            <img
-                              src={p.avatarPath}
+                            <PersonaAvatarImage
+                              persona={p}
                               alt={p.name}
-                              loading="lazy"
                               className="h-7 w-7 shrink-0 rounded-full object-cover"
+                              thumbnailSize={64}
                             />
                           ) : (
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
@@ -2566,11 +2569,11 @@ function ChatSettingsDrawerInner({
                           )}
                         >
                           {p.avatarPath ? (
-                            <img
-                              src={p.avatarPath}
+                            <PersonaAvatarImage
+                              persona={p}
                               alt={p.name}
-                              loading="lazy"
                               className="h-6 w-6 shrink-0 rounded-full object-cover"
+                              thumbnailSize={64}
                             />
                           ) : (
                             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
@@ -2737,11 +2740,11 @@ function ChatSettingsDrawerInner({
                     return p ? (
                       <>
                         {p.avatarPath ? (
-                          <img
-                            src={p.avatarPath}
+                          <PersonaAvatarImage
+                            persona={p}
                             alt={p.name}
-                            loading="lazy"
                             className="h-7 w-7 shrink-0 rounded-full object-cover"
+                            thumbnailSize={64}
                           />
                         ) : (
                           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
@@ -2827,11 +2830,11 @@ function ChatSettingsDrawerInner({
                         )}
                       >
                         {p.avatarPath ? (
-                          <img
-                            src={p.avatarPath}
+                          <PersonaAvatarImage
+                            persona={p}
                             alt={p.name}
-                            loading="lazy"
                             className="h-6 w-6 shrink-0 rounded-full object-cover"
+                            thumbnailSize={64}
                           />
                         ) : (
                           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white">

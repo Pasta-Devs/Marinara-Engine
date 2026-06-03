@@ -29,7 +29,7 @@ import {
   useCharacterSummaries,
   useCharacterSummariesByIds,
 } from "../../../../catalog/characters/index";
-import { usePersonaSummaries } from "../../../../catalog/personas/index";
+import { PersonaAvatarImage, usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useLorebooks } from "../../../../catalog/lorebooks/index";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../../../catalog/chats/index";
 import { useChatPresets, useApplyChatPreset } from "../../../../catalog/chat-presets/index";
@@ -111,12 +111,18 @@ interface PersonaDisplayInfo {
   id?: string;
   name: string;
   avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  avatarCrop?: unknown;
   comment?: string | null;
 }
 
 type PersonaSetupOption = PersonaDisplayInfo & {
   id: string;
   avatarPath: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  avatarCrop?: unknown;
 };
 
 type ConnectionSetupOption = {
@@ -297,7 +303,12 @@ function CharacterAvatarImage({
 function PersonaAvatar({ persona }: { persona: PersonaDisplayInfo | null }) {
   if (persona?.avatarPath) {
     return (
-      <img src={persona.avatarPath} alt={persona.name} loading="lazy" className="h-7 w-7 rounded-full object-cover" />
+      <PersonaAvatarImage
+        persona={persona}
+        alt={persona.name}
+        className="h-7 w-7 rounded-full object-cover"
+        thumbnailSize={64}
+      />
     );
   }
 
@@ -495,6 +506,9 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
     id: string;
     name: string;
     avatarPath: string | null;
+    avatarFilePath?: string | null;
+    avatarFilename?: string | null;
+    avatarCrop?: unknown;
     comment?: string | null;
   }>;
   const metadata = useMemo(() => {

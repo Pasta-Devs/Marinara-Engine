@@ -6,11 +6,11 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { ChevronUp, ChevronDown, ChevronRight, Link, CircleUser, FolderOpen, Folder, Check } from "lucide-react";
 import { useConnections, useUpdateConnection } from "../../../../catalog/connections/index";
-import { usePersonaGroups, usePersonaSummaries } from "../../../../catalog/personas/index";
+import { PersonaAvatarImage, usePersonaGroups, usePersonaSummaries } from "../../../../catalog/personas/index";
 import { useUpdateChat, useChat } from "../../../../catalog/chats/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
-import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../../../../shared/lib/utils";
+import { cn } from "../../../../../shared/lib/utils";
 import { boolish as isRandomPoolEnabled } from "../../../../../engine/generation/runtime-records";
 import {
   CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
@@ -22,8 +22,10 @@ interface Persona {
   id: string;
   name: string;
   avatarPath?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   /** JSON-encoded AvatarCrop from the persona row. */
-  avatarCrop?: string;
+  avatarCrop?: unknown;
   comment?: string | null;
 }
 
@@ -210,12 +212,7 @@ export function QuickSwitcherMobile() {
       >
         {persona.avatarPath ? (
           <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)]">
-            <img
-              src={persona.avatarPath}
-              alt={persona.name}
-              className="h-full w-full object-cover"
-              style={getAvatarCropStyle(parseAvatarCropJson(persona.avatarCrop))}
-            />
+            <PersonaAvatarImage persona={persona} alt={persona.name} className="h-full w-full object-cover" />
           </div>
         ) : (
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)] text-xs font-semibold text-[var(--muted-foreground)]">
@@ -381,11 +378,10 @@ export function QuickSwitcherMobile() {
                       >
                         {firstMember?.avatarPath ? (
                           <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)]">
-                            <img
-                              src={firstMember.avatarPath}
+                            <PersonaAvatarImage
+                              persona={firstMember}
                               alt={group.name}
                               className="h-full w-full object-cover"
-                              style={getAvatarCropStyle(parseAvatarCropJson(firstMember.avatarCrop))}
                             />
                           </div>
                         ) : (
