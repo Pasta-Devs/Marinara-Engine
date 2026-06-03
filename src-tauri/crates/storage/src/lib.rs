@@ -677,6 +677,19 @@ impl FileStorage {
             .map(|cached| cached.rows.clone()))
     }
 
+    fn cached_dirty_rows(&self, collection: &str) -> AppResult<Option<Vec<Value>>> {
+        validate_collection_name(collection)?;
+        let cache = self
+            .cache
+            .read()
+            .map_err(|_| AppError::new("lock_error", "Storage cache lock poisoned"))?;
+        Ok(cache
+            .collections
+            .get(collection)
+            .filter(|cached| cached.dirty)
+            .map(|cached| cached.rows.clone()))
+    }
+
     fn is_collection_cached(&self, collection: &str) -> AppResult<bool> {
         validate_collection_name(collection)?;
         let cache = self
@@ -895,7 +908,7 @@ impl FileStorage {
         }
         let field_set: HashSet<String> = fields.iter().cloned().collect();
         let nested_field_sets = selected_nested_fields(field_selections);
-        if let Some(rows) = self.cached_rows(collection)? {
+        if let Some(rows) = self.cached_dirty_rows(collection)? {
             return Ok(rows
                 .into_iter()
                 .map(|row| project_row(row, &field_set, &nested_field_sets))
@@ -979,7 +992,7 @@ impl FileStorage {
         }
         let field_set: HashSet<String> = fields.iter().cloned().collect();
         let nested_field_sets = selected_nested_fields(field_selections);
-        if let Some(rows) = self.cached_rows(collection)? {
+        if let Some(rows) = self.cached_dirty_rows(collection)? {
             return Ok(rows
                 .into_iter()
                 .filter(|row| {
@@ -1121,7 +1134,7 @@ impl FileStorage {
 
         let field_set: HashSet<String> = fields.iter().cloned().collect();
         let nested_field_sets = selected_nested_fields(field_selections);
-        if let Some(rows) = self.cached_rows(collection)? {
+        if let Some(rows) = self.cached_dirty_rows(collection)? {
             return Ok(rows
                 .into_iter()
                 .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
@@ -1204,7 +1217,7 @@ impl FileStorage {
         }
         let field_set: HashSet<String> = fields.iter().cloned().collect();
         let nested_field_sets = selected_nested_fields(field_selections);
-        if let Some(rows) = self.cached_rows("messages")? {
+        if let Some(rows) = self.cached_dirty_rows("messages")? {
             return Ok(rows
                 .into_iter()
                 .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
@@ -1287,7 +1300,7 @@ impl FileStorage {
         chat_id: &str,
         recover_on_fallback: bool,
     ) -> AppResult<Vec<Value>> {
-        if let Some(rows) = self.cached_rows("messages")? {
+        if let Some(rows) = self.cached_dirty_rows("messages")? {
             return Ok(rows
                 .into_iter()
                 .filter(|row| row.get("chatId").and_then(Value::as_str) == Some(chat_id))
@@ -3336,6 +3349,11 @@ fn read_pretty_projected_nested_value<R: BufRead>(
         if fields.contains(&field) {
             let value = read_pretty_json_value(reader, value_start)?;
             projected.insert(field, value);
+        } else if let Some(child_fields) = selected_child_paths(fields, &field) {
+            let value = read_pretty_projected_nested_value(reader, value_start, &child_fields)?;
+            if !value.as_object().is_some_and(Map::is_empty) {
+                projected.insert(field, value);
+            }
         } else {
             skip_pretty_json_value(reader, value_start)?;
         }
@@ -4074,6 +4092,96 @@ mod tests {
         assert_eq!(
             record,
             json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_projected_bypasses_clean_full_row_cache() {
+        let root = temp_storage_root("get-projected-bypasses-clean-cache");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "data": { "name": "Cached", "description": "cached prompt" },
+                    "avatar": "cached image payload"
+                })],
+            )
+            .unwrap();
+
+        let collection = root.join("collections").join("characters.json");
+        fs::write(
+            &collection,
+            serde_json::to_vec_pretty(&json!([
+                {
+                    "id": "target",
+                    "data": { "name": "Disk", "description": "disk prompt" },
+                    "avatar": "disk image payload"
+                }
+            ]))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        let record = storage
+            .get_projected("characters", "target", &fields, &selections)
+            .expect("projected get should read from disk when cache is clean")
+            .expect("target row should exist");
+
+        assert_eq!(
+            record,
+            json!({ "id": "target", "data": { "name": "Disk" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn list_projected_uses_dirty_cache_before_disk() {
+        let root = temp_storage_root("list-projected-uses-dirty-cache");
+        let storage = FileStorage::new(&root).unwrap();
+
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "data": { "name": "Disk", "description": "disk prompt" },
+                    "avatar": "disk image payload"
+                })],
+            )
+            .unwrap();
+        storage
+            .cache_collection(
+                "characters",
+                &[json!({
+                    "id": "target",
+                    "data": { "name": "Dirty", "description": "dirty prompt" },
+                    "avatar": "dirty image payload"
+                })],
+                true,
+            )
+            .unwrap();
+
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
+
+        let rows = storage
+            .list_projected("characters", &fields, &selections)
+            .expect("projected list should honor dirty cache");
+
+        assert_eq!(
+            rows,
+            vec![json!({ "id": "target", "data": { "name": "Dirty" } })]
         );
 
         fs::remove_dir_all(root).unwrap();
