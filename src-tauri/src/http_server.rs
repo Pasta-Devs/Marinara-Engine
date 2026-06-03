@@ -557,6 +557,7 @@ fn is_privileged_remote_command(command: &str) -> bool {
             | "profile_import"
             | "profile_import_upload"
             | "backup_create"
+            | "backup_list"
             | "backup_delete"
             | "backup_download"
             | "import_list_directory"
@@ -1650,6 +1651,23 @@ mod tests {
             .expect_err("public remote IP should require auth");
         assert_eq!(rejection.status, StatusCode::FORBIDDEN);
         assert_eq!(rejection.code, "remote_auth_required");
+    }
+
+    #[test]
+    fn hostable_security_requires_admin_access_for_remote_backup_list() {
+        let headers = HeaderMap::new();
+        let remote_ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10));
+
+        let error = require_admin_access_for_command("backup_list", &headers, remote_ip)
+            .expect_err("remote backup_list should require Admin Access");
+        assert_eq!(error.code, "admin_access_required");
+        assert!(require_admin_access_for_command(
+            "backup_list",
+            &headers,
+            IpAddr::V4(Ipv4Addr::LOCALHOST)
+        )
+        .is_ok());
+        assert!(require_admin_access_for_command("storage_list", &headers, remote_ip).is_ok());
     }
 
     #[test]

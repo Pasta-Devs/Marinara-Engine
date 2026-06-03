@@ -185,6 +185,7 @@ const PRIVILEGED_REMOTE_COMMANDS = new Set([
   "profile_import",
   "profile_import_upload",
   "backup_create",
+  "backup_list",
   "backup_delete",
   "backup_download",
   "import_list_directory",
