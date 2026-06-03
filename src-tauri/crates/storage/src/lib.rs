@@ -89,6 +89,36 @@ impl FileStorage {
         )
     }
 
+    pub fn list_projected_where_in(
+        &self,
+        collection: &str,
+        filter_field: &str,
+        filter_values: &HashSet<String>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_locked_or_recover(
+            || {
+                self.read_collection_projected_where_in_no_recovery(
+                    collection,
+                    filter_field,
+                    filter_values,
+                    fields,
+                    field_selections,
+                )
+            },
+            || {
+                self.read_collection_projected_where_in(
+                    collection,
+                    filter_field,
+                    filter_values,
+                    fields,
+                    field_selections,
+                )
+            },
+        )
+    }
+
     pub fn list_messages_for_chat(&self, chat_id: &str) -> AppResult<Vec<Value>> {
         self.read_locked_or_recover(
             || self.read_messages_for_chat_no_recovery(chat_id),
@@ -460,6 +490,37 @@ impl FileStorage {
         self.replace_all_many_and_then(replacements, || Ok(()))
     }
 
+    pub fn update_collections_atomically<F, T>(
+        &self,
+        collections: Vec<&str>,
+        update: F,
+    ) -> AppResult<T>
+    where
+        F: FnOnce(&mut Vec<(&str, Vec<Value>)>) -> AppResult<T>,
+    {
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.flush_dirty_collections_locked()?;
+
+        let mut replacements = Vec::with_capacity(collections.len());
+        let mut seen_paths = HashSet::new();
+        for collection in collections {
+            let path = self.collection_path(collection)?;
+            if !seen_paths.insert(path) {
+                return Err(AppError::invalid_input(format!(
+                    "Duplicate collection update: {collection}"
+                )));
+            }
+            replacements.push((collection, self.read_collection(collection)?));
+        }
+
+        let output = update(&mut replacements)?;
+        self.replace_all_many_locked(replacements, || Ok(()))?;
+        Ok(output)
+    }
+
     pub fn replace_all_many_and_then<F>(
         &self,
         replacements: Vec<(&str, Vec<Value>)>,
@@ -749,6 +810,102 @@ impl FileStorage {
                 };
                 Ok(rows
                     .into_iter()
+                    .map(|row| project_row(row, &field_set, &nested_field_sets))
+                    .collect())
+            }
+        }
+    }
+
+    fn read_collection_projected_where_in(
+        &self,
+        collection: &str,
+        filter_field: &str,
+        filter_values: &HashSet<String>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_collection_projected_where_in_inner(
+            collection,
+            filter_field,
+            filter_values,
+            fields,
+            field_selections,
+            true,
+        )
+    }
+
+    fn read_collection_projected_where_in_no_recovery(
+        &self,
+        collection: &str,
+        filter_field: &str,
+        filter_values: &HashSet<String>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+    ) -> AppResult<Vec<Value>> {
+        self.read_collection_projected_where_in_inner(
+            collection,
+            filter_field,
+            filter_values,
+            fields,
+            field_selections,
+            false,
+        )
+    }
+
+    fn read_collection_projected_where_in_inner(
+        &self,
+        collection: &str,
+        filter_field: &str,
+        filter_values: &HashSet<String>,
+        fields: &[String],
+        field_selections: &Map<String, Value>,
+        recover_on_fallback: bool,
+    ) -> AppResult<Vec<Value>> {
+        if fields.is_empty() || filter_values.is_empty() {
+            return Ok(Vec::new());
+        }
+        let field_set: HashSet<String> = fields.iter().cloned().collect();
+        let nested_field_sets = selected_nested_fields(field_selections);
+        if let Some(rows) = self.cached_rows(collection)? {
+            return Ok(rows
+                .into_iter()
+                .filter(|row| {
+                    row.get(filter_field)
+                        .and_then(Value::as_str)
+                        .is_some_and(|value| filter_values.contains(value))
+                })
+                .map(|row| project_row(row, &field_set, &nested_field_sets))
+                .collect());
+        }
+
+        let path = self.collection_path(collection)?;
+        if !path.exists() || fs::metadata(&path)?.len() == 0 {
+            return Ok(Vec::new());
+        }
+
+        let file = fs::File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut deserializer = serde_json::Deserializer::from_reader(reader);
+        match deserializer.deserialize_seq(ProjectedRowsWhereInVisitor {
+            filter_field,
+            filter_values,
+            fields: &field_set,
+            field_selections: &nested_field_sets,
+        }) {
+            Ok(rows) => Ok(rows),
+            Err(_) => {
+                let rows = if recover_on_fallback {
+                    self.read_collection(collection)?
+                } else {
+                    self.read_collection_no_recovery(collection)?
+                };
+                Ok(rows
+                    .into_iter()
+                    .filter(|row| {
+                        row.get(filter_field)
+                            .and_then(Value::as_str)
+                            .is_some_and(|value| filter_values.contains(value))
+                    })
                     .map(|row| project_row(row, &field_set, &nested_field_sets))
                     .collect())
             }
@@ -1404,7 +1561,19 @@ impl FileStorage {
                         "Duplicate collection replacement: {collection}"
                     )));
                 }
-                let existed = path_exists_no_follow(&path)?;
+                let existed = match fs::symlink_metadata(&path) {
+                    Ok(metadata) => {
+                        if !metadata.file_type().is_file() {
+                            return Err(AppError::io(std::io::Error::other(format!(
+                                "Collection path is not a regular file: {}",
+                                path.display()
+                            ))));
+                        }
+                        true
+                    }
+                    Err(error) if error.kind() == ErrorKind::NotFound => false,
+                    Err(error) => return Err(error.into()),
+                };
                 if let Some(parent) = path.parent() {
                     fs::create_dir_all(parent)?;
                 }
@@ -1881,6 +2050,123 @@ impl<'de, 'a> Visitor<'de> for ProjectedRowsVisitor<'a> {
             rows.push(row);
         }
         Ok(rows)
+    }
+}
+
+struct ProjectedRowsWhereInVisitor<'a> {
+    filter_field: &'a str,
+    filter_values: &'a HashSet<String>,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowsWhereInVisitor<'a> {
+    type Value = Vec<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a JSON array of filtered records")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut rows = Vec::new();
+        while let Some(row) = seq.next_element_seed(ProjectedRowWhereInSeed {
+            filter_field: self.filter_field,
+            filter_values: self.filter_values,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })? {
+            if let Some(row) = row {
+                rows.push(row);
+            }
+        }
+        Ok(rows)
+    }
+}
+
+struct ProjectedRowWhereInSeed<'a> {
+    filter_field: &'a str,
+    filter_values: &'a HashSet<String>,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> DeserializeSeed<'de> for ProjectedRowWhereInSeed<'a> {
+    type Value = Option<Value>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_map(ProjectedRowWhereInVisitor {
+            filter_field: self.filter_field,
+            filter_values: self.filter_values,
+            fields: self.fields,
+            field_selections: self.field_selections,
+        })
+    }
+}
+
+struct ProjectedRowWhereInVisitor<'a> {
+    filter_field: &'a str,
+    filter_values: &'a HashSet<String>,
+    fields: &'a HashSet<String>,
+    field_selections: &'a HashMap<String, HashSet<String>>,
+}
+
+impl<'de, 'a> Visitor<'de> for ProjectedRowWhereInVisitor<'a> {
+    type Value = Option<Value>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a filtered record object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut object = Map::new();
+        let mut matches_filter = None;
+        while let Some(key) = map.next_key::<String>()? {
+            if key == self.filter_field {
+                let value = map.next_value::<Value>()?;
+                let is_match = value
+                    .as_str()
+                    .is_some_and(|value| self.filter_values.contains(value));
+                matches_filter = Some(is_match);
+                if is_match && self.fields.contains(&key) {
+                    object.insert(key, value);
+                } else if !is_match {
+                    object.clear();
+                }
+                continue;
+            }
+
+            if matches_filter == Some(false) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            if !self.fields.contains(&key) {
+                let _ = map.next_value::<serde::de::IgnoredAny>()?;
+                continue;
+            }
+
+            let value = if let Some(nested_fields) = self.field_selections.get(&key) {
+                map.next_value_seed(ProjectedNestedSeed {
+                    fields: nested_fields,
+                })?
+            } else {
+                map.next_value::<Value>()?
+            };
+            object.insert(key, value);
+        }
+
+        Ok(matches_filter
+            .unwrap_or(false)
+            .then_some(Value::Object(object)))
     }
 }
 
@@ -3251,6 +3537,37 @@ mod tests {
     }
 
     #[test]
+    fn update_collections_atomically_reads_and_replaces_multiple_collections() {
+        let root = temp_storage_root("update-collections-atomically");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .replace_all("messages", vec![json!({ "id": "message-1", "content": "old" })])
+            .unwrap();
+        storage
+            .replace_all(
+                "message-swipes",
+                vec![json!({ "id": "message-1::swipe::0", "messageId": "message-1" })],
+            )
+            .unwrap();
+
+        let updated = storage
+            .update_collections_atomically(vec!["messages", "message-swipes"], |collections| {
+                collections[0].1.push(json!({ "id": "message-2", "content": "new" }));
+                collections[1]
+                    .1
+                    .push(json!({ "id": "message-2::swipe::0", "messageId": "message-2" }));
+                Ok(collections[0].1.len())
+            })
+            .unwrap();
+
+        assert_eq!(updated, 2);
+        assert_eq!(storage.list("messages").unwrap().len(), 2);
+        assert_eq!(storage.list("message-swipes").unwrap().len(), 2);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn corrupt_collection_and_backup_are_preserved_and_recreated_empty() {
         let root = temp_storage_root("corrupt-collection-and-backup");
         let storage = FileStorage::new(&root).unwrap();
@@ -3708,6 +4025,80 @@ mod tests {
     }
 
     #[test]
+    fn list_projected_where_in_streams_legacy_sidecar_rows() {
+        let root = temp_storage_root("list-projected-where-in");
+        FileStorage::new(&root).unwrap();
+        let sidecar = root.join("collections").join("message-swipes.json");
+        fs::write(
+            &sidecar,
+            serde_json::to_vec_pretty(&json!([
+                {
+                    "id": "message-1::swipe::0",
+                    "messageId": "message-1",
+                    "index": 0,
+                    "content": "first",
+                    "extra": { "large": "ignored" },
+                    "createdAt": "2026-01-01T00:00:00Z"
+                },
+                {
+                    "id": "message-1::swipe::1",
+                    "messageId": "message-1",
+                    "index": 1,
+                    "content": "second",
+                    "extra": { "large": "ignored" },
+                    "createdAt": "2026-01-01T00:00:01Z"
+                },
+                {
+                    "id": "message-2::swipe::0",
+                    "messageId": "message-2",
+                    "index": 0,
+                    "content": "skip",
+                    "extra": { "large": "ignored" },
+                    "createdAt": "2026-01-01T00:00:02Z"
+                },
+                {
+                    "id": "missing-message-id",
+                    "index": 0,
+                    "content": "skip missing parent",
+                    "extra": { "large": "ignored" },
+                    "createdAt": "2026-01-01T00:00:03Z"
+                }
+            ]))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let storage = FileStorage::new(&root).unwrap();
+
+        let fields = ["messageId", "index", "content"]
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>();
+        let values = HashSet::from(["message-1".to_string()]);
+        let rows = storage
+            .list_projected_where_in("message-swipes", "messageId", &values, &fields, &Map::new())
+            .expect("projected filtered rows should read");
+
+        assert_eq!(
+            rows,
+            vec![
+                json!({
+                    "messageId": "message-1",
+                    "index": 0,
+                    "content": "first"
+                }),
+                json!({
+                    "messageId": "message-1",
+                    "index": 1,
+                    "content": "second"
+                })
+            ]
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn list_messages_for_chat_returns_only_matching_messages() {
         let root = temp_storage_root("list-messages-for-chat");
         let storage = FileStorage::new(&root).unwrap();
@@ -4045,6 +4436,33 @@ mod tests {
             storage.list("characters").unwrap()[0]["id"],
             "old-character"
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn replace_all_many_rejects_non_file_collection_before_replacing_anything() {
+        let root = temp_storage_root("replace-many-non-file");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .replace_all("characters", vec![json!({ "id": "old-character" })])
+            .unwrap();
+        let message_path = root.join("collections").join("messages.json");
+        fs::create_dir(&message_path).unwrap();
+
+        let error = storage
+            .replace_all_many(vec![
+                ("characters", vec![json!({ "id": "new-character" })]),
+                ("messages", vec![json!({ "id": "message-1" })]),
+            ])
+            .expect_err("non-file collection should reject the batch");
+
+        assert_eq!(error.code, "io_error");
+        assert_eq!(
+            storage.list("characters").unwrap()[0]["id"],
+            "old-character"
+        );
+        assert!(message_path.is_dir());
 
         fs::remove_dir_all(root).unwrap();
     }
