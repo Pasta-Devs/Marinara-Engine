@@ -91,7 +91,7 @@ export function DiscoverPanel() {
   const visibleEntries = shouldShowPreview ? entries.slice(0, DEFAULT_PREVIEW_COUNT) : entries;
 
   return (
-    <div className="flex min-h-full flex-col gap-3 p-3">
+    <div className="flex w-full flex-col gap-3 p-3">
       <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]/65 p-3 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--primary)]/25 bg-[var(--primary)]/10 text-[var(--primary)]">
