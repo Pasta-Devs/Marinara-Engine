@@ -54,8 +54,8 @@ export function useChatOverlays(activeChatId: string) {
   const shouldOpenSettings = useChatStore((state) => state.shouldOpenSettings);
   const shouldOpenWizard = useChatStore((state) => state.shouldOpenWizard);
 
-  const queueSetupOverlayOpen = useCallback((key: string, run: () => void) => {
-    if (pendingSetupOverlayKeyRef.current === key) return;
+  const queueSetupOverlayOpen = useCallback((key: string, run: () => void): boolean => {
+    if (pendingSetupOverlayKeyRef.current === key) return false;
     cancelSetupOverlayOpenRef.current?.();
     pendingSetupOverlayKeyRef.current = key;
     cancelSetupOverlayOpenRef.current = scheduleSetupOverlayOpen(() => {
@@ -63,6 +63,7 @@ export function useChatOverlays(activeChatId: string) {
       cancelSetupOverlayOpenRef.current = null;
       run();
     });
+    return true;
   }, []);
 
   useEffect(() => {
@@ -95,12 +96,14 @@ export function useChatOverlays(activeChatId: string) {
     }
 
     if (shouldOpenSettings && !newChatSetupIntent) {
-      queueSetupOverlayOpen(`legacy:${activeChatId}:${shouldOpenWizard ? "wizard" : "settings"}`, () => {
+      const queued = queueSetupOverlayOpen(`legacy:${activeChatId}:${shouldOpenWizard ? "wizard" : "settings"}`, () => {
         if (shouldOpenWizard) setWizardOpen(true);
         else setSettingsOpen(true);
+      });
+      if (queued) {
         useChatStore.getState().setShouldOpenWizard(false);
         useChatStore.getState().setShouldOpenSettings(false);
-      });
+      }
     }
   }, [newChatSetupIntent, queueSetupOverlayOpen, shouldOpenSettings, shouldOpenWizard, activeChatId]);
 
