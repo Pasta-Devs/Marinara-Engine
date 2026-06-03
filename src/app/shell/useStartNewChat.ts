@@ -47,7 +47,13 @@ export function useStartNewChat() {
       }
 
       if (needsRemoteRuntime) {
-        const health = await checkRemoteRuntimeHealth(remoteRuntime);
+        let health: Awaited<ReturnType<typeof checkRemoteRuntimeHealth>>;
+        try {
+          health = await checkRemoteRuntimeHealth(remoteRuntime);
+        } catch {
+          if (isNewChatMode) setPendingNewChatMode(mode);
+          return;
+        }
         if (health.status !== "ok") {
           if (isNewChatMode) setPendingNewChatMode(mode);
           return;
