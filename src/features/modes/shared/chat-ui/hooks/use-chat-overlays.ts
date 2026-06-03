@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 
 type IdleWindow = Window & {
@@ -47,21 +47,43 @@ export function useChatOverlays(activeChatId: string) {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [spriteArrangeMode, setSpriteArrangeMode] = useState(false);
+  const cancelSetupOverlayOpenRef = useRef<(() => void) | null>(null);
+  const pendingSetupOverlayKeyRef = useRef<string | null>(null);
 
   const newChatSetupIntent = useChatStore((state) => state.newChatSetupIntent);
   const shouldOpenSettings = useChatStore((state) => state.shouldOpenSettings);
   const shouldOpenWizard = useChatStore((state) => state.shouldOpenWizard);
 
+  const queueSetupOverlayOpen = useCallback((key: string, run: () => void) => {
+    if (pendingSetupOverlayKeyRef.current === key) return;
+    cancelSetupOverlayOpenRef.current?.();
+    pendingSetupOverlayKeyRef.current = key;
+    cancelSetupOverlayOpenRef.current = scheduleSetupOverlayOpen(() => {
+      pendingSetupOverlayKeyRef.current = null;
+      cancelSetupOverlayOpenRef.current = null;
+      run();
+    });
+  }, []);
+
   useEffect(() => {
     setSpriteArrangeMode(false);
   }, [activeChatId]);
+
+  useEffect(
+    () => () => {
+      cancelSetupOverlayOpenRef.current?.();
+      cancelSetupOverlayOpenRef.current = null;
+      pendingSetupOverlayKeyRef.current = null;
+    },
+    [activeChatId],
+  );
 
   useEffect(() => {
     if (!activeChatId) return;
 
     const intent = useChatStore.getState().consumeNewChatSetupIntent(activeChatId);
     if (intent) {
-      return scheduleSetupOverlayOpen(() => {
+      queueSetupOverlayOpen(`intent:${intent.chatId}`, () => {
         if (intent.openWizard) {
           if (intent.shortcutMode) useChatStore.getState().setShouldOpenWizardInShortcutMode(true);
           setWizardOpen(true);
@@ -69,17 +91,18 @@ export function useChatOverlays(activeChatId: string) {
           setSettingsOpen(true);
         }
       });
+      return;
     }
 
     if (shouldOpenSettings && !newChatSetupIntent) {
-      useChatStore.getState().setShouldOpenWizard(false);
-      useChatStore.getState().setShouldOpenSettings(false);
-      return scheduleSetupOverlayOpen(() => {
+      queueSetupOverlayOpen(`legacy:${activeChatId}:${shouldOpenWizard ? "wizard" : "settings"}`, () => {
         if (shouldOpenWizard) setWizardOpen(true);
         else setSettingsOpen(true);
+        useChatStore.getState().setShouldOpenWizard(false);
+        useChatStore.getState().setShouldOpenSettings(false);
       });
     }
-  }, [newChatSetupIntent, shouldOpenSettings, shouldOpenWizard, activeChatId]);
+  }, [newChatSetupIntent, queueSetupOverlayOpen, shouldOpenSettings, shouldOpenWizard, activeChatId]);
 
   return {
     settingsOpen,
