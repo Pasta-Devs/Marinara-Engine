@@ -161,7 +161,7 @@ describe("generateConversationSchedules lorebook context", () => {
             id: "entry-city",
             lorebookId: "active-lorebook",
             name: "Observatory District",
-            content: "The observatory district is busiest from midnight until dawn.",
+            content: "The observatory district is busiest from midnight until dawn.\n- Weekends have public tours.",
             enabled: true,
           },
           "entry-character": {
@@ -200,6 +200,7 @@ describe("generateConversationSchedules lorebook context", () => {
 
     expect(prompt).toContain("<schedule_lorebook_context>");
     expect(prompt).toContain("The observatory district is busiest from midnight until dawn.");
+    expect(prompt).toContain("- Weekends have public tours.");
     expect(prompt).toContain("Mira works the night shift at the observatory every weekday.");
     expect(prompt).not.toContain("This disabled entry should not appear.");
     expect(prompt).not.toContain("This inactive lorebook should not appear.");

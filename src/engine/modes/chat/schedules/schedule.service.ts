@@ -47,6 +47,11 @@ interface CharacterSchedules {
 
 type JsonRecord = Record<string, unknown>;
 
+interface ScheduleLorebookContextSource {
+  lorebooks: JsonRecord[];
+  entriesByLorebookId: Map<string, LorebookEntry[]>;
+}
+
 export interface GenerateConversationSchedulesInput {
   chatId: string;
   forceRefresh?: boolean;
@@ -129,6 +134,11 @@ export async function generateConversationSchedules(
     otherChatSchedules = await loadOtherConversationSchedules(capabilities.storage, input.chatId);
     return otherChatSchedules;
   };
+  let scheduleLorebookContextSource: Promise<ScheduleLorebookContextSource> | null = null;
+  const getScheduleLorebookContextSource = () => {
+    scheduleLorebookContextSource ??= loadScheduleLorebookContextSource(capabilities.storage);
+    return scheduleLorebookContextSource;
+  };
 
   for (const characterId of characterIds) {
     const existing = existingSchedules[characterId];
@@ -164,7 +174,7 @@ export async function generateConversationSchedules(
         ? buildScheduleContinuityContext({ meta, characterData, existingSchedule: existing })
         : undefined;
       const scheduleLorebookContext = await buildScheduleLorebookContext(
-        capabilities.storage,
+        await getScheduleLorebookContextSource(),
         chat,
         meta,
         character,
@@ -536,16 +546,25 @@ function lorebookContextCharacterTags(character: JsonRecord, characterData: Json
   return uniqueStrings([...stringArray(character.tags), ...stringArray(characterData.tags)]);
 }
 
+function limitPromptBlockText(value: string, maxChars: number): string {
+  const trimmed = value.trim();
+  return trimmed.length > maxChars ? `${trimmed.slice(0, maxChars - 3).trimEnd()}...` : trimmed;
+}
+
 function formatScheduleLorebookEntry(entry: LorebookEntry): string {
   const title = entry.name.trim() || "Entry";
-  return `### ${title}\n${limitText(entry.content, SCHEDULE_LOREBOOK_ENTRY_MAX_CHARS)}`;
+  return `### ${title}\n${limitPromptBlockText(entry.content, SCHEDULE_LOREBOOK_ENTRY_MAX_CHARS)}`;
+}
+
+function remainingScheduleLoreContextChars(parts: string[], usedChars: number): number {
+  return SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS - usedChars - (parts.length > 0 ? 2 : 0);
 }
 
 function appendCappedScheduleLoreContext(parts: string[], text: string, usedChars: number): number {
   const trimmed = text.trim();
   if (!trimmed) return usedChars;
   const separatorLength = parts.length > 0 ? 2 : 0;
-  const remaining = SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS - usedChars - separatorLength;
+  const remaining = remainingScheduleLoreContextChars(parts, usedChars);
   if (remaining <= 0) return usedChars;
   if (trimmed.length <= remaining) {
     parts.push(trimmed);
@@ -555,11 +574,19 @@ function appendCappedScheduleLoreContext(parts: string[], text: string, usedChar
     parts.push(`${trimmed.slice(0, remaining - 3).trim()}...`);
     return SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS;
   }
-  return usedChars;
+  return SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS;
+}
+
+async function loadScheduleLorebookContextSource(storage: StorageGateway): Promise<ScheduleLorebookContextSource> {
+  const lorebooks = await storage.list<JsonRecord>("lorebooks");
+  return {
+    lorebooks,
+    entriesByLorebookId: await loadLorebookEntriesForActivationBatch(storage, lorebooks),
+  };
 }
 
 async function buildScheduleLorebookContext(
-  storage: StorageGateway,
+  source: ScheduleLorebookContextSource,
   chat: JsonRecord,
   meta: JsonRecord,
   character: JsonRecord,
@@ -569,8 +596,7 @@ async function buildScheduleLorebookContext(
   if (!characterId) return "";
 
   const personaId = stringValue(chat.personaId ?? meta.personaId).trim();
-  const lorebooks = await storage.list<JsonRecord>("lorebooks");
-  const scopedLorebooks = lorebooks
+  const scopedLorebooks = source.lorebooks
     .map((book) => ({
       book,
       reason: resolveActiveLorebookScopeReason(book, {
@@ -582,10 +608,6 @@ async function buildScheduleLorebookContext(
     .filter((item): item is { book: JsonRecord; reason: NonNullable<typeof item.reason> } => !!item.reason);
   if (scopedLorebooks.length === 0) return "";
 
-  const entriesByLorebookId = await loadLorebookEntriesForActivationBatch(
-    storage,
-    scopedLorebooks.map((item) => item.book),
-  );
   const characterTags = lorebookContextCharacterTags(character, characterData);
   const generationTriggers = ["chat", "conversation", "schedule"];
   const parts: string[] = [];
@@ -593,7 +615,7 @@ async function buildScheduleLorebookContext(
 
   for (const { book, reason } of scopedLorebooks) {
     const lorebookId = stringValue(book.id).trim();
-    const entries = (entriesByLorebookId.get(lorebookId) ?? [])
+    const entries = (source.entriesByLorebookId.get(lorebookId) ?? [])
       .filter((entry) =>
         lorebookEntryPassesContextFilters(entry, {
           activeCharacterIds: [characterId],
@@ -604,11 +626,28 @@ async function buildScheduleLorebookContext(
       .sort((a, b) => a.order - b.order);
     if (entries.length === 0) continue;
 
+    const formattedEntries = entries.map(formatScheduleLorebookEntry);
     const lorebookName = stringValue(book.name).trim() || reason.lorebookName || lorebookId || "Lorebook";
-    usedChars = appendCappedScheduleLoreContext(parts, `## ${lorebookName}`, usedChars);
+    const header = `## ${lorebookName}`;
+    const remainingBeforeHeader = remainingScheduleLoreContextChars(parts, usedChars);
+    if (remainingBeforeHeader <= 0) break;
+    if (remainingBeforeHeader < 80) {
+      usedChars = SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS;
+      break;
+    }
+    const remainingAfterHeader = remainingBeforeHeader - header.length - 2;
+    if (
+      remainingAfterHeader < 80 &&
+      !formattedEntries.some((entry) => entry.trim().length <= Math.max(0, remainingAfterHeader))
+    ) {
+      usedChars = SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS;
+      break;
+    }
+
+    usedChars = appendCappedScheduleLoreContext(parts, header, usedChars);
     if (usedChars >= SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS) break;
-    for (const entry of entries) {
-      usedChars = appendCappedScheduleLoreContext(parts, formatScheduleLorebookEntry(entry), usedChars);
+    for (const entry of formattedEntries) {
+      usedChars = appendCappedScheduleLoreContext(parts, entry, usedChars);
       if (usedChars >= SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS) break;
     }
     if (usedChars >= SCHEDULE_LOREBOOK_CONTEXT_MAX_CHARS) break;
