@@ -17,7 +17,7 @@ export interface CustomToolRow {
   executionType: string;
   webhookUrl: string | null;
   staticResult: string | null;
-  enabled: string;
+  enabled: unknown;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,9 +28,19 @@ export interface CustomToolCapabilities {
   scriptExecutionEnabled?: boolean;
 }
 
+function isEnabledFlag(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return false;
+}
+
 export function isCustomToolSelectable(tool: CustomToolRow, _capabilities?: CustomToolCapabilities | null): boolean {
-  const enabled = tool.enabled === "true" || tool.enabled === "1";
-  if (!enabled) return false;
+  if (!isEnabledFlag(tool.enabled)) return false;
   if (tool.executionType === "static") return !!tool.staticResult?.trim();
   if (tool.executionType === "webhook") return !!tool.webhookUrl?.trim();
   return false;
