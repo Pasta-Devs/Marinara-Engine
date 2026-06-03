@@ -28,10 +28,28 @@ export type ClaudeSubscriptionDiagnosis = {
 
 type CreateConnectionVariables = Partial<CreateConnectionInput> & Pick<CreateConnectionInput, "name" | "provider">;
 
+const CONNECTION_SUMMARY_OPTIONS = {
+  fields: [
+    "id",
+    "name",
+    "provider",
+    "model",
+    "baseUrl",
+    "folderId",
+    "isDefault",
+    "default",
+    "useForRandom",
+    "defaultParameters",
+    "embeddingModel",
+    "createdAt",
+    "updatedAt",
+  ],
+};
+
 export function useConnections(enabled = true) {
   return useQuery({
     queryKey: connectionKeys.list(),
-    queryFn: () => storageApi.list<ConnectionRow>("connections"),
+    queryFn: () => storageApi.list<ConnectionRow>("connections", CONNECTION_SUMMARY_OPTIONS),
     enabled,
     staleTime: 5 * 60_000,
   });

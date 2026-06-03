@@ -6,7 +6,7 @@ import {
   type Chat,
   type ChatMode,
 } from "../../../../catalog/chats/index";
-import { characterAvatarUrl, useCharactersByIds } from "../../../../catalog/characters/index";
+import { characterAvatarUrl, useCharacterSummariesByIds } from "../../../../catalog/characters/index";
 import { useActivePersona, usePersona } from "../../../../catalog/personas/index";
 import { ApiError } from "../../../../../shared/api/api-errors";
 import { getConnectedChatDisplayName, parseChatMetadata } from "../../../../../shared/lib/chat-display";
@@ -261,7 +261,7 @@ export function useChatSurfaceData({
     () => normalizeIds([...chatCharIds, ...extractMessageCharacterIds(messages), ...collectGameCharacterIds(chatMeta)]),
     [chatCharIds, chatMeta, messages],
   );
-  const { data: characterRows } = useCharactersByIds(neededCharacterIds, neededCharacterIds.length > 0);
+  const { data: characterRows } = useCharacterSummariesByIds(neededCharacterIds, neededCharacterIds.length > 0);
   const characterMap: CharacterMap = useMemo(() => {
     const map: CharacterMap = new Map();
     for (const character of (characterRows ?? []) as CharacterRow[]) {

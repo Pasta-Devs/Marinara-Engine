@@ -32,6 +32,10 @@ export const presetKeys = {
 type PromptNestedKind = "groups" | "sections" | "variables";
 
 export type PromptPresetSummary = Pick<PromptPreset, "id" | "name" | "isDefault"> & {
+  description?: string;
+  wrapFormat?: string;
+  author?: string;
+  sectionOrder?: string | string[];
   default?: boolean | string;
 };
 
@@ -43,7 +47,7 @@ export interface PresetFullData {
 }
 
 const PRESET_SUMMARY_OPTIONS = {
-  fields: ["id", "name", "isDefault", "default"],
+  fields: ["id", "name", "description", "wrapFormat", "isDefault", "default", "author", "sectionOrder"],
 };
 
 const promptNestedEntity: Record<PromptNestedKind, StorageEntity> = {
@@ -176,7 +180,7 @@ async function reorderPromptNested<T>(presetId: string, kind: PromptNestedKind, 
 export function usePresets() {
   return useQuery({
     queryKey: presetKeys.list(),
-    queryFn: () => storageApi.list<PromptPreset>("prompts"),
+    queryFn: () => storageApi.list<PromptPresetSummary>("prompts", PRESET_SUMMARY_OPTIONS),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
@@ -220,16 +224,8 @@ export function useDefaultPreset() {
   return useQuery({
     queryKey: presetKeys.default(),
     queryFn: async () => {
-      const presets = await storageApi.list<PromptPreset>("prompts");
-      return (
-        presets.find((preset) =>
-          boolish(
-            (preset as PromptPreset & { default?: unknown }).isDefault ??
-              (preset as PromptPreset & { default?: unknown }).default,
-            false,
-          ),
-        ) ?? null
-      );
+      const presets = await storageApi.list<PromptPresetSummary>("prompts", PRESET_SUMMARY_OPTIONS);
+      return presets.find((preset) => boolish(preset.isDefault ?? preset.default, false)) ?? null;
     },
     staleTime: 5 * 60_000,
   });
@@ -271,12 +267,12 @@ export function useSetDefaultPreset() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const prompts = await storageApi.list<PromptPreset>("prompts");
-      let selected: PromptPreset | null = null;
+      const prompts = await storageApi.list<PromptPresetSummary>("prompts", PRESET_SUMMARY_OPTIONS);
+      let selected: PromptPresetSummary | null = null;
       await Promise.all(
         prompts.map(async (prompt) => {
           const isDefault = prompt.id === id;
-          const updated = await storageApi.update<PromptPreset>(
+          const updated = await storageApi.update<PromptPresetSummary>(
             "prompts",
             prompt.id,
             updatePromptPresetSchema.parse({

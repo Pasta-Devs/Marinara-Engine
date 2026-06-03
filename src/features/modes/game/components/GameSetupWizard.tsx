@@ -39,7 +39,7 @@ import {
   useCharacterSummariesByIds,
   type CharacterSummary,
 } from "../../../catalog/characters/index";
-import { usePersonas } from "../../../catalog/personas/index";
+import { usePersonaSummaries } from "../../../catalog/personas/index";
 import { useLorebooks } from "../../../catalog/lorebooks/index";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -404,7 +404,7 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
   const forgetGameSetupOption = useUIStore((s) => s.forgetGameSetupOption);
 
   const { data: connectionsList } = useConnections();
-  const { data: personasList } = usePersonas();
+  const { data: personasList } = usePersonaSummaries();
   const selectedCharacterIds = useMemo(
     () => Array.from(new Set([gmCharacterId, ...partyCharacterIds].filter((id): id is string => !!id))),
     [gmCharacterId, partyCharacterIds],
