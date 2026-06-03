@@ -30,6 +30,7 @@ import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { exportApi } from "../../../../../shared/api/export-api";
+import { toastExportError, triggerDownloadWithToast } from "../../../../shared/lib/export-feedback";
 import type { Lorebook, LorebookEntry, LorebookFolder } from "../../../../../engine/contracts/types/lorebook";
 import { testPrimaryKeys, testSecondaryKeys } from "../../../../../engine/shared/regex/lorebook-keyword-matching";
 import { LorebookEditorHeader } from "./LorebookEditorHeader";
@@ -528,10 +529,10 @@ export function LorebookEditor() {
       if (!lorebookId) return;
       try {
         const payload = await exportApi.lorebook(lorebookId, format);
-        exportApi.triggerDownload(payload);
+        triggerDownloadWithToast(payload, "Lorebook exported.");
         setExportDialogOpen(false);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to export lorebook.");
+        toastExportError(error, "Failed to export lorebook.");
       }
     },
     [lorebookId],

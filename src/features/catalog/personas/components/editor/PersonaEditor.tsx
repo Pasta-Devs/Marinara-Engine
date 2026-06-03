@@ -34,6 +34,7 @@ import { ExpandedTextarea } from "../../../../../shared/components/ui/ExpandedTe
 import { exportApi } from "../../../../../shared/api/export-api";
 import { AvatarGenerationModal } from "../../../../../shared/components/ui/AvatarGenerationModal";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../../../shared/components/ui/ExportFormatDialog";
+import { toastExportError, triggerDownloadWithToast } from "../../../../shared/lib/export-feedback";
 import {
   buildPersonaFormData,
   buildPersonaSavePayload,
@@ -237,7 +238,10 @@ export function PersonaEditor() {
         onSelect={(format: ExportFormatChoice) => {
           if (!personaId) return;
           setExportDialogOpen(false);
-          void exportApi.persona(personaId, format).then(exportApi.triggerDownload);
+          void exportApi
+            .persona(personaId, format)
+            .then((payload) => triggerDownloadWithToast(payload, "Persona exported."))
+            .catch((error) => toastExportError(error, "Failed to export persona."));
         }}
       />
       <AvatarGenerationModal

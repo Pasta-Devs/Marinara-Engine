@@ -1,7 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import type { Chat, Message } from "../../../../engine/contracts/types/chat";
 import { storageApi } from "../../../../shared/api/storage-api";
+import { getExportErrorMessage } from "../../../shared/lib/export-feedback";
 import { downloadBlobFile, downloadTextFile } from "../lib/download";
 import type { BulkChatExportFormat } from "../lib/chat-transcript-export";
 
@@ -45,7 +47,7 @@ export function useBulkExportChats() {
         ]);
         const files = buildChatTranscriptZipFiles(chats, format);
         downloadBlobFile(createStoredZip(files), `chat-transcripts-${format}-${exportedAt.slice(0, 10)}.zip`);
-        return;
+        return { count: chats.length };
       }
 
       downloadTextFile(
@@ -63,6 +65,13 @@ export function useBulkExportChats() {
         `marinara-chats-${exportedAt.slice(0, 10)}.json`,
         "application/json;charset=utf-8",
       );
+      return { count: chats.length };
+    },
+    onSuccess: ({ count }) => {
+      toast.success(`Exported ${count} chat${count === 1 ? "" : "s"}.`);
+    },
+    onError: (error) => {
+      toast.error(getExportErrorMessage(error, "Failed to export chats."));
     },
   });
 }

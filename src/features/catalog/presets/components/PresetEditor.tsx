@@ -61,6 +61,7 @@ import { cn } from "../../../../shared/lib/utils";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
 import { exportApi } from "../../../../shared/api/export-api";
+import { toastExportError, triggerDownloadWithToast } from "../../../shared/lib/export-feedback";
 import { connectionsUtilityApi } from "../../../../shared/api/integration-utility-api";
 import { reviewPromptPreset } from "../../../../engine/generation/prompt-reviewer";
 import { llmApi } from "../../../../shared/api/llm-api";
@@ -391,7 +392,11 @@ export function PresetEditor() {
           <button
             onClick={async () => {
               if (!presetDetailId) return;
-              exportApi.triggerDownload(await exportApi.prompt(presetDetailId));
+              try {
+                triggerDownloadWithToast(await exportApi.prompt(presetDetailId), "Preset exported.");
+              } catch (error) {
+                toastExportError(error, "Failed to export preset.");
+              }
             }}
             className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             title="Export preset"

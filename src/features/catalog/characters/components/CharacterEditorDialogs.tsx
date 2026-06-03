@@ -1,10 +1,9 @@
-import { toast } from "sonner";
-
 import type { CharacterData } from "../../../../engine/contracts/types/character";
 import { exportApi } from "../../../../shared/api/export-api";
 import { AvatarGenerationModal } from "../../../../shared/components/ui/AvatarGenerationModal";
 import { ExportFormatDialog, type ExportFormatChoice } from "../../../../shared/components/ui/ExportFormatDialog";
 import type { ImageGenerationConnectionOption } from "../../../../shared/types/image-generation";
+import { toastExportError, triggerDownloadWithToast } from "../../../shared/lib/export-feedback";
 
 type CharacterEditorDialogsProps = {
   characterId: string | null;
@@ -30,7 +29,7 @@ export function CharacterEditorDialogs({
   onUseGeneratedAvatar,
 }: CharacterEditorDialogsProps) {
   const handleExportError = (error: unknown) => {
-    toast.error(error instanceof Error ? error.message : "Failed to export character.");
+    toastExportError(error, "Failed to export character.");
   };
 
   return (
@@ -46,9 +45,15 @@ export function CharacterEditorDialogs({
           if (!characterId) return;
           onCloseExportDialog();
           if (format === "compatible-png") {
-            void exportApi.characterPng(characterId).then(exportApi.triggerDownload).catch(handleExportError);
+            void exportApi
+              .characterPng(characterId)
+              .then((payload) => triggerDownloadWithToast(payload, "Character PNG exported."))
+              .catch(handleExportError);
           } else {
-            void exportApi.character(characterId, format).then(exportApi.triggerDownload).catch(handleExportError);
+            void exportApi
+              .character(characterId, format)
+              .then((payload) => triggerDownloadWithToast(payload, "Character exported."))
+              .catch(handleExportError);
           }
         }}
       />

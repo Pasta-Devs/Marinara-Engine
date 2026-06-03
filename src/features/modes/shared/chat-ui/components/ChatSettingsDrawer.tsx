@@ -117,7 +117,7 @@ import { llmApi } from "../../../../../shared/api/llm-api";
 import { storageApi } from "../../../../../shared/api/storage-api";
 import { spotifyApi } from "../../../../../shared/api/integration-utility-api";
 import { spriteApi } from "../../../../../shared/api/image-generation-api";
-import { exportApi } from "../../../../../shared/api/export-api";
+import { toastExportError, triggerDownloadWithToast } from "../../../../shared/lib/export-feedback";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
 import { getConnectedChatDisplayName } from "../../../../../shared/lib/chat-display";
 import {
@@ -1921,10 +1921,17 @@ function ChatSettingsDrawerInner({
   const handleExportPreset = () => {
     if (!selectedChatPreset) return;
     const envelope = createChatPresetExportEnvelope(selectedChatPreset);
-    exportApi.triggerDownload({
-      blob: new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" }),
-      filename: `${selectedChatPreset.name}.marinara-chat-preset.json`,
-    });
+    try {
+      triggerDownloadWithToast(
+        {
+          blob: new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" }),
+          filename: `${selectedChatPreset.name}.marinara-chat-preset.json`,
+        },
+        "Chat preset exported.",
+      );
+    } catch (error) {
+      toastExportError(error, "Failed to export chat preset.");
+    }
   };
 
   const handleImportClick = () => {

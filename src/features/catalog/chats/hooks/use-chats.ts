@@ -9,6 +9,7 @@ import {
   type InfiniteData,
   type QueryClient,
 } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { chatKeys } from "../query-keys";
 import {
   previewGenerationPrompt,
@@ -25,6 +26,7 @@ import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { ApiError } from "../../../../shared/api/api-errors";
+import { getExportErrorMessage } from "../../../shared/lib/export-feedback";
 import {
   chatExportFilename,
   formatChatJsonl,
@@ -1018,6 +1020,13 @@ export function useExportChat() {
       } else {
         downloadTextFile(formatChatJsonl(messages), filename, "application/x-ndjson;charset=utf-8");
       }
+      return { format };
+    },
+    onSuccess: ({ format }) => {
+      toast.success(format === "text" ? "Chat transcript exported as text." : "Chat transcript exported as JSONL.");
+    },
+    onError: (error) => {
+      toast.error(getExportErrorMessage(error, "Failed to export chat transcript."));
     },
   });
 }
