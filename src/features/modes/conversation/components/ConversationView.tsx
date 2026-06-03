@@ -28,7 +28,14 @@ import {
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "../../shared/scene-ui";
-import { ChatBranchSelector } from "../../shared/chat-ui/index";
+import {
+  ChatBranchSelector,
+  isNearTranscriptBottom,
+  preserveTranscriptScrollAfterPrepend,
+  readTranscriptScrollMetrics,
+  scheduleTranscriptScrollWrite,
+  scrollTranscriptToBottom,
+} from "../../shared/chat-ui/index";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -507,9 +514,9 @@ export function ConversationView({
     const el = scrollRef.current;
     if (!el) return;
     const onScroll = () => {
-      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      const nearBottom = distFromBottom < 150;
-      if (isStreaming && el.scrollTop < lastScrollTopRef.current - 10) {
+      const metrics = readTranscriptScrollMetrics(el);
+      const nearBottom = isNearTranscriptBottom(metrics);
+      if (isStreaming && metrics.scrollTop < lastScrollTopRef.current - 10) {
         userScrolledAwayRef.current = true;
       }
       // Re-engage auto-scroll when the user returns to the bottom,
@@ -519,7 +526,7 @@ export function ConversationView({
       if (nearBottom && Date.now() - userScrolledAtRef.current > 300) {
         userScrolledAwayRef.current = false;
       }
-      lastScrollTopRef.current = el.scrollTop;
+      lastScrollTopRef.current = metrics.scrollTop;
       isNearBottomRef.current = nearBottom;
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -549,11 +556,14 @@ export function ConversationView({
     if (openedAtBottomChatIdRef.current === chatId || !messages?.length || isLoadingMoreRef.current) return;
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    lastScrollTopRef.current = el.scrollTop;
-    isNearBottomRef.current = true;
-    userScrolledAwayRef.current = false;
-    openedAtBottomChatIdRef.current = chatId;
+    return scheduleTranscriptScrollWrite(() => {
+      const currentElement = scrollRef.current;
+      if (!currentElement || currentElement !== el || isLoadingMoreRef.current) return;
+      lastScrollTopRef.current = scrollTranscriptToBottom(currentElement);
+      isNearBottomRef.current = true;
+      userScrolledAwayRef.current = false;
+      openedAtBottomChatIdRef.current = chatId;
+    });
   }, [chatId, messages?.length, newestMsgId]);
 
   useEffect(() => {
@@ -567,15 +577,18 @@ export function ConversationView({
   // Preserve scroll on load-more
   useLayoutEffect(() => {
     if (isLoadingMoreRef.current && scrollRef.current && !isFetchingNextPage) {
-      const newScrollHeight = scrollRef.current.scrollHeight;
-      scrollRef.current.scrollTop += newScrollHeight - prevScrollHeightRef.current;
-      isLoadingMoreRef.current = false;
+      return scheduleTranscriptScrollWrite(() => {
+        const element = scrollRef.current;
+        if (!element || !isLoadingMoreRef.current) return;
+        preserveTranscriptScrollAfterPrepend(element, prevScrollHeightRef.current);
+        isLoadingMoreRef.current = false;
+      });
     }
   }, [pageCount, isFetchingNextPage]);
 
   const handleLoadMore = useCallback(() => {
     if (!scrollRef.current || !hasNextPage || isFetchingNextPage) return;
-    prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+    prevScrollHeightRef.current = readTranscriptScrollMetrics(scrollRef.current).scrollHeight;
     isLoadingMoreRef.current = true;
     fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);

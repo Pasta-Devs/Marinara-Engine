@@ -41,11 +41,30 @@ function useElementWidth(ref: RefObject<HTMLElement | null>): number {
   useEffect(() => {
     const element = ref.current;
     if (!element) return;
-    const update = () => setWidth(element.clientWidth);
-    update();
-    const observer = new ResizeObserver(update);
+    let frame: number | null = null;
+    const setMeasuredWidth = (nextWidth: number) => {
+      const roundedWidth = Math.round(nextWidth);
+      setWidth((current) => (current === roundedWidth ? current : roundedWidth));
+    };
+    const scheduleWidth = (nextWidth: number) => {
+      if (frame != null) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        setMeasuredWidth(nextWidth);
+      });
+    };
+
+    scheduleWidth(element.clientWidth);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const borderBox = entry?.borderBoxSize?.[0];
+      scheduleWidth(borderBox?.inlineSize ?? entry?.contentRect.width ?? element.clientWidth);
+    });
     observer.observe(element);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (frame != null) window.cancelAnimationFrame(frame);
+    };
   }, [ref]);
   return width;
 }
@@ -179,9 +198,11 @@ export function CharacterLibraryView() {
     getScrollElement: () => listScrollRef.current,
     estimateSize: () => (columnCount === 1 ? 150 : 360),
     overscan: 5,
+    useAnimationFrameWithResizeObserver: true,
   });
   useEffect(() => {
-    rowVirtualizer.measure();
+    const frame = window.requestAnimationFrame(() => rowVirtualizer.measure());
+    return () => window.cancelAnimationFrame(frame);
   }, [rowVirtualizer, selectedCharacterDetail, selectedCharacterId]);
 
   const handleSortChange = (value: string) => {

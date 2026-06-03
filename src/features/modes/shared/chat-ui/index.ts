@@ -29,3 +29,4 @@ export * from "./hooks/use-sprite-metadata-state";
 export * from "./lib/message-thinking";
 export * from "./lib/message-attachments";
 export * from "./lib/prompt-snapshot";
+export * from "./lib/transcript-scroll-geometry";

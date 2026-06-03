@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useChatStore } from "../../../../shared/stores/chat.store";
+import {
+  isNearTranscriptBottom,
+  preserveTranscriptScrollAfterPrepend,
+  readTranscriptScrollMetrics,
+  scheduleTranscriptScrollWrite,
+  scrollTranscriptToBottom,
+} from "../../shared/chat-ui";
 import type { MessageWithSwipes } from "../../shared/chat-ui/types";
 
 type UseRoleplayTranscriptScrollOptions = {
@@ -44,17 +51,17 @@ export function useRoleplayTranscriptScroll({
     const element = scrollRef.current;
     if (!element) return;
     const onScroll = () => {
-      const distFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
-      const nearBottom = distFromBottom < 150;
+      const metrics = readTranscriptScrollMetrics(element);
+      const nearBottom = isNearTranscriptBottom(metrics);
 
-      if (isStreaming && element.scrollTop < lastScrollTopRef.current - 10) {
+      if (isStreaming && metrics.scrollTop < lastScrollTopRef.current - 10) {
         userScrolledAwayRef.current = true;
       }
       if (nearBottom && Date.now() - userScrolledAtRef.current > 300) {
         userScrolledAwayRef.current = false;
       }
 
-      lastScrollTopRef.current = element.scrollTop;
+      lastScrollTopRef.current = metrics.scrollTop;
       isNearBottomRef.current = nearBottom;
     };
 
@@ -88,11 +95,14 @@ export function useRoleplayTranscriptScroll({
     if (openedAtBottomChatIdRef.current === activeChatId || !messages?.length || isLoadingMoreRef.current) return;
     const element = scrollRef.current;
     if (!element) return;
-    element.scrollTop = element.scrollHeight;
-    lastScrollTopRef.current = element.scrollTop;
-    isNearBottomRef.current = true;
-    userScrolledAwayRef.current = false;
-    openedAtBottomChatIdRef.current = activeChatId;
+    return scheduleTranscriptScrollWrite(() => {
+      const currentElement = scrollRef.current;
+      if (!currentElement || currentElement !== element || isLoadingMoreRef.current) return;
+      lastScrollTopRef.current = scrollTranscriptToBottom(currentElement);
+      isNearBottomRef.current = true;
+      userScrolledAwayRef.current = false;
+      openedAtBottomChatIdRef.current = activeChatId;
+    });
   }, [activeChatId, messages?.length, newestMsgId]);
 
   useEffect(() => {
@@ -104,15 +114,18 @@ export function useRoleplayTranscriptScroll({
 
   useLayoutEffect(() => {
     if (isLoadingMoreRef.current && scrollRef.current && !isFetchingNextPage) {
-      const newScrollHeight = scrollRef.current.scrollHeight;
-      scrollRef.current.scrollTop += newScrollHeight - prevScrollHeightRef.current;
-      isLoadingMoreRef.current = false;
+      return scheduleTranscriptScrollWrite(() => {
+        const element = scrollRef.current;
+        if (!element || !isLoadingMoreRef.current) return;
+        preserveTranscriptScrollAfterPrepend(element, prevScrollHeightRef.current);
+        isLoadingMoreRef.current = false;
+      });
     }
   }, [pageCount, isFetchingNextPage]);
 
   const handleLoadMore = useCallback(() => {
     if (!scrollRef.current || !hasNextPage || isFetchingNextPage) return;
-    prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+    prevScrollHeightRef.current = readTranscriptScrollMetrics(scrollRef.current).scrollHeight;
     isLoadingMoreRef.current = true;
     fetchNextPage();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
@@ -149,7 +162,7 @@ export function useRoleplayTranscriptScroll({
 
     if (hasNextPage && !isFetchingNextPage) {
       if (scrollRef.current) {
-        prevScrollHeightRef.current = scrollRef.current.scrollHeight;
+        prevScrollHeightRef.current = readTranscriptScrollMetrics(scrollRef.current).scrollHeight;
         isLoadingMoreRef.current = true;
       }
       fetchNextPage();
