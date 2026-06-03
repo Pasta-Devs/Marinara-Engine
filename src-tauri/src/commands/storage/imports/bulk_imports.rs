@@ -352,6 +352,8 @@ fn push_unique_string(values: &mut Vec<String>, value: impl Into<String>) {
     }
 }
 
+type CharacterLookup = HashMap<String, Option<String>>;
+
 fn character_record_name(record: &Value) -> Option<String> {
     record
         .get("data")
@@ -364,20 +366,24 @@ fn character_record_name(record: &Value) -> Option<String> {
 }
 
 fn add_character_lookup_alias(
-    lookup: &mut HashMap<String, String>,
+    lookup: &mut CharacterLookup,
     alias: impl AsRef<str>,
     character_id: &str,
 ) {
     let key = normalized_st_lookup_key(alias.as_ref());
     if !key.is_empty() {
-        lookup
-            .entry(key)
-            .or_insert_with(|| character_id.to_string());
+        match lookup.get_mut(&key) {
+            Some(existing) if existing.as_deref() == Some(character_id) => {}
+            Some(existing) => *existing = None,
+            None => {
+                lookup.insert(key, Some(character_id.to_string()));
+            }
+        }
     }
 }
 
 fn add_character_lookup_record(
-    lookup: &mut HashMap<String, String>,
+    lookup: &mut CharacterLookup,
     record: &Value,
     filename: Option<&str>,
 ) {
@@ -397,7 +403,7 @@ fn add_character_lookup_record(
     }
 }
 
-fn character_lookup_from_state(state: &AppState) -> HashMap<String, String> {
+fn character_lookup_from_state(state: &AppState) -> CharacterLookup {
     let mut lookup = HashMap::new();
     if let Ok(characters) = state.storage.list("characters") {
         for character in characters {
@@ -407,12 +413,12 @@ fn character_lookup_from_state(state: &AppState) -> HashMap<String, String> {
     lookup
 }
 
-fn lookup_character_id(lookup: &HashMap<String, String>, alias: impl AsRef<str>) -> Option<String> {
+fn lookup_character_id(lookup: &CharacterLookup, alias: impl AsRef<str>) -> Option<String> {
     let key = normalized_st_lookup_key(alias.as_ref());
     if key.is_empty() {
         None
     } else {
-        lookup.get(&key).cloned()
+        lookup.get(&key).and_then(Clone::clone)
     }
 }
 
@@ -540,7 +546,7 @@ fn st_group_metadata_for_chat(
 }
 
 fn resolve_member_character_ids(
-    lookup: &HashMap<String, String>,
+    lookup: &CharacterLookup,
     members: impl IntoIterator<Item = impl AsRef<str>>,
 ) -> Vec<String> {
     let mut character_ids = Vec::new();
@@ -612,9 +618,19 @@ fn st_message_timestamp(row: &Value) -> Option<String> {
     None
 }
 
+fn st_message_hidden_from_ai(row: &Value) -> bool {
+    row.get("is_system")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+        || bool_option(row.get("extra").and_then(|extra| extra.get("hiddenFromAI")))
+            .unwrap_or(false)
+        || bool_option(row.get("extra").and_then(|extra| extra.get("hiddenFromAi")))
+            .unwrap_or(false)
+}
+
 #[derive(Clone, Default)]
 struct StChatImportContext {
-    character_lookup: HashMap<String, String>,
+    character_lookup: CharacterLookup,
     default_character_id: Option<String>,
 }
 
@@ -664,6 +680,10 @@ fn st_message_extra(row: &Value) -> Value {
             "sillyTavernSpeaker".to_string(),
             Value::String(speaker.to_string()),
         );
+    }
+    if st_message_hidden_from_ai(row) {
+        extra.insert("hiddenFromAI".to_string(), Value::Bool(true));
+        extra.insert("hiddenFromAi".to_string(), Value::Bool(true));
     }
     Value::Object(extra)
 }
@@ -893,13 +913,6 @@ fn import_st_chat_text(
         push_unique_string(&mut character_ids, default_character_id.clone());
     }
     let has_importable_message = parsed_rows.iter().any(|row| {
-        if row
-            .get("is_system")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-        {
-            return false;
-        }
         row.get("mes")
             .or_else(|| row.get("content"))
             .and_then(Value::as_str)
@@ -941,13 +954,6 @@ fn import_st_chat_text(
         created_chat_id = Some(chat_id.clone());
         let mut imported = 0usize;
         for row in parsed_rows {
-            if row
-                .get("is_system")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-            {
-                continue;
-            }
             let content = row
                 .get("mes")
                 .or_else(|| row.get("content"))
@@ -2081,6 +2087,153 @@ mod tests {
             messages[0].get("role").and_then(Value::as_str),
             Some("assistant"),
             "unknown JSONL roles should not be persisted verbatim"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_preserves_sillytavern_system_rows_as_hidden_from_ai() {
+        let app_root = temp_path("chat-st-system-hidden");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+
+        let result = import_st_chat_text(
+            &state,
+            r#"{"is_system":true,"mes":"hidden note","character_name":"Bot"}"#,
+            "Imported Chat".to_string(),
+            None,
+            StChatImportContext::default(),
+        )
+        .expect("ST system transcript rows with content should import");
+
+        assert_eq!(result.get("messagesImported"), Some(&json!(1)));
+        let messages = state
+            .storage
+            .list("messages")
+            .expect("messages should list");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(
+            messages[0].get("content").and_then(Value::as_str),
+            Some("hidden note")
+        );
+        assert_eq!(messages[0]["extra"]["hiddenFromAI"], json!(true));
+        assert_eq!(messages[0]["extra"]["hiddenFromAi"], json!(true));
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_links_sillytavern_speaker_names_from_context_lookup() {
+        let app_root = temp_path("chat-st-speaker-lookup");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        let character = state
+            .storage
+            .create("characters", json!({ "data": { "name": "Bot" } }))
+            .expect("character should create");
+        let character_id = character
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("character should include id")
+            .to_string();
+        let context = StChatImportContext {
+            character_lookup: character_lookup_from_state(&state),
+            default_character_id: None,
+        };
+
+        let result = import_st_chat_text(
+            &state,
+            concat!(
+                r#"{"character_name":"Bot","mes":"character name"}"#,
+                "\n",
+                r#"{"name":"Bot","mes":"name"}"#,
+                "\n",
+                r#"{"extra":{"name":"Bot"},"mes":"extra name"}"#
+            ),
+            "Imported Chat".to_string(),
+            None,
+            context,
+        )
+        .expect("ST speaker names should import");
+
+        let chat_id = result
+            .get("chatId")
+            .and_then(Value::as_str)
+            .expect("import result should include chat id");
+        let chat = state
+            .storage
+            .get("chats", chat_id)
+            .expect("chat should be readable")
+            .expect("chat should exist");
+        assert_eq!(
+            shared::string_array_from_value(chat.get("characterIds")),
+            vec![character_id.clone()]
+        );
+        let messages = state
+            .storage
+            .list("messages")
+            .expect("messages should list");
+        assert_eq!(messages.len(), 3);
+        assert!(
+            messages
+                .iter()
+                .all(|message| message.get("characterId").and_then(Value::as_str)
+                    == Some(character_id.as_str())),
+            "each ST speaker field should resolve to the matched character"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_keeps_ambiguous_sillytavern_speaker_names_unlinked() {
+        let app_root = temp_path("chat-st-ambiguous-speaker");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        state
+            .storage
+            .create("characters", json!({ "data": { "name": "Bot" } }))
+            .expect("first character should create");
+        state
+            .storage
+            .create("characters", json!({ "data": { "name": "Bot" } }))
+            .expect("second character should create");
+        let context = StChatImportContext {
+            character_lookup: character_lookup_from_state(&state),
+            default_character_id: None,
+        };
+
+        let result = import_st_chat_text(
+            &state,
+            r#"{"character_name":"Bot","mes":"ambiguous"}"#,
+            "Imported Chat".to_string(),
+            None,
+            context,
+        )
+        .expect("ambiguous ST speaker row should still import");
+
+        let chat_id = result
+            .get("chatId")
+            .and_then(Value::as_str)
+            .expect("import result should include chat id");
+        let chat = state
+            .storage
+            .get("chats", chat_id)
+            .expect("chat should be readable")
+            .expect("chat should exist");
+        assert!(
+            shared::string_array_from_value(chat.get("characterIds")).is_empty(),
+            "ambiguous ST speaker names should not guess a chat character id"
+        );
+        let messages = state
+            .storage
+            .list("messages")
+            .expect("messages should list");
+        assert_eq!(messages.len(), 1);
+        assert!(
+            messages[0].get("characterId").is_none_or(Value::is_null),
+            "ambiguous ST speaker names should keep transcript messages unlinked"
         );
 
         let _ = fs::remove_dir_all(app_root);
