@@ -258,18 +258,10 @@ fn insert_memory_embedding_fields(memory: &mut Map<String, Value>, result: Memor
 }
 
 fn is_hidden_from_ai(message: &Value) -> bool {
-    let extra = match message.get("extra") {
-        Some(Value::Object(object)) => Some(object.clone()),
-        Some(Value::String(raw)) => serde_json::from_str::<Value>(raw)
-            .ok()
-            .and_then(|value| value.as_object().cloned()),
-        _ => None,
-    };
-    extra
-        .as_ref()
-        .and_then(|object| object.get("hiddenFromAi"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
+    let extra = object_or_parse(message.get("extra"));
+    ["hiddenFromAI", "hiddenFromAi"]
+        .iter()
+        .any(|key| extra.get(*key).and_then(Value::as_bool).unwrap_or(false))
 }
 
 fn active_swipe_index(message: &Value) -> i64 {
@@ -2494,6 +2486,75 @@ mod tests {
 
         assert_eq!(context.connection_id, "embedding-connection");
         assert_eq!(context.model, "text-embedding-3-small");
+    }
+
+    #[tokio::test]
+    async fn refresh_chat_memories_skips_legacy_and_current_hidden_flags() {
+        let state = test_state("memory-hidden-flags");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat"
+                }),
+            )
+            .expect("chat should be created");
+
+        for message in [
+            json!({
+                "id": "visible-1",
+                "chatId": "chat-1",
+                "role": "user",
+                "content": "visible memory",
+                "createdAt": "2026-06-01T10:00:00.000Z"
+            }),
+            json!({
+                "id": "legacy-hidden-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "legacy hidden memory",
+                "createdAt": "2026-06-01T10:01:00.000Z",
+                "extra": { "hiddenFromAI": true }
+            }),
+            json!({
+                "id": "legacy-hidden-string-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "string hidden memory",
+                "createdAt": "2026-06-01T10:02:00.000Z",
+                "extra": r#"{"hiddenFromAI":true}"#
+            }),
+            json!({
+                "id": "current-hidden-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "current hidden memory",
+                "createdAt": "2026-06-01T10:03:00.000Z",
+                "extra": { "hiddenFromAi": true }
+            }),
+        ] {
+            state
+                .storage
+                .create("messages", message)
+                .expect("message should be created");
+        }
+
+        refresh_chat_memories(&state, "chat-1")
+            .await
+            .expect("memory refresh should succeed");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should succeed")
+            .expect("chat should exist");
+        let memories = chat["memories"]
+            .as_array()
+            .expect("memories should be an array");
+
+        assert_eq!(memories.len(), 1);
+        assert_eq!(memories[0]["content"], json!("user: visible memory"));
     }
 
     #[tokio::test]
