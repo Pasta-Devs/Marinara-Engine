@@ -101,6 +101,11 @@ Set `CORS_ORIGINS` or `CSRF_TRUSTED_ORIGINS` when the desktop client origin is n
 runtime defaults. Use exact origins; `CORS_ORIGINS=*` does not grant browser-origin trust for
 mutating API requests.
 
+Remote API JSON and upload-style requests use an explicit 256 MiB request body limit. This matches
+the legacy server-level upload policy for `/api/invoke` and dedicated JSON API routes such as bulk
+import, embeddings, and LLM streaming. Requests over that limit return `413` with
+`request_body_too_large`; managed asset downloads keep their own cache and streaming behavior.
+
 With Docker Compose:
 
 ```sh

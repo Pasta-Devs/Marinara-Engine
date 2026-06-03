@@ -1926,23 +1926,47 @@ mod tests {
 
     #[test]
     fn api_body_size_rejects_oversized_unsafe_api_requests() {
-        let request = request(
-            Method::POST,
-            "/api/invoke",
-            IpAddr::V4(Ipv4Addr::LOCALHOST),
-            &[("content-length", &(MAX_API_BODY_BYTES + 1).to_string())],
-        );
+        for path in ["/api/invoke", "/api/import/st-bulk/run", "/api/llm/stream"] {
+            let request = request(
+                Method::POST,
+                path,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                &[("content-length", &(MAX_API_BODY_BYTES + 1).to_string())],
+            );
 
-        let response =
-            reject_oversized_api_body(&request).expect("oversized API body should reject");
-        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
-        assert_eq!(
-            response
-                .headers()
-                .get(header::CACHE_CONTROL)
-                .and_then(|value| value.to_str().ok()),
-            Some("no-store")
-        );
+            let response = reject_oversized_api_body(&request)
+                .unwrap_or_else(|| panic!("{path} should reject oversized API bodies"));
+            assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+            assert_eq!(
+                response
+                    .headers()
+                    .get(header::CACHE_CONTROL)
+                    .and_then(|value| value.to_str().ok()),
+                Some("no-store")
+            );
+        }
+    }
+
+    #[test]
+    fn api_body_size_allows_legacy_limit_boundary_for_json_upload_routes() {
+        for path in [
+            "/api/invoke",
+            "/api/import/st-bulk/run",
+            "/api/sidecar/v1/embeddings",
+            "/api/llm/stream",
+        ] {
+            let request = request(
+                Method::POST,
+                path,
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                &[("content-length", &MAX_API_BODY_BYTES.to_string())],
+            );
+
+            assert!(
+                reject_oversized_api_body(&request).is_none(),
+                "{path} should allow API bodies at the legacy 256 MiB boundary"
+            );
+        }
     }
 
     #[test]
