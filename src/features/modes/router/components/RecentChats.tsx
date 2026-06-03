@@ -1,7 +1,3 @@
-// ──────────────────────────────────────────────
-// Chat: Recent Chats — shows 3 most recently
-// interacted chats on the homepage (compact row)
-// ──────────────────────────────────────────────
 import { useEffect, useMemo, useState } from "react";
 import { MessageSquare, BookOpen, Theater } from "lucide-react";
 import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
@@ -10,72 +6,37 @@ import { useChatStore } from "../../../../shared/stores/chat.store";
 import { cn, parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
-  conversation: {
-    icon: <MessageSquare size="0.375rem" />,
-    bg: "linear-gradient(135deg, #4de5dd, #3ab8b1)",
-    label: "Conversation",
-  },
-  roleplay: {
-    icon: <BookOpen size="0.375rem" />,
-    bg: "linear-gradient(135deg, #eb8951, #d97530)",
-    label: "Roleplay",
-  },
-  game: {
-    icon: <Theater size="0.375rem" />,
-    bg: "linear-gradient(135deg, #e15c8c, #c94776)",
-    label: "Game",
-  },
+  conversation: { icon: <MessageSquare size="0.75rem" />, bg: "linear-gradient(135deg, #4de5dd, #3ab8b1)", label: "Conversation" },
+  roleplay: { icon: <BookOpen size="0.75rem" />, bg: "linear-gradient(135deg, #eb8951, #d97530)", label: "Roleplay" },
+  game: { icon: <Theater size="0.75rem" />, bg: "linear-gradient(135deg, #e15c8c, #c94776)", label: "Game" },
 };
 
 function readAvatarCrop(value: unknown): AvatarCropValue | null {
   if (!value) return null;
   if (typeof value === "string") return parseAvatarCropJson(value);
   if (typeof value !== "object" || Array.isArray(value)) return null;
-  try {
-    return parseAvatarCropJson(JSON.stringify(value));
-  } catch {
-    return null;
-  }
+  try { return parseAvatarCropJson(JSON.stringify(value)); } catch { return null; }
 }
 
 export function RecentChats() {
   const { data: recentChats } = useRecentChatSummaries(3);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
+
   const recentCharacterIds = useMemo(
-    () =>
-      Array.from(
-        new Set((recentChats ?? []).flatMap((chat) => (Array.isArray(chat.characterIds) ? chat.characterIds : []))),
-      ),
+    () => Array.from(new Set((recentChats ?? []).flatMap((c) => c.characterIds ?? []))),
     [recentChats],
   );
   const { data: recentCharacters } = useCharacterSummariesByIds(recentCharacterIds, recentCharacterIds.length > 0);
 
   const charLookup = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        name: string;
-        avatarUrl: string | null;
-        avatarFilePath?: string | null;
-        avatarFilename?: string | null;
-        avatarCrop?: AvatarCropValue | null;
-      }
-    >();
+    const map = new Map<string, { name: string; avatarUrl: string | null; avatarFilePath?: string | null; avatarFilename?: string | null; avatarCrop?: AvatarCropValue | null }>();
     if (!recentCharacters) return map;
-    for (const char of recentCharacters as Array<{
-      id: string;
-      data: Record<string, unknown>;
-      avatarPath?: string | null;
-      avatarFilePath?: string | null;
-      avatarFilename?: string | null;
-    }>) {
-      const parsed = char.data ?? {};
-      const extensions =
-        parsed.extensions && typeof parsed.extensions === "object" && !Array.isArray(parsed.extensions)
-          ? (parsed.extensions as Record<string, unknown>)
-          : {};
+    for (const char of recentCharacters as Array<{ id: string; data: Record<string, unknown>; avatarPath?: string | null; avatarFilePath?: string | null; avatarFilename?: string | null }>) {
+      const extensions = (char.data?.extensions && typeof char.data.extensions === "object" && !Array.isArray(char.data.extensions))
+        ? (char.data.extensions as Record<string, unknown>)
+        : {};
       map.set(char.id, {
-        name: typeof parsed.name === "string" ? parsed.name : "Unknown",
+        name: typeof char.data?.name === "string" ? char.data.name : "Unknown",
         avatarUrl: characterAvatarUrl(char),
         avatarFilePath: char.avatarFilePath,
         avatarFilename: char.avatarFilename,
@@ -88,117 +49,84 @@ export function RecentChats() {
   if (!recentChats || recentChats.length === 0) return null;
 
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-1.5">
-      <p className="text-[0.625rem] font-medium text-[var(--muted-foreground)]/50 tracking-wide uppercase">
-        Recent Chats
+    <div className="flex w-full flex-col gap-1.5 px-3 pt-3">
+      <p className="text-center text-[0.625rem] font-medium uppercase tracking-wide text-[var(--muted-foreground)]/50">
+        Recent
       </p>
-      <div className="flex w-full items-center justify-center gap-1.5">
+      <div className="flex w-full flex-col gap-1.5 sm:flex-row">
         {recentChats.map((chat) => (
-          <RecentChatChip key={chat.id} chat={chat} charLookup={charLookup} onClick={() => setActiveChatId(chat.id)} />
+          <RecentChatCard key={chat.id} chat={chat} charLookup={charLookup} onClick={() => setActiveChatId(chat.id)} />
         ))}
       </div>
     </div>
   );
 }
 
-function RecentChatChip({
+function RecentChatCard({
   chat,
   charLookup,
   onClick,
 }: {
   chat: ChatListItem;
-  charLookup: Map<
-    string,
-    {
-      name: string;
-      avatarUrl: string | null;
-      avatarFilePath?: string | null;
-      avatarFilename?: string | null;
-      avatarCrop?: AvatarCropValue | null;
-    }
-  >;
+  charLookup: Map<string, { name: string; avatarUrl: string | null; avatarFilePath?: string | null; avatarFilename?: string | null; avatarCrop?: AvatarCropValue | null }>;
   onClick: () => void;
 }) {
   const mode = MODE_BADGE[chat.mode] ?? MODE_BADGE.conversation;
 
-  const charIds: string[] = useMemo(() => {
-    if (!chat.characterIds) return [];
-    return chat.characterIds;
-  }, [chat.characterIds]);
-
-  const firstAvatar = useMemo(() => {
-    for (const id of charIds) {
-      const c = charLookup.get(id);
-      if (c) return c;
-    }
-    return null;
-  }, [charIds, charLookup]);
+  const firstAvatar = (chat.characterIds ?? []).map((id) => charLookup.get(id)).find(Boolean) ?? null;
 
   return (
     <button
       onClick={onClick}
-      className={cn(
-        "group relative flex max-w-[8rem] items-center gap-1.5 rounded-lg border border-[var(--border)]/50 bg-[var(--card)]/50 px-2 py-1.5",
-        "transition-all duration-150 hover:border-[var(--primary)]/40 hover:bg-[var(--card)] hover:shadow-sm",
-        "cursor-pointer",
-      )}
+      className="group flex flex-1 min-w-0 items-center gap-3 rounded-xl border border-[var(--border)]/50 bg-[var(--card)]/50 px-3 py-2.5 text-left transition-all duration-150 hover:border-[var(--primary)]/40 hover:bg-[var(--card)] hover:shadow-sm"
     >
-      {/* Small avatar with mode dot */}
       <div className="relative flex-shrink-0">
-        {firstAvatar ? (
-          <RecentChatAvatar avatar={firstAvatar} />
-        ) : (
-          <div
-            className="flex h-5 w-5 items-center justify-center rounded-md text-white"
-            style={{ background: mode.bg }}
-          >
-            {mode.icon}
-          </div>
-        )}
-
-        {/* Tiny mode dot */}
+        <RecentChatAvatar avatar={firstAvatar} mode={mode} />
         <div
-          className="absolute -top-0.5 -left-0.5 flex h-3 w-3 items-center justify-center rounded-full text-white ring-1 ring-[var(--card)]"
+          className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-white ring-1 ring-[var(--card)]"
           style={{ background: mode.bg }}
           title={mode.label}
         >
           {mode.icon}
         </div>
       </div>
-
-      {/* Chat name only */}
-      <span className="truncate text-[0.625rem] font-medium text-[var(--foreground)]">{chat.name}</span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-[var(--foreground)]">{chat.name}</p>
+        <p className="text-xs text-[var(--muted-foreground)]">{mode.label}</p>
+      </div>
     </button>
   );
 }
 
 function RecentChatAvatar({
   avatar,
+  mode,
 }: {
-  avatar: {
-    name: string;
-    avatarUrl: string | null;
-    avatarFilePath?: string | null;
-    avatarFilename?: string | null;
-    avatarCrop?: AvatarCropValue | null;
-  };
+  avatar: { name: string; avatarUrl: string | null; avatarFilePath?: string | null; avatarFilename?: string | null; avatarCrop?: AvatarCropValue | null } | null;
+  mode: { bg: string; icon: React.ReactNode; label: string };
 }) {
   const [imageFailed, setImageFailed] = useState(false);
 
-  useEffect(() => {
-    setImageFailed(false);
-  }, [avatar.avatarUrl]);
+  useEffect(() => { setImageFailed(false); }, [avatar?.avatarUrl]);
+
+  if (!avatar) {
+    return (
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white" style={{ background: mode.bg }}>
+        {mode.icon}
+      </div>
+    );
+  }
 
   if (!avatar.avatarUrl || imageFailed) {
     return (
-      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--secondary)] text-[0.5rem] font-bold text-[var(--muted-foreground)]">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--secondary)] text-sm font-bold text-[var(--muted-foreground)]">
         {avatar.name[0]}
       </div>
     );
   }
 
   return (
-    <span className="relative block h-5 w-5 overflow-hidden rounded-md">
+    <span className="relative block h-10 w-10 overflow-hidden rounded-xl">
       <CharacterAvatarImage
         src={avatar.avatarUrl}
         avatarFilePath={avatar.avatarFilePath}
@@ -206,7 +134,7 @@ function RecentChatAvatar({
         alt={avatar.name}
         className="h-full w-full object-cover"
         crop={avatar.avatarCrop}
-        thumbnailSize={64}
+        thumbnailSize={80}
         onError={() => setImageFailed(true)}
       />
     </span>
