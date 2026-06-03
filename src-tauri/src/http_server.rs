@@ -614,7 +614,10 @@ fn require_admin_access_for_command(
     headers: &HeaderMap,
     ip: IpAddr,
 ) -> Result<(), AppError> {
-    if !is_privileged_remote_command(command) || is_loopback(ip) {
+    if !is_privileged_remote_command(command) {
+        return Ok(());
+    }
+    if is_loopback(ip) && !env_flag_enabled("MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK") {
         return Ok(());
     }
 
@@ -1788,22 +1791,31 @@ mod tests {
     }
 
     struct AdminSecretGuard {
-        original: Option<String>,
+        original_admin_secret: Option<String>,
+        original_loopback_secret_required: Option<String>,
     }
 
     impl AdminSecretGuard {
         fn capture() -> Self {
             Self {
-                original: env::var("ADMIN_SECRET").ok(),
+                original_admin_secret: env::var("ADMIN_SECRET").ok(),
+                original_loopback_secret_required: env::var(
+                    "MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK",
+                )
+                .ok(),
             }
         }
     }
 
     impl Drop for AdminSecretGuard {
         fn drop(&mut self) {
-            match &self.original {
+            match &self.original_admin_secret {
                 Some(value) => env::set_var("ADMIN_SECRET", value),
                 None => env::remove_var("ADMIN_SECRET"),
+            }
+            match &self.original_loopback_secret_required {
+                Some(value) => env::set_var("MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK", value),
+                None => env::remove_var("MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK"),
             }
         }
     }
@@ -2378,6 +2390,11 @@ mod tests {
 
     #[test]
     fn hostable_security_requires_admin_access_for_remote_backup_list() {
+        let _guard = admin_secret_lock()
+            .lock()
+            .expect("admin secret test lock should acquire");
+        let _admin_secret = AdminSecretGuard::capture();
+        env::remove_var("MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK");
         let headers = HeaderMap::new();
         let remote_ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10));
 
@@ -2391,6 +2408,37 @@ mod tests {
         )
         .is_ok());
         assert!(require_admin_access_for_command("storage_list", &headers, remote_ip).is_ok());
+    }
+
+    #[test]
+    fn hostable_security_can_require_admin_access_for_loopback_privileged_commands() {
+        let _guard = admin_secret_lock()
+            .lock()
+            .expect("admin secret test lock should acquire");
+        let _admin_secret = AdminSecretGuard::capture();
+        env::set_var("ADMIN_SECRET", "expected-secret");
+        env::set_var("MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK", "true");
+        let loopback_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        let mut headers = HeaderMap::new();
+
+        let missing_secret = require_admin_access_for_command("backup_list", &headers, loopback_ip)
+            .expect_err("loopback backup_list should require Admin Access when hardened");
+
+        assert_eq!(missing_secret.code, "admin_access_required");
+        headers.insert(
+            HeaderName::from_static(ADMIN_SECRET_HEADER_NAME),
+            HeaderValue::from_static("expected-secret"),
+        );
+        assert!(require_admin_access_for_command("backup_list", &headers, loopback_ip).is_ok());
+        assert!(require_admin_access_for_command("storage_list", &HeaderMap::new(), loopback_ip)
+            .is_ok());
+
+        env::set_var("MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK", "false");
+        assert!(
+            require_admin_access_for_command("backup_list", &HeaderMap::new(), loopback_ip)
+                .is_ok(),
+            "explicit false should keep the legacy loopback bypass"
+        );
     }
 
     #[test]
