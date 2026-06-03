@@ -73,7 +73,7 @@ function RecentChatCard({
 }) {
   const mode = MODE_BADGE[chat.mode] ?? MODE_BADGE.conversation;
 
-  const firstAvatar = (chat.characterIds ?? []).map((id) => charLookup.get(id)).find(Boolean) ?? null;
+  const firstAvatar = (Array.isArray(chat.characterIds) ? chat.characterIds : []).map((id) => charLookup.get(id)).find(Boolean) ?? null;
 
   return (
     <button
