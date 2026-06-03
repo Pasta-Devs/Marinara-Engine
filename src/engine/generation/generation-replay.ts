@@ -1,4 +1,8 @@
-import { stripGenerationGuideInstruction, type GenerationGuideSource } from "../shared/text/generation-guide";
+import {
+  GENERATION_GUIDE_SOURCES,
+  stripGenerationGuideInstruction,
+  type GenerationGuideSource,
+} from "../shared/text/generation-guide";
 
 type GenerationReplayGuideSource = GenerationGuideSource;
 
@@ -24,14 +28,7 @@ export interface GenerationReplayInput {
   impersonatePromptTemplate?: string | null;
 }
 
-const GUIDE_SOURCES = new Set<GenerationReplayGuideSource>([
-  "narrator",
-  "guide",
-  "amend",
-  "game_start",
-  "game_turn",
-  "game_retry",
-]);
+const GUIDE_SOURCES = new Set<GenerationReplayGuideSource>(GENERATION_GUIDE_SOURCES);
 
 function asNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;

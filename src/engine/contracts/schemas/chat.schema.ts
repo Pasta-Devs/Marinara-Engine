@@ -2,6 +2,7 @@
 // Chat Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { GENERATION_GUIDE_SOURCES } from "../../shared/text/generation-guide";
 
 const canonicalChatModeSchema = z.enum(["conversation", "roleplay", "game"]);
 
@@ -44,7 +45,7 @@ export const generateRequestSchema = z.object({
   forCharacterId: z.string().nullable().optional().default(null),
   generationGuide: z.string().nullable().optional().default(null),
   generationGuideSource: z
-    .enum(["narrator", "guide", "game_start", "game_turn", "game_retry"])
+    .enum(GENERATION_GUIDE_SOURCES)
     .nullable()
     .optional()
     .default(null),

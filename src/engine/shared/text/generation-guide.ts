@@ -1,4 +1,6 @@
-export type GenerationGuideSource = "narrator" | "guide" | "amend" | "game_start" | "game_turn" | "game_retry";
+export const GENERATION_GUIDE_SOURCES = ["narrator", "guide", "amend", "game_start", "game_turn", "game_retry"] as const;
+
+export type GenerationGuideSource = (typeof GENERATION_GUIDE_SOURCES)[number];
 
 export interface ProseGuardianAvoidanceSource {
   agentType?: string | null;
