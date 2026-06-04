@@ -1,4 +1,9 @@
-import { BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS, type AgentContext, type AgentResult } from "../contracts/types/agent";
+import {
+  BUILT_IN_AGENTS,
+  BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS,
+  type AgentContext,
+  type AgentResult,
+} from "../contracts/types/agent";
 import type { GenerationPromptSnapshot, GenerationPromptSnapshotMessage } from "../contracts/types/chat";
 import type { GameState } from "../contracts/types/game-state";
 import type { EventGateway } from "../capabilities/events";
@@ -181,6 +186,17 @@ type MainGenerationPromptSnapshot = Pick<
   "messages" | "previewMessages" | "parameters" | "tools" | "promptPresetId"
 >;
 
+const REVIEWABLE_WRITER_AGENT_TYPES = new Set(
+  BUILT_IN_AGENTS.filter(
+    (agent) =>
+      agent.category === "writer" &&
+      agent.phase === "pre_generation" &&
+      agent.id !== "knowledge-retrieval" &&
+      agent.id !== "knowledge-router",
+  ).map((agent) => agent.id),
+);
+const AGENT_INJECTION_REVIEW_CHAT_MODES = new Set(["roleplay", "visual_novel"]);
+
 function abortGenerationError(): Error {
   return Object.assign(new Error("The operation was aborted."), { name: "AbortError" });
 }
@@ -213,8 +229,14 @@ function shouldPauseForAgentInjectionReview(
   injections: AgentInjectionOverride[],
 ): boolean {
   if (normalizedAgentInjectionOverrides(input).length > 0) return false;
+  if (readString(input.regenerateMessageId).trim()) return false;
+  if (!AGENT_INJECTION_REVIEW_CHAT_MODES.has(readString(chat.mode || chat.chatMode).trim())) return false;
   if (injections.length === 0) return false;
   return parseRecord(chat.metadata).reviewWriterAgentOutputs === true;
+}
+
+function reviewableAgentInjections(injections: AgentInjectionOverride[]): AgentInjectionOverride[] {
+  return injections.filter((injection) => REVIEWABLE_WRITER_AGENT_TYPES.has(injection.agentType));
 }
 
 function generationEmbeddingSource(llm: LlmGateway, connection: JsonRecord) {
@@ -2765,12 +2787,13 @@ export async function* startGeneration(
     }
     agentEvents.length = 0;
 
-    if (runtime && shouldPauseForAgentInjectionReview(chatForGeneration, input, runtime.preInjections)) {
+    const reviewableInjections = runtime ? reviewableAgentInjections(runtime.preInjections) : [];
+    if (runtime && shouldPauseForAgentInjectionReview(chatForGeneration, input, reviewableInjections)) {
       yield {
         type: "agent_injection_review",
         data: {
           chatId,
-          injections: runtime.preInjections.map((injection) => ({
+          injections: reviewableInjections.map((injection) => ({
             agentType: injection.agentType,
             agentName: injection.agentName || injection.agentType,
             text: injection.text,

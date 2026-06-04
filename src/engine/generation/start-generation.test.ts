@@ -53,6 +53,80 @@ function createStore(
   };
 }
 
+function createReviewStore(
+  mode: "roleplay" | "visual_novel" | "conversation",
+  options: { regenerate?: boolean } = {},
+): Store {
+  return {
+    chats: {
+      "chat-1": {
+        id: "chat-1",
+        mode,
+        connectionId: "conn-1",
+        characterIds: ["char-1"],
+        metadata: {
+          reviewWriterAgentOutputs: true,
+          activeAgentIds: ["prose-guardian", "knowledge-retrieval", "html"],
+        },
+      },
+    },
+    characters: {
+      "char-1": { id: "char-1", data: { name: "Mira" } },
+    },
+    connections: {
+      "conn-1": { id: "conn-1", provider: "test", model: "test-model", defaultForAgents: true },
+    },
+    agents: {
+      "agent-prose": {
+        id: "agent-prose",
+        type: "prose-guardian",
+        name: "Prose Guardian",
+        enabled: true,
+        phase: "pre_generation",
+        promptTemplate: "",
+        settings: {},
+      },
+      "agent-knowledge": {
+        id: "agent-knowledge",
+        type: "knowledge-retrieval",
+        name: "Knowledge Retrieval",
+        enabled: true,
+        phase: "pre_generation",
+        promptTemplate: "",
+        settings: {},
+      },
+    },
+    lorebooks: {
+      "lorebook-1": {
+        id: "lorebook-1",
+        name: "Global Lore",
+        enabled: true,
+        isGlobal: true,
+      },
+    },
+    "lorebook-entries": {
+      "entry-1": {
+        id: "entry-1",
+        lorebookId: "lorebook-1",
+        name: "Mira",
+        content: "Mira likes stormy weather.",
+        enabled: true,
+      },
+    },
+    messages: options.regenerate
+      ? {
+          "assistant-1": {
+            id: "assistant-1",
+            chatId: "chat-1",
+            role: "assistant",
+            content: "Previous reply.",
+            createdAt: "2026-06-04T00:00:00.000Z",
+          },
+        }
+      : {},
+  };
+}
+
 function createStorage(store: Store): StorageGateway {
   return {
     async list<T = unknown>(entity: StorageEntity): Promise<T[]> {
@@ -77,7 +151,7 @@ function createStorage(store: Store): StorageGateway {
       return { deleted: true };
     },
     async listChatMessages<T = unknown>(): Promise<T[]> {
-      return [] as T[];
+      return Object.values(store.messages ?? {}) as T[];
     },
     async createChatMessage<T = unknown>(chatId: string, value: Record<string, unknown>): Promise<T> {
       return {
@@ -128,6 +202,25 @@ function createStorage(store: Store): StorageGateway {
   };
 }
 
+function createReviewDeps(mode: "roleplay" | "visual_novel" | "conversation", options: { regenerate?: boolean } = {}) {
+  const llm: LlmGateway = {
+    async complete() {
+      return "";
+    },
+    async *stream() {
+      yield { type: "token" as const, text: "Keep the reply varied." };
+    },
+    async listModels() {
+      return [];
+    },
+  };
+  return {
+    storage: createStorage(createReviewStore(mode, options)),
+    integrations: {} as IntegrationGateway,
+    llm,
+  };
+}
+
 function createDeps(status: "idle" | "dnd" | "offline", options: { secondStatus?: "idle" | "dnd" | "offline" } = {}) {
   const llm: LlmGateway = {
     async complete() {
@@ -167,6 +260,35 @@ async function collectEvents(
 function delayedMs(events: Awaited<ReturnType<typeof collectEvents>>): number | null {
   const delayed = events.find((event) => event.type === "delayed");
   return delayed?.type === "delayed" ? Number(delayed.data.delayMs) : null;
+}
+
+async function collectReviewEvents(
+  mode: "roleplay" | "visual_novel" | "conversation",
+  input: Partial<StartGenerationInput> = {},
+  options: { regenerate?: boolean } = {},
+) {
+  const events = [];
+  for await (const event of startGeneration(createReviewDeps(mode, options), {
+    chatId: "chat-1",
+    message: "Hi Mira",
+    ...input,
+  })) {
+    events.push(event);
+    if (event.type === "agent_injection_review" || event.type === "done") break;
+  }
+  return events;
+}
+
+function reviewEvent(events: Awaited<ReturnType<typeof collectReviewEvents>>) {
+  return events.find((event) => event.type === "agent_injection_review") as
+    | {
+        type: "agent_injection_review";
+        data: {
+          chatId: string;
+          injections: Array<{ agentType: string; agentName: string; text: string }>;
+        };
+      }
+    | undefined;
 }
 
 describe("startGeneration conversation availability delays", () => {
@@ -218,5 +340,38 @@ describe("startGeneration conversation availability delays", () => {
     } finally {
       random.mockRestore();
     }
+  });
+});
+
+describe("startGeneration agent injection review", () => {
+  it("reviews only writer pre-generation injections in roleplay chats", async () => {
+    const event = reviewEvent(await collectReviewEvents("roleplay"));
+
+    expect(event?.type).toBe("agent_injection_review");
+    expect(event?.data.injections).toEqual([
+      {
+        agentType: "prose-guardian",
+        agentName: "Prose Guardian",
+        text: "Keep the reply varied.",
+      },
+    ]);
+  });
+
+  it("skips agent injection review during regenerate turns", async () => {
+    const events = await collectReviewEvents(
+      "roleplay",
+      { regenerateMessageId: "assistant-1" },
+      { regenerate: true },
+    );
+
+    expect(reviewEvent(events)).toBeUndefined();
+  });
+
+  it("confines agent injection review pauses to roleplay and visual novel modes", async () => {
+    const conversationEvents = await collectReviewEvents("conversation");
+    const visualNovelEvents = await collectReviewEvents("visual_novel");
+
+    expect(reviewEvent(conversationEvents)).toBeUndefined();
+    expect(reviewEvent(visualNovelEvents)?.type).toBe("agent_injection_review");
   });
 });
