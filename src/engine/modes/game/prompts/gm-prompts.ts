@@ -1104,3 +1104,83 @@ export function buildSessionConclusionPrompt(args: {
     `Output valid JSON only.`,
   ].join("\n");
 }
+
+export function buildPartyRecruitCardPrompt(ctx: {
+  targetCharacterName: string;
+  targetCharacterCard: string;
+  currentPartyNames: string[];
+  currentPartyCards?: string | null;
+  existingTargetCard?: string | null;
+  worldOverview?: string | null;
+  storyArc?: string | null;
+  plotTwists?: string[] | null;
+  currentState?: string | null;
+  recentTranscript?: string | null;
+  language?: string | null;
+  purpose?: "recruit" | "regenerate";
+}): string {
+  const normalizedLanguage = normalizePromptLanguage(ctx.language);
+  const isRegeneration = ctx.purpose === "regenerate";
+  const sections: string[] = [
+    `You are the Game Master updating an ongoing RPG campaign.`,
+    isRegeneration
+      ? `A companion's party sheet is malformed, generic, or outdated. Regenerate one clean JSON character card for them that matches the existing game card schema.`
+      : `A new companion is joining the party. Create one JSON character card for them that matches the existing game card schema.`,
+    ``,
+    ...(normalizedLanguage
+      ? [
+          `<language>`,
+          `Write every natural-language string value in ${normalizedLanguage}. Keep JSON keys and structural syntax in English.`,
+          `</language>`,
+          ``,
+        ]
+      : []),
+    `Rules:`,
+    `- Return exactly one JSON object with these keys: name, shortDescription, class, abilities, strengths, weaknesses, extra, rpgStats.`,
+    `- Keep name exactly "${ctx.targetCharacterName}".`,
+    `- Ground the card in the existing campaign state, world, story arc, plot twists, and recent transcript.`,
+    `- Respect the supplied character card or NPC context as canon. Do not contradict it.`,
+    `- Avoid generic boilerplate such as Adventurer, Attack, Assist, empty description, or all six attributes being 10 unless the fiction truly demands it.`,
+    `- abilities, strengths, and weaknesses must be arrays of short strings.`,
+    `- extra must be an object of string values. Include compact fields such as voice, personalStake, affiliation, title, flaw, or motif when they fit.`,
+    `- rpgStats.attributes must contain STR, DEX, CON, INT, WIS, and CHA numeric values. rpgStats.hp must contain value and max.`,
+    ...(isRegeneration
+      ? [
+          `- Treat the existing target party sheet as a damaged draft: preserve useful facts, but fix malformed fields, missing structure, and off-tone values.`,
+        ]
+      : []),
+    `- Do not output markdown, explanations, or wrapper text.`,
+    ``,
+    `<current_party>`,
+    `Current party members: ${ctx.currentPartyNames.length > 0 ? ctx.currentPartyNames.join(", ") : "None"}`,
+    `</current_party>`,
+    ``,
+    `<target_character>`,
+    ctx.targetCharacterCard,
+    `</target_character>`,
+  ];
+
+  if (ctx.worldOverview?.trim()) {
+    sections.push(``, `<world_overview>`, ctx.worldOverview.trim(), `</world_overview>`);
+  }
+  if (ctx.storyArc?.trim()) {
+    sections.push(``, `<story_arc>`, ctx.storyArc.trim(), `</story_arc>`);
+  }
+  if (ctx.plotTwists && ctx.plotTwists.length > 0) {
+    sections.push(``, `<plot_twists>`, ...ctx.plotTwists.filter((twist) => twist.trim()), `</plot_twists>`);
+  }
+  if (ctx.currentPartyCards?.trim()) {
+    sections.push(``, `<existing_party_cards>`, ctx.currentPartyCards.trim(), `</existing_party_cards>`);
+  }
+  if (ctx.existingTargetCard?.trim()) {
+    sections.push(``, `<existing_target_party_sheet>`, ctx.existingTargetCard.trim(), `</existing_target_party_sheet>`);
+  }
+  if (ctx.currentState?.trim()) {
+    sections.push(``, `<current_state>`, ctx.currentState.trim(), `</current_state>`);
+  }
+  if (ctx.recentTranscript?.trim()) {
+    sections.push(``, `<recent_transcript>`, ctx.recentTranscript.trim(), `</recent_transcript>`);
+  }
+
+  return sections.join("\n");
+}

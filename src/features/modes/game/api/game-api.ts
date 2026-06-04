@@ -31,10 +31,7 @@ import { chatCommandApi } from "../../../../shared/api/chat-command-api";
 import { resolveGalleryFileUrl } from "../../../../shared/api/local-file-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { urlBinaryApi } from "../../../../shared/api/url-binary-api";
-import {
-  createLorebookEntrySchema,
-  createLorebookSchema,
-} from "../../../../engine/contracts/schemas/lorebook.schema";
+import { createLorebookEntrySchema, createLorebookSchema } from "../../../../engine/contracts/schemas/lorebook.schema";
 import { resolveCombatRound } from "../../../../engine/modes/game/mechanics/combat.service";
 import { rollDice as rollGameDice } from "../../../../engine/modes/game/mechanics/dice.service";
 import {
@@ -63,7 +60,11 @@ import {
   listElementPresets,
 } from "../../../../engine/modes/game/mechanics/element-reactions.service";
 import { buildPartySystemPrompt } from "../../../../engine/modes/game/prompts/party-prompts";
-import { buildSessionConclusionPrompt, buildSetupPrompt } from "../../../../engine/modes/game/prompts/gm-prompts";
+import {
+  buildPartyRecruitCardPrompt,
+  buildSessionConclusionPrompt,
+  buildSetupPrompt,
+} from "../../../../engine/modes/game/prompts/gm-prompts";
 import {
   GAME_BACKGROUND_PROMPT_OVERRIDE,
   GAME_ILLUSTRATION_PROMPT_OVERRIDE,
@@ -95,7 +96,12 @@ import {
   advanceTime as advanceGameTime,
   type GameTime,
 } from "../../../../engine/modes/game/world/time.service";
-import { generateWeather, inferBiome, type Season, type WeatherState } from "../../../../engine/modes/game/world/weather.service";
+import {
+  generateWeather,
+  inferBiome,
+  type Season,
+  type WeatherState,
+} from "../../../../engine/modes/game/world/weather.service";
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
 
 export interface CreateGameResponse {
@@ -238,7 +244,8 @@ type GameJsonRepairKind =
   | "game_map"
   | "session_conclusion"
   | "session_lorebook"
-  | "campaign_progression";
+  | "campaign_progression"
+  | "party_card";
 
 type GameJsonRepairContext = {
   kind: GameJsonRepairKind;
@@ -1175,6 +1182,8 @@ function applyJournalEntry(journal: Journal, type: string, data: Record<string, 
   return addEventEntry(journal, title, content);
 }
 
+const PARTY_CARD_ATTRIBUTE_NAMES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"] as const;
+
 function buildGameCard(characterName: string): Record<string, unknown> {
   return {
     name: characterName,
@@ -1196,6 +1205,177 @@ function buildGameCard(characterName: string): Record<string, unknown> {
       hp: { value: 20, max: 20 },
     },
   };
+}
+
+function normalizedName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function gameCardTextListWithFallback(value: unknown, fallback: string[]): string[] {
+  const entries = Array.isArray(value)
+    ? value
+        .map((entry) => (typeof entry === "string" || typeof entry === "number" ? String(entry).trim() : ""))
+        .filter(Boolean)
+    : [];
+  return entries.length ? entries : fallback;
+}
+
+function gameCardExtra(value: unknown, fallback: Record<string, unknown>): Record<string, string> {
+  const raw = asRecord(value);
+  const fallbackRecord = asRecord(fallback);
+  const entries = Object.entries(Object.keys(raw).length ? raw : fallbackRecord)
+    .map(([key, entry]) => {
+      const cleanKey = key.trim();
+      const cleanValue =
+        typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean"
+          ? String(entry).trim()
+          : "";
+      return cleanKey && cleanValue ? ([cleanKey, cleanValue] as const) : null;
+    })
+    .filter((entry): entry is readonly [string, string] => entry !== null);
+  return Object.fromEntries(entries);
+}
+
+function normalizePartyCardAttributes(value: unknown, fallback: unknown): Array<{ name: string; value: number }> {
+  const fallbackAttributes = sheetAttributes(fallback) ?? [];
+  const fallbackByName = new Map(fallbackAttributes.map((attr) => [normalizedName(attr.name), attr.value]));
+  const generatedByName = new Map(
+    (sheetAttributes(value) ?? []).map((attr) => [normalizedName(attr.name), attr.value]),
+  );
+
+  return PARTY_CARD_ATTRIBUTE_NAMES.map((name) => {
+    const key = normalizedName(name);
+    const rawValue = generatedByName.get(key) ?? fallbackByName.get(key) ?? 10;
+    return { name, value: Math.max(1, Math.min(30, Math.round(rawValue))) };
+  });
+}
+
+function normalizePartyCardHp(value: unknown, fallback: unknown): { value: number; max: number } {
+  const record = asRecord(value);
+  const fallbackRecord = asRecord(fallback);
+  const max = Math.max(1, Math.min(999, Math.round(readNumber(record.max, readNumber(fallbackRecord.max, 20)))));
+  const current = Math.max(
+    0,
+    Math.min(max, Math.round(readNumber(record.value, readNumber(fallbackRecord.value, max)))),
+  );
+  return { value: current, max };
+}
+
+function normalizeGeneratedPartyCard(
+  raw: Record<string, unknown>,
+  fallback: Record<string, unknown>,
+  characterName: string,
+): Record<string, unknown> {
+  const rawStats = asRecord(raw.rpgStats);
+  const fallbackStats = asRecord(fallback.rpgStats);
+  return {
+    name: characterName,
+    shortDescription: readTrimmed(raw.shortDescription) || readTrimmed(fallback.shortDescription),
+    class: readTrimmed(raw.class) || readTrimmed(fallback.class) || "Companion",
+    abilities: gameCardTextListWithFallback(raw.abilities, gameCardTextListWithFallback(fallback.abilities, [])),
+    strengths: gameCardTextListWithFallback(raw.strengths, gameCardTextListWithFallback(fallback.strengths, [])),
+    weaknesses: gameCardTextListWithFallback(raw.weaknesses, gameCardTextListWithFallback(fallback.weaknesses, [])),
+    extra: gameCardExtra(raw.extra, asRecord(fallback.extra)),
+    rpgStats: {
+      attributes: normalizePartyCardAttributes(rawStats.attributes, fallbackStats.attributes),
+      hp: normalizePartyCardHp(rawStats.hp, fallbackStats.hp),
+    },
+  };
+}
+
+function gameCardByName(cards: unknown[], characterName: string): Record<string, unknown> | null {
+  const targetName = normalizedName(characterName);
+  for (const item of cards) {
+    const record = asRecord(item);
+    if (normalizedName(readTrimmed(record.name)) === targetName) return record;
+  }
+  return null;
+}
+
+function compactCharacterPromptRecord(record: Record<string, unknown>, fallbackName: string): string {
+  const data = asRecord(record.data);
+  const extensions = asRecord(data.extensions);
+  const promptRecord = {
+    name: recordName(record) || fallbackName,
+    description: readTrimmed(data.description),
+    personality: readTrimmed(data.personality),
+    scenario: readTrimmed(data.scenario),
+    systemPrompt: readTrimmed(data.system_prompt),
+    backstory: readTrimmed(extensions.backstory),
+    appearance: readTrimmed(extensions.appearance),
+    tags: stringArray(data.tags),
+  };
+  return JSON.stringify(promptRecord, null, 2);
+}
+
+function compactNpcPromptRecord(record: Record<string, unknown>, fallbackName: string): string {
+  return JSON.stringify(
+    {
+      name: readTrimmed(record.name) || fallbackName,
+      description: readTrimmed(record.description),
+      location: readTrimmed(record.location),
+      notes: Array.isArray(record.notes) ? record.notes.map(String).filter(Boolean).slice(0, 8) : [],
+      reputation: Number.isFinite(Number(record.reputation)) ? Number(record.reputation) : null,
+    },
+    null,
+    2,
+  );
+}
+
+async function targetPartyCardPromptContext(
+  chat: Chat,
+  meta: Record<string, unknown>,
+  characterName: string,
+  characterId?: string,
+): Promise<string> {
+  const candidateIds = [
+    ...(characterId ? [characterId] : []),
+    ...(Array.isArray(chat.characterIds) ? chat.characterIds : []),
+  ].filter((id): id is string => typeof id === "string" && id.trim().length > 0 && !id.startsWith("npc:"));
+  const uniqueIds = [...new Set(candidateIds)];
+  const characterRows = await Promise.all(
+    uniqueIds.map((id) => storageApi.get<Record<string, unknown>>("characters", id).catch(() => null)),
+  );
+  const targetName = normalizedName(characterName);
+  const characterRecord =
+    characterRows.find(
+      (row): row is Record<string, unknown> => !!row && normalizedName(recordName(row)) === targetName,
+    ) ?? null;
+  if (characterRecord) return compactCharacterPromptRecord(characterRecord, characterName);
+
+  const npcs = Array.isArray(meta.gameNpcs) ? meta.gameNpcs.map(asRecord) : [];
+  const npc = npcs.find((row) => normalizedName(readTrimmed(row.name)) === targetName);
+  if (npc) return compactNpcPromptRecord(npc, characterName);
+
+  return JSON.stringify(
+    {
+      name: characterName,
+      note: "No library character or tracked NPC record was found. Infer the new companion from campaign context and recent transcript.",
+    },
+    null,
+    2,
+  );
+}
+
+function currentPartyNames(cards: unknown[]): string[] {
+  return cards.map((item) => readTrimmed(asRecord(item).name)).filter(Boolean);
+}
+
+function partyCardCurrentState(chat: Chat, meta: Record<string, unknown>): string {
+  const gameState = asRecord((chat as { gameState?: unknown }).gameState);
+  const activeMap = asRecord(meta.gameMap);
+  return JSON.stringify(
+    {
+      sessionNumber: Number(meta.gameSessionNumber ?? 1),
+      activeState: readTrimmed(meta.gameActiveState),
+      location: readTrimmed(gameState.location) || readTrimmed(activeMap.name),
+      time: readTrimmed(gameState.time) || readTrimmed(meta.gameTimeFormatted),
+      weather: gameState.weather ?? meta.gameWeather ?? null,
+      playerNotes: readTrimmed(meta.gamePlayerNotes),
+    },
+    null,
+    2,
+  );
 }
 
 function playerAttributes(meta: Record<string, unknown>): Partial<RPGAttributes> {
@@ -1875,7 +2055,12 @@ export const gameApi = {
       label: "Session started",
       triggerType: "session_start",
     });
-    return { status: "active", alreadyStarted: false, sessionChat, ...(checkpointWarning ? { checkpointWarning } : {}) };
+    return {
+      status: "active",
+      alreadyStarted: false,
+      sessionChat,
+      ...(checkpointWarning ? { checkpointWarning } : {}),
+    };
   },
 
   async startSession(data: { gameId: string; connectionId?: string }): Promise<StartSessionResponse> {
@@ -2154,17 +2339,62 @@ export const gameApi = {
     characterId?: string;
     connectionId?: string;
     added?: boolean;
+    generated?: Record<string, unknown>;
   }): Promise<PartyCardResponse> {
+    const characterName = data.characterName.trim();
+    if (!characterName) {
+      throw new Error("Party card generation requires a character name.");
+    }
     const chat = await getChat(data.chatId);
     const meta = chatMeta(chat);
     const cards = Array.isArray(meta.gameCharacterCards) ? [...meta.gameCharacterCards] : [];
-    const card = buildGameCard(data.characterName);
-    const nextCards = cards.filter((item) => asRecord(item).name !== data.characterName).concat(card);
+    const existingTargetCard = gameCardByName(cards, characterName);
+    const fallback = existingTargetCard ?? buildGameCard(characterName);
+    const generated =
+      data.generated ??
+      (await llmJson({
+        connectionId: data.connectionId,
+        fallback,
+        system: "Create one Marinara Engine Game mode party character card. Return valid JSON only.",
+        user: buildPartyRecruitCardPrompt({
+          targetCharacterName: characterName,
+          targetCharacterCard: await targetPartyCardPromptContext(chat, meta, characterName, data.characterId),
+          currentPartyNames: currentPartyNames(cards).filter(
+            (name) => normalizedName(name) !== normalizedName(characterName),
+          ),
+          currentPartyCards: cards.length ? JSON.stringify(cards, null, 2) : null,
+          existingTargetCard: existingTargetCard ? JSON.stringify(existingTargetCard, null, 2) : null,
+          worldOverview: readTrimmed(meta.gameWorldOverview),
+          storyArc: readTrimmed(meta.gameStoryArc),
+          plotTwists: Array.isArray(meta.gamePlotTwists) ? meta.gamePlotTwists.map(String).filter(Boolean) : null,
+          currentState: partyCardCurrentState(chat, meta),
+          recentTranscript: await sessionTranscript(data.chatId, 40),
+          language: readTrimmed(meta.gameLanguage),
+          purpose: existingTargetCard && !data.added ? "regenerate" : "recruit",
+        }),
+        parameters: { temperature: 0.45, maxTokens: 1400 },
+        repair: {
+          kind: "party_card",
+          title: `Repair ${characterName} Party Card JSON`,
+          applyBody: {
+            chatId: data.chatId,
+            characterName,
+            characterId: data.characterId,
+            connectionId: data.connectionId,
+            added: data.added,
+          },
+        },
+      }));
+    const card = normalizeGeneratedPartyCard(generated, fallback, characterName);
+    const targetName = normalizedName(characterName);
+    const nextCards = cards
+      .filter((item) => normalizedName(readTrimmed(asRecord(item).name)) !== targetName)
+      .concat(card);
     const sessionChat = await patchChatMetadata(data.chatId, { gameCharacterCards: nextCards });
     return {
       sessionChat,
       added: data.added,
-      characterName: data.characterName,
+      characterName,
       cardCreated: true,
       gameCard: card,
     };
@@ -2737,7 +2967,8 @@ export const gameApi = {
     const illustration = asRecord(record.illustration);
     const hasIllustrationRequest = Object.keys(illustration).length > 0;
     const illustrationAllowed =
-      hasIllustrationRequest && canGenerateSceneIllustration(meta, await gameIllustrationTurnNumber(String(record.chatId)));
+      hasIllustrationRequest &&
+      canGenerateSceneIllustration(meta, await gameIllustrationTurnNumber(String(record.chatId)));
     if (illustrationAllowed) {
       const label =
         (typeof illustration.reason === "string" && illustration.reason) ||
@@ -3011,6 +3242,15 @@ export async function applyGameJsonRepair(request: JsonRepairRequest, rawJson: s
         chatId,
         connectionId,
         sessionNumber: Number(body.sessionNumber ?? 1),
+        generated: repaired,
+      });
+    case "party_card":
+      return gameApi.upsertPartyCard({
+        chatId,
+        connectionId,
+        characterName: typeof body.characterName === "string" ? body.characterName : "",
+        characterId: typeof body.characterId === "string" ? body.characterId : undefined,
+        added: body.added === true,
         generated: repaired,
       });
     default:

@@ -57,6 +57,7 @@ import {
   useJournalEntry,
   useTransitionGameState,
   useRecruitPartyMember,
+  useRegeneratePartyCard,
   useRemovePartyMember,
   gameKeys,
   patchChatMetadata,
@@ -2171,6 +2172,7 @@ export function GameSurface({
     pendingInventoryUseRef.current = pendingInventoryUse;
   }, [pendingInventoryUse]);
   const recruitPartyMember = useRecruitPartyMember();
+  const regeneratePartyCard = useRegeneratePartyCard();
   const removePartyMember = useRemovePartyMember();
   const availableMaps = useMemo(() => (maps.length > 0 ? maps : currentMap ? [currentMap] : []), [currentMap, maps]);
   const viewedMap = useMemo(() => {
@@ -2221,18 +2223,28 @@ export function GameSurface({
         const commandKey = `${messageId}:${partyChange.change}:${characterName.toLowerCase()}`;
         if (processedPartyChangeCommandsRef.current.has(commandKey)) continue;
         processedPartyChangeCommandsRef.current.add(commandKey);
-        const mutation = partyChange.change === "add" ? recruitPartyMember : removePartyMember;
-        mutation.mutate(
-          { chatId: activeChatId, characterName },
-          {
-            onError: () => {
-              processedPartyChangeCommandsRef.current.delete(commandKey);
+        if (partyChange.change === "add") {
+          recruitPartyMember.mutate(
+            { chatId: activeChatId, characterName, connectionId: chat.connectionId ?? undefined },
+            {
+              onError: () => {
+                processedPartyChangeCommandsRef.current.delete(commandKey);
+              },
             },
-          },
-        );
+          );
+        } else {
+          removePartyMember.mutate(
+            { chatId: activeChatId, characterName },
+            {
+              onError: () => {
+                processedPartyChangeCommandsRef.current.delete(commandKey);
+              },
+            },
+          );
+        }
       }
     },
-    [activeChatId, recruitPartyMember, removePartyMember],
+    [activeChatId, chat.connectionId, recruitPartyMember, removePartyMember],
   );
 
   const upsertReadableJournalEntry = useCallback(
@@ -6960,6 +6972,23 @@ export function GameSurface({
     [activeChatId, activeMapId, updateChatMetadata],
   );
 
+  const handleRegeneratePartyCard = useCallback(
+    async (characterName: string) => {
+      if (!activeChatId) return;
+      try {
+        await regeneratePartyCard.mutateAsync({
+          chatId: activeChatId,
+          characterName,
+          connectionId: chat.connectionId ?? undefined,
+        });
+      } catch (error) {
+        if (handleJsonRepairError(error)) return;
+        throw error;
+      }
+    },
+    [activeChatId, chat.connectionId, handleJsonRepairError, regeneratePartyCard],
+  );
+
   const handleRegenerateSessionConclusion = useCallback(
     async (sessionNumber: number) => {
       if (!activeChatId) return;
@@ -9353,6 +9382,8 @@ export function GameSurface({
           onSave={(gameCard: GameCharacterSheetGameCard | undefined) =>
             handleSaveCharacterSheet(partyCards[characterSheetCharId].title, gameCard)
           }
+          onRegenerate={() => handleRegeneratePartyCard(partyCards[characterSheetCharId].title)}
+          isRegenerating={regeneratePartyCard.isPending}
         />
       )}
 
