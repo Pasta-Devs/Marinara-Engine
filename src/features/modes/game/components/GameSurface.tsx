@@ -2321,7 +2321,9 @@ export function GameSurface({
   const weatherMsgRef = useRef<string | null>(null);
   const sceneAnalysisTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAssetGenerationKeyRef = useRef<string | null>(null);
-  const introPresentationStorageKey = `game-intro-presented:${activeChatId}`;
+  const activeGameMetaId = typeof chatMeta.gameId === "string" && chatMeta.gameId.trim() ? chatMeta.gameId : null;
+  const sceneRuntimeScopeKey = `${activeChatId}:${activeGameMetaId ?? ""}`;
+  const introPresentationStorageKey = `game-intro-presented:${sceneRuntimeScopeKey}`;
   const assistantTurnCount = useMemo(
     () => messages.filter((m) => (m.role === "assistant" || m.role === "narrator") && !!m.content.trim()).length,
     [messages],
@@ -2372,14 +2374,14 @@ export function GameSurface({
   }, [persistedGameAudioSettings]);
 
   // Clear stale party dialogue when switching chats (M7)
-  const prevActiveChatRef = useRef(activeChatId);
+  const prevSceneRuntimeScopeRef = useRef(sceneRuntimeScopeKey);
   useEffect(() => {
     inventoryItemsRef.current = inventoryItems;
   }, [inventoryItems]);
 
   useEffect(() => {
-    if (prevActiveChatRef.current === activeChatId) return; // skip initial mount
-    prevActiveChatRef.current = activeChatId;
+    if (prevSceneRuntimeScopeRef.current === sceneRuntimeScopeKey) return; // skip initial mount
+    prevSceneRuntimeScopeRef.current = sceneRuntimeScopeKey;
     recentMusicHistoryRef.current = normalizeRecentMusicHistory(chatMeta.gameRecentMusic);
     recentSpotifyTrackHistoryRef.current = normalizeRecentSpotifyTrackHistory(chatMeta.gameRecentSpotifyTracks);
     partyDialogueRestoredRef.current = false;
@@ -2419,7 +2421,7 @@ export function GameSurface({
     // Allow the auto-tutorial to re-evaluate for the new chat (guard still gates on disabled flag)
     tutorialAutoTriggeredRef.current = false;
   }, [
-    activeChatId,
+    sceneRuntimeScopeKey,
     chatMeta.gameInventory,
     chatMeta.gameRecentMusic,
     chatMeta.gameRecentSpotifyTracks,
@@ -2639,17 +2641,21 @@ export function GameSurface({
   // On unmount, only dispose audio (stop sounds) but keep store state intact so that
   // same-chat remount (e.g. returning from persona editor) can read it immediately
   // without waiting for the scene restore effect.
-  const prevChatIdRef = useRef(activeChatId);
+  const prevSceneRuntimeMediaScopeRef = useRef(sceneRuntimeScopeKey);
   useEffect(() => {
-    if (prevChatIdRef.current !== activeChatId) {
+    if (prevSceneRuntimeMediaScopeRef.current !== sceneRuntimeScopeKey) {
       audioManager.dispose();
       useGameAssetStore.getState().resetPlaybackState();
-      prevChatIdRef.current = activeChatId;
+      sceneReadyMsgIdRef.current = undefined;
+      weatherMsgRef.current = null;
+      isRestoredRef.current = false;
+      sceneRestoredRef.current = false;
+      prevSceneRuntimeMediaScopeRef.current = sceneRuntimeScopeKey;
     }
     return () => {
       audioManager.dispose();
     };
-  }, [activeChatId]);
+  }, [sceneRuntimeScopeKey]);
 
   // Reconnect audio and background on mount if the store was disposed
   // (e.g. user left to home and returned to the same game).
@@ -3299,6 +3305,7 @@ export function GameSurface({
     }
   }, [
     activeChatId,
+    sceneRuntimeScopeKey,
     isMessagesLoading,
     latestAssistantMsg?.content,
     latestAssistantMsg?.id,
@@ -4866,7 +4873,7 @@ export function GameSurface({
   const updateSessionHistoryMetadata = useUpdateChatMetadata();
   const updateMessage = useUpdateMessage(activeChatId);
   const startSessionLocked = startSession.isPending || startSessionRequested;
-  const gameId = (chatMeta.gameId as string) || null;
+  const gameId = activeGameMetaId;
   const createGameResetRef = useRef(createGame.reset);
   const gameSetupResetRef = useRef(gameSetup.reset);
   const startGameResetRef = useRef(startGame.reset);
@@ -7899,23 +7906,23 @@ export function GameSurface({
     return undefined;
   }, [sceneAnalysisEnabled, chatBackground, currentBackground, scopedAssetMap]);
 
-  const lastResolvedBackgroundRef = useRef<{ chatId: string; url?: string }>({ chatId: activeChatId });
+  const lastResolvedBackgroundRef = useRef<{ scopeKey: string; url?: string }>({ scopeKey: sceneRuntimeScopeKey });
   useEffect(() => {
-    if (lastResolvedBackgroundRef.current.chatId !== activeChatId) {
-      lastResolvedBackgroundRef.current = { chatId: activeChatId };
+    if (lastResolvedBackgroundRef.current.scopeKey !== sceneRuntimeScopeKey) {
+      lastResolvedBackgroundRef.current = { scopeKey: sceneRuntimeScopeKey };
     }
-  }, [activeChatId]);
+  }, [sceneRuntimeScopeKey]);
   useEffect(() => {
     if (resolvedBackground !== undefined) {
-      lastResolvedBackgroundRef.current = { chatId: activeChatId, url: resolvedBackground };
-    } else if (!scenePreparing && lastResolvedBackgroundRef.current.chatId === activeChatId) {
-      lastResolvedBackgroundRef.current = { chatId: activeChatId };
+      lastResolvedBackgroundRef.current = { scopeKey: sceneRuntimeScopeKey, url: resolvedBackground };
+    } else if (!scenePreparing && lastResolvedBackgroundRef.current.scopeKey === sceneRuntimeScopeKey) {
+      lastResolvedBackgroundRef.current = { scopeKey: sceneRuntimeScopeKey };
     }
-  }, [activeChatId, resolvedBackground, scenePreparing]);
+  }, [sceneRuntimeScopeKey, resolvedBackground, scenePreparing]);
 
   const displayedBackground =
     resolvedBackground ??
-    (scenePreparing && lastResolvedBackgroundRef.current.chatId === activeChatId
+    (scenePreparing && lastResolvedBackgroundRef.current.scopeKey === sceneRuntimeScopeKey
       ? lastResolvedBackgroundRef.current.url
       : undefined);
 
