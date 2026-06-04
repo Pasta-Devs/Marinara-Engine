@@ -1,8 +1,10 @@
 use base64::{engine::general_purpose, Engine as _};
+use image::{imageops::FilterType, ImageFormat, ImageReader, Limits};
 use marinara_core::{now_iso, AppError, AppResult};
 use marinara_security::{assert_inside_dir, assert_relative_safe_path};
 use serde_json::{json, Map, Value};
 use std::fs;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -10,6 +12,11 @@ const MANAGED_GAME_ASSET_CATEGORIES: &[&str] =
     &["music", "sfx", "ambient", "sprites", "backgrounds"];
 const MAX_TEXT_ASSET_BYTES: usize = 1_000_000;
 const MAX_MEDIA_ASSET_BYTES: usize = 75 * 1024 * 1024;
+const GENERATED_BACKGROUND_WIDTH: u32 = 1280;
+const GENERATED_BACKGROUND_HEIGHT: u32 = 720;
+const MAX_GENERATED_BACKGROUND_DIMENSION: u32 = 8192;
+const MAX_GENERATED_BACKGROUND_PIXELS: u64 = 50_000_000;
+const MAX_GENERATED_BACKGROUND_ALLOC_BYTES: u64 = 256 * 1024 * 1024;
 const RASTER_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif"];
 const SPRITE_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif", "svg"];
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "ogg", "wav", "flac", "m4a", "aac", "opus", "webm"];
@@ -240,11 +247,14 @@ impl AssetService {
             .get("base64")
             .and_then(Value::as_str)
             .ok_or_else(|| AppError::invalid_input("Uploaded file is missing base64 data"))?;
-        let bytes = general_purpose::STANDARD.decode(base64).map_err(|error| {
+        let mut bytes = general_purpose::STANDARD.decode(base64).map_err(|error| {
             AppError::invalid_input(format!("Invalid upload encoding: {error}"))
         })?;
         if bytes.len() > MAX_MEDIA_ASSET_BYTES {
             return Err(AppError::invalid_input("Uploaded file is too large"));
+        }
+        if should_resize_generated_background_upload(category, subcategory) {
+            bytes = cover_resize_generated_background(&name, &bytes)?;
         }
 
         let mut rel = PathBuf::from(category);
@@ -617,6 +627,61 @@ fn ensure_upload_extension(category: &str, filename: &str) -> AppResult<()> {
     }
 }
 
+fn should_resize_generated_background_upload(category: &str, subcategory: Option<&str>) -> bool {
+    category == "backgrounds" && subcategory == Some("generated")
+}
+
+fn cover_resize_generated_background(filename: &str, bytes: &[u8]) -> AppResult<Vec<u8>> {
+    let extension = path_extension(Path::new(filename));
+    let format = ImageFormat::from_extension(&extension).ok_or_else(|| {
+        AppError::invalid_input("Generated background uses an unsupported image type")
+    })?;
+    let (width, height) = ImageReader::with_format(Cursor::new(bytes), format)
+        .into_dimensions()
+        .map_err(|error| {
+            AppError::invalid_input(format!(
+                "Generated background dimensions could not be read: {error}"
+            ))
+        })?;
+    let pixels = u64::from(width) * u64::from(height);
+    if width > MAX_GENERATED_BACKGROUND_DIMENSION
+        || height > MAX_GENERATED_BACKGROUND_DIMENSION
+        || pixels > MAX_GENERATED_BACKGROUND_PIXELS
+    {
+        return Err(AppError::invalid_input(
+            "Generated background dimensions are too large",
+        ));
+    }
+    let mut reader = ImageReader::with_format(Cursor::new(bytes), format);
+    reader.limits(generated_background_decode_limits());
+    let image = reader.decode().map_err(|error| {
+        AppError::invalid_input(format!("Generated background could not be decoded: {error}"))
+    })?;
+    let resized = image.resize_to_fill(
+        GENERATED_BACKGROUND_WIDTH,
+        GENERATED_BACKGROUND_HEIGHT,
+        FilterType::Lanczos3,
+    );
+    let mut output = Vec::new();
+    resized
+        .write_to(&mut Cursor::new(&mut output), format)
+        .map_err(|error| {
+            AppError::new(
+                "generated_background_resize_error",
+                format!("Generated background could not be resized: {error}"),
+            )
+        })?;
+    Ok(output)
+}
+
+fn generated_background_decode_limits() -> Limits {
+    let mut limits = Limits::default();
+    limits.max_image_width = Some(MAX_GENERATED_BACKGROUND_DIMENSION);
+    limits.max_image_height = Some(MAX_GENERATED_BACKGROUND_DIMENSION);
+    limits.max_alloc = Some(MAX_GENERATED_BACKGROUND_ALLOC_BYTES);
+    limits
+}
+
 fn sanitize_filename(name: &str) -> AppResult<String> {
     let sanitized = name
         .trim()
@@ -745,12 +810,16 @@ fn sort_asset_rows(rows: &mut [Value]) {
 mod tests {
     use super::{
         ensure_upload_extension, AssetService, AUDIO_EXTENSIONS, RASTER_IMAGE_EXTENSIONS,
-        SPRITE_IMAGE_EXTENSIONS,
+        MAX_GENERATED_BACKGROUND_DIMENSION, SPRITE_IMAGE_EXTENSIONS,
     };
+    use base64::{engine::general_purpose, Engine as _};
+    use image::{ImageFormat, Rgba, RgbaImage};
+    use serde_json::{json, Value};
     use std::fs;
+    use std::io::Cursor;
     #[cfg(windows)]
     use std::io;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[cfg(unix)]
@@ -787,6 +856,27 @@ mod tests {
             "marinara-assets-{name}-{}-{nonce}",
             std::process::id()
         ))
+    }
+
+    fn png_upload_file(name: &str, width: u32, height: u32) -> Value {
+        let image = RgbaImage::from_pixel(width, height, Rgba([255, 0, 0, 255]));
+        let mut bytes = Vec::new();
+        image
+            .write_to(&mut Cursor::new(&mut bytes), ImageFormat::Png)
+            .expect("test image should encode");
+        json!({
+            "name": name,
+            "base64": general_purpose::STANDARD.encode(bytes),
+        })
+    }
+
+    fn uploaded_asset_path(root: &Path, uploaded: &Value) -> PathBuf {
+        let relative = uploaded
+            .get("item")
+            .and_then(|item| item.get("path"))
+            .and_then(Value::as_str)
+            .expect("upload should return item path");
+        root.join(relative)
     }
 
     #[test]
@@ -858,6 +948,120 @@ mod tests {
         assert!(error
             .message
             .contains("Can't upload .svg files to backgrounds"));
+    }
+
+    #[test]
+    fn cover_resizes_generated_background_uploads_to_vn_canvas() {
+        let root = temp_root("generated-background-cover");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        let uploaded = service
+            .write_upload(
+                "backgrounds",
+                Some("generated"),
+                &png_upload_file("square-scene.png", 512, 512),
+            )
+            .expect("generated background should upload");
+        let path = uploaded_asset_path(&root, &uploaded);
+
+        assert_eq!(
+            image::image_dimensions(path).expect("background should decode"),
+            (1280, 720)
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn does_not_resize_generated_illustration_uploads() {
+        let root = temp_root("generated-illustration-size");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        let uploaded = service
+            .write_upload(
+                "backgrounds",
+                Some("illustrations"),
+                &png_upload_file("square-illustration.png", 512, 512),
+            )
+            .expect("generated illustration should upload");
+        let path = uploaded_asset_path(&root, &uploaded);
+
+        assert_eq!(
+            image::image_dimensions(path).expect("illustration should decode"),
+            (512, 512)
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn does_not_resize_whitespace_wrapped_generated_subcategory() {
+        let root = temp_root("whitespace-generated-size");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        let uploaded = service
+            .write_upload(
+                "backgrounds",
+                Some(" generated "),
+                &png_upload_file("spacey-generated.png", 512, 512),
+            )
+            .expect("noncanonical generated subcategory should upload");
+        let path = uploaded_asset_path(&root, &uploaded);
+
+        assert_eq!(
+            image::image_dimensions(path).expect("background should decode"),
+            (512, 512)
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rejects_oversized_generated_background_dimensions_before_decode() {
+        let root = temp_root("generated-background-too-large");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        let error = service
+            .write_upload(
+                "backgrounds",
+                Some("generated"),
+                &png_upload_file(
+                    "oversized-scene.png",
+                    MAX_GENERATED_BACKGROUND_DIMENSION + 1,
+                    1,
+                ),
+            )
+            .expect_err("oversized generated background should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Generated background dimensions are too large"));
+        assert!(!root.join("backgrounds/generated/oversized-scene.png").exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn does_not_resize_manual_background_uploads() {
+        let root = temp_root("manual-background-size");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        let uploaded = service
+            .write_upload(
+                "backgrounds",
+                Some("custom"),
+                &png_upload_file("manual-square.png", 512, 512),
+            )
+            .expect("manual background should upload");
+        let path = uploaded_asset_path(&root, &uploaded);
+
+        assert_eq!(
+            image::image_dimensions(path).expect("manual background should decode"),
+            (512, 512)
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
