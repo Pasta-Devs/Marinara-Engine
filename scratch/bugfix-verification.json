@@ -1,195 +1,50 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2100,
-    "title": "[Issue]: Deleting conversation groups with branched conversations can make the app appear frozen",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2100"
+    "number": 2122,
+    "title": "[Issue]: Illustrator \"Send avatars as reference images\" silently does nothing on NovelAI V4.5 (uses V3 Vibe Transfer fields)",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2122"
   },
-  "pr": {
-    "number": 2104,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2104"
-  },
-  "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous embedded or hostable command, and the user sees a pending delete state until the command settles.",
-  "reproduction": {
-    "attempted": true,
-    "reproducedBeforeFix": true,
-    "method": "Source-level command-path repro against upstream/refactor plus affected UI inspection.",
-    "evidence": [
-      "upstream/refactor exported `pub fn chat_group_delete` and directly called `chats::delete_chat_group(&state, &group_id)` with no `spawn_blocking` handoff.",
-      "upstream/refactor HTTP dispatch also called `chats::delete_chat_group(state, required_string(&args, \"groupId\")?)` directly.",
-      "The two group-delete UI consumers closed their modal/drawer immediately after starting the mutation, so the pending state was not kept visible for large deletes."
-    ],
-    "duplicatePrPreflight": "No matching PRs found for #2100 or conversation group delete wording; no local issue-2100 branch/worktree existed before this run."
-  },
-  "verification": {
-    "originalReproPassed": true,
-    "baselinePassed": true,
-    "baselineCommand": "pnpm check",
-    "baselineEvidence": "`pnpm check` passed after the final diff.",
-    "focusedProof": [
-      "`pnpm typecheck` passed.",
-      "`cargo check --manifest-path src-tauri/Cargo.toml` passed.",
-      "`cargo test --manifest-path src-tauri/Cargo.toml delete_chat_group_reports_exact_deleted_chat_ids_including_scene_children` passed 1 targeted test.",
-      "`git diff --check` passed."
-    ],
-    "edgeCases": [
-      "Existing group delete still reports origin, sibling, and owned scene child chat ids.",
-      "Delete confirmation controls disable repeat clicks while a group delete is pending.",
-      "Delete surfaces keep the destructive dialog/drawer visible until the group delete succeeds."
-    ],
-    "visualProof": "scratch/issue-2100-shell-proof.png",
-    "visualProofNotes": "Playwright loaded the local Vite shell at http://localhost:1420/ and captured the rendered app. The plain browser shell cannot exercise real Tauri storage deletes, so command behavior is proven by Rust/source checks."
-  },
-  "manualBlockers": [
-    {
-      "description": "Hosted visual evidence is not attached yet because `gh gist create` rejected the binary PNG screenshot. Local Playwright shell proof exists at scratch/issue-2100-shell-proof.png; exact large-profile Tauri app-shell delete verification remains a human/manual draft-PR check.",
-      "blockingCoreClaim": false
-    }
-  ],
+  "coreClaim": "NovelAI V4.5 image requests include precise/director reference parameters when Illustrator supplies avatar reference images.",
   "assignment": {
-    "assignee": "cha1latte",
+    "assignee": "@me",
     "assignedBeforeWork": true
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "workflow-health did not flag a duplicate for #2100; gh PR search for direct #2100 and conversation group delete wording returned no matches."
+    "details": "No PRs found for #2122 or reference_image_multiple; NovelAI matches were older merged prompt/settings PRs, not this V4.5 reference payload fix.",
+    "base": "upstream/refactor",
+    "worktree": "C:\\tmp\\Marinara-Engine-issue-2122"
   },
-  "riskClaimMatrix": {
-    "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous embedded or hostable command, and the user sees a pending delete state until the command settles.",
-    "riskType": "cross-boundary Tauri command responsiveness and delete UI feedback",
-    "entrypoints": [
-      "src-tauri chat_group_delete command",
-      "src-tauri HTTP dispatch chat_group_delete command",
-      "src/app/shell/ChatSidebar.tsx delete group modal",
-      "src/features/modes/shared/chat-ui/components/ChatFilesDrawer.tsx delete group footer"
-    ],
-    "currentPathsOrFormats": [
-      "chat_group_delete(groupId)",
-      "remote /api/invoke chat_group_delete(groupId)",
-      "sidebar branched-chat delete modal",
-      "Manage Chat Files drawer delete group action"
-    ],
-    "legacyPathsOrFormats": [
-      "pre-fix synchronous `pub fn chat_group_delete` command",
-      "pre-fix hostable HTTP dispatch direct `chats::delete_chat_group` call",
-      "pre-fix UI closes modal/drawer immediately after firing the group delete mutation"
-    ],
-    "positiveRowsTested": [
-      "Rust embedded command compiles after async spawn_blocking handoff.",
-      "Rust hostable HTTP dispatch compiles after async spawn_blocking handoff.",
-      "TypeScript compiles after pending-state UI changes.",
-      "Existing cascade regression test still deletes grouped chats and owned scene children."
-    ],
-    "negativeRowsTested": [
-      "Existing single-chat delete mutation path was not changed.",
-      "Storage deletion semantics and schemas were not changed."
-    ],
-    "groundTruthFacts": [
-      {
-        "sourceType": "derived",
-        "description": "Baseline embedded chat_group_delete was synchronous.",
-        "evidence": "`git show upstream/refactor:src-tauri/src/commands/storage/commands/chats.rs` showed `pub fn chat_group_delete` directly calling `chats::delete_chat_group(&state, &group_id)`."
-      },
-      {
-        "sourceType": "derived",
-        "description": "Fixed embedded chat_group_delete uses the blocking task pool.",
-        "evidence": "Current `src-tauri/src/commands/storage/commands/chats.rs` compiles with `pub async fn chat_group_delete` and `tauri::async_runtime::spawn_blocking`."
-      },
-      {
-        "sourceType": "derived",
-        "description": "Fixed hostable HTTP chat_group_delete dispatch uses the blocking task pool.",
-        "evidence": "Current `src-tauri/src/http_dispatch.rs` compiles with `tauri::async_runtime::spawn_blocking` around `chats::delete_chat_group`."
-      },
-      {
-        "sourceType": "derived",
-        "description": "Both group-delete UI consumers compile with visible pending-state guards.",
-        "evidence": "`pnpm typecheck` and `pnpm check` passed after the sidebar and drawer pending-state changes."
-      }
-    ],
-    "manualBlockers": [
-      {
-        "description": "No new copy/backup instruction was added because this PR does not change destructive delete scope, storage layouts, or recovery behavior; the existing Delete Entire Group confirmation remains the user-facing destructive-action copy.",
-        "blockingCoreClaim": false
-      }
-    ],
-    "userActionCopy": []
+  "reproduction": {
+    "attempted": true,
+    "reproducedBeforeFix": true,
+    "command": "cargo test --manifest-path src-tauri\\Cargo.toml novelai_v45_reference_images_use_director_reference_fields -- --nocapture",
+    "evidence": "Failed before fix because the captured V4.5 NovelAI request had director_reference_images as null while the supplied avatar reference image was present."
   },
-  "contractLaneGate": {
-    "brokenContract": "Conversation-group deletion could run a long storage cascade synchronously through embedded Tauri or hostable HTTP command dispatch while UI consumers hid the pending delete state.",
-    "producer": "src-tauri chat_group_delete command and HTTP dispatch",
-    "consumer": "src/features chat group delete UI through the existing chat API hooks",
-    "impliedContract": "Remote-capable group deletion should not monopolize the app command runtime, and destructive delete UI should remain visibly pending until the command settles.",
-    "actualEnforcement": "Both embedded and hostable chat_group_delete paths call chats::delete_chat_group inside tauri::async_runtime::spawn_blocking, and both UI delete surfaces guard close/switch/action paths while deleteChatGroup.isPending.",
-    "primaryOwnerLane": "src-tauri",
-    "primaryOwnerDetail": "Storage command responsiveness for chat_group_delete.",
-    "consumerOnlyLanes": ["src/features"],
-    "wrongLaneFixToAvoid": "A UI-only spinner or close guard that leaves the storage cascade running synchronously in either embedded or hostable command dispatch.",
-    "regressionProof": [
-      "cargo test --manifest-path src-tauri/Cargo.toml delete_chat_group_reports_exact_deleted_chat_ids_including_scene_children",
-      "pnpm check after merging upstream/refactor"
-    ]
+  "verification": {
+    "originalReproPassed": true,
+    "command": "cargo test --manifest-path src-tauri\\Cargo.toml novelai_ -- --nocapture",
+    "evidence": "5 NovelAI-focused Rust tests passed, including V4.5 director-reference request shape, V4.5 no-reference behavior, and V4 legacy vibe-field compatibility.",
+    "edgeCases": [
+      "V4.5 with one avatar reference sends director_reference_images, director_reference_descriptions, director_reference_information_extracted, director_reference_strength_values, and director_reference_secondary_strength_values.",
+      "V4.5 with no avatar references omits both director-reference and legacy vibe-transfer reference fields.",
+      "V4 non-4.5 models keep using reference_image_multiple, reference_information_extracted_multiple, and reference_strength_multiple."
+    ],
+    "visualProof": "scratch/bugfix-verification.json records the before/after command proof for this backend request-shape bug.",
+    "baselinePassed": true,
+    "baselineCommand": "pnpm check",
+    "baselineEvidence": "pnpm check passed after installing already-locked dependencies in the isolated worktree."
   },
-  "proofRows": {
-    "positiveRows": [
-      "Rust embedded command compiles after async spawn_blocking handoff.",
-      "Rust hostable HTTP dispatch compiles after async spawn_blocking handoff.",
-      "TypeScript compiles after pending-state UI changes.",
-      "Existing cascade regression test still deletes grouped chats and owned scene children."
-    ],
-    "contradictionRows": [
-      "Existing single-chat delete mutation path was not changed.",
-      "Storage deletion semantics and schemas were not changed."
-    ],
-    "legacyDefaultRows": [
-      "Baseline embedded chat_group_delete was synchronous before this PR.",
-      "Baseline hostable HTTP chat_group_delete dispatch was synchronous before this PR.",
-      "Baseline sidebar and drawer group-delete UI closed immediately after starting the delete mutation.",
-      "Final drawer import, export, branch switch, rename, branch delete, backdrop close, and header close controls are locked while group deletion is pending."
-    ],
-    "untestedRows": [
-      "Exact large-profile Tauri app-shell delete verification remains a draft manual check because the plain Vite shell cannot execute the real Tauri storage command."
-    ]
-  },
-  "ownedFacts": [
+  "manualBlockers": [
     {
-      "sourceType": "derived",
-      "description": "Baseline embedded chat_group_delete was synchronous.",
-      "evidence": "`git show upstream/refactor:src-tauri/src/commands/storage/commands/chats.rs` showed `pub fn chat_group_delete` directly calling `chats::delete_chat_group(&state, &group_id)`."
-    },
-    {
-      "sourceType": "derived",
-      "description": "Fixed embedded chat_group_delete uses the blocking task pool.",
-      "evidence": "Current `src-tauri/src/commands/storage/commands/chats.rs` compiles with `pub async fn chat_group_delete` and `tauri::async_runtime::spawn_blocking`."
-    },
-    {
-      "sourceType": "derived",
-      "description": "Fixed hostable HTTP chat_group_delete dispatch uses the blocking task pool.",
-      "evidence": "Current `src-tauri/src/http_dispatch.rs` compiles with `tauri::async_runtime::spawn_blocking` around `chats::delete_chat_group`."
-    },
-    {
-      "sourceType": "derived",
-      "description": "Both group-delete UI consumers compile with visible pending-state guards.",
-      "evidence": "`pnpm typecheck` and `pnpm check` passed after the sidebar and drawer pending-state changes."
-    }
-  ],
-  "userActionCopy": [
-    {
-      "surface": "ChatSidebar and ChatFilesDrawer delete group confirmation",
-      "source": "Current selected conversation group in app storage",
-      "destination": "Permanent delete operation for that selected conversation group",
-      "action": "User confirms the Delete Entire Group destructive action",
-      "folders": "Conversation group and associated chat records owned by the selected group",
-      "copy": "Delete all {count} chats in this group? This cannot be undone.",
-      "detectedLayouts": [
-        "Current layout: sidebar and Manage Chat Files drawer show the same Delete Entire Group confirmation copy before deletion starts.",
-        "Legacy layout: delete scope and confirmation copy are unchanged from before this PR."
-      ],
-      "note": "Existing destructive copy remains in place; this PR changes responsiveness and pending-state behavior, not delete scope or recovery semantics."
+      "description": "Real NovelAI generation/Anlas billing was not exercised because this environment does not have NovelAI credentials and the proof uses a local request-capture server instead.",
+      "blockingCoreClaim": false
     }
   ],
   "finalDoneGate": {
     "didFixBug": true,
-    "hasProfessionalVisualProof": false,
+    "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true
   }

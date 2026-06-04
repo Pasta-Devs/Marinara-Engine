@@ -2509,16 +2509,7 @@ async fn generate_novelai(
             "use_coords": false,
             "use_order": true
         });
-        let refs = options
-            .reference_images
-            .iter()
-            .map(|image| reference_base64(image))
-            .collect::<AppResult<Vec<_>>>()?;
-        parameters["reference_image_multiple"] = json!(refs);
-        parameters["reference_information_extracted_multiple"] =
-            json!(vec![1; options.reference_images.len()]);
-        parameters["reference_strength_multiple"] =
-            json!(vec![0.6; options.reference_images.len()]);
+        apply_novelai_reference_images(&mut parameters, &model, options)?;
     }
     let body = json!({
         "input": prompt,
@@ -2541,6 +2532,50 @@ async fn generate_novelai(
 fn is_novelai_v4_model(model: &str) -> bool {
     let model = model.trim().to_ascii_lowercase();
     model.starts_with("nai-diffusion-4")
+}
+
+fn is_novelai_v45_model(model: &str) -> bool {
+    let model = model.trim().to_ascii_lowercase();
+    model.starts_with("nai-diffusion-4-5")
+}
+
+fn apply_novelai_reference_images(
+    parameters: &mut Value,
+    model: &str,
+    options: &ImageGenerationOptions,
+) -> AppResult<()> {
+    let refs = options
+        .reference_images
+        .iter()
+        .map(|image| reference_base64(image))
+        .collect::<AppResult<Vec<_>>>()?;
+
+    if is_novelai_v45_model(model) {
+        if refs.is_empty() {
+            return Ok(());
+        }
+        let descriptions = refs
+            .iter()
+            .map(|_| {
+                json!({
+                    "caption": { "base_caption": "character&style", "char_captions": [] },
+                    "legacy_uc": false
+                })
+            })
+            .collect::<Vec<_>>();
+        parameters["director_reference_images"] = json!(refs);
+        parameters["director_reference_descriptions"] = json!(descriptions);
+        parameters["director_reference_information_extracted"] = json!(vec![1.0; refs.len()]);
+        parameters["director_reference_strength_values"] = json!(vec![0.6; refs.len()]);
+        parameters["director_reference_secondary_strength_values"] = json!(vec![0.0; refs.len()]);
+        return Ok(());
+    }
+
+    parameters["reference_image_multiple"] = json!(refs);
+    parameters["reference_information_extracted_multiple"] =
+        json!(vec![1; options.reference_images.len()]);
+    parameters["reference_strength_multiple"] = json!(vec![0.6; options.reference_images.len()]);
+    Ok(())
 }
 
 fn prepare_novelai_prompt(value: &str, field_name: &str, model: &str) -> AppResult<String> {
@@ -2748,6 +2783,57 @@ mod tests {
         (format!("http://{address}"), handle)
     }
 
+    async fn serve_single_png_response() -> (String, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test image server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test image server address should be readable");
+        let handle = tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test image server should accept one request");
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 1024];
+            loop {
+                let read = stream
+                    .read(&mut buffer)
+                    .await
+                    .expect("test image server should read request");
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buffer[..read]);
+                if let Some(header_end) = find_header_end(&request) {
+                    let headers = String::from_utf8_lossy(&request[..header_end]);
+                    let expected_len = header_end + 4 + content_length(&headers);
+                    if request.len() >= expected_len {
+                        break;
+                    }
+                }
+            }
+            let body = general_purpose::STANDARD
+                .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=")
+                .expect("test png should decode");
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test image server should write headers");
+            stream
+                .write_all(&body)
+                .await
+                .expect("test image server should write body");
+            String::from_utf8_lossy(&request).to_string()
+        });
+        (format!("http://{address}"), handle)
+    }
+
     #[test]
     fn image_provider_error_sanitizer_redacts_secrets() {
         let sanitized = sanitize_error(
@@ -2842,6 +2928,115 @@ mod tests {
 
         assert_eq!(error.code, "image_provider_error");
         assert!(error.message.contains("prompt is too long"));
+    }
+
+    #[tokio::test]
+    async fn novelai_v45_reference_images_use_director_reference_fields() {
+        let reference_image =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+        let (base_url, request_handle) = serve_single_png_response().await;
+        let connection = json!({
+            "provider": "image_generation",
+            "imageGenerationSource": "novelai",
+            "baseUrl": format!("{base_url}/novelai.net"),
+            "model": "nai-diffusion-4-5-full"
+        });
+
+        generate_novelai(
+            &connection,
+            "solo character portrait",
+            1024,
+            1024,
+            &ImageGenerationOptions {
+                reference_images: vec![reference_image.to_string()],
+                ..ImageGenerationOptions::default()
+            },
+        )
+        .await
+        .expect("NovelAI response should parse");
+
+        let request = request_handle
+            .await
+            .expect("test image server should return captured request");
+        let body = request
+            .split_once("\r\n\r\n")
+            .map(|(_, body)| body)
+            .expect("request should contain a JSON body");
+        let payload: Value = serde_json::from_str(body).expect("request body should be JSON");
+        let parameters = &payload["parameters"];
+
+        assert_eq!(payload["model"], json!("nai-diffusion-4-5-full"));
+        assert_eq!(
+            parameters["director_reference_images"],
+            json!([reference_image])
+        );
+        assert_eq!(
+            parameters["director_reference_descriptions"],
+            json!([{
+                "caption": { "base_caption": "character&style", "char_captions": [] },
+                "legacy_uc": false
+            }])
+        );
+        assert_eq!(
+            parameters["director_reference_information_extracted"],
+            json!([1.0])
+        );
+        assert_eq!(
+            parameters["director_reference_strength_values"],
+            json!([0.6])
+        );
+        assert_eq!(
+            parameters["director_reference_secondary_strength_values"],
+            json!([0.0])
+        );
+        assert!(parameters.get("reference_image_multiple").is_none());
+        assert!(parameters
+            .get("reference_information_extracted_multiple")
+            .is_none());
+        assert!(parameters.get("reference_strength_multiple").is_none());
+    }
+
+    #[test]
+    fn novelai_v45_without_references_omits_reference_parameters() {
+        let mut parameters = json!({});
+
+        apply_novelai_reference_images(
+            &mut parameters,
+            "nai-diffusion-4-5-full",
+            &ImageGenerationOptions::default(),
+        )
+        .expect("empty reference list should be valid");
+
+        assert!(parameters.get("director_reference_images").is_none());
+        assert!(parameters.get("reference_image_multiple").is_none());
+    }
+
+    #[test]
+    fn novelai_v4_reference_images_keep_legacy_vibe_fields() {
+        let reference_image =
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+        let mut parameters = json!({});
+
+        apply_novelai_reference_images(
+            &mut parameters,
+            "nai-diffusion-4-full",
+            &ImageGenerationOptions {
+                reference_images: vec![reference_image.to_string()],
+                ..ImageGenerationOptions::default()
+            },
+        )
+        .expect("V4 reference image should be valid");
+
+        assert_eq!(
+            parameters["reference_image_multiple"],
+            json!([reference_image])
+        );
+        assert_eq!(
+            parameters["reference_information_extracted_multiple"],
+            json!([1])
+        );
+        assert_eq!(parameters["reference_strength_multiple"], json!([0.6]));
+        assert!(parameters.get("director_reference_images").is_none());
     }
 
     #[tokio::test]
