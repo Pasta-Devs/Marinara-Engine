@@ -222,10 +222,11 @@ export function useUpdateAgentByType() {
   });
 }
 
-export function useToggleAgentByType() {
+export function useSetAgentEnabledByType() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (agentType: string) => agentApi.toggleByType(agentType),
+    mutationFn: ({ agentType, enabled }: { agentType: string; enabled: boolean }) =>
+      agentApi.patchByType(agentType, { enabled }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },

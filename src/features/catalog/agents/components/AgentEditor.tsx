@@ -308,7 +308,7 @@ export function AgentEditor() {
     } else if (builtIn) {
       setLocalName(builtIn.name);
       setLocalDescription(builtIn.description);
-      setLocalEnabled(builtIn.enabledByDefault);
+      setLocalEnabled(true);
       setLocalPhase(builtIn.phase);
       setLocalConnectionId("");
       setLocalImageConnectionId("");
@@ -391,7 +391,7 @@ export function AgentEditor() {
     if (!agentConfigs) return false;
     if (!isKnowledgeRouterAgent && !isKnowledgeRetrievalAgent) return false;
     const rows = agentConfigs as AgentConfigRow[];
-    const configuredTypes = new Set(rows.map((c) => c.type));
+    const configuredTypes = new Set(rows.filter((c) => agentEnabledFlag(c.enabled, true)).map((c) => c.type));
     return configuredTypes.has("knowledge-router") && configuredTypes.has("knowledge-retrieval");
   }, [agentConfigs, isKnowledgeRetrievalAgent, isKnowledgeRouterAgent]);
 

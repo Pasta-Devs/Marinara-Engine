@@ -22,7 +22,7 @@ import {
   agentEnabledFlag,
   useAgentConfigs,
   useDeleteAgent,
-  useToggleAgentByType,
+  useSetAgentEnabledByType,
   type AgentConfigRow,
 } from "../hooks/use-agents";
 import { useCustomTools, useDeleteCustomTool, type CustomToolRow } from "../hooks/use-custom-tools";
@@ -48,7 +48,7 @@ export function AgentsPanel() {
   const deleteAgent = useDeleteAgent();
   const deleteTool = useDeleteCustomTool();
   const deleteRegex = useDeleteRegexScript();
-  const toggleAgent = useToggleAgentByType();
+  const setAgentEnabled = useSetAgentEnabledByType();
   const updateRegex = useUpdateRegexScript();
   const reorderRegexScripts = useReorderRegexScripts();
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
@@ -363,8 +363,8 @@ export function AgentsPanel() {
                   description: agent.description,
                   category: agent.category,
                   custom: false,
-                  enabled: agentEnabledFlag(agentConfigByType.get(agent.id)?.enabled, agent.enabledByDefault),
-                  onToggle: () => toggleAgent.mutate(agent.id),
+                  enabled: agentEnabledFlag(agentConfigByType.get(agent.id)?.enabled, true),
+                  onToggle: (enabled) => setAgentEnabled.mutate({ agentType: agent.id, enabled }),
                   openAgentDetail,
                 }),
               )
@@ -414,7 +414,7 @@ export function AgentsPanel() {
                   title={enabled ? "Disable agent" : "Enable agent"}
                   onClick={(event) => {
                     event.stopPropagation();
-                    toggleAgent.mutate(agent.type);
+                    setAgentEnabled.mutate({ agentType: agent.type, enabled: !enabled });
                   }}
                 >
                   {enabled ? (
@@ -530,7 +530,7 @@ type AgentPanelRow = {
   category: AgentCategory | "custom";
   custom: boolean;
   enabled: boolean;
-  onToggle: () => void;
+  onToggle: (enabled: boolean) => void;
 };
 
 function renderAgentCard({
@@ -571,7 +571,7 @@ function renderAgentCard({
         title={enabled ? "Disable agent" : "Enable agent"}
         onClick={(event) => {
           event.stopPropagation();
-          onToggle();
+          onToggle(!enabled);
         }}
       >
         {enabled ? <ToggleRight size="0.875rem" className="text-amber-400" /> : <ToggleLeft size="0.875rem" />}
