@@ -363,7 +363,7 @@ export function AgentsPanel() {
                   description: agent.description,
                   category: agent.category,
                   custom: false,
-                  enabled: agentEnabledFlag(agentConfigByType.get(agent.id)?.enabled, true),
+                  enabled: agentEnabledFlag(agentConfigByType.get(agent.id)?.enabled, agent.enabledByDefault),
                   onToggle: (enabled) => setAgentEnabled.mutate({ agentType: agent.id, enabled }),
                   openAgentDetail,
                 }),

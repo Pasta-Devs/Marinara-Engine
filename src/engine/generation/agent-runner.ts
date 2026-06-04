@@ -752,6 +752,7 @@ function builtInAgentMeta(type: string) {
 function builtInAgentFallback(type: string): JsonRecord | null {
   const meta = builtInAgentMeta(type);
   if (!meta) return null;
+  if (!meta.enabledByDefault) return null;
   const settings = {
     ...getDefaultBuiltInAgentSettings(type),
     enabledTools: DEFAULT_AGENT_TOOLS[type] ?? [],

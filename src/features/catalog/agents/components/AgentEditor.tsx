@@ -308,7 +308,7 @@ export function AgentEditor() {
     } else if (builtIn) {
       setLocalName(builtIn.name);
       setLocalDescription(builtIn.description);
-      setLocalEnabled(true);
+      setLocalEnabled(builtIn.enabledByDefault);
       setLocalPhase(builtIn.phase);
       setLocalConnectionId("");
       setLocalImageConnectionId("");
