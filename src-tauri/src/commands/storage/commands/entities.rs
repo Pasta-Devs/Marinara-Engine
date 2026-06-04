@@ -788,6 +788,9 @@ fn apply_delete_cleanup(
             contracts::DeleteCleanup::ClearConnectionFolder => {
                 unfile_connections_in_folder(state, id)?
             }
+            contracts::DeleteCleanup::ClearLorebookFolderEntries => {
+                reparent_lorebook_entries_in_deleted_folder(state, id, existing)?
+            }
             contracts::DeleteCleanup::ClearLorebookReferences => {
                 clear_deleted_lorebook_references(state, id)?;
             }
@@ -907,6 +910,36 @@ fn unfile_connections_in_folder(state: &AppState, folder_id: &str) -> Result<(),
         .collect::<Vec<_>>();
     if !patches.is_empty() {
         state.storage.patch_many("connections", patches)?;
+    }
+    Ok(())
+}
+
+fn reparent_lorebook_entries_in_deleted_folder(
+    state: &AppState,
+    folder_id: &str,
+    folder: Option<&Value>,
+) -> Result<(), AppError> {
+    let Some(lorebook_id) = folder
+        .and_then(|record| record.get("lorebookId"))
+        .and_then(Value::as_str)
+    else {
+        return Ok(());
+    };
+
+    let mut filters = Map::new();
+    filters.insert(
+        "lorebookId".to_string(),
+        Value::String(lorebook_id.to_string()),
+    );
+    filters.insert("folderId".to_string(), Value::String(folder_id.to_string()));
+    let rows = state.storage.list_where("lorebook-entries", &filters)?;
+    let patches = rows
+        .into_iter()
+        .filter_map(|row| row.get("id").and_then(Value::as_str).map(str::to_string))
+        .map(|id| (id, json!({ "folderId": Value::Null })))
+        .collect::<Vec<_>>();
+    if !patches.is_empty() {
+        state.storage.patch_many("lorebook-entries", patches)?;
     }
     Ok(())
 }
@@ -1306,6 +1339,7 @@ fn delete_cleanup_needs_existing_record(cleanup: &contracts::DeleteCleanup) -> b
     matches!(
         cleanup,
         contracts::DeleteCleanup::ActivateDefaultChatPreset
+            | contracts::DeleteCleanup::ClearLorebookFolderEntries
             | contracts::DeleteCleanup::DeleteMessageTrackerSnapshots
             | contracts::DeleteCleanup::RemoveOwnedMedia
     )
@@ -2414,6 +2448,75 @@ mod tests {
             ids_for_lorebook(&state, "lorebook-folders", "book-keep"),
             vec!["folder-keep".to_string()]
         );
+    }
+
+    #[test]
+    fn deleting_lorebook_folder_reparents_entries_for_that_lorebook_only() {
+        assert!(cleanup_registered(
+            "lorebook-folders",
+            contracts::DeleteCleanup::ClearLorebookFolderEntries
+        ));
+        let state = test_state("lorebook-folder-delete-reparent");
+        state
+            .storage
+            .create(
+                "lorebooks",
+                json!({ "id": "book-delete", "name": "Delete folder" }),
+            )
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book-keep", "name": "Keep" }))
+            .expect("other lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-delete", "lorebookId": "book-delete", "name": "Delete" }),
+            )
+            .expect("folder should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-reparent",
+                    "lorebookId": "book-delete",
+                    "folderId": "folder-delete",
+                    "name": "Reparent",
+                    "content": "x"
+                }),
+            )
+            .expect("entry should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-other-lorebook",
+                    "lorebookId": "book-keep",
+                    "folderId": "folder-delete",
+                    "name": "Other",
+                    "content": "x"
+                }),
+            )
+            .expect("negative-control entry should be created");
+
+        delete_entity(&state, "lorebook-folders", "folder-delete", false)
+            .expect("folder delete should succeed");
+
+        let reparented = state
+            .storage
+            .get("lorebook-entries", "entry-reparent")
+            .expect("entry should read")
+            .expect("entry should remain");
+        assert!(reparented.get("folderId").is_none_or(Value::is_null));
+        let other = state
+            .storage
+            .get("lorebook-entries", "entry-other-lorebook")
+            .expect("negative-control entry should read")
+            .expect("negative-control entry should remain");
+        assert_eq!(other["folderId"], "folder-delete");
     }
 
     #[test]
