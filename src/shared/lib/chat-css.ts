@@ -104,6 +104,48 @@ function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
+/** Decode CSS escape sequences (`\XX` hex, `\c` literal) to the characters a browser parses. */
+function decodeCssEscapes(input: string): string {
+  return input.replace(/\\(?:([0-9a-fA-F]{1,6})\s?|([\s\S]))/g, (_m, hex: string | undefined, ch: string | undefined) => {
+    if (hex) {
+      const cp = parseInt(hex, 16);
+      return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "";
+    }
+    return ch ?? "";
+  });
+}
+
+// Match a quoted string (group 1) OR a single CSS escape sequence. Strings come first so the
+// scanner steps over them, leaving their contents untouched.
+const STRING_OR_ESCAPE = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\\(?:[0-9a-fA-F]{1,6}\s?|[\s\S])/g;
+
+/**
+ * Canonicalize CSS escapes that spell a token character, so the literal-text guards in
+ * sanitizeChatCss can't be evaded by escaping. CSS escapes are decoded by the engine, so
+ * `po\73ition` is `position`, `\75rl(` is `url(`, `\40 import` is `@import`, and
+ * `\2d-background` is `--background` — and the raw-text regexes below would otherwise miss
+ * every one of them.
+ *
+ * We decode escapes resolving to ASCII letters, `@`, or `-`. Letters and `@` spell the keyword
+ * guards (url, @import, @font-face, :has, position, content…). `-` is included because the only
+ * punctuation-led forbidden tokens are hyphen-prefixed identifiers — custom-property / theme
+ * tokens (`--…`) and the `-moz-binding` vendor prefix; no benign card CSS escapes a hyphen
+ * (hyphens never need escaping in identifiers), so decoding it stays equivalent.
+ *
+ * Escapes resolving to other punctuation or digits are left byte-exact. They legitimately appear
+ * in selectors (`.\32 xl`, `.w-1\/2`) where decoding would change meaning, and — crucially — they
+ * cannot disguise a forbidden token: by CSS/HTML tokenization an escaped `:` / `!` / `/` becomes
+ * an identifier character, not a declaration separator, an `!important` delimiter, or a `</style`
+ * breakout. Escapes inside string literals are always preserved.
+ */
+function canonicalizeKeywordEscapes(css: string): string {
+  return css.replace(STRING_OR_ESCAPE, (match: string, stringLiteral: string | undefined) => {
+    if (stringLiteral !== undefined) return stringLiteral;
+    const decoded = decodeCssEscapes(match);
+    return /^[-A-Za-z@]$/.test(decoded) ? decoded : match;
+  });
+}
+
 /**
  * Remove dangerous constructs from CSS.
  *
@@ -117,6 +159,12 @@ function stripComments(css: string): string {
  */
 function sanitizeChatCss(css: string): string {
   let out = stripComments(css);
+
+  // ── Escape normalization ──
+  // Canonicalize escaped keyword characters up front so every literal-text guard below sees the
+  // tokens a browser would actually parse (e.g. `\75rl(` → `url(`, `po\73ition` → `position`).
+  // Benign escapes in selectors (digits/punctuation) and string contents are preserved (#1989).
+  out = canonicalizeKeywordEscapes(out);
 
   // ── Network exfiltration prevention ──
   // Strip ALL url() except data:image/* (no external network requests)
