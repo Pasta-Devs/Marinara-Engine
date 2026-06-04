@@ -1127,9 +1127,16 @@ fn lorebook_entry_atomic_rows(
     }
 }
 
+type MutableJsonRows<'a> = &'a mut Vec<Value>;
+type LorebookFolderDeleteRows<'a> = (
+    MutableJsonRows<'a>,
+    MutableJsonRows<'a>,
+    MutableJsonRows<'a>,
+);
+
 fn lorebook_folder_delete_atomic_rows(
     collections: &mut [marinara_storage::AtomicCollectionRows],
-) -> Result<(&mut Vec<Value>, &mut Vec<Value>, &mut Vec<Value>), AppError> {
+) -> Result<LorebookFolderDeleteRows<'_>, AppError> {
     let [folders, entries, characters] = collections else {
         return Err(AppError::new(
             "storage_error",
