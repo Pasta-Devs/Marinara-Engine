@@ -11,6 +11,13 @@ function cleanString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function supportedImageMimeType(value: unknown): string {
+  const normalized = cleanString(value).toLowerCase().split(";")[0] ?? "";
+  if (normalized === "image/jpg") return "image/jpeg";
+  if (["image/png", "image/jpeg", "image/webp", "image/gif"].includes(normalized)) return normalized;
+  return "image/png";
+}
+
 function inlineImageDataUrl(value: unknown): string | null {
   const text = cleanString(value);
   if (!text) return null;
@@ -69,7 +76,7 @@ export const visualAssetsApi: VisualAssetGateway = {
   listBackgrounds: () => backgroundsApi.list(),
   gameAssetsManifest: () => gameAssetsApi.manifest(),
   resolveReferenceImage: async (source) => {
-    const fallbackMimeType = cleanString(source.mimeType) || "image/png";
+    const fallbackMimeType = supportedImageMimeType(source.mimeType);
     const inline =
       usableDataUrl(inlineImageDataUrl(source.image)) ??
       usableDataUrl(inlineImageDataUrl(source.url)) ??

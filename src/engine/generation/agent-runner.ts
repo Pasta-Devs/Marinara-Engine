@@ -260,6 +260,13 @@ function estimateImageReferenceBytes(dataUrl: string): number {
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
 }
 
+function supportedImageMimeType(value: unknown): string {
+  const normalized = readString(value).trim().toLowerCase().split(";")[0] ?? "";
+  if (normalized === "image/jpg") return "image/jpeg";
+  if (["image/png", "image/jpeg", "image/webp", "image/gif"].includes(normalized)) return normalized;
+  return "image/png";
+}
+
 function imageDataUrl(value: unknown, fallbackMimeType = "image/png"): string {
   const text = readString(value).trim();
   if (!text) return "";
@@ -296,7 +303,7 @@ async function resolveReferenceImage(
     avatarFilename?: unknown;
   },
 ): Promise<string> {
-  const fallbackMimeType = readString(source.mimeType).trim() || "image/png";
+  const fallbackMimeType = supportedImageMimeType(source.mimeType);
   const inline = firstUsableReference(fallbackMimeType, source.image, source.url, source.base64);
   if (inline) return inline;
   const resolved = visuals?.resolveReferenceImage
