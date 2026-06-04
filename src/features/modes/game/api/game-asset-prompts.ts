@@ -32,17 +32,30 @@ export function gameAssetNegativePrompt(kind: GameImageAssetKind): string {
   return GAME_PORTRAIT_NEGATIVE_PROMPT;
 }
 
-function hasExplicitNonHumanCue(value: string): boolean {
-  return /\b(?:animal|cat|kitten|dog|puppy|wolf|fox|bird|raven|crow|owl|horse|deer|rat|mouse|snake|lizard|dragon|beast|creature|monster|spirit|ghost|construct|golem|doll|object|statue|mascot|non[-\s]?human|anthropomorphic|feral|quadruped)\b/i.test(
+const ANIMAL_SPECIES_PATTERN =
+  "(?:cat|kitten|dog|puppy|wolf|fox|bird|raven|crow|owl|horse|deer|rat|mouse|snake|lizard)";
+
+function hasStrongNonHumanCue(value: string): boolean {
+  return /\b(?:animal|dragon|beast|creature|monster|spirit|ghost|construct|golem|doll|object|statue|mascot|non[-\s]?human|anthropomorphic|feral|quadruped)\b/i.test(
     value,
   );
 }
 
+function hasAnimalSubjectCue(value: string): boolean {
+  const animalSubjectPattern = new RegExp(
+    `\\b(?:talking|sentient|sapient|magical|enchanted|cursed|actual|literal|small|large|giant|tiny|winged)\\s+${ANIMAL_SPECIES_PATTERN}\\b|\\b${ANIMAL_SPECIES_PATTERN}\\s+(?:creature|spirit|monster|beast|body|form|silhouette|wearing|with|who|that)\\b`,
+    "i",
+  );
+  return animalSubjectPattern.test(value);
+}
+
+function hasExplicitNonHumanCue(value: string): boolean {
+  return hasStrongNonHumanCue(value) || hasAnimalSubjectCue(value);
+}
+
 function hasExplicitNonHumanNameCue(value: string): boolean {
   return (
-    /\b(?:monster|spirit|ghost|construct|golem|doll|statue|mascot|non[-\s]?human|anthropomorphic|feral|quadruped)\b/i.test(
-      value,
-    ) ||
+    hasStrongNonHumanCue(value) ||
     (/\b(?:talking|sentient|sapient|magical|enchanted|cursed)\b/i.test(value) && hasExplicitNonHumanCue(value))
   );
 }

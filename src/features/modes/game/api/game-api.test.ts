@@ -25,16 +25,25 @@ describe("game asset image prompt safeguards", () => {
   });
 
   it("keeps human NPC portraits from drifting into animal subjects", () => {
-    const prompt = sceneAssetPrompt(
+    const ravenPrompt = sceneAssetPrompt(
       "portrait",
       "Raven",
       "black coat, sharp smile, silver earrings",
       "painterly fantasy visual novel art",
       { format: "descriptive" },
     );
+    const foxPrompt = sceneAssetPrompt(
+      "portrait",
+      "Mira",
+      "fox-masked scout with raven-haired bangs and a crimson cloak",
+      "painterly fantasy visual novel art",
+      { format: "descriptive" },
+    );
 
-    expect(prompt).toContain("depict this NPC as a human or humanoid person");
-    expect(prompt).toContain("Do not infer an animal species from the name, mood, speech verbs, or setting");
+    expect(ravenPrompt).toContain("depict this NPC as a human or humanoid person");
+    expect(ravenPrompt).toContain("Do not infer an animal species from the name, mood, speech verbs, or setting");
+    expect(foxPrompt).toContain("depict this NPC as a human or humanoid person");
+    expect(foxPrompt).toContain("Do not infer an animal species from the name, mood, speech verbs, or setting");
   });
 
   it("still allows explicit non-human names when no description is available", () => {
