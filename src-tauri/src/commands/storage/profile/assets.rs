@@ -18,6 +18,7 @@ const PROFILE_ASSET_DIRS: &[&str] = &[
     "knowledge-sources",
     "lorebooks/images",
 ];
+const MAX_PROFILE_ASSET_BYTES: u64 = 256 * 1024 * 1024;
 
 const OLD_ASSET_MARKERS: &[&str] = &[
     "/api/avatars/file/",
@@ -455,12 +456,9 @@ pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
                         "Could not read profile asset {entry_name}: {error}"
                     ))
                 })?;
+                validate_profile_zip_asset_declared_size(&entry_name, entry.size())?;
                 let mut output = File::create(target)?;
-                std::io::copy(&mut entry, &mut output).map_err(|error| {
-                    AppError::invalid_input(format!(
-                        "Could not read profile asset {entry_name}: {error}"
-                    ))
-                })?;
+                copy_limited_profile_zip_asset(&entry_name, &mut entry, &mut output)?;
                 output.flush()?;
             }
         }
@@ -488,11 +486,8 @@ pub(super) fn preview_profile_zip_assets<R: Read + Seek>(
                 "Could not read profile asset {entry_name}: {error}"
             ))
         })?;
-        std::io::copy(&mut entry, &mut std::io::sink()).map_err(|error| {
-            AppError::invalid_input(format!(
-                "Could not read profile asset {entry_name}: {error}"
-            ))
-        })?;
+        validate_profile_zip_asset_declared_size(entry_name, entry.size())?;
+        copy_limited_profile_zip_asset(entry_name, &mut entry, std::io::sink())?;
     }
     Ok((assets.len(), warnings))
 }
@@ -552,6 +547,53 @@ fn profile_asset_manifest_path(asset: &Value, index: usize) -> AppResult<&str> {
         .ok_or_else(|| {
             AppError::invalid_input(format!("Profile asset entry {index} is missing path"))
         })
+}
+
+fn validate_profile_zip_asset_declared_size(entry_name: &str, size: u64) -> AppResult<()> {
+    validate_profile_zip_asset_declared_size_with_limit(entry_name, size, MAX_PROFILE_ASSET_BYTES)
+}
+
+fn validate_profile_zip_asset_declared_size_with_limit(
+    entry_name: &str,
+    size: u64,
+    limit: u64,
+) -> AppResult<()> {
+    if size > limit {
+        return Err(profile_zip_asset_too_large_error(entry_name, size, limit));
+    }
+    Ok(())
+}
+
+fn copy_limited_profile_zip_asset<R: Read, W: Write>(
+    entry_name: &str,
+    reader: R,
+    writer: W,
+) -> AppResult<u64> {
+    copy_limited_profile_zip_asset_with_limit(entry_name, reader, writer, MAX_PROFILE_ASSET_BYTES)
+}
+
+fn copy_limited_profile_zip_asset_with_limit<R: Read, W: Write>(
+    entry_name: &str,
+    reader: R,
+    mut writer: W,
+    limit: u64,
+) -> AppResult<u64> {
+    let mut limited = reader.take(limit.saturating_add(1));
+    let copied = std::io::copy(&mut limited, &mut writer).map_err(|error| {
+        AppError::invalid_input(format!(
+            "Could not read profile asset {entry_name}: {error}"
+        ))
+    })?;
+    if copied > limit {
+        return Err(profile_zip_asset_too_large_error(entry_name, copied, limit));
+    }
+    Ok(copied)
+}
+
+fn profile_zip_asset_too_large_error(entry_name: &str, size: u64, limit: u64) -> AppError {
+    AppError::invalid_input(format!(
+        "Profile asset {entry_name} is too large ({size} bytes; limit is {limit} bytes)"
+    ))
 }
 
 pub(super) fn normalize_legacy_profile_asset_paths(
@@ -1206,5 +1248,31 @@ mod tests {
         assert_eq!(warnings.len(), 1);
         assert_eq!(warnings[0]["type"], "missing_asset");
         assert_eq!(warnings[0]["path"], "avatars/missing-from-zip.png");
+    }
+
+    #[test]
+    fn profile_zip_asset_declared_size_over_limit_is_rejected() {
+        let error = validate_profile_zip_asset_declared_size_with_limit("avatars/huge.png", 6, 5)
+            .expect_err("declared oversized ZIP asset should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("avatars/huge.png"));
+        assert!(error.message.contains("too large"));
+    }
+
+    #[test]
+    fn profile_zip_asset_stream_over_limit_is_rejected() {
+        let reader = std::io::repeat(0).take(6);
+        let error = copy_limited_profile_zip_asset_with_limit(
+            "avatars/huge.png",
+            reader,
+            std::io::sink(),
+            5,
+        )
+        .expect_err("streamed oversized ZIP asset should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("avatars/huge.png"));
+        assert!(error.message.contains("too large"));
     }
 }

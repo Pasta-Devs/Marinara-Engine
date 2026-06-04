@@ -24,6 +24,12 @@ const PROFILE_JSON_ENTRY: &str = "marinara-profile.json";
 // migrations through.
 const MAX_PROFILE_JSON_BYTES: u64 = 1024 * 1024 * 1024;
 
+struct ProfileZipAssetContext<'a> {
+    names: &'a [String],
+    profile_prefix: &'a str,
+    raw_assets: Option<&'a Value>,
+}
+
 pub(super) fn import_profile_zip(state: &AppState, path: &Path) -> AppResult<Value> {
     import_profile_zip_file(state, File::open(path)?)
 }
@@ -73,15 +79,12 @@ fn run_profile_zip_reader<R: Read + Seek>(
             )
         })?;
         validate_native_profile_import(data, collections)?;
-        return run_profile_zip_collections(
-            state,
-            &mut archive,
-            &names,
-            &profile_prefix,
-            files,
-            collections,
-            mode,
-        );
+        let assets = ProfileZipAssetContext {
+            names: &names,
+            profile_prefix: &profile_prefix,
+            raw_assets: files,
+        };
+        return run_profile_zip_collections(state, &mut archive, assets, collections, mode);
     }
     if let Some(tables_value) = data
         .get("fileStorage")
@@ -93,24 +96,30 @@ fn run_profile_zip_reader<R: Read + Seek>(
                 "invalid-legacy-modern-fileStorage",
             )
         })?;
+        let assets = ProfileZipAssetContext {
+            names: &names,
+            profile_prefix: &profile_prefix,
+            raw_assets: files,
+        };
         return run_profile_zip_legacy_tables(
             state,
             &mut archive,
-            &names,
-            &profile_prefix,
-            files,
+            assets,
             tables,
             ProfileImportSourceFormat::LegacyFileStorage,
             mode,
         );
     }
     if let Some(tables) = legacy_array_profile_tables(data)? {
+        let assets = ProfileZipAssetContext {
+            names: &names,
+            profile_prefix: &profile_prefix,
+            raw_assets: files,
+        };
         return run_profile_zip_legacy_tables(
             state,
             &mut archive,
-            &names,
-            &profile_prefix,
-            files,
+            assets,
             &tables,
             ProfileImportSourceFormat::LegacyArray,
             mode,
@@ -125,16 +134,18 @@ fn run_profile_zip_reader<R: Read + Seek>(
 fn run_profile_zip_collections<R: Read + std::io::Seek>(
     state: &AppState,
     archive: &mut zip::ZipArchive<R>,
-    names: &[String],
-    profile_prefix: &str,
-    raw_assets: Option<&Value>,
+    assets: ProfileZipAssetContext<'_>,
     collections: &serde_json::Map<String, Value>,
     mode: ProfileImportMode,
 ) -> AppResult<Value> {
     match mode {
         ProfileImportMode::Preview => {
-            let (restored_assets, warnings) =
-                preview_profile_zip_assets(archive, raw_assets, names, profile_prefix)?;
+            let (restored_assets, warnings) = preview_profile_zip_assets(
+                archive,
+                assets.raw_assets,
+                assets.names,
+                assets.profile_prefix,
+            )?;
             let result = preview_profile_collections_with_restored_assets(
                 state,
                 collections,
@@ -146,8 +157,13 @@ fn run_profile_zip_collections<R: Read + std::io::Seek>(
             ))
         }
         ProfileImportMode::Commit => {
-            let mut restored_assets =
-                restore_profile_zip_assets(state, archive, names, profile_prefix, raw_assets)?;
+            let mut restored_assets = restore_profile_zip_assets(
+                state,
+                archive,
+                assets.names,
+                assets.profile_prefix,
+                assets.raw_assets,
+            )?;
             let restored_count = restored_assets.restored();
             let result = import_profile_collections_with_restored_assets(
                 state,
@@ -165,17 +181,19 @@ fn run_profile_zip_collections<R: Read + std::io::Seek>(
 fn run_profile_zip_legacy_tables<R: Read + std::io::Seek>(
     state: &AppState,
     archive: &mut zip::ZipArchive<R>,
-    names: &[String],
-    profile_prefix: &str,
-    raw_assets: Option<&Value>,
+    assets: ProfileZipAssetContext<'_>,
     tables: &serde_json::Map<String, Value>,
     source_format: ProfileImportSourceFormat,
     mode: ProfileImportMode,
 ) -> AppResult<Value> {
     match mode {
         ProfileImportMode::Preview => {
-            let (restored_assets, warnings) =
-                preview_profile_zip_assets(archive, raw_assets, names, profile_prefix)?;
+            let (restored_assets, warnings) = preview_profile_zip_assets(
+                archive,
+                assets.raw_assets,
+                assets.names,
+                assets.profile_prefix,
+            )?;
             let result = preview_legacy_profile_tables(state, tables, restored_assets)?;
             Ok(with_profile_import_warnings(
                 with_profile_import_metadata(result, source_format),
@@ -183,8 +201,13 @@ fn run_profile_zip_legacy_tables<R: Read + std::io::Seek>(
             ))
         }
         ProfileImportMode::Commit => {
-            let mut restored_assets =
-                restore_profile_zip_assets(state, archive, names, profile_prefix, raw_assets)?;
+            let mut restored_assets = restore_profile_zip_assets(
+                state,
+                archive,
+                assets.names,
+                assets.profile_prefix,
+                assets.raw_assets,
+            )?;
             let restored_count = restored_assets.restored();
             let staging_root = restored_assets.staging_root().map(Path::to_path_buf);
             let result = import_legacy_profile_tables_with_restored_assets(
