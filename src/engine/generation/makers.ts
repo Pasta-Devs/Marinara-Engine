@@ -42,7 +42,6 @@ export type MakerEvent =
         totalEntriesSoFar: number;
       };
     }
-  | { type: "batch_retry"; data: { batch: number; message: string } }
   | { type: "batch_warning"; data: { batch: number; message: string } }
   | { type: "saved"; data: { count: number; lorebookId: string } }
   | { type: "error"; data: string }
@@ -288,7 +287,16 @@ async function* runLorebookMakerBatchWithParseRetry(
   signal?: AbortSignal,
 ): AsyncGenerator<MakerEvent, { parsed: LorebookMakerData; entries: LorebookMakerEntry[] }> {
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const { raw, tokenEvents } = await collectMakerRequest(llm, input, messages, 16384, signal);
+    const isFinalAttempt = attempt === 2;
+    let raw = "";
+    let tokenEvents: MakerEvent[] = [];
+    if (isFinalAttempt) {
+      raw = yield* runMakerRequest(llm, input, messages, 16384, signal);
+    } else {
+      const collected = await collectMakerRequest(llm, input, messages, 16384, signal);
+      raw = collected.raw;
+      tokenEvents = collected.tokenEvents;
+    }
     const parsed = parseObject<LorebookMakerData>(raw);
     const entries = (Array.isArray(parsed.entries) ? parsed.entries : []).map(normalizeLorebookEntry);
     if (entries.length > 0 || attempt === 2) {
@@ -306,7 +314,7 @@ async function* runLorebookMakerBatchWithParseRetry(
     }
 
     yield {
-      type: "batch_retry",
+      type: "batch_warning",
       data: { batch, message: `Batch ${batch} did not produce valid entries. Retrying once.` },
     };
   }
