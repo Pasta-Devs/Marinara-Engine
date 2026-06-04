@@ -81,8 +81,8 @@ function evaluateConditions(conditions: ActivationCondition[], gameState: GameSt
   if (!gameState) return false;
 
   for (const condition of conditions) {
-    if (!hasGameStateValue(gameState, condition.field)) return false;
-    const fieldValue = String(gameState[condition.field] ?? "");
+    const fieldValue = getGameStateValue(gameState, condition.field);
+    if (fieldValue === null) return false;
 
     switch (condition.operator) {
       case "equals":
@@ -109,9 +109,11 @@ function evaluateConditions(conditions: ActivationCondition[], gameState: GameSt
   return true;
 }
 
-function hasGameStateValue(gameState: GameStateForScanning, field: string): boolean {
+function getGameStateValue(gameState: GameStateForScanning, field: string): string | null {
   const value = gameState[field];
-  return value !== undefined && value !== null && String(value).trim().length > 0;
+  if (value === undefined || value === null) return null;
+  const fieldValue = String(value).trim();
+  return fieldValue.length > 0 ? fieldValue : null;
 }
 
 function scheduleValues(values: string[] | undefined): string[] {
@@ -132,33 +134,39 @@ function hasScheduleGate(schedule: LorebookSchedule): boolean {
 function evaluateSchedule(schedule: LorebookSchedule | null, gameState: GameStateForScanning | null): boolean {
   if (!schedule) return true;
   if (!hasScheduleGate(schedule)) return true;
-  if (!gameState) return false;
+  if (!gameState) return true;
 
   // Check active times
   const activeTimes = scheduleValues(schedule.activeTimes);
   if (activeTimes.length > 0) {
-    if (!hasGameStateValue(gameState, "time")) return false;
-    const currentTime = String(gameState.time).toLowerCase();
-    const matches = activeTimes.some((t) => currentTime.includes(t.toLowerCase()));
-    if (!matches) return false;
+    const currentTime = getGameStateValue(gameState, "time");
+    if (currentTime !== null) {
+      const normalizedTime = currentTime.toLowerCase();
+      const matches = activeTimes.some((t) => normalizedTime.includes(t.toLowerCase()));
+      if (!matches) return false;
+    }
   }
 
   // Check active dates
   const activeDates = scheduleValues(schedule.activeDates);
   if (activeDates.length > 0) {
-    if (!hasGameStateValue(gameState, "date")) return false;
-    const currentDate = String(gameState.date).toLowerCase();
-    const matches = activeDates.some((d) => currentDate.includes(d.toLowerCase()));
-    if (!matches) return false;
+    const currentDate = getGameStateValue(gameState, "date");
+    if (currentDate !== null) {
+      const normalizedDate = currentDate.toLowerCase();
+      const matches = activeDates.some((d) => normalizedDate.includes(d.toLowerCase()));
+      if (!matches) return false;
+    }
   }
 
   // Check active locations
   const activeLocations = scheduleValues(schedule.activeLocations);
   if (activeLocations.length > 0) {
-    if (!hasGameStateValue(gameState, "location")) return false;
-    const currentLoc = String(gameState.location).toLowerCase();
-    const matches = activeLocations.some((l) => currentLoc.includes(l.toLowerCase()));
-    if (!matches) return false;
+    const currentLoc = getGameStateValue(gameState, "location");
+    if (currentLoc !== null) {
+      const normalizedLocation = currentLoc.toLowerCase();
+      const matches = activeLocations.some((l) => normalizedLocation.includes(l.toLowerCase()));
+      if (!matches) return false;
+    }
   }
 
   return true;

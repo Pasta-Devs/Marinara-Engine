@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { StorageGateway } from "../capabilities/storage";
+import type { VisualAssetGateway } from "../capabilities/visual-assets";
+import { buildPartySystemPrompt } from "../modes/game/prompts/party-prompts";
+import { loadCharacterSprites } from "../modes/game/prompts/sprite.service";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 
 type RowMap = Record<string, unknown[]>;
@@ -121,5 +124,84 @@ describe("assembleGenerationPrompt depth injection", () => {
       "post-history prompt",
       "depth lore entry",
     ]);
+  });
+});
+
+describe("assembleGenerationPrompt game sprites", () => {
+  const visuals: VisualAssetGateway = {
+    listSprites: async (ownerId) =>
+      ownerId === "char-1"
+        ? [
+            { expression: "neutral" },
+            { expression: "joy_01" },
+            { expression: "full_idle" },
+            { expression: "full_walk" },
+            { expression: "full_cape_flare" },
+          ]
+        : [{ expression: "worried" }],
+    listBackgrounds: async () => [],
+  };
+
+  it("passes party sprite availability into the GM prompt reminder", async () => {
+    const storage = storageWithRows({
+      prompts: [],
+      characters: [
+        { id: "char-1", name: "Marina", data: { name: "Marina", description: "A careful scout." } },
+        { id: "char-2", name: "Sol", data: { name: "Sol", description: "A bright mage." } },
+      ],
+      personas: [],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "game",
+        characterIds: ["char-1", "char-2"],
+        metadata: {
+          gamePartyCharacterIds: ["char-1", "char-2"],
+          gameSetupConfig: { genre: "fantasy", setting: "coast", tone: "warm", difficulty: "normal" },
+        },
+      },
+      storedMessages: [{ id: "message-1", role: "user", content: "Look around." }],
+      connection: {},
+      request: {},
+      latestUserInput: "Look around.",
+      visuals,
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Available custom sprites per character");
+    expect(prompt).toContain("Marina (expressions): neutral, joy_01");
+    expect(prompt).toContain("Marina (full-body): cape_flare");
+    expect(prompt).toContain("Sol (expressions): worried");
+    expect(prompt).not.toContain("Marina (full-body): idle");
+    expect(prompt).not.toContain("Marina (full-body): walk");
+  });
+
+  it("passes party sprite availability into the party-agent prompt", async () => {
+    const characterSprites = await loadCharacterSprites(visuals, [
+      { id: "char-1", name: "Marina" },
+      { id: "char-2", name: "Sol" },
+    ]);
+
+    const prompt = buildPartySystemPrompt({
+      partyCards: [
+        { name: "Marina", card: "Name: Marina\nDescription: A careful scout." },
+        { name: "Sol", card: "Name: Sol\nDescription: A bright mage." },
+      ],
+      playerName: "Player",
+      gameActiveState: "exploration",
+      characterSprites,
+    });
+
+    expect(prompt).toContain("Available sprites per character");
+    expect(prompt).toContain("Marina: neutral, joy_01 | custom full-body aliases: cape_flare");
+    expect(prompt).toContain("Sol: worried");
+    expect(prompt).not.toContain("custom full-body aliases: idle");
+    expect(prompt).not.toContain("custom full-body aliases: walk");
   });
 });

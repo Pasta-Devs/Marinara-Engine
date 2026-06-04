@@ -31,6 +31,7 @@ import { chatCommandApi } from "../../../../shared/api/chat-command-api";
 import { resolveGalleryFileUrl } from "../../../../shared/api/local-file-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { urlBinaryApi } from "../../../../shared/api/url-binary-api";
+import { visualAssetsApi } from "../../../../shared/api/visual-assets-api";
 import { createLorebookEntrySchema, createLorebookSchema } from "../../../../engine/contracts/schemas/lorebook.schema";
 import { resolveCombatRound } from "../../../../engine/modes/game/mechanics/combat.service";
 import { rollDice as rollGameDice } from "../../../../engine/modes/game/mechanics/dice.service";
@@ -65,6 +66,7 @@ import {
   buildSessionConclusionPrompt,
   buildSetupPrompt,
 } from "../../../../engine/modes/game/prompts/gm-prompts";
+import { loadCharacterSprites, type CharacterSpriteSubject } from "../../../../engine/modes/game/prompts/sprite.service";
 import {
   GAME_BACKGROUND_PROMPT_OVERRIDE,
   GAME_ILLUSTRATION_PROMPT_OVERRIDE,
@@ -1666,6 +1668,26 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((entry) => readTrimmed(entry)).filter(Boolean) : [];
 }
 
+async function partySpriteSubjects(
+  partyIds: string[],
+  cards: Array<Record<string, unknown>>,
+): Promise<CharacterSpriteSubject[]> {
+  const subjects: CharacterSpriteSubject[] = [];
+  let cardIndex = 0;
+
+  for (const id of partyIds) {
+    if (id.startsWith("npc:")) continue;
+
+    const cardName = gameCardName(cards[cardIndex] ?? {}, `Party member ${cardIndex + 1}`);
+    cardIndex += 1;
+    const character = await storageApi.get<Record<string, unknown>>("characters", id).catch(() => null);
+    const name = character ? recordName(character) || cardName : cardName;
+    if (name) subjects.push({ id, name });
+  }
+
+  return subjects;
+}
+
 function matchesIllustrationSubject(
   subject: IllustrationReferenceSubject,
   illustration: Record<string, unknown>,
@@ -2774,8 +2796,14 @@ export const gameApi = {
     connectionId?: string | null;
     debugMode?: boolean;
   }) {
-    const meta = chatMeta(await getChat(input.chatId));
+    const chat = await getChat(input.chatId);
+    const meta = chatMeta(chat);
     const cards = Array.isArray(meta.gameCharacterCards) ? meta.gameCharacterCards.map(asRecord) : [];
+    const partyIds = stringArray(meta.gamePartyCharacterIds);
+    const characterSprites = await loadCharacterSprites(
+      visualAssetsApi,
+      await partySpriteSubjects(partyIds.length > 0 ? partyIds : stringArray(chat?.characterIds), cards),
+    );
     const names = cards.map((card, index) => gameCardName(card, `Party member ${index + 1}`));
     const partyNames = names.length ? names.join(", ") : "The party";
     const connectionId = input.connectionId?.trim();
@@ -2798,6 +2826,7 @@ export const gameApi = {
               typeof meta.gamePlayerName === "string" && meta.gamePlayerName.trim() ? meta.gamePlayerName : "Player",
             gameActiveState: typeof meta.gameActiveState === "string" ? meta.gameActiveState : "exploration",
             partyArcs: Array.isArray(meta.gamePartyArcs) ? (meta.gamePartyArcs as PartyArc[]) : [],
+            characterSprites,
           }),
         },
         {

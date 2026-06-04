@@ -1,5 +1,6 @@
 import type { ChatMLMessage, GenerationParameters } from "../contracts/types/prompt";
 import type { StorageGateway } from "../capabilities/storage";
+import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { llmParameters, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 import { generationInfoFromVisibleParameters, providerVisibleLlmParameters } from "./provider-visible-parameters";
@@ -55,6 +56,7 @@ function promptPreviewMessageLoadOptions(
 export async function previewGenerationPrompt(
   storage: StorageGateway,
   input: PromptPreviewInput,
+  visuals?: VisualAssetGateway,
 ): Promise<PromptPreviewResult> {
   const chat = requireRecord(await storage.get("chats", input.chatId), "Chat");
   const connection = await resolveGenerationConnection(storage, chat, input);
@@ -89,6 +91,7 @@ export async function previewGenerationPrompt(
     connection,
     request,
     latestUserInput: "",
+    visuals,
   });
   const parameters = llmParameters(connection, request, previewChat, assembly.parameters);
   const visibleParameters = providerVisibleLlmParameters(connection, parameters, { stream: true });

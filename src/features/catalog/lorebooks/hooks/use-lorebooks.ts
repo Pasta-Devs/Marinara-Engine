@@ -43,7 +43,7 @@ async function transferLorebookEntries(
         await storageApi.update<LorebookEntry>(
           "lorebook-entries",
           entryId,
-          updateLorebookEntrySchema.parse({ lorebookId: targetLorebookId }),
+          updateLorebookEntrySchema.parse({ lorebookId: targetLorebookId, folderId: null }),
         ),
       );
     } else {
@@ -55,6 +55,7 @@ async function transferLorebookEntries(
           createLorebookEntrySchema.parse({
             ...copy,
             lorebookId: targetLorebookId,
+            folderId: null,
           }),
         ),
       );

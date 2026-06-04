@@ -11,7 +11,7 @@ import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared
 import { collapseExcessBlankLines } from "../shared/text/newlines";
 import { buildImpersonateInstruction } from "../modes/chat/commands/impersonate-prompt";
 import { getConversationStatus } from "../modes/chat/autonomous/autonomous.service";
-import { getBusyDelay, type WeekSchedule } from "../modes/chat/schedules/schedule.service";
+import { getBusyDelay, getMentionDelay, type WeekSchedule } from "../modes/chat/schedules/schedule.service";
 import {
   activeCharacterIds,
   assertChatHasActiveCharacters,
@@ -1393,10 +1393,16 @@ function conversationStatus(value: unknown): ConversationAvailabilityStatus {
   return value === "idle" || value === "dnd" || value === "offline" ? value : "online";
 }
 
+function normalizedMentionedCharacterNames(names: string[]): Set<string> {
+  return new Set(names.map((name) => name.trim().toLowerCase()).filter(Boolean));
+}
+
 async function resolveConversationAvailability(args: {
   storage: StorageGateway;
   chat: JsonRecord;
   targetCharacterId?: string | null;
+  manualTargetCharacterId?: string | null;
+  mentionedCharacterNames?: string[];
 }): Promise<{
   characters: ConversationAvailabilityCharacter[];
   allOffline: boolean;
@@ -1408,6 +1414,8 @@ async function resolveConversationAvailability(args: {
   if (activeIds.length === 0) return null;
   const activeSet = new Set(activeIds);
   const requested = readString(args.targetCharacterId).trim();
+  const manualTarget = readString(args.manualTargetCharacterId).trim();
+  const mentionedNames = normalizedMentionedCharacterNames(args.mentionedCharacterNames ?? []);
   const respondingIds = requested && activeSet.has(requested) ? [requested] : activeIds;
   const statusResult = await getConversationStatus(args.storage, readString(args.chat.id).trim());
   const characters: ConversationAvailabilityCharacter[] = [];
@@ -1420,17 +1428,25 @@ async function resolveConversationAvailability(args: {
       schedule: isRecord(row?.schedule) ? (row.schedule as unknown as WeekSchedule) : null,
     });
   }
-  const allOffline = characters.length > 0 && characters.every((character) => character.status === "offline");
+  const mentionedCharacters =
+    mentionedNames.size > 0 ? characters.filter((character) => mentionedNames.has(character.name.toLowerCase())) : [];
+  const availableCharacters = mentionedCharacters.length > 0 ? mentionedCharacters : characters;
+  const allOffline =
+    availableCharacters.length > 0 && availableCharacters.every((character) => character.status === "offline");
   let delayMs = 0;
   let delayStatus: ConversationAvailabilityStatus = "online";
-  for (const character of characters) {
-    const characterDelay = getBusyDelay(character.status, character.schedule ?? undefined);
+  for (const character of availableCharacters) {
+    const isMentionedOrManualTarget =
+      (manualTarget.length > 0 && character.id === manualTarget) || mentionedNames.has(character.name.toLowerCase());
+    const characterDelay = isMentionedOrManualTarget
+      ? getMentionDelay(character.status)
+      : getBusyDelay(character.status, character.schedule ?? undefined);
     if (characterDelay > delayMs) {
       delayMs = characterDelay;
       delayStatus = character.status;
     }
   }
-  return { characters, allOffline, delayMs, delayStatus };
+  return { characters: availableCharacters, allOffline, delayMs, delayStatus };
 }
 
 function abortableDelay(delayMs: number, signal?: AbortSignal): Promise<void> {
@@ -2349,6 +2365,7 @@ async function runGenerationAgentsForTarget(args: {
     request: input,
     latestUserInput: "",
     embeddingSource: generationEmbeddingSource(deps.llm, connection),
+    visuals: deps.visuals,
     persistPromptVariables: true,
   });
   const results: AgentResult[] = [];
@@ -2572,6 +2589,7 @@ export async function* startGeneration(
       return;
     }
   }
+  const explicitManualTargetCharacterId = readString(input.forCharacterId).trim();
   const sequentialGroupTargetId = sequentialGroupTargetCharacterId(chat, input, storedMessages);
   if (sequentialGroupTargetId) {
     input = { ...input, forCharacterId: sequentialGroupTargetId };
@@ -2600,10 +2618,13 @@ export async function* startGeneration(
   }
   const directMessages = requestMessages(input);
   if (!directMessages && input.impersonate !== true) {
+    const targetCharacterId = readString(input.forCharacterId).trim() || resolvedGroupTarget;
     const availability = await resolveConversationAvailability({
       storage: deps.storage,
       chat,
-      targetCharacterId: readString(input.forCharacterId).trim() || resolvedGroupTarget,
+      targetCharacterId,
+      manualTargetCharacterId: explicitManualTargetCharacterId,
+      mentionedCharacterNames: preparedUserInput.mentionedCharacterNames,
     });
     throwIfAborted(signal);
     const characterNames = availability?.characters.map((character) => character.name) ?? [];
@@ -2651,6 +2672,7 @@ export async function* startGeneration(
     request: input,
     latestUserInput,
     embeddingSource: generationEmbeddingSource(deps.llm, connection),
+    visuals: deps.visuals,
     persistPromptVariables: true,
   });
   throwIfAborted(signal);
@@ -2713,6 +2735,7 @@ export async function* startGeneration(
       latestUserInput,
       agentData: runtime?.agentData,
       embeddingSource: generationEmbeddingSource(deps.llm, connection),
+      visuals: deps.visuals,
       persistPromptVariables: true,
     });
     throwIfAborted(signal);

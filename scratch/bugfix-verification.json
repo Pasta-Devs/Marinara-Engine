@@ -1,105 +1,96 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2130,
-    "title": "Native character export omits managed gallery images",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2130"
+    "number": 2135,
+    "title": "Game mode GM and party system prompts no longer receive the per-character sprite list",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2135"
   },
   "pr": {
-    "number": 2203,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2203"
+    "number": 2211,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2211"
   },
-  "coreClaim": "Native character .marinara export embeds managed character-gallery assets so import/export round trips preserve gallery images.",
+  "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
   "assignment": {
-    "assignee": "@me",
-    "assignedBeforeWork": true,
-    "assignedToSelf": true
+    "assignee": "cha1latte",
+    "evidence": "Issue #2135 was assigned to cha1latte before implementation."
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "No PRs or local issue branches/worktrees were found for #2130 or the issue title before work started.",
-    "base": "upstream/refactor",
-    "worktree": "C:/tmp/Marinara-Engine-issue-2130"
-  },
-  "riskClaimMatrix": {
-    "coreClaim": "Native character .marinara export embeds managed character-gallery assets so import/export round trips preserve gallery images.",
-    "riskType": "import-export compatibility and managed user assets",
-    "entrypoints": [
-      "src-tauri native character export",
-      "src-tauri native character import",
-      "character-gallery managed upload rows",
-      "character gallery delete cleanup"
-    ],
-    "currentPathsOrFormats": [
-      "character-gallery rows with filePath, filename, and asset URL",
-      "native marinara_character envelope data.gallery entries with embedded data URLs"
-    ],
-    "legacyPathsOrFormats": [
-      "character-gallery rows whose url is already an inline data:image value",
-      "native marinara_character envelope data.gallery entries with inline data"
-    ],
-    "positiveRowsTested": [
-      "Managed character-gallery row exports as one embedded data:image gallery entry.",
-      "Native marinara_character import materializes embedded gallery data as a managed gallery asset URL and file.",
-      "Inline legacy gallery row still exports unchanged."
-    ],
-    "negativeRowsTested": [
-      "Missing managed gallery file is skipped instead of exporting a broken asset reference."
-    ],
-    "groundTruthFacts": [
-      "harness-proven: native_character_export_embeds_managed_gallery_assets creates the managed gallery file under AppState.data_dir/gallery and verifies gallery_for_character returns embedded data:image data.",
-      "harness-proven: native_marinara_character_import_materializes_embedded_gallery_assets reads the created character-gallery row and verifies the stored file exists on disk."
-    ],
-    "userActionCopy": [
-      {
-        "action": "copy the exported native .marinara file, and optionally back up the app-owned gallery data before import/export testing",
-        "items": [
-          "*.marinara",
-          "DATA_DIR/gallery",
-          "DATA_DIR/collections/character-gallery.json",
-          "DATA_DIR/collections/characters.json"
-        ],
-        "destination": "a separate folder outside the active Marinara profile data directory",
-        "currentLayouts": [
-          "current managed gallery layout: character-gallery row has filePath, filename, and asset URL; bytes live under DATA_DIR/gallery"
-        ],
-        "legacyLayouts": [
-          "legacy inline gallery layout: character-gallery row url is an inline data:image value"
-        ]
-      }
-    ],
-    "manualBlockers": []
+    "details": "Exact PR search for 2135 returned no matches; broader sprite-title search did not show an associated #2135 fix PR."
   },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "cargo test --manifest-path src-tauri\\Cargo.toml gallery_assets -- --nocapture",
-    "evidence": "Before the export fix, storage_commands::exports::tests::native_character_export_embeds_managed_gallery_assets failed because gallery_for_character returned 0 exported gallery items instead of 1 for a managed character-gallery row."
+    "method": "Copied the new prompt-assembly regression test into a pristine upstream/refactor worktree.",
+    "evidence": [
+      "C:/tmp/Marinara-Engine-issue-2135-before: pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts failed before the fix.",
+      "The failing assertion showed the assembled game prompt did not contain Available custom sprites per character."
+    ]
   },
   "verification": {
     "originalReproPassed": true,
-    "command": "cargo test --manifest-path src-tauri\\Cargo.toml gallery -- --nocapture",
-    "evidence": "17 gallery-focused Rust tests passed, including managed native export, inline gallery compatibility, missing-file negative control, native import materialization, and existing gallery delete cleanup tests.",
-    "edgeCases": [
-      "Managed character-gallery asset exports as embedded data:image data.",
-      "Inline legacy gallery data remains exportable.",
-      "Missing managed gallery file is skipped.",
-      "Native marinara_character import materializes embedded gallery data back into managed asset rows.",
-      "Existing gallery row delete and character/chat delete cleanup tests still pass."
-    ],
-    "visualProof": "Backend/storage bug with no meaningful UI state; the actual command proof is recorded in reproduction.evidence and verification.evidence.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after pnpm install --frozen-lockfile in the isolated worktree.",
-    "laneCheckCommand": "cargo check --manifest-path src-tauri\\Cargo.toml",
-    "laneCheckEvidence": "cargo check passed for the Tauri storage lane."
+    "baselineEvidence": "passed after the reserved-only sprite edge-case patch and after merging upstream/refactor",
+    "focusedProof": [
+      "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts src/engine/modes/game/prompts/sprite.service.test.ts passed before and after merging upstream/refactor; after Bunny repair it passed with 7 tests.",
+      "pnpm typecheck passed before full baseline.",
+      "pnpm check passed before and after merging upstream/refactor.",
+      "git diff --check passed.",
+      "node C:/Users/celia/.codex/tools/marinara-proof-gate.mjs scratch/bugfix-verification.json passed."
+    ],
+    "edgeCases": [
+      "GM prompt reminder includes party character expression sprite names from the visual asset gateway.",
+      "GM prompt reminder includes custom full-body aliases with the full_ prefix removed.",
+      "Engine-reserved automatic full-body poses such as full_idle are not exposed as model-visible full-body aliases.",
+      "Legacy/default full-body poses full_neutral, full_default, and full_walk are treated as automatic poses, not custom aliases.",
+      "A character with only automatic full-body poses is omitted from model-visible sprite listings instead of producing an empty party prompt line.",
+      "Per-character visual asset lookup failures are treated as missing optional sprite enrichment and do not abort prompt assembly or party turns.",
+      "Prompt preview receives the visual asset gateway so manual prompt inspection matches generation.",
+      "Party turn passes the same characterSprites structure into buildPartySystemPrompt."
+    ],
+    "visualProof": "Backend prompt bug; before/after terminal proof from targeted Vitest runs is recorded in the PR body."
   },
   "manualBlockers": [],
-  "notes": [],
+  "riskClaimMatrix": {
+    "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
+    "riskType": "prompt assembly contract",
+    "entrypoints": [
+      "src/engine/generation/start-generation.ts",
+      "src/engine/generation/prompt-preview.ts",
+      "src/features/modes/game/api/game-api.ts partyTurn"
+    ],
+    "currentPathsOrFormats": [
+      "VisualAssetGateway.listSprites(ownerId, \"character\")",
+      "sprite expressions with full_ prefix for full-body poses"
+    ],
+    "legacyPathsOrFormats": [
+      "main listPartySprites buckets expression sprites, custom full-body aliases, and automatic poses"
+    ],
+    "positiveRowsTested": [
+      "expression sprites",
+      "custom full-body alias sprites",
+      "multiple party characters",
+      "visual asset gateway rejection on one party character"
+    ],
+    "negativeRowsTested": [
+      "automatic-only full-body pose is not shown as a custom alias",
+      "legacy/default full-body poses neutral, default, and walk are not shown as custom aliases"
+    ],
+    "groundTruthFacts": [
+      {
+        "fact": "Saved sprites are exposed to engine code through VisualAssetGateway, not generic storage rows.",
+        "method": "derived from src/engine/capabilities/visual-assets.ts, src/shared/api/visual-assets-api.ts, and src-tauri/src/commands/storage/sprites.rs list_sprites."
+      }
+    ],
+    "userActionCopy": [],
+    "manualBlockers": []
+  },
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
-    "claimBoundariesProven": true
+    "claimBoundariesProven": true,
+    "notes": "Local proof, pnpm check, proof gate, Bunny pass, and upstream/refactor merge validation are complete. PR body marks Feature Discoverability as N/A with a reason."
   }
 }

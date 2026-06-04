@@ -3,8 +3,7 @@ use super::super::images::percent_encode_component;
 use super::super::shared::*;
 use super::super::*;
 use super::spotify_callback::start_callback_listener;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use sha2::{Digest, Sha256};
 use std::sync::{Mutex, OnceLock};
 
 const SPOTIFY_SCOPES: &str = "streaming user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-private playlist-read-private playlist-modify-public playlist-modify-private user-library-read";
@@ -251,10 +250,13 @@ fn spotify_track_index_cache(
     SPOTIFY_TRACK_INDEX_CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
 }
 
-fn spotify_cache_secret_hash(value: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    value.hash(&mut hasher);
-    hasher.finish()
+fn spotify_cache_secret_digest(value: &str) -> String {
+    let digest = Sha256::digest(value.as_bytes());
+    let mut out = String::with_capacity(12);
+    for byte in digest.iter().take(6) {
+        out.push_str(&format!("{:02x}", *byte));
+    }
+    out
 }
 
 fn spotify_track_cache_key(credentials: &SpotifyCredentials, playlist_id: &str) -> String {
@@ -332,18 +334,36 @@ fn spotify_stop_word(token: &str) -> bool {
         token,
         "a" | "an"
             | "and"
+            | "are"
+            | "as"
+            | "at"
             | "for"
+            | "from"
             | "in"
+            | "into"
+            | "is"
+            | "it"
             | "of"
             | "on"
             | "or"
             | "the"
             | "to"
             | "with"
-            | "music"
-            | "song"
-            | "track"
     )
+}
+
+fn spotify_tokens_contain_any(tokens: &std::collections::HashSet<String>, terms: &[&str]) -> bool {
+    terms.iter().any(|term| tokens.contains(*term))
+}
+
+fn spotify_text_contains_any(normalized: &str, terms: &[&str]) -> bool {
+    terms.iter().any(|term| normalized.contains(term))
+}
+
+fn spotify_insert_terms(tokens: &mut std::collections::HashSet<String>, terms: &[&str]) {
+    for term in terms {
+        tokens.insert((*term).to_string());
+    }
 }
 
 fn spotify_candidate_tokens(query: &str) -> Vec<String> {
@@ -354,31 +374,77 @@ fn spotify_candidate_tokens(query: &str) -> Vec<String> {
         .map(ToOwned::to_owned)
         .collect::<std::collections::HashSet<_>>();
 
-    if normalized.contains("battle")
-        || normalized.contains("combat")
-        || normalized.contains("fight")
+    if spotify_tokens_contain_any(
+        &tokens,
+        &[
+            "action", "battle", "boss", "chase", "combat", "danger", "duel", "fight", "war",
+        ],
+    ) || spotify_text_contains_any(&normalized, &["battle", "combat", "fight"])
     {
-        tokens.insert("epic".to_string());
-        tokens.insert("intense".to_string());
-        tokens.insert("orchestral".to_string());
+        spotify_insert_terms(
+            &mut tokens,
+            &["battle", "combat", "fight", "boss", "war", "intense"],
+        );
     }
-    if normalized.contains("sad")
-        || normalized.contains("grief")
-        || normalized.contains("melancholy")
+    if spotify_tokens_contain_any(
+        &tokens,
+        &[
+            "calm", "cozy", "gentle", "peace", "peaceful", "rest", "safe", "soft",
+        ],
+    ) || spotify_text_contains_any(&normalized, &["peace", "rest", "calm"])
     {
-        tokens.insert("melancholy".to_string());
-        tokens.insert("emotional".to_string());
+        spotify_insert_terms(
+            &mut tokens,
+            &["calm", "peace", "gentle", "soft", "rest", "serene"],
+        );
     }
-    if normalized.contains("tense")
-        || normalized.contains("suspense")
-        || normalized.contains("danger")
+    if spotify_tokens_contain_any(
+        &tokens,
+        &[
+            "dark", "dread", "fear", "horror", "ominous", "scary", "shadow", "terror",
+        ],
+    ) {
+        spotify_insert_terms(
+            &mut tokens,
+            &["dark", "ominous", "shadow", "night", "horror"],
+        );
+    }
+    if spotify_tokens_contain_any(
+        &tokens,
+        &[
+            "grief",
+            "lonely",
+            "melancholy",
+            "sad",
+            "sorrow",
+            "tragic",
+            "tears",
+        ],
+    ) || spotify_text_contains_any(&normalized, &["sad", "grief", "melancholy"])
     {
-        tokens.insert("dark".to_string());
-        tokens.insert("suspense".to_string());
+        spotify_insert_terms(
+            &mut tokens,
+            &["sad", "sorrow", "melancholy", "lament", "lonely"],
+        );
     }
-    if normalized.contains("peace") || normalized.contains("rest") || normalized.contains("calm") {
-        tokens.insert("calm".to_string());
-        tokens.insert("ambient".to_string());
+    if spotify_tokens_contain_any(&tokens, &["love", "romance", "romantic", "tender", "warm"]) {
+        spotify_insert_terms(&mut tokens, &["love", "romance", "tender", "heart", "warm"]);
+    }
+    if spotify_tokens_contain_any(
+        &tokens,
+        &["mystery", "secret", "sneak", "stealth", "suspense", "tense"],
+    ) || spotify_text_contains_any(&normalized, &["tense", "suspense"])
+    {
+        spotify_insert_terms(
+            &mut tokens,
+            &["mystery", "secret", "stealth", "tension", "suspense"],
+        );
+    }
+    if spotify_tokens_contain_any(&tokens, &["epic", "heroic", "triumph", "victory"]) {
+        spotify_insert_terms(
+            &mut tokens,
+            &["epic", "hero", "triumph", "victory", "theme"],
+        );
     }
 
     let mut tokens = tokens.into_iter().collect::<Vec<_>>();
@@ -387,9 +453,9 @@ fn spotify_candidate_tokens(query: &str) -> Vec<String> {
 }
 
 fn hash_fraction(value: &str) -> f64 {
-    let mut hasher = DefaultHasher::new();
-    value.hash(&mut hasher);
-    hasher.finish() as f64 / u64::MAX as f64
+    let digest = Sha256::digest(value.as_bytes());
+    let bytes = [digest[0], digest[1], digest[2], digest[3]];
+    u32::from_be_bytes(bytes) as f64 / u32::MAX as f64
 }
 
 fn spotify_candidate_field(track: &Value, key: &str) -> String {
@@ -1906,10 +1972,41 @@ fn parse_generated_tracks(raw: &str) -> AppResult<Vec<GeneratedTrack>> {
     Ok(out)
 }
 
+fn spotify_fold_latin_char(ch: char) -> char {
+    match ch {
+        'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' | 'ā' | 'ă' | 'ą' | 'ǎ' | 'ạ' | 'ả' | 'ấ' | 'ầ' | 'ẩ'
+        | 'ẫ' | 'ậ' | 'ắ' | 'ằ' | 'ẳ' | 'ẵ' | 'ặ' | 'æ' => 'a',
+        'ç' | 'ć' | 'ĉ' | 'ċ' | 'č' => 'c',
+        'ď' | 'đ' | 'ð' => 'd',
+        'é' | 'è' | 'ê' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' | 'ȅ' | 'ȇ' | 'ẹ' | 'ẻ' | 'ẽ' | 'ế'
+        | 'ề' | 'ể' | 'ễ' | 'ệ' => 'e',
+        'ĝ' | 'ğ' | 'ġ' | 'ģ' => 'g',
+        'ĥ' | 'ħ' => 'h',
+        'í' | 'ì' | 'î' | 'ï' | 'ĩ' | 'ī' | 'ĭ' | 'į' | 'ı' | 'ǐ' | 'ị' | 'ỉ' => 'i',
+        'ĵ' => 'j',
+        'ķ' => 'k',
+        'ĺ' | 'ļ' | 'ľ' | 'ł' => 'l',
+        'ñ' | 'ń' | 'ņ' | 'ň' => 'n',
+        'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' | 'ō' | 'ŏ' | 'ő' | 'ǒ' | 'ǫ' | 'ǭ' | 'ȍ' | 'ȏ' | 'ọ'
+        | 'ỏ' | 'ố' | 'ồ' | 'ổ' | 'ỗ' | 'ộ' | 'ớ' | 'ờ' | 'ở' | 'ỡ' | 'ợ' | 'œ' => {
+            'o'
+        }
+        'ŕ' | 'ŗ' | 'ř' => 'r',
+        'ś' | 'ŝ' | 'ş' | 'š' | 'ß' => 's',
+        'ţ' | 'ť' | 'ŧ' => 't',
+        'ú' | 'ù' | 'û' | 'ü' | 'ũ' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ų' | 'ǔ' | 'ụ' | 'ủ' | 'ứ' | 'ừ'
+        | 'ử' | 'ữ' | 'ự' => 'u',
+        'ý' | 'ÿ' | 'ŷ' | 'ỳ' | 'ỵ' | 'ỷ' | 'ỹ' => 'y',
+        'ź' | 'ż' | 'ž' => 'z',
+        _ => ch,
+    }
+}
+
 fn normalize_spotify_text(value: &str) -> String {
     value
-        .to_ascii_lowercase()
         .chars()
+        .flat_map(char::to_lowercase)
+        .map(spotify_fold_latin_char)
         .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
         .collect::<String>()
         .split_whitespace()
@@ -2523,12 +2620,12 @@ async fn resolve_credentials(
         ));
     }
     Ok(SpotifyCredentials {
-        access_token,
         cache_key: format!(
-            "{}:{:016x}",
+            "{}:{}",
             agent_id,
-            spotify_cache_secret_hash(&refresh_token)
+            spotify_cache_secret_digest(&access_token)
         ),
+        access_token,
         agent_id,
         expires_at,
         scopes,
@@ -2946,7 +3043,6 @@ fn random_token(length: usize) -> String {
 fn code_challenge(verifier: &str) -> String {
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use base64::Engine as _;
-    use sha2::{Digest, Sha256};
     URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
 }
 
@@ -3048,6 +3144,48 @@ mod tests {
             "any"
         );
         assert_eq!(spotify_source_type(&json!({})), "any");
+    }
+
+    #[test]
+    fn spotify_track_cache_key_changes_with_access_token_digest() {
+        let mut credentials = SpotifyCredentials {
+            access_token: "access-one".to_string(),
+            agent_id: "spotify".to_string(),
+            cache_key: format!("spotify:{}", spotify_cache_secret_digest("access-one")),
+            expires_at: 0,
+            scopes: Vec::new(),
+        };
+        let first = spotify_track_cache_key(&credentials, "playlist-1");
+
+        credentials.access_token = "access-two".to_string();
+        credentials.cache_key = format!(
+            "spotify:{}",
+            spotify_cache_secret_digest(&credentials.access_token)
+        );
+        let second = spotify_track_cache_key(&credentials, "playlist-1");
+
+        assert_ne!(first, second);
+        assert!(first.starts_with("spotify:"));
+        assert!(first.ends_with(":playlist-1"));
+    }
+
+    #[test]
+    fn spotify_candidate_tokens_fold_accents_and_expand_legacy_moods() {
+        assert_eq!(normalize_spotify_text("Beyoncé Déjà Vu"), "beyonce deja vu");
+
+        let tokens = spotify_candidate_tokens("Beyoncé tragic romance");
+        assert!(tokens.contains(&"beyonce".to_string()));
+        assert!(tokens.contains(&"sorrow".to_string()));
+        assert!(tokens.contains(&"heart".to_string()));
+
+        let battlefield = spotify_candidate_tokens("battlefield fighting");
+        assert!(battlefield.contains(&"intense".to_string()));
+
+        let suspenseful = spotify_candidate_tokens("suspenseful corridor");
+        assert!(suspenseful.contains(&"suspense".to_string()));
+
+        let peaceful = spotify_candidate_tokens("peacefully resting");
+        assert!(peaceful.contains(&"serene".to_string()));
     }
 
     #[test]
