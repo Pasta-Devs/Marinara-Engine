@@ -1069,6 +1069,20 @@ function messagesBeforeRegenerationTarget(
   return targetIndex >= 0 ? storedMessages.slice(0, targetIndex) : storedMessages;
 }
 
+async function regenerationTargetExtra(
+  storage: StorageGateway,
+  chatId: string,
+  storedMessages: JsonRecord[],
+  regenerateMessageId: string | null | undefined,
+): Promise<unknown> {
+  const targetId = readString(regenerateMessageId).trim();
+  if (!targetId) return undefined;
+  const loadedTarget = storedMessages.find((message) => readString(message.id) === targetId);
+  if (loadedTarget) return loadedTarget.extra;
+  const target = await loadChatMessage(storage, targetId).catch(() => null);
+  return targetBelongsToChat(target, chatId) ? target.extra : undefined;
+}
+
 function roleplayIndividualGroupCharacterIds(chat: JsonRecord): string[] {
   if (readString(chat.mode || chat.chatMode) !== "roleplay") return [];
   const ids = activeCharacterIds(chat);
@@ -1879,6 +1893,11 @@ function normalizeContextInjections(value: unknown): AgentInjectionOverride[] {
   if (!Array.isArray(value)) return [];
   const injections: AgentInjectionOverride[] = [];
   for (const entry of value) {
+    if (typeof entry === "string") {
+      const text = entry.trim();
+      if (text) injections.push({ agentType: "prose-guardian", text });
+      continue;
+    }
     if (!isRecord(entry)) continue;
     const agentType = readString(entry.agentType).trim();
     const text = readString(entry.text).trim();
@@ -1953,6 +1972,7 @@ async function saveAssistantMessage(args: {
   promptSnapshot?: MainGenerationPromptSnapshot | null;
   spriteExpressions?: Record<string, string> | null;
   contextInjections?: AgentInjectionOverride[] | null;
+  existingExtra?: unknown;
 }): Promise<unknown | null> {
   const regenerateMessageId = readString(args.input.regenerateMessageId).trim();
   const generationReplay = buildGenerationReplay(args.input);
@@ -1967,6 +1987,8 @@ async function saveAssistantMessage(args: {
   const agentExtra = agentExtraFromResults({
     results: args.agentResults,
     contextInjections: args.contextInjections,
+    existingExtra: regenerateMessageId ? args.existingExtra : undefined,
+    mergeContextInjectionUpdates: !!regenerateMessageId,
   });
 
   if (args.input.impersonate === true) {
@@ -2912,6 +2934,7 @@ export async function* startGeneration(
           promptSnapshot,
           spriteExpressions: preSaveSpriteExpressions,
           contextInjections: runtime?.preInjections ?? null,
+          existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
         });
     let latestSaved = saved;
     if (saved) {
@@ -3107,6 +3130,7 @@ export async function* startGeneration(
         attachments: connected.assistantAttachments,
         usage,
         promptSnapshot: promptSnapshotDirect,
+        existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
       });
   if (saved) {
     await persistLorebookTimingStatesSafely(

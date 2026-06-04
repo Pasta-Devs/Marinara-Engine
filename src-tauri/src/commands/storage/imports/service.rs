@@ -30,6 +30,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use timestamps::{apply_timestamp_overrides, timestamp_overrides_from_value};
 
+pub(crate) use normalization::{lorebook_entries, normalize_lorebook_entry};
+
 fn create_lorebook_from_payload(
     state: &AppState,
     payload: &Value,

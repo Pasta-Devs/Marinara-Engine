@@ -3,6 +3,8 @@ use super::*;
 #[path = "imports/service.rs"]
 mod service;
 
+pub(crate) use service::{lorebook_entries, normalize_lorebook_entry};
+
 pub(crate) fn import_call(state: &AppState, rest: &[&str], body: Value) -> AppResult<Value> {
     service::import_call(state, rest, body)
 }

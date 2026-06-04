@@ -977,7 +977,7 @@ function gameSetupMetadataPatch(config: GameSetupConfig): Record<string, unknown
     gameSpotifyPlaylistId: config.spotifyPlaylistId ?? null,
     gameSpotifyPlaylistName: config.spotifyPlaylistName ?? null,
     gameSpotifyArtist: config.spotifyArtist ?? null,
-    gameEnableLorebookKeeper: Boolean(config.enableLorebookKeeper),
+    gameLorebookKeeperEnabled: Boolean(config.enableLorebookKeeper),
     gameGenerationParameters: config.generationParameters ?? null,
     gameLanguage: config.language ?? null,
     gameRating: config.rating ?? "sfw",

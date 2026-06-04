@@ -28,12 +28,15 @@
     "laneValidationResult": "Passed.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Passed pnpm check after final diff: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
+    "baselineEvidence": "Passed pnpm check after resolving upstream/refactor conflict: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
     "visualProof": "Backend logic proof: targeted Vitest output captured in command log; no meaningful UI state.",
-    "focusedProof": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts src/engine/generation-core/lorebooks/prompt-injector.test.ts passed with 9 tests."
+    "focusedProof": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts src/engine/generation-core/lorebooks/prompt-injector.test.ts src/engine/generation/start-generation.test.ts passed after conflict resolution with 17 tests."
   },
   "manualBlockers": [],
-  "notes": [],
+  "notes": [
+    "Resolved upstream/refactor merge conflict by keeping issue-2185 verification in the singleton tracked ledger; upstream issue-2170 proof belongs to PR #2246.",
+    "Conflict-resolution focused checks passed: active-lorebook-scanner.test.ts, prompt-injector.test.ts, and start-generation.test.ts."
+  ],
   "riskClaimMatrix": {
     "coreClaim": "Recursive lorebook scanning activates entries across the full active lorebook set from budget-selected frontier content while respecting depth and preventRecursion.",
     "riskType": "prompt assembly compatibility regression",
@@ -79,27 +82,27 @@
     "didFixBug": true,
     "claimBoundariesProven": true,
     "hasProfessionalVisualProof": true,
-    "prWouldBeAccepted": true,
-    "notes": "Focused tests, typecheck, full pnpm check, and proof gate passed after final diff."
+    "prWouldBeAccepted": false,
+    "notes": "Focused tests, proof gate, and pnpm check passed after upstream/refactor conflict resolution. PR acceptance is pending push, CI, Bunny, and CodeRabbit."
   },
   "reviewThreads": [
     {
       "finding": "Bunny: non-recursive lorebooks can seed recursion.",
       "classification": "in-scope",
       "disposition": "fixed",
-      "commit": "this follow-up commit",
+      "commit": "review follow-up commit",
       "reason": "Active lorebook metadata now carries recursiveScanning and recursive frontier content is filtered to selected entries whose own lorebook enabled recursion. Added a regression row proving a non-recursive lorebook entry does not seed the next recursive hop."
     },
     {
       "finding": "Bunny: budget skip no longer exhausts lower-priority entries.",
       "classification": "in-scope",
       "disposition": "fixed",
-      "commit": "this follow-up commit",
+      "commit": "review follow-up commit",
       "reason": "Budget selection state now keeps chat budget exhaustion and per-lorebook budget exhaustion sticky for later candidates. Added a regression row proving a later lower-priority entry remains skipped after the chat budget is exhausted."
     }
   ],
   "bunny": {
-    "status": "pass",
-    "evidence": "Issue match is direct; combined active-entry recursion now scans across active lorebooks and only recurses from budget-selected entries whose lorebook enables recursion; regression tests cover cross-book activation, non-recursive frontier blocking, preventRecursion, max depth, budget-skipped frontier negative control, and sticky budget exhaustion; proof gate and pnpm check passed; no dependencies, schema, storage persistence, API, UI, auth, or release files changed."
+    "status": "local-pass-after-conflict-resolution",
+    "evidence": "Issue match is direct; conflict resolution kept issue-2185 proof while merging upstream/refactor changes; combined active-entry recursion now scans across active lorebooks and only recurses from budget-selected entries whose lorebook enables recursion; focused generation tests and pnpm check passed after conflict resolution; no dependencies, schema, storage persistence, API, UI, auth, or release files changed."
   }
 }
