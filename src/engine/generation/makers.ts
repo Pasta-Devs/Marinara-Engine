@@ -42,6 +42,7 @@ export type MakerEvent =
         totalEntriesSoFar: number;
       };
     }
+  | { type: "batch_retry"; data: { batch: number; message: string } }
   | { type: "batch_warning"; data: { batch: number; message: string } }
   | { type: "saved"; data: { count: number; lorebookId: string } }
   | { type: "error"; data: string }
@@ -287,7 +288,7 @@ async function* runLorebookMakerBatchWithParseRetry(
   signal?: AbortSignal,
 ): AsyncGenerator<MakerEvent, { parsed: LorebookMakerData; entries: LorebookMakerEntry[] }> {
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const raw = yield* runMakerRequest(llm, input, messages, 16384, signal);
+    const { raw, tokenEvents } = await collectMakerRequest(llm, input, messages, 16384, signal);
     const parsed = parseObject<LorebookMakerData>(raw);
     const entries = (Array.isArray(parsed.entries) ? parsed.entries : []).map(normalizeLorebookEntry);
     if (entries.length > 0 || attempt === 2) {
@@ -296,17 +297,37 @@ async function* runLorebookMakerBatchWithParseRetry(
           type: "batch_warning",
           data: { batch, message: `Batch ${batch} did not produce valid entries.` },
         };
+      } else {
+        for (const event of tokenEvents) {
+          yield event;
+        }
       }
       return { parsed, entries };
     }
 
     yield {
-      type: "batch_warning",
+      type: "batch_retry",
       data: { batch, message: `Batch ${batch} did not produce valid entries. Retrying once.` },
     };
   }
 
   return { parsed: {}, entries: [] };
+}
+
+async function collectMakerRequest(
+  llm: LlmGateway,
+  input: CharacterOrPersonaMakerInput,
+  messages: LlmMessage[],
+  maxTokens: number,
+  signal?: AbortSignal,
+): Promise<{ raw: string; tokenEvents: MakerEvent[] }> {
+  const tokenEvents: MakerEvent[] = [];
+  const request = runMakerRequest(llm, input, messages, maxTokens, signal);
+  for (;;) {
+    const next = await request.next();
+    if (next.done) return { raw: next.value, tokenEvents };
+    tokenEvents.push(next.value);
+  }
 }
 
 async function* generateJsonMaker(
