@@ -1,6 +1,6 @@
 use super::{
     avatars, characters, chats, connection_secrets, contracts, game_state_snapshots,
-    lorebook_images, media_uploads, message_swipes, prompts, shared,
+    lorebook_images, media_uploads, message_swipes, personas, prompts, shared,
 };
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
@@ -1078,6 +1078,9 @@ pub(crate) fn duplicate_entity(
     if entity == "characters" {
         return characters::duplicate_character(state, id);
     }
+    if entity == "personas" {
+        return personas::duplicate_persona(state, id);
+    }
     if entity == "prompts" {
         return prompts::duplicate_prompt_preset(state, id);
     }
@@ -1622,6 +1625,61 @@ mod tests {
             .join("collections")
             .join("typo-collection.json")
             .exists());
+    }
+
+    #[test]
+    fn duplicating_active_persona_resets_active_flags() {
+        let state = test_state("persona-duplicate-active-flags");
+        storage_create_inner(
+            &state,
+            "personas".to_string(),
+            json!({
+                "id": "active-persona",
+                "name": "Active Persona",
+                "isActive": true,
+                "active": true
+            }),
+        )
+        .expect("persona should be created");
+
+        let duplicated = duplicate_entity(&state, "personas", "active-persona")
+            .expect("persona duplicate should succeed");
+
+        assert_ne!(duplicated["id"], "active-persona");
+        assert_eq!(duplicated["name"], "Active Persona Copy");
+        assert_eq!(duplicated["isActive"], false);
+        assert_eq!(duplicated["active"], false);
+
+        let original = state
+            .storage
+            .get("personas", "active-persona")
+            .expect("original persona should read")
+            .expect("original persona should still exist");
+        assert_eq!(original["isActive"], true);
+        assert_eq!(original["active"], true);
+    }
+
+    #[test]
+    fn duplicating_inactive_persona_keeps_duplicate_inactive() {
+        let state = test_state("persona-duplicate-inactive-flags");
+        storage_create_inner(
+            &state,
+            "personas".to_string(),
+            json!({
+                "id": "inactive-persona",
+                "name": "Inactive Persona",
+                "isActive": false,
+                "active": false
+            }),
+        )
+        .expect("persona should be created");
+
+        let duplicated = duplicate_entity(&state, "personas", "inactive-persona")
+            .expect("persona duplicate should succeed");
+
+        assert_eq!(duplicated["name"], "Inactive Persona Copy");
+        assert_eq!(duplicated["isActive"], false);
+        assert_eq!(duplicated["active"], false);
     }
 
     #[test]
