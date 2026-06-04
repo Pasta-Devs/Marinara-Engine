@@ -745,6 +745,10 @@ async function buildGamePromptMessages(
     characterSprites: await loadCharacterSprites(input.visuals, spriteSubjects),
     playerInventory: normalizeGameInventory(meta.gameInventory),
     language: readString(setup.language).trim() || undefined,
+    canGenerateBackgrounds:
+      boolish(meta.enableSpriteGeneration, false) &&
+      !!(readString(meta.gameImageConnectionId).trim() || readString(setup.imageConnectionId).trim()),
+    artStylePrompt: readString(setup.artStylePrompt).trim() || undefined,
   };
 
   let systemPrompt = buildGmSystemPrompt(gmCtx);
@@ -770,6 +774,8 @@ async function buildGamePromptMessages(
     playerInventory: gmCtx.playerInventory,
     language: gmCtx.language,
     rating: gmCtx.rating,
+    canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
+    artStylePrompt: gmCtx.artStylePrompt,
     addressMode: gameAddressMode(latestUser),
     playerDiceRollSubmitted: /\[dice\b/i.test(latestUser),
   });

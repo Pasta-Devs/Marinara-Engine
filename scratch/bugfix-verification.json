@@ -1,29 +1,23 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2148,
-    "title": "Game mode GM party-morale context downgraded to a bare number",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2148"
+    "number": 2155,
+    "title": "Game mode inline-GM games lose generated-background tag guidance and art-style instruction",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2155"
   },
-  "coreClaim": "Game GM prompt assembly emits tier-aware party morale context instead of a bare morale number.",
+  "coreClaim": "Inline-GM game prompts include generated background tag guidance and art-style instruction when background generation is enabled.",
+  "associatedPrPreflight": {
+    "foundDuplicate": false,
+    "evidence": "gh PR searches for #2155, generated-background, and generated background tag guidance found no associated fix PR; issue comments were empty; local branch/worktree searches found no 2155 branch."
+  },
   "assignment": {
     "assignee": "cha1latte",
     "assigned": true,
-    "evidence": "gh issue edit 2148 --repo Pasta-Devs/Marinara-Engine --add-assignee \"@me\" succeeded before implementation."
-  },
-  "associatedPrPreflight": {
-    "foundDuplicate": false,
-    "evidence": "gh PR search for #2148, party morale, party_morale, and formatMoraleContext found no associated open or closed fix PR; issue timeline had only label events; local branch search found no 2148/morale branch."
-  },
-  "pr": {
-    "number": 2230,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2230",
-    "base": "refactor",
-    "draft": true
+    "evidence": "gh issue edit 2155 --repo Pasta-Devs/Marinara-Engine --add-assignee \"@me\" succeeded before implementation."
   },
   "branch": {
     "base": "origin/refactor",
-    "name": "fix/issue-2148-party-morale-context"
+    "name": "fix/issue-2155-inline-gm-bg-guidance"
   },
   "dependencies": {
     "installedFromLockfile": true,
@@ -32,87 +26,86 @@
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "pnpm exec vitest run --config scratch/vitest.issue-2148.config.ts --reporter verbose",
-    "method": "Local ignored Vitest harness exercised assembleGenerationPrompt for a game chat with gameMorale=5.",
-    "beforeSummary": "Failed because the assembled game GM system prompt lacked <party_morale> and emitted Current party morale: 5 / 100."
+    "command": "git show origin/refactor:src/engine/modes/game/prompts/gm-prompts.ts | Select-String -Pattern 'backgrounds:generated|canGenerateBackgrounds|Generated scene images'; git show origin/refactor:src/engine/generation/prompt-assembly.ts | Select-String -Pattern 'canGenerateBackgrounds|artStylePrompt'",
+    "method": "Static before-fix proof against origin/refactor plus focused scratch harness after the fix.",
+    "beforeSummary": "Before the fix, the affected refactor files had no generated-background reminder text and no canGenerateBackgrounds/artStylePrompt wiring for buildGmFormatReminder."
   },
   "verification": {
     "originalReproPassed": true,
-    "originalReproCommand": "pnpm exec vitest run --config scratch/vitest.issue-2148.config.ts --reporter verbose",
-    "originalReproEvidence": "7 tests passed after the fix: the original broken-tier repro, all five morale tiers, and the absent-morale negative row.",
-    "baselinePassed": true,
+    "originalReproCommand": "pnpm exec vitest run --config scratch/vitest.issue2155.config.ts --reporter=verbose",
+    "originalReproEvidence": "Scratch Vitest passed 3 rows: inline GM with generated backgrounds includes the generated background and art-style guidance; inline GM without generation omits it; separate scene model omits inline scene-tag guidance.",
+    "baselinePassed": false,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Full PR gate passed: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, and unused exports.",
+    "baselineEvidence": "Failed only at pnpm check:unused with pre-existing untouched issue: VisualReferenceImageSource interface in src/engine/capabilities/visual-assets.ts:32:18. Earlier gates passed: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety.",
     "focusedProof": [
-      "Before fix, scratch Vitest failed because the assembled game GM system prompt lacked <party_morale> and contained Current party morale: 5 / 100.",
-      "After fix, scratch Vitest passed with 7 rows covering broken, low, steady, high, inspired, and no-morale.",
+      "Before fix, origin/refactor had no generated-background reminder text in buildGmFormatReminder and no canGenerateBackgrounds/artStylePrompt pass-through in prompt assembly.",
+      "After fix, scratch Vitest passed the original inline-GM generated-background row.",
+      "After fix, scratch Vitest passed two negative controls: generation disabled and separate scene model.",
       "pnpm typecheck passed.",
-      "pnpm check:architecture passed.",
-      "pnpm check passed.",
-      "Proof gate script unavailable: C:/Users/celia/.codex/tools/marinara-proof-gate.mjs was not present on this machine."
+      "pnpm check failed in check:unused on untouched VisualReferenceImageSource, which is present on origin/refactor."
     ],
     "edgeCases": [
-      "Broken morale score 5 emits Morale: broken (5/100) and the demoralized directive.",
-      "Low morale score 20 emits Morale: low (20/100) and the flagging morale directive.",
-      "Steady morale score 50 emits Morale: steady (50/100) and the stable morale directive.",
-      "High morale score 75 emits Morale: high (75/100) and the high spirits directive.",
-      "Inspired morale score 90 emits Morale: inspired (90/100) and the confidence directive.",
-      "Missing gameMorale still omits party morale context and does not emit the old bare-number line."
+      "Inline GM with background generation enabled includes Scene tags allowed, backgrounds:generated guidance, and the sanitized art-style instruction.",
+      "Inline GM with background generation disabled still includes static scene tags but omits generated-background and art-style guidance.",
+      "Separate scene model with background generation enabled omits the inline GM scene-tag guidance so scene-analyzer ownership remains unchanged."
     ],
-    "visualProof": "No UI screenshot: this is a backend/prompt-assembly bug. Proof is the before/after command output from the scratch harness."
+    "visualProof": "No UI screenshot: this is React-free prompt text behavior. Proof is the before-fix static output plus the scratch Vitest command output."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Game GM prompt assembly emits tier-aware party morale context instead of a bare morale number.",
+    "coreClaim": "Inline-GM game prompts include generated background tag guidance and art-style instruction when background generation is enabled.",
     "riskType": "prompt assembly legacy parity",
     "entrypoints": [
-      "assembleGenerationPrompt for game chats",
-      "buildGmSystemPrompt server-computed context insertion"
+      "buildGmFormatReminder for inline GM turns",
+      "buildGamePromptMessages prompt assembly call site"
     ],
     "currentPathsOrFormats": [
-      "chat.metadata.gameMorale",
-      "GmPromptContext.moraleContext",
-      "src/engine/modes/game/mechanics/morale.service.ts"
+      "chat.metadata.enableSpriteGeneration",
+      "chat.metadata.gameImageConnectionId",
+      "chat.metadata.gameSetupConfig.imageConnectionId",
+      "chat.metadata.gameSetupConfig.artStylePrompt",
+      "GmPromptContext.canGenerateBackgrounds",
+      "GmPromptContext.artStylePrompt"
     ],
     "legacyPathsOrFormats": [
-      "main packages/server/src/services/game/morale.service.ts formatMoraleContext",
-      "main gm-prompts moraleContext insertion"
+      "main packages/server/src/services/game/gm-prompts.ts buildGmFormatReminder canGenerateBackgrounds/artStylePrompt lines",
+      "main generate.routes.ts caller pass-through for canGenerateBackgrounds and artStylePrompt"
     ],
     "positiveRowsTested": [
-      "gameMorale=5 maps to broken tier and demoralized directive",
-      "gameMorale=20 maps to low tier and flagging directive",
-      "gameMorale=50 maps to steady tier and stable directive",
-      "gameMorale=75 maps to high tier and high spirits directive",
-      "gameMorale=90 maps to inspired tier and confidence directive"
+      "hasSceneModel=false, canGenerateBackgrounds=true, artStylePrompt present"
     ],
     "negativeRowsTested": [
-      "Absent gameMorale omits morale context",
-      "After the fix, the old bare-number Current party morale line is absent"
+      "hasSceneModel=false, canGenerateBackgrounds=false",
+      "hasSceneModel=true, canGenerateBackgrounds=true"
     ],
     "groundTruthFacts": [
       {
-        "fact": "Refactor prompt assembly emitted a bare morale number before this fix.",
+        "fact": "Refactor prompt reminder lacked generated background guidance before the fix.",
         "sourceType": "measured",
-        "evidence": "Before-fix scratch repro output included Current party morale: 5 / 100 and no <party_morale> block."
+        "evidence": "git show origin/refactor on gm-prompts.ts produced no matches for backgrounds:generated, canGenerateBackgrounds, or Generated scene images."
       },
       {
-        "fact": "Legacy main formatted morale as a <party_morale> block with tier and directive.",
+        "fact": "Legacy main carried the generated background and art-style lines in buildGmFormatReminder.",
         "sourceType": "derived",
-        "evidence": "git show FETCH_HEAD:packages/server/src/services/game/morale.service.ts showed formatMoraleContext with tierDescriptions and <party_morale> output."
+        "evidence": "git show origin/main:packages/server/src/services/game/gm-prompts.ts showed canGenerateBackgrounds/artStylePrompt in the Pick type and the inline GM reminder branch."
       }
     ],
-    "userActionCopy": "No user action copy changed.",
+    "userActionCopy": "No user-facing UI copy or destructive-action copy changed.",
     "manualBlockers": []
   },
   "manualBlockers": [],
+  "notes": [
+    "UI/browser proof is not applicable because the bug is missing prompt text in React-free engine behavior.",
+    "Proof gate script unavailable: C:/Users/celia/.codex/tools/marinara-proof-gate.mjs was not present on this machine."
+  ],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
-    "prWouldBeAccepted": true,
+    "prWouldBeAccepted": false,
     "claimBoundariesProven": true,
-    "notes": "Bug-specific proof, full pnpm check, and Bunny pass completed. Repo proof-gate script was unavailable."
+    "notes": "Focused proof and typecheck passed. Full pnpm check is blocked by a pre-existing unused exported type outside this diff, so the PR must stay draft."
   },
   "bunny": {
-    "status": "pass",
-    "evidence": "Bunny pass before commit/opening draft and again after push/PR: issue match, direct prompt-assembly proof, all morale tiers and absent-morale row covered, import boundaries clean, no debug/dependency/schema/version changes, focused one-commit diff, no blocking manual verification."
+    "status": "pass-for-draft",
+    "evidence": "Issue match, direct prompt reminder proof, negative controls, import boundaries, and focused diff are clean. The PR must remain draft because pnpm check fails on an untouched pre-existing unused export and the repo proof-gate script is unavailable."
   }
 }
