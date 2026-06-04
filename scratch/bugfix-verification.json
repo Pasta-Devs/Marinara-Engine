@@ -23,14 +23,14 @@
   "verification": {
     "originalReproPassed": true,
     "targetedProofCommand": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts",
-    "targetedProofResult": "Passed with 4 tests. Regression rows cover cross-lorebook recursion, preventRecursion, configured recursion depth, and budget-selected frontier behavior.",
+    "targetedProofResult": "Passed after review fixes. Regression rows cover cross-lorebook recursion, non-recursive lorebook frontier blocking, preventRecursion, configured recursion depth, budget-selected frontier behavior, and sticky budget exhaustion.",
     "laneValidationCommand": "pnpm typecheck",
     "laneValidationResult": "Passed.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
     "baselineEvidence": "Passed pnpm check after final diff: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
     "visualProof": "Backend logic proof: targeted Vitest output captured in command log; no meaningful UI state.",
-    "focusedProof": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts src/engine/generation-core/lorebooks/prompt-injector.test.ts passed with 7 tests."
+    "focusedProof": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts src/engine/generation-core/lorebooks/prompt-injector.test.ts passed with 9 tests."
   },
   "manualBlockers": [],
   "notes": [],
@@ -50,11 +50,13 @@
     ],
     "positiveRowsTested": [
       "Cross-lorebook A-to-B activation from selected frontier content.",
-      "Same-book recursive-only entry remains inactive when its frontier entry exceeds the chat lorebook budget."
+      "Same-book recursive-only entry remains inactive when its frontier entry exceeds the chat lorebook budget.",
+      "Later lower-priority entries remain skipped after the chat lorebook budget is exhausted."
     ],
     "negativeRowsTested": [
       "Entry with preventRecursion did not activate a target keyed only by that prevented content.",
-      "Configured maxRecursionDepth=1 did not activate the second-hop target keyed by first recursive result content."
+      "Configured maxRecursionDepth=1 did not activate the second-hop target keyed by first recursive result content.",
+      "A selected entry from a non-recursive lorebook did not become recursive frontier content."
     ],
     "groundTruthFacts": [
       {
@@ -80,8 +82,24 @@
     "prWouldBeAccepted": true,
     "notes": "Focused tests, typecheck, full pnpm check, and proof gate passed after final diff."
   },
+  "reviewThreads": [
+    {
+      "finding": "Bunny: non-recursive lorebooks can seed recursion.",
+      "classification": "in-scope",
+      "disposition": "fixed",
+      "commit": "this follow-up commit",
+      "reason": "Active lorebook metadata now carries recursiveScanning and recursive frontier content is filtered to selected entries whose own lorebook enabled recursion. Added a regression row proving a non-recursive lorebook entry does not seed the next recursive hop."
+    },
+    {
+      "finding": "Bunny: budget skip no longer exhausts lower-priority entries.",
+      "classification": "in-scope",
+      "disposition": "fixed",
+      "commit": "this follow-up commit",
+      "reason": "Budget selection state now keeps chat budget exhaustion and per-lorebook budget exhaustion sticky for later candidates. Added a regression row proving a later lower-priority entry remains skipped after the chat budget is exhausted."
+    }
+  ],
   "bunny": {
     "status": "pass",
-    "evidence": "Issue match is direct; combined active-entry recursion now scans across active lorebooks and only recurses from budget-selected entries; regression tests cover cross-book activation, preventRecursion, max depth, and budget-skipped frontier negative control; proof gate and pnpm check passed; no dependencies, schema, storage persistence, API, UI, auth, or release files changed."
+    "evidence": "Issue match is direct; combined active-entry recursion now scans across active lorebooks and only recurses from budget-selected entries whose lorebook enables recursion; regression tests cover cross-book activation, non-recursive frontier blocking, preventRecursion, max depth, budget-skipped frontier negative control, and sticky budget exhaustion; proof gate and pnpm check passed; no dependencies, schema, storage persistence, API, UI, auth, or release files changed."
   }
 }

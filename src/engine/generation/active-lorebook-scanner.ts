@@ -85,6 +85,7 @@ type LorebookEmbeddingRequestSelection =
 interface ActiveLorebookBudgetMetadata {
   lorebookName: string;
   lorebookBudget: number;
+  recursiveScanning: boolean;
 }
 
 interface LoadedActivatedLore {
@@ -139,7 +140,9 @@ interface LorebookBudgetSelectionState {
   selected: ActivatedEntry[];
   selectedIds: Set<string>;
   perLorebookTokens: Map<string, number>;
+  exhaustedLorebookIds: Set<string>;
   totalTokens: number;
+  chatBudgetExhausted: boolean;
 }
 
 const MAX_LOREBOOK_RECURSION_DEPTH = 10;
@@ -536,7 +539,9 @@ function createLorebookBudgetSelectionState(): LorebookBudgetSelectionState {
     selected: [],
     selectedIds: new Set(),
     perLorebookTokens: new Map(),
+    exhaustedLorebookIds: new Set(),
     totalTokens: 0,
+    chatBudgetExhausted: false,
   };
 }
 
@@ -582,10 +587,15 @@ function selectBudgetedLorebookEntries(
     const lorebookMeta = lorebooksById.get(resolvedCandidate.entry.lorebookId);
     const lorebookBudget = lorebookMeta?.lorebookBudget ?? 0;
     const lorebookUsedTokens = state.perLorebookTokens.get(resolvedCandidate.entry.lorebookId) ?? 0;
-    const exceedsLorebookBudget = lorebookBudget > 0 && lorebookUsedTokens + entryTokens > lorebookBudget;
-    const exceedsChatBudget = chatBudget > 0 && state.totalTokens + entryTokens > chatBudget;
+    const exceedsLorebookBudget =
+      state.exhaustedLorebookIds.has(resolvedCandidate.entry.lorebookId) ||
+      (lorebookBudget > 0 && lorebookUsedTokens + entryTokens > lorebookBudget);
+    const exceedsChatBudget =
+      state.chatBudgetExhausted || (chatBudget > 0 && state.totalTokens + entryTokens > chatBudget);
 
     if (exceedsLorebookBudget || exceedsChatBudget) {
+      if (exceedsLorebookBudget) state.exhaustedLorebookIds.add(resolvedCandidate.entry.lorebookId);
+      if (exceedsChatBudget) state.chatBudgetExhausted = true;
       budgetSkippedEntries.push({
         id: resolvedCandidate.entry.id,
         name: resolvedCandidate.entry.name,
@@ -649,7 +659,10 @@ function scanActiveLorebookEntrySet(
     budgetSkippedEntries.push(...selectedBatch.budgetSkippedEntries);
 
     const recursiveContent = selectedBatch.selectedFromCandidates
-      .filter((selected) => !selected.entry.preventRecursion)
+      .filter(
+        (selected) =>
+          lorebooksById.get(selected.entry.lorebookId)?.recursiveScanning && !selected.entry.preventRecursion,
+      )
       .map((selected) => selected.entry.content)
       .join("\n");
 
@@ -789,6 +802,7 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
         {
           lorebookName: readString(book.name, id || "Lorebook"),
           lorebookBudget: nonNegativeInteger(book.tokenBudget, 0),
+          recursiveScanning: boolish(book.recursiveScanning, false),
         },
       ] as const;
     }),

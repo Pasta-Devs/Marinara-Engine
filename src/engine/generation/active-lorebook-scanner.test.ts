@@ -159,7 +159,14 @@ describe("scanActiveLorebooks", () => {
             recursiveScanning: true,
             maxRecursionDepth: 1,
           },
-          { id: "book-b", name: "Book B", enabled: true, isGlobal: true },
+          {
+            id: "book-b",
+            name: "Book B",
+            enabled: true,
+            isGlobal: true,
+            recursiveScanning: true,
+            maxRecursionDepth: 1,
+          },
         ],
         "lorebook-folders": [],
         "lorebook-entries": [
@@ -227,6 +234,68 @@ describe("scanActiveLorebooks", () => {
     expect(includedIds).toEqual(["entry-a", "entry-prevent", "entry-b"]);
   });
 
+  it("does not use non-recursive lorebook entries as recursive frontier content", async () => {
+    const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
+    const storage = storageWithRows(
+      {
+        lorebooks: [
+          {
+            id: "book-a",
+            name: "Book A",
+            enabled: true,
+            isGlobal: true,
+            recursiveScanning: true,
+            maxRecursionDepth: 3,
+          },
+          { id: "book-b", name: "Book B", enabled: true, isGlobal: true, recursiveScanning: false },
+        ],
+        "lorebook-folders": [],
+        "lorebook-entries": [
+          {
+            id: "entry-a",
+            lorebookId: "book-a",
+            name: "Entry A",
+            content: "beta-key",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 10,
+          },
+          {
+            id: "entry-b",
+            lorebookId: "book-b",
+            name: "Entry B",
+            content: "gamma-key",
+            keys: ["beta-key"],
+            enabled: true,
+            order: 20,
+          },
+          {
+            id: "entry-c",
+            lorebookId: "book-a",
+            name: "Entry C",
+            content: "should not activate",
+            keys: ["gamma-key"],
+            enabled: true,
+            order: 30,
+          },
+        ],
+      },
+      calls,
+    );
+
+    const result = await scanActiveLorebooks({
+      storage,
+      chat: { id: "chat-1", mode: "roleplay", metadata: {} },
+      characters: [],
+      persona: null,
+      storedMessages: [{ id: "message-1", role: "user", content: "alpha-key" }],
+      embeddingSource: null,
+    });
+
+    const includedIds = result.processedLore.includedEntries.map((entry) => entry.entry.id);
+    expect(includedIds).toEqual(["entry-a", "entry-b"]);
+  });
+
   it("does not recursively activate from entries excluded by the chat lorebook budget", async () => {
     const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
     const storage = storageWithRows(
@@ -282,5 +351,49 @@ describe("scanActiveLorebooks", () => {
 
     expect(result.processedLore.includedEntries).toEqual([]);
     expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-budget-skipped-frontier"]);
+  });
+
+  it("keeps lower-priority entries skipped after the chat lorebook budget is exhausted", async () => {
+    const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
+    const storage = storageWithRows(
+      {
+        lorebooks: [{ id: "book-a", name: "Book A", enabled: true, isGlobal: true }],
+        "lorebook-folders": [],
+        "lorebook-entries": [
+          {
+            id: "entry-large",
+            lorebookId: "book-a",
+            name: "Large entry",
+            content: "This entry is too large for the tiny budget.",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 0,
+          },
+          {
+            id: "entry-small",
+            lorebookId: "book-a",
+            name: "Small entry",
+            content: "x",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 10,
+          },
+        ],
+      },
+      calls,
+    );
+
+    const result = await scanActiveLorebooks({
+      storage,
+      chat: { id: "chat-1", mode: "roleplay", metadata: {} },
+      characters: [],
+      persona: null,
+      storedMessages: [{ id: "message-1", role: "user", content: "alpha-key" }],
+      request: { lorebookTokenBudget: 1 },
+      embeddingSource: null,
+    });
+
+    expect(result.processedLore.includedEntries).toEqual([]);
+    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-large", "entry-small"]);
   });
 });
