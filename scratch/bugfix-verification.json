@@ -5,7 +5,10 @@
     "title": "[Issue]: Deleting conversation groups with branched conversations can make the app appear frozen",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2100"
   },
-  "pr": {},
+  "pr": {
+    "number": 2104,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2104"
+  },
   "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous Tauri command, and the user sees a pending delete state until the command settles.",
   "reproduction": {
     "attempted": true,
