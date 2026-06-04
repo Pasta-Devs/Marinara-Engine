@@ -231,31 +231,19 @@ export async function* generateLorebookMaker(
         ? `Generate exactly ${batchSize} lorebook entries based on: ${input.prompt}`
         : buildContinuationLorebookPrompt(input.prompt, batchSize, allEntries);
 
-    const raw = yield* runMakerRequest(
-      capabilities.llm,
-      input,
-      [
-        { role: "system", content: LOREBOOK_SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      16384,
-      signal,
-    );
+    const messages = [
+      { role: "system", content: LOREBOOK_SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ] satisfies LlmMessage[];
+    const result = yield* runLorebookMakerBatchWithParseRetry(capabilities.llm, input, messages, index + 1, signal);
 
-    const parsed = parseObject<LorebookMakerData>(raw);
     if (index === 0) {
-      lorebookName = stringOrEmpty(parsed.lorebook_name);
-      lorebookDescription = stringOrEmpty(parsed.lorebook_description);
-      category = stringOrEmpty(parsed.category);
+      lorebookName = stringOrEmpty(result.parsed.lorebook_name);
+      lorebookDescription = stringOrEmpty(result.parsed.lorebook_description);
+      category = stringOrEmpty(result.parsed.category);
     }
 
-    const entries = (Array.isArray(parsed.entries) ? parsed.entries : []).map(normalizeLorebookEntry);
-    if (entries.length === 0) {
-      yield {
-        type: "batch_warning",
-        data: { batch: index + 1, message: `Batch ${index + 1} did not produce valid entries.` },
-      };
-    }
+    const entries = result.entries;
     allEntries.push(...entries);
 
     if (batchSizes.length > 1) {
@@ -289,6 +277,36 @@ export async function* generateLorebookMaker(
     entries: allEntries,
   };
   yield { type: "done", data: JSON.stringify(payload) };
+}
+
+async function* runLorebookMakerBatchWithParseRetry(
+  llm: LlmGateway,
+  input: CharacterOrPersonaMakerInput,
+  messages: LlmMessage[],
+  batch: number,
+  signal?: AbortSignal,
+): AsyncGenerator<MakerEvent, { parsed: LorebookMakerData; entries: LorebookMakerEntry[] }> {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const raw = yield* runMakerRequest(llm, input, messages, 16384, signal);
+    const parsed = parseObject<LorebookMakerData>(raw);
+    const entries = (Array.isArray(parsed.entries) ? parsed.entries : []).map(normalizeLorebookEntry);
+    if (entries.length > 0 || attempt === 2) {
+      if (entries.length === 0) {
+        yield {
+          type: "batch_warning",
+          data: { batch, message: `Batch ${batch} did not produce valid entries.` },
+        };
+      }
+      return { parsed, entries };
+    }
+
+    yield {
+      type: "batch_warning",
+      data: { batch, message: `Batch ${batch} did not produce valid entries. Retrying once.` },
+    };
+  }
+
+  return { parsed: {}, entries: [] };
 }
 
 async function* generateJsonMaker(
