@@ -310,7 +310,12 @@ export function useUpdateCharacter() {
 export function useCharacterVersions(id: string | null) {
   return useQuery({
     queryKey: characterKeys.versions(id ?? ""),
-    queryFn: () => storageApi.list<CharacterCardVersion>("character-versions", { filters: { characterId: id } }),
+    queryFn: () =>
+      storageApi.list<CharacterCardVersion>("character-versions", {
+        filters: { characterId: id },
+        orderBy: "createdAt",
+        descending: true,
+      }),
     enabled: !!id,
     staleTime: 60_000,
   });
