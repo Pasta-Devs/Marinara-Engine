@@ -9,7 +9,7 @@
     "number": 2218,
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2218"
   },
-  "coreClaim": "Game asset generation forwards per-kind negative prompts and preserves NPC species cues in portrait prompts.",
+  "coreClaim": "Game asset generation forwards per-kind negative prompts and preserves NPC species cues in portrait prompts; after merging current refactor, the branch removes duplicate Rust type aliases so the target baseline compiles.",
   "assignment": {
     "assignee": "@me",
     "assignedBeforeWork": true,
@@ -47,15 +47,18 @@
     "visualProof": "Non-UI request-building bug; proof is the actual terminal output from the before/after source proof script and focused Vitest run.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
+    "rustMergeCheckCommand": "cargo check --manifest-path src-tauri/Cargo.toml --workspace",
+    "rustMergeCheckEvidence": "cargo check passed after removing duplicate LorebookEntryAtomicRows and LorebookFolderDeleteAtomicRows aliases introduced by the current refactor base.",
     "baselineEvidence": "pnpm check passed after the final diff, including line endings, architecture, frontend typecheck, Rust check, docs, discovery, launcher safety, and unused-code checks."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Game asset generation restores prompt safeguards without changing storage, provider credentials, or generated asset persistence.",
-    "riskType": "prompt/request payload generation",
+    "coreClaim": "Game asset generation restores prompt safeguards without changing storage behavior, provider credentials, or generated asset persistence; duplicate Rust storage type aliases were removed after merging the current refactor base.",
+    "riskType": "prompt/request payload generation plus compile-only Rust alias cleanup",
     "entrypoints": [
       "src/features/modes/game/api/game-api.ts previewGeneratedAssets",
       "src/features/modes/game/api/game-api.ts generateAssets",
-      "imageGenerationApi.generate request body"
+      "imageGenerationApi.generate request body",
+      "src-tauri/src/commands/storage/commands/entities.rs type aliases"
     ],
     "currentPathsOrFormats": [
       "background preview item -> imageGenerationApi.generate",
@@ -83,7 +86,8 @@
     "groundTruthFacts": [
       "harness-proven: node scratch/issue-2137-prompt-proof.mjs after verified generateAssets request body contains negativePrompt: item.negativePrompt",
       "harness-proven: pnpm test src/features/modes/game/api/game-api.test.ts verified gameAssetNegativePrompt returns per-kind prompt text",
-      "harness-proven: pnpm test src/features/modes/game/api/game-api.test.ts verified sceneAssetPrompt applies portrait species rules"
+      "harness-proven: pnpm test src/features/modes/game/api/game-api.test.ts verified sceneAssetPrompt applies portrait species rules",
+      "harness-proven: cargo check --manifest-path src-tauri/Cargo.toml --workspace verified the duplicate Rust alias cleanup compiles"
     ],
     "userActionCopy": [],
     "manualBlockers": []

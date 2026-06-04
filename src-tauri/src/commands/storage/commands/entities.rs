@@ -1116,10 +1116,6 @@ fn delete_lorebook_folder_with_entry_reparent_sync(
     )
 }
 
-type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
-type LorebookFolderDeleteAtomicRows<'a> =
-    (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
-
 fn lorebook_entry_atomic_rows(
     collections: &mut [marinara_storage::AtomicCollectionRows],
 ) -> Result<LorebookEntryAtomicRows<'_>, AppError> {
