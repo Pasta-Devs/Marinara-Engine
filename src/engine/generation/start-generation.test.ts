@@ -451,6 +451,37 @@ describe("startGeneration context injection compatibility", () => {
       },
     });
   });
+
+  it("does not erase regenerated message metadata when direct target lookup fails", async () => {
+    const capture: { extraPatches: Array<{ messageId: string; patch: Record<string, unknown> }> } = {
+      extraPatches: [],
+    };
+    const deps = createDeps("idle", { capture });
+    const originalGet = deps.storage.get;
+    deps.storage.get = async <T = unknown>(
+      entity: StorageEntity,
+      id: string,
+      options?: Parameters<StorageGateway["get"]>[2],
+    ): Promise<T | null> => {
+      if (entity === "messages" && id === "assistant-1") {
+        throw new Error("target read failed");
+      }
+      return originalGet<T>(entity, id, options);
+    };
+
+    await expect(async () => {
+      for await (const event of startGeneration(deps, {
+        chatId: "chat-1",
+        message: "Regenerate that.",
+        regenerateMessageId: "assistant-1",
+        agentInjectionOverrides: [{ agentType: "secret-plot", text: "New secret plot guidance." }],
+      })) {
+        if (event.type === "done") break;
+      }
+    }).rejects.toThrow("target read failed");
+
+    expect(capture.extraPatches).toHaveLength(0);
+  });
 });
 
 describe("startGeneration agent injection review", () => {

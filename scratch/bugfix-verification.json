@@ -28,14 +28,15 @@
     "laneValidationResult": "Passed.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Passed pnpm check after resolving upstream/refactor conflict: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
+    "baselineEvidence": "Passed pnpm check after resolving upstream/refactor conflict and Bunny follow-up: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
     "visualProof": "Backend logic proof: targeted Vitest output captured in command log; no meaningful UI state.",
-    "focusedProof": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts src/engine/generation-core/lorebooks/prompt-injector.test.ts src/engine/generation/start-generation.test.ts passed after conflict resolution with 17 tests."
+    "focusedProof": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts src/engine/generation-core/lorebooks/prompt-injector.test.ts src/engine/generation/start-generation.test.ts passed after conflict resolution and Bunny follow-up with 18 tests."
   },
   "manualBlockers": [],
   "notes": [
     "Resolved upstream/refactor merge conflict by keeping issue-2185 verification in the singleton tracked ledger; upstream issue-2170 proof belongs to PR #2246.",
-    "Conflict-resolution focused checks passed: active-lorebook-scanner.test.ts, prompt-injector.test.ts, and start-generation.test.ts."
+    "Conflict-resolution focused checks passed: active-lorebook-scanner.test.ts, prompt-injector.test.ts, and start-generation.test.ts.",
+    "Bunny follow-up fixed regenerate metadata preservation so a direct target-message storage read failure aborts instead of silently dropping existing extra."
   ],
   "riskClaimMatrix": {
     "coreClaim": "Recursive lorebook scanning activates entries across the full active lorebook set from budget-selected frontier content while respecting depth and preventRecursion.",
@@ -61,6 +62,9 @@
       "Configured maxRecursionDepth=1 did not activate the second-hop target keyed by first recursive result content.",
       "A selected entry from a non-recursive lorebook did not become recursive frontier content."
     ],
+    "adjacentRowsTested": [
+      "Regenerated message metadata preservation aborts without patching when direct target lookup fails."
+    ],
     "groundTruthFacts": [
       {
         "fact": "Legacy scanned all relevant entries together and recursed only from budget-selected candidates.",
@@ -83,7 +87,7 @@
     "claimBoundariesProven": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": false,
-    "notes": "Focused tests, proof gate, and pnpm check passed after upstream/refactor conflict resolution. PR acceptance is pending push, CI, Bunny, and CodeRabbit."
+    "notes": "Focused tests, proof gate, and pnpm check passed after upstream/refactor conflict resolution and Bunny follow-up. PR acceptance is pending push, CI, Bunny, and CodeRabbit."
   },
   "reviewThreads": [
     {
@@ -99,10 +103,17 @@
       "disposition": "fixed",
       "commit": "review follow-up commit",
       "reason": "Budget selection state now keeps chat budget exhaustion and per-lorebook budget exhaustion sticky for later candidates. Added a regression row proving a later lower-priority entry remains skipped after the chat budget is exhausted."
+    },
+    {
+      "finding": "Bunny: storage failure is transmuted into metadata loss.",
+      "classification": "merge-conflict follow-up",
+      "disposition": "fixed",
+      "commit": "conflict follow-up commit",
+      "reason": "regenerationTargetExtra now lets the direct target-message load fail instead of treating it as absent metadata. Added a regression row proving no regenerated message extra patch is written after the storage read fails."
     }
   ],
   "bunny": {
     "status": "local-pass-after-conflict-resolution",
-    "evidence": "Issue match is direct; conflict resolution kept issue-2185 proof while merging upstream/refactor changes; combined active-entry recursion now scans across active lorebooks and only recurses from budget-selected entries whose lorebook enables recursion; focused generation tests and pnpm check passed after conflict resolution; no dependencies, schema, storage persistence, API, UI, auth, or release files changed."
+    "evidence": "Issue match is direct; conflict resolution kept issue-2185 proof while merging upstream/refactor changes; combined active-entry recursion now scans across active lorebooks and only recurses from budget-selected entries whose lorebook enables recursion; focused generation tests passed after conflict resolution and Bunny follow-up; no dependencies, schema, storage persistence, API, UI, auth, or release files changed."
   }
 }

@@ -1079,7 +1079,7 @@ async function regenerationTargetExtra(
   if (!targetId) return undefined;
   const loadedTarget = storedMessages.find((message) => readString(message.id) === targetId);
   if (loadedTarget) return loadedTarget.extra;
-  const target = await loadChatMessage(storage, targetId).catch(() => null);
+  const target = await loadChatMessage(storage, targetId);
   return targetBelongsToChat(target, chatId) ? target.extra : undefined;
 }
 
