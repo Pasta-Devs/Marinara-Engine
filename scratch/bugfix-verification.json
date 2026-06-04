@@ -19,6 +19,12 @@
     "base": "origin/refactor",
     "name": "fix/issue-2155-inline-gm-bg-guidance"
   },
+  "pr": {
+    "number": 2235,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2235",
+    "base": "refactor",
+    "draft": true
+  },
   "dependencies": {
     "installedFromLockfile": true,
     "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change dependency declarations."
@@ -102,7 +108,7 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": false,
     "claimBoundariesProven": true,
-    "notes": "Focused proof and typecheck passed. Full pnpm check is blocked by a pre-existing unused exported type outside this diff, so the PR must stay draft."
+    "notes": "Focused proof and typecheck passed. Full pnpm check is blocked by a pre-existing unused exported type outside this diff, so PR #2235 stays draft."
   },
   "bunny": {
     "status": "pass-for-draft",
