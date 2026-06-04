@@ -164,6 +164,7 @@ describe("assembleGenerationPrompt character markers", () => {
             name: "Alice",
             description: "Alice description.",
             personality: "Alice personality",
+            scenario: "Alice scenario",
           },
         },
         {
@@ -171,7 +172,8 @@ describe("assembleGenerationPrompt character markers", () => {
           data: {
             name: "Bob",
             description: "Bob description references {{personality}} for {{char}} and {{user}}.",
-            personality: "Bob personality",
+            personality: "Bob personality with {{scenario}}",
+            scenario: "Bob scenario",
           },
         },
       ],
@@ -192,8 +194,9 @@ describe("assembleGenerationPrompt character markers", () => {
 
     const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
     expect(prompt).toContain("Global speaker is Alice.");
-    expect(prompt).toContain("Bob description references Bob personality for Bob and Celia.");
-    expect(prompt).not.toContain("Bob description references Alice personality for Alice and Celia.");
+    expect(prompt).toContain("Bob description references Bob personality with Bob scenario for Bob and Celia.");
+    expect(prompt).not.toContain("Bob description references Alice personality");
+    expect(prompt).not.toContain("Alice scenario for Bob");
   });
 });
 

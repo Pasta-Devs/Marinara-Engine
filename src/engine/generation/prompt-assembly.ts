@@ -2915,7 +2915,8 @@ export async function assembleGenerationPrompt(
         wrapFormat,
         macros,
       });
-      const resolved = cleanPromptText(resolveMacros(rawContent, macros));
+      const resolvedContent = marker?.type === "character" ? rawContent : resolveMacros(rawContent, macros);
+      const resolved = cleanPromptText(resolvedContent);
       if (!resolved.trim()) continue;
       if (marker?.type === "chat_summary" && summary?.trim()) insertedSummary = true;
       if (marker?.type === "agent_data") {
