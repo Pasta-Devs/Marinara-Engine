@@ -57,8 +57,8 @@ export function mergeCharacterDetailIntoCharacterJson(
     setStringField(target, key, value);
   }
 
-  if (typeof detail.name === "string" && detail.name.trim()) target.name = detail.name;
-  if (typeof detail.creator === "string" && detail.creator.trim()) target.creator = detail.creator;
+  setStringField(target, "name", detail.name);
+  setStringField(target, "creator", detail.creator);
   if (Array.isArray(detail.tags)) target.tags = detail.tags;
   if (Array.isArray(detail.alternateGreetings)) target.alternate_greetings = detail.alternateGreetings;
 
