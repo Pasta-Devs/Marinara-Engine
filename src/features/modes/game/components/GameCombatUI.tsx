@@ -598,17 +598,18 @@ function findDialogueCombatant(
   const speakerKey = normalizeCombatCueName(line.character);
   if (!speakerKey) return null;
 
-  const partyMatch = party.find(
-    (combatant) =>
-      normalizeCombatCueName(combatant.name) === speakerKey || normalizeCombatCueName(combatant.id) === speakerKey,
-  );
-  if (partyMatch) return { combatant: partyMatch, side: "player" };
+  const idMatches = [
+    ...party.map((combatant) => ({ combatant, side: "player" as const })),
+    ...enemies.map((combatant) => ({ combatant, side: "enemy" as const })),
+  ].filter(({ combatant }) => normalizeCombatCueName(combatant.id) === speakerKey);
+  if (idMatches.length === 1) return idMatches[0]!;
+  if (idMatches.length > 1) return null;
 
-  const enemyMatch = enemies.find(
-    (combatant) =>
-      normalizeCombatCueName(combatant.name) === speakerKey || normalizeCombatCueName(combatant.id) === speakerKey,
-  );
-  if (enemyMatch) return { combatant: enemyMatch, side: "enemy" };
+  const nameMatches = [
+    ...party.map((combatant) => ({ combatant, side: "player" as const })),
+    ...enemies.map((combatant) => ({ combatant, side: "enemy" as const })),
+  ].filter(({ combatant }) => normalizeCombatCueName(combatant.name) === speakerKey);
+  if (nameMatches.length === 1) return nameMatches[0]!;
 
   return null;
 }
@@ -801,8 +802,7 @@ export function GameCombatUI({
         continue;
       }
 
-      const existing = byCombatantId.get(match.combatant.id) ?? [];
-      byCombatantId.set(match.combatant.id, [...existing, line].slice(-2));
+      byCombatantId.set(match.combatant.id, [line]);
     }
 
     return { byCombatantId, unanchored: unanchored.slice(-3) };
