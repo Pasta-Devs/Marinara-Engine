@@ -129,8 +129,9 @@ fn native_marinara_character_import_materializes_embedded_avatar() {
 }
 
 #[test]
-fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
+fn native_marinara_character_import_rolls_back_avatar_when_record_write_fails() {
     let state = test_state("native-character-avatar-rollback");
+    block_collection_writes(&state, "characters");
 
     let error = import_marinara_envelope(
         &state,
@@ -143,16 +144,13 @@ fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
                     "name": "Rollback Native Character Avatar",
                     "description": "Should be removed"
                 },
-                "avatar": embedded_avatar(),
-                "sprites": [
-                    { "data": "data:image/png;base64,not-valid-base64!" }
-                ]
+                "avatar": embedded_avatar()
             }
         }),
     )
-    .expect_err("sprite decode failure should reject character import");
+    .expect_err("character write failure should reject character import");
 
-    assert_eq!(error.code, "invalid_input");
+    assert_eq!(error.code, "io_error");
     assert!(
         state.storage.list("characters").unwrap().is_empty(),
         "failed native character import must remove the created character"
@@ -288,8 +286,9 @@ fn native_marinara_persona_import_materializes_embedded_avatar() {
 }
 
 #[test]
-fn native_marinara_persona_import_rolls_back_avatar_when_sprite_fails() {
+fn native_marinara_persona_import_rolls_back_avatar_when_record_write_fails() {
     let state = test_state("native-persona-avatar-rollback");
+    block_collection_writes(&state, "personas");
 
     let error = import_marinara_envelope(
         &state,
@@ -298,16 +297,13 @@ fn native_marinara_persona_import_rolls_back_avatar_when_sprite_fails() {
             "version": 1,
             "data": {
                 "name": "Rollback Native Persona Avatar",
-                "avatar": embedded_avatar(),
-                "sprites": [
-                    { "data": "data:image/png;base64,not-valid-base64!" }
-                ]
+                "avatar": embedded_avatar()
             }
         }),
     )
-    .expect_err("sprite decode failure should reject persona import");
+    .expect_err("persona write failure should reject persona import");
 
-    assert_eq!(error.code, "invalid_input");
+    assert_eq!(error.code, "io_error");
     assert!(
         state.storage.list("personas").unwrap().is_empty(),
         "failed native persona import must remove the created persona"
