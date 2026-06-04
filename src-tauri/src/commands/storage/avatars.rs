@@ -1029,7 +1029,7 @@ mod tests {
             &state,
             "characters",
             "char-1",
-            json!({ "avatar": "data:image/png;base64,bmV3" }),
+            json!({ "avatar": small_png_data_url() }),
         )
         .expect("avatar should update");
 

@@ -46,7 +46,7 @@ fn block_collection_writes(state: &AppState, collection: &str) {
 }
 
 fn embedded_avatar() -> String {
-    "data:image/png;base64,bmF0aXZlLWF2YXRhci1ieXRlcw==".to_string()
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==".to_string()
 }
 
 fn assert_managed_character_avatar(character: &Value) {
@@ -182,10 +182,10 @@ fn native_marinara_storage_record_import_preserves_plain_avatar_string() {
 }
 
 #[test]
-fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
-    let state = test_state("native-character-avatar-rollback");
+fn native_marinara_character_import_skips_malformed_optional_sprite() {
+    let state = test_state("native-character-invalid-sprite");
 
-    let error = import_marinara_envelope(
+    let imported = import_marinara_envelope(
         &state,
         json!({
             "type": "marinara_character",
@@ -203,17 +203,10 @@ fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
             }
         }),
     )
-    .expect_err("sprite decode failure should reject character import");
+    .expect("malformed optional sprites should be skipped");
 
-    assert_eq!(error.code, "invalid_input");
-    assert!(
-        state.storage.list("characters").unwrap().is_empty(),
-        "failed native character import must remove the created character"
-    );
-    assert!(
-        !state.data_dir.join("avatars").join("characters").exists(),
-        "failed native character import must remove the managed avatar file"
-    );
+    assert_managed_character_avatar(&imported["character"]);
+    assert_eq!(imported["spritesImported"], json!(0));
 }
 
 #[test]
