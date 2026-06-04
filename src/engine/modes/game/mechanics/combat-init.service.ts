@@ -7,12 +7,16 @@ import type { RPGStatsConfig } from "../../../contracts/types/character";
 import type { Chat, Message } from "../../../contracts/types/chat";
 import type {
   CombatAttack,
+  CombatDialogueCue,
   CombatEnemy,
   CombatInitState,
   CombatItemEffect,
+  CombatMechanic,
   CombatPartyMember,
   CombatStatus,
   CombatStyleNotes,
+  CombatVisualRequest,
+  EncounterSettings,
   EncounterInitRequest,
   EncounterInitResponse,
 } from "../../../contracts/types/combat-encounter";
@@ -23,6 +27,11 @@ type JsonRecord = Record<string, unknown>;
 type GameCombatInitCapabilities = {
   storage: StorageGateway;
   llm: LlmGateway;
+};
+
+type EncounterSettingsWithLegacyCount = EncounterSettings & {
+  enemies?: unknown;
+  enemyCount?: unknown;
 };
 
 type GameCombatInitContext = {
@@ -67,7 +76,7 @@ export async function initGameCombatEncounter(
 
 async function buildGameCombatInitContext(
   storage: StorageGateway,
-  input: Pick<EncounterInitRequest, "chatId" | "spellbookId">,
+  input: Pick<EncounterInitRequest, "chatId" | "spellbookId" | "settings">,
 ): Promise<GameCombatInitContext> {
   const chat = await requireChat(storage, input.chatId);
   const meta = parseJsonObject(chat.metadata);
@@ -87,6 +96,7 @@ async function buildGameCombatInitContext(
     gameCards,
     worldState,
     spellbookAttacks: spellbook.attacks,
+    settings: input.settings,
   });
 
   return {
@@ -144,9 +154,12 @@ async function buildGameStateContext(
   const worldState = await storage.getWorldState<unknown>(chatId).catch(() => ({}));
   const state = parseJsonObject(worldState);
   const lines: string[] = [];
+  const gameMap = parseJsonObject(meta.gameMap);
+  const mapName = stringValue(gameMap.name);
+  const trackedLocation = stringValue(state.location);
 
   for (const key of ["location", "weather", "time", "date"]) {
-    const value = stringValue(state[key]);
+    const value = key === "location" ? trackedLocation || mapName : stringValue(state[key]);
     if (value.trim()) lines.push(`${titleCase(key)}: ${value.trim()}`);
   }
 
@@ -191,9 +204,7 @@ async function buildGameStateContext(
     );
   }
 
-  const gameMap = parseJsonObject(meta.gameMap);
-  const mapName = stringValue(gameMap.name);
-  const location = stringValue(state.location) || mapName || null;
+  const location = trackedLocation || mapName || null;
   return { context: lines.join("\n"), location, playerItems };
 }
 
@@ -212,7 +223,7 @@ async function loadSpellbookContext(
     .map((entry) => {
       const name = stringValue(entry.name, "Spell");
       const content = stringValue(entry.content);
-      return content.trim() ? `<spell name="${name}">\n${content.trim()}\n</spell>` : "";
+      return content.trim() ? `<spell name="${escapePromptAttr(name)}">\n${content.trim()}\n</spell>` : "";
     })
     .filter(Boolean)
     .join("\n");
@@ -254,7 +265,7 @@ function buildPartyContext(cards: JsonRecord[]): string {
   return cards
     .map((card, index) => {
       const name = stringValue(card.name, `Party member ${index + 1}`);
-      const block = [`<party-member name="${name}">`];
+      const block = [`<party-member name="${escapePromptAttr(name)}">`];
       appendGameCardContext(block, card);
       for (const key of ["description", "personality", "scenario", "backstory", "appearance"]) {
         const value = stringValue(card[key]);
@@ -332,9 +343,9 @@ async function completeJsonObject(
   messages: LlmMessage[],
   parameters: Record<string, unknown>,
 ): Promise<JsonRecord | null> {
+  const connectionId = await resolveConnectionId(capabilities.storage, chat, overrideConnectionId);
+  const raw = await capabilities.llm.complete({ connectionId, messages, parameters });
   try {
-    const connectionId = await resolveConnectionId(capabilities.storage, chat, overrideConnectionId);
-    const raw = await capabilities.llm.complete({ connectionId, messages, parameters });
     const parsed = parseGameJsonish(raw);
     return isRecord(parsed) ? parsed : null;
   } catch {
@@ -381,6 +392,7 @@ function fallbackInitState(input: {
   gameCards: JsonRecord[];
   worldState: { location: string | null; playerItems: string[] };
   spellbookAttacks: CombatAttack[];
+  settings: EncounterSettingsWithLegacyCount;
 }): CombatInitState {
   const playerCard = input.gameCards[0];
   const gameRpgStats = parseRpgStats(playerCard?.rpgStats);
@@ -421,7 +433,7 @@ function fallbackInitState(input: {
 
   return {
     party,
-    enemies: [fallbackEnemy(0)],
+    enemies: Array.from({ length: fallbackEnemyCount(input.settings) }, (_, index) => fallbackEnemy(index)),
     environment: input.worldState.location || "the current area",
     styleNotes: DEFAULT_STYLE_NOTES,
     itemEffects: [
@@ -442,19 +454,15 @@ function fallbackInitState(input: {
 
 function sanitizeCombatInitState(value: JsonRecord | null, fallback: CombatInitState): CombatInitState {
   const source = value ?? {};
-  const itemEffects = arrayValue(source.itemEffects) as CombatItemEffect[] | null;
-  const dialogueCues = arrayValue(source.dialogueCues) as CombatInitState["dialogueCues"] | null;
-  const mechanics = arrayValue(source.mechanics) as CombatInitState["mechanics"] | null;
-  const visuals = recordValue(source.visuals) as CombatInitState["visuals"] | null;
   return {
     party: sanitizePartyArray(arrayValue(source.party), fallback.party),
     enemies: sanitizeEnemyArray(arrayValue(source.enemies), fallback.enemies),
     environment: stringValue(source.environment) || fallback.environment,
     styleNotes: sanitizeStyleNotes(recordValue(source.styleNotes), fallback.styleNotes),
-    itemEffects: itemEffects ?? fallback.itemEffects ?? [],
-    dialogueCues: dialogueCues ?? fallback.dialogueCues ?? [],
-    mechanics: mechanics ?? fallback.mechanics ?? [],
-    visuals: visuals ?? fallback.visuals,
+    itemEffects: sanitizeItemEffects(arrayValue(source.itemEffects), fallback.itemEffects ?? []),
+    dialogueCues: sanitizeDialogueCues(arrayValue(source.dialogueCues), fallback.dialogueCues ?? []),
+    mechanics: sanitizeMechanics(arrayValue(source.mechanics), fallback.mechanics ?? []),
+    visuals: sanitizeVisuals(recordValue(source.visuals), fallback.visuals),
   };
 }
 
@@ -557,6 +565,125 @@ function sanitizeStyleNotes(value: JsonRecord | null, fallback: CombatStyleNotes
   };
 }
 
+function sanitizeItemEffects(values: unknown[] | null, fallback: CombatItemEffect[]): CombatItemEffect[] {
+  const effects = (values ?? [])
+    .map((value): CombatItemEffect | null => {
+      const record = recordValue(value);
+      const name = stringValue(record?.name);
+      const target = combatItemTarget(record?.target);
+      const type = combatItemType(record?.type);
+      const description = stringValue(record?.description);
+      if (!name || !target || !type || !description) return null;
+      const effect: CombatItemEffect = { name, target, type, description };
+      const power = optionalNumber(record?.power);
+      const element = stringValue(record?.element);
+      const status = sanitizeStatus(recordValue(record?.status));
+      if (power !== undefined) effect.power = power;
+      if (element) effect.element = element;
+      if (status) effect.status = status;
+      if (typeof record?.consumes === "boolean") effect.consumes = record.consumes;
+      return effect;
+    })
+    .filter((effect): effect is CombatItemEffect => !!effect);
+  return effects.length > 0 ? effects : fallback;
+}
+
+function sanitizeDialogueCues(values: unknown[] | null, fallback: CombatDialogueCue[]): CombatDialogueCue[] {
+  const cues = (values ?? [])
+    .map((value): CombatDialogueCue | null => {
+      const record = recordValue(value);
+      const speaker = stringValue(record?.speaker);
+      const content = stringValue(record?.content);
+      const type = combatDialogueType(record?.type);
+      const trigger = combatDialogueTrigger(record?.trigger);
+      if (!speaker || !content || !type || !trigger) return null;
+      const cue: CombatDialogueCue = { speaker, content, type, trigger };
+      const expression = stringValue(record?.expression);
+      const target = stringValue(record?.target);
+      const round = optionalNumber(record?.round);
+      const everyNRounds = optionalNumber(record?.everyNRounds);
+      if (expression) cue.expression = expression;
+      if (target) cue.target = target;
+      if (round !== undefined) cue.round = round;
+      if (everyNRounds !== undefined) cue.everyNRounds = everyNRounds;
+      return cue;
+    })
+    .filter((cue): cue is CombatDialogueCue => !!cue);
+  return cues.length > 0 ? cues : fallback;
+}
+
+function sanitizeMechanics(values: unknown[] | null, fallback: CombatMechanic[]): CombatMechanic[] {
+  const mechanics = (values ?? [])
+    .map((value): CombatMechanic | null => {
+      const record = recordValue(value);
+      const name = stringValue(record?.name);
+      const description = stringValue(record?.description);
+      const trigger = combatMechanicTrigger(record?.trigger);
+      if (!name || !description || !trigger) return null;
+      const mechanic: CombatMechanic = { name, description, trigger };
+      const ownerName = stringValue(record?.ownerName);
+      const counterplay = stringValue(record?.counterplay);
+      const interval = optionalNumber(record?.interval);
+      const hpThreshold = optionalNumber(record?.hpThreshold);
+      const effectType = combatMechanicEffect(record?.effectType);
+      const power = optionalNumber(record?.power);
+      const element = stringValue(record?.element);
+      const status = sanitizeStatus(recordValue(record?.status));
+      if (ownerName) mechanic.ownerName = ownerName;
+      if (counterplay) mechanic.counterplay = counterplay;
+      if (interval !== undefined) mechanic.interval = interval;
+      if (hpThreshold !== undefined) mechanic.hpThreshold = hpThreshold;
+      if (effectType) mechanic.effectType = effectType;
+      if (power !== undefined) mechanic.power = power;
+      if (element) mechanic.element = element;
+      if (status) mechanic.status = status;
+      return mechanic;
+    })
+    .filter((mechanic): mechanic is CombatMechanic => !!mechanic);
+  return mechanics.length > 0 ? mechanics : fallback;
+}
+
+function sanitizeVisuals(value: JsonRecord | null, fallback?: CombatVisualRequest): CombatVisualRequest | undefined {
+  if (!value) return fallback;
+  const visuals: CombatVisualRequest = {};
+  if (typeof value.isBossFight === "boolean") visuals.isBossFight = value.isBossFight;
+  else if (typeof fallback?.isBossFight === "boolean") visuals.isBossFight = fallback.isBossFight;
+
+  const prompts = (arrayValue(value.enemyImagePrompts) ?? [])
+    .map((prompt): { name: string; prompt: string } | null => {
+      const record = recordValue(prompt);
+      const name = stringValue(record?.name);
+      const text = stringValue(record?.prompt);
+      return name && text ? { name, prompt: text } : null;
+    })
+    .filter((prompt): prompt is { name: string; prompt: string } => !!prompt);
+  visuals.enemyImagePrompts = prompts.length > 0 ? prompts : (fallback?.enemyImagePrompts ?? []);
+
+  const backgroundPrompt = stringValue(value.backgroundPrompt) || fallback?.backgroundPrompt;
+  const illustrationPrompt = stringValue(value.illustrationPrompt) || fallback?.illustrationPrompt;
+  const slug = stringValue(value.slug) || fallback?.slug;
+  if (backgroundPrompt) visuals.backgroundPrompt = backgroundPrompt;
+  if (illustrationPrompt) visuals.illustrationPrompt = illustrationPrompt;
+  if (slug) visuals.slug = slug;
+  return visuals;
+}
+
+function sanitizeStatus(value: JsonRecord | null, fallback?: CombatStatus): CombatStatus | undefined {
+  if (!value && !fallback) return undefined;
+  const name = stringValue(value?.name) || fallback?.name;
+  if (!name) return undefined;
+  const status: CombatStatus = {
+    name,
+    emoji: stringValue(value?.emoji) || fallback?.emoji || "",
+    duration: numberValue(value?.duration, fallback?.duration ?? 1),
+  };
+  const modifier = optionalNumber(value?.modifier) ?? fallback?.modifier;
+  const stat = combatStatusStat(value?.stat) ?? fallback?.stat;
+  if (modifier !== undefined) status.modifier = modifier;
+  if (stat) status.stat = stat;
+  return status;
+}
+
 async function recentHistory(storage: StorageGateway, chatId: string, depth: number): Promise<LlmMessage[]> {
   const messages = await messagesForChat(storage, chatId);
   const limit = Math.max(1, depth || 8);
@@ -570,8 +697,12 @@ async function recentHistory(storage: StorageGateway, chatId: string, depth: num
 }
 
 async function messagesForChat(storage: StorageGateway, chatId: string): Promise<Array<JsonRecord & Partial<Message>>> {
-  const rows = await storage.listChatMessages<unknown>(chatId);
-  return Array.isArray(rows) ? rows.filter(isRecord) : [];
+  try {
+    const rows = await storage.listChatMessages<unknown>(chatId);
+    return Array.isArray(rows) ? rows.filter(isRecord) : [];
+  } catch {
+    return [];
+  }
 }
 
 async function requireChat(storage: StorageGateway, chatId: string): Promise<JsonRecord & Partial<Chat>> {
@@ -611,6 +742,11 @@ function fallbackEnemy(index: number): CombatEnemy {
     description: "A hostile combatant.",
     sprite: "enemy",
   };
+}
+
+function fallbackEnemyCount(settings: EncounterSettingsWithLegacyCount): number {
+  const requested = numberValue(settings.enemyCount ?? settings.enemies, 1) || 1;
+  return Math.max(1, Math.min(6, requested));
 }
 
 function parsePersonaStats(value: unknown): PersonaStatsConfig | null {
@@ -710,6 +846,44 @@ function boolish(value: unknown, fallback = false): boolean {
   return fallback;
 }
 
+function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | null {
+  return typeof value === "string" && allowed.includes(value as T) ? (value as T) : null;
+}
+
+function combatItemTarget(value: unknown): CombatItemEffect["target"] | null {
+  return oneOf(value, ["self", "ally", "enemy", "any"] as const);
+}
+
+function combatItemType(value: unknown): CombatItemEffect["type"] | null {
+  return oneOf(value, ["heal", "damage", "buff", "debuff", "status", "utility"] as const);
+}
+
+function combatDialogueType(value: unknown): CombatDialogueCue["type"] | null {
+  return oneOf(value, ["main", "side", "extra", "thought", "whisper"] as const);
+}
+
+function combatDialogueTrigger(value: unknown): CombatDialogueCue["trigger"] | null {
+  return oneOf(
+    value,
+    ["intro", "round", "attack", "hit", "charge", "phase_75", "phase_50", "phase_25", "low_hp", "victory", "defeat"] as const,
+  );
+}
+
+function combatMechanicTrigger(value: unknown): CombatMechanic["trigger"] | null {
+  return oneOf(value, ["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"] as const);
+}
+
+function combatMechanicEffect(value: unknown): NonNullable<CombatMechanic["effectType"]> | null {
+  return oneOf(
+    value,
+    ["damage_all", "damage_one", "buff_self", "debuff_party", "status_party", "status_enemy"] as const,
+  );
+}
+
+function combatStatusStat(value: unknown): CombatStatus["stat"] | null {
+  return oneOf(value, ["attack", "defense", "speed", "hp"] as const);
+}
+
 function isRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
@@ -721,6 +895,14 @@ function clamp(value: number, min: number, max: number): number {
 function compact(value: string, maxLength: number): string {
   const normalized = value.split(/\s+/).join(" ").trim();
   return normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 1).trim()}...`;
+}
+
+function escapePromptAttr(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function titleCase(value: string): string {
