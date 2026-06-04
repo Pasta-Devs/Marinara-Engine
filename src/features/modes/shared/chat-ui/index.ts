@@ -29,6 +29,7 @@ export * from "./hooks/use-streaming-tts";
 export * from "./hooks/use-sprite-metadata-state";
 export * from "./lib/message-thinking";
 export * from "./lib/message-attachments";
+export * from "./lib/empty-new-chat";
 export * from "./lib/prompt-snapshot";
 export * from "./lib/transcript-render-window";
 export * from "./lib/transcript-scroll-geometry";

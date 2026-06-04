@@ -1,92 +1,84 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2070,
-    "title": "[Issue]: remote runtime JSON API calls lack legacy no-store cache policy",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2070"
+    "number": 2101,
+    "title": "[Issue]: New Conversation and New Chat can create completely empty conversations",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2101"
   },
-  "pr": {
-    "number": 2090,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2090"
-  },
-  "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
+  "coreClaim": "New Conversation and New Chat setup does not keep a persisted chat when setup finishes with no messages and no selected characters.",
   "assignment": {
     "assignee": "cha1latte",
     "assignedBeforeWork": true
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "workflow-health did not flag a duplicate for #2070; gh PR search for direct #2070 links returned no matches."
+    "details": "gh issue view showed no comments or linked fix. gh PR search for 2101 found only unrelated closed PR #1238."
   },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Static source repro plus regression test coverage",
-    "evidence": "Baseline HEAD src/shared/api/remote-runtime.ts did not contain cache: \"no-store\" fetch options; current tests assert the restored policy on every remote JSON/SSE fetch path."
+    "method": "Static source repro from upstream/refactor.",
+    "evidence": "On upstream/refactor, useStartNewChat and ModeHomeSurface create a chat with characterIds: [], ChatSetupWizard keeps Start Chatting disabled until characters exist, and the Skip buttons call onFinish. ConversationModeRoute and RoleplayModeRoute passed overlays.finishWizard as onWizardFinish, which only closed the wizard/opened settings and did not delete the placeholder."
   },
   "verification": {
     "originalReproPassed": true,
-    "baselinePassed": true,
-    "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after the final diff.",
     "focusedProof": [
-      "pnpm test -- src/shared/api/remote-runtime.test.ts: passed 5 tests.",
-      "cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: passed 1 test."
+      "pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts: passed 4 tests.",
+      "pnpm typecheck: passed.",
+      "pnpm check: passed."
     ],
     "edgeCases": [
-      "Health and invoke readiness probes set cache: \"no-store\".",
-      "Normal /api/invoke command calls set cache: \"no-store\".",
-      "Generic JSON event streams, including /api/import/st-bulk/run, set cache: \"no-store\".",
-      "LLM stream and cancel calls set cache: \"no-store\".",
-      "Rust hostable response helper preserves explicit managed asset cache headers while applying no-store to JSON API responses."
+      "Empty persisted setup placeholder with no characters and zero messages is classified for cleanup.",
+      "Setup with at least one selected character is kept.",
+      "Setup with at least one message is kept.",
+      "Unloaded chat state is not treated as an empty placeholder."
     ],
-    "visualProof": "Backend/logic proof captured as focused terminal command output in Codex transcript; no UI state exists for this cache-policy regression."
+    "baselinePassed": true,
+    "baselineCommand": "pnpm check",
+    "baselineEvidence": "pnpm check passed after fixing the public chat-ui export boundary.",
+    "visualProof": "Static/terminal proof only; no local Tauri shell UI was available for a screenshot of the affected persisted-state flow."
   },
+  "manualBlockers": [
+    {
+      "description": "True Tauri-shell click-through of New Conversation/New Chat persistence requires the desktop shell/runtime state; local proof uses static source reproduction plus focused regression tests.",
+      "blockingCoreClaim": false
+    }
+  ],
   "riskClaimMatrix": {
-    "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
-    "riskType": "remote runtime cache-policy compatibility",
+    "coreClaim": "New chat setup cleanup deletes only empty setup placeholders and keeps configured or messaged chats.",
+    "riskType": "persisted chat cleanup",
     "entrypoints": [
-      "src/shared/api/remote-runtime.ts health probe",
-      "src/shared/api/remote-runtime.ts /api/invoke calls",
-      "src/shared/api/remote-runtime.ts generic JSON/SSE stream calls",
-      "src/shared/api/remote-runtime.ts LLM stream and cancel calls",
-      "src-tauri/src/http_server.rs hostable HTTP response middleware"
+      "src/app/shell/useStartNewChat.ts new chat action",
+      "src/features/modes/router/components/ModeHomeSurface.tsx quick start",
+      "src/features/modes/shared/chat-ui/components/NewChatConnectionGate.tsx gated setup",
+      "src/features/modes/conversation/components/ConversationModeRoute.tsx setup finish",
+      "src/features/modes/roleplay/components/RoleplayModeRoute.tsx setup finish"
     ],
     "currentPathsOrFormats": [
-      "/health",
-      "/api/invoke",
-      "/api/import/st-bulk/run",
-      "/api/llm/stream",
-      "/api/llm/stream/:stream_id/cancel",
-      "/api/assets/:kind/*path"
+      "conversation chat records with no messages and no characterIds",
+      "roleplay chat records with no messages and no characterIds"
     ],
     "legacyPathsOrFormats": [
-      "legacy client shared API fetch cache: \"no-store\"",
-      "legacy server /api/* Cache-Control: no-store hook"
+      "existing persisted chats that already have messages",
+      "existing persisted chats that already have selected characters"
     ],
     "positiveRowsTested": [
-      "client health fetch",
-      "client invoke readiness fetch",
-      "client invoke fetch",
-      "client generic JSON event stream fetch",
-      "client LLM stream fetch",
-      "client LLM stream cancel fetch",
-      "server /api/invoke response helper"
+      "empty chat setup placeholder is classified for cleanup"
     ],
     "negativeRowsTested": [
-      "server managed asset route preserves explicit public/no-cache headers",
-      "server non-api asset path does not receive API no-store header"
+      "chat with characterIds is not classified for cleanup",
+      "chat with messages is not classified for cleanup",
+      "null/unloaded chat is not classified for cleanup"
     ],
     "groundTruthFacts": [
-      "Harness-proven by cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: http_server.rs applies no-store to API headers and preserves explicit managed asset cache headers.",
-      "Derived from git show HEAD:src/shared/api/remote-runtime.ts plus Select-String: baseline remote-runtime.ts lacked cache: \"no-store\" fetch options before this patch."
+      "Derived from artifact: upstream/refactor source inspection recorded in reproduction.evidence shows Skip called onFinish while Start Chatting was disabled without characters.",
+      "Harness-proven: pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts passed and covers empty, configured, messaged, and unloaded chat rows."
     ],
     "userActionCopy": "No user action required."
   },
-  "manualBlockers": [],
   "finalDoneGate": {
     "didFixBug": true,
-    "hasProfessionalVisualProof": true,
+    "hasProfessionalVisualProof": false,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true
   }

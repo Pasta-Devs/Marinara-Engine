@@ -5,6 +5,7 @@ import { useEncounterStore } from "../../../../shared/stores/encounter.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { spriteApi } from "../../../../shared/api/image-generation-api";
 import { agentConfigEnabled, useAgentConfigs, type AgentConfigRow } from "../../../catalog/agents/index";
+import { useDeleteChat } from "../../../catalog/chats/index";
 import { spriteKeys, type SpriteInfo } from "../../../catalog/sprites/index";
 import {
   type ExpressionAvatarResolver,
@@ -17,6 +18,7 @@ import {
   useChatTranscriptShortcuts,
   useChatTtsAutoplay,
   useSpriteMetadataState,
+  isEmptyNewChatSetup,
 } from "../../shared/chat-ui/index";
 import { useEncounter } from "../encounter/hooks/use-encounter";
 import { useAgentInjectionReview } from "../hooks/use-agent-injection-review";
@@ -74,6 +76,8 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
   const centerCompact = useUIStore((state) => state.centerCompact);
   const weatherEffects = useUIStore((state) => state.weatherEffects);
   const pendingNewChatMode = useChatStore((state) => state.pendingNewChatMode);
+  const setActiveChatId = useChatStore((state) => state.setActiveChatId);
+  const deleteChat = useDeleteChat();
   const overlays = useChatOverlays(activeChatId);
   const data = useChatSurfaceData({
     activeChatId,
@@ -279,6 +283,29 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
     [activeChatId, forkScene, isForking, timeline.isStreaming],
   );
 
+  const handleFinishNewRoleplaySetup = useCallback(() => {
+    if (
+      isEmptyNewChatSetup({
+        chat: data.chat,
+        chatCharIds: data.chatCharIds,
+        totalMessageCount: data.totalMessageCount,
+      })
+    ) {
+      const cancellingChatId = activeChatId;
+      overlays.setWizardOpen(false);
+      void deleteChat
+        .mutateAsync(cancellingChatId)
+        .then(() => {
+          if (useChatStore.getState().activeChatId === cancellingChatId) setActiveChatId(null);
+        })
+        .catch(() => {
+          if (useChatStore.getState().activeChatId === cancellingChatId) overlays.setWizardOpen(true);
+        });
+      return;
+    }
+    overlays.finishWizard();
+  }, [activeChatId, data.chat, data.chatCharIds, data.totalMessageCount, deleteChat, overlays, setActiveChatId]);
+
   const cardCssMode = (() => {
     const mode = data.chatMeta.cardCssMode;
     if (mode === "disabled" || mode === "exclusive") return mode;
@@ -376,7 +403,7 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
         onCloseFiles={overlays.closeFiles}
         onCloseGallery={overlays.closeGallery}
         onIllustrate={timeline.handleIllustrate}
-        onWizardFinish={overlays.finishWizard}
+        onWizardFinish={handleFinishNewRoleplaySetup}
         onClosePeekPrompt={timeline.closePeekPrompt}
         onResetSpritePlacements={spriteState.handleResetSpritePlacements}
         onSpriteSideChange={spriteState.handleSetSpritePosition}
