@@ -284,6 +284,29 @@ export function useCreateLorebookEntry() {
   });
 }
 
+export function useDuplicateLorebookEntry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entry }: { entry: LorebookEntry }) => {
+      // Clone every field except the server-managed id/timestamps (the create
+      // schema strips unknown keys), appending " (Copy)" to the name. Spreading
+      // the source preserves its `order`, so the copy lands next to the original
+      // instead of at the schema's default order — and folderId, keys, filters,
+      // embedding, and all activation/injection settings carry over verbatim.
+      const clone = { ...(entry as unknown as Record<string, unknown>) };
+      delete clone.id;
+      return storageApi.create<LorebookEntry>(
+        "lorebook-entries",
+        createLorebookEntrySchema.parse({ ...clone, name: `${entry.name} (Copy)` }),
+      );
+    },
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.entry.lorebookId) });
+      qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+    },
+  });
+}
+
 export function useUpdateLorebookEntry() {
   const qc = useQueryClient();
   return useMutation({

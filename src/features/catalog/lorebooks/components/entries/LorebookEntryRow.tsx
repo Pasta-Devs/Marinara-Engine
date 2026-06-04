@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   CheckSquare2,
   CircleDashed,
+  Copy,
   GripVertical,
   Hash,
   Lock,
@@ -31,7 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../../../../shared/lib/utils";
 import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
-import { useUpdateLorebookEntry, useDeleteLorebookEntry } from "../../hooks/use-lorebooks";
+import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
 import type { LorebookEntry, LorebookFolder } from "../../../../../engine/contracts/types/lorebook";
 import { estimateTokens } from "../shared/LorebookFormFields";
 import { LorebookEntryDrawer } from "./LorebookEntryDrawer";
@@ -104,6 +105,7 @@ export function LorebookEntryRow({
 }: Props) {
   const updateEntry = useUpdateLorebookEntry();
   const deleteEntry = useDeleteLorebookEntry();
+  const duplicateEntry = useDuplicateLorebookEntry();
 
   // ── Inline-control optimistic state ──
   // We keep a local mirror of the entry's fields so the inputs feel snappy
@@ -242,6 +244,14 @@ export function LorebookEntryRow({
       deleteEntry.mutate({ lorebookId, entryId: entry.id });
     },
     [lorebookId, entry.id, deleteEntry],
+  );
+
+  const handleDuplicate = useCallback(
+    (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      duplicateEntry.mutate({ entry });
+    },
+    [duplicateEntry, entry],
   );
 
   const showDepthInput = localPosition === 2;
@@ -621,6 +631,18 @@ export function LorebookEntryRow({
           <Hash size="0.5625rem" />
           {estimateTokens(entry.content).toLocaleString()}
         </span>
+
+        {/* Duplicate button (visible on hover, always on mobile) */}
+        <button
+          type="button"
+          aria-label="Duplicate entry"
+          title="Duplicate entry"
+          onClick={handleDuplicate}
+          disabled={duplicateEntry.isPending}
+          className="shrink-0 rounded p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 disabled:opacity-40 max-md:opacity-100"
+        >
+          <Copy size="0.75rem" />
+        </button>
 
         {/* Delete button (visible on hover, always on mobile) */}
         <button
