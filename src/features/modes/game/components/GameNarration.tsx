@@ -5173,6 +5173,8 @@ function parseNarrationSegments(message: NarrationMessage, speakerColors: Map<st
   const parsed: NarrationSegment[] = [];
   const readablePlaceholderRe = /^__READABLE_(\d+)__$/;
   const compactDialogueRegex = /^\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
+  const legacyDialogueRegex = /^\s*Dialogue\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
+  const narrationPrefixRegex = /^\s*Narration\s*:\s*(.+)$/i;
   const partyLineRegex =
     /^\s*\[([^\]]+)\]\s*\[(main|side|extra|action|thought|whisper(?::([^\]]+))?)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
 
@@ -5266,7 +5268,25 @@ function parseNarrationSegments(message: NarrationMessage, speakerColors: Map<st
       continue;
     }
 
-    const dialogueMatch = line.match(compactDialogueRegex);
+    const narrationMatch = line.match(narrationPrefixRegex);
+    if (narrationMatch) {
+      if (fallbackText.trim()) {
+        parsed.push({
+          id: `${message.id}-fallback-${parsed.length}`,
+          type: "narration",
+          content: fallbackText.trim(),
+        });
+        fallbackText = "";
+      }
+      parsed.push({
+        id: `${message.id}-n-${parsed.length}`,
+        type: "narration",
+        content: narrationMatch[1]!.trim(),
+      });
+      continue;
+    }
+
+    const dialogueMatch = line.match(legacyDialogueRegex) || line.match(compactDialogueRegex);
     if (dialogueMatch) {
       if (fallbackText.trim()) {
         parsed.push({
@@ -5328,6 +5348,8 @@ function truncateMessageContentAtSegment(rawContent: string, segmentIndexInclusi
   const lines = buildTruncationLines(rawContent || "");
   const readablePlaceholderRe = /^__READABLE_(\d+)__$/;
   const compactDialogueRegex = /^\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
+  const legacyDialogueRegex = /^\s*Dialogue\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
+  const narrationPrefixRegex = /^\s*Narration\s*:\s*(.+)$/i;
   const partyLineRegex =
     /^\s*\[([^\]]+)\]\s*\[(main|side|extra|action|thought|whisper(?::([^\]]+))?)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
 
@@ -5348,7 +5370,12 @@ function truncateMessageContentAtSegment(rawContent: string, segmentIndexInclusi
       continue;
     }
 
-    const isSpecial = readablePlaceholderRe.test(line) || partyLineRegex.test(line) || compactDialogueRegex.test(line);
+    const isSpecial =
+      readablePlaceholderRe.test(line) ||
+      partyLineRegex.test(line) ||
+      narrationPrefixRegex.test(line) ||
+      legacyDialogueRegex.test(line) ||
+      compactDialogueRegex.test(line);
 
     if (isSpecial) {
       if (pendingFallback) {
