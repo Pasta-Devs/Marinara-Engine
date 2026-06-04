@@ -24,6 +24,7 @@ import {
 } from "./active-characters";
 import { persistSecretPlotAgentMemory, type SecretPlotRerollMode } from "./agent-memory-runtime";
 import { createGenerationAgentRuntime } from "./agent-runner";
+import { buildBuiltInAgentFallback, canonicalAgentActiveIdSet } from "./built-in-agent-fallback";
 import { consumePendingConnectedInfluences, persistConnectedCommandTags } from "./connected-commands";
 import { fitMessagesToContextWindow } from "./context-window";
 import type { LLMToolCall } from "../generation-core/llm/base-provider";
@@ -2275,11 +2276,7 @@ function lorebookKeeperRunInterval(agent: JsonRecord | null): number {
 }
 
 function chatActiveAgentIds(chat: JsonRecord): Set<string> {
-  return new Set(
-    stringArray(parseRecord(chat.metadata).activeAgentIds)
-      .map((id) => id.trim())
-      .filter(Boolean),
-  );
+  return canonicalAgentActiveIdSet(parseRecord(chat.metadata).activeAgentIds);
 }
 
 function chatHasLorebookKeeperEnabled(chat: JsonRecord, agent: JsonRecord): boolean {
@@ -2287,14 +2284,25 @@ function chatHasLorebookKeeperEnabled(chat: JsonRecord, agent: JsonRecord): bool
   const activeAgentIds = chatActiveAgentIds(chat);
   if (activeAgentIds.size > 0) {
     const id = readString(agent.id).trim();
-    return activeAgentIds.has(LOREBOOK_KEEPER_AGENT_TYPE) || (id ? activeAgentIds.has(id) : false);
+    return (
+      activeAgentIds.has(LOREBOOK_KEEPER_AGENT_TYPE) ||
+      (id ? activeAgentIds.has(id) : false)
+    );
   }
   return false;
 }
 
 async function lorebookKeeperAgent(storage: StorageGateway, chat: JsonRecord): Promise<JsonRecord | null> {
   const agents = await storage.list<JsonRecord>("agents").catch(() => []);
-  return agents.find((agent) => chatHasLorebookKeeperEnabled(chat, agent)) ?? null;
+  const persisted = agents.find((agent) => chatHasLorebookKeeperEnabled(chat, agent)) ?? null;
+  if (persisted) return persisted;
+  const activeAgentIds = chatActiveAgentIds(chat);
+  if (
+    activeAgentIds.has(LOREBOOK_KEEPER_AGENT_TYPE)
+  ) {
+    return buildBuiltInAgentFallback(LOREBOOK_KEEPER_AGENT_TYPE, { allowDisabled: true });
+  }
+  return null;
 }
 
 async function successfulLorebookKeeperMessageIds(storage: StorageGateway, chatId: string): Promise<Set<string>> {
