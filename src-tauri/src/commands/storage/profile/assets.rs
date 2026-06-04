@@ -59,6 +59,9 @@ struct ProfileAssetRestore {
     source: ProfileAssetSource,
 }
 
+type JsonProfileAssetPayload = (PathBuf, Vec<u8>);
+type JsonProfileAssetDecode = (Vec<JsonProfileAssetPayload>, Vec<Value>);
+
 pub(super) struct RestoredProfileAssets {
     restored: usize,
     transaction: Option<ProfileAssetTransaction>,
@@ -368,7 +371,7 @@ fn restore_profile_json_assets_in_root(
 fn decoded_profile_json_assets(
     raw_assets: Option<&Value>,
     allow_legacy_data_field: bool,
-) -> AppResult<(Vec<(PathBuf, Vec<u8>)>, Vec<Value>)> {
+) -> AppResult<JsonProfileAssetDecode> {
     let Some(assets) = profile_asset_manifest(raw_assets)? else {
         return Ok((Vec::new(), Vec::new()));
     };

@@ -75,7 +75,7 @@ pub(crate) fn import_profile_file(state: &AppState, path: &Path) -> AppResult<Va
             state,
             serde_json::from_reader(File::open(path)?).map_err(invalid_profile_json_error)?,
         ),
-        Some("zip") => import_profile_zip(state, &path),
+        Some("zip") => import_profile_zip(state, path),
         _ => Err(AppError::invalid_input(
             "Profile import must be a .json or .zip file",
         )),
