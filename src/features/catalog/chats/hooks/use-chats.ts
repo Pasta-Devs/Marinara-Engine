@@ -24,6 +24,7 @@ import { appendChatSummaryEntryToMetadata } from "../../../../engine/shared/text
 import { chatCommandApi } from "../../../../shared/api/chat-command-api";
 import { llmApi } from "../../../../shared/api/llm-api";
 import { storageApi } from "../../../../shared/api/storage-api";
+import { visualAssetsApi } from "../../../../shared/api/visual-assets-api";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { getExportErrorMessage } from "../../../shared/lib/export-feedback";
@@ -1050,7 +1051,7 @@ export function usePeekPrompt() {
   return useMutation({
     mutationFn: (input: string | PromptPreviewInput): Promise<PromptPreviewResult> => {
       const request: PromptPreviewInput = typeof input === "string" ? { chatId: input } : input;
-      return previewGenerationPrompt(storageApi, request);
+      return previewGenerationPrompt(storageApi, request, visualAssetsApi);
     },
   });
 }

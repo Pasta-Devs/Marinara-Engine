@@ -3,6 +3,7 @@ import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types
 import type { CharacterData } from "../contracts/types/character";
 import { BUILT_IN_AGENTS } from "../contracts/types/agent";
 import type { StorageGateway } from "../capabilities/storage";
+import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
 import { injectAtDepth } from "../generation-core/lorebooks/prompt-injector";
 import { wrapContent, wrapGroup } from "../generation-core/prompt/format-engine";
@@ -23,6 +24,7 @@ import type {
   SessionSummary,
 } from "../contracts/types/game";
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
+import { loadCharacterSprites, type CharacterSpriteSubject } from "../modes/game/prompts/sprite.service";
 import { formatPerceptionHints, generatePerceptionHints } from "../modes/game/mechanics/perception.service";
 import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
@@ -128,6 +130,7 @@ export interface PromptAssemblyInput {
       request?: { connectionId?: string | null; model?: string | null },
     ): Promise<number[][] | null>;
   } | null;
+  visuals?: VisualAssetGateway;
   persistPromptVariables?: boolean;
 }
 
@@ -637,6 +640,7 @@ async function buildGamePromptMessages(
   const partyIds = storedPartyIds.length ? storedPartyIds : stringArray(input.chat.characterIds);
   const partyNames: string[] = [];
   const partyCards: Array<{ name: string; card: string }> = [];
+  const spriteSubjects: CharacterSpriteSubject[] = [];
 
   for (const id of partyIds) {
     if (isPartyNpcId(id)) {
@@ -649,6 +653,7 @@ async function buildGamePromptMessages(
     const character = await loadCharacterById(storage, id, characterById);
     if (!character) continue;
     partyNames.push(character.name);
+    spriteSubjects.push({ id: character.id, name: character.name });
     partyCards.push({
       name: character.name,
       card: characterCardText(character, gameCardMap.get(character.name.toLowerCase())),
@@ -704,6 +709,7 @@ async function buildGamePromptMessages(
     perceptionHints: buildGamePerceptionHints(input.chat, meta, persona),
     moraleContext:
       meta.gameMorale == null ? undefined : `Current party morale: ${readNumber(meta.gameMorale, 50)} / 100.`,
+    characterSprites: await loadCharacterSprites(input.visuals, spriteSubjects),
     playerInventory: normalizeGameInventory(meta.gameInventory),
     language: readString(setup.language).trim() || undefined,
   };

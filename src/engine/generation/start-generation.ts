@@ -2349,6 +2349,7 @@ async function runGenerationAgentsForTarget(args: {
     request: input,
     latestUserInput: "",
     embeddingSource: generationEmbeddingSource(deps.llm, connection),
+    visuals: deps.visuals,
     persistPromptVariables: true,
   });
   const results: AgentResult[] = [];
@@ -2651,6 +2652,7 @@ export async function* startGeneration(
     request: input,
     latestUserInput,
     embeddingSource: generationEmbeddingSource(deps.llm, connection),
+    visuals: deps.visuals,
     persistPromptVariables: true,
   });
   throwIfAborted(signal);
@@ -2713,6 +2715,7 @@ export async function* startGeneration(
       latestUserInput,
       agentData: runtime?.agentData,
       embeddingSource: generationEmbeddingSource(deps.llm, connection),
+      visuals: deps.visuals,
       persistPromptVariables: true,
     });
     throwIfAborted(signal);

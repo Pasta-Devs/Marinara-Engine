@@ -1,60 +1,84 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2128,
-    "title": "Character editor quote formatting misses advanced card fields",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2128"
+    "number": 2135,
+    "title": "Game mode GM and party system prompts no longer receive the per-character sprite list",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2135"
   },
-  "pr": {
-    "number": 2201,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2201"
-  },
-  "coreClaim": "Character editor save formatting normalizes configured quote style for creator notes, system prompt, post-history instructions, and depth prompt text.",
-  "assignment": {
-    "assignee": "cha1latte",
-    "assignedBeforeWork": true,
-    "evidence": "gh issue edit 2128 --repo Pasta-Devs/Marinara-Engine --add-assignee \"@me\" returned the issue URL before reproduction or edits."
-  },
-  "preflight": {
-    "noAssociatedPr": true,
-    "details": "gh PR search for #2128 and the issue title returned no matches; no local branch or worktree for issue 2128 existed before this run."
-  },
+  "pr": null,
+  "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Focused Vitest regression test against the formatter model before the production patch.",
+    "method": "Copied the new prompt-assembly regression test into a pristine upstream/refactor worktree.",
     "evidence": [
-      "pnpm exec vitest run src\\features\\catalog\\characters\\lib\\character-editor-model.test.ts failed before the fix.",
-      "creator_notes returned `Creator says \"draft\".` instead of typographic quotes.",
-      "depth_prompt.prompt returned `Remember \"the signal\".` instead of typographic quotes."
+      "C:/tmp/Marinara-Engine-issue-2135-before: pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts failed before the fix.",
+      "The failing assertion showed the assembled game prompt did not contain Available custom sprites per character."
     ]
   },
   "verification": {
     "originalReproPassed": true,
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after the final production diff and again after merging upstream/refactor to resolve PR conflicts.",
+    "baselineEvidence": "passed after the reserved-only sprite edge-case patch",
     "focusedProof": [
-      "pnpm exec vitest run src\\features\\catalog\\characters\\lib\\character-editor-model.test.ts passed after the fix and Bunny repair.",
+      "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts src/engine/modes/game/prompts/sprite.service.test.ts passed.",
       "pnpm typecheck passed.",
-      "git diff --check passed."
+      "git diff --check passed.",
+      "node C:/Users/celia/.codex/tools/marinara-proof-gate.mjs scratch/bugfix-verification.json passed."
     ],
     "edgeCases": [
-      "creator_notes, system_prompt, and post_history_instructions now use typographic quote formatting.",
-      "creator_notes preserves complete <style>...</style> blocks while formatting surrounding prose.",
-      "depth_prompt.prompt now uses typographic quote formatting.",
-      "depth_prompt.depth, depth_prompt.role, and unrelated extension properties are preserved unchanged."
+      "GM prompt reminder includes party character expression sprite names from the visual asset gateway.",
+      "GM prompt reminder includes custom full-body aliases with the full_ prefix removed.",
+      "Engine-reserved automatic full-body poses such as full_idle are not exposed as model-visible full-body aliases.",
+      "A character with only automatic full-body poses is omitted from model-visible sprite listings instead of producing an empty party prompt line.",
+      "Prompt preview receives the visual asset gateway so manual prompt inspection matches generation."
     ],
-    "visualProof": "scratch/issue-2128-vitest-after.png",
-    "visualProofNotes": "Local screenshot rendered from the raw passing Vitest output in scratch/issue-2128-vitest-after.txt. There is no meaningful app UI state for this formatter-model proof."
+    "visualProof": "Backend prompt bug; before/after terminal proof from targeted Vitest runs is recorded in the PR body."
   },
   "manualBlockers": [],
-  "riskClaimMatrix": null,
+  "assignment": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2135",
+  "preflight": {
+    "noAssociatedPr": true,
+    "details": "Exact gh PR search for 2135 returned no matches; broader sprite-title search did not show an associated #2135 fix PR."
+  },
+  "riskClaimMatrix": {
+    "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
+    "riskType": "prompt assembly contract",
+    "entrypoints": [
+      "src/engine/generation/start-generation.ts",
+      "src/engine/generation/prompt-preview.ts",
+      "src/features/modes/game/api/game-api.ts partyTurn"
+    ],
+    "currentPathsOrFormats": [
+      "VisualAssetGateway.listSprites(ownerId, \"character\")",
+      "sprite expressions with full_ prefix for full-body poses"
+    ],
+    "legacyPathsOrFormats": [
+      "main listPartySprites buckets expression sprites, custom full-body aliases, and automatic poses"
+    ],
+    "positiveRowsTested": [
+      "expression sprites",
+      "custom full-body alias sprites",
+      "multiple party characters"
+    ],
+    "negativeRowsTested": [
+      "automatic-only full-body pose is not shown as a custom alias"
+    ],
+    "groundTruthFacts": [
+      {
+        "fact": "Saved sprites are exposed to engine code through VisualAssetGateway, not generic storage rows.",
+        "method": "derived from src/engine/capabilities/visual-assets.ts, src/shared/api/visual-assets-api.ts, and src-tauri/src/commands/storage/sprites.rs list_sprites."
+      }
+    ],
+    "userActionCopy": [],
+    "manualBlockers": []
+  },
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete. A later Bunny finding about creator-notes CSS was repaired with a focused regression row; the branch was merged with upstream/refactor to clear PR conflicts."
+    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete."
   }
 }
