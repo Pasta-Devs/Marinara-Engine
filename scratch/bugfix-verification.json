@@ -91,6 +91,6 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local proof, pnpm check, proof gate, Bunny pass, and upstream/refactor merge validation are complete."
+    "notes": "Local proof, pnpm check, proof gate, Bunny pass, and upstream/refactor merge validation are complete. PR body marks Feature Discoverability as N/A with a reason."
   }
 }
