@@ -3,6 +3,9 @@ use super::super::images::percent_encode_component;
 use super::super::shared::*;
 use super::super::*;
 use super::spotify_callback::start_callback_listener;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::sync::{Mutex, OnceLock};
 
 const SPOTIFY_SCOPES: &str = "streaming user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-private playlist-read-private playlist-modify-public playlist-modify-private user-library-read";
 const SPOTIFY_REDIRECT_URI: &str = "http://127.0.0.1:8754/spotify/callback";
@@ -17,6 +20,9 @@ const SPOTIFY_MIN_ARTIST_SIMILARITY: f64 = 0.2;
 const SPOTIFY_MIN_MATCH_SCORE: f64 = 70.0;
 const SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY: &str = "spotifyAccessTokenEncrypted";
 const SPOTIFY_REFRESH_TOKEN_ENCRYPTED_KEY: &str = "spotifyRefreshTokenEncrypted";
+const SPOTIFY_TRACK_INDEX_TTL_MS: u128 = 20 * 60_000;
+const SPOTIFY_TRACK_INDEX_CACHE_MAX: usize = 24;
+const SPOTIFY_TRACK_INDEX_MAX_TRACKS: u32 = 2_500;
 
 #[derive(Clone)]
 struct SpotifyTrack {
@@ -42,6 +48,19 @@ struct MatchedTrack {
     requested_artist: String,
     reason: Option<String>,
 }
+
+#[derive(Clone)]
+struct SpotifyTrackIndexCacheEntry {
+    tracks: Vec<Value>,
+    total: u64,
+    fetched_at: u128,
+    expires_at: u128,
+    truncated: bool,
+}
+
+static SPOTIFY_TRACK_INDEX_CACHE: OnceLock<
+    Mutex<std::collections::HashMap<String, SpotifyTrackIndexCacheEntry>>,
+> = OnceLock::new();
 
 pub(crate) async fn spotify_call(
     state: &AppState,
@@ -119,18 +138,16 @@ async fn search_tracks(state: &AppState, body: Value) -> AppResult<Value> {
     let credentials = resolve_credentials(state, &route, &body).await?;
     let source_type = spotify_source_type(&body);
     if source_type == "liked" {
-        let tracks = spotify_candidate_tracks_from_path(
+        return spotify_indexed_candidate_response(
             &credentials,
-            &format!("/me/tracks?limit={limit}&offset=0"),
+            "liked",
+            "liked",
+            body.get("playlistName").cloned().unwrap_or(Value::Null),
+            spotify_candidate_query(&body, query),
+            limit.min(80),
             &recent,
         )
-        .await?;
-        return Ok(json!({
-            "enabled": true,
-            "tracks": tracks,
-            "candidateMode": "liked",
-            "source": "liked"
-        }));
+        .await;
     }
     if source_type == "playlist" {
         let playlist_id = body
@@ -140,23 +157,16 @@ async fn search_tracks(state: &AppState, body: Value) -> AppResult<Value> {
             .ok_or_else(|| {
                 AppError::invalid_input("Spotify playlist source requires playlistId")
             })?;
-        let tracks = spotify_candidate_tracks_from_path(
+        return spotify_indexed_candidate_response(
             &credentials,
-            &format!(
-                "/playlists/{}/tracks?limit={limit}&offset=0",
-                percent_encode_component(playlist_id)
-            ),
+            playlist_id,
+            "playlist",
+            body.get("playlistName").cloned().unwrap_or(Value::Null),
+            spotify_candidate_query(&body, query),
+            limit.min(80),
             &recent,
         )
-        .await?;
-        return Ok(json!({
-            "enabled": true,
-            "tracks": tracks,
-            "candidateMode": "playlist",
-            "source": "playlist",
-            "playlistId": playlist_id,
-            "playlistName": body.get("playlistName").cloned().unwrap_or(Value::Null)
-        }));
+        .await;
     }
     let query = if source_type == "artist" {
         let artist = body
@@ -236,34 +246,408 @@ fn spotify_source_type(body: &Value) -> &str {
     }
 }
 
-async fn spotify_candidate_tracks_from_path(
-    credentials: &SpotifyCredentials,
-    path: &str,
-    recent: &[String],
-) -> AppResult<Vec<Value>> {
-    let response = spotify_api(credentials, path, "GET", None).await?;
-    if !(200..300).contains(&response.status) {
-        return Err(AppError::with_details(
-            "spotify_api_error",
-            "Spotify source tracks failed",
-            json!({ "status": response.status, "body": response.body }),
-        ));
+fn spotify_track_index_cache(
+) -> &'static Mutex<std::collections::HashMap<String, SpotifyTrackIndexCacheEntry>> {
+    SPOTIFY_TRACK_INDEX_CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
+fn spotify_cache_secret_hash(value: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn spotify_track_cache_key(credentials: &SpotifyCredentials, playlist_id: &str) -> String {
+    format!("{}:{playlist_id}", credentials.cache_key)
+}
+
+fn clear_spotify_track_index_cache_for_agent(agent_id: &str) {
+    if agent_id.trim().is_empty() {
+        return;
     }
+    let cache = spotify_track_index_cache();
+    let Ok(mut guard) = cache.lock() else {
+        return;
+    };
+    let prefix = format!("{agent_id}:");
+    guard.retain(|key, _| !key.starts_with(&prefix));
+}
+
+fn cached_spotify_track_index(
+    credentials: &SpotifyCredentials,
+    playlist_id: &str,
+) -> Option<SpotifyTrackIndexCacheEntry> {
+    let cache = spotify_track_index_cache();
+    let guard = cache.lock().ok()?;
+    let entry = guard.get(&spotify_track_cache_key(credentials, playlist_id))?;
+    if entry.expires_at > now_millis() {
+        Some(entry.clone())
+    } else {
+        None
+    }
+}
+
+fn store_spotify_track_index(
+    credentials: &SpotifyCredentials,
+    playlist_id: &str,
+    entry: SpotifyTrackIndexCacheEntry,
+) {
+    let cache = spotify_track_index_cache();
+    let Ok(mut guard) = cache.lock() else {
+        return;
+    };
+    guard.insert(spotify_track_cache_key(credentials, playlist_id), entry);
+    if guard.len() <= SPOTIFY_TRACK_INDEX_CACHE_MAX {
+        return;
+    }
+    let mut entries = guard
+        .iter()
+        .map(|(key, value)| (key.clone(), value.fetched_at))
+        .collect::<Vec<_>>();
+    entries.sort_by_key(|(_, fetched_at)| *fetched_at);
+    while guard.len() > SPOTIFY_TRACK_INDEX_CACHE_MAX {
+        let Some((key, _)) = entries.first().cloned() else {
+            break;
+        };
+        guard.remove(&key);
+        entries.remove(0);
+    }
+}
+
+fn spotify_candidate_query(body: &Value, fallback: &str) -> String {
+    let mut parts = [body.get("query"), body.get("mood"), body.get("scene")]
+        .into_iter()
+        .filter_map(|value| value.and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>();
+    if parts.is_empty() && !fallback.trim().is_empty() {
+        parts.push(fallback.trim());
+    }
+    parts.join(" ")
+}
+
+fn spotify_stop_word(token: &str) -> bool {
+    matches!(
+        token,
+        "a" | "an"
+            | "and"
+            | "for"
+            | "in"
+            | "of"
+            | "on"
+            | "or"
+            | "the"
+            | "to"
+            | "with"
+            | "music"
+            | "song"
+            | "track"
+    )
+}
+
+fn spotify_candidate_tokens(query: &str) -> Vec<String> {
+    let normalized = normalize_spotify_text(query);
+    let mut tokens = normalized
+        .split_whitespace()
+        .filter(|token| token.len() > 1 && !spotify_stop_word(token))
+        .map(ToOwned::to_owned)
+        .collect::<std::collections::HashSet<_>>();
+
+    if normalized.contains("battle")
+        || normalized.contains("combat")
+        || normalized.contains("fight")
+    {
+        tokens.insert("epic".to_string());
+        tokens.insert("intense".to_string());
+        tokens.insert("orchestral".to_string());
+    }
+    if normalized.contains("sad")
+        || normalized.contains("grief")
+        || normalized.contains("melancholy")
+    {
+        tokens.insert("melancholy".to_string());
+        tokens.insert("emotional".to_string());
+    }
+    if normalized.contains("tense")
+        || normalized.contains("suspense")
+        || normalized.contains("danger")
+    {
+        tokens.insert("dark".to_string());
+        tokens.insert("suspense".to_string());
+    }
+    if normalized.contains("peace") || normalized.contains("rest") || normalized.contains("calm") {
+        tokens.insert("calm".to_string());
+        tokens.insert("ambient".to_string());
+    }
+
+    let mut tokens = tokens.into_iter().collect::<Vec<_>>();
+    tokens.sort();
+    tokens
+}
+
+fn hash_fraction(value: &str) -> f64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish() as f64 / u64::MAX as f64
+}
+
+fn spotify_candidate_field(track: &Value, key: &str) -> String {
+    track
+        .get(key)
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn score_spotify_candidate(track: &Value, phrase: &str, tokens: &[String]) -> f64 {
+    let name = normalize_spotify_text(&spotify_candidate_field(track, "name"));
+    let artist = normalize_spotify_text(&spotify_candidate_field(track, "artist"));
+    let album = normalize_spotify_text(&spotify_candidate_field(track, "album"));
+    let haystack = format!("{name} {artist} {album}");
+    let mut score = 0.0;
+    if !phrase.is_empty() && haystack.contains(phrase) {
+        score += 35.0;
+    }
+    for token in tokens {
+        if name.contains(token) {
+            score += 8.0;
+        }
+        if album.contains(token) {
+            score += 4.0;
+        }
+        if artist.contains(token) {
+            score += 2.0;
+        }
+    }
+    let uri = spotify_candidate_field(track, "uri");
+    score + hash_fraction(&format!("{uri}:{phrase}")) * 0.01
+}
+
+fn candidate_with_score(track: &Value, score: f64) -> Value {
+    let mut next = track.clone();
+    if let Value::Object(object) = &mut next {
+        object.insert("score".to_string(), Value::from(score));
+    }
+    next
+}
+
+fn sample_spotify_tracks_evenly(tracks: &[Value], count: usize, seed: &str) -> Vec<Value> {
+    if tracks.len() <= count {
+        return tracks.to_vec();
+    }
+    let start_window = tracks.len().saturating_div(count).max(1);
+    let start = (hash_fraction(seed) * start_window as f64).floor() as usize;
+    let step = tracks.len() as f64 / count as f64;
+    let mut selected = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for index in 0..count * 3 {
+        if selected.len() >= count {
+            break;
+        }
+        let track_index = ((start as f64 + index as f64 * step).floor() as usize) % tracks.len();
+        let track = &tracks[track_index];
+        let uri = spotify_candidate_field(track, "uri");
+        if !uri.is_empty() && seen.insert(uri) {
+            selected.push(track.clone());
+        }
+    }
+    for track in tracks {
+        if selected.len() >= count {
+            break;
+        }
+        let uri = spotify_candidate_field(track, "uri");
+        if !uri.is_empty() && seen.insert(uri) {
+            selected.push(track.clone());
+        }
+    }
+    selected
+}
+
+fn select_spotify_track_candidates(
+    tracks: &[Value],
+    query: &str,
+    limit: usize,
+    playlist_id: &str,
+) -> (Vec<Value>, &'static str, Vec<String>) {
+    let phrase = normalize_spotify_text(query);
+    let tokens = spotify_candidate_tokens(query);
+    if tokens.is_empty() {
+        return (
+            sample_spotify_tracks_evenly(tracks, limit, &format!("{playlist_id}:balanced")),
+            "balanced_sample",
+            tokens,
+        );
+    }
+
+    let mut scored = tracks
+        .iter()
+        .map(|track| {
+            let score = score_spotify_candidate(track, &phrase, &tokens);
+            (candidate_with_score(track, score), score)
+        })
+        .collect::<Vec<_>>();
+    scored.sort_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+    let strong = scored
+        .iter()
+        .filter(|(_, score)| *score >= 2.0)
+        .map(|(track, _)| track.clone())
+        .collect::<Vec<_>>();
+    let mut selected = strong
+        .iter()
+        .take((limit as f64 * 0.8).floor() as usize)
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut seen = selected
+        .iter()
+        .map(|track| spotify_candidate_field(track, "uri"))
+        .collect::<std::collections::HashSet<_>>();
+    let reserve = limit.saturating_sub(selected.len());
+    if reserve > 0 {
+        let fallback_source = scored
+            .iter()
+            .map(|(track, _)| track.clone())
+            .filter(|track| !seen.contains(&spotify_candidate_field(track, "uri")))
+            .collect::<Vec<_>>();
+        for track in sample_spotify_tracks_evenly(
+            &fallback_source,
+            reserve,
+            &format!("{playlist_id}:{phrase}:fallback"),
+        ) {
+            let uri = spotify_candidate_field(&track, "uri");
+            if seen.insert(uri) {
+                selected.push(track);
+            }
+        }
+    }
+
+    (
+        selected.into_iter().take(limit).collect(),
+        if strong.is_empty() {
+            "balanced_sample"
+        } else {
+            "scored_candidates"
+        },
+        tokens,
+    )
+}
+
+fn playlist_item_candidate(item: Value, position: u32) -> Option<Value> {
+    let track = item
+        .get("track")
+        .cloned()
+        .or_else(|| item.get("item").cloned())
+        .unwrap_or(item);
+    let mut candidate = map_track_candidate(track)?;
+    if let Value::Object(object) = &mut candidate {
+        object.insert("position".to_string(), Value::from(position));
+    }
+    Some(candidate)
+}
+
+async fn fetch_spotify_track_index(
+    credentials: &SpotifyCredentials,
+    playlist_id: &str,
+) -> AppResult<(SpotifyTrackIndexCacheEntry, &'static str)> {
+    if let Some(entry) = cached_spotify_track_index(credentials, playlist_id) {
+        return Ok((entry, "hit"));
+    }
+
+    let mut tracks = Vec::new();
+    let mut offset = 0_u32;
+    let mut total = 0_u64;
+    let mut fetched_items = 0_u32;
+    let batch_size = 50_u32;
+
+    while offset < SPOTIFY_TRACK_INDEX_MAX_TRACKS {
+        let page_size = batch_size.min(SPOTIFY_TRACK_INDEX_MAX_TRACKS - offset);
+        let path = if playlist_id == "liked" {
+            format!("/me/tracks?limit={page_size}&offset={offset}")
+        } else {
+            format!(
+                "/playlists/{}/items?limit={page_size}&offset={offset}",
+                percent_encode_component(playlist_id)
+            )
+        };
+        let response = spotify_api(credentials, &path, "GET", None).await?;
+        if !(200..300).contains(&response.status) {
+            let message = if response.status == 403 && playlist_id != "liked" {
+                "Spotify rejected that playlist read. Reconnect Spotify, confirm playlist-read-private scope, or choose a playlist owned by this account."
+            } else {
+                "Spotify source tracks failed"
+            };
+            return Err(AppError::with_details(
+                "spotify_api_error",
+                message,
+                json!({
+                    "status": response.status,
+                    "body": response.body,
+                    "endpoint": if playlist_id == "liked" { "/me/tracks" } else { "/playlists/{id}/items" }
+                }),
+            ));
+        }
+        let items = response
+            .json
+            .get("items")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let item_count = items.len() as u32;
+        total = response
+            .json
+            .get("total")
+            .and_then(Value::as_u64)
+            .unwrap_or_else(|| total.max(u64::from(offset + item_count)));
+        fetched_items = offset + item_count;
+        for (index, item) in items.into_iter().enumerate() {
+            if let Some(candidate) = playlist_item_candidate(item, offset + index as u32 + 1) {
+                tracks.push(candidate);
+            }
+        }
+        let has_next = response
+            .json
+            .get("next")
+            .and_then(Value::as_str)
+            .is_some_and(|next| !next.trim().is_empty());
+        if !has_next || item_count == 0 || item_count < page_size {
+            break;
+        }
+        offset += item_count;
+    }
+
+    let entry = SpotifyTrackIndexCacheEntry {
+        total: if total == 0 {
+            tracks.len() as u64
+        } else {
+            total
+        },
+        truncated: fetched_items >= SPOTIFY_TRACK_INDEX_MAX_TRACKS
+            && u64::from(fetched_items) < total,
+        tracks,
+        fetched_at: now_millis(),
+        expires_at: now_millis() + SPOTIFY_TRACK_INDEX_TTL_MS,
+    };
+    store_spotify_track_index(credentials, playlist_id, entry.clone());
+    Ok((entry, "miss"))
+}
+
+async fn spotify_indexed_candidate_response(
+    credentials: &SpotifyCredentials,
+    playlist_id: &str,
+    source: &str,
+    playlist_name: Value,
+    query: String,
+    limit: u32,
+    recent: &[String],
+) -> AppResult<Value> {
+    let (index, cache_status) = fetch_spotify_track_index(credentials, playlist_id).await?;
     let recent = recent
         .iter()
         .map(|uri| uri.as_str())
         .collect::<std::collections::HashSet<_>>();
-    let all_tracks = response
-        .json
-        .get("items")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|item| item.get("track").cloned().or(Some(item)))
-        .filter_map(map_track_candidate)
-        .collect::<Vec<_>>();
-    let filtered = all_tracks
+    let filtered = index
+        .tracks
         .iter()
         .filter(|track| {
             track
@@ -273,11 +657,32 @@ async fn spotify_candidate_tracks_from_path(
         })
         .cloned()
         .collect::<Vec<_>>();
-    Ok(if filtered.is_empty() {
-        all_tracks
+    let source_tracks = if filtered.is_empty() {
+        index.tracks.as_slice()
     } else {
-        filtered
-    })
+        filtered.as_slice()
+    };
+    let candidate_limit = limit.clamp(1, 80) as usize;
+    let (tracks, candidate_mode, matched_tokens) =
+        select_spotify_track_candidates(source_tracks, &query, candidate_limit, playlist_id);
+    let count = tracks.len();
+
+    Ok(json!({
+        "enabled": true,
+        "playlistId": playlist_id,
+        "playlistName": playlist_name,
+        "tracks": tracks,
+        "count": count,
+        "total": index.total,
+        "indexedTrackCount": index.tracks.len(),
+        "cacheStatus": cache_status,
+        "candidateMode": candidate_mode,
+        "source": source,
+        "query": if query.trim().is_empty() { Value::Null } else { Value::String(query) },
+        "matchedTokens": matched_tokens,
+        "truncated": index.truncated,
+        "hint": "Spotify source was indexed and only scored candidates were returned. Pick from this shortlist; do not manually page unless you need raw browsing."
+    }))
 }
 
 async fn play_track(state: &AppState, body: Value) -> AppResult<Value> {
@@ -310,11 +715,43 @@ async fn playlist_tracks(state: &AppState, body: Value) -> AppResult<Value> {
         .min(10_000) as u32;
     let route = ParsedPath::new("");
     let credentials = resolve_credentials(state, &route, &body).await?;
+    let has_explicit_offset = body.get("offset").is_some();
+    if !has_explicit_offset {
+        let recent = body
+            .get("recentTrackUris")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .filter(|uri| uri.starts_with("spotify:track:"))
+                    .map(ToOwned::to_owned)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        return spotify_indexed_candidate_response(
+            &credentials,
+            playlist_id,
+            if playlist_id == "liked" {
+                "liked"
+            } else {
+                "playlist"
+            },
+            body.get("playlistName").cloned().unwrap_or(Value::Null),
+            spotify_candidate_query(&body, ""),
+            body.get("candidateLimit")
+                .and_then(Value::as_u64)
+                .unwrap_or(u64::from(limit))
+                .clamp(1, 80) as u32,
+            &recent,
+        )
+        .await;
+    }
     let path = if playlist_id == "liked" {
         format!("/me/tracks?limit={limit}&offset={offset}")
     } else {
         format!(
-            "/playlists/{}/tracks?limit={limit}&offset={offset}",
+            "/playlists/{}/items?limit={limit}&offset={offset}",
             percent_encode_component(playlist_id)
         )
     };
@@ -376,9 +813,18 @@ pub(crate) async fn game_spotify_play(
             json!({ "status": response.status, "body": response.body }),
         ));
     }
-    tokio::time::sleep(Duration::from_millis(250)).await;
-    let _ = spotify_player_repeat_command(&credentials, "track", device_id.as_deref()).await;
-    Ok(json!({ "played": true, "track": track }))
+    let repeat =
+        spotify_set_repeat_with_retries(&credentials, "track", device_id.as_deref(), 3).await?;
+    let playback = spotify_current_playback_summary(&credentials).await?;
+    Ok(json!({
+        "played": true,
+        "track": track,
+        "currentUri": playback.get("currentUri").cloned().unwrap_or(Value::Null),
+        "repeatState": repeat
+            .or_else(|| playback.get("repeatState").cloned())
+            .unwrap_or(Value::Null),
+        "device": playback.get("device").cloned().unwrap_or(Value::Null)
+    }))
 }
 
 async fn spotify_scene_device_id(
@@ -427,6 +873,20 @@ async fn spotify_available_device_id(
     credentials: &SpotifyCredentials,
     mobile_device_only: bool,
 ) -> AppResult<Option<String>> {
+    Ok(spotify_available_device(credentials, mobile_device_only)
+        .await?
+        .and_then(|device| {
+            device
+                .get("id")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        }))
+}
+
+async fn spotify_available_device(
+    credentials: &SpotifyCredentials,
+    mobile_device_only: bool,
+) -> AppResult<Option<Value>> {
     let response = spotify_api(credentials, "/me/player/devices", "GET", None).await?;
     if !(200..300).contains(&response.status) {
         return Ok(None);
@@ -450,12 +910,7 @@ async fn spotify_available_device_id(
                 .unwrap_or(false)
         })
         .or_else(|| candidates.first());
-    Ok(selected.and_then(|device| {
-        device
-            .get("id")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned)
-    }))
+    Ok(selected.cloned())
 }
 
 fn spotify_device_is_usable(device: &Value, mobile_device_only: bool) -> bool {
@@ -527,6 +982,79 @@ async fn spotify_player_repeat_command(
         None,
     )
     .await
+}
+
+async fn spotify_set_repeat_with_retries(
+    credentials: &SpotifyCredentials,
+    repeat: &str,
+    device_id: Option<&str>,
+    attempts: usize,
+) -> AppResult<Option<Value>> {
+    let attempts = attempts.max(1);
+    let mut latest_state = None;
+    for attempt in 0..attempts {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_millis(250 * attempt as u64)).await;
+        }
+        let response = spotify_player_repeat_command(credentials, repeat, device_id).await?;
+        if !spotify_response_ok(&response) {
+            continue;
+        }
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let playback = spotify_current_playback_summary(credentials).await?;
+        latest_state = playback.get("repeatState").cloned();
+        if latest_state.as_ref().and_then(Value::as_str) == Some(repeat) {
+            return Ok(latest_state);
+        }
+    }
+    Ok(latest_state)
+}
+
+async fn spotify_current_playback_summary(credentials: &SpotifyCredentials) -> AppResult<Value> {
+    let response = spotify_api(credentials, "/me/player", "GET", None).await?;
+    if response.status == 204 {
+        return Ok(json!({
+            "currentUri": Value::Null,
+            "repeatState": Value::Null,
+            "device": Value::Null,
+            "display": Value::Null
+        }));
+    }
+    if !(200..300).contains(&response.status) {
+        return Ok(json!({
+            "currentUri": Value::Null,
+            "repeatState": Value::Null,
+            "device": Value::Null,
+            "display": Value::Null
+        }));
+    }
+    let playback = map_playback(&response.json);
+    let item = playback.get("item").cloned().unwrap_or(Value::Null);
+    let name = item.get("name").and_then(Value::as_str).unwrap_or("");
+    let artists = item
+        .get("artists")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|artist| artist.get("name").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default();
+    let display = if name.is_empty() {
+        Value::Null
+    } else if artists.is_empty() {
+        Value::String(name.to_string())
+    } else {
+        Value::String(format!("{name} - {artists}"))
+    };
+    Ok(json!({
+        "currentUri": item.get("uri").cloned().unwrap_or(Value::Null),
+        "repeatState": playback.get("repeat").cloned().unwrap_or(Value::Null),
+        "device": playback.get("device").cloned().unwrap_or(Value::Null),
+        "display": display
+    }))
 }
 
 fn spotify_response_ok(response: &SpotifyResponse) -> bool {
@@ -639,6 +1167,7 @@ pub(super) async fn exchange(state: &AppState, body: Value) -> AppResult<Value> 
     .await?;
     let _ = state.storage.delete("app-settings", &key);
     save_spotify_tokens(state, &agent_id, &client_id, &token)?;
+    clear_spotify_track_index_cache_for_agent(&agent_id);
     Ok(json!({ "success": true }))
 }
 
@@ -701,7 +1230,24 @@ async fn player(state: &AppState, route: &ParsedPath, body: &Value) -> AppResult
     let credentials = resolve_credentials(state, route, body).await?;
     let response = spotify_api(&credentials, "/me/player", "GET", None).await?;
     if response.status == 204 {
-        return Ok(json!({ "connected": true, "active": false }));
+        let device = spotify_available_device(&credentials, false)
+            .await?
+            .map(map_spotify_device)
+            .unwrap_or(Value::Null);
+        let note = if device.is_null() {
+            "No active Spotify playback. Open Spotify on a device, then call spotify_play with a fitting track."
+        } else {
+            "No active Spotify playback, but a Spotify device is available. Call spotify_play with a fitting track."
+        };
+        return Ok(json!({
+            "connected": true,
+            "active": false,
+            "isPlaying": false,
+            "item": Value::Null,
+            "track": Value::Null,
+            "device": device,
+            "note": note
+        }));
     }
     if !(200..300).contains(&response.status) {
         return Err(AppError::with_details(
@@ -1667,6 +2213,7 @@ async fn player_control(
 ) -> AppResult<Value> {
     let credentials = resolve_credentials(state, route, &body).await?;
     let device_id = body.get("deviceId").and_then(Value::as_str);
+    let is_play = path.ends_with("/play");
     let payload = if path.ends_with("/play") {
         let mut object = Map::new();
         if let Some(context_uri) = body
@@ -1704,6 +2251,24 @@ async fn player_control(
     } else {
         None
     };
+    let requested_uris = payload
+        .as_ref()
+        .and_then(|value| value.get("uris"))
+        .and_then(Value::as_array)
+        .map(|uris| {
+            Value::Array(
+                uris.iter()
+                    .filter_map(Value::as_str)
+                    .map(|uri| Value::String(uri.to_string()))
+                    .collect(),
+            )
+        })
+        .unwrap_or(Value::Null);
+    let requested_context_uri = payload
+        .as_ref()
+        .and_then(|value| value.get("context_uri"))
+        .cloned()
+        .unwrap_or(Value::Null);
     let response =
         spotify_api_with_device_retry(&credentials, path, device_id, method, payload).await?;
     if !(200..300).contains(&response.status) && response.status != 204 {
@@ -1712,6 +2277,31 @@ async fn player_control(
             "Spotify playback command failed",
             json!({ "status": response.status, "body": response.body }),
         ));
+    }
+    if is_play {
+        let requested_repeat = body
+            .get("repeatAfterPlay")
+            .and_then(Value::as_str)
+            .filter(|repeat| matches!(*repeat, "track" | "context" | "off"));
+        let repeat_state = if let Some(repeat) = requested_repeat {
+            spotify_set_repeat_with_retries(&credentials, repeat, device_id, 3).await?
+        } else {
+            None
+        };
+        let playback = spotify_current_playback_summary(&credentials).await?;
+        return Ok(json!({
+            "success": true,
+            "applied": true,
+            "uris": requested_uris,
+            "contextUri": requested_context_uri,
+            "currentUri": playback.get("currentUri").cloned().unwrap_or(Value::Null),
+            "repeatState": repeat_state
+                .or_else(|| playback.get("repeatState").cloned())
+                .unwrap_or(Value::Null),
+            "device": playback.get("device").cloned().unwrap_or(Value::Null),
+            "display": playback.get("display").cloned().unwrap_or(Value::Null),
+            "queued": requested_uris.clone()
+        }));
     }
     Ok(json!({ "success": true }))
 }
@@ -1844,6 +2434,7 @@ fn disconnect(state: &AppState, body: Value) -> AppResult<Value> {
         agent_id,
         json!({ "settings": Value::Object(settings) }),
     )?;
+    clear_spotify_track_index_cache_for_agent(agent_id);
     Ok(json!({ "success": true }))
 }
 
@@ -1851,6 +2442,7 @@ fn disconnect(state: &AppState, body: Value) -> AppResult<Value> {
 struct SpotifyCredentials {
     access_token: String,
     agent_id: String,
+    cache_key: String,
     expires_at: u128,
     scopes: Vec<String>,
 }
@@ -1932,6 +2524,11 @@ async fn resolve_credentials(
     }
     Ok(SpotifyCredentials {
         access_token,
+        cache_key: format!(
+            "{}:{:016x}",
+            agent_id,
+            spotify_cache_secret_hash(&refresh_token)
+        ),
         agent_id,
         expires_at,
         scopes,
@@ -2169,6 +2766,19 @@ async fn spotify_api(
     Ok(SpotifyResponse { status, body, json })
 }
 
+fn map_spotify_device(device: Value) -> Value {
+    if device.is_null() {
+        return Value::Null;
+    }
+    json!({
+        "id": device.get("id").cloned().unwrap_or(Value::Null),
+        "name": device.get("name").and_then(Value::as_str).unwrap_or("Spotify device"),
+        "type": device.get("type").cloned().unwrap_or(Value::Null),
+        "volume": device.get("volume_percent").cloned().unwrap_or(Value::Null),
+        "isActive": device.get("is_active").and_then(Value::as_bool).unwrap_or(false)
+    })
+}
+
 fn map_playback(data: &Value) -> Value {
     if data.is_null() {
         return json!({ "connected": true, "active": false });
@@ -2186,6 +2796,19 @@ fn map_playback(data: &Value) -> Value {
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
+    let mapped_item = if item.is_null() {
+        Value::Null
+    } else {
+        json!({
+            "id": item.get("id").cloned().unwrap_or(Value::Null),
+            "uri": item.get("uri").cloned().unwrap_or(Value::Null),
+            "name": item.get("name").and_then(Value::as_str).unwrap_or("Unknown track"),
+            "type": item.get("type").and_then(Value::as_str).unwrap_or("track"),
+            "artists": artists,
+            "album": item.get("album").and_then(|album| album.get("name")).cloned().unwrap_or(Value::Null),
+            "imageUrl": item.get("album").and_then(|album| album.get("images")).and_then(Value::as_array).and_then(|images| images.first()).and_then(|image| image.get("url")).cloned().unwrap_or(Value::Null)
+        })
+    };
     json!({
         "connected": true,
         "active": true,
@@ -2199,22 +2822,9 @@ fn map_playback(data: &Value) -> Value {
         },
         "progressMs": data.get("progress_ms").cloned().unwrap_or(Value::Null),
         "durationMs": item.get("duration_ms").cloned().unwrap_or(Value::Null),
-        "item": if item.is_null() { Value::Null } else { json!({
-            "id": item.get("id").cloned().unwrap_or(Value::Null),
-            "uri": item.get("uri").cloned().unwrap_or(Value::Null),
-            "name": item.get("name").and_then(Value::as_str).unwrap_or("Unknown track"),
-            "type": item.get("type").and_then(Value::as_str).unwrap_or("track"),
-            "artists": artists,
-            "album": item.get("album").and_then(|album| album.get("name")).cloned().unwrap_or(Value::Null),
-            "imageUrl": item.get("album").and_then(|album| album.get("images")).and_then(Value::as_array).and_then(|images| images.first()).and_then(|image| image.get("url")).cloned().unwrap_or(Value::Null)
-        }) },
-        "device": if device.is_null() { Value::Null } else { json!({
-            "id": device.get("id").cloned().unwrap_or(Value::Null),
-            "name": device.get("name").and_then(Value::as_str).unwrap_or("Spotify device"),
-            "type": device.get("type").cloned().unwrap_or(Value::Null),
-            "volume": device.get("volume_percent").cloned().unwrap_or(Value::Null),
-            "isActive": device.get("is_active").and_then(Value::as_bool).unwrap_or(false)
-        }) }
+        "item": mapped_item.clone(),
+        "track": mapped_item,
+        "device": map_spotify_device(device)
     })
 }
 

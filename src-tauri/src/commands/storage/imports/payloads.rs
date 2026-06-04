@@ -140,7 +140,7 @@ pub(super) fn image_mime_from_path(path: &str) -> &'static str {
 }
 
 fn resolve_charx_asset(bytes: &[u8], uri: &str, ext: Option<&str>) -> AppResult<Option<String>> {
-    if uri.starts_with("data:image/") {
+    if is_inline_image_data_url(uri) {
         return Ok(Some(uri.to_string()));
     }
     let zip_path = if let Some(path) = uri.strip_prefix("embeded://") {

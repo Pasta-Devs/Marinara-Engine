@@ -1486,22 +1486,27 @@ export const ChatMessage = memo(function ChatMessage({
       : (charInfo?.avatarFilename ?? null);
   const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState<string | null>(null);
   useEffect(() => {
-    let cancelled = false;
     setResolvedAvatarUrl(null);
-    if (!avatarFilePath && !avatarFilename) return undefined;
-    resolveAvatarFileUrl(avatarFilename, avatarFilePath)
-      .then((url) => {
-        if (!cancelled) setResolvedAvatarUrl(url);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
   }, [avatarFilePath, avatarFilename, avatarUrl]);
-  const avatarLightboxUrl = resolvedAvatarUrl ?? avatarUrl;
   const handleResolvedAvatarSrc = useCallback((src: string | null) => {
     setResolvedAvatarUrl(src);
   }, []);
+  const openAvatarLightbox = useCallback(() => {
+    const fallback = resolvedAvatarUrl ?? avatarUrl;
+    if (!avatarFilePath && !avatarFilename) {
+      if (fallback) openImageLightbox(fallback);
+      return;
+    }
+    resolveAvatarFileUrl(avatarFilename, avatarFilePath)
+      .then((url) => {
+        const next = url ?? fallback;
+        if (url) setResolvedAvatarUrl(url);
+        if (next) openImageLightbox(next);
+      })
+      .catch(() => {
+        if (fallback) openImageLightbox(fallback);
+      });
+  }, [avatarFilePath, avatarFilename, avatarUrl, openImageLightbox, resolvedAvatarUrl]);
   const personaAvatarCrop = isUser
     ? msgPersona
       ? parseAvatarCropJson(msgPersona.avatarCrop)
@@ -1580,22 +1585,7 @@ export const ChatMessage = memo(function ChatMessage({
   const mergedAvatarTailRefs = useRef<(HTMLImageElement | null)[]>([]);
   const resolvedMergedAvatarUrlsRef = useRef(new Map<string, string>());
   useEffect(() => {
-    let cancelled = false;
     resolvedMergedAvatarUrlsRef.current.clear();
-    for (const avatar of mergedAvatars) {
-      if (!avatar.avatarFilePath && !avatar.avatarFilename) {
-        resolvedMergedAvatarUrlsRef.current.set(avatar.key, avatar.url);
-        continue;
-      }
-      resolveAvatarFileUrl(avatar.avatarFilename, avatar.avatarFilePath)
-        .then((url) => {
-          if (!cancelled && url) resolvedMergedAvatarUrlsRef.current.set(avatar.key, url);
-        })
-        .catch(() => {});
-    }
-    return () => {
-      cancelled = true;
-    };
   }, [mergedAvatars]);
   const rememberMergedAvatarSrc = useCallback((key: string, src: string | null) => {
     if (src) {
@@ -1605,9 +1595,24 @@ export const ChatMessage = memo(function ChatMessage({
     }
   }, []);
   const openMergedAvatarLightbox = useCallback(
-    (avatar?: { key: string; url: string }) => {
+    (avatar?: MergedAvatar) => {
       if (!avatar) return;
-      openImageLightbox(resolvedMergedAvatarUrlsRef.current.get(avatar.key) ?? avatar.url);
+      const cached = resolvedMergedAvatarUrlsRef.current.get(avatar.key);
+      if (cached) {
+        openImageLightbox(cached);
+        return;
+      }
+      if (!avatar.avatarFilePath && !avatar.avatarFilename) {
+        openImageLightbox(avatar.url);
+        return;
+      }
+      resolveAvatarFileUrl(avatar.avatarFilename, avatar.avatarFilePath)
+        .then((url) => {
+          const next = url ?? avatar.url;
+          if (url) resolvedMergedAvatarUrlsRef.current.set(avatar.key, url);
+          openImageLightbox(next);
+        })
+        .catch(() => openImageLightbox(avatar.url));
     },
     [openImageLightbox],
   );
@@ -2021,7 +2026,7 @@ export const ChatMessage = memo(function ChatMessage({
                       "relative cursor-pointer overflow-hidden ring-2 ring-white/10",
                       compactAvatarFrameClass,
                     )}
-                    onClick={() => avatarLightboxUrl && openImageLightbox(avatarLightboxUrl)}
+                    onClick={openAvatarLightbox}
                     aria-label={`Open ${displayName} avatar`}
                   >
                     <ResolvedAvatarImage
@@ -2170,7 +2175,7 @@ export const ChatMessage = memo(function ChatMessage({
                             "rpg-avatar-panel-media absolute inset-0 block h-full w-full cursor-zoom-in overflow-hidden",
                             !isUser && "rpg-avatar-panel",
                           )}
-                          onClick={() => avatarLightboxUrl && openImageLightbox(avatarLightboxUrl)}
+                          onClick={openAvatarLightbox}
                           aria-label={`Open ${displayName} avatar`}
                         >
                           <ResolvedAvatarImage
@@ -2568,7 +2573,7 @@ export const ChatMessage = memo(function ChatMessage({
               <button
                 type="button"
                 className="relative h-8 w-8 cursor-pointer overflow-hidden rounded-full"
-                onClick={() => avatarLightboxUrl && openImageLightbox(avatarLightboxUrl)}
+                onClick={openAvatarLightbox}
                 aria-label={`Open ${displayName} avatar`}
               >
                 <ResolvedAvatarImage

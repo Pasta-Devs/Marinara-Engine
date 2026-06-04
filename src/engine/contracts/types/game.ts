@@ -125,6 +125,8 @@ export interface GameNpc {
   notes: string[];
   /** Optional avatar URL (generated or uploaded) */
   avatarUrl?: string | null;
+  /** Gallery row for a generated NPC portrait, used to rebuild provider reference images. */
+  avatarGalleryId?: string | null;
 }
 
 // ── Sessions ──

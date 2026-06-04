@@ -28,7 +28,9 @@ import { integrationGateway } from "../../../../shared/api/integration-gateway";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { llmApi } from "../../../../shared/api/llm-api";
 import { chatCommandApi } from "../../../../shared/api/chat-command-api";
+import { resolveGalleryFileUrl } from "../../../../shared/api/local-file-api";
 import { storageApi } from "../../../../shared/api/storage-api";
+import { urlBinaryApi } from "../../../../shared/api/url-binary-api";
 import {
   createLorebookEntrySchema,
   createLorebookSchema,
@@ -188,7 +190,7 @@ export interface GameAssetGenerationResult {
   generatedBackground: string | null;
   fallbackBackground: string | null;
   generatedIllustration: { tag: string; segment?: number; galleryId?: string | null } | null;
-  generatedNpcAvatars: Array<{ name: string; avatarUrl: string }>;
+  generatedNpcAvatars: Array<{ name: string; avatarUrl: string; avatarGalleryId?: string | null }>;
   sessionChat?: Chat;
 }
 
@@ -1402,6 +1404,72 @@ function usableReferenceImage(value: unknown): string {
   return "";
 }
 
+function isManagedLocalAssetUrl(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("http://asset.localhost/") || normalized.startsWith("asset://localhost/");
+}
+
+function isBrowserFetchableImageReferenceUrl(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("blob:");
+}
+
+function isRemoteImageReferenceUrl(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("http://") || normalized.startsWith("https://");
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read image reference data."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function blobImageReferenceDataUrl(value: string): Promise<string> {
+  const response = await fetch(value);
+  if (!response.ok) return "";
+  const blob = await response.blob();
+  if (blob.type && !blob.type.toLowerCase().startsWith("image/")) return "";
+  return blobToDataUrl(blob);
+}
+
+async function managedImageReferenceDataUrl(value: string, allowResolvedUrl = false): Promise<string> {
+  if (allowResolvedUrl && isBrowserFetchableImageReferenceUrl(value)) return blobImageReferenceDataUrl(value);
+  if (!isManagedLocalAssetUrl(value) && !(allowResolvedUrl && isRemoteImageReferenceUrl(value))) return "";
+  const blob = await urlBinaryApi.load(value, "image/png");
+  if (blob.type && !blob.type.toLowerCase().startsWith("image/")) return "";
+  return blobToDataUrl(blob);
+}
+
+async function providerReferenceImage(value: unknown, allowResolvedUrl = false): Promise<string> {
+  const direct = usableReferenceImage(value);
+  if (direct) return direct;
+  const text = readTrimmed(value);
+  if (!text) return "";
+  return managedImageReferenceDataUrl(text, allowResolvedUrl).catch(() => "");
+}
+
+async function galleryReferenceImage(galleryId: unknown): Promise<string> {
+  const id = readTrimmed(galleryId);
+  if (!id) return "";
+  const gallery = await storageApi.get<Record<string, unknown>>("gallery", id).catch(() => null);
+  if (!gallery) return "";
+  const direct = await providerReferenceImage(gallery.url);
+  if (direct) return direct;
+  const resolved = await resolveGalleryFileUrl(readTrimmed(gallery.filename), readTrimmed(gallery.filePath)).catch(
+    () => null,
+  );
+  return resolved ? providerReferenceImage(resolved, true) : "";
+}
+
+async function npcReferenceImage(npc: Record<string, unknown>): Promise<string> {
+  const direct = await providerReferenceImage(npc.avatarUrl ?? npc.avatar ?? npc.image);
+  return direct || galleryReferenceImage(npc.avatarGalleryId ?? npc.galleryId);
+}
+
 function recordName(record: Record<string, unknown>): string {
   const data = asRecord(record.data);
   return readTrimmed(data.name) || readTrimmed(record.name);
@@ -1495,7 +1563,7 @@ async function loadIllustrationReferenceSubjects(
 
   const npcs = Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as Array<Record<string, unknown>>) : [];
   for (const npc of npcs) {
-    const avatar = usableReferenceImage(npc.avatarUrl ?? npc.avatar ?? npc.image);
+    const avatar = await npcReferenceImage(npc);
     if (!avatar) continue;
     subjects.push({
       id: readTrimmed(npc.id) || readTrimmed(npc.name),
@@ -2837,9 +2905,30 @@ export const gameApi = {
           gameLastIllustrationTag: tag,
         });
       } else if (item.kind === "portrait") {
+        const npcName = item.title.replace(/^Portrait:\s*/, "") || "NPC";
+        const mimeType = image.mimeType || "image/png";
+        const imageUrl = imageUrlFromGeneration(image);
+        if (!imageUrl) throw new Error("Image provider returned no image data.");
+        const filename = `${generatedAssetSlug(npcName)}.${imageExt(mimeType)}`;
+        const gallery = await storageApi.create<{ id?: string; url?: string }>("gallery", {
+          chatId,
+          filePath: filename,
+          filename,
+          url: imageUrl,
+          prompt: item.prompt,
+          provider: image.provider ?? "image_generation",
+          model: image.model ?? null,
+          width: item.width,
+          height: item.height,
+          kind: "portrait",
+          characters: [npcName],
+        });
+        const storedImageUrl = readTrimmed(gallery?.url) || imageUrl;
+        const avatarGalleryId = readTrimmed(gallery?.id) || null;
         generatedNpcAvatars.push({
-          name: item.title.replace(/^Portrait:\s*/, "") || "NPC",
-          avatarUrl: image.image ?? `data:${image.mimeType};base64,${image.base64}`,
+          name: npcName,
+          avatarUrl: storedImageUrl,
+          avatarGalleryId,
         });
       }
     }
@@ -2850,7 +2939,8 @@ export const gameApi = {
       for (const avatar of generatedNpcAvatars) {
         const existing = npcs.find((npc) => npc.name.toLowerCase() === avatar.name.toLowerCase());
         if (existing) {
-          (existing as GameNpc & { avatarUrl?: string }).avatarUrl = avatar.avatarUrl;
+          existing.avatarUrl = avatar.avatarUrl;
+          existing.avatarGalleryId = avatar.avatarGalleryId ?? null;
         } else {
           npcs.push({
             id: newId("npc"),
@@ -2862,6 +2952,7 @@ export const gameApi = {
             met: true,
             notes: [],
             avatarUrl: avatar.avatarUrl,
+            avatarGalleryId: avatar.avatarGalleryId ?? null,
           } as GameNpc);
         }
       }

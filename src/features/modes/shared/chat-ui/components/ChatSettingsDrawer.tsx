@@ -1688,7 +1688,10 @@ function ChatSettingsDrawerInner({
     if (intervalMeta && runInterval != null) {
       nextSettings.runInterval = runInterval;
     }
-    if (builtInMeta && !Array.isArray(nextSettings.enabledTools)) {
+    if (
+      builtInMeta &&
+      (!Array.isArray(nextSettings.enabledTools) || (agent.id === "spotify" && nextSettings.enabledTools.length === 0))
+    ) {
       nextSettings.enabledTools = DEFAULT_AGENT_TOOLS[agent.id] ?? [];
     }
 

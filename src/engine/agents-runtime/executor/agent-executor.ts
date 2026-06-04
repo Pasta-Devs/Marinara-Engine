@@ -178,7 +178,7 @@ export async function executeAgent(
           : config.type === "knowledge-retrieval"
             ? buildKnowledgeRetrievalAgentMessages(config, template, context)
             : config.type === "spotify"
-              ? buildSpotifyAgentMessages(template, context)
+              ? buildSpotifyAgentMessages(config, template, context)
               : buildStandardAgentMessages(config, template, context);
 
     const temperature = agentTemperature(config);
@@ -300,6 +300,7 @@ async function executeAgentWithTools(
   const logger = createAgentRuntimeDebug(context);
   const debugAgentsEnabled = logger.isLevelEnabled("debug");
   const emit = (entry: AgentRuntimeDebugEntry) => logger.emit(entry);
+  let spotifyPlayCalled = false;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const result = await provider.chatComplete(
@@ -326,15 +327,22 @@ async function executeAgentWithTools(
       if (parsed.error) {
         return makeError(config, formatAgentParseError(config, parsed.error), startTime);
       }
+      const fallback = await applySpotifyPlaybackFallback(
+        config,
+        parsed.data,
+        toolContext,
+        spotifyPlayCalled,
+        (err) => logger.warn(err, "[agent-tools] spotify playback fallback failed"),
+      );
       return {
         agentId: config.id,
         agentType: config.type,
         type: parsed.type,
-        data: parsed.data,
+        data: fallback.data,
         tokensUsed: totalTokens,
         durationMs: Date.now() - startTime,
-        success: true,
-        error: null,
+        success: fallback.error === null,
+        error: fallback.error,
       };
     }
 
@@ -349,6 +357,9 @@ async function executeAgentWithTools(
     // Execute each tool call and append results
     for (const tc of result.toolCalls) {
       logger.info("[agent-tools] %s calling: %s", config.type, tc.function.name);
+      if (config.type === "spotify" && tc.function.name === "spotify_play") {
+        spotifyPlayCalled = true;
+      }
       emit({
         level: "info",
         phase: config.phase,
@@ -403,16 +414,104 @@ async function executeAgentWithTools(
   if (parsed.error) {
     return makeError(config, formatAgentParseError(config, parsed.error), startTime);
   }
+  const fallback = await applySpotifyPlaybackFallback(
+    config,
+    parsed.data,
+    toolContext,
+    spotifyPlayCalled,
+    (err) => logger.warn(err, "[agent-tools] spotify playback fallback failed"),
+  );
   return {
     agentId: config.id,
     agentType: config.type,
     type: parsed.type,
-    data: parsed.data,
+    data: fallback.data,
     tokensUsed: totalTokens,
     durationMs: Date.now() - startTime,
-    success: true,
-    error: null,
+    success: fallback.error === null,
+    error: fallback.error,
   };
+}
+
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function spotifyTrackUrisFromAgentData(data: unknown): string[] {
+  if (!isJsonRecord(data) || data.action !== "play") return [];
+  const rawUris = Array.isArray(data.trackUris) ? data.trackUris : [];
+  return rawUris
+    .filter((uri): uri is string => typeof uri === "string" && uri.startsWith("spotify:track:"))
+    .slice(0, 5);
+}
+
+function spotifyPlaybackFallbackCall(uris: string[]): LLMToolCall {
+  const args = uris.length === 1 ? { uri: uris[0] } : { uris };
+  return {
+    id: `spotify-fallback-${Date.now().toString(36)}`,
+    name: "spotify_play",
+    arguments: JSON.stringify(args),
+    function: {
+      name: "spotify_play",
+      arguments: JSON.stringify(args),
+    },
+  };
+}
+
+interface SpotifyPlaybackFallbackResult {
+  data: unknown;
+  error: string | null;
+}
+
+function spotifyPlaybackFallbackFailureData(data: unknown, error: string): unknown {
+  if (!isJsonRecord(data)) return data;
+  return {
+    ...data,
+    toolFallbackApplied: false,
+    toolFallbackFailed: true,
+    toolFallbackError: error,
+    playback: {
+      success: false,
+      code: "spotify_playback_fallback_failed",
+      tool: "spotify_play",
+      error,
+    },
+  };
+}
+
+async function applySpotifyPlaybackFallback(
+  config: Pick<AgentExecConfig, "type">,
+  data: unknown,
+  toolContext: AgentToolContext,
+  spotifyPlayCalled: boolean,
+  onFallbackError?: (err: unknown) => void,
+): Promise<SpotifyPlaybackFallbackResult> {
+  if (config.type !== "spotify" || spotifyPlayCalled) return { data, error: null };
+  if (!toolContext.tools.some((tool) => tool.name === "spotify_play")) return { data, error: null };
+  const uris = spotifyTrackUrisFromAgentData(data);
+  if (uris.length === 0) return { data, error: null };
+  let playback: string;
+  try {
+    playback = await toolContext.executeToolCall(spotifyPlaybackFallbackCall(uris));
+  } catch (err) {
+    onFallbackError?.(err);
+    const error = `Spotify playback failed: ${extractErrorMessage(err, "Spotify playback fallback failed")}`;
+    return { data: spotifyPlaybackFallbackFailureData(data, error), error };
+  }
+  const fallbackData = isJsonRecord(data)
+    ? {
+        ...data,
+        toolFallbackApplied: true,
+        playback: (() => {
+          try {
+            return JSON.parse(playback);
+          } catch {
+            return playback;
+          }
+        })(),
+      }
+    : data;
+  return { data: fallbackData, error: null };
 }
 
 // ──────────────────────────────────────────────
@@ -973,7 +1072,7 @@ function mainResponseSpeakerLabel(context: AgentContext): string {
   return characterNameForId(context, context.mainResponseCharacterId) || context.characters[0]?.name?.trim() || "Assistant";
 }
 
-function buildSpotifyAgentMessages(template: string, context: AgentContext): ChatMessage[] {
+function buildSpotifyAgentMessages(config: AgentExecConfig, template: string, context: AgentContext): ChatMessage[] {
   const modeLabel = context.chatMode === "game" ? "game" : "roleplay";
   const systemParts: string[] = [];
   systemParts.push(`<role>`);
@@ -993,9 +1092,23 @@ function buildSpotifyAgentMessages(template: string, context: AgentContext): Cha
     systemParts.push(extras);
   }
 
+  const agentContextSize = normalizeAgentContextSize(config.settings.contextSize);
+  const recentContext = context.recentMessages
+    .slice(-agentContextSize)
+    .filter((message) => message.content.trim());
   const latestUser = findLatestUserMessage(context);
   const latestTurn = context.mainResponse?.trim() || findLatestAssistantMessage(context)?.content || "";
   const userParts: string[] = [];
+
+  if (recentContext.length > 0) {
+    userParts.push(`<recent_context>`);
+    for (const message of recentContext) {
+      const speaker = agentSpeakerLabel(message, context);
+      userParts.push(`${speaker}: ${truncateAgentText(message.content, 1200)}`);
+    }
+    userParts.push(`</recent_context>`);
+    userParts.push(``);
+  }
 
   if (latestUser?.content) {
     userParts.push(`<last_user_input>`);

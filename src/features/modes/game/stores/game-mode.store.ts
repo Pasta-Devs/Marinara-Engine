@@ -69,7 +69,7 @@ interface GameModeStore {
   applyWidgetUpdate: (update: WidgetUpdate) => HudWidget[];
   setBlueprint: (bp: GameBlueprint | null) => void;
   /** Patch avatarUrl on tracked NPCs after server-side image generation. */
-  patchNpcAvatars: (avatars: Array<{ name: string; avatarUrl: string }>) => void;
+  patchNpcAvatars: (avatars: Array<{ name: string; avatarUrl: string; avatarGalleryId?: string | null }>) => void;
   reset: () => void;
 }
 
@@ -142,7 +142,7 @@ function removeListWidgetItem(items: string[], target: string): string[] {
   return items.filter((_, index) => index !== partialMatches[0]!.index);
 }
 
-function buildTrackedNpcStub(name: string, avatarUrl: string): GameNpc {
+function buildTrackedNpcStub(name: string, avatarUrl: string, avatarGalleryId?: string | null): GameNpc {
   const slug = name
     .trim()
     .toLowerCase()
@@ -159,7 +159,14 @@ function buildTrackedNpcStub(name: string, avatarUrl: string): GameNpc {
     met: true,
     notes: [],
     avatarUrl,
+    avatarGalleryId: avatarGalleryId ?? null,
   };
+}
+
+function sameAvatarUrl(left: string | null | undefined, right: string | null | undefined): boolean {
+  const normalizedLeft = left?.trim() ?? "";
+  const normalizedRight = right?.trim() ?? "";
+  return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
 }
 
 function slugifyMapId(value: string): string {
@@ -276,20 +283,35 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
     }),
   setNpcs: (npcs) =>
     set((s) => {
-      // Preserve existing avatarUrls: the incoming list may come from a stale
+      // Preserve existing avatar metadata: the incoming list may come from a stale
       // chat-metadata cache that predates a recent /generate-assets call. If
-      // we already have an avatarUrl for an NPC and the incoming record is
-      // missing one, keep ours rather than clobbering it to null.
-      const existingByName = new Map<string, string>();
+      // we already have an avatar for an NPC and the incoming record is
+      // missing it, keep ours rather than severing managed gallery linkage.
+      const existingByName = new Map<
+        string,
+        { avatarUrl: string | null; avatarGalleryId: string | null | undefined }
+      >();
       for (const existing of s.npcs) {
-        if (existing.avatarUrl && existing.name) {
-          existingByName.set(existing.name.toLowerCase(), existing.avatarUrl);
+        if (existing.name) {
+          existingByName.set(existing.name.toLowerCase(), {
+            avatarUrl: existing.avatarUrl ?? null,
+            avatarGalleryId: existing.avatarGalleryId,
+          });
         }
       }
       const merged = npcs.map((npc) => {
-        if (npc.avatarUrl) return npc;
         const preserved = existingByName.get((npc.name ?? "").toLowerCase());
-        return preserved ? { ...npc, avatarUrl: preserved } : npc;
+        if (!preserved) return npc;
+        const preserveAvatarUrl = !npc.avatarUrl && Boolean(preserved.avatarUrl);
+        const preserveAvatarGalleryId =
+          npc.avatarGalleryId === undefined &&
+          preserved.avatarGalleryId !== undefined &&
+          (preserveAvatarUrl || sameAvatarUrl(npc.avatarUrl, preserved.avatarUrl));
+        return {
+          ...npc,
+          ...(preserveAvatarUrl ? { avatarUrl: preserved.avatarUrl } : {}),
+          ...(preserveAvatarGalleryId ? { avatarGalleryId: preserved.avatarGalleryId ?? null } : {}),
+        };
       });
       return { npcs: sanitizeGameNpcAvatarUrls(merged) };
     }),
@@ -298,9 +320,17 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
       let modified = false;
       const nextNpcs = s.npcs.map((npc) => {
         const match = avatars.find((a) => a.name.toLowerCase() === npc.name.toLowerCase());
-        if (match && match.avatarUrl !== npc.avatarUrl) {
+        if (
+          match &&
+          (match.avatarUrl !== npc.avatarUrl ||
+            (match.avatarGalleryId !== undefined && match.avatarGalleryId !== (npc.avatarGalleryId ?? null)))
+        ) {
           modified = true;
-          return { ...npc, avatarUrl: match.avatarUrl };
+          return {
+            ...npc,
+            avatarUrl: match.avatarUrl,
+            ...(match.avatarGalleryId !== undefined ? { avatarGalleryId: match.avatarGalleryId } : {}),
+          };
         }
         return npc; // preserve reference — no churn
       });
@@ -308,7 +338,7 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
       for (const avatar of avatars) {
         const exists = nextNpcs.some((npc) => npc.name.toLowerCase() === avatar.name.toLowerCase());
         if (!exists) {
-          nextNpcs.push(buildTrackedNpcStub(avatar.name, avatar.avatarUrl));
+          nextNpcs.push(buildTrackedNpcStub(avatar.name, avatar.avatarUrl, avatar.avatarGalleryId));
           modified = true;
         }
       }

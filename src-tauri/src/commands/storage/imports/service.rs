@@ -1,6 +1,6 @@
 use super::super::media_uploads::{
-    decode_image_payload, extension_for_image_mime, persist_image_bytes, persist_image_file_copy,
-    safe_filename, unique_file_path,
+    decode_image_payload, extension_for_image_mime, is_inline_image_data_url, persist_image_bytes,
+    persist_image_file_copy, safe_filename, unique_file_path,
 };
 use super::super::shared::*;
 use super::super::*;
@@ -301,7 +301,7 @@ fn imported_avatar_reference_in_folder(
     let Some(value) = payload.get("_avatarDataUrl").and_then(Value::as_str) else {
         return Ok(None);
     };
-    if !value.starts_with("data:image/") {
+    if !is_inline_image_data_url(value) {
         return Ok(None);
     }
     let (mime, bytes) = decode_image_payload(value, "avatar")?;

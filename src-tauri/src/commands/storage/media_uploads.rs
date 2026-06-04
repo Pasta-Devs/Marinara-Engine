@@ -109,6 +109,15 @@ pub(crate) fn file_path_asset_url(path: &Path) -> String {
     }
 }
 
+pub(crate) fn is_inline_image_data_url(value: &str) -> bool {
+    const DATA_IMAGE_PREFIX: &[u8] = b"data:image/";
+    value
+        .trim_start()
+        .as_bytes()
+        .get(..DATA_IMAGE_PREFIX.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(DATA_IMAGE_PREFIX))
+}
+
 fn percent_encode_asset_path(value: &str) -> String {
     let mut encoded = String::new();
     for byte in value.as_bytes() {
@@ -217,9 +226,12 @@ fn is_path_inside_dir(path: &Path, dir: &Path) -> AppResult<bool> {
 
 pub(crate) fn decode_image_payload(value: &str, field_name: &str) -> AppResult<(String, Vec<u8>)> {
     if let Some((header, payload)) = value.split_once(',') {
-        if header.starts_with("data:") {
-            let mime = header
-                .trim_start_matches("data:")
+        let header = header.trim_start();
+        if header
+            .get(..5)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case("data:"))
+        {
+            let mime = header[5..]
                 .split(';')
                 .next()
                 .filter(|value| !value.trim().is_empty())
@@ -415,6 +427,17 @@ mod tests {
 
         assert_eq!(mime, "image/png");
         assert!(!bytes.is_empty());
+    }
+
+    #[test]
+    fn decode_image_payload_accepts_case_variant_data_header() {
+        let (mime, bytes) =
+            decode_image_payload(&format!("DaTa:Image/PNG;BaSe64,{TINY_PNG}"), "avatar")
+                .expect("case-variant data URL payload should decode");
+
+        assert_eq!(mime, "Image/PNG");
+        assert!(!bytes.is_empty());
+        assert!(is_inline_image_data_url("DaTa:Image/PNG;BaSe64,abc"));
     }
 
     #[test]

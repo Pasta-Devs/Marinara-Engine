@@ -235,7 +235,7 @@ export interface SceneAnalysis {
   /** Generated illustration background tag, populated when available. */
   generatedIllustration?: GeneratedSceneIllustration | null;
   /** NPC avatars generated during this scene wrap. */
-  generatedNpcAvatars?: Array<{ name: string; avatarUrl: string }>;
+  generatedNpcAvatars?: Array<{ name: string; avatarUrl: string; avatarGalleryId?: string | null }>;
 }
 
 /** A single widget update from scene analysis. */

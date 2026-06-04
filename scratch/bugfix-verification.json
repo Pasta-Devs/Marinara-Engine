@@ -33,7 +33,7 @@
     "originalReproPassed": true,
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after the final production diff.",
+    "baselineEvidence": "pnpm check passed after the final production diff and again after merging upstream/refactor to resolve PR conflicts.",
     "focusedProof": [
       "pnpm exec vitest run src\\features\\catalog\\characters\\lib\\character-editor-model.test.ts passed after the fix and Bunny repair.",
       "pnpm typecheck passed.",
@@ -55,6 +55,6 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete. A later Bunny finding about creator-notes CSS was repaired with a focused regression row; external CI and Bunny need to rerun after the follow-up push."
+    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete. A later Bunny finding about creator-notes CSS was repaired with a focused regression row; the branch was merged with upstream/refactor to clear PR conflicts."
   }
 }
