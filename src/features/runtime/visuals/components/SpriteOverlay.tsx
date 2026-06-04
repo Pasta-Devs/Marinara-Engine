@@ -434,7 +434,7 @@ function CharacterSprite({
     });
     if (neutral) return neutral;
 
-    return fullBodySprites[0]?.url ?? expressionSprites[0]?.url ?? null;
+    return spritePools.find((spriteList) => spriteList.length > 0)?.[0]?.url ?? null;
   }, [sprites, expression, fullBodyOnly, spriteDisplayModes]);
 
   const standardSizeClass =
