@@ -327,7 +327,13 @@ async function executeAgentWithTools(
       if (parsed.error) {
         return makeError(config, formatAgentParseError(config, parsed.error), startTime);
       }
-      const data = await applySpotifyPlaybackFallback(config, parsed.data, toolContext, spotifyPlayCalled);
+      const data = await applySpotifyPlaybackFallback(
+        config,
+        parsed.data,
+        toolContext,
+        spotifyPlayCalled,
+        (err) => logger.warn(err, "[agent-tools] spotify playback fallback failed"),
+      );
       return {
         agentId: config.id,
         agentType: config.type,
@@ -408,7 +414,13 @@ async function executeAgentWithTools(
   if (parsed.error) {
     return makeError(config, formatAgentParseError(config, parsed.error), startTime);
   }
-  const data = await applySpotifyPlaybackFallback(config, parsed.data, toolContext, spotifyPlayCalled);
+  const data = await applySpotifyPlaybackFallback(
+    config,
+    parsed.data,
+    toolContext,
+    spotifyPlayCalled,
+    (err) => logger.warn(err, "[agent-tools] spotify playback fallback failed"),
+  );
   return {
     agentId: config.id,
     agentType: config.type,
@@ -451,12 +463,19 @@ async function applySpotifyPlaybackFallback(
   data: unknown,
   toolContext: AgentToolContext,
   spotifyPlayCalled: boolean,
+  onFallbackError?: (err: unknown) => void,
 ): Promise<unknown> {
   if (config.type !== "spotify" || spotifyPlayCalled) return data;
   if (!toolContext.tools.some((tool) => tool.name === "spotify_play")) return data;
   const uris = spotifyTrackUrisFromAgentData(data);
   if (uris.length === 0) return data;
-  const playback = await toolContext.executeToolCall(spotifyPlaybackFallbackCall(uris));
+  let playback: string;
+  try {
+    playback = await toolContext.executeToolCall(spotifyPlaybackFallbackCall(uris));
+  } catch (err) {
+    onFallbackError?.(err);
+    return data;
+  }
   return isJsonRecord(data)
     ? {
         ...data,

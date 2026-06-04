@@ -1037,7 +1037,7 @@ async fn spotify_current_playback_summary(credentials: &SpotifyCredentials) -> A
         .map(|items| {
             items
                 .iter()
-                .filter_map(Value::as_str)
+                .filter_map(|artist| artist.get("name").and_then(Value::as_str))
                 .collect::<Vec<_>>()
                 .join(", ")
         })
