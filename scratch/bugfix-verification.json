@@ -1,89 +1,48 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2070,
-    "title": "[Issue]: remote runtime JSON API calls lack legacy no-store cache policy",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2070"
+    "number": 2102,
+    "title": "[Issue]: Start Chat opens RP mode instead of Conversation mode",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2102"
   },
   "pr": {
-    "number": 2090,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2090"
+    "number": null,
+    "url": null
   },
-  "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
+  "coreClaim": "Generic character Start Chat and Start New Chat actions create Conversation chats instead of Roleplay chats.",
   "assignment": {
     "assignee": "cha1latte",
-    "assignedBeforeWork": true
+    "assignedBeforeWork": true,
+    "evidence": "gh issue edit 2102 --add-assignee=cha1latte returned the issue URL; issue view showed cha1latte assigned."
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "workflow-health did not flag a duplicate for #2070; gh PR search for direct #2070 links returned no matches."
+    "details": "workflow-health listed #2102 as active with no duplicate PR; issue comments were empty; local branches/worktrees contained no 2102 branch; broad PR search found no associated #2102 or exact Start Chat routing fix."
   },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Static source repro plus regression test coverage",
-    "evidence": "Baseline HEAD src/shared/api/remote-runtime.ts did not contain cache: \"no-store\" fetch options; current tests assert the restored policy on every remote JSON/SSE fetch path."
+    "method": "Focused source wiring repro with scratch/issue-2102-start-chat-mode-check.mjs",
+    "evidence": "Before the fix, node scratch\\issue-2102-start-chat-mode-check.mjs failed the character editor Start Chat, character library Start New Chat, and character panel generic Start New Chat checks because those generic actions still produced Roleplay chats."
   },
   "verification": {
     "originalReproPassed": true,
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after the final diff.",
+    "baselineEvidence": "pnpm check passed after the final diff, including line endings, architecture, frontend typecheck, Rust check, docs, discovery, launcher safety, and unused-code checks.",
     "focusedProof": [
-      "pnpm test -- src/shared/api/remote-runtime.test.ts: passed 5 tests.",
-      "cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: passed 1 test."
+      "node scratch\\issue-2102-start-chat-mode-check.mjs passed after the fix: editor Start Chat creates Conversation, library Start New Chat creates Conversation, panel generic Start New Chat delegates to Conversation, and explicit Quick Start Roleplay still has a Roleplay path."
     ],
     "edgeCases": [
-      "Health and invoke readiness probes set cache: \"no-store\".",
-      "Normal /api/invoke command calls set cache: \"no-store\".",
-      "Generic JSON event streams, including /api/import/st-bulk/run, set cache: \"no-store\".",
-      "LLM stream and cancel calls set cache: \"no-store\".",
-      "Rust hostable response helper preserves explicit managed asset cache headers while applying no-store to JSON API responses."
+      "Explicit Quick Start Roleplay remains wired to mode: \"roleplay\" and keeps first-message/alternate-greeting injection.",
+      "Generic character-group Start New Chat delegates to the Conversation start path."
     ],
-    "visualProof": "Backend/logic proof captured as focused terminal command output in Codex transcript; no UI state exists for this cache-policy regression."
-  },
-  "riskClaimMatrix": {
-    "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
-    "riskType": "remote runtime cache-policy compatibility",
-    "entrypoints": [
-      "src/shared/api/remote-runtime.ts health probe",
-      "src/shared/api/remote-runtime.ts /api/invoke calls",
-      "src/shared/api/remote-runtime.ts generic JSON/SSE stream calls",
-      "src/shared/api/remote-runtime.ts LLM stream and cancel calls",
-      "src-tauri/src/http_server.rs hostable HTTP response middleware"
-    ],
-    "currentPathsOrFormats": [
-      "/health",
-      "/api/invoke",
-      "/api/import/st-bulk/run",
-      "/api/llm/stream",
-      "/api/llm/stream/:stream_id/cancel",
-      "/api/assets/:kind/*path"
-    ],
-    "legacyPathsOrFormats": [
-      "legacy client shared API fetch cache: \"no-store\"",
-      "legacy server /api/* Cache-Control: no-store hook"
-    ],
-    "positiveRowsTested": [
-      "client health fetch",
-      "client invoke readiness fetch",
-      "client invoke fetch",
-      "client generic JSON event stream fetch",
-      "client LLM stream fetch",
-      "client LLM stream cancel fetch",
-      "server /api/invoke response helper"
-    ],
-    "negativeRowsTested": [
-      "server managed asset route preserves explicit public/no-cache headers",
-      "server non-api asset path does not receive API no-store header"
-    ],
-    "groundTruthFacts": [
-      "Harness-proven by cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: http_server.rs applies no-store to API headers and preserves explicit managed asset cache headers.",
-      "Derived from git show HEAD:src/shared/api/remote-runtime.ts plus Select-String: baseline remote-runtime.ts lacked cache: \"no-store\" fetch options before this patch."
-    ],
-    "userActionCopy": "No user action required."
+    "visualProof": "https://gist.githubusercontent.com/cha1latte/746b9352be941c63ae9e641994c4dc6c/raw/1c9eb1674424d07e780f97cceffd20e2c69ce538/issue-2102-proof.svg"
   },
   "manualBlockers": [],
+  "notes": [
+    "This is a feature UI producer fix in src/features/catalog/characters; no schema, dependency, storage, auth, prompt, or release files changed."
+  ],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,

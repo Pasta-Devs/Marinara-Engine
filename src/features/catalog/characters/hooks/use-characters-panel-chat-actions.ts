@@ -115,7 +115,7 @@ export function useCharactersPanelChatActions() {
     [activeChat, chatCharacterIds, isConversation, isFirstMessageTargetStillCurrent, loadFullCharacter, updateChat],
   );
 
-  const handleStartNewChat = useCallback(
+  const handleStartRoleplay = useCallback(
     async (characterId: string, characterName: string, firstMessage?: string, alternateGreetings?: string[]) => {
       if (pendingStartCharacterIdRef.current === characterId) return;
       pendingStartCharacterIdRef.current = characterId;
@@ -153,6 +153,13 @@ export function useCharactersPanelChatActions() {
       });
     },
     [startChatFromCharacter],
+  );
+
+  const handleStartNewChat = useCallback(
+    (characterId: string, characterName: string) => {
+      handleStartConversation(characterId, characterName);
+    },
+    [handleStartConversation],
   );
 
   const handleAddFirstMessage = useCallback(
@@ -199,6 +206,7 @@ export function useCharactersPanelChatActions() {
     handleAddFirstMessage,
     handleStartConversation,
     handleStartNewChat,
+    handleStartRoleplay,
     hasActiveChat: !!activeChat,
     isStartingChat,
     pendingStartCharacterId,

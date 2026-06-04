@@ -68,6 +68,7 @@ export function CharactersPanel() {
     handleAddFirstMessage,
     handleStartConversation,
     handleStartNewChat,
+    handleStartRoleplay,
     hasActiveChat,
     isStartingChat,
     pendingStartCharacterId,
@@ -296,7 +297,7 @@ export function CharactersPanel() {
           pendingStartCharacterId={pendingStartCharacterId}
           onClose={() => setContextMenu(null)}
           onStartRoleplay={(menu) => {
-            void handleStartNewChat(menu.charId, menu.charName, menu.firstMes, menu.altGreetings);
+            void handleStartRoleplay(menu.charId, menu.charName, menu.firstMes, menu.altGreetings);
           }}
           onStartConversation={(menu) => handleStartConversation(menu.charId, menu.charName)}
         />
