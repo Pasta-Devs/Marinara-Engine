@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advanceTime, setTimeOfDay } from "./time.service";
+import { advanceTime, formatGameTime, setTimeOfDay } from "./time.service";
 
 describe("game time progression", () => {
   it("jumps scene time-of-day labels to their canonical hours", () => {
@@ -23,6 +23,7 @@ describe("game time progression", () => {
       hour: 12,
       minute: 0,
     });
+    expect(formatGameTime({ day: 1, hour: 12, minute: 0 })).toBe("Day 1, 12:00 (noon)");
   });
 
   it("keeps action duration advancement separate from scene labels", () => {

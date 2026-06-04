@@ -15,7 +15,6 @@ export interface GameTime {
 }
 
 export type SceneTimeOfDayLabel = "dawn" | "morning" | "noon" | "afternoon" | "evening" | "night" | "midnight";
-type TimeOfDay = Exclude<SceneTimeOfDayLabel, "noon">;
 
 const TIME_OF_DAY_HOURS: Record<SceneTimeOfDayLabel, number> = {
   dawn: 6,
@@ -65,9 +64,10 @@ function addMinutes(current: GameTime, minutes: number): GameTime {
 }
 
 /** Get the time-of-day label for the current hour. */
-function getTimeOfDay(hour: number): TimeOfDay {
+function getTimeOfDay(hour: number): SceneTimeOfDayLabel {
   if (hour >= 5 && hour < 7) return "dawn";
   if (hour >= 7 && hour < 12) return "morning";
+  if (hour === 12) return "noon";
   if (hour >= 12 && hour < 17) return "afternoon";
   if (hour >= 17 && hour < 20) return "evening";
   if (hour >= 20) return "night";
@@ -75,7 +75,6 @@ function getTimeOfDay(hour: number): TimeOfDay {
 }
 
 function timeMatchesLabel(time: GameTime, label: SceneTimeOfDayLabel): boolean {
-  if (label === "noon") return time.hour === 12;
   return getTimeOfDay(time.hour) === label;
 }
 

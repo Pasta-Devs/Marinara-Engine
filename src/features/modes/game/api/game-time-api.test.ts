@@ -77,4 +77,18 @@ describe("gameApi.advanceTime", () => {
 
     expect(result.time).toEqual({ day: 1, hour: 9, minute: 15 });
   });
+
+  it("formats noon scene labels as noon after jumping the clock", async () => {
+    const chat = makeChat({
+      gameTime: { day: 1, hour: 11, minute: 50 },
+    });
+
+    storage.get.mockResolvedValue(chat);
+    storage.update.mockImplementation(async (_entity, _id, patch) => ({ ...chat, ...patch }));
+
+    const result = await gameApi.advanceTime({ chatId: "chat-1", action: "noon" });
+
+    expect(result.time).toEqual({ day: 1, hour: 12, minute: 0 });
+    expect(result.formatted).toBe("Day 1, 12:00 (noon)");
+  });
 });
