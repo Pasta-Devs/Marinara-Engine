@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { GameMap } from "../../../contracts/types/game";
-import { syncGameMapMetaPartyPosition } from "./map-position.service";
+import type { GameMap } from "../src/engine/contracts/types/game";
+import { syncGameMapMetaPartyPosition } from "../src/engine/modes/game/world/map-position.service";
 
 function nodeMap(overrides: Partial<GameMap> = {}): GameMap {
   return {
@@ -35,7 +35,7 @@ function gridMap(overrides: Partial<GameMap> = {}): GameMap {
   };
 }
 
-describe("map position sync", () => {
+describe("issue 2139 map position sync", () => {
   it("moves and discovers a matching node from structured location text", () => {
     const syncedMeta = syncGameMapMetaPartyPosition({ gameMap: nodeMap() }, "The Sunken Archive");
     const synced = syncedMeta.gameMap as GameMap;

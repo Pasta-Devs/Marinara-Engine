@@ -25,9 +25,9 @@
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Focused Vitest repro imported the missing location-sync exports and exercised node, grid, meta map selection, and no-match behavior.",
+    "method": "Focused scratch Vitest repro imported the missing location-sync export and exercised node, grid, meta map selection, and no-match behavior.",
     "evidence": [
-      "Before fix: pnpm exec vitest run src/engine/modes/game/world/map-position.service.test.ts failed with TypeError: syncGameMapPartyPosition is not a function, syncGameMapMetaPartyPosition is not a function, and gameMapContainsLocation is not a function."
+      "Before fix: the structured-location repro failed because syncGameMapMetaPartyPosition was absent from the refactor map-position service."
     ]
   },
   "verification": {
@@ -36,8 +36,8 @@
     "baselineCommand": "pnpm check",
     "baselineEvidence": "passed after the unused-export cleanup",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/modes/game/world/map-position.service.test.ts passed with 5 tests after the fix.",
-      "pnpm exec vitest run src/engine/modes/game/world/map-position.service.test.ts --reporter=json --outputFile=scratch/issue-2139-vitest-after.json passed and wrote a JSON report.",
+      "pnpm exec vitest run --config scratch/issue-2139-vitest.config.ts passed with 5 tests after the fix.",
+      "pnpm exec vitest run --config scratch/issue-2139-vitest.config.ts --reporter=json --outputFile=scratch/issue-2139-vitest-after.json passed and wrote a JSON report.",
       "pnpm typecheck passed.",
       "pnpm check:architecture passed.",
       "pnpm check passed."
@@ -49,7 +49,7 @@
       "No-match location: metadata stays on the current active map and does not invent a new location.",
       "Location detection: node and grid map containment both return true for matching labels and false for unrelated labels."
     ],
-    "visualProof": "Backend/logic bug with no meaningful UI state; machine proof is the focused Vitest output and scratch/issue-2139-vitest-after.json."
+    "visualProof": "Backend/logic bug with no meaningful UI state; machine proof is the focused scratch Vitest output and scratch/issue-2139-vitest-after.json."
   },
   "riskClaimMatrix": {
     "coreClaim": "Location-driven map sync restores legacy parity for existing game maps without changing explicit map_update behavior.",
@@ -81,7 +81,7 @@
     "groundTruthFacts": [
       {
         "fact": "Refactor had parse/apply map_update command support but no exported location-driven sync functions before this change.",
-        "method": "harness-proven by the focused pre-fix Vitest failure and derived from rg across src and src-tauri."
+        "method": "harness-proven by the focused scratch Vitest repro and derived from rg across src and src-tauri."
       }
     ],
     "manualBlockers": []
