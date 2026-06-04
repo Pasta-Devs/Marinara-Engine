@@ -30,7 +30,7 @@
   "verification": {
     "originalReproPassed": true,
     "originalReproCommand": "pnpm exec vitest run --config scratch/vitest.issue2159.config.ts --reporter=verbose",
-    "originalReproEvidence": "Scratch Vitest passed 4 rows after the fix: Chub detail field/extension precedence, top-level character JSON precedence, no-detail fallback, and existing embedded lorebook preservation.",
+    "originalReproEvidence": "Scratch Vitest passed 5 rows after the fix: Chub detail field/extension precedence, top-level character JSON precedence, no-detail fallback, blank detail string negative control, and existing embedded lorebook preservation.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
     "baselineEvidence": "Passed line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
@@ -39,11 +39,13 @@
       "After fix, the original Chub detail field and extension precedence row passed.",
       "After fix, the top-level character JSON row passed.",
       "After fix, null detail still returns the parsed PNG unchanged.",
+      "After fix, blank detail strings do not erase embedded PNG text fields.",
       "After fix, existing embedded lorebooks remain preserved."
     ],
     "edgeCases": [
       "Top-level/non-V2 character JSON receives the same detail precedence.",
       "Missing detail leaves the parsed PNG payload unchanged.",
+      "Blank detail strings do not erase embedded text fields.",
       "Existing embedded PNG lorebook is not overwritten by detail lorebook."
     ],
     "visualProof": "Non-UI logic proof captured as raw verification output in scratch/issue2159-proof-output.txt."
@@ -70,6 +72,7 @@
     ],
     "negativeRowsTested": [
       "No detail available leaves parsed PNG data unchanged",
+      "Blank detail strings do not erase embedded text fields",
       "Existing embedded lorebook is preserved instead of overwritten"
     ],
     "groundTruthFacts": [
@@ -101,6 +104,6 @@
   },
   "bunny": {
     "status": "pass",
-    "evidence": "Issue match is direct, import parity risk matrix is covered with positive and negative rows, diff is focused to the merge helper plus import call-site summary wiring, no dependencies/version/schema/auth/storage/prompt paths changed, and pnpm check passed. Optional proof-gate script is unavailable on this machine and recorded in notes."
+    "evidence": "Issue match is direct, import parity risk matrix is covered with positive and negative rows including the blank-string erosion case, diff is focused to the merge helper plus import call-site summary wiring, no dependencies/version/schema/auth/storage/prompt paths changed, and pnpm check passed. Optional proof-gate script is unavailable on this machine and recorded in notes."
   }
 }

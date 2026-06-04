@@ -23,7 +23,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function setStringField(target: Record<string, unknown>, key: string, value: unknown) {
-  if (typeof value === "string") target[key] = value;
+  if (typeof value === "string" && value.trim()) target[key] = value;
 }
 
 export function mergeCharacterDetailIntoCharacterJson(
@@ -57,8 +57,8 @@ export function mergeCharacterDetailIntoCharacterJson(
     setStringField(target, key, value);
   }
 
-  if (detail.name) target.name = detail.name;
-  if (detail.creator !== undefined) target.creator = detail.creator;
+  if (typeof detail.name === "string" && detail.name.trim()) target.name = detail.name;
+  if (typeof detail.creator === "string" && detail.creator.trim()) target.creator = detail.creator;
   if (Array.isArray(detail.tags)) target.tags = detail.tags;
   if (Array.isArray(detail.alternateGreetings)) target.alternate_greetings = detail.alternateGreetings;
 
