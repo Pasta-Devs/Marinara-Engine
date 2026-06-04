@@ -5,6 +5,10 @@
     "title": "Game mode party map marker no longer auto-syncs to the narrated location",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2139"
   },
+  "pr": {
+    "number": 2219,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2219"
+  },
   "coreClaim": "Game map party position sync consumes structured location changes, not only explicit map_update tags.",
   "assignment": {
     "assignee": "cha1latte",
@@ -88,6 +92,6 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Focused proof, typecheck, architecture check, full pnpm check, proof gate, and Bunny pass completed. PR creation, CI, and CodeRabbit are pending."
+    "notes": "Focused proof, typecheck, architecture check, full pnpm check, proof gate, Bunny pass, and draft PR creation completed. CI and CodeRabbit are pending."
   }
 }
