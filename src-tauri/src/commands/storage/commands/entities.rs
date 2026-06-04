@@ -1109,9 +1109,13 @@ fn delete_lorebook_folder_with_entry_reparent_sync(
     )
 }
 
+type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
+type LorebookFolderDeleteAtomicRows<'a> =
+    (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
+
 fn lorebook_entry_atomic_rows(
     collections: &mut [marinara_storage::AtomicCollectionRows],
-) -> Result<(&mut Vec<Value>, &mut Vec<Value>), AppError> {
+) -> Result<LorebookEntryAtomicRows<'_>, AppError> {
     let [left, right] = collections else {
         return Err(AppError::new(
             "storage_error",
@@ -1129,7 +1133,7 @@ fn lorebook_entry_atomic_rows(
 
 fn lorebook_folder_delete_atomic_rows(
     collections: &mut [marinara_storage::AtomicCollectionRows],
-) -> Result<(&mut Vec<Value>, &mut Vec<Value>, &mut Vec<Value>), AppError> {
+) -> Result<LorebookFolderDeleteAtomicRows<'_>, AppError> {
     let [folders, entries, characters] = collections else {
         return Err(AppError::new(
             "storage_error",
