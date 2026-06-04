@@ -402,7 +402,6 @@ export function GameCharacterSheet({
       <div
         className="relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
         role="dialog"
-        aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
       >
@@ -426,6 +425,7 @@ export function GameCharacterSheet({
                   aria-label={isSaving ? "Saving sheet" : "Save sheet"}
                 >
                   <Save size={13} />
+                  <span className="sm:hidden">{isSaving ? "..." : "Save"}</span>
                   <span className="hidden sm:inline">{isSaving ? "Saving..." : "Save Sheet"}</span>
                 </button>
               </>
@@ -440,6 +440,7 @@ export function GameCharacterSheet({
                     aria-label="Regenerate sheet"
                   >
                     <RefreshCw size={13} className={cn(isRegenerating && "animate-spin")} />
+                    <span className="sm:hidden">{isRegenerating ? "..." : "Regen"}</span>
                     <span className="hidden sm:inline">{isRegenerating ? "Regenerating..." : "Regenerate Sheet"}</span>
                   </button>
                 )}
@@ -452,6 +453,7 @@ export function GameCharacterSheet({
                     aria-label="Edit sheet"
                   >
                     <Pencil size={13} />
+                    <span className="sm:hidden">Edit</span>
                     <span className="hidden sm:inline">Edit Sheet</span>
                   </button>
                 )}
