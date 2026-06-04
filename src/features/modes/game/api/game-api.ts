@@ -103,6 +103,11 @@ import {
   type WeatherState,
 } from "../../../../engine/modes/game/world/weather.service";
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
+import {
+  gameAssetNegativePrompt,
+  sceneAssetPrompt,
+  type GameImageAssetKind,
+} from "./game-asset-prompts";
 
 export interface CreateGameResponse {
   sessionChat: Chat;
@@ -183,9 +188,10 @@ export interface GameJournalResponse {
 
 export interface GameImagePromptReviewItem {
   id: string;
-  kind: "background" | "illustration" | "portrait";
+  kind: GameImageAssetKind;
   title: string;
   prompt: string;
+  negativePrompt?: string;
   width: number;
   height: number;
   referenceImages?: string[];
@@ -1466,75 +1472,6 @@ function imagePromptSettings(payload: Record<string, unknown>): ImagePromptSetti
     includeAppearances: raw.includeAppearances !== false,
     format: raw.format === "tags" ? "tags" : "descriptive",
   };
-}
-
-function joinedImageTags(parts: string[]): string {
-  const seen = new Set<string>();
-  return parts
-    .flatMap((part) => part.split(/[,.]/))
-    .map((part) => part.trim())
-    .filter((part) => {
-      const key = part.toLowerCase();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .join(", ");
-}
-
-function sceneAssetPrompt(
-  kind: string,
-  label: string,
-  detail: string,
-  artStyle: string,
-  settings: ImagePromptSettings,
-): string {
-  const style = artStyle.trim() || "polished fantasy visual novel art, cinematic lighting, high detail";
-  if (settings.format === "tags") {
-    const detailPart = kind === "portrait" && settings.includeAppearances === false ? "" : detail;
-    if (kind === "background") {
-      return joinedImageTags([
-        "wide establishing background",
-        label,
-        detail,
-        style,
-        "no characters",
-        "no text",
-        "immersive environment art",
-      ]);
-    }
-    if (kind === "illustration") {
-      return joinedImageTags([
-        "cinematic scene illustration",
-        label,
-        detail,
-        style,
-        "dynamic composition",
-        "no text",
-        "high detail",
-      ]);
-    }
-    return joinedImageTags([
-      "portrait",
-      label,
-      detailPart,
-      style,
-      "centered bust portrait",
-      "expressive face",
-      "clean readable silhouette",
-      "no text",
-    ]);
-  }
-  if (kind === "background") {
-    return `Wide establishing background of ${label}. ${detail}. ${style}. No characters, no text, immersive environment art.`;
-  }
-  if (kind === "illustration") {
-    return `Cinematic scene illustration: ${label}. ${detail}. ${style}. Dynamic composition, no text, high detail.`;
-  }
-  if (settings.includeAppearances === false) {
-    return `Portrait of ${label}. ${style}. Centered bust portrait, expressive face, clean readable silhouette, no text.`;
-  }
-  return `Portrait of ${label}. ${detail}. ${style}. Centered bust portrait, expressive face, clean readable silhouette, no text.`;
 }
 
 async function registeredGameImagePrompt(
@@ -2960,6 +2897,7 @@ export const gameApi = {
             artStyle,
             promptSettings,
           })),
+        negativePrompt: gameAssetNegativePrompt("background"),
         width: imageSize(record, "background", "width", 1280),
         height: imageSize(record, "background", "height", 720),
       });
@@ -2992,6 +2930,7 @@ export const gameApi = {
             artStyle,
             promptSettings,
           })),
+        negativePrompt: gameAssetNegativePrompt("illustration"),
         width: imageSize(record, "background", "width", 1280),
         height: imageSize(record, "background", "height", 720),
         referenceImages: referenceData.referenceImages,
@@ -3021,6 +2960,7 @@ export const gameApi = {
             artStyle,
             promptSettings,
           })),
+        negativePrompt: gameAssetNegativePrompt("portrait"),
         width: imageSize(record, "portrait", "width", 768),
         height: imageSize(record, "portrait", "height", 1024),
       });
@@ -3070,6 +3010,7 @@ export const gameApi = {
         }>({
           connectionId: imageConnectionId,
           prompt: item.prompt,
+          negativePrompt: item.negativePrompt,
           width: item.width,
           height: item.height,
           ...(item.kind === "illustration" && item.referenceImages?.length

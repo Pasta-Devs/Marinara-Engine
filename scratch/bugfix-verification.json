@@ -1,15 +1,12 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2130,
-    "title": "Native character export omits managed gallery images",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2130"
+    "number": 2137,
+    "title": "Game mode generated NPC/background/illustration prompts lost negative-prompt and species safeguards",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2137"
   },
-  "pr": {
-    "number": 2203,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2203"
-  },
-  "coreClaim": "Native character .marinara export embeds managed character-gallery assets so import/export round trips preserve gallery images.",
+  "pr": {},
+  "coreClaim": "Game asset generation forwards per-kind negative prompts and preserves NPC species cues in portrait prompts.",
   "assignment": {
     "assignee": "@me",
     "assignedBeforeWork": true,
@@ -17,85 +14,78 @@
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "No PRs or local issue branches/worktrees were found for #2130 or the issue title before work started.",
+    "details": "Searched open and closed PRs for #2137 and title keywords; no direct existing fix PR or local issue-2137 worktree was present before work started.",
     "base": "upstream/refactor",
-    "worktree": "C:/tmp/Marinara-Engine-issue-2130"
-  },
-  "riskClaimMatrix": {
-    "coreClaim": "Native character .marinara export embeds managed character-gallery assets so import/export round trips preserve gallery images.",
-    "riskType": "import-export compatibility and managed user assets",
-    "entrypoints": [
-      "src-tauri native character export",
-      "src-tauri native character import",
-      "character-gallery managed upload rows",
-      "character gallery delete cleanup"
-    ],
-    "currentPathsOrFormats": [
-      "character-gallery rows with filePath, filename, and asset URL",
-      "native marinara_character envelope data.gallery entries with embedded data URLs"
-    ],
-    "legacyPathsOrFormats": [
-      "character-gallery rows whose url is already an inline data:image value",
-      "native marinara_character envelope data.gallery entries with inline data"
-    ],
-    "positiveRowsTested": [
-      "Managed character-gallery row exports as one embedded data:image gallery entry.",
-      "Native marinara_character import materializes embedded gallery data as a managed gallery asset URL and file.",
-      "Inline legacy gallery row still exports unchanged."
-    ],
-    "negativeRowsTested": [
-      "Missing managed gallery file is skipped instead of exporting a broken asset reference."
-    ],
-    "groundTruthFacts": [
-      "harness-proven: native_character_export_embeds_managed_gallery_assets creates the managed gallery file under AppState.data_dir/gallery and verifies gallery_for_character returns embedded data:image data.",
-      "harness-proven: native_marinara_character_import_materializes_embedded_gallery_assets reads the created character-gallery row and verifies the stored file exists on disk."
-    ],
-    "userActionCopy": [
-      {
-        "action": "copy the exported native .marinara file, and optionally back up the app-owned gallery data before import/export testing",
-        "items": [
-          "*.marinara",
-          "DATA_DIR/gallery",
-          "DATA_DIR/collections/character-gallery.json",
-          "DATA_DIR/collections/characters.json"
-        ],
-        "destination": "a separate folder outside the active Marinara profile data directory",
-        "currentLayouts": [
-          "current managed gallery layout: character-gallery row has filePath, filename, and asset URL; bytes live under DATA_DIR/gallery"
-        ],
-        "legacyLayouts": [
-          "legacy inline gallery layout: character-gallery row url is an inline data:image value"
-        ]
-      }
-    ],
-    "manualBlockers": []
+    "worktree": "C:/tmp/Marinara-Engine-issue-2137"
   },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "cargo test --manifest-path src-tauri\\Cargo.toml gallery_assets -- --nocapture",
-    "evidence": "Before the export fix, storage_commands::exports::tests::native_character_export_embeds_managed_gallery_assets failed because gallery_for_character returned 0 exported gallery items instead of 1 for a managed character-gallery row."
+    "command": "node scratch\\issue-2137-prompt-proof.mjs before",
+    "evidence": "Before the fix, the proof script reported forwardsNegativePrompt=false and all three game negative prompt constants plus both portrait species safeguard strings missing from src/features/modes/game/api/game-api.ts."
   },
   "verification": {
     "originalReproPassed": true,
-    "command": "cargo test --manifest-path src-tauri\\Cargo.toml gallery -- --nocapture",
-    "evidence": "17 gallery-focused Rust tests passed, including managed native export, inline gallery compatibility, missing-file negative control, native import materialization, and existing gallery delete cleanup tests.",
+    "command": "node scratch\\issue-2137-prompt-proof.mjs after",
+    "evidence": "After the fix, the proof script reported forwardsNegativePrompt=true, all three game negative prompt constants present, and both non-human preservation and human-default portrait rule strings present.",
     "edgeCases": [
-      "Managed character-gallery asset exports as embedded data:image data.",
-      "Inline legacy gallery data remains exportable.",
-      "Missing managed gallery file is skipped.",
-      "Native marinara_character import materializes embedded gallery data back into managed asset rows.",
-      "Existing gallery row delete and character/chat delete cleanup tests still pass."
+      "Portrait negative prompt includes duplicated-face and four-portrait blockers.",
+      "Background negative prompt blocks people/characters and multiple frames.",
+      "Illustration negative prompt blocks unrelated characters and character sheets.",
+      "Non-human description such as a stone golem gets the species-preservation rule.",
+      "A human NPC named Raven stays under the human/humanoid default rule instead of becoming an animal subject.",
+      "An explicit non-human name such as Talking Cat still receives the species-preservation rule when description details are omitted.",
+      "Tag-format portrait prompts retain the species safeguard text."
     ],
-    "visualProof": "Backend/storage bug with no meaningful UI state; the actual command proof is recorded in reproduction.evidence and verification.evidence.",
+    "focusedTestCommand": "pnpm test src\\features\\modes\\game\\api\\game-api.test.ts",
+    "focusedTestEvidence": "5 Vitest cases passed for negative prompts, non-human description preservation, human-name negative control, explicit non-human name handling, and tag-format safeguards.",
+    "laneCheckCommand": "pnpm typecheck",
+    "laneCheckEvidence": "tsc -b passed after the focused change.",
+    "visualProof": "Non-UI request-building bug; proof is the actual terminal output from the before/after source proof script and focused Vitest run.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after pnpm install --frozen-lockfile in the isolated worktree.",
-    "laneCheckCommand": "cargo check --manifest-path src-tauri\\Cargo.toml",
-    "laneCheckEvidence": "cargo check passed for the Tauri storage lane."
+    "baselineEvidence": "pnpm check passed after the final diff, including line endings, architecture, frontend typecheck, Rust check, docs, discovery, launcher safety, and unused-code checks."
+  },
+  "riskClaimMatrix": {
+    "coreClaim": "Game asset generation restores prompt safeguards without changing storage, provider credentials, or generated asset persistence.",
+    "riskType": "prompt/request payload generation",
+    "entrypoints": [
+      "src/features/modes/game/api/game-api.ts previewGeneratedAssets",
+      "src/features/modes/game/api/game-api.ts generateAssets",
+      "imageGenerationApi.generate request body"
+    ],
+    "currentPathsOrFormats": [
+      "background preview item -> imageGenerationApi.generate",
+      "illustration preview item -> imageGenerationApi.generate",
+      "portrait preview item -> imageGenerationApi.generate"
+    ],
+    "legacyPathsOrFormats": [
+      "legacy web app game-asset-generation negative prompts",
+      "legacy web app NPC species rule"
+    ],
+    "positiveRowsTested": [
+      "background negative prompt",
+      "illustration negative prompt",
+      "portrait negative prompt",
+      "non-human portrait description",
+      "explicit non-human portrait name",
+      "tag-format portrait prompt"
+    ],
+    "negativeRowsTested": [
+      "human NPC with animal-like name Raven remains human/humanoid by default"
+    ],
+    "groundTruthFacts": [
+      "harness-proven: node scratch\\issue-2137-prompt-proof.mjs after verified generateAssets request body contains negativePrompt: item.negativePrompt",
+      "harness-proven: pnpm test src\\features\\modes\\game\\api\\game-api.test.ts verified gameAssetNegativePrompt returns per-kind prompt text",
+      "harness-proven: pnpm test src\\features\\modes\\game\\api\\game-api.test.ts verified sceneAssetPrompt applies portrait species rules"
+    ],
+    "userActionCopy": [],
+    "manualBlockers": []
   },
   "manualBlockers": [],
-  "notes": [],
+  "notes": [
+    "No image provider credentials were needed because the bug is proven at request-payload construction, before provider dispatch."
+  ],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
