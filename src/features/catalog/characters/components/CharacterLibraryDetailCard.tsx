@@ -99,11 +99,7 @@ export function CharacterLibraryDetailCard({
                   startChatFromCharacter({
                     characterId: character.id,
                     characterName,
-                    mode: "roleplay",
-                    firstMessage: getText(character.parsed.first_mes),
-                    alternateGreetings: Array.isArray(character.parsed.alternate_greetings)
-                      ? character.parsed.alternate_greetings
-                      : [],
+                    mode: "conversation",
                   })
                 }
                 disabled={startDisabled}

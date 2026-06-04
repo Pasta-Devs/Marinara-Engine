@@ -253,9 +253,7 @@ export function CharacterEditor() {
     startChatFromCharacter({
       characterId,
       characterName: formData.name,
-      mode: "roleplay",
-      firstMessage: formData.first_mes,
-      alternateGreetings: formData.alternate_greetings,
+      mode: "conversation",
     });
   };
 
