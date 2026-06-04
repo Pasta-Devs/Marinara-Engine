@@ -14,6 +14,7 @@
     "attempted": true,
     "reproducedBeforeFix": true,
     "command": "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts",
+    "method": "Local ignored Vitest harness kept out of the submitted PR diff per repo policy.",
     "evidence": "Failed before fix: applyJournalEntry is not a function; syncJournalFromGameState is not a function."
   },
   "verification": {
@@ -24,7 +25,7 @@
     "baselineCommand": "pnpm check",
     "baselineEvidence": "Full PR gate passed: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, unused exports.",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 3 tests.",
+      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 3 tests using a local ignored proof harness.",
       "pnpm typecheck passed.",
       "pnpm check:architecture passed.",
       "pnpm check:unused passed after internalizing journal row-builder helpers.",
@@ -118,10 +119,10 @@
     ],
     "wrongLaneFixToAvoid": "Do not patch GameJournal or recap UI to fake NPC/quest sections from unrelated metadata while journal.npcLog and journal.quests remain empty.",
     "regressionProof": [
-      "journal.service.test.ts routes npc commands into npcLog and npc entries.",
-      "journal.service.test.ts routes quest commands into journal.quests and quest entries.",
-      "journal.service.test.ts syncs tracked NPCs and active player quests into deterministic recap output.",
-      "journal.service.test.ts keeps existing location and item command payload fields working."
+      "Local ignored proof harness routes npc commands into npcLog and npc entries.",
+      "Local ignored proof harness routes quest commands into journal.quests and quest entries.",
+      "Local ignored proof harness syncs tracked NPCs and active player quests into deterministic recap output.",
+      "Local ignored proof harness keeps existing location and item command payload fields working."
     ]
   },
   "proofRows": {
