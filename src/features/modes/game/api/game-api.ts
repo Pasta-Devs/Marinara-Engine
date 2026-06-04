@@ -2542,10 +2542,14 @@ export const gameApi = {
         location: data.location ?? "",
       });
     }
-    const generated = generateWeather(biome, season);
-    const forced = data.type
-      ? ({ ...generated, type: data.type as WeatherState["type"], description: "" } satisfies WeatherState)
-      : generated;
+    let forced = generateWeather(biome, season);
+    if (data.type) {
+      forced = {
+        ...forced,
+        type: data.type as WeatherState["type"],
+        description: `The weather is ${data.type}.`,
+      };
+    }
     const changed =
       Boolean(data.type) ||
       Math.random() <

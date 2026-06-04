@@ -25,6 +25,7 @@ import type {
 } from "../contracts/types/game";
 import { buildGmFormatReminder, buildGmSystemPrompt, type GmPromptContext } from "../modes/game/prompts/gm-prompts";
 import { loadCharacterSprites, type CharacterSpriteSubject } from "../modes/game/prompts/sprite.service";
+import { formatMoraleContext, getMoraleTier } from "../modes/game/mechanics/morale.service";
 import { formatPerceptionHints, generatePerceptionHints } from "../modes/game/mechanics/perception.service";
 import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
 import { fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
@@ -708,6 +709,8 @@ async function buildGamePromptMessages(
       ? (blueprint.hudWidgets as unknown as HudWidget[])
       : undefined;
 
+  const gameMorale = meta.gameMorale == null ? null : readNumber(meta.gameMorale, 50);
+
   const gmCtx: GmPromptContext = {
     gameActiveState: activeState,
     storyArc: readString(meta.gameStoryArc).trim() || null,
@@ -738,7 +741,7 @@ async function buildGamePromptMessages(
     turnNumber: input.storedMessages.filter((message) => readString(message.role) === "user").length + 1,
     perceptionHints: buildGamePerceptionHints(input.chat, meta, persona),
     moraleContext:
-      meta.gameMorale == null ? undefined : `Current party morale: ${readNumber(meta.gameMorale, 50)} / 100.`,
+      gameMorale == null ? undefined : formatMoraleContext({ value: gameMorale, tier: getMoraleTier(gameMorale) }),
     characterSprites: await loadCharacterSprites(input.visuals, spriteSubjects),
     playerInventory: normalizeGameInventory(meta.gameInventory),
     language: readString(setup.language).trim() || undefined,
