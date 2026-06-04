@@ -36,7 +36,13 @@ interface GenerationInfo {
   finishReason?: string | null;
 }
 
-type PeekPromptMessage = { role: string; content: string; displayName?: string; images?: string[] };
+type PeekPromptMessage = {
+  role: string;
+  content: string;
+  contextKind?: "prompt" | "history" | "injection";
+  displayName?: string;
+  images?: string[];
+};
 
 interface PeekPromptModalProps {
   data: {
@@ -118,6 +124,87 @@ function parseXmlSections(content: string, fallbackLabel: string, fallbackRole =
   return blocks.length > 0 ? blocks : [{ kind: "section", label: fallbackLabel, role: fallbackRole, content }];
 }
 
+function appendPromptSections(result: DisplaySection[], msg: PeekPromptMessage): void {
+  if (msg.contextKind === "injection" && msg.displayName === "Trackers") {
+    result.push({
+      kind: "section",
+      label: msg.displayName,
+      role: msg.role,
+      content: msg.content.trim(),
+    });
+    return;
+  }
+
+  const openIdx = msg.content.search(/<last_message>/i);
+  const closingIdx = msg.content.search(/<\/last_message>/i);
+  if (openIdx >= 0 && closingIdx >= 0) {
+    const beforeOpen = msg.content.slice(0, openIdx).trim();
+    const innerContent = msg.content.slice(msg.content.indexOf(">", openIdx) + 1, closingIdx).trim();
+    const afterClose = msg.content.slice(msg.content.indexOf(">", closingIdx) + 1).trim();
+
+    if (beforeOpen) {
+      const pre = parseXmlSections(beforeOpen, msg.displayName || msg.role, msg.role);
+      for (const block of pre) result.push(block);
+    }
+    if (innerContent) {
+      result.push({
+        kind: "section",
+        label: "last_message",
+        role: msg.role,
+        content: innerContent,
+      });
+    }
+    if (afterClose) {
+      const post = parseXmlSections(afterClose, msg.displayName || msg.role, msg.role);
+      for (const block of post) result.push(block);
+    }
+    return;
+  }
+
+  if (/<last_message>/i.test(msg.content) || /^## Last Message\n/i.test(msg.content)) {
+    const content = msg.content.replace(/^## Last Message\n?/i, "");
+    result.push({
+      kind: "section",
+      label: "last_message",
+      role: msg.role,
+      content: content.trim(),
+    });
+    return;
+  }
+
+  const blocks = parseXmlSections(msg.content, msg.displayName || msg.role, msg.role);
+  for (const block of blocks) result.push(block);
+}
+
+function buildDisplaySectionsFromContextKinds(messages: PeekPromptMessage[]): DisplaySection[] {
+  const result: DisplaySection[] = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i]!;
+    if (msg.contextKind !== "history") {
+      appendPromptSections(result, msg);
+      continue;
+    }
+
+    const entries: ChatHistoryEntry[] = [];
+    const rawParts: string[] = [];
+    for (; i < messages.length && messages[i]?.contextKind === "history"; i++) {
+      const historyMessage = messages[i]!;
+      const trimmed = historyMessage.content.trim();
+      if (!trimmed) continue;
+      entries.push({ role: historyMessage.role, content: trimmed });
+      rawParts.push(trimmed);
+    }
+    i -= 1;
+
+    if (entries.length > 0) {
+      result.push({ kind: "chat-history", entries, rawContent: rawParts.join("\n\n") });
+    }
+  }
+
+  return result;
+}
+
 /**
  * Build the display section list from the raw messages array.
  *
@@ -126,6 +213,10 @@ function parseXmlSections(content: string, fallbackLabel: string, fallbackRole =
  * array level first, then handle each region appropriately.
  */
 function buildDisplaySections(messages: PeekPromptMessage[]): DisplaySection[] {
+  if (messages.some((message) => message.contextKind)) {
+    return buildDisplaySectionsFromContextKinds(messages);
+  }
+
   // ── Pass 1: find chat history boundaries across the messages array ──
   let chStartIdx = -1;
   let chEndIdx = -1;
@@ -236,10 +327,7 @@ function buildDisplaySections(messages: PeekPromptMessage[]): DisplaySection[] {
     }
 
     // ── System/other messages: parse XML sections within them ──
-    const blocks = parseXmlSections(msg.content, msg.displayName || msg.role, msg.role);
-    for (const b of blocks) {
-      result.push(b);
-    }
+    appendPromptSections(result, msg);
   }
 
   return result;
@@ -380,7 +468,7 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
 
 export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
   const { data: presetSummaries } = usePresetSummaries();
-  const displayMessages = data.messages;
+  const displayMessages = data.previewMessages?.length ? data.previewMessages : data.messages;
   const sections = useMemo(() => buildDisplaySections(displayMessages), [displayMessages]);
   const totalTokens = useMemo(() => estimateTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
   const isLoading = data.loading === true;

@@ -3,7 +3,6 @@ import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types
 import type { CharacterData } from "../contracts/types/character";
 import { BUILT_IN_AGENTS } from "../contracts/types/agent";
 import type { StorageGateway } from "../capabilities/storage";
-import { stripAvatarPathsReplacer } from "../agents-runtime/strip-avatar-paths";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
 import { injectAtDepth } from "../generation-core/lorebooks/prompt-injector";
 import { wrapContent, wrapGroup } from "../generation-core/prompt/format-engine";
@@ -195,6 +194,17 @@ const TRACKER_PROMPT_METADATA_KEYS = new Set([
   "manual",
   "targetVisible",
   "version",
+  "avatarPath",
+  "portraitFocusX",
+  "portraitFocusY",
+  "portraitZoom",
+  "characterId",
+  "statId",
+  "inventoryItemId",
+  "objectiveId",
+  "questEntryId",
+  "customFieldId",
+  "color",
 ]);
 
 function dataRecord(record: JsonRecord): JsonRecord {
@@ -1263,26 +1273,104 @@ function trackerPromptSections(state: JsonRecord, activeIds: Set<string>): Track
 }
 
 function trackerSectionText(section: TrackerPromptSection): string {
-  return JSON.stringify(section.value, stripAvatarPathsReplacer, 2).slice(0, 2000);
+  return trackerPromptText(section.value).slice(0, 2000);
+}
+
+function trackerPromptLabel(key: string): string {
+  const label = key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!label) return "Value";
+  return label
+    .split(" ")
+    .map((word) => (word ? `${word.charAt(0).toUpperCase()}${word.slice(1)}` : word))
+    .join(" ");
+}
+
+function trackerScalarText(value: unknown): string | null {
+  if (typeof value === "string") {
+    const text = value.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+    if (!text) return null;
+    if (/^[a-z][a-z\s/'",-]*$/.test(text)) return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+    return text;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : null;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return null;
+}
+
+function indentTrackerText(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => (line.trim() ? `  ${line}` : line))
+    .join("\n");
+}
+
+function bulletTrackerText(text: string): string {
+  const lines = text.split("\n");
+  return lines.map((line, index) => (index === 0 ? `- ${line}` : `  ${line}`)).join("\n");
+}
+
+function compactNamedTrackerRecord(record: JsonRecord): string | null {
+  const keys = Object.keys(record);
+  const name = trackerScalarText(record.name);
+  if (!name || !keys.includes("name")) return null;
+
+  const value = trackerScalarText(record.value);
+  const max = trackerScalarText(record.max);
+  if (value && max && keys.every((key) => key === "name" || key === "value" || key === "max")) {
+    return `${name}: ${value} / ${max}`;
+  }
+  if (value && keys.every((key) => key === "name" || key === "value")) {
+    return `${name}: ${value}`;
+  }
+  return null;
+}
+
+function trackerPromptText(value: unknown): string {
+  const scalar = trackerScalarText(value);
+  if (scalar) return scalar;
+
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => trackerPromptText(entry).trim())
+      .filter(Boolean)
+      .map(bulletTrackerText)
+      .join("\n");
+  }
+
+  if (!isRecord(value)) return "";
+  const compact = compactNamedTrackerRecord(value);
+  if (compact) return compact;
+
+  return Object.entries(value)
+    .map(([key, entryValue]) => {
+      const text = trackerPromptText(entryValue).trim();
+      if (!text) return "";
+      const label = trackerPromptLabel(key);
+      return text.includes("\n") ? `${label}:\n${indentTrackerText(text)}` : `${label}: ${text}`;
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 function formattedTrackersContent(sections: TrackerPromptSection[], wrapFormat: WrapFormat): string {
   if (sections.length === 0) return "";
 
   if (wrapFormat === "xml") {
-    const children = sections
+    return sections
       .map((section) => wrapContent(trackerSectionText(section), section.key, "xml", 1))
       .filter(Boolean)
       .join("\n\n");
-    return wrapContent(children, "trackers", "xml");
   }
 
   if (wrapFormat === "markdown") {
-    const children = sections
+    return sections
       .map((section) => wrapContent(trackerSectionText(section), section.label, "markdown", 1))
       .filter(Boolean)
       .join("\n\n");
-    return wrapContent(children, "Trackers", "markdown");
   }
 
   return [
@@ -2281,13 +2369,30 @@ function shouldMergeSameRolePromptMessage(
   return true;
 }
 
+function mergedPromptContextKind(
+  previous: ChatMLMessage["contextKind"] | undefined,
+  next: ChatMLMessage["contextKind"] | undefined,
+): ChatMLMessage["contextKind"] | undefined {
+  if (previous === next) return previous;
+  if (
+    (previous === "history" && next === "injection") ||
+    (previous === "injection" && next === "history")
+  ) {
+    return "history";
+  }
+  return undefined;
+}
+
 function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatMLMessage): void {
   previous.content += "\n\n" + message.content;
   previous.content = collapseExcessBlankLines(previous.content);
   if ((previous.displayName ?? null) !== (message.displayName ?? null)) {
     delete previous.displayName;
   }
-  if (previous.contextKind !== message.contextKind) {
+  const contextKind = mergedPromptContextKind(previous.contextKind, message.contextKind);
+  if (contextKind) {
+    previous.contextKind = contextKind;
+  } else {
     delete previous.contextKind;
   }
   if ((previous.characterId ?? null) !== (message.characterId ?? null)) {
@@ -2481,6 +2586,11 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
     }
 
     if (message.role === "system") {
+      const previous = result[result.length - 1];
+      if (previous?.role === "system") {
+        mergeIntoPreviousPromptMessage(previous, message);
+        continue;
+      }
       result.push(message);
       expectedRole = "user";
       continue;

@@ -274,6 +274,7 @@ type DrawerPersona = {
 };
 
 type AgentAddPreview = {
+  mode: "add" | "edit";
   agent: AvailableAgent;
   config: AgentConfigRow | null;
   contextSize: number;
@@ -891,14 +892,8 @@ function ChatSettingsDrawerInner({
     };
   }, [activeAgentIds, availableAgents, agentConfigsByType, chat.connectionId]);
 
-  const lorebookKeeperConfig = agentConfigsByType.get("lorebook-keeper") ?? null;
-  const lorebookKeeperEnabledByDefault = isEnabledFlag(lorebookKeeperConfig?.enabled);
-  const lorebookKeeperActive =
-    activeAgentIds.includes("lorebook-keeper") || (activeAgentIds.length === 0 && lorebookKeeperEnabledByDefault);
-  const expressionConfig = agentConfigsByType.get("expression") ?? null;
-  const expressionEnabledByDefault = isEnabledFlag(expressionConfig?.enabled);
-  const expressionActive =
-    activeAgentIds.includes("expression") || (activeAgentIds.length === 0 && expressionEnabledByDefault);
+  const lorebookKeeperActive = activeAgentIds.includes("lorebook-keeper");
+  const expressionActive = activeAgentIds.includes("expression");
   const lorebookKeeperTargetLorebookId =
     typeof metadata.lorebookKeeperTargetLorebookId === "string" ? metadata.lorebookKeeperTargetLorebookId : "";
   const lorebookKeeperReadBehindMessages = normalizeNonNegativeInteger(
@@ -1544,7 +1539,7 @@ function ChatSettingsDrawerInner({
   const [choiceModalPresetId, setChoiceModalPresetId] = useState<string | null>(null);
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
   const [agentAddCadenceInputFocused, setAgentAddCadenceInputFocused] = useState(false);
-  const [addingAgentToChat, setAddingAgentToChat] = useState(false);
+  const [savingAgentSettings, setSavingAgentSettings] = useState(false);
   const [isRegeneratingSchedules, setIsRegeneratingSchedules] = useState(false);
   // Synchronous lock to close the re-entry gap: React state commits are async, so two
   // fast clicks can both pass the `isRegeneratingSchedules` check before the state updates.
@@ -1627,7 +1622,7 @@ function ChatSettingsDrawerInner({
   useEffect(() => {
     if (!open) {
       setAgentAddPreview(null);
-      setAddingAgentToChat(false);
+      setSavingAgentSettings(false);
     }
   }, [open]);
 
@@ -1654,7 +1649,7 @@ function ChatSettingsDrawerInner({
     setGameSpotifyArtistDraft(gameSpotifyArtist);
   }, [chat.id, gameSpotifyArtist]);
 
-  const openAgentAddModal = (agent: AvailableAgent) => {
+  const openAgentConfigModal = (agent: AvailableAgent, mode: AgentAddPreview["mode"]) => {
     setAgentAddCadenceInputFocused(false);
     const config = agentConfigsByType.get(agent.id) ?? null;
     const mergedSettings = {
@@ -1663,6 +1658,7 @@ function ChatSettingsDrawerInner({
     };
     const intervalMeta = getAgentRunIntervalMeta(agent.id, agent.builtIn);
     setAgentAddPreview({
+      mode,
       agent,
       config,
       contextSize: normalizePositiveInteger(mergedSettings.contextSize, DEFAULT_AGENT_CONTEXT_SIZE, 200),
@@ -1673,10 +1669,13 @@ function ChatSettingsDrawerInner({
     });
   };
 
-  const confirmAddAgent = async () => {
+  const openAgentAddModal = (agent: AvailableAgent) => openAgentConfigModal(agent, "add");
+  const openAgentSettingsModal = (agent: AvailableAgent) => openAgentConfigModal(agent, "edit");
+
+  const confirmAgentSettings = async () => {
     if (!agentAddPreview) return;
 
-    const { agent, config, contextSize, maxTokens, runInterval } = agentAddPreview;
+    const { mode, agent, config, contextSize, maxTokens, runInterval } = agentAddPreview;
     const normalizedMaxTokens = normalizeAgentMaxTokens(maxTokens);
     const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === agent.id) ?? null;
     const nextSettings: Record<string, unknown> = {
@@ -1693,7 +1692,7 @@ function ChatSettingsDrawerInner({
       nextSettings.enabledTools = DEFAULT_AGENT_TOOLS[agent.id] ?? [];
     }
 
-    setAddingAgentToChat(true);
+    setSavingAgentSettings(true);
     try {
       if (config) {
         await updateAgentConfig.mutateAsync({ id: config.id, enabled: true, settings: nextSettings });
@@ -1710,23 +1709,30 @@ function ChatSettingsDrawerInner({
         });
       }
 
-      await updateMeta.mutateAsync({
-        id: chat.id,
-        activeAgentIds: Array.from(new Set([...activeAgentIds, agent.id])),
-        ...(agent.id === "secret-plot-driver"
-          ? {
-              showSecretPlotPanel: true,
-            }
-          : {}),
-      });
+      if (mode === "add") {
+        await updateMeta.mutateAsync({
+          id: chat.id,
+          activeAgentIds: Array.from(new Set([...activeAgentIds, agent.id])),
+          ...(agent.id === "secret-plot-driver"
+            ? {
+                showSecretPlotPanel: true,
+              }
+            : {}),
+        });
+      }
       setAgentAddPreview(null);
     } catch (error) {
       await showAlertDialog({
-        title: "Couldn’t Add Agent",
-        message: error instanceof Error ? error.message : "Failed to add the agent to this chat.",
+        title: mode === "add" ? "Couldn’t Add Agent" : "Couldn’t Update Agent",
+        message:
+          error instanceof Error
+            ? error.message
+            : mode === "add"
+              ? "Failed to add the agent to this chat."
+              : "Failed to update this agent's settings.",
       });
     } finally {
-      setAddingAgentToChat(false);
+      setSavingAgentSettings(false);
     }
   };
 
@@ -4434,7 +4440,7 @@ function ChatSettingsDrawerInner({
                   </div>
                 )}
 
-                {agentsEnabled && !isGame && (
+                {lorebookKeeperActive && !isGame && (
                   <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
@@ -4537,16 +4543,13 @@ function ChatSettingsDrawerInner({
                     </div>
 
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      {lorebookKeeperActive
-                        ? "Read-behind uses assistant messages: 0 means the newest eligible reply, 1 waits one reply, and backfill only processes messages Lorebook Keeper has not already saved."
-                        : activeAgentIds.length === 0
-                          ? "Lorebook Keeper is not currently enabled in this chat. These chat settings will apply once it is enabled."
-                          : "Lorebook Keeper is not in this chat's active agent list. Add it below to make these settings take effect."}
+                      Read-behind uses assistant messages: 0 means the newest eligible reply, 1 waits one reply, and
+                      backfill only processes messages Lorebook Keeper has not already saved.
                     </p>
                   </div>
                 )}
 
-                {agentsEnabled && !isGame && (
+                {expressionActive && !isGame && (
                   <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
                     <div className="flex items-start gap-2">
                       <Image size="0.75rem" className="mt-0.5 text-[var(--primary)]" />
@@ -5278,7 +5281,16 @@ function ChatSettingsDrawerInner({
                                     return (
                                       <div
                                         key={agent.id}
-                                        className="rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => openAgentSettingsModal(agent)}
+                                        onKeyDown={(event) => {
+                                          if (event.key !== "Enter" && event.key !== " ") return;
+                                          event.preventDefault();
+                                          openAgentSettingsModal(agent);
+                                        }}
+                                        className="rounded-lg bg-[var(--primary)]/10 px-3 py-2 text-left ring-1 ring-[var(--primary)]/30 transition-colors hover:bg-[var(--primary)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                                        title={`Open ${agent.name} settings`}
                                       >
                                         <div className="flex items-start gap-2.5">
                                           <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
@@ -5299,9 +5311,11 @@ function ChatSettingsDrawerInner({
                                             </span>
                                           </div>
                                           <button
-                                            onClick={() => {
+                                            onClick={(event) => {
+                                              event.stopPropagation();
                                               void toggleAgent(agent.id);
                                             }}
+                                            onKeyDown={(event) => event.stopPropagation()}
                                             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                                             title="Remove from chat"
                                           >
@@ -5311,12 +5325,13 @@ function ChatSettingsDrawerInner({
                                         {isSecretPlotDriver && (
                                           <button
                                             type="button"
-                                            onClick={() =>
+                                            onClick={(event) => {
+                                              event.stopPropagation();
                                               updateMeta.mutate({
                                                 id: chat.id,
                                                 showSecretPlotPanel: metadata.showSecretPlotPanel !== true,
                                               })
-                                            }
+                                            }}
                                             aria-pressed={metadata.showSecretPlotPanel === true}
                                             className="ml-auto mt-1.5 flex w-fit max-w-full items-center gap-2 rounded-md bg-[var(--background)]/20 px-1.5 py-1 text-left text-[0.5625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/35 hover:text-[var(--foreground)]"
                                             title={
@@ -5399,7 +5414,16 @@ function ChatSettingsDrawerInner({
                                     return (
                                       <div
                                         key={agent.id}
-                                        className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => openAgentSettingsModal(agent)}
+                                        onKeyDown={(event) => {
+                                          if (event.key !== "Enter" && event.key !== " ") return;
+                                          event.preventDefault();
+                                          openAgentSettingsModal(agent);
+                                        }}
+                                        className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 text-left ring-1 ring-[var(--primary)]/30 transition-colors hover:bg-[var(--primary)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                                        title={`Open ${agent.name} settings`}
                                       >
                                         <Sparkles size="0.875rem" className="text-[var(--primary)]" />
                                         <div className="flex-1 min-w-0">
@@ -5414,9 +5438,11 @@ function ChatSettingsDrawerInner({
                                           </span>
                                         ) : null}
                                         <button
-                                          onClick={() => {
+                                          onClick={(event) => {
+                                            event.stopPropagation();
                                             void toggleAgent(agent.id);
                                           }}
+                                          onKeyDown={(event) => event.stopPropagation()}
                                           className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
                                           title="Remove from chat"
                                         >
@@ -6116,9 +6142,15 @@ function ChatSettingsDrawerInner({
       <Modal
         open={!!agentAddPreview}
         onClose={() => {
-          if (!addingAgentToChat) setAgentAddPreview(null);
+          if (!savingAgentSettings) setAgentAddPreview(null);
         }}
-        title={agentAddPreview ? `Add ${agentAddPreview.agent.name}` : "Add Agent"}
+        title={
+          agentAddPreview
+            ? agentAddPreview.mode === "add"
+              ? `Add ${agentAddPreview.agent.name}`
+              : `${agentAddPreview.agent.name} Settings`
+            : "Agent Settings"
+        }
         width="max-w-lg"
       >
         {agentAddPreview && (
@@ -6167,7 +6199,7 @@ function ChatSettingsDrawerInner({
                               : current,
                           );
                         }}
-                        disabled={addingAgentToChat}
+                        disabled={savingAgentSettings}
                         className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
@@ -6206,7 +6238,7 @@ function ChatSettingsDrawerInner({
                           current ? { ...current, maxTokens: normalizeAgentMaxTokens(current.maxTokens) } : current,
                         );
                       }}
-                      disabled={addingAgentToChat}
+                      disabled={savingAgentSettings}
                       className="w-32 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                     <span className="text-[0.6875rem] text-[var(--muted-foreground)]">tokens</span>
@@ -6245,7 +6277,7 @@ function ChatSettingsDrawerInner({
                             : current,
                         );
                       }}
-                      disabled={addingAgentToChat}
+                      disabled={savingAgentSettings}
                       className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   ) : (
@@ -6294,14 +6326,14 @@ function ChatSettingsDrawerInner({
                               : current,
                           );
                         }}
-                        disabled={addingAgentToChat}
+                        disabled={savingAgentSettings}
                         className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 pr-8 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 flex-col overflow-hidden rounded-md">
                         <button
                           type="button"
                           aria-label="Increase trigger cadence"
-                          disabled={addingAgentToChat}
+                          disabled={savingAgentSettings}
                           onClick={() => {
                             setAgentAddPreview((current) =>
                               current
@@ -6323,7 +6355,7 @@ function ChatSettingsDrawerInner({
                         <button
                           type="button"
                           aria-label="Decrease trigger cadence"
-                          disabled={addingAgentToChat}
+                          disabled={savingAgentSettings}
                           onClick={() => {
                             setAgentAddPreview((current) =>
                               current
@@ -6354,17 +6386,17 @@ function ChatSettingsDrawerInner({
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 onClick={() => setAgentAddPreview(null)}
-                disabled={addingAgentToChat}
+                disabled={savingAgentSettings}
                 className="rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Cancel
               </button>
               <button
-                onClick={confirmAddAgent}
-                disabled={addingAgentToChat}
+                onClick={confirmAgentSettings}
+                disabled={savingAgentSettings}
                 className="rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {addingAgentToChat ? "Adding..." : "Add"}
+                {savingAgentSettings ? "Saving..." : agentAddPreview.mode === "add" ? "Add" : "Update Settings"}
               </button>
             </div>
           </div>

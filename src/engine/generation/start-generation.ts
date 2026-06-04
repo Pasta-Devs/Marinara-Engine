@@ -178,7 +178,7 @@ const internalStartGenerationOptions = new WeakMap<StartGenerationInput, Interna
 
 type MainGenerationPromptSnapshot = Pick<
   GenerationPromptSnapshot,
-  "messages" | "parameters" | "tools" | "promptPresetId"
+  "messages" | "previewMessages" | "parameters" | "tools" | "promptPresetId"
 >;
 
 function abortGenerationError(): Error {
@@ -1678,6 +1678,9 @@ function buildSavedGenerationPromptSnapshot(args: {
   const generationInfo = generationInfoFromVisibleParameters(args.connection, isRecord(parameters) ? parameters : {});
   return {
     messages: args.promptSnapshot.messages.map(clonePromptMessage),
+    ...(args.promptSnapshot.previewMessages?.length
+      ? { previewMessages: args.promptSnapshot.previewMessages.map(clonePromptMessage) }
+      : {}),
     parameters: isRecord(parameters) ? parameters : {},
     ...(tools?.length ? { tools } : {}),
     promptPresetId: args.promptSnapshot.promptPresetId ?? null,
@@ -2710,13 +2713,22 @@ export async function* startGeneration(
     throwIfAborted(signal);
     await consumePendingConnectedInfluences(deps.storage, chatForGeneration);
     throwIfAborted(signal);
+    const generationDirectiveMessages = directiveMessages(
+      input,
+      chat,
+      assembly.characters,
+      assembly.persona,
+      preparedUserInput,
+      {
+        continueAssistantResponse,
+      },
+    );
     prompt = withImageAttachments(
-      [
-        ...assembly.messages,
-        ...directiveMessages(input, chat, assembly.characters, assembly.persona, preparedUserInput, {
-          continueAssistantResponse,
-        }),
-      ],
+      [...assembly.messages, ...generationDirectiveMessages],
+      preparedUserInput.images,
+    );
+    const promptPreviewMessages = withImageAttachments(
+      [...assembly.previewMessages, ...generationDirectiveMessages],
       preparedUserInput.images,
     );
 
@@ -2751,6 +2763,9 @@ export async function* startGeneration(
       chat: chatForGeneration,
       parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
       baseMessages,
+      previewMessages: [...promptPreviewMessages, generationGuide(input, runtime?.preInjections)].filter(
+        (message): message is LlmMessage => !!message,
+      ),
       promptPresetId: assembly.promptPresetId,
       mainTools,
       toolRuntimeInput,
@@ -2906,13 +2921,19 @@ export async function* startGeneration(
     return;
   }
 
-  prompt = withImageAttachments(
-    [
-      ...(prompt ?? []),
-      ...directiveMessages(input, chat, assembly.characters, assembly.persona, preparedUserInput, {
-        continueAssistantResponse,
-      }),
-    ],
+  const directDirectiveMessages = directiveMessages(
+    input,
+    chat,
+    assembly.characters,
+    assembly.persona,
+    preparedUserInput,
+    {
+      continueAssistantResponse,
+    },
+  );
+  prompt = withImageAttachments([...(prompt ?? []), ...directDirectiveMessages], preparedUserInput.images);
+  const promptPreviewMessagesDirect = withImageAttachments(
+    [...assembly.previewMessages, ...directDirectiveMessages],
     preparedUserInput.images,
   );
   yield { type: "phase", data: "Calling model..." };
@@ -2945,6 +2966,9 @@ export async function* startGeneration(
     chat: chatForGeneration,
     parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
     baseMessages: baseMessagesDirect,
+    previewMessages: [...(promptPreviewMessagesDirect ?? []), generationGuide(input)].filter(
+      (message): message is LlmMessage => !!message,
+    ),
     promptPresetId: assembly.promptPresetId,
     mainTools: mainToolsDirect,
     toolRuntimeInput: toolRuntimeInputDirect,
@@ -3091,6 +3115,7 @@ async function* streamMainGenerationLoop(args: {
   chat: JsonRecord;
   parameters: Record<string, unknown>;
   baseMessages: LlmMessage[];
+  previewMessages?: LlmMessage[] | null;
   promptPresetId?: string | null;
   mainTools: MainToolDefinitions | null;
   toolRuntimeInput: ToolRuntimeInput;
@@ -3106,6 +3131,7 @@ async function* streamMainGenerationLoop(args: {
     chat,
     parameters,
     baseMessages,
+    previewMessages,
     promptPresetId,
     mainTools,
     toolRuntimeInput,
@@ -3139,11 +3165,15 @@ async function* streamMainGenerationLoop(args: {
     };
 
     const requestMessages = fitMessagesToContextWindow(conversation, parameters);
+    const requestPreviewMessages = previewMessages?.length
+      ? fitMessagesToContextWindow(previewMessages, parameters)
+      : null;
     const requestParameters = runtimeLlmParameters(connection, input, chat, parameters);
     const visibleRequestParameters = providerVisibleLlmParameters(connection, requestParameters, { stream: true });
     const requestTools = mainTools?.toolDefs;
     promptSnapshot = {
       messages: requestMessages.map(clonePromptMessage),
+      ...(requestPreviewMessages?.length ? { previewMessages: requestPreviewMessages.map(clonePromptMessage) } : {}),
       parameters: cloneSerializableValue(visibleRequestParameters),
       promptPresetId: promptPresetId ?? null,
       ...(requestTools?.length ? { tools: cloneSerializableValue(requestTools) } : {}),

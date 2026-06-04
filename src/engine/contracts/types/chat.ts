@@ -514,6 +514,7 @@ export interface GenerationPromptSnapshotInfo {
 
 export interface GenerationPromptSnapshot {
   messages: GenerationPromptSnapshotMessage[];
+  previewMessages?: GenerationPromptSnapshotMessage[];
   parameters: Record<string, unknown>;
   tools?: unknown[] | null;
   generationInfo?: GenerationPromptSnapshotInfo | null;

@@ -229,9 +229,18 @@ export const useAgentStore = create<AgentState>((set) => ({
   clearFailedAgentTypes: () => set({ failedAgentTypes: [], failedAgentFailures: [] }),
 
   addThoughtBubble: (agentId, agentName, content) =>
-    set((s) => ({
-      thoughtBubbles: [...s.thoughtBubbles, { agentId, agentName, content, timestamp: Date.now() }].slice(-50),
-    })),
+    set((s) => {
+      const timestamp = Date.now();
+      const existingIndex = s.thoughtBubbles.findIndex((bubble) => bubble.agentId === agentId);
+      if (existingIndex >= 0) {
+        const thoughtBubbles = [...s.thoughtBubbles];
+        thoughtBubbles[existingIndex] = { agentId, agentName, content, timestamp };
+        return { thoughtBubbles };
+      }
+      return {
+        thoughtBubbles: [...s.thoughtBubbles, { agentId, agentName, content, timestamp }].slice(-50),
+      };
+    }),
 
   dismissThoughtBubble: (index) =>
     set((s) => ({

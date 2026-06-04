@@ -1,7 +1,13 @@
 import type { Message, MessageSwipe } from "../../../../engine/contracts/types/chat";
 export type { CharacterMap, PersonaInfo } from "../../../runtime/visuals/types";
 
-type PeekPromptMessage = { role: string; content: string; displayName?: string; images?: string[] };
+type PeekPromptMessage = {
+  role: string;
+  content: string;
+  contextKind?: "prompt" | "history" | "injection";
+  displayName?: string;
+  images?: string[];
+};
 
 export type PeekPromptData = {
   messages: PeekPromptMessage[];

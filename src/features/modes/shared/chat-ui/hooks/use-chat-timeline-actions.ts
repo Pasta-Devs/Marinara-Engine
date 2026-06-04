@@ -31,6 +31,7 @@ import { resolvePromptSnapshotFromExtra } from "../lib/prompt-snapshot";
 const TRACKER_AGENT_IDS = new Set(
   BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id),
 );
+const PEEK_PROMPT_CONTEXT_KINDS = new Set(["prompt", "history", "injection"]);
 
 type UseChatTimelineActionsOptions = {
   activeChatId: string;
@@ -54,20 +55,39 @@ function readRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function promptSnapshotToPeekPromptData(value: unknown): PeekPromptData | null {
-  const snapshot = readRecord(value);
-  const rawMessages = Array.isArray(snapshot.messages) ? snapshot.messages : [];
-  const messages = rawMessages
+function promptSnapshotMessagesToPeekMessages(value: unknown): PeekPromptData["messages"] {
+  const rawMessages = Array.isArray(value) ? value : [];
+  return rawMessages
     .map((message) => {
       const record = readRecord(message);
       const role = readString(record.role).trim();
       const content = readString(record.content);
-      return role && content ? { role, content } : null;
+      const contextKind = readString(record.contextKind).trim();
+      const displayName = readString(record.displayName || record.name).trim();
+      const images = Array.isArray(record.images) ? record.images.map(readString).filter(Boolean) : [];
+      return role && content
+        ? {
+            role,
+            content,
+            ...(PEEK_PROMPT_CONTEXT_KINDS.has(contextKind)
+              ? { contextKind: contextKind as "prompt" | "history" | "injection" }
+              : {}),
+            ...(displayName ? { displayName } : {}),
+            ...(images.length ? { images } : {}),
+          }
+        : null;
     })
-    .filter((message): message is { role: string; content: string } => !!message);
+    .filter((message): message is PeekPromptData["messages"][number] => !!message);
+}
+
+function promptSnapshotToPeekPromptData(value: unknown): PeekPromptData | null {
+  const snapshot = readRecord(value);
+  const messages = promptSnapshotMessagesToPeekMessages(snapshot.messages);
+  const previewMessages = promptSnapshotMessagesToPeekMessages(snapshot.previewMessages);
   if (messages.length === 0) return null;
   return {
     messages,
+    ...(previewMessages.length ? { previewMessages } : {}),
     parameters: snapshot.parameters ?? null,
     promptPresetId: readString(snapshot.promptPresetId).trim() || null,
     generationInfo: readRecord(snapshot.generationInfo) as PeekPromptData["generationInfo"],

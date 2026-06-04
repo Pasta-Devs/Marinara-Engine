@@ -725,6 +725,20 @@ function formatAgentBubble(result: AgentResult, agentName: string): string | nul
   }
 }
 
+function formatAgentActivityFallback(result: AgentResult): string {
+  if (result.agentType === "world-state" || result.type === "game_state_update") return "Updated world state.";
+  if (result.agentType === "character-tracker" || result.type === "character_tracker_update")
+    return "Updated character tracker.";
+  if (result.agentType === "persona-stats" || result.type === "persona_stats_update")
+    return "Updated persona stats.";
+  if (result.agentType === "custom-tracker" || result.type === "custom_tracker_update")
+    return "Updated custom tracker.";
+  if (result.type === "background_change" || result.agentType === "background") return "Background checked.";
+  if (result.agentType === "echo-chamber") return "Echo chamber checked.";
+  if (result.type === "sprite_change" || result.agentType === "expression") return "Expression checked.";
+  return "Triggered.";
+}
+
 function isTrackerStyleAgentResult(result: AgentResult): boolean {
   return (
     result.agentType === "world-state" ||
@@ -1072,7 +1086,7 @@ async function applyAgentResultEffects(
     options.showTrackerBubbles === false && isTrackerStyleAgentResult(result)
       ? null
       : formatAgentBubble(result, agentName);
-  if (bubble) agentStore.addThoughtBubble(result.agentType, agentName, bubble);
+  agentStore.addThoughtBubble(result.agentType, agentName, bubble ?? formatAgentActivityFallback(result));
 
   const data = parseMaybeRecord(result.data);
   if (result.agentType === "echo-chamber") {

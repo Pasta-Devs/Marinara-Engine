@@ -20,13 +20,14 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
 
   const mergeContextKind = (a?: ChatMLMessage["contextKind"], b?: ChatMLMessage["contextKind"]) => {
     if (a === b) return a;
+    if ((a === "history" && b === "injection") || (a === "injection" && b === "history")) {
+      return "history";
+    }
     return undefined;
   };
 
   const canMerge = (a: ChatMLMessage, b: ChatMLMessage) => {
-    if (a.role !== b.role) return false;
-    if (!a.contextKind || !b.contextKind) return true;
-    return a.contextKind === b.contextKind;
+    return a.role === b.role;
   };
 
   for (const msg of messages) {

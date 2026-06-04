@@ -38,6 +38,10 @@ interface ThoughtBubble {
 
 type AgentsMenuTab = "activity" | "injections" | "secret";
 
+function customAgentRunIdentity(run: { agentType?: string | null; agentId?: string | null; id?: string | null }): string {
+  return run.agentType?.trim() || run.agentId?.trim() || run.id?.trim() || "custom-agent";
+}
+
 interface RoleplayHUDActionsMenuProps {
   chatId: string;
   injectionSourceMessages?: Message[];
@@ -92,7 +96,10 @@ export function RoleplayHUDActionsMenu({
   showSecretPlotTab,
 }: RoleplayHUDActionsMenuProps) {
   const [tab, setTab] = useState<AgentsMenuTab>("activity");
-  const uniqueAgentCount = new Set(thoughtBubbles.map((bubble) => bubble.agentId)).size;
+  const uniqueAgentCount = new Set([
+    ...thoughtBubbles.map((bubble) => bubble.agentId),
+    ...customAgentRuns.map(customAgentRunIdentity),
+  ]).size;
   const hasCustomRuns = customAgentRuns.length > 0;
   const injectableCustomRuns = useMemo(
     () => getLatestInjectableCustomRuns(customAgentRuns, agentConfigs ?? [], enabledAgentTypes),

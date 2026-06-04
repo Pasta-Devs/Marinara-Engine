@@ -22,6 +22,10 @@ function DeferredActionsFallback({ isAgentProcessing }: { isAgentProcessing: boo
   );
 }
 
+function customAgentRunIdentity(run: { agentType?: string | null; agentId?: string | null; id?: string | null }): string {
+  return run.agentType?.trim() || run.agentId?.trim() || run.id?.trim() || "custom-agent";
+}
+
 interface ActionsGroupProps {
   chatId: string;
   injectionSourceMessages?: Message[];
@@ -130,8 +134,12 @@ export function ActionsGroup({
   }, [agentsOpen, setAgentsOpen]);
 
   // Badge count — unique agent types that produced results
-  const uniqueAgentCount = new Set(thoughtBubbles.map((b) => b.agentId)).size;
-  const generatedAgentCount = uniqueAgentCount + customAgentRuns.length + (echoMessages.length > 0 ? 1 : 0);
+  const generatedAgentIds = new Set([
+    ...thoughtBubbles.map((bubble) => bubble.agentId),
+    ...customAgentRuns.map(customAgentRunIdentity),
+  ]);
+  if (echoMessages.length > 0 && !generatedAgentIds.has("echo-chamber")) generatedAgentIds.add("echo-chamber");
+  const generatedAgentCount = generatedAgentIds.size;
 
   // ── Shared dropdown portal (used by both desktop & mobile) ──
   const dropdownContent =

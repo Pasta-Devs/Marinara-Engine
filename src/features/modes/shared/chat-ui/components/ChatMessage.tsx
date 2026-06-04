@@ -173,6 +173,19 @@ function generationDurationMsForMessage(message: Message): number | null {
   return durationMs != null && durationMs > 0 ? durationMs : null;
 }
 
+function formatTokenCount(tokens: number): string {
+  return Math.round(tokens).toLocaleString();
+}
+
+function formatGenerationTokenUsage(tokensPrompt: number | null, tokensCompletion: number | null): string | null {
+  if (tokensPrompt == null && tokensCompletion == null) return null;
+  if (tokensPrompt != null && tokensCompletion != null) {
+    return `${formatTokenCount(tokensPrompt)} prompt + ${formatTokenCount(tokensCompletion)} output tok`;
+  }
+  if (tokensPrompt != null) return `${formatTokenCount(tokensPrompt)} prompt tok`;
+  return `${formatTokenCount(tokensCompletion!)} output tok`;
+}
+
 function formatGenerationLabelForMessage(
   message: Message,
   showModelName: boolean,
@@ -218,11 +231,8 @@ function formatGenerationLabelForMessage(
     ]);
     const durationMs = firstGenerationNumber(records, ["durationMs", "duration_ms"]);
 
-    if (tokensPrompt != null || tokensCompletion != null) {
-      parts.push(
-        tokensPrompt != null ? `${tokensPrompt}\u2192${tokensCompletion ?? "?"} tok` : `${tokensCompletion} tok`,
-      );
-    }
+    const tokenUsage = formatGenerationTokenUsage(tokensPrompt, tokensCompletion);
+    if (tokenUsage) parts.push(tokenUsage);
     if ((tokensCachedPrompt ?? 0) > 0) parts.push(`cache hit ${tokensCachedPrompt!.toLocaleString()}`);
     if ((tokensCacheWritePrompt ?? 0) > 0) parts.push(`cache write ${tokensCacheWritePrompt!.toLocaleString()}`);
     if (durationMs != null) parts.push(`${(durationMs / 1000).toFixed(1)}s`);
