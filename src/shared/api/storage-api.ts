@@ -244,27 +244,78 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-async function loadImageUrlAsDataUrl(url: string, fallbackMimeType = "image/png"): Promise<string | null> {
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function loadImageUrlAsDataUrl(
+  url: string,
+  fallbackMimeType = "image/png",
+  sourceLabel = "image attachment",
+): Promise<string | null> {
   if (!url) return null;
   const inline = inlineImageDataUrl(url);
   if (inline) return inline;
   try {
     const blob = await urlBinaryApi.load(url, fallbackMimeType);
     const mimeType = textField(blob.type).toLowerCase();
-    if (mimeType && !mimeType.startsWith("image/")) return null;
+    if (mimeType && !mimeType.startsWith("image/")) {
+      throw new Error(`${sourceLabel} resolved to ${mimeType}, not an image.`);
+    }
     return blobToDataUrl(blob);
-  } catch {
+  } catch (error) {
+    throw new Error(`Failed to load ${sourceLabel}: ${errorMessage(error)}`);
+  }
+}
+
+async function loadResolvedGalleryFileDataUrl(
+  filename: string,
+  filePath: string,
+  sourceLabel: string,
+  errors: string[],
+): Promise<string | null> {
+  if (!filename && !filePath) return null;
+  let resolvedUrl: string | null = null;
+  try {
+    resolvedUrl = await resolveGalleryFileUrl(filename, filePath);
+  } catch (error) {
+    errors.push(`failed to resolve ${sourceLabel}: ${errorMessage(error)}`);
+    return null;
+  }
+  if (!resolvedUrl) {
+    errors.push(`could not resolve ${sourceLabel}`);
+    return null;
+  }
+  try {
+    return await loadImageUrlAsDataUrl(resolvedUrl, "image/png", sourceLabel);
+  } catch (error) {
+    errors.push(errorMessage(error));
     return null;
   }
 }
 
-async function galleryImageDataUrl(gallery: unknown): Promise<string | null> {
+async function galleryImageDataUrl(gallery: unknown, galleryId: string): Promise<string | null> {
   if (!gallery || typeof gallery !== "object" || Array.isArray(gallery)) return null;
   const record = gallery as Record<string, unknown>;
-  const urlData = await loadImageUrlAsDataUrl(textField(record.url));
-  if (urlData) return urlData;
-  const resolvedUrl = await resolveGalleryFileUrl(textField(record.filename), textField(record.filePath));
-  return resolvedUrl ? loadImageUrlAsDataUrl(resolvedUrl) : null;
+  const errors: string[] = [];
+  const url = textField(record.url);
+  if (url) {
+    try {
+      const urlData = await loadImageUrlAsDataUrl(url, "image/png", `gallery image ${galleryId} url`);
+      if (urlData) return urlData;
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+  }
+  const fileData = await loadResolvedGalleryFileDataUrl(
+    textField(record.filename),
+    textField(record.filePath),
+    `gallery image ${galleryId} file`,
+    errors,
+  );
+  if (fileData) return fileData;
+  if (errors.length) throw new Error(errors.join("; "));
+  return null;
 }
 
 async function resolveImageAttachmentDataUrl(
@@ -278,16 +329,29 @@ async function resolveImageAttachmentDataUrl(
 
   const galleryId = textField(attachment.galleryId);
   if (galleryId) {
-    const gallery = await storageApi.get<Record<string, unknown>>("gallery", galleryId).catch(() => null);
-    const galleryData = await galleryImageDataUrl(gallery);
+    let gallery: Record<string, unknown> | null = null;
+    try {
+      gallery = await storageApi.get<Record<string, unknown>>("gallery", galleryId);
+    } catch (error) {
+      throw new Error(`Failed to load image attachment gallery ${galleryId}: ${errorMessage(error)}`);
+    }
+    if (!gallery) throw new Error(`Image attachment gallery ${galleryId} was not found.`);
+    const galleryData = await galleryImageDataUrl(gallery, galleryId);
     if (galleryData) return galleryData;
+    throw new Error(`Image attachment gallery ${galleryId} does not contain a readable image.`);
   }
 
-  const urlData = await loadImageUrlAsDataUrl(textField(attachment.url) || textField(attachment.imageUrl));
+  const directUrl = textField(attachment.url) || textField(attachment.imageUrl);
+  const urlData = await loadImageUrlAsDataUrl(directUrl, "image/png", "image attachment url");
   if (urlData) return urlData;
 
-  const resolvedUrl = await resolveGalleryFileUrl(textField(attachment.filename), textField(attachment.filePath));
-  return resolvedUrl ? loadImageUrlAsDataUrl(resolvedUrl) : null;
+  const filename = textField(attachment.filename);
+  const filePath = textField(attachment.filePath);
+  const errors: string[] = [];
+  const fileData = await loadResolvedGalleryFileDataUrl(filename, filePath, "image attachment file", errors);
+  if (fileData) return fileData;
+  if (errors.length) throw new Error(errors.join("; "));
+  return null;
 }
 
 export const storageApi: StorageGateway = {

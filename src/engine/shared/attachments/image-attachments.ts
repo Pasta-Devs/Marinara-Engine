@@ -38,6 +38,10 @@ function attachmentInlineImageDataUrl(attachment: PromptAttachment): string {
   );
 }
 
+function hasManagedGalleryReference(attachment: PromptAttachment): boolean {
+  return !!readString(attachment.galleryId).trim() || !!readString(attachment.filePath).trim();
+}
+
 function estimateDataUrlBytes(dataUrl: string): number {
   const commaIndex = dataUrl.indexOf(",");
   if (!dataUrl.startsWith("data:") || commaIndex < 0) return utf8ByteLength(dataUrl);
@@ -103,6 +107,16 @@ function managedAttachmentFromGallery(
   return next;
 }
 
+function managedAttachmentFromReference(attachment: PromptAttachment, fallbackFilename: string): PromptAttachment {
+  const filename = readString(attachment.filename).trim() || readString(attachment.name).trim() || fallbackFilename;
+  return {
+    ...attachment,
+    data: null,
+    filename,
+    name: readString(attachment.name).trim() || filename,
+  };
+}
+
 async function deleteGalleryIds(storage: StorageGateway, galleryIds: string[]): Promise<void> {
   const uniqueIds = Array.from(new Set(galleryIds.map((id) => id.trim()).filter(Boolean)));
   await Promise.all(uniqueIds.map((id) => storage.delete("gallery", id)));
@@ -129,6 +143,11 @@ export async function prepareManagedImageAttachmentBatch(
         continue;
       }
 
+      if (hasManagedGalleryReference(attachment)) {
+        managed.push(managedAttachmentFromReference(attachment, attachmentFilename(attachment, index)));
+        continue;
+      }
+
       const dataUrl = attachmentInlineImageDataUrl(attachment);
       if (!dataUrl) {
         managed.push(attachment);
@@ -145,7 +164,8 @@ export async function prepareManagedImageAttachmentBatch(
         url: dataUrl,
       });
       const galleryId = galleryStringField(gallery, "id");
-      if (galleryId) createdGalleryIds.push(galleryId);
+      if (!galleryId) throw new Error("Managed image attachment was saved without a gallery id.");
+      createdGalleryIds.push(galleryId);
       managed.push(managedAttachmentFromGallery(attachment, gallery, filename));
     }
   } catch (error) {
@@ -154,14 +174,6 @@ export async function prepareManagedImageAttachmentBatch(
   }
 
   return { attachments: managed, createdGalleryIds };
-}
-
-export async function prepareManagedImageAttachments(
-  storage: StorageGateway,
-  chatId: string,
-  attachments: PromptAttachment[] | undefined,
-): Promise<PromptAttachment[]> {
-  return (await prepareManagedImageAttachmentBatch(storage, chatId, attachments)).attachments;
 }
 
 export async function deletePreparedManagedImageAttachments(

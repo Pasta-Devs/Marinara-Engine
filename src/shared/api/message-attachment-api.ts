@@ -1,20 +1,12 @@
 import {
   deletePreparedManagedImageAttachments as deletePreparedManagedImageAttachmentsWithStorage,
   prepareManagedImageAttachmentBatch as prepareManagedImageAttachmentBatchWithStorage,
-  prepareManagedImageAttachments as prepareManagedImageAttachmentsWithStorage,
   type PreparedManagedImageAttachments,
   type PromptAttachment,
 } from "../../engine/shared/attachments/image-attachments";
 import { storageApi } from "./storage-api";
 
 export type { PreparedManagedImageAttachments, PromptAttachment };
-
-export function prepareManagedImageAttachments(
-  chatId: string,
-  attachments: PromptAttachment[] | undefined,
-): Promise<PromptAttachment[]> {
-  return prepareManagedImageAttachmentsWithStorage(storageApi, chatId, attachments);
-}
 
 export function prepareManagedImageAttachmentBatch(
   chatId: string,

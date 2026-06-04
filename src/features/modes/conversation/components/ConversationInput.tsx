@@ -28,7 +28,6 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 import {
   deletePreparedManagedImageAttachments,
   prepareManagedImageAttachmentBatch,
-  prepareManagedImageAttachments,
   type PreparedManagedImageAttachments,
 } from "../../../../shared/api/message-attachment-api";
 import { useGenerate } from "../../../runtime/generation/index";
@@ -41,7 +40,7 @@ import {
   chatKeys,
 } from "../../../catalog/chats/index";
 import { characterKeys } from "../../../catalog/characters/index";
-import { invalidateGalleryImagesForManagedAttachments } from "../../../catalog/gallery/index";
+import { invalidateGalleryImagesForChat, invalidateGalleryImagesForManagedAttachments } from "../../../catalog/gallery/index";
 import {
   personaKeys,
   useActivePersonaSummary,
@@ -750,16 +749,6 @@ export function ConversationInput({
     message = resolveInputMacros(message);
 
     const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
-    let managedAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> = [];
-    try {
-      managedAttachments = pendingAttachments.length
-        ? await prepareManagedImageAttachments(activeChatId, pendingAttachments)
-        : [];
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to prepare image attachments.");
-      return;
-    }
-    invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
 
     if (textareaRef.current) {
       textareaRef.current.value = "";
@@ -774,16 +763,45 @@ export function ConversationInput({
     const mentioned = extractMentions(raw);
 
     if (groupResponseOrder === "manual" && mentioned.length === 0) {
-      const created = await createMessage.mutateAsync({
-        role: "user",
-        content: message,
-        characterId: null,
-      });
-      if (managedAttachments.length) {
-        await updateMessageExtra.mutateAsync({
-          messageId: created.id,
-          extra: { attachments: managedAttachments },
+      let createdMessageId: string | null = null;
+      let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
+      try {
+        preparedManagedAttachments = pendingAttachments.length
+          ? await prepareManagedImageAttachmentBatch(activeChatId, pendingAttachments)
+          : null;
+        const managedAttachments = preparedManagedAttachments?.attachments ?? [];
+        const created = await createMessage.mutateAsync({
+          role: "user",
+          content: message,
+          characterId: null,
         });
+        createdMessageId = created.id;
+        if (managedAttachments.length) {
+          await updateMessageExtra.mutateAsync({
+            messageId: created.id,
+            extra: { attachments: managedAttachments },
+          });
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
+        }
+      } catch (error) {
+        let rollbackFailed = false;
+        if (preparedManagedAttachments?.createdGalleryIds.length) {
+          try {
+            await deletePreparedManagedImageAttachments(preparedManagedAttachments);
+          } catch {
+            rollbackFailed = true;
+          }
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, preparedManagedAttachments.attachments);
+        }
+        if (createdMessageId) {
+          try {
+            await deleteMessage.mutateAsync(createdMessageId);
+          } catch {
+            rollbackFailed = true;
+          }
+        }
+        const msg = error instanceof Error ? error.message : "Failed to send message";
+        toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
       }
       return;
     }
@@ -793,11 +811,13 @@ export function ConversationInput({
         chatId: activeChatId,
         connectionId: null,
         userMessage: message,
-        ...(managedAttachments.length ? { attachments: managedAttachments } : {}),
+        ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
         ...(mentioned.length ? { mentionedCharacterNames: mentioned } : {}),
       });
     } catch {
       // useGenerate owns provider-failure UI feedback; aborts are an expected Stop generating path.
+    } finally {
+      if (pendingAttachments.length) invalidateGalleryImagesForChat(qc, activeChatId);
     }
   }, [
     activeChatId,
@@ -1375,25 +1395,18 @@ export function ConversationInput({
         return;
       }
 
-      let managedGifAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> | undefined;
       try {
-        managedGifAttachments = gifAttachments
-          ? await prepareManagedImageAttachments(activeChatId, gifAttachments)
-          : undefined;
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to prepare GIF attachment.");
-        return;
+        await generate({
+          chatId: activeChatId,
+          connectionId: null,
+          userMessage: gifUrl,
+          ...(gifAttachments?.length ? { attachments: gifAttachments } : {}),
+        });
+      } catch {
+        // useGenerate owns provider-failure UI feedback; aborts are an expected Stop generating path.
+      } finally {
+        if (gifAttachments?.length) invalidateGalleryImagesForChat(qc, activeChatId);
       }
-      if (managedGifAttachments) {
-        invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedGifAttachments);
-      }
-
-      await generate({
-        chatId: activeChatId,
-        connectionId: null,
-        userMessage: gifUrl,
-        ...(managedGifAttachments?.length ? { attachments: managedGifAttachments } : {}),
-      });
     },
     [
       activeChatId,
