@@ -149,6 +149,8 @@ function upsertQuest(
   const id = quest.id.trim() || quest.name.trim();
   const name = quest.name.trim() || id;
   if (!id || !name) return journal;
+  const now = new Date().toISOString();
+  const completedAt = quest.status === "completed" ? (quest.completedAt ?? now) : undefined;
 
   const normalizedQuest: QuestEntry = {
     id,
@@ -156,25 +158,27 @@ function upsertQuest(
     status: quest.status,
     description: quest.description.trim(),
     objectives: quest.objectives.map((objective) => objective.trim()).filter(Boolean),
-    discoveredAt: quest.discoveredAt ?? new Date().toISOString(),
-    ...(quest.completedAt ? { completedAt: quest.completedAt } : {}),
+    discoveredAt: quest.discoveredAt ?? now,
+    ...(completedAt ? { completedAt } : {}),
   };
   const existing = journal.quests.find((entry) => entry.id === id);
 
   if (existing) {
     const updated = journal.quests.map((entry) =>
       entry.id === id
-        ? {
-            ...entry,
-            name: normalizedQuest.name || entry.name,
-            status: normalizedQuest.status,
-            description: normalizedQuest.description || entry.description,
-            objectives: normalizedQuest.objectives.length > 0 ? normalizedQuest.objectives : entry.objectives,
-            completedAt:
-              normalizedQuest.status === "completed"
-                ? (entry.completedAt ?? new Date().toISOString())
-                : entry.completedAt,
-          }
+        ? (() => {
+            const { completedAt: _completedAt, ...entryWithoutCompletedAt } = entry;
+            const nextCompletedAt =
+              normalizedQuest.status === "completed" ? (normalizedQuest.completedAt ?? entry.completedAt ?? now) : undefined;
+            return {
+              ...entryWithoutCompletedAt,
+              name: normalizedQuest.name || entry.name,
+              status: normalizedQuest.status,
+              description: normalizedQuest.description || entry.description,
+              objectives: normalizedQuest.objectives.length > 0 ? normalizedQuest.objectives : entry.objectives,
+              ...(nextCompletedAt ? { completedAt: nextCompletedAt } : {}),
+            };
+          })()
         : entry,
     );
     return { ...journal, quests: updated };
