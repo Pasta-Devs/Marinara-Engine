@@ -44,7 +44,7 @@ vi.mock("../../../../shared/api/storage-commands-api", () => ({
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function CharacterVersionsHarness({ characterId }: { characterId: string }) {
+function CharacterVersionsHarness({ characterId }: { characterId: string | null }) {
   useCharacterVersions(characterId);
   return null;
 }
@@ -93,5 +93,17 @@ describe("useCharacterVersions", () => {
       orderBy: "createdAt",
       descending: true,
     });
+  });
+
+  it("waits for a character id before requesting versions", async () => {
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <CharacterVersionsHarness characterId={null} />
+        </QueryClientProvider>,
+      );
+    });
+
+    expect(storageApi.list).not.toHaveBeenCalled();
   });
 });
