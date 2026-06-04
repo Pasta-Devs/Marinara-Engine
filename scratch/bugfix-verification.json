@@ -41,7 +41,8 @@
   },
   "manualBlockers": [],
   "notes": [
-    "This is a feature UI producer fix in src/features/catalog/characters; no schema, dependency, storage, auth, prompt, or release files changed."
+    "This is a feature UI producer fix in src/features/catalog/characters; no schema, dependency, storage, auth, prompt, or release files changed.",
+    "PR Feature Discoverability is marked N/A because this bugfix changes existing character start-chat wiring without adding a new discoverable feature."
   ],
   "finalDoneGate": {
     "didFixBug": true,
