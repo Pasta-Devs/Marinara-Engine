@@ -566,7 +566,8 @@ function sanitizeStyleNotes(value: JsonRecord | null, fallback: CombatStyleNotes
 }
 
 function sanitizeItemEffects(values: unknown[] | null, fallback: CombatItemEffect[]): CombatItemEffect[] {
-  const effects = (values ?? [])
+  if (!values) return fallback;
+  const effects = values
     .map((value): CombatItemEffect | null => {
       const record = recordValue(value);
       const name = stringValue(record?.name);
@@ -585,7 +586,7 @@ function sanitizeItemEffects(values: unknown[] | null, fallback: CombatItemEffec
       return effect;
     })
     .filter((effect): effect is CombatItemEffect => !!effect);
-  return effects.length > 0 ? effects : fallback;
+  return effects;
 }
 
 function sanitizeDialogueCues(values: unknown[] | null, fallback: CombatDialogueCue[]): CombatDialogueCue[] {
