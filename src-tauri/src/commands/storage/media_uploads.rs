@@ -47,12 +47,13 @@ pub(crate) fn persist_image_file_copy(
     source_path: &Path,
 ) -> AppResult<StoredManagedImage> {
     let bytes = fs::read(source_path)?;
-    validate_image_bytes_for_mime(None, &bytes)?;
     let ext = source_path
         .file_name()
         .and_then(|value| value.to_str())
         .and_then(extension_from_filename)
         .unwrap_or("png");
+    let mime = (ext == "svg").then_some("image/svg+xml");
+    validate_image_bytes_for_mime(mime, &bytes)?;
     let dir = state.data_dir.join(folder);
     fs::create_dir_all(&dir)?;
     let filename = managed_image_filename(filename_hint, ext);
@@ -432,6 +433,31 @@ mod tests {
 
         assert_eq!(error.code, "invalid_input");
         assert!(!state.data_dir.join("avatars").exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persist_image_file_copy_accepts_svg_source_extension() {
+        let root = temp_dir("file-copy-svg");
+        let state = AppState::from_data_dir(root.join("data"), Vec::new())
+            .expect("test app state should initialize");
+        let source = root.join("source.svg");
+        fs::create_dir_all(&root).expect("source root should be created");
+        fs::write(
+            &source,
+            br#"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#,
+        )
+        .expect("source fixture should be written");
+
+        let stored = persist_image_file_copy(&state, "avatars/personas", "avatar", &source)
+            .expect("valid SVG source should be copied");
+
+        assert_eq!(stored.filename, "avatar.svg");
+        assert_eq!(
+            fs::read_to_string(&stored.absolute_path).expect("stored SVG should be readable"),
+            r#"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#
+        );
 
         let _ = fs::remove_dir_all(root);
     }
