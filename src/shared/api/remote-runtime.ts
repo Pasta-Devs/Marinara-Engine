@@ -493,26 +493,8 @@ export async function* streamRemoteJsonEvents(
   if (!response.ok) throw await readRemoteError(response);
   if (!response.body) throw new ApiError("Remote runtime did not return an event stream", 500);
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const parsed = parseSseData(buffer);
-      buffer = parsed.rest;
-      for (const data of parsed.events) {
-        yield parseRemoteJsonEvent(data);
-      }
-    }
-    const finalParsed = parseSseData(`${buffer}\n\n`);
-    for (const data of finalParsed.events) {
-      yield parseRemoteJsonEvent(data);
-    }
-  } finally {
-    reader.releaseLock();
+  for await (const data of readSseEventData(response.body)) {
+    yield parseRemoteJsonEvent(data);
   }
 }
 
@@ -538,7 +520,13 @@ export async function* streamRemoteFormEvents(
   if (!response.ok) throw await readRemoteError(response);
   if (!response.body) throw new ApiError("Remote runtime did not return an event stream", 500);
 
-  const reader = response.body.getReader();
+  for await (const data of readSseEventData(response.body)) {
+    yield parseRemoteJsonEvent(data);
+  }
+}
+
+async function* readSseEventData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   try {
@@ -549,12 +537,12 @@ export async function* streamRemoteFormEvents(
       const parsed = parseSseData(buffer);
       buffer = parsed.rest;
       for (const data of parsed.events) {
-        yield parseRemoteJsonEvent(data);
+        yield data;
       }
     }
     const finalParsed = parseSseData(`${buffer}\n\n`);
     for (const data of finalParsed.events) {
-      yield parseRemoteJsonEvent(data);
+      yield data;
     }
   } finally {
     reader.releaseLock();

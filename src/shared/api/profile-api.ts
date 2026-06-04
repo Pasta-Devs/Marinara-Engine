@@ -119,18 +119,32 @@ function normalizeProfileImportEvent(event: RawProfileImportEvent): ProfileImpor
   return { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
 }
 
+function isProfileImportEventRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function profileImportEventError(event: ProfileImportProgressEvent): ApiError {
-  const data = event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data : {};
-  const record = data as { message?: unknown; error?: unknown; code?: unknown };
-  return new ApiError(
+  const record = isProfileImportEventRecord(event.data) ? event.data : {};
+  const originalError = isProfileImportEventRecord(record.error) ? record.error : undefined;
+  const code =
+    typeof record.code === "string"
+      ? record.code
+      : typeof originalError?.code === "string"
+        ? originalError.code
+        : undefined;
+  const message =
     typeof record.message === "string"
       ? record.message
       : typeof record.error === "string"
         ? record.error
-        : "Profile import failed",
-    500,
-    { code: typeof record.code === "string" ? record.code : undefined, event },
-  );
+        : typeof originalError?.message === "string"
+          ? originalError.message
+          : "Profile import failed";
+  return new ApiError(message, 500, {
+    ...(code ? { code } : {}),
+    event,
+    ...(originalError ? { originalError } : {}),
+  });
 }
 
 async function runTauriProfileFileImportWithProgress<T>(
@@ -141,6 +155,7 @@ async function runTauriProfileFileImportWithProgress<T>(
   const queue: RawProfileImportEvent[] = [];
   let completed = false;
   let failure: unknown = null;
+  let streamedFailure: ApiError | null = null;
   let wake: (() => void) | null = null;
   let doneData: T | null = null;
   let hasDone = false;
@@ -193,12 +208,13 @@ async function runTauriProfileFileImportWithProgress<T>(
       continue;
     }
     if (event.type === "error") {
-      failure = profileImportEventError(event);
+      streamedFailure = profileImportEventError(event);
       completed = true;
     }
   }
   await command;
   if (failure) throw failure;
+  if (streamedFailure) throw streamedFailure;
   if (!hasDone) throw new ApiError("Profile import stream ended before completion", 500);
   return doneData as T;
 }

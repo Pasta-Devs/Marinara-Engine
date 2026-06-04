@@ -656,15 +656,29 @@ async fn profile_import_upload_stream(
     tokio::spawn(async move {
         let started = Instant::now();
         request_log("profile_import_upload_stream started");
-        let result = profile::import_profile_file_with_preview_fingerprint_and_progress(
-            &state.app,
-            &upload_path,
-            None,
-            |event| {
-                tx.send(Ok(Event::default().data(event.to_string())))
-                    .map_err(|error| AppError::new("sse_stream_error", error.to_string()))
-            },
-        );
+        let import_state = state.app.clone();
+        let import_path = upload_path.clone();
+        let progress_tx = tx.clone();
+        let result = match tokio::task::spawn_blocking(move || {
+            profile::import_profile_file_with_preview_fingerprint_and_progress(
+                &import_state,
+                &import_path,
+                None,
+                |event| {
+                    progress_tx
+                        .send(Ok(Event::default().data(event.to_string())))
+                        .map_err(|error| AppError::new("sse_stream_error", error.to_string()))
+                },
+            )
+        })
+        .await
+        {
+            Ok(result) => result,
+            Err(error) => Err(AppError::new(
+                "profile_import_task_error",
+                error.to_string(),
+            )),
+        };
         let cleanup_result = tokio::fs::remove_file(&upload_path).await;
         if let Err(error) = cleanup_result {
             log::warn!(
