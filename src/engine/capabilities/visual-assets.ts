@@ -29,7 +29,7 @@ export interface GameAssetManifest {
   [key: string]: unknown;
 }
 
-export interface VisualReferenceImageSource {
+interface VisualReferenceImageSource {
   image?: string | null;
   url?: string | null;
   base64?: string | null;
