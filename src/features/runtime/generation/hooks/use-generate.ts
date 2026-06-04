@@ -73,6 +73,7 @@ export type GenerateArgs = GenerationReplayInput & {
   chatId: string;
   connectionId?: string | null;
   message?: string;
+  onUserMessageAccepted?: () => void;
   [key: string]: unknown;
 };
 
@@ -1165,6 +1166,7 @@ export async function runGenerationWithUi(
   options: { beforeStart?: (args: GenerateArgs, signal: AbortSignal) => Promise<void> } = {},
 ): Promise<boolean> {
   const chatId = args.chatId;
+  const { onUserMessageAccepted, ...streamArgs } = args;
   const regenerateMessageId = readString(args.regenerateMessageId).trim() || null;
   const requestedCharacterId = readString(args.forCharacterId).trim() || null;
   await assertChatCanGenerate(queryClient, chatId);
@@ -1445,9 +1447,9 @@ export async function runGenerationWithUi(
 
   try {
     insertOptimisticUserMessage(queryClient, args);
-    await options.beforeStart?.(args, controller.signal);
+    await options.beforeStart?.(streamArgs, controller.signal);
     if (controller.signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
-    for await (const event of streamFactory(args, controller.signal)) {
+    for await (const event of streamFactory(streamArgs, controller.signal)) {
       if (!foregroundGenerationReleased && !ownsChatController()) break;
       switch (event.type) {
         case "phase":
@@ -1486,6 +1488,7 @@ export async function runGenerationWithUi(
             if (event.type === "user_message") await flushLiveGenerationBuffers();
             upsertCachedMessage(queryClient, chatId, event.data);
             scheduleChatQueryRefresh(queryClient, chatId);
+            if (event.type === "user_message") onUserMessageAccepted?.();
             if (event.type !== "user_message") releaseForegroundGenerationUi();
             drainAgentResultEffects();
           }

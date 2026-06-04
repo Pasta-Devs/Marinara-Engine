@@ -618,7 +618,38 @@ export const ChatInput = memo(function ChatInput({
 
     message = resolveInputMacros(message);
 
-    const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
+    const submittingChatId = activeChatId;
+    const submittedDraft = raw;
+    const submittedHeight = textareaRef.current?.style.height ?? "auto";
+    const submittedAttachments = attachments;
+    const submittedCompletions = completions;
+    const pendingAttachments = submittedAttachments.map((a) => ({
+      type: a.type,
+      data: a.data,
+      filename: a.name,
+      name: a.name,
+    }));
+    const restoreSubmittedInput = () => {
+      const activeChatIdAfterFailure = useChatStore.getState().activeChatId;
+      const currentValue = textareaRef.current?.value ?? "";
+      const canRestoreVisibleDraft = activeChatIdAfterFailure === submittingChatId && currentValue.length === 0;
+      if (canRestoreVisibleDraft && textareaRef.current) {
+        textareaRef.current.value = submittedDraft;
+        textareaRef.current.style.height = submittedHeight;
+        syncInputState(submittedDraft);
+        setCompletions(submittedCompletions);
+      }
+      if (submittedAttachments.length > 0) {
+        if (activeChatIdAfterFailure === submittingChatId) {
+          updateAttachments((current) => (current.length === 0 ? submittedAttachments : current));
+        } else {
+          pendingAttachmentDraftsRef.current.set(submittingChatId, submittedAttachments);
+        }
+      }
+      if (submittedDraft && (canRestoreVisibleDraft || activeChatIdAfterFailure !== submittingChatId)) {
+        setInputDraft(submittingChatId, submittedDraft);
+      }
+    };
 
     if (textareaRef.current) {
       textareaRef.current.value = "";
@@ -668,24 +699,30 @@ export const ChatInput = memo(function ChatInput({
             rollbackFailed = true;
           }
         }
+        restoreSubmittedInput();
         const msg = error instanceof Error ? error.message : "Failed to send message";
         toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
       }
       return;
     }
 
+    let userMessageAccepted = false;
     try {
       await generate({
-        chatId: activeChatId,
+        chatId: submittingChatId,
         connectionId: null,
         userMessage: message,
         ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+        onUserMessageAccepted: () => {
+          userMessageAccepted = true;
+        },
       });
     } catch (error) {
       if (isAbortError(error)) return;
+      if (!userMessageAccepted) restoreSubmittedInput();
       console.error("Send failed:", error);
     } finally {
-      if (pendingAttachments.length) invalidateGalleryImagesForChat(qc, activeChatId);
+      if (pendingAttachments.length) invalidateGalleryImagesForChat(qc, submittingChatId);
     }
   }, [
     activeChatId,
