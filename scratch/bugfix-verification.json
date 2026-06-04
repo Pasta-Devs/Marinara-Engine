@@ -36,7 +36,8 @@
       "Known setup placeholder is still classified for cleanup before message rows finish loading.",
       "Setup with at least one selected character is kept.",
       "Setup with at least one message is kept.",
-      "Unrelated empty chats are not treated as setup placeholders."
+      "Unrelated empty chats are not treated as setup placeholders.",
+      "Legacy wizard open retains setup identity after clearing legacy store flags; cancellation and active chat changes still clear it."
     ],
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
@@ -79,7 +80,8 @@
     ],
     "groundTruthFacts": [
       "Derived from artifact: upstream/refactor source inspection recorded in reproduction.evidence shows Skip called onFinish while Start Chatting was disabled without characters.",
-      "Harness-proven: pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts passed and covers empty setup, unloaded setup, configured, messaged, and unrelated empty chat rows."
+      "Harness-proven: pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts passed and covers empty setup, unloaded setup, configured, messaged, and unrelated empty chat rows.",
+      "Derived from artifact: diff inspection shows legacy setup flag cleanup no longer clears newChatSetupChatId after a successful wizard open; scheduled cancellation, explicit clearNewChatSetup, finishWizard, and active chat changes still clear it."
     ],
     "userActionCopy": "No user action required."
   },

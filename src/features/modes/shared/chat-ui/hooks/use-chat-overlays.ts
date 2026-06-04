@@ -116,17 +116,20 @@ export function useChatOverlays(activeChatId: string) {
       const clearLegacyFlags = () => {
         useChatStore.getState().setShouldOpenWizard(false);
         useChatStore.getState().setShouldOpenSettings(false);
+      };
+      const cancelLegacyOpen = () => {
+        clearLegacyFlags();
         setNewChatSetupChatId(null);
       };
       queueSetupOverlayOpen(
         `legacy:${activeChatId}:${shouldOpenWizard ? "wizard" : "settings"}`,
         () => {
-          setNewChatSetupChatId(activeChatId);
+          if (shouldOpenWizard) setNewChatSetupChatId(activeChatId);
           if (shouldOpenWizard) setWizardOpen(true);
           else setSettingsOpen(true);
           clearLegacyFlags();
         },
-        clearLegacyFlags,
+        cancelLegacyOpen,
       );
     }
   }, [newChatSetupIntent, queueSetupOverlayOpen, shouldOpenSettings, shouldOpenWizard, activeChatId]);
