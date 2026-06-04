@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import {
+  agentEnabledFlag,
   agentCreditLabel,
   agentKeys,
   useAgentConfigs,
@@ -210,6 +211,7 @@ export function AgentEditor() {
   // ── Local editable state ──
   const [localName, setLocalName] = useState("");
   const [localDescription, setLocalDescription] = useState("");
+  const [localEnabled, setLocalEnabled] = useState(true);
   const [localPhase, setLocalPhase] = useState<AgentPhase>("post_processing");
   const [localConnectionId, setLocalConnectionId] = useState("");
   const [localImageConnectionId, setLocalImageConnectionId] = useState("");
@@ -266,6 +268,7 @@ export function AgentEditor() {
     if (dbConfig) {
       setLocalName(builtIn ? builtIn.name : dbConfig.name);
       setLocalDescription(dbConfig.description);
+      setLocalEnabled(agentEnabledFlag(dbConfig.enabled, true));
       setLocalPhase(dbConfig.phase as AgentPhase);
       setLocalConnectionId(dbConfig.connectionId ?? "");
       const settings = dbConfig.settings
@@ -305,6 +308,7 @@ export function AgentEditor() {
     } else if (builtIn) {
       setLocalName(builtIn.name);
       setLocalDescription(builtIn.description);
+      setLocalEnabled(builtIn.enabledByDefault);
       setLocalPhase(builtIn.phase);
       setLocalConnectionId("");
       setLocalImageConnectionId("");
@@ -332,6 +336,7 @@ export function AgentEditor() {
       // Brand new custom agent — start empty
       setLocalName("New Agent");
       setLocalDescription("");
+      setLocalEnabled(true);
       setLocalPhase("post_processing");
       setLocalConnectionId("");
       setLocalImageConnectionId("");
@@ -509,7 +514,7 @@ export function AgentEditor() {
       description: localDescription,
       credit: agentCreditLabel(dbConfig?.credit ?? builtIn?.credit ?? DEFAULT_AGENT_CREDIT),
       phase: savedPhase,
-      enabled: true,
+      enabled: localEnabled,
       connectionId: localConnectionId || null,
       promptTemplate: localPrompt,
       settings: {
@@ -575,6 +580,7 @@ export function AgentEditor() {
     agentDetailId,
     localName,
     localDescription,
+    localEnabled,
     localPhase,
     localResultType,
     localActivationKeywordsText,
@@ -792,6 +798,40 @@ export function AgentEditor() {
           </FieldGroup>
 
           {/* ── Pipeline Phase ── */}
+          <FieldGroup
+            label="Agent Status"
+            icon={<Sparkles size="0.875rem" className="text-[var(--primary)]" />}
+            help="Globally enables or disables this agent. Disabled agents stay configured but do not run."
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setLocalEnabled((value) => !value);
+                markDirty();
+              }}
+              className={cn(
+                "flex w-full items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                localEnabled
+                  ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-[var(--primary)]"
+                  : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
+              )}
+            >
+              {localEnabled ? (
+                <ToggleRight size="1rem" className="mt-0.5 shrink-0 text-emerald-400" />
+              ) : (
+                <ToggleLeft size="1rem" className="mt-0.5 shrink-0" />
+              )}
+              <span className="min-w-0">
+                <span className="block font-semibold">{localEnabled ? "Enabled" : "Disabled"}</span>
+                <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                  {localEnabled
+                    ? "This agent can run when it is active for a chat."
+                    : "This agent will not run until it is enabled again."}
+                </span>
+              </span>
+            </button>
+          </FieldGroup>
+
           <FieldGroup
             label="Pipeline Phase"
             icon={<Zap size="0.875rem" className="text-[var(--primary)]" />}

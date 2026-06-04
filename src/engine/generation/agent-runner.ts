@@ -1027,6 +1027,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
   const rows = agentRows.filter((agent) => {
     const type = builtInAgentType(agent);
     const id = readString(agent.id);
+    if (!boolish(agent.enabled, true)) return false;
     const requestedExplicitly = requestedAgentTypes && (requestedAgentTypes.has(type) || requestedAgentTypes.has(id));
     const scopedToChat = scopedAgentIds.size > 0 && (scopedAgentIds.has(type) || scopedAgentIds.has(id));
     if (

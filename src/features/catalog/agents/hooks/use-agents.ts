@@ -150,6 +150,10 @@ export function agentCreditLabel(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : DEFAULT_AGENT_CREDIT;
 }
 
+export function agentEnabledFlag(value: unknown, fallback = true): boolean {
+  return readBoolean(value, fallback);
+}
+
 function normalizeAgentUpdatePayload(data: Record<string, unknown>): Record<string, unknown> {
   const nested = data.data;
   const patch =
@@ -212,6 +216,16 @@ export function useUpdateAgentByType() {
   return useMutation({
     mutationFn: ({ agentType, ...data }: { agentType: string } & Record<string, unknown>) =>
       agentApi.patchByType(agentType, updateAgentConfigSchema.parse(data)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: agentKeys.all });
+    },
+  });
+}
+
+export function useToggleAgentByType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (agentType: string) => agentApi.toggleByType(agentType),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
     },
