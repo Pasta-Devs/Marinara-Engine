@@ -1453,7 +1453,10 @@ export function BotBrowserView() {
         // abort the import (the detail-view path surfaces failures; this one degrades).
         const cardDetail =
           sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card).catch(() => null))) : detail;
-        const importJson = mergeCharacterDetailIntoCharacterJson(json as Record<string, unknown>, cardDetail);
+        const importDetail = cardDetail
+          ? { ...cardDetail, name: card.name, creator: card.creator, tags: card.tags }
+          : cardDetail;
+        const importJson = mergeCharacterDetailIntoCharacterJson(json as Record<string, unknown>, importDetail);
         const importEmbeddedLorebook = confirmEmbeddedLorebookImport(
           card.name,
           cardDetail?.embeddedLorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson),

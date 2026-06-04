@@ -1,9 +1,19 @@
 import { hasLorebookEntries } from "../../../../shared/lib/character-import";
 
 export interface CharacterDetailImportData {
+  name?: string;
+  description?: string;
+  personality?: string;
+  scenario?: string;
+  firstMessage?: string;
+  exampleDialogs?: string;
+  alternateGreetings?: string[];
+  creatorNotes?: string;
   embeddedLorebook?: unknown;
   systemPrompt?: string;
   postHistoryInstructions?: string;
+  creator?: string;
+  tags?: string[];
   characterVersion?: string;
   providerExtensions?: Record<string, unknown>;
 }
@@ -12,8 +22,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-function nonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
+function setStringField(target: Record<string, unknown>, key: string, value: unknown) {
+  if (typeof value === "string") target[key] = value;
 }
 
 export function mergeCharacterDetailIntoCharacterJson(
@@ -33,18 +43,28 @@ export function mergeCharacterDetailIntoCharacterJson(
   }
 
   const fieldMap: Array<[string, unknown]> = [
+    ["description", detail.description],
+    ["personality", detail.personality],
+    ["scenario", detail.scenario],
+    ["first_mes", detail.firstMessage],
+    ["mes_example", detail.exampleDialogs],
+    ["creator_notes", detail.creatorNotes],
     ["system_prompt", detail.systemPrompt],
     ["post_history_instructions", detail.postHistoryInstructions],
     ["character_version", detail.characterVersion],
   ];
   for (const [key, value] of fieldMap) {
-    const text = nonEmptyString(value);
-    if (text) target[key] = text;
+    setStringField(target, key, value);
   }
+
+  if (detail.name) target.name = detail.name;
+  if (detail.creator !== undefined) target.creator = detail.creator;
+  if (Array.isArray(detail.tags)) target.tags = detail.tags;
+  if (Array.isArray(detail.alternateGreetings)) target.alternate_greetings = detail.alternateGreetings;
 
   if (isRecord(detail.providerExtensions)) {
     const existingExtensions = isRecord(target.extensions) ? target.extensions : {};
-    target.extensions = { ...detail.providerExtensions, ...existingExtensions };
+    target.extensions = { ...existingExtensions, ...detail.providerExtensions };
   }
 
   if (target !== cloned) {

@@ -1,117 +1,101 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2155,
-    "title": "Game mode inline-GM games lose generated-background tag guidance and art-style instruction",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2155"
+    "number": 2159,
+    "title": "[Issue]: Chub card import merge drops most field overrides and flips extensions precedence",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2159"
   },
-  "coreClaim": "Inline-GM game prompts include generated background tag guidance and art-style instruction when background generation is enabled.",
-  "associatedPrPreflight": {
-    "foundDuplicate": false,
-    "evidence": "gh PR searches for #2155, generated-background, and generated background tag guidance found no associated fix PR; issue comments were empty; local branch/worktree searches found no 2155 branch."
-  },
-  "assignment": {
-    "assignee": "cha1latte",
-    "assigned": true,
-    "evidence": "gh issue edit 2155 --repo Pasta-Devs/Marinara-Engine --add-assignee \"@me\" succeeded before implementation."
-  },
-  "branch": {
-    "base": "origin/refactor",
-    "name": "fix/issue-2155-inline-gm-bg-guidance"
-  },
-  "pr": {
-    "number": 2235,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2235",
-    "base": "refactor",
-    "draft": true
+  "pr": {},
+  "coreClaim": "Chub PNG imports overlay legacy-supported Chub detail fields onto embedded PNG card data and Chub detail extension keys win.",
+  "preflight": {
+    "noAssociatedPr": true,
+    "issueAssigned": true,
+    "evidence": "gh PR search for issue 2159 returned no matches; timeline showed no linked PR; local branch/worktree search found no 2159 branch; issue is assigned to cha1latte."
   },
   "dependencies": {
     "installedFromLockfile": true,
-    "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change dependency declarations."
+    "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change package.json or pnpm-lock.yaml."
   },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "git show origin/refactor:src/engine/modes/game/prompts/gm-prompts.ts | Select-String -Pattern 'backgrounds:generated|canGenerateBackgrounds|Generated scene images'; git show origin/refactor:src/engine/generation/prompt-assembly.ts | Select-String -Pattern 'canGenerateBackgrounds|artStylePrompt'",
-    "method": "Static before-fix proof against origin/refactor plus focused scratch harness after the fix.",
-    "beforeSummary": "Before the fix, the affected refactor files had no generated-background reminder text and no canGenerateBackgrounds/artStylePrompt wiring for buildGmFormatReminder."
+    "command": "pnpm exec vitest run --config scratch/vitest.issue2159.config.ts --reporter=verbose",
+    "beforeSummary": "Before the fix, the focused merge proof failed because the embedded PNG name stayed `Embedded Name` instead of being overlaid with `Chub Name`."
   },
   "verification": {
     "originalReproPassed": true,
-    "originalReproCommand": "pnpm exec vitest run --config scratch/vitest.issue2155.config.ts --reporter=verbose",
-    "originalReproEvidence": "Scratch Vitest passed 3 rows: inline GM with generated backgrounds includes the generated background and art-style guidance; inline GM without generation omits it; separate scene model omits inline scene-tag guidance.",
-    "baselinePassed": false,
+    "originalReproCommand": "pnpm exec vitest run --config scratch/vitest.issue2159.config.ts --reporter=verbose",
+    "originalReproEvidence": "Scratch Vitest passed 4 rows after the fix: Chub detail field/extension precedence, top-level character JSON precedence, no-detail fallback, and existing embedded lorebook preservation.",
+    "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Failed only at pnpm check:unused with pre-existing untouched issue: VisualReferenceImageSource interface in src/engine/capabilities/visual-assets.ts:32:18. Earlier gates passed: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety.",
+    "baselineEvidence": "Passed line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
     "focusedProof": [
-      "Before fix, origin/refactor had no generated-background reminder text in buildGmFormatReminder and no canGenerateBackgrounds/artStylePrompt pass-through in prompt assembly.",
-      "After fix, scratch Vitest passed the original inline-GM generated-background row.",
-      "After fix, scratch Vitest passed two negative controls: generation disabled and separate scene model.",
-      "pnpm typecheck passed.",
-      "pnpm check failed in check:unused on untouched VisualReferenceImageSource, which is present on origin/refactor."
+      "Before fix, the scratch merge proof failed on the original repro because embedded PNG fields won.",
+      "After fix, the original Chub detail field and extension precedence row passed.",
+      "After fix, the top-level character JSON row passed.",
+      "After fix, null detail still returns the parsed PNG unchanged.",
+      "After fix, existing embedded lorebooks remain preserved."
     ],
     "edgeCases": [
-      "Inline GM with background generation enabled includes Scene tags allowed, backgrounds:generated guidance, and the sanitized art-style instruction.",
-      "Inline GM with background generation disabled still includes static scene tags but omits generated-background and art-style guidance.",
-      "Separate scene model with background generation enabled omits the inline GM scene-tag guidance so scene-analyzer ownership remains unchanged."
+      "Top-level/non-V2 character JSON receives the same detail precedence.",
+      "Missing detail leaves the parsed PNG payload unchanged.",
+      "Existing embedded PNG lorebook is not overwritten by detail lorebook."
     ],
-    "visualProof": "No UI screenshot: this is React-free prompt text behavior. Proof is the before-fix static output plus the scratch Vitest command output."
+    "visualProof": "Non-UI logic proof captured as raw verification output in scratch/issue2159-proof-output.txt."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Inline-GM game prompts include generated background tag guidance and art-style instruction when background generation is enabled.",
-    "riskType": "prompt assembly legacy parity",
+    "coreClaim": "Chub PNG imports overlay legacy-supported Chub detail fields onto embedded PNG card data and Chub detail extension keys win.",
+    "riskType": "legacy import parity",
     "entrypoints": [
-      "buildGmFormatReminder for inline GM turns",
-      "buildGamePromptMessages prompt assembly call site"
+      "BotBrowserView PNG download import path for chub/chartavern sources",
+      "mergeCharacterDetailIntoCharacterJson helper"
     ],
     "currentPathsOrFormats": [
-      "chat.metadata.enableSpriteGeneration",
-      "chat.metadata.gameImageConnectionId",
-      "chat.metadata.gameSetupConfig.imageConnectionId",
-      "chat.metadata.gameSetupConfig.artStylePrompt",
-      "GmPromptContext.canGenerateBackgrounds",
-      "GmPromptContext.artStylePrompt"
+      "chara_card_v2/chara_card_v3 data object payloads",
+      "top-level character JSON payloads",
+      "CardDetail fields from provider.fetchDetail/detail view state",
+      "BrowseCard summary name/creator/tags passed into import detail"
     ],
     "legacyPathsOrFormats": [
-      "main packages/server/src/services/game/gm-prompts.ts buildGmFormatReminder canGenerateBackgrounds/artStylePrompt lines",
-      "main generate.routes.ts caller pass-through for canGenerateBackgrounds and artStylePrompt"
+      "main packages/client/src/lib/chub-character-card.ts mergeChubDetailIntoCharacterJson"
     ],
     "positiveRowsTested": [
-      "hasSceneModel=false, canGenerateBackgrounds=true, artStylePrompt present"
+      "V2 card with stale embedded values and fresh Chub detail values",
+      "Top-level card with stale embedded values and fresh detail values"
     ],
     "negativeRowsTested": [
-      "hasSceneModel=false, canGenerateBackgrounds=false",
-      "hasSceneModel=true, canGenerateBackgrounds=true"
+      "No detail available leaves parsed PNG data unchanged",
+      "Existing embedded lorebook is preserved instead of overwritten"
     ],
     "groundTruthFacts": [
       {
-        "fact": "Refactor prompt reminder lacked generated background guidance before the fix.",
-        "sourceType": "measured",
-        "evidence": "git show origin/refactor on gm-prompts.ts produced no matches for backgrounds:generated, canGenerateBackgrounds, or Generated scene images."
+        "fact": "Legacy merged description, personality, scenario, first_mes, mes_example, creator_notes, system_prompt, post_history_instructions, character_version, name, creator, tags, alternate_greetings, and detail-winning extensions.",
+        "sourceType": "derived",
+        "evidence": "git show origin/main:packages/client/src/lib/chub-character-card.ts"
       },
       {
-        "fact": "Legacy main carried the generated background and art-style lines in buildGmFormatReminder.",
-        "sourceType": "derived",
-        "evidence": "git show origin/main:packages/server/src/services/game/gm-prompts.ts showed canGenerateBackgrounds/artStylePrompt in the Pick type and the inline GM reminder branch."
+        "fact": "Refactor only merged system_prompt, post_history_instructions, character_version, character_book, and embedded-winning extensions before the fix.",
+        "sourceType": "measured",
+        "evidence": "src/features/shell/bot-browser/lib/character-detail-merge.ts before the production patch and the failing scratch proof."
       }
     ],
-    "userActionCopy": "No user-facing UI copy or destructive-action copy changed.",
+    "userActionCopy": "No user-facing copy or destructive-action copy changed.",
     "manualBlockers": []
   },
   "manualBlockers": [],
   "notes": [
-    "UI/browser proof is not applicable because the bug is missing prompt text in React-free engine behavior.",
+    "UI/browser proof is not applicable because the bug is pure import merge logic; raw command output is captured in scratch/issue2159-proof-output.txt.",
     "Proof gate script unavailable: C:/Users/celia/.codex/tools/marinara-proof-gate.mjs was not present on this machine."
   ],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
-    "prWouldBeAccepted": false,
+    "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Focused proof and typecheck passed. Full pnpm check is blocked by a pre-existing unused exported type outside this diff, so PR #2235 stays draft."
+    "notes": "Focused repro passed after the fix, edge rows passed, pnpm typecheck passed, and pnpm check passed."
   },
   "bunny": {
-    "status": "pass-for-draft",
-    "evidence": "Issue match, direct prompt reminder proof, negative controls, import boundaries, and focused diff are clean. The PR must remain draft because pnpm check fails on an untouched pre-existing unused export and the repo proof-gate script is unavailable."
+    "status": "pass",
+    "evidence": "Issue match is direct, import parity risk matrix is covered with positive and negative rows, diff is focused to the merge helper plus import call-site summary wiring, no dependencies/version/schema/auth/storage/prompt paths changed, and pnpm check passed. Optional proof-gate script is unavailable on this machine and recorded in notes."
   }
 }
