@@ -247,11 +247,14 @@ fn persona_avatar_referenced_by_messages(state: &AppState, record: &Value) -> Ap
         {
             return false;
         }
-        if snapshot
-            .get("avatarUrl")
-            .and_then(Value::as_str)
+        // A snapshot may carry the avatar reference under any of the URL-like fields the persona
+        // contract emits, not just `avatarUrl`. Checking only one let a still-referenced avatar
+        // look unused (and risk having its file cleaned up).
+        if ["avatarUrl", "avatarPath", "avatar"]
+            .iter()
+            .filter_map(|field| snapshot.get(*field).and_then(Value::as_str))
             .map(str::trim)
-            .is_some_and(|value| !value.is_empty() && url_candidates.contains(value))
+            .any(|value| !value.is_empty() && url_candidates.contains(value))
         {
             return true;
         }

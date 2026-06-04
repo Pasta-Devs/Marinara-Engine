@@ -609,8 +609,13 @@ pub(crate) fn bulk_delete_messages(
         .unwrap_or_default();
     let mut deleted_ids = Vec::new();
     for id in ids.iter().filter_map(Value::as_str) {
-        if state.storage.get("messages", id)?.is_some() {
-            deleted_ids.push(id.to_string());
+        // Only delete messages that actually belong to this chat. Without the chatId check a
+        // caller could pass message ids from another chat and destroy that chat's messages
+        // (and their swipe sidecars) — the pre-scan must gate on parentage, not mere existence.
+        if let Some(message) = state.storage.get("messages", id)? {
+            if message.get("chatId").and_then(Value::as_str) == Some(chat_id) {
+                deleted_ids.push(id.to_string());
+            }
         }
     }
     deleted_ids.sort_unstable();
@@ -2313,6 +2318,70 @@ mod tests {
         assert_eq!(updated["swipeCount"], json!(2));
         assert_eq!(updated["content"], json!("first"));
         assert_eq!(updated["swipes"][1]["content"], json!("second"));
+    }
+
+    #[test]
+    fn bulk_delete_messages_ignores_ids_from_another_chat() {
+        let state = test_state("bulk-delete-foreign-ids");
+        for chat_id in ["chat-1", "chat-2"] {
+            state
+                .storage
+                .create("chats", json!({ "id": chat_id, "name": chat_id }))
+                .expect("chat should seed");
+        }
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "own-message",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "mine",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "mine" }]
+            }),
+        )
+        .expect("own message should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "foreign-message",
+                "chatId": "chat-2",
+                "role": "assistant",
+                "content": "theirs",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "theirs" }]
+            }),
+        )
+        .expect("foreign message should seed");
+
+        let result = bulk_delete_messages(
+            &state,
+            "chat-1",
+            json!({ "messageIds": ["own-message", "foreign-message"] }),
+        )
+        .expect("bulk delete should succeed");
+
+        assert_eq!(
+            result["deleted"],
+            json!(1),
+            "only the target chat's own message should be deleted"
+        );
+        assert!(
+            state
+                .storage
+                .get("messages", "own-message")
+                .expect("storage should read")
+                .is_none(),
+            "the chat's own message should be deleted"
+        );
+        assert!(
+            state
+                .storage
+                .get("messages", "foreign-message")
+                .expect("storage should read")
+                .is_some(),
+            "a message belonging to another chat must not be deleted by this chat's bulk delete"
+        );
     }
 
     #[test]

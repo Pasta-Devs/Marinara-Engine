@@ -789,6 +789,9 @@ fn apply_delete_cleanup(
             contracts::DeleteCleanup::DeleteLorebookChildren => {
                 delete_lorebook_children(state, id)?
             }
+            contracts::DeleteCleanup::DeleteMessageSwipes => {
+                message_swipes::delete_for_messages(state, &[id.to_string()])?;
+            }
             contracts::DeleteCleanup::DeleteMessageTrackerSnapshots => {
                 if let Some(chat_id) = message_chat_id {
                     game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
