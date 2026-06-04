@@ -20,12 +20,12 @@
   "verification": {
     "originalReproPassed": true,
     "originalReproCommand": "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose",
-    "originalReproEvidence": "4 tests passed after fix, including the quest completion timestamp reversal row added from Bunny review.",
+    "originalReproEvidence": "5 tests passed after fix, including the quest completion timestamp reversal and repeated-completed preservation rows added from Bunny review.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
     "baselineEvidence": "Full PR gate passed after merging current upstream/refactor: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, and unused exports.",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 4 tests using a local ignored proof harness.",
+      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 5 tests using a local ignored proof harness.",
       "pnpm typecheck passed.",
       "pnpm check:architecture passed.",
       "pnpm check:unused passed after internalizing journal row-builder helpers.",
@@ -40,7 +40,8 @@
       "Tracked gameNpcs hydrate npcLog with the legacy Tracked at <location>. interaction.",
       "PlayerStats.activeQuests hydrate journal.quests with active/completed status and objective text.",
       "Deterministic structured recaps include Active quests and Key NPC interactions after hydration.",
-      "Quest completedAt is cleared when a later quest update changes status back to active."
+      "Quest completedAt is cleared when a later quest update changes status back to active.",
+      "Quest completedAt is preserved when a completed quest receives another completed update without an explicit replacement timestamp."
     ],
     "visualProof": "scratch/issue-2140-vitest-after.txt"
   },
@@ -83,6 +84,7 @@
       "tracked NPC with location",
       "active quest with completed and incomplete objectives",
       "completed quest updated back to active clears completedAt",
+      "completed quest updated as completed preserves existing completedAt",
       "location command using location payload",
       "item command using item payload"
     ],
@@ -124,6 +126,7 @@
       "Local ignored proof harness routes quest commands into journal.quests and quest entries.",
       "Local ignored proof harness syncs tracked NPCs and active player quests into deterministic recap output.",
       "Local ignored proof harness clears stale completedAt when a completed quest becomes active again.",
+      "Local ignored proof harness preserves completedAt when a completed quest receives another completed update without explicit replacement.",
       "Local ignored proof harness keeps existing location and item command payload fields working."
     ]
   },
@@ -134,6 +137,7 @@
       "tracked NPC with location",
       "active quest with completed and incomplete objectives",
       "completed quest updated back to active clears completedAt",
+      "completed quest updated as completed preserves existing completedAt",
       "location command using location payload",
       "item command using item payload"
     ],

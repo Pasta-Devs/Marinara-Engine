@@ -169,7 +169,7 @@ function upsertQuest(
         ? (() => {
             const { completedAt: _completedAt, ...entryWithoutCompletedAt } = entry;
             const nextCompletedAt =
-              normalizedQuest.status === "completed" ? (normalizedQuest.completedAt ?? entry.completedAt ?? now) : undefined;
+              normalizedQuest.status === "completed" ? (quest.completedAt ?? entry.completedAt ?? now) : undefined;
             return {
               ...entryWithoutCompletedAt,
               name: normalizedQuest.name || entry.name,
