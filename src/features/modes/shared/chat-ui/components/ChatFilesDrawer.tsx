@@ -40,9 +40,10 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
   const [isImporting, setIsImporting] = useState(false);
 
   const chatFiles = (groupChats ?? []) as Chat[];
+  const isGroupDeletePending = deleteChatGroup.isPending;
 
   const handleClose = () => {
-    if (deleteChatGroup.isPending) return;
+    if (isGroupDeletePending) return;
     onClose();
   };
 
@@ -50,6 +51,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
+    if (isGroupDeletePending) return;
 
     setIsImporting(true);
     try {
@@ -83,11 +85,10 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
   };
 
   const handleSwitch = (chatId: string) => {
-    if (deleteChatGroup.isPending) return;
+    if (isGroupDeletePending) return;
     setActiveChatId(chatId);
     onClose();
   };
-  const isGroupDeletePending = deleteChatGroup.isPending;
 
   const updateMetadata = useUpdateChatMetadata();
 
@@ -227,16 +228,16 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
           <div className="flex gap-2">
             <button
               onClick={() => exportChat.mutate({ chatId: activeChatId ?? chat.id, format: "jsonl" })}
-              disabled={exportChat.isPending}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
+              disabled={exportChat.isPending || isGroupDeletePending}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-[var(--secondary)]"
             >
               <Download size="0.8125rem" />
               JSONL
             </button>
             <button
               onClick={() => exportChat.mutate({ chatId: activeChatId ?? chat.id, format: "text" })}
-              disabled={exportChat.isPending}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
+              disabled={exportChat.isPending || isGroupDeletePending}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-[var(--secondary)]"
             >
               <FileText size="0.8125rem" />
               Text
@@ -254,9 +255,12 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
           </p>
           <button
             type="button"
-            onClick={() => importInputRef.current?.click()}
-            disabled={isImporting}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
+            onClick={() => {
+              if (isGroupDeletePending) return;
+              importInputRef.current?.click();
+            }}
+            disabled={isImporting || isGroupDeletePending}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:cursor-wait disabled:opacity-50 disabled:hover:bg-[var(--secondary)]"
           >
             <Upload size="0.8125rem" />
             {isImporting ? "Importing…" : "JSONL"}
