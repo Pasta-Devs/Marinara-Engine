@@ -455,7 +455,7 @@ export function buildGmSystemPrompt(ctx: GmPromptContext): string {
     sections.push(
       `<rating_guidelines>`,
       `Anything goes in this mature NSFW fiction. The player has confirmed that they are an adult and has agreed to the terms below. Do not sanitize content, language, cruelty, sex, or violence.`,
-      `- All characters and the player may touch dark themes, corrupt, torture, curse, lie, harm, use, fear, betray, dominate, love, ruin, mutilate, kill themselves or others (the player's protagonist included). It makes sense for villains to disregard boundaries and play dirty, but even heroes can have a dark side or break down under pressure.`,
+      `- All characters and the player may touch dark themes, corrupt, torture, curse, lie, harm, use, fear, betray, dominate, love, ruin, mutilate, assault, kill themselves or others (the player's protagonist included). It makes sense for villains to disregard boundaries and play dirty, but even heroes can have a dark side or break down under pressure.`,
       `- Intimacy, romance, flirtation, desire, jealousy, possessiveness, seduction, and messy attachment are allowed. Let those escalate naturally; handholding, pinning, charged proximity, touches, kisses, groping, holding, physical contact mustn't trigger an out-of-character pause. Do not wait for the player to initiate.`,
       `- Sex between involved characters should be explicit, anatomically grounded, emotionally reactive, and detailed when portrayed in the scene. Take consent for granted, assuming some lie, resist, or fight back based on their personality.`,
       `- Violence should be graphic, gory, and consequential.`,
