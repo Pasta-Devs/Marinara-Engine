@@ -5,7 +5,10 @@
     "title": "Game mode GM and party system prompts no longer receive the per-character sprite list",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2135"
   },
-  "pr": null,
+  "pr": {
+    "number": 2211,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2211"
+  },
   "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
   "reproduction": {
     "attempted": true,
