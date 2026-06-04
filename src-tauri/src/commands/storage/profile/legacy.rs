@@ -684,7 +684,11 @@ fn should_replace_legacy_gallery_url(
     else {
         return true;
     };
-    if url.trim_start().starts_with("data:") {
+    if url
+        .trim_start()
+        .to_ascii_lowercase()
+        .starts_with("data:image/")
+    {
         return true;
     }
     legacy_profile_gallery_asset_for_path(state, staging_root, url).is_some()
@@ -1277,6 +1281,11 @@ mod tests {
         std::fs::write(gallery_dir.join("legacy-remote.png"), b"remote-image")
             .expect("remote gallery asset should be written");
         std::fs::write(
+            gallery_dir.join("legacy-inline-case.png"),
+            b"inline-case-image",
+        )
+        .expect("inline-case gallery asset should be written");
+        std::fs::write(
             gallery_dir.join("legacy-character.webp"),
             b"character-image",
         )
@@ -1300,6 +1309,12 @@ mod tests {
                     "chatId": "chat-1",
                     "filePath": "/api/gallery/file/legacy-remote.png",
                     "url": "https://cdn.example.test/legacy-remote.png"
+                },
+                {
+                    "id": "chat-image-inline-case",
+                    "chatId": "chat-1",
+                    "filePath": "/api/gallery/file/legacy-inline-case.png",
+                    "url": "DATA:image/png;base64,aW5saW5l"
                 }
             ]),
         );
@@ -1371,6 +1386,20 @@ mod tests {
                 .expect("remote gallery file path should be stored")
         )
         .is_file());
+        let inline_case_image = state
+            .storage
+            .get("gallery", "chat-image-inline-case")
+            .expect("inline-case gallery lookup should not fail")
+            .expect("inline-case gallery row should import");
+        let inline_case_image_url = inline_case_image["url"]
+            .as_str()
+            .expect("inline-case gallery url should be stored");
+        assert!(
+            inline_case_image_url.starts_with("asset://localhost")
+                || inline_case_image_url.starts_with("http://asset.localhost"),
+            "case-variant inline gallery URLs should be converted to managed asset URLs"
+        );
+        assert_ne!(inline_case_image_url, "DATA:image/png;base64,aW5saW5l");
 
         let character_image = state
             .storage

@@ -924,7 +924,7 @@ mod tests {
         storage.flush().expect("fixture writes should persist");
     }
 
-    const INLINE_PNG_DATA_URL: &str = "data:image/png;base64,aW1hZ2UtYnl0ZXM=";
+    const INLINE_PNG_DATA_URL: &str = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTmZsgAAAABJRU5ErkJggg==";
 
     fn assert_managed_image_url(value: &str) {
         assert!(
