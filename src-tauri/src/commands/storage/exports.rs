@@ -1251,8 +1251,8 @@ mod tests {
                     "data": {
                         "name": "Mira",
                         "character_book": {
-                            "entries": {
-                                "0": {
+                            "entries": [
+                                {
                                     "comment": "Moon Memory",
                                     "content": "moon lore",
                                     "key": ["moon"],
@@ -1276,8 +1276,14 @@ mod tests {
                                     "groupWeight": 6,
                                     "excludeRecursion": true,
                                     "locked": true
+                                },
+                                {
+                                    "comment": "Sun Signal",
+                                    "content": "sun lore",
+                                    "keys": ["sun"],
+                                    "secondaryKeys": ["flare"]
                                 }
-                            }
+                            ]
                         }
                     }
                 }),
@@ -1292,8 +1298,11 @@ mod tests {
             .expect("import should return lorebook id");
         let entries = entries_for_lorebook(&state, lorebook_id);
 
-        assert_eq!(entries.len(), 1);
-        let entry = &entries[0];
+        assert_eq!(entries.len(), 2);
+        let entry = entries
+            .iter()
+            .find(|entry| entry.get("name").and_then(Value::as_str) == Some("Moon Memory"))
+            .expect("moon entry should import");
         assert_eq!(entry["name"], "Moon Memory");
         assert_eq!(entry["content"], "moon lore");
         assert_eq!(entry["keys"], json!(["moon"]));
@@ -1316,6 +1325,13 @@ mod tests {
         assert_eq!(entry["groupWeight"], 6);
         assert_eq!(entry["preventRecursion"], true);
         assert_eq!(entry["locked"], true);
+
+        let camel_case_entry = entries
+            .iter()
+            .find(|entry| entry.get("name").and_then(Value::as_str) == Some("Sun Signal"))
+            .expect("camelCase secondary key entry should import");
+        assert_eq!(camel_case_entry["secondaryKeys"], json!(["flare"]));
+        assert_eq!(camel_case_entry["order"], 1);
     }
 
     #[test]
