@@ -1,10 +1,7 @@
 import type { Chat } from "../../../../engine/contracts/types/chat";
 import type {
-  CombatAttack,
-  CombatEnemy,
   CombatInitState,
   CombatMechanic,
-  CombatPartyMember,
   EncounterSettings,
 } from "../../../../engine/contracts/types/combat-encounter";
 import type {
@@ -33,6 +30,7 @@ import { storageApi } from "../../../../shared/api/storage-api";
 import { urlBinaryApi } from "../../../../shared/api/url-binary-api";
 import { createLorebookEntrySchema, createLorebookSchema } from "../../../../engine/contracts/schemas/lorebook.schema";
 import { resolveCombatRound } from "../../../../engine/modes/game/mechanics/combat.service";
+import { initGameCombatEncounter } from "../../../../engine/modes/game/mechanics/combat-init.service";
 import { rollDice as rollGameDice } from "../../../../engine/modes/game/mechanics/dice.service";
 import {
   rollEncounter as rollGameEncounter,
@@ -103,6 +101,22 @@ import {
   type WeatherState,
 } from "../../../../engine/modes/game/world/weather.service";
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
+
+const DEFAULT_COMBAT_ENCOUNTER_SETTINGS: EncounterSettings = {
+  combatNarrative: {
+    tense: "present",
+    person: "second",
+    narration: "limited",
+    pov: "player",
+  },
+  summaryNarrative: {
+    tense: "past",
+    person: "third",
+    narration: "omniscient",
+    pov: "party",
+  },
+  historyDepth: 10,
+};
 
 export interface CreateGameResponse {
   sessionChat: Chat;
@@ -2829,84 +2843,15 @@ export const gameApi = {
     settings?: EncounterSettings | null;
     spellbookId?: string | null;
   }): Promise<{ combatState: CombatInitState }> {
-    const meta = chatMeta(await getChat(input.chatId));
-    const cards = Array.isArray(meta.gameCharacterCards) ? meta.gameCharacterCards.map(asRecord) : [];
-    const defaultAttack: CombatAttack = {
-      name: "Attack",
-      type: "single-target",
-      description: "A basic attack.",
-      power: 1,
-      cooldown: 0,
-    };
-    const fallbackPartyMember = (name: string, isPlayer: boolean): CombatPartyMember => ({
-      name,
-      hp: 24,
-      maxHp: 24,
-      attacks: [defaultAttack],
-      items: ["Healing Potion x1"],
-      statuses: [],
-      isPlayer,
-    });
-
-    const party: CombatPartyMember[] = [];
-    if (cards[0]) {
-      const rpg = asRecord(cards[0].rpgStats);
-      const hp = Number(asRecord(rpg.hp).max ?? 24);
-      party.push({
-        name: typeof cards[0].name === "string" && cards[0].name.trim() ? cards[0].name : "Player",
-        hp: Number.isFinite(hp) && hp > 0 ? hp : 24,
-        maxHp: Number.isFinite(hp) && hp > 0 ? hp : 24,
-        attacks: [defaultAttack],
-        items: Array.isArray(meta.gameInventory)
-          ? (meta.gameInventory as unknown[]).map(String).filter(Boolean)
-          : ["Healing Potion x1"],
-        statuses: [],
-        isPlayer: true,
-      });
-    }
-    for (const card of cards.slice(1, 4)) {
-      party.push(fallbackPartyMember(typeof card.name === "string" && card.name.trim() ? card.name : "Ally", false));
-    }
-    if (party.length === 0) party.push(fallbackPartyMember("Player", true));
-
-    const settings = asRecord(input.settings);
-    const enemyCount = Math.max(1, Math.min(6, Number(settings.enemyCount ?? settings.enemies ?? 1) || 1));
-    const enemies: CombatEnemy[] = Array.from({ length: enemyCount }, (_, index) => ({
-      name: `Enemy ${index + 1}`,
-      hp: 18,
-      maxHp: 18,
-      attacks: [{ ...defaultAttack, name: "Strike", description: "A direct attack." }],
-      statuses: [],
-      description: "A hostile combatant.",
-      sprite: "enemy",
-    }));
-    const map = asRecord(meta.gameMap);
-    return {
-      combatState: {
-        party,
-        enemies,
-        environment: typeof map.name === "string" && map.name.trim() ? map.name : "the current area",
-        styleNotes: {
-          environmentType: "plains",
-          atmosphere: "tense",
-          timeOfDay: "day",
-          weather: "clear",
-        },
-        itemEffects: [
-          {
-            name: "Healing Potion",
-            target: "ally",
-            type: "heal",
-            description: "Restores a moderate amount of health.",
-            power: 0.3,
-            consumes: true,
-          },
-        ],
-        dialogueCues: [],
-        mechanics: [],
-        visuals: { isBossFight: false, enemyImagePrompts: [] },
+    return initGameCombatEncounter(
+      { storage: storageApi, llm: llmApi },
+      {
+        chatId: input.chatId,
+        connectionId: input.connectionId ?? null,
+        settings: input.settings ?? DEFAULT_COMBAT_ENCOUNTER_SETTINGS,
+        spellbookId: input.spellbookId ?? null,
       },
-    };
+    );
   },
 
   async spotifyCandidates(payload: Record<string, unknown>) {
