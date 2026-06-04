@@ -141,6 +141,20 @@ function withResolvedContent(entry: ActivatedEntry, resolver?: LorebookContentRe
   };
 }
 
+function compareByLorebookBudgetPriority(a: ActivatedEntry, b: ActivatedEntry): number {
+  if (a.entry.constant && !b.entry.constant) return -1;
+  if (!a.entry.constant && b.entry.constant) return 1;
+  if (a.matchedLatestUserMessage && !b.matchedLatestUserMessage) return -1;
+  if (!a.matchedLatestUserMessage && b.matchedLatestUserMessage) return 1;
+  return a.entry.order - b.entry.order;
+}
+
+function applyEntryCountCap(activatedEntries: ActivatedEntry[], maxEntries: number): ActivatedEntry[] {
+  const entryLimit = Math.max(0, Math.floor(maxEntries));
+  if (!Number.isFinite(entryLimit) || activatedEntries.length <= entryLimit) return activatedEntries;
+  return [...activatedEntries].sort(compareByLorebookBudgetPriority).slice(0, entryLimit);
+}
+
 /**
  * Apply token-budget ordering while preserving the
  * entries that were dropped so callers can surface budget diagnostics.
@@ -171,13 +185,7 @@ export function applyTokenBudgetWithSkipped(
   const skippedEntries: BudgetSkippedActivatedEntry[] = [];
 
   // Sort: constant entries first, then fresh user-turn matches, then by order
-  const sorted = [...activatedEntries].sort((a, b) => {
-    if (a.entry.constant && !b.entry.constant) return -1;
-    if (!a.entry.constant && b.entry.constant) return 1;
-    if (a.matchedLatestUserMessage && !b.matchedLatestUserMessage) return -1;
-    if (!a.matchedLatestUserMessage && b.matchedLatestUserMessage) return 1;
-    return a.entry.order - b.entry.order;
-  });
+  const sorted = [...activatedEntries].sort(compareByLorebookBudgetPriority);
 
   for (const entry of sorted) {
     const resolvedEntry = withResolvedContent(entry, resolver);
@@ -205,6 +213,7 @@ export function processActivatedEntries(
   activatedEntries: ActivatedEntry[],
   tokenBudget: number = 0,
   resolver?: LorebookContentResolver,
+  maxEntries: number = Number.POSITIVE_INFINITY,
 ): {
   worldInfoBefore: string;
   worldInfoAfter: string;
@@ -214,8 +223,10 @@ export function processActivatedEntries(
   totalEntries: number;
   totalTokensEstimate: number;
 } {
+  const cappedEntries = applyEntryCountCap(activatedEntries, maxEntries);
+
   // Apply budget
-  const budgeted = applyTokenBudgetWithSkipped(activatedEntries, tokenBudget, resolver);
+  const budgeted = applyTokenBudgetWithSkipped(cappedEntries, tokenBudget, resolver);
   const includedEntries = budgeted.includedEntries;
 
   // Build blocks

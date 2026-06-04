@@ -775,6 +775,7 @@ export async function scanActiveLorebooks(input: ActiveLorebookScannerInput): Pr
     loadedLore.activatedEntries,
     lorebookTokenBudget,
     input.contentResolver,
+    LIMITS.MAX_LOREBOOK_ENTRIES,
   );
   const nextTimingStates = updateTimingStatesForScan(
     loadedLore.entriesForTiming,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StorageGateway } from "../capabilities/storage";
+import { LIMITS } from "../contracts/constants/defaults";
 import { scanActiveLorebooks } from "./active-lorebook-scanner";
 
 type RowMap = Record<string, Array<Record<string, unknown>>>;
@@ -90,5 +91,58 @@ describe("scanActiveLorebooks", () => {
 
     expect(calls).toEqual({ batchedEntryReads: 1, singleEntryReads: 0 });
     expect(result.entriesForTiming.map((entry) => entry.id)).toEqual(["entry-a", "entry-c"]);
+  });
+
+  it("caps injected entries using lorebook budget priority", async () => {
+    const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
+    const makeEntry = (
+      id: string,
+      order: number,
+      options: { constant?: boolean; key?: string },
+    ): Record<string, unknown> => ({
+      id,
+      lorebookId: "book-cap",
+      name: id,
+      content: `${id} lore`,
+      constant: options.constant ?? false,
+      keys: options.key ? [options.key] : [],
+      enabled: true,
+      order,
+    });
+    const storage = storageWithRows(
+      {
+        lorebooks: [{ id: "book-cap", name: "Cap book", enabled: true, isGlobal: true, tokenBudget: 0 }],
+        "lorebook-folders": [],
+        "lorebook-entries": [
+          ...Array.from({ length: 3 }, (_, index) =>
+            makeEntry(`constant-${index + 1}`, 1000 + index, { constant: true }),
+          ),
+          ...Array.from({ length: 97 }, (_, index) =>
+            makeEntry(`fresh-${index + 1}`, 2000 + index, { key: "fresh-key" }),
+          ),
+          ...Array.from({ length: 5 }, (_, index) => makeEntry(`older-${index + 1}`, index, { key: "older-key" })),
+        ],
+      },
+      calls,
+    );
+
+    const result = await scanActiveLorebooks({
+      storage,
+      chat: { id: "chat-1", mode: "roleplay", metadata: {} },
+      characters: [],
+      persona: null,
+      storedMessages: [
+        { id: "message-1", role: "user", content: "older-key appeared earlier" },
+        { id: "message-2", role: "assistant", content: "noted" },
+        { id: "message-3", role: "user", content: "fresh-key is the latest user turn" },
+      ],
+      request: { lorebookTokenBudget: 0 },
+      embeddingSource: null,
+    });
+
+    const includedIds = result.processedLore.includedEntries.map((entry) => entry.entry.id);
+    expect(includedIds).toHaveLength(LIMITS.MAX_LOREBOOK_ENTRIES);
+    expect(includedIds.slice(0, 3)).toEqual(["constant-1", "constant-2", "constant-3"]);
+    expect(includedIds.filter((id) => id.startsWith("older-"))).toEqual([]);
   });
 });
