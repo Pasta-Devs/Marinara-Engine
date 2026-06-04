@@ -410,7 +410,7 @@ fn decoded_profile_json_assets(
             }));
             continue;
         };
-        let bytes = decode_profile_asset_data(raw_data)?;
+        let bytes = decode_profile_asset_data(path, raw_data)?;
         decoded.push((relative, bytes));
     }
     Ok((decoded, warnings))
@@ -513,7 +513,7 @@ fn decoded_profile_zip_assets(
             .or_else(|| asset.get("data"))
             .and_then(Value::as_str)
         {
-            ProfileAssetSource::Bytes(decode_profile_asset_data(raw_data)?)
+            ProfileAssetSource::Bytes(decode_profile_asset_data(path, raw_data)?)
         } else if let Some(entry_name) = zip_asset_entry_name(names, profile_prefix, path) {
             ProfileAssetSource::ZipEntry(entry_name)
         } else {
@@ -559,7 +559,7 @@ fn validate_profile_zip_asset_declared_size_with_limit(
     limit: u64,
 ) -> AppResult<()> {
     if size > limit {
-        return Err(profile_zip_asset_too_large_error(entry_name, size, limit));
+        return Err(profile_asset_too_large_error(entry_name, size, limit));
     }
     Ok(())
 }
@@ -585,12 +585,12 @@ fn copy_limited_profile_zip_asset_with_limit<R: Read, W: Write>(
         ))
     })?;
     if copied > limit {
-        return Err(profile_zip_asset_too_large_error(entry_name, copied, limit));
+        return Err(profile_asset_too_large_error(entry_name, copied, limit));
     }
     Ok(copied)
 }
 
-fn profile_zip_asset_too_large_error(entry_name: &str, size: u64, limit: u64) -> AppError {
+fn profile_asset_too_large_error(entry_name: &str, size: u64, limit: u64) -> AppError {
     AppError::invalid_input(format!(
         "Profile asset {entry_name} is too large ({size} bytes; limit is {limit} bytes)"
     ))
@@ -824,16 +824,61 @@ fn image_mime_from_path(path: &Path) -> &'static str {
     }
 }
 
-fn decode_profile_asset_data(value: &str) -> AppResult<Vec<u8>> {
-    let payload = value
+fn decode_profile_asset_data(asset_name: &str, value: &str) -> AppResult<Vec<u8>> {
+    decode_profile_asset_data_with_limit(asset_name, value, MAX_PROFILE_ASSET_BYTES)
+}
+
+fn decode_profile_asset_data_with_limit(
+    asset_name: &str,
+    value: &str,
+    limit: u64,
+) -> AppResult<Vec<u8>> {
+    let payload = profile_asset_data_payload(value);
+    validate_profile_inline_asset_encoded_size(asset_name, payload, limit)?;
+    let bytes = general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|error| AppError::invalid_input(format!("Invalid profile asset data: {error}")))?;
+    let decoded_size = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    if decoded_size > limit {
+        return Err(profile_asset_too_large_error(
+            asset_name,
+            decoded_size,
+            limit,
+        ));
+    }
+    Ok(bytes)
+}
+
+fn profile_asset_data_payload(value: &str) -> &str {
+    value
         .split_once(',')
         .filter(|(header, _)| header.starts_with("data:"))
         .map(|(_, payload)| payload)
         .unwrap_or(value)
-        .trim();
-    general_purpose::STANDARD
-        .decode(payload)
-        .map_err(|error| AppError::invalid_input(format!("Invalid profile asset data: {error}")))
+        .trim()
+}
+
+fn validate_profile_inline_asset_encoded_size(
+    asset_name: &str,
+    payload: &str,
+    limit: u64,
+) -> AppResult<()> {
+    let encoded_len = u64::try_from(payload.len()).unwrap_or(u64::MAX);
+    let max_encoded_len = max_base64_encoded_len_for_decoded_limit(limit);
+    if encoded_len > max_encoded_len {
+        return Err(AppError::invalid_input(format!(
+            "Profile asset {asset_name} is too large (encoded payload is {encoded_len} bytes; decoded limit is {limit} bytes)"
+        )));
+    }
+    Ok(())
+}
+
+fn max_base64_encoded_len_for_decoded_limit(limit: u64) -> u64 {
+    let full_groups = limit / 3;
+    let remainder = limit % 3;
+    full_groups
+        .saturating_mul(4)
+        .saturating_add(if remainder == 0 { 0 } else { 4 })
 }
 
 fn write_profile_asset_in_root(data_dir: &Path, relative: &Path, bytes: &[u8]) -> AppResult<()> {
@@ -1270,6 +1315,31 @@ mod tests {
             5,
         )
         .expect_err("streamed oversized ZIP asset should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("avatars/huge.png"));
+        assert!(error.message.contains("too large"));
+    }
+
+    #[test]
+    fn profile_inline_asset_encoded_size_over_limit_is_rejected_before_decode() {
+        let error = decode_profile_asset_data_with_limit("avatars/huge.png", "!!!!!!!!!!!!", 5)
+            .expect_err("encoded oversized inline asset should reject before base64 decode");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("avatars/huge.png"));
+        assert!(error.message.contains("too large"));
+        assert!(!error.message.contains("Invalid profile asset data"));
+    }
+
+    #[test]
+    fn profile_inline_asset_decoded_size_over_limit_is_rejected() {
+        let payload = format!(
+            "data:image/png;base64,{}",
+            general_purpose::STANDARD.encode(vec![0_u8; 6])
+        );
+        let error = decode_profile_asset_data_with_limit("avatars/huge.png", &payload, 5)
+            .expect_err("decoded oversized inline asset should reject");
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("avatars/huge.png"));
