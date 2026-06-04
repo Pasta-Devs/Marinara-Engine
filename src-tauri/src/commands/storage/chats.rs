@@ -701,7 +701,7 @@ fn current_autonomous_unread_character_ids(metadata: &Map<String, Value>) -> Vec
         return ids;
     };
     for value in values {
-        let Some(id) = value.as_str().filter(|id| !id.trim().is_empty()) else {
+        let Some(id) = value.as_str().map(str::trim).filter(|id| !id.is_empty()) else {
             continue;
         };
         if !ids.iter().any(|existing| existing == id) {
@@ -1424,7 +1424,7 @@ mod tests {
                     "name": "Autonomous chat",
                     "metadata": {
                         "autonomousUnreadCount": 2,
-                        "autonomousUnreadCharacterIds": ["char-a", "char-a", "", 7],
+                        "autonomousUnreadCharacterIds": [" char-a ", "char-a", "   ", "", 7],
                         "autonomousUnreadAt": "2026-06-01T00:00:00.000Z"
                     }
                 }),
