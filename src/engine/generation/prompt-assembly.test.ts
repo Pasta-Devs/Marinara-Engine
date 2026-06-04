@@ -127,6 +127,122 @@ describe("assembleGenerationPrompt depth injection", () => {
   });
 });
 
+describe("assembleGenerationPrompt lorebook marker gating", () => {
+  function lorebookRuntimeRows(includeLorebookMarker: boolean): RowMap {
+    return {
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content: "system prompt",
+          enabled: true,
+        },
+        ...(includeLorebookMarker
+          ? [
+              {
+                id: "lore",
+                presetId: "preset-1",
+                identifier: "lorebook",
+                role: "system",
+                enabled: true,
+              },
+            ]
+          : []),
+        {
+          id: "history",
+          presetId: "preset-1",
+          identifier: "chat_history",
+          enabled: true,
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [],
+      personas: [],
+      lorebooks: [{ id: "lorebook-1", name: "Runtime lore", enabled: true, isGlobal: true }],
+      "lorebook-folders": [],
+      "lorebook-entries": [
+        {
+          id: "entry-1",
+          lorebookId: "lorebook-1",
+          name: "Runtime entry",
+          content: "matched runtime lore",
+          keys: ["trigger"],
+          ephemeral: 1,
+          position: 0,
+          enabled: true,
+        },
+      ],
+      "regex-scripts": [],
+    };
+  }
+
+  it("does not scan or consume runtime state when the selected preset has no lore marker", async () => {
+    const storage = storageWithRows(lorebookRuntimeRows(false));
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: { id: "chat-1", mode: "roleplay", promptPresetId: "preset-1", metadata: {} },
+      storedMessages: [{ id: "message-1", role: "user", content: "trigger" }],
+      connection: {},
+      request: {},
+      latestUserInput: "trigger",
+    });
+
+    expect(assembly.previewMessages.map((message) => message.content)).toEqual(["system prompt", "trigger"]);
+    expect(assembly.activatedLorebookEntries).toEqual([]);
+    expect(assembly.lorebookTimingStates).toBeNull();
+    expect(assembly.lorebookEntryStateOverrides).toBeNull();
+    expect(assembly.budgetSkippedLorebookEntries).toEqual([]);
+  });
+
+  it("still scans and consumes runtime state when a lore marker is present", async () => {
+    const storage = storageWithRows(lorebookRuntimeRows(true));
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: { id: "chat-1", mode: "roleplay", promptPresetId: "preset-1", metadata: {} },
+      storedMessages: [{ id: "message-1", role: "user", content: "trigger" }],
+      connection: {},
+      request: {},
+      latestUserInput: "trigger",
+    });
+
+    expect(assembly.previewMessages.map((message) => message.content)).toEqual([
+      "system prompt",
+      "matched runtime lore",
+      "trigger",
+    ]);
+    expect(assembly.activatedLorebookEntries).toHaveLength(1);
+    expect(assembly.lorebookEntryStateOverrides).toEqual({ "entry-1": { ephemeral: 0, enabled: false } });
+  });
+
+  it("still scans world-info entries when an empty selected preset falls back to the default prompt", async () => {
+    const rows = lorebookRuntimeRows(false);
+    rows["prompt-sections"] = [];
+    const storage = storageWithRows(rows);
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: { id: "chat-1", mode: "roleplay", promptPresetId: "preset-1", metadata: {} },
+      storedMessages: [{ id: "message-1", role: "user", content: "trigger" }],
+      connection: {},
+      request: {},
+      latestUserInput: "trigger",
+    });
+
+    expect(assembly.previewMessages.map((message) => message.content).join("\n\n")).toContain("matched runtime lore");
+    expect(assembly.activatedLorebookEntries).toHaveLength(1);
+    expect(assembly.lorebookEntryStateOverrides).toEqual({ "entry-1": { ephemeral: 0, enabled: false } });
+  });
+});
+
 describe("assembleGenerationPrompt character markers", () => {
   it("resolves character field macros against each rendered character in a group", async () => {
     const storage = storageWithRows({

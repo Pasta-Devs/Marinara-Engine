@@ -1,81 +1,76 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2184,
-    "title": "[Issue]: Lorebook runtime no longer enforces max activated entry cap",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2184"
+    "number": 2188,
+    "title": "Lorebook prompt assembly consumes runtime state before marker insertion is known",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2188"
   },
-  "pr": {
-    "number": "2247",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2247",
-    "base": "refactor",
-    "draft": true
-  },
-  "coreClaim": "Prompt-time active lorebook scanning includes no more than LIMITS.MAX_LOREBOOK_ENTRIES entries while preserving the existing priority order: constants first, fresh latest-user-message matches next, then injection order.",
+  "pr": null,
+  "coreClaim": "Prompt assembly only returns lorebook runtime-state deltas for lore entries whose position can actually be inserted into the prompt.",
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "pnpm exec vitest run src/engine/generation/active-lorebook-scanner.test.ts",
-    "evidence": "Before the production fix, the focused scanner test failed because processedLore.includedEntries had 105 entries instead of LIMITS.MAX_LOREBOOK_ENTRIES=100."
+    "command": "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts",
+    "evidence": "Markerless preset test failed before the production fix: activatedLorebookEntries contained entry-1 even though the preview prompt was only system prompt + trigger."
   },
   "verification": {
     "originalReproPassed": true,
-    "originalReproCommand": "pnpm exec vitest run src/engine/generation/active-lorebook-scanner.test.ts",
-    "originalReproEvidence": "After the fix, active-lorebook-scanner.test.ts passed with 2 tests, including the cap/priority regression.",
-    "focusedProof": [
-      "The regression row creates 105 active entries with unlimited token budget and verifies only 100 are included.",
-      "The regression row verifies constant entries stay ahead of fresh latest-user-message entries even with higher injection order.",
-      "The regression row verifies older-message matches are dropped when constants plus fresh matches fill the cap."
-    ],
-    "edgeCases": [
-      "Existing batched active-lorebook storage and disabled-folder behavior still passes in the same scanner suite."
-    ],
-    "visualProof": "scratch/issue-2184-after-vitest.txt",
+    "focusedCommand": "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts",
+    "focusedEvidence": "8 prompt assembly tests passed after the fix, including markerless no-state negative control, lore-marker positive control, selected-preset fallback positive control, and existing depth-injection rows.",
+    "visualProof": "scratch/issue-2188-proof.txt",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Passed line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks."
+    "baselineEvidence": "Passed line endings, architecture/import rules, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
+    "typecheckCommand": "pnpm typecheck",
+    "typecheckEvidence": "tsc -b passed."
   },
   "manualBlockers": [],
-  "notes": [
-    "UI/browser proof is not applicable because this is a React-free engine prompt-selection bug; raw Vitest output is captured in scratch/issue-2184-after-vitest.txt."
-  ],
+  "notes": [],
   "preflight": {
     "noAssociatedPr": true,
     "issueAssigned": true,
-    "evidence": "GitHub PR searches for #2184, MAX_LOREBOOK_ENTRIES, and max activated entry cap found no associated open/closed fix PR; issue comments had no linked fix; local branch/worktree search found no 2184 branch or worktree; issue assigned to @me."
+    "evidence": "GitHub PR searches for #2188 and scanActiveLorebooks/markerless terms found no associated fix PR; issue comments had no linked fix; local branch/worktree search found no 2188 branch or worktree; issue assigned to @me."
   },
   "dependencies": {
     "installedFromLockfile": true,
     "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change package.json or pnpm-lock.yaml."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Prompt-time active lorebook scanning caps injected entries at LIMITS.MAX_LOREBOOK_ENTRIES while preserving existing priority order.",
-    "riskType": "prompt assembly regression parity",
+    "coreClaim": "Prompt assembly only returns lorebook runtime-state deltas for lore entries whose position can actually be inserted into the prompt.",
+    "riskType": "prompt assembly runtime state compatibility",
     "entrypoints": [
-      "scanActiveLorebooks shared engine scanner",
-      "assemblePrompt activatedLorebookEntries",
-      "scanActiveLorebookEntries Active World Info data"
+      "assembleGenerationPrompt",
+      "scanActiveLorebooks"
     ],
     "currentPathsOrFormats": [
-      "Refactor active lorebook scanner",
-      "Shared prompt-injector budget processing"
+      "Prompt sections with world_info_before/world_info_after/lorebook markers",
+      "Depth-position lore injection",
+      "Game prompt lore merge",
+      "No selected preset fallback prompt lore insertion",
+      "Selected preset that produces no messages and falls back to default prompt lore insertion"
     ],
     "legacyPathsOrFormats": [
-      "Legacy lorebook selection capped by LIMITS.MAX_LOREBOOK_ENTRIES"
+      "Legacy marker expansion scanned world-info when markers expanded",
+      "Refactor depth-position entries are injected independently of world-info markers"
     ],
     "positiveRowsTested": [
-      "105 matching entries with unlimited token budget caps to 100 included entries.",
-      "Constants outrank fresh latest-user-message matches.",
-      "Fresh latest-user-message matches outrank older-message matches."
+      "A lorebook marker includes a position 0 ephemeral entry and returns the expected runtime-state override.",
+      "Existing depth-position lore entries still inject without a world-info marker.",
+      "An empty selected preset falls back to the default prompt and still includes/consumes matching world-info lore."
     ],
     "negativeRowsTested": [
-      "Disabled-folder entry remains excluded by the existing scanner test."
+      "A markerless roleplay preset with a matching position 0 ephemeral entry returns no activatedLorebookEntries and no runtime-state deltas."
     ],
     "groundTruthFacts": [
       {
-        "fact": "LIMITS.MAX_LOREBOOK_ENTRIES is 100 in src/engine/contracts/constants/defaults.ts.",
+        "fact": "Prompt assembly computes which lorebook positions can be inserted by the selected prompt shape.",
+        "sourceType": "harness",
+        "evidence": "src/engine/generation/prompt-assembly.test.ts exercises markerless roleplay, lorebook-marker roleplay, selected-preset fallback, and existing depth-injection prompt shapes."
+      },
+      {
+        "fact": "The active lorebook scanner filters entries by included positions before activation, budgeting, semantic embedding selection, and runtime-state updates.",
         "sourceType": "derived",
-        "evidence": "Imported LIMITS in the regression test."
+        "evidence": "src/engine/generation/active-lorebook-scanner.ts filters entriesByBook with lorebookEntryIncludedByPosition before vectorizedEntryCount, embeddingRequest, scanLorebookEntries, updateTimingStatesForScan, and updateEntryStateOverridesForScan."
       }
     ],
     "userActionCopy": "No user-facing copy changed.",
@@ -86,10 +81,10 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Focused proof, pnpm typecheck, pnpm check, proof gate, and Bunny review passed."
+    "notes": "Focused proof, pnpm check, proof gate, and Bunny review passed. PR creation and external health checks are pending."
   },
   "bunny": {
     "status": "pass",
-    "evidence": "Issue match is direct; the shared prompt-injector now applies LIMITS.MAX_LOREBOOK_ENTRIES through the same constant/latest/order priority used by token budgets; the active scanner is the single prompt-time call site; focused before/after Vitest, pnpm typecheck, pnpm check, and marinara-proof-gate passed; no dependencies, schema, auth, storage persistence, UI, or release files changed."
+    "evidence": "Issue match is direct. Scanner now filters active lorebook entries by prompt-insertable positions before activation, budgeting, semantic embedding selection, and runtime-state updates. Prompt assembly passes world-before/world-after eligibility from selected markers, game prompt behavior, and actual fallback widening while preserving depth-position injection. Focused before/after Vitest, pnpm check, marinara-proof-gate, diff check, and Bunny self-review passed. No dependencies, schema, auth, storage persistence, UI, or release files changed."
   }
 }

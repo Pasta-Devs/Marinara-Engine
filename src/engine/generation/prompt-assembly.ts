@@ -51,6 +51,7 @@ import {
 import {
   lorebookActivatedEntryForEvent,
   scanActiveLorebooks,
+  type ActiveLorebookIncludedPositions,
   type BudgetSkippedLorebookEntry,
 } from "./active-lorebook-scanner";
 
@@ -2773,6 +2774,28 @@ function sectionContent(args: {
   }
 }
 
+function lorebookIncludedPositionsForPrompt(
+  selectedPreset: SelectedPromptPreset | null | undefined,
+  chatMode: string,
+): ActiveLorebookIncludedPositions {
+  const positions: ActiveLorebookIncludedPositions = {
+    worldInfoBefore: !selectedPreset || chatMode === "game",
+    worldInfoAfter: !selectedPreset || chatMode === "game",
+    depth: true,
+  };
+  for (const section of selectedPreset?.sections ?? []) {
+    if (!boolish(section.enabled, true)) continue;
+    const marker = markerConfig(section);
+    if (marker?.type === "world_info_before" || marker?.type === "lorebook") {
+      positions.worldInfoBefore = true;
+    }
+    if (marker?.type === "world_info_after" || marker?.type === "lorebook") {
+      positions.worldInfoAfter = true;
+    }
+  }
+  return positions;
+}
+
 function agentDataPromptBlock(
   agentData: Record<string, string>,
   wrapFormat: WrapFormat,
@@ -2847,20 +2870,24 @@ export async function assembleGenerationPrompt(
     request: input.request,
   });
   await seedPromptVariablesFromGreeting(storage, input, macros);
-  const loreScan = await scanActiveLorebooks({
-    storage,
-    chat: input.chat,
-    characters,
-    persona,
-    storedMessages: input.storedMessages,
-    request: input.request,
-    latestUserInput: input.latestUserInput,
-    embeddingSource,
-    contentResolver: {
-      resolve: (content) => cleanPromptText(resolveMacros(content, macros)),
-    },
-  });
-  const processedLore = loreScan.processedLore;
+  const baseLorebookIncludedPositions = lorebookIncludedPositionsForPrompt(selectedPreset, chatMode);
+  const scanLorebooksForPositions = (includedPositions: ActiveLorebookIncludedPositions) =>
+    scanActiveLorebooks({
+      storage,
+      chat: input.chat,
+      characters,
+      persona,
+      storedMessages: input.storedMessages,
+      request: input.request,
+      latestUserInput: input.latestUserInput,
+      embeddingSource,
+      includedPositions,
+      contentResolver: {
+        resolve: (content) => cleanPromptText(resolveMacros(content, macros)),
+      },
+    });
+  let loreScan = await scanLorebooksForPositions(baseLorebookIncludedPositions);
+  let processedLore = loreScan.processedLore;
   const summary = chatSummaryForGeneration(input.chat);
   const memoryRecallBlock = await buildMemoryRecallBlock(
     storage,
@@ -2942,6 +2969,14 @@ export async function assembleGenerationPrompt(
   }
 
   if (messages.length === 0) {
+    if (!baseLorebookIncludedPositions.worldInfoBefore || !baseLorebookIncludedPositions.worldInfoAfter) {
+      loreScan = await scanLorebooksForPositions({
+        ...baseLorebookIncludedPositions,
+        worldInfoBefore: true,
+        worldInfoAfter: true,
+      });
+      processedLore = loreScan.processedLore;
+    }
     usedFallbackSystemPrompt = true;
     messages.push({
       role: "system",
