@@ -1057,9 +1057,9 @@ fn delete_lorebook_entry_with_character_book_sync(
     )
 }
 
-fn lorebook_entry_atomic_rows<'a>(
-    collections: &'a mut [marinara_storage::AtomicCollectionRows],
-) -> Result<(&'a mut Vec<Value>, &'a mut Vec<Value>), AppError> {
+fn lorebook_entry_atomic_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+) -> Result<(&mut Vec<Value>, &mut Vec<Value>), AppError> {
     let [left, right] = collections else {
         return Err(AppError::new(
             "storage_error",
