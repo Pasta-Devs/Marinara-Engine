@@ -25,7 +25,7 @@ function scheduleFor(status: "idle" | "dnd" | "offline"): WeekSchedule {
 
 function createStore(
   status: "idle" | "dnd" | "offline",
-  options: { secondStatus?: "idle" | "dnd" | "offline" } = {},
+  options: { secondStatus?: "idle" | "dnd" | "offline"; messages?: Record<string, Record<string, unknown>> } = {},
 ): Store {
   const characterIds = options.secondStatus ? ["char-1", "char-2"] : ["char-1"];
   return {
@@ -50,10 +50,14 @@ function createStore(
     connections: {
       "conn-1": { id: "conn-1", provider: "test", model: "test-model" },
     },
+    messages: options.messages,
   };
 }
 
-function createStorage(store: Store): StorageGateway {
+function createStorage(
+  store: Store,
+  capture: { extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }> } = {},
+): StorageGateway {
   return {
     async list<T = unknown>(entity: StorageEntity): Promise<T[]> {
       return Object.values(store[entity] ?? {}) as T[];
@@ -94,6 +98,7 @@ function createStorage(store: Store): StorageGateway {
       return { deleted: true };
     },
     async patchChatMessageExtra<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T> {
+      capture.extraPatches?.push({ messageId, patch });
       return { id: messageId, extra: patch } as T;
     },
     async addChatMessageSwipe<T = unknown>(): Promise<T> {
@@ -128,7 +133,14 @@ function createStorage(store: Store): StorageGateway {
   };
 }
 
-function createDeps(status: "idle" | "dnd" | "offline", options: { secondStatus?: "idle" | "dnd" | "offline" } = {}) {
+function createDeps(
+  status: "idle" | "dnd" | "offline",
+  options: {
+    secondStatus?: "idle" | "dnd" | "offline";
+    messages?: Record<string, Record<string, unknown>>;
+    capture?: { extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }> };
+  } = {},
+) {
   const llm: LlmGateway = {
     async complete() {
       return "";
@@ -141,7 +153,7 @@ function createDeps(status: "idle" | "dnd" | "offline", options: { secondStatus?
     },
   };
   return {
-    storage: createStorage(createStore(status, options)),
+    storage: createStorage(createStore(status, options), options.capture),
     integrations: {} as IntegrationGateway,
     llm,
   };
@@ -218,5 +230,53 @@ describe("startGeneration conversation availability delays", () => {
     } finally {
       random.mockRestore();
     }
+  });
+});
+
+describe("startGeneration context injection compatibility", () => {
+  it("keeps legacy bare-string context injections when merging regenerated agent injections", async () => {
+    const capture: { extraPatches: Array<{ messageId: string; patch: Record<string, unknown> }> } = {
+      extraPatches: [],
+    };
+    const deps = createDeps("idle", {
+      capture,
+      messages: {
+        "assistant-1": {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          characterId: "char-1",
+          content: "Previous response.",
+          createdAt: "2026-06-01T00:00:00.000Z",
+          extra: {
+            contextInjections: [
+              "Legacy prose guidance.",
+              { agentType: "memory-recall", agentName: "Memory Recall", text: "Remembered facts." },
+              "   ",
+            ],
+          },
+        },
+      },
+    });
+
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      message: "Regenerate that.",
+      regenerateMessageId: "assistant-1",
+      agentInjectionOverrides: [{ agentType: "secret-plot", text: "New secret plot guidance." }],
+    })) {
+      if (event.type === "done") break;
+    }
+
+    expect(capture.extraPatches.at(-1)).toMatchObject({
+      messageId: "assistant-1",
+      patch: {
+        contextInjections: [
+          { agentType: "prose-guardian", text: "Legacy prose guidance." },
+          { agentType: "memory-recall", agentName: "Memory Recall", text: "Remembered facts." },
+          { agentType: "secret-plot", text: "New secret plot guidance." },
+        ],
+      },
+    });
   });
 });
