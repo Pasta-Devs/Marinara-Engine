@@ -1155,6 +1155,102 @@ mod tests {
     }
 
     #[test]
+    fn profile_import_legacy_array_generates_parent_ids_for_nested_children() {
+        let state = test_state("legacy-array-generated-parent-ids");
+        let result = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "lorebooks": [{
+                        "id": "",
+                        "name": "Generated Book",
+                        "entries": [{
+                            "id": "entry-generated",
+                            "keys": "[\"generated\"]",
+                            "enabled": "true"
+                        }],
+                        "folders": [{
+                            "id": "folder-generated",
+                            "name": "Generated Folder"
+                        }]
+                    }],
+                    "presets": [{
+                        "name": "Generated Preset",
+                        "groups": [{
+                            "id": "group-generated",
+                            "name": "Generated Group"
+                        }],
+                        "sections": [{
+                            "id": "section-generated",
+                            "name": "Generated Section"
+                        }],
+                        "choices": [{
+                            "id": "choice-generated",
+                            "name": "Generated Choice"
+                        }]
+                    }]
+                }
+            }),
+        )
+        .expect("legacy array profile import should generate parent ids");
+
+        assert_eq!(result["success"], true);
+        let lorebook = state
+            .storage
+            .list("lorebooks")
+            .expect("lorebooks should list")
+            .pop()
+            .expect("lorebook should import");
+        let lorebook_id = lorebook["id"]
+            .as_str()
+            .filter(|id| !id.trim().is_empty())
+            .expect("lorebook should receive an id");
+        let entry = state
+            .storage
+            .get("lorebook-entries", "entry-generated")
+            .expect("entry lookup should not fail")
+            .expect("entry should import");
+        assert_eq!(entry["lorebookId"], lorebook_id);
+        let folder = state
+            .storage
+            .get("lorebook-folders", "folder-generated")
+            .expect("folder lookup should not fail")
+            .expect("folder should import");
+        assert_eq!(folder["lorebookId"], lorebook_id);
+
+        let preset = state
+            .storage
+            .list("prompts")
+            .expect("prompts should list")
+            .pop()
+            .expect("preset should import");
+        let preset_id = preset["id"]
+            .as_str()
+            .filter(|id| !id.trim().is_empty())
+            .expect("preset should receive an id");
+        let group = state
+            .storage
+            .get("prompt-groups", "group-generated")
+            .expect("group lookup should not fail")
+            .expect("group should import");
+        assert_eq!(group["presetId"], preset_id);
+        let section = state
+            .storage
+            .get("prompt-sections", "section-generated")
+            .expect("section lookup should not fail")
+            .expect("section should import");
+        assert_eq!(section["presetId"], preset_id);
+        let choice = state
+            .storage
+            .get("prompt-variables", "choice-generated")
+            .expect("choice lookup should not fail")
+            .expect("choice should import");
+        assert_eq!(choice["presetId"], preset_id);
+    }
+
+    #[test]
     fn profile_import_legacy_array_empty_parents_clear_nested_tables() {
         let state = test_state("legacy-array-clear-nested");
         state

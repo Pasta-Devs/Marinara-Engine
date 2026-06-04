@@ -166,11 +166,7 @@ fn legacy_array_lorebook_tables(rows: Vec<Value>) -> AppResult<LegacyArrayLorebo
     let mut folders = Vec::new();
 
     for mut row in rows {
-        let parent_id = row
-            .get("id")
-            .and_then(Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(str::to_string);
+        let parent_id = legacy_array_parent_id(&mut row);
         let object = row
             .as_object_mut()
             .expect("legacy_array_rows ensures rows are objects");
@@ -179,7 +175,7 @@ fn legacy_array_lorebook_tables(rows: Vec<Value>) -> AppResult<LegacyArrayLorebo
                 &mut entries,
                 "lorebooks.entries",
                 value,
-                parent_id.as_deref(),
+                &parent_id,
                 "lorebookId",
             )?;
         }
@@ -188,7 +184,7 @@ fn legacy_array_lorebook_tables(rows: Vec<Value>) -> AppResult<LegacyArrayLorebo
                 &mut folders,
                 "lorebooks.folders",
                 value,
-                parent_id.as_deref(),
+                &parent_id,
                 "lorebookId",
             )?;
         }
@@ -216,11 +212,7 @@ fn legacy_array_preset_tables(rows: Vec<Value>) -> AppResult<LegacyArrayPresetTa
     let mut choices = Vec::new();
 
     for mut row in rows {
-        let parent_id = row
-            .get("id")
-            .and_then(Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(str::to_string);
+        let parent_id = legacy_array_parent_id(&mut row);
         let object = row
             .as_object_mut()
             .expect("legacy_array_rows ensures rows are objects");
@@ -229,7 +221,7 @@ fn legacy_array_preset_tables(rows: Vec<Value>) -> AppResult<LegacyArrayPresetTa
                 &mut groups,
                 "presets.groups",
                 value,
-                parent_id.as_deref(),
+                &parent_id,
                 "presetId",
             )?;
         }
@@ -238,7 +230,7 @@ fn legacy_array_preset_tables(rows: Vec<Value>) -> AppResult<LegacyArrayPresetTa
                 &mut sections,
                 "presets.sections",
                 value,
-                parent_id.as_deref(),
+                &parent_id,
                 "presetId",
             )?;
         }
@@ -247,7 +239,7 @@ fn legacy_array_preset_tables(rows: Vec<Value>) -> AppResult<LegacyArrayPresetTa
                 &mut choices,
                 "presets.choices",
                 value,
-                parent_id.as_deref(),
+                &parent_id,
                 "presetId",
             )?;
         }
@@ -262,11 +254,27 @@ fn legacy_array_preset_tables(rows: Vec<Value>) -> AppResult<LegacyArrayPresetTa
     })
 }
 
+fn legacy_array_parent_id(row: &mut Value) -> String {
+    let object = row
+        .as_object_mut()
+        .expect("legacy_array_rows ensures rows are objects");
+    if let Some(id) = object
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+    {
+        return id.to_string();
+    }
+    let id = new_id();
+    object.insert("id".to_string(), Value::String(id.clone()));
+    id
+}
+
 fn append_legacy_array_child_rows(
     output: &mut Vec<Value>,
     field: &'static str,
     value: Value,
-    parent_id: Option<&str>,
+    parent_id: &str,
     parent_field: &'static str,
 ) -> AppResult<()> {
     let rows = value.as_array().ok_or_else(|| {
@@ -285,7 +293,7 @@ fn append_legacy_array_child_rows(
             ));
         }
         let mut child = child;
-        if let (Some(parent_id), Some(object)) = (parent_id, child.as_object_mut()) {
+        if let Some(object) = child.as_object_mut() {
             let needs_parent = object
                 .get(parent_field)
                 .and_then(Value::as_str)
