@@ -351,6 +351,29 @@ export function useRecruitPartyMember() {
   });
 }
 
+export function useRegeneratePartyCard() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: { chatId: string; characterName: string; connectionId?: string }) =>
+      gameApi.upsertPartyCard({ ...data, added: false }),
+    onSuccess: (res, variables) => {
+      publishSessionChat(qc, res.sessionChat);
+      qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });
+      qc.invalidateQueries({ queryKey: chatKeys.list() });
+      toast.success(`${res.characterName}'s party card was regenerated.`);
+    },
+    onError: (err) => {
+      console.error("[regeneratePartyCard] Error:", err);
+      if (isJsonRepairApiError(err)) {
+        toast.info("Review the generated party card JSON before applying it.", { duration: 8000 });
+        return;
+      }
+      toast.error(err.message || "Failed to regenerate party card.");
+    },
+  });
+}
+
 export function useRemovePartyMember() {
   const qc = useQueryClient();
 

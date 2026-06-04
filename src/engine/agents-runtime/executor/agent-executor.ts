@@ -262,15 +262,18 @@ export async function executeAgent(
       return makeError(config, formatAgentParseError(config, parsed.error), startTime);
     }
 
+    const fallback = await applySpotifyPlaybackFallback(config, parsed.data, toolContext, false, (err) =>
+      logger.warn(err, "[agent-tools] spotify playback fallback failed"),
+    );
     return {
       agentId: config.id,
       agentType: config.type,
       type: parsed.type,
-      data: parsed.data,
+      data: fallback.data,
       tokensUsed: result.usage?.totalTokens ?? 0,
       durationMs,
-      success: true,
-      error: null,
+      success: fallback.error === null,
+      error: fallback.error,
     };
   } catch (err) {
     return makeError(config, extractErrorMessage(err), startTime);
@@ -327,12 +330,8 @@ async function executeAgentWithTools(
       if (parsed.error) {
         return makeError(config, formatAgentParseError(config, parsed.error), startTime);
       }
-      const fallback = await applySpotifyPlaybackFallback(
-        config,
-        parsed.data,
-        toolContext,
-        spotifyPlayCalled,
-        (err) => logger.warn(err, "[agent-tools] spotify playback fallback failed"),
+      const fallback = await applySpotifyPlaybackFallback(config, parsed.data, toolContext, spotifyPlayCalled, (err) =>
+        logger.warn(err, "[agent-tools] spotify playback fallback failed"),
       );
       return {
         agentId: config.id,
@@ -414,12 +413,8 @@ async function executeAgentWithTools(
   if (parsed.error) {
     return makeError(config, formatAgentParseError(config, parsed.error), startTime);
   }
-  const fallback = await applySpotifyPlaybackFallback(
-    config,
-    parsed.data,
-    toolContext,
-    spotifyPlayCalled,
-    (err) => logger.warn(err, "[agent-tools] spotify playback fallback failed"),
+  const fallback = await applySpotifyPlaybackFallback(config, parsed.data, toolContext, spotifyPlayCalled, (err) =>
+    logger.warn(err, "[agent-tools] spotify playback fallback failed"),
   );
   return {
     agentId: config.id,
@@ -458,6 +453,14 @@ function spotifyPlaybackFallbackCall(uris: string[]): LLMToolCall {
   };
 }
 
+function parseSpotifyPlaybackFallbackResult(playback: string): unknown {
+  try {
+    return JSON.parse(playback);
+  } catch {
+    return playback;
+  }
+}
+
 interface SpotifyPlaybackFallbackResult {
   data: unknown;
   error: string | null;
@@ -479,17 +482,83 @@ function spotifyPlaybackFallbackFailureData(data: unknown, error: string): unkno
   };
 }
 
+function spotifyPlaybackFallbackError(playback: Record<string, unknown>): string | null {
+  if (playback.applied === true && playback.success !== false) return null;
+  const error = playback.error;
+  if (typeof error === "string" && error.trim()) {
+    return `Spotify playback failed: ${error}`;
+  }
+  return "Spotify playback failed: Spotify play did not apply playback.";
+}
+
+function spotifyPlaybackStringField(playback: Record<string, unknown>, key: string): string | null {
+  const value = playback[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function spotifyPlaybackCurrentUri(playback: Record<string, unknown>): string | null {
+  const direct = spotifyPlaybackStringField(playback, "currentUri");
+  if (direct) return direct;
+  const track = playback.track;
+  if (isJsonRecord(track)) {
+    const uri = track.uri;
+    if (typeof uri === "string" && uri.startsWith("spotify:")) return uri;
+  }
+  return null;
+}
+
+function spotifyPlaybackQueuedCount(playback: Record<string, unknown>, fallbackUris: string[]): number {
+  const queued = playback.queued;
+  if (typeof queued === "number" && Number.isFinite(queued)) return Math.max(0, Math.floor(queued));
+  if (Array.isArray(queued)) return queued.length;
+  const uris = playback.uris;
+  if (Array.isArray(uris)) return uris.length;
+  return fallbackUris.length;
+}
+
+function spotifyPlaybackDevice(playback: Record<string, unknown>): unknown {
+  const device = playback.device;
+  if (isJsonRecord(device)) {
+    const name = device.name;
+    if (typeof name === "string" && name.trim()) return name;
+  }
+  return device ?? null;
+}
+
+function spotifyPlaybackFallbackSuccessData(data: unknown, playback: Record<string, unknown>, uris: string[]): unknown {
+  if (!isJsonRecord(data)) return data;
+  const queued = spotifyPlaybackQueuedCount(playback, uris);
+  const trackNames = Array.isArray(data.trackNames)
+    ? data.trackNames.filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+    : [];
+  const display = spotifyPlaybackStringField(playback, "display");
+  return {
+    ...data,
+    trackUris: uris,
+    ...(trackNames.length > 0 ? { trackNames } : {}),
+    toolFallbackApplied: true,
+    currentUri: spotifyPlaybackCurrentUri(playback),
+    queued,
+    device: spotifyPlaybackDevice(playback),
+    display: display ?? data.display,
+    playback,
+  };
+}
+
 async function applySpotifyPlaybackFallback(
   config: Pick<AgentExecConfig, "type">,
   data: unknown,
-  toolContext: AgentToolContext,
+  toolContext: AgentToolContext | null | undefined,
   spotifyPlayCalled: boolean,
   onFallbackError?: (err: unknown) => void,
 ): Promise<SpotifyPlaybackFallbackResult> {
   if (config.type !== "spotify" || spotifyPlayCalled) return { data, error: null };
-  if (!toolContext.tools.some((tool) => tool.name === "spotify_play")) return { data, error: null };
   const uris = spotifyTrackUrisFromAgentData(data);
   if (uris.length === 0) return { data, error: null };
+  if (!toolContext || !toolContext.tools.some((tool) => tool.name === "spotify_play")) {
+    const error = "Spotify playback failed: Spotify DJ chose music, but spotify_play is not enabled for this agent.";
+    return { data: spotifyPlaybackFallbackFailureData(data, error), error };
+  }
   let playback: string;
   try {
     playback = await toolContext.executeToolCall(spotifyPlaybackFallbackCall(uris));
@@ -498,20 +567,16 @@ async function applySpotifyPlaybackFallback(
     const error = `Spotify playback failed: ${extractErrorMessage(err, "Spotify playback fallback failed")}`;
     return { data: spotifyPlaybackFallbackFailureData(data, error), error };
   }
-  const fallbackData = isJsonRecord(data)
-    ? {
-        ...data,
-        toolFallbackApplied: true,
-        playback: (() => {
-          try {
-            return JSON.parse(playback);
-          } catch {
-            return playback;
-          }
-        })(),
-      }
-    : data;
-  return { data: fallbackData, error: null };
+  const parsedPlayback = parseSpotifyPlaybackFallbackResult(playback);
+  if (!isJsonRecord(parsedPlayback)) {
+    const error = "Spotify playback failed: Spotify playback returned an unreadable response.";
+    return { data: spotifyPlaybackFallbackFailureData(data, error), error };
+  }
+  const playbackError = spotifyPlaybackFallbackError(parsedPlayback);
+  if (playbackError) {
+    return { data: spotifyPlaybackFallbackFailureData(data, playbackError), error: playbackError };
+  }
+  return { data: spotifyPlaybackFallbackSuccessData(data, parsedPlayback, uris), error: null };
 }
 
 // ──────────────────────────────────────────────

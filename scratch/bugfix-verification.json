@@ -10,6 +10,14 @@
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2211"
   },
   "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
+  "assignment": {
+    "assignee": "cha1latte",
+    "evidence": "Issue #2135 was assigned to cha1latte before implementation."
+  },
+  "preflight": {
+    "noAssociatedPr": true,
+    "details": "Exact PR search for 2135 returned no matches; broader sprite-title search did not show an associated #2135 fix PR."
+  },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
@@ -23,10 +31,11 @@
     "originalReproPassed": true,
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "passed after the reserved-only sprite edge-case patch",
+    "baselineEvidence": "passed after the reserved-only sprite edge-case patch and after merging upstream/refactor",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts src/engine/modes/game/prompts/sprite.service.test.ts passed.",
-      "pnpm typecheck passed.",
+      "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts src/engine/modes/game/prompts/sprite.service.test.ts passed before and after merging upstream/refactor.",
+      "pnpm typecheck passed before full baseline.",
+      "pnpm check passed before and after merging upstream/refactor.",
       "git diff --check passed.",
       "node C:/Users/celia/.codex/tools/marinara-proof-gate.mjs scratch/bugfix-verification.json passed."
     ],
@@ -35,16 +44,12 @@
       "GM prompt reminder includes custom full-body aliases with the full_ prefix removed.",
       "Engine-reserved automatic full-body poses such as full_idle are not exposed as model-visible full-body aliases.",
       "A character with only automatic full-body poses is omitted from model-visible sprite listings instead of producing an empty party prompt line.",
-      "Prompt preview receives the visual asset gateway so manual prompt inspection matches generation."
+      "Prompt preview receives the visual asset gateway so manual prompt inspection matches generation.",
+      "Party turn passes the same characterSprites structure into buildPartySystemPrompt."
     ],
     "visualProof": "Backend prompt bug; before/after terminal proof from targeted Vitest runs is recorded in the PR body."
   },
   "manualBlockers": [],
-  "assignment": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2135",
-  "preflight": {
-    "noAssociatedPr": true,
-    "details": "Exact gh PR search for 2135 returned no matches; broader sprite-title search did not show an associated #2135 fix PR."
-  },
   "riskClaimMatrix": {
     "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
     "riskType": "prompt assembly contract",
@@ -82,6 +87,6 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete."
+    "notes": "Local proof, pnpm check, proof gate, Bunny pass, and upstream/refactor merge validation are complete."
   }
 }
