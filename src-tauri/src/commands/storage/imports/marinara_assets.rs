@@ -135,8 +135,9 @@ pub(super) fn restore_character_gallery(
             &format!("gallery-{}", index + 1),
             ext,
         );
-        state.storage.create(
-            "character-gallery",
+        crate::storage_commands::entity_commands::storage_create_inner(
+            state,
+            "character-gallery".to_string(),
             json!({
                 "characterId": character_id,
                 "filePath": filename,

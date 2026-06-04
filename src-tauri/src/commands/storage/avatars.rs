@@ -592,11 +592,10 @@ pub(crate) fn update_npc_avatar(state: &AppState, chat_id: &str, body: Value) ->
         &body,
         "avatar",
     )?;
-    let avatar_path = avatar_data_url_from_path(&stored.absolute_path, Some(&stored.filename))?;
     Ok(json!({
         "chatId": chat_id,
         "name": name,
-        "avatarPath": avatar_path,
+        "avatarPath": stored.asset_url,
         "avatarFilePath": stored.absolute_path,
         "avatarFilename": stored.filename
     }))
@@ -719,7 +718,7 @@ mod tests {
     }
 
     #[test]
-    fn npc_avatar_upload_keeps_inline_url_for_url_only_consumers() {
+    fn npc_avatar_upload_returns_managed_asset_url() {
         let state = test_state("npc-avatar-upload-managed");
 
         let updated = update_npc_avatar(
@@ -737,8 +736,13 @@ mod tests {
             .and_then(Value::as_str)
             .expect("avatarPath should be present");
         assert!(
-            avatar_path.starts_with("data:image/"),
-            "NPC avatarPath should stay inline because game NPC rows only persist URL fields"
+            !avatar_path.starts_with("data:image/"),
+            "NPC avatarPath should be a managed asset URL, not inline data"
+        );
+        assert!(
+            avatar_path.starts_with("asset://localhost")
+                || avatar_path.starts_with("http://asset.localhost"),
+            "NPC avatarPath should point at the managed asset file"
         );
         let avatar_file_path = updated
             .get("avatarFilePath")
