@@ -49,6 +49,7 @@ const QUOTE_FORMATTED_CHARACTER_FIELDS = new Set<keyof CharacterData>([
 ]);
 
 const QUOTE_FORMATTED_EXTENSION_FIELDS = new Set(["backstory", "appearance", "altDescriptions", "depth_prompt"]);
+const CREATOR_NOTES_STYLE_BLOCK_RE = /<style\b[^>]*>[\s\S]*?<\/style>/gi;
 
 function formatAltDescriptions(value: unknown, quoteFormat: QuoteFormat): unknown {
   if (!Array.isArray(value)) return value;
@@ -71,12 +72,31 @@ function formatDepthPrompt(value: unknown, quoteFormat: QuoteFormat): unknown {
   };
 }
 
+function formatCreatorNotes(value: string, quoteFormat: QuoteFormat): string {
+  let result = "";
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  CREATOR_NOTES_STYLE_BLOCK_RE.lastIndex = 0;
+
+  while ((match = CREATOR_NOTES_STYLE_BLOCK_RE.exec(value)) !== null) {
+    result += formatTextQuotes(value.slice(lastIndex, match.index), quoteFormat);
+    result += match[0];
+    lastIndex = match.index + match[0].length;
+  }
+
+  result += formatTextQuotes(value.slice(lastIndex), quoteFormat);
+  return result;
+}
+
 export function formatCharacterEditorField<K extends keyof CharacterData>(
   key: K,
   value: CharacterData[K],
   quoteFormat: QuoteFormat,
 ): CharacterData[K] {
   if (!QUOTE_FORMATTED_CHARACTER_FIELDS.has(key)) return value;
+  if (key === "creator_notes" && typeof value === "string") {
+    return formatCreatorNotes(value, quoteFormat) as CharacterData[K];
+  }
   if (typeof value === "string") return formatTextQuotes(value, quoteFormat) as CharacterData[K];
   if (key === "alternate_greetings" && Array.isArray(value)) {
     return value.map((greeting) =>

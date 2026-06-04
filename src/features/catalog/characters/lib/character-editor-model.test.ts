@@ -15,6 +15,18 @@ describe("character editor quote formatting", () => {
     ).toBe("Afterward, write \u201cquietly\u201d.");
   });
 
+  it("preserves creator notes style blocks while formatting surrounding prose", () => {
+    expect(
+      formatCharacterEditorField(
+        "creator_notes",
+        `Prose says "yes".\n<style data-card-css>\n.bubble::before { content: "raw"; }\n</style>\nAfter says "done".`,
+        "typographic",
+      ),
+    ).toBe(
+      "Prose says \u201cyes\u201d.\n<style data-card-css>\n.bubble::before { content: \"raw\"; }\n</style>\nAfter says \u201cdone\u201d.",
+    );
+  });
+
   it("formats depth prompt text while preserving depth prompt metadata", () => {
     expect(
       formatCharacterEditorExtension(

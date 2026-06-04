@@ -5,6 +5,10 @@
     "title": "Character editor quote formatting misses advanced card fields",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2128"
   },
+  "pr": {
+    "number": 2201,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2201"
+  },
   "coreClaim": "Character editor save formatting normalizes configured quote style for creator notes, system prompt, post-history instructions, and depth prompt text.",
   "assignment": {
     "assignee": "cha1latte",
@@ -31,12 +35,13 @@
     "baselineCommand": "pnpm check",
     "baselineEvidence": "pnpm check passed after the final production diff.",
     "focusedProof": [
-      "pnpm exec vitest run src\\features\\catalog\\characters\\lib\\character-editor-model.test.ts passed after the fix.",
+      "pnpm exec vitest run src\\features\\catalog\\characters\\lib\\character-editor-model.test.ts passed after the fix and Bunny repair.",
       "pnpm typecheck passed.",
       "git diff --check passed."
     ],
     "edgeCases": [
       "creator_notes, system_prompt, and post_history_instructions now use typographic quote formatting.",
+      "creator_notes preserves complete <style>...</style> blocks while formatting surrounding prose.",
       "depth_prompt.prompt now uses typographic quote formatting.",
       "depth_prompt.depth, depth_prompt.role, and unrelated extension properties are preserved unchanged."
     ],
@@ -50,6 +55,6 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete. External CI and CodeRabbit are pending until the draft PR exists."
+    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete. A later Bunny finding about creator-notes CSS was repaired with a focused regression row; external CI and Bunny need to rerun after the follow-up push."
   }
 }
