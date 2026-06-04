@@ -1000,3 +1000,15 @@ export function getBusyDelay(
 ): number {
   return getConfiguredResponseDelay(status, schedule);
 }
+
+export function getMentionDelay(status: "online" | "idle" | "dnd" | "offline"): number {
+  switch (status) {
+    case "online":
+    case "offline":
+      return 0;
+    case "idle":
+      return (5 + Math.random() * 10) * 1000;
+    case "dnd":
+      return (30 + Math.random() * 60) * 1000;
+  }
+}

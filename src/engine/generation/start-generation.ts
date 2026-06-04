@@ -11,7 +11,7 @@ import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared
 import { collapseExcessBlankLines } from "../shared/text/newlines";
 import { buildImpersonateInstruction } from "../modes/chat/commands/impersonate-prompt";
 import { getConversationStatus } from "../modes/chat/autonomous/autonomous.service";
-import { getBusyDelay, type WeekSchedule } from "../modes/chat/schedules/schedule.service";
+import { getBusyDelay, getMentionDelay, type WeekSchedule } from "../modes/chat/schedules/schedule.service";
 import {
   activeCharacterIds,
   assertChatHasActiveCharacters,
@@ -1393,10 +1393,16 @@ function conversationStatus(value: unknown): ConversationAvailabilityStatus {
   return value === "idle" || value === "dnd" || value === "offline" ? value : "online";
 }
 
+function normalizedMentionedCharacterNames(names: string[]): Set<string> {
+  return new Set(names.map((name) => name.trim().toLowerCase()).filter(Boolean));
+}
+
 async function resolveConversationAvailability(args: {
   storage: StorageGateway;
   chat: JsonRecord;
   targetCharacterId?: string | null;
+  manualTargetCharacterId?: string | null;
+  mentionedCharacterNames?: string[];
 }): Promise<{
   characters: ConversationAvailabilityCharacter[];
   allOffline: boolean;
@@ -1408,6 +1414,8 @@ async function resolveConversationAvailability(args: {
   if (activeIds.length === 0) return null;
   const activeSet = new Set(activeIds);
   const requested = readString(args.targetCharacterId).trim();
+  const manualTarget = readString(args.manualTargetCharacterId).trim();
+  const mentionedNames = normalizedMentionedCharacterNames(args.mentionedCharacterNames ?? []);
   const respondingIds = requested && activeSet.has(requested) ? [requested] : activeIds;
   const statusResult = await getConversationStatus(args.storage, readString(args.chat.id).trim());
   const characters: ConversationAvailabilityCharacter[] = [];
@@ -1424,7 +1432,11 @@ async function resolveConversationAvailability(args: {
   let delayMs = 0;
   let delayStatus: ConversationAvailabilityStatus = "online";
   for (const character of characters) {
-    const characterDelay = getBusyDelay(character.status, character.schedule ?? undefined);
+    const isMentionedOrManualTarget =
+      (manualTarget.length > 0 && character.id === manualTarget) || mentionedNames.has(character.name.toLowerCase());
+    const characterDelay = isMentionedOrManualTarget
+      ? getMentionDelay(character.status)
+      : getBusyDelay(character.status, character.schedule ?? undefined);
     if (characterDelay > delayMs) {
       delayMs = characterDelay;
       delayStatus = character.status;
@@ -2600,10 +2612,13 @@ export async function* startGeneration(
   }
   const directMessages = requestMessages(input);
   if (!directMessages && input.impersonate !== true) {
+    const manualTargetCharacterId = readString(input.forCharacterId).trim();
     const availability = await resolveConversationAvailability({
       storage: deps.storage,
       chat,
-      targetCharacterId: readString(input.forCharacterId).trim() || resolvedGroupTarget,
+      targetCharacterId: manualTargetCharacterId || resolvedGroupTarget,
+      manualTargetCharacterId,
+      mentionedCharacterNames: preparedUserInput.mentionedCharacterNames,
     });
     throwIfAborted(signal);
     const characterNames = availability?.characters.map((character) => character.name) ?? [];
