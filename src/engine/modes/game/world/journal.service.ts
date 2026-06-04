@@ -1,8 +1,9 @@
 import type { GameNpc, SessionSummary, GameMap } from "../../../contracts/types/game";
+import type { PlayerStats, QuestProgress } from "../../../contracts/types/game-state";
 
 // ── Types ──
 
-export interface JournalEntry {
+interface JournalEntry {
   timestamp: string;
   type: "location" | "npc" | "combat" | "quest" | "item" | "event" | "note";
   title: string;
@@ -69,7 +70,7 @@ export function createJournal(): Journal {
 }
 
 /** Add a location discovery to the journal. */
-export function addLocationEntry(journal: Journal, location: string, description: string = ""): Journal {
+function addLocationEntry(journal: Journal, location: string, description: string = ""): Journal {
   if (journal.locations.includes(location)) return journal;
 
   return {
@@ -87,8 +88,45 @@ export function addLocationEntry(journal: Journal, location: string, description
   };
 }
 
+/** Add an NPC interaction to the journal. */
+function addNpcEntry(journal: Journal, npc: GameNpc, interaction: string): Journal {
+  const npcName = npc.name.trim();
+  const normalizedInteraction = interaction.trim();
+  if (!npcName || !normalizedInteraction) return journal;
+
+  const existing = journal.npcLog.find((entry) => entry.npcName === npcName);
+  const updatedLog = existing
+    ? journal.npcLog.map((entry) =>
+        entry.npcName === npcName && !entry.interactions.includes(normalizedInteraction)
+          ? { ...entry, interactions: [...entry.interactions, normalizedInteraction] }
+          : entry,
+      )
+    : [...journal.npcLog, { npcName, interactions: [normalizedInteraction] }];
+
+  const title = `${npc.emoji ? `${npc.emoji} ` : ""}${npcName}`;
+  const hasEntry = journal.entries.some(
+    (entry) => entry.type === "npc" && entry.title === title && entry.content === normalizedInteraction,
+  );
+
+  return {
+    ...journal,
+    npcLog: updatedLog,
+    entries: hasEntry
+      ? journal.entries
+      : [
+          ...journal.entries,
+          {
+            timestamp: new Date().toISOString(),
+            type: "npc",
+            title,
+            content: normalizedInteraction,
+          },
+        ],
+  };
+}
+
 /** Add a combat event to the journal. */
-export function addCombatEntry(journal: Journal, description: string, outcome: "victory" | "defeat" | "fled"): Journal {
+function addCombatEntry(journal: Journal, description: string, outcome: "victory" | "defeat" | "fled"): Journal {
   return {
     ...journal,
     entries: [
@@ -103,8 +141,62 @@ export function addCombatEntry(journal: Journal, description: string, outcome: "
   };
 }
 
+/** Add or update a quest in the journal. */
+function upsertQuest(
+  journal: Journal,
+  quest: Omit<QuestEntry, "discoveredAt"> & { discoveredAt?: string },
+): Journal {
+  const id = quest.id.trim() || quest.name.trim();
+  const name = quest.name.trim() || id;
+  if (!id || !name) return journal;
+
+  const normalizedQuest: QuestEntry = {
+    id,
+    name,
+    status: quest.status,
+    description: quest.description.trim(),
+    objectives: quest.objectives.map((objective) => objective.trim()).filter(Boolean),
+    discoveredAt: quest.discoveredAt ?? new Date().toISOString(),
+    ...(quest.completedAt ? { completedAt: quest.completedAt } : {}),
+  };
+  const existing = journal.quests.find((entry) => entry.id === id);
+
+  if (existing) {
+    const updated = journal.quests.map((entry) =>
+      entry.id === id
+        ? {
+            ...entry,
+            name: normalizedQuest.name || entry.name,
+            status: normalizedQuest.status,
+            description: normalizedQuest.description || entry.description,
+            objectives: normalizedQuest.objectives.length > 0 ? normalizedQuest.objectives : entry.objectives,
+            completedAt:
+              normalizedQuest.status === "completed"
+                ? (entry.completedAt ?? new Date().toISOString())
+                : entry.completedAt,
+          }
+        : entry,
+    );
+    return { ...journal, quests: updated };
+  }
+
+  return {
+    ...journal,
+    quests: [...journal.quests, normalizedQuest],
+    entries: [
+      ...journal.entries,
+      {
+        timestamp: new Date().toISOString(),
+        type: "quest",
+        title: `Quest: ${normalizedQuest.name}`,
+        content: normalizedQuest.description,
+      },
+    ],
+  };
+}
+
 /** Add an inventory change. */
-export function addInventoryEntry(
+function addInventoryEntry(
   journal: Journal,
   item: string,
   action: "acquired" | "used" | "lost" | "removed",
@@ -144,8 +236,188 @@ export function addInventoryEntry(
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeJournalEntry(
+  type: string,
+  data: Record<string, unknown>,
+): Pick<JournalEntry, "type" | "title" | "content"> {
+  const title =
+    readText(data.title) ||
+    readText(data.name) ||
+    (type === "location" ? readText(data.location) : "") ||
+    (type === "location"
+      ? "Location"
+      : type === "npc"
+        ? "NPC"
+        : type === "combat"
+          ? "Combat"
+          : type === "item"
+            ? "Item"
+            : type === "quest"
+              ? "Quest"
+              : type === "note"
+                ? "Note"
+                : "Event");
+  const content = readText(data.content) || readText(data.description);
+  return { type: type as JournalEntry["type"], title, content };
+}
+
+function normalizeNpcJournalCommand(data: Record<string, unknown>): { npc: GameNpc; interaction: string } | null {
+  const rawNpc = asRecord(data.npc);
+  const name = readText(rawNpc.name) || readText(data.name) || readText(data.title);
+  if (!name) return null;
+  const npc: GameNpc = {
+    id: readText(rawNpc.id) || name,
+    name,
+    emoji: readText(rawNpc.emoji),
+    description: readText(rawNpc.description),
+    location: readText(rawNpc.location),
+    reputation: Number.isFinite(Number(rawNpc.reputation)) ? Number(rawNpc.reputation) : 0,
+    met: rawNpc.met === false ? false : true,
+    notes: Array.isArray(rawNpc.notes) ? rawNpc.notes.filter((note): note is string => typeof note === "string") : [],
+  };
+  const interaction = readText(data.interaction) || readText(data.content) || readText(data.description);
+  return interaction ? { npc, interaction } : null;
+}
+
+function normalizeQuestStatus(value: unknown): QuestEntry["status"] {
+  const status = readText(value).toLowerCase();
+  return status === "completed" || status === "failed" ? status : "active";
+}
+
+function normalizeQuestObjectives(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((objective) => {
+      if (typeof objective === "string") return objective.trim();
+      const record = asRecord(objective);
+      const text = readText(record.text) || readText(record.description) || readText(record.name);
+      if (!text) return "";
+      return record.completed === true ? `[Done] ${text}` : text;
+    })
+    .filter(Boolean);
+}
+
+function normalizeQuestJournalCommand(
+  data: Record<string, unknown>,
+): (Omit<QuestEntry, "discoveredAt"> & { discoveredAt?: string }) | null {
+  const quest = asRecord(data.quest);
+  const source = Object.keys(quest).length > 0 ? quest : data;
+  const name = readText(source.name) || readText(source.title);
+  const id = readText(source.id) || readText(source.questEntryId) || name;
+  if (!id || !name) return null;
+  return {
+    id,
+    name,
+    status: normalizeQuestStatus(source.status),
+    description: readText(source.description) || readText(source.content),
+    objectives: normalizeQuestObjectives(source.objectives),
+    discoveredAt: readText(source.discoveredAt) || undefined,
+    completedAt: readText(source.completedAt) || undefined,
+  };
+}
+
+/** Apply a generated or UI journal command to the structured journal. */
+export function applyJournalEntry(journal: Journal, type: string, data: Record<string, unknown>): Journal {
+  if (type === "location") {
+    const { title, content } = normalizeJournalEntry(type, data);
+    return addLocationEntry(journal, title, content);
+  }
+  if (type === "npc") {
+    const command = normalizeNpcJournalCommand(data);
+    return command ? addNpcEntry(journal, command.npc, command.interaction) : journal;
+  }
+  if (type === "combat") {
+    const { content } = normalizeJournalEntry(type, data);
+    const outcome =
+      data.outcome === "defeat" || data.outcome === "fled" || data.result === "defeat" || data.result === "fled"
+        ? (data.outcome ?? data.result)
+        : "victory";
+    return addCombatEntry(journal, content, outcome as "victory" | "defeat" | "fled");
+  }
+  if (type === "quest") {
+    const quest = normalizeQuestJournalCommand(data);
+    return quest ? upsertQuest(journal, quest) : journal;
+  }
+  if (type === "item") {
+    const item = readText(data.item) || readText(data.name) || readText(data.title) || "Item";
+    const action =
+      data.action === "used" || data.action === "lost" || data.action === "removed" ? data.action : "acquired";
+    const quantity = Number(data.quantity ?? 1);
+    return addInventoryEntry(journal, item, action, Number.isFinite(quantity) ? quantity : 1);
+  }
+  if (type === "note") {
+    const { title, content } = normalizeJournalEntry(type, data);
+    const readableType = data.readableType === "book" ? "book" : "note";
+    return addNoteEntry(journal, title, content, {
+      readableType,
+      sourceMessageId: readText(data.sourceMessageId) || undefined,
+      sourceSegmentIndex: Number.isInteger(data.sourceSegmentIndex) ? (data.sourceSegmentIndex as number) : undefined,
+    });
+  }
+  const { title, content } = normalizeJournalEntry(type, data);
+  return addEventEntry(journal, title, content);
+}
+
+function buildNpcTrackedInteraction(npc: GameNpc): string {
+  const location = npc.location?.trim();
+  return location && location.toLowerCase() !== "unknown" ? `Tracked at ${location}.` : "Tracked.";
+}
+
+function questJournalData(quest: QuestProgress): Omit<QuestEntry, "discoveredAt"> {
+  const objectiveRows = Array.isArray(quest.objectives)
+    ? quest.objectives.filter((objective) => !!objective && typeof objective.text === "string")
+    : [];
+  const objectives = objectiveRows.map((objective) => `${objective.completed ? "[Done] " : ""}${objective.text}`);
+  const currentObjective = objectiveRows.find((objective) => !objective.completed)?.text;
+  return {
+    id: quest.questEntryId || quest.name,
+    name: quest.name,
+    status: quest.completed ? "completed" : "active",
+    description: currentObjective ?? (quest.completed ? `${quest.name} completed.` : `${quest.name} is in progress.`),
+    objectives,
+  };
+}
+
+/** Sync journal rows from tracked game state that is rendered by journal/recap views. */
+export function syncJournalFromGameState(
+  journal: Journal,
+  options: {
+    gameNpcs?: GameNpc[] | null;
+    playerStats?: PlayerStats | null;
+    currentLocation?: string | null;
+  },
+): Journal {
+  let next = journal;
+  const locationName = options.currentLocation?.trim();
+  if (locationName) {
+    next = addLocationEntry(next, locationName, `The party is at ${locationName}.`);
+  }
+  for (const npc of options.gameNpcs ?? []) {
+    if (!npc?.name) continue;
+    const interaction = buildNpcTrackedInteraction(npc);
+    const hasInteraction = next.npcLog.some(
+      (entry) => entry.npcName === npc.name && entry.interactions.includes(interaction),
+    );
+    if (!hasInteraction) {
+      next = addNpcEntry(next, npc, interaction);
+    }
+  }
+  for (const quest of options.playerStats?.activeQuests ?? []) {
+    next = upsertQuest(next, questJournalData(quest));
+  }
+  return next;
+}
+
 /** Add a general event entry. */
-export function addEventEntry(journal: Journal, title: string, content: string): Journal {
+function addEventEntry(journal: Journal, title: string, content: string): Journal {
   return {
     ...journal,
     entries: [...journal.entries, { timestamp: new Date().toISOString(), type: "event", title, content }],
@@ -153,7 +425,7 @@ export function addEventEntry(journal: Journal, title: string, content: string):
 }
 
 /** Add or update a readable note or book entry (shown in the Library tab). */
-export function addNoteEntry(
+function addNoteEntry(
   journal: Journal,
   title: string,
   content: string,
