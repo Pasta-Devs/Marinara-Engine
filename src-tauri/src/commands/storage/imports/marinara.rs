@@ -242,6 +242,24 @@ fn apply_imported_character_avatar_metadata(
     absolute_path
 }
 
+fn apply_imported_avatar_metadata(record: &mut Value, avatar: ImportedAvatarReference) -> String {
+    let absolute_path = avatar.absolute_path.clone();
+    let object = record
+        .as_object_mut()
+        .expect("import record should be an object");
+    object.insert(
+        "avatar".to_string(),
+        Value::String(avatar.asset_url.clone()),
+    );
+    object.insert("avatarPath".to_string(), Value::String(avatar.asset_url));
+    object.insert(
+        "avatarFilePath".to_string(),
+        Value::String(absolute_path.clone()),
+    );
+    object.insert("avatarFilename".to_string(), Value::String(avatar.filename));
+    absolute_path
+}
+
 fn import_marinara_character(state: &AppState, data: Value) -> AppResult<Value> {
     if data.get("spec").is_some() && data.get("data").is_some_and(Value::is_object) {
         let mut character_data = data.get("data").cloned().unwrap_or_else(|| json!({}));
@@ -401,10 +419,23 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
     let mut source = data.clone();
     remove_fields(&mut source, &["id", "metadata", "avatar", "sprites"]);
     let mut record_value = with_entity_defaults("personas", source)?;
-    if let Some(avatar) = data.get("avatar").and_then(Value::as_str) {
-        if let Some(record) = record_value.as_object_mut() {
-            record.insert("avatarPath".to_string(), Value::String(avatar.to_string()));
-            record.insert("avatar".to_string(), Value::String(avatar.to_string()));
+    let avatar_absolute_path = data_image_string(data.get("avatar"))
+        .map(|avatar| {
+            let mut payload = data.clone();
+            if let Some(object) = payload.as_object_mut() {
+                object.insert("_avatarDataUrl".to_string(), Value::String(avatar));
+            }
+            imported_avatar_reference_in_folder(state, &payload, None, None, "avatars/personas")
+        })
+        .transpose()?
+        .flatten()
+        .map(|avatar| apply_imported_avatar_metadata(&mut record_value, avatar));
+    if avatar_absolute_path.is_none() {
+        if let Some(avatar) = data.get("avatar").and_then(Value::as_str) {
+            if let Some(record) = record_value.as_object_mut() {
+                record.insert("avatarPath".to_string(), Value::String(avatar.to_string()));
+                record.insert("avatar".to_string(), Value::String(avatar.to_string()));
+            }
         }
     }
     apply_import_timestamps(&mut record_value, &data);
@@ -420,6 +451,7 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
             "type": "marinara_persona",
             "id": record.get("id").cloned().unwrap_or(Value::Null),
             "name": record.get("name").cloned().unwrap_or(Value::Null),
+            "persona": record,
             "spritesImported": sprites_imported
         }))
     })();
@@ -433,6 +465,9 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
                 &[persona_id.to_string()],
                 &mut rollback_errors,
             );
+        }
+        if let Some(path) = avatar_absolute_path.as_deref() {
+            rollback_managed_file_path(state, "avatars/personas", path, &mut rollback_errors);
         }
         append_marinara_rollback_errors(error, "persona import", rollback_errors)
     })
