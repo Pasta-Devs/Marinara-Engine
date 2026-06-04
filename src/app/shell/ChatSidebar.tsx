@@ -27,6 +27,7 @@ import {
   Download,
   X,
   Star,
+  Loader2,
 } from "lucide-react";
 import {
   useBulkExportChats,
@@ -627,6 +628,17 @@ export function ChatSidebar({
     },
     [selectedChatIds, moveChatMut, exitMultiSelect],
   );
+
+  const handleDeleteEntireGroup = useCallback(() => {
+    if (!deleteTarget?.groupId || deleteChatGroup.isPending) return;
+    const deletingGroupId = deleteTarget.groupId;
+    deleteChatGroup.mutate(deletingGroupId, {
+      onSuccess: () => {
+        if (activeGroupId === deletingGroupId) setActiveChatId(null);
+        setDeleteTarget(null);
+      },
+    });
+  }, [activeGroupId, deleteChatGroup, deleteTarget, setActiveChatId]);
 
   // ── Chat row renderer (shared between unfiled + folder sections) ──
   const renderChatRow = ({ chat, branchCount }: ChatSidebarRow) => {
@@ -1258,7 +1270,14 @@ export function ChatSidebar({
       <UserStatusFooter />
 
       {/* ── Delete Branch Modal ── */}
-      <Modal open={deleteTarget !== null} onClose={() => setDeleteTarget(null)} title="Delete Chat" width="max-w-sm">
+      <Modal
+        open={deleteTarget !== null}
+        onClose={() => {
+          if (!deleteChatGroup.isPending) setDeleteTarget(null);
+        }}
+        title="Delete Chat"
+        width="max-w-sm"
+      >
         {deleteTarget && (
           <div className="flex flex-col gap-4">
             <div className="flex items-start gap-3">
@@ -1278,23 +1297,23 @@ export function ChatSidebar({
                   if (activeChatId === deleteTarget.chatId) setActiveChatId(null);
                   setDeleteTarget(null);
                 }}
+                disabled={deleteChatGroup.isPending}
                 className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
               >
                 <Trash2 size="0.8125rem" />
                 Delete This Chat Only
               </button>
               <button
-                onClick={() => {
-                  if (deleteTarget.groupId) {
-                    deleteChatGroup.mutate(deleteTarget.groupId);
-                    if (activeGroupId === deleteTarget.groupId) setActiveChatId(null);
-                  }
-                  setDeleteTarget(null);
-                }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--destructive)]/10 px-3 py-2.5 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20 transition-all hover:bg-[var(--destructive)]/20 active:scale-[0.98]"
+                onClick={() => void handleDeleteEntireGroup()}
+                disabled={deleteChatGroup.isPending}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--destructive)]/10 px-3 py-2.5 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20 transition-all hover:bg-[var(--destructive)]/20 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
               >
-                <Trash2 size="0.8125rem" />
-                Delete Entire Group
+                {deleteChatGroup.isPending ? (
+                  <Loader2 size="0.8125rem" className="animate-spin" />
+                ) : (
+                  <Trash2 size="0.8125rem" />
+                )}
+                {deleteChatGroup.isPending ? "Deleting group..." : "Delete Entire Group"}
               </button>
             </div>
           </div>

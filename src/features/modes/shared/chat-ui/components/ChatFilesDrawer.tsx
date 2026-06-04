@@ -3,7 +3,7 @@
 // Like SillyTavern's "Manage chat files" feature
 // ──────────────────────────────────────────────
 import { useRef, useState } from "react";
-import { X, Trash2, FileText, MessageSquare, Download, Pencil, Upload } from "lucide-react";
+import { X, Trash2, FileText, MessageSquare, Download, Pencil, Upload, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
@@ -343,15 +343,22 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
               ) {
                 return;
               }
-              deleteChatGroup.mutate(groupId);
-              setActiveChatId(null);
-              onClose();
+              deleteChatGroup.mutate(groupId, {
+                onSuccess: () => {
+                  setActiveChatId(null);
+                  onClose();
+                },
+              });
             }}
             disabled={deleteChatGroup.isPending}
-            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--destructive)]/10 px-3 py-2 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20 transition-all hover:bg-[var(--destructive)]/20 active:scale-[0.98] disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--destructive)]/10 px-3 py-2 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20 transition-all hover:bg-[var(--destructive)]/20 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
           >
-            <Trash2 size="0.8125rem" />
-            Delete Entire Group
+            {deleteChatGroup.isPending ? (
+              <Loader2 size="0.8125rem" className="animate-spin" />
+            ) : (
+              <Trash2 size="0.8125rem" />
+            )}
+            {deleteChatGroup.isPending ? "Deleting group..." : "Delete Entire Group"}
           </button>
         </div>
       </div>

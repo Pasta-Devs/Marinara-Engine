@@ -1,89 +1,94 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2070,
-    "title": "[Issue]: remote runtime JSON API calls lack legacy no-store cache policy",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2070"
+    "number": 2100,
+    "title": "[Issue]: Deleting conversation groups with branched conversations can make the app appear frozen",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2100"
   },
-  "pr": {
-    "number": 2090,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2090"
+  "pr": {},
+  "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous Tauri command, and the user sees a pending delete state until the command settles.",
+  "reproduction": {
+    "attempted": true,
+    "reproducedBeforeFix": true,
+    "method": "Source-level command-path repro against upstream/refactor plus affected UI inspection.",
+    "evidence": [
+      "upstream/refactor exported `pub fn chat_group_delete` and directly called `chats::delete_chat_group(&state, &group_id)` with no `spawn_blocking` handoff.",
+      "The two group-delete UI consumers closed their modal/drawer immediately after starting the mutation, so the pending state was not kept visible for large deletes."
+    ],
+    "duplicatePrPreflight": "No matching PRs found for #2100 or conversation group delete wording; no local issue-2100 branch/worktree existed before this run."
   },
-  "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
+  "verification": {
+    "originalReproPassed": true,
+    "baselinePassed": true,
+    "baselineCommand": "pnpm check",
+    "baselineEvidence": "`pnpm check` passed after the final diff.",
+    "focusedProof": [
+      "`pnpm typecheck` passed.",
+      "`cargo check --manifest-path src-tauri/Cargo.toml` passed.",
+      "`cargo test --manifest-path src-tauri/Cargo.toml delete_chat_group_reports_exact_deleted_chat_ids_including_scene_children` passed 1 targeted test.",
+      "`git diff --check` passed."
+    ],
+    "edgeCases": [
+      "Existing group delete still reports origin, sibling, and owned scene child chat ids.",
+      "Delete confirmation controls disable repeat clicks while a group delete is pending.",
+      "Delete surfaces keep the destructive dialog/drawer visible until the group delete succeeds."
+    ],
+    "visualProof": "scratch/issue-2100-shell-proof.png",
+    "visualProofNotes": "Playwright loaded the local Vite shell at http://localhost:1420/ and captured the rendered app. The plain browser shell cannot exercise real Tauri storage deletes, so command behavior is proven by Rust/source checks."
+  },
+  "manualBlockers": [
+    {
+      "description": "Hosted visual evidence is not attached yet because `gh gist create` rejected the binary PNG screenshot. Local Playwright shell proof exists at scratch/issue-2100-shell-proof.png; exact large-profile Tauri app-shell delete verification remains a human/manual draft-PR check.",
+      "blockingCoreClaim": false
+    }
+  ],
   "assignment": {
     "assignee": "cha1latte",
     "assignedBeforeWork": true
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "workflow-health did not flag a duplicate for #2070; gh PR search for direct #2070 links returned no matches."
-  },
-  "reproduction": {
-    "attempted": true,
-    "reproducedBeforeFix": true,
-    "method": "Static source repro plus regression test coverage",
-    "evidence": "Baseline HEAD src/shared/api/remote-runtime.ts did not contain cache: \"no-store\" fetch options; current tests assert the restored policy on every remote JSON/SSE fetch path."
-  },
-  "verification": {
-    "originalReproPassed": true,
-    "baselinePassed": true,
-    "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after the final diff.",
-    "focusedProof": [
-      "pnpm test -- src/shared/api/remote-runtime.test.ts: passed 5 tests.",
-      "cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: passed 1 test."
-    ],
-    "edgeCases": [
-      "Health and invoke readiness probes set cache: \"no-store\".",
-      "Normal /api/invoke command calls set cache: \"no-store\".",
-      "Generic JSON event streams, including /api/import/st-bulk/run, set cache: \"no-store\".",
-      "LLM stream and cancel calls set cache: \"no-store\".",
-      "Rust hostable response helper preserves explicit managed asset cache headers while applying no-store to JSON API responses."
-    ],
-    "visualProof": "Backend/logic proof captured as focused terminal command output in Codex transcript; no UI state exists for this cache-policy regression."
+    "details": "workflow-health did not flag a duplicate for #2100; gh PR search for direct #2100 and conversation group delete wording returned no matches."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Remote runtime JSON API responses and remote client fetches use no-store without changing managed asset cache policy.",
-    "riskType": "remote runtime cache-policy compatibility",
+    "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous Tauri command, and the user sees a pending delete state until the command settles.",
+    "riskType": "cross-boundary Tauri command responsiveness and delete UI feedback",
     "entrypoints": [
-      "src/shared/api/remote-runtime.ts health probe",
-      "src/shared/api/remote-runtime.ts /api/invoke calls",
-      "src/shared/api/remote-runtime.ts generic JSON/SSE stream calls",
-      "src/shared/api/remote-runtime.ts LLM stream and cancel calls",
-      "src-tauri/src/http_server.rs hostable HTTP response middleware"
+      "src-tauri chat_group_delete command",
+      "src/app/shell/ChatSidebar.tsx delete group modal",
+      "src/features/modes/shared/chat-ui/components/ChatFilesDrawer.tsx delete group footer"
     ],
     "currentPathsOrFormats": [
-      "/health",
-      "/api/invoke",
-      "/api/import/st-bulk/run",
-      "/api/llm/stream",
-      "/api/llm/stream/:stream_id/cancel",
-      "/api/assets/:kind/*path"
+      "chat_group_delete(groupId)",
+      "sidebar branched-chat delete modal",
+      "Manage Chat Files drawer delete group action"
     ],
     "legacyPathsOrFormats": [
-      "legacy client shared API fetch cache: \"no-store\"",
-      "legacy server /api/* Cache-Control: no-store hook"
+      "pre-fix synchronous `pub fn chat_group_delete` command",
+      "pre-fix UI closes modal/drawer immediately after firing the group delete mutation"
     ],
     "positiveRowsTested": [
-      "client health fetch",
-      "client invoke readiness fetch",
-      "client invoke fetch",
-      "client generic JSON event stream fetch",
-      "client LLM stream fetch",
-      "client LLM stream cancel fetch",
-      "server /api/invoke response helper"
+      "Rust command compiles after async spawn_blocking handoff.",
+      "TypeScript compiles after pending-state UI changes.",
+      "Existing cascade regression test still deletes grouped chats and owned scene children."
     ],
     "negativeRowsTested": [
-      "server managed asset route preserves explicit public/no-cache headers",
-      "server non-api asset path does not receive API no-store header"
+      "Existing single-chat delete mutation path was not changed.",
+      "Storage deletion semantics and schemas were not changed."
     ],
     "groundTruthFacts": [
-      "Harness-proven by cargo test --manifest-path src-tauri/Cargo.toml api_no_store_headers_apply_only_to_api_responses: http_server.rs applies no-store to API headers and preserves explicit managed asset cache headers.",
-      "Derived from git show HEAD:src/shared/api/remote-runtime.ts plus Select-String: baseline remote-runtime.ts lacked cache: \"no-store\" fetch options before this patch."
+      "Derived from `git show upstream/refactor:src-tauri/src/commands/storage/commands/chats.rs`: baseline `chat_group_delete` was synchronous.",
+      "Derived from current source and `cargo check`: fixed `chat_group_delete` is async and uses `tauri::async_runtime::spawn_blocking`.",
+      "Derived from current source and `pnpm typecheck`: both UI consumers compile with the pending delete state."
     ],
-    "userActionCopy": "No user action required."
+    "manualBlockers": [
+      {
+        "description": "No new copy/backup instruction was added because this PR does not change destructive delete scope, storage layouts, or recovery behavior; the existing Delete Entire Group confirmation remains the user-facing destructive-action copy.",
+        "blockingCoreClaim": false
+      }
+    ],
+    "userActionCopy": []
   },
-  "manualBlockers": [],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
