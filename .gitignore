@@ -16,6 +16,10 @@ dist-ssr
 *.test.tsx
 .eslint-reports/
 
+# Local pnpm store and per-user agent settings (not for committing)
+.pnpm-store/
+.claude/settings.local.json
+
 # Bunny Review local output artifacts
 /inline-comments.json
 /review.json
