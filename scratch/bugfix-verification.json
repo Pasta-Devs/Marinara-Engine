@@ -5,7 +5,10 @@
     "title": "Game mode journal NPC and quest logs are never populated",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2140"
   },
-  "pr": {},
+  "pr": {
+    "number": 2220,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2220"
+  },
   "coreClaim": "Game journal NPC and quest entries populate npcLog and quests instead of generic events, and deterministic recaps include those rows.",
   "reproduction": {
     "attempted": true,
@@ -103,7 +106,7 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local regression proof, full pnpm check, proof gate, and Bunny pass completed. Draft PR still needs commit, push, GitHub checks, and CodeRabbit."
+    "notes": "Local regression proof, full pnpm check, proof gate, Bunny pass, commit, push, and draft PR creation completed. GitHub checks and CodeRabbit still need current-head review."
   },
   "branch": {
     "base": "upstream/refactor",
