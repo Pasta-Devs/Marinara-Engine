@@ -1,45 +1,149 @@
 {
-  "scannedAt": "2026-04-29T20:06:16.178Z",
-  "count": 181,
+  "scannedAt": "2026-06-04T06:48:04.623Z",
+  "count": 183,
   "assets": {
-    "music:combat:battle-epic": {
-      "tag": "music:combat:battle-epic",
+    "ambient:interior:dungeon-cave": {
+      "tag": "ambient:interior:dungeon-cave",
+      "category": "ambient",
+      "subcategory": "interior",
+      "name": "dungeon-cave",
+      "path": "ambient/interior/dungeon-cave.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:interior:eerie-atmosphere": {
+      "tag": "ambient:interior:eerie-atmosphere",
+      "category": "ambient",
+      "subcategory": "interior",
+      "name": "eerie-atmosphere",
+      "path": "ambient/interior/eerie-atmosphere.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:interior:rain-on-roof": {
+      "tag": "ambient:interior:rain-on-roof",
+      "category": "ambient",
+      "subcategory": "interior",
+      "name": "rain-on-roof",
+      "path": "ambient/interior/rain-on-roof.mp3",
+      "ext": ".mp3"
+    },
+    "ambient:nature:autumn-wind-leaves": {
+      "tag": "ambient:nature:autumn-wind-leaves",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "autumn-wind-leaves",
+      "path": "ambient/nature/autumn-wind-leaves.mp3",
+      "ext": ".mp3"
+    },
+    "ambient:nature:birds-singing": {
+      "tag": "ambient:nature:birds-singing",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "birds-singing",
+      "path": "ambient/nature/birds-singing.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:nature:crickets-night": {
+      "tag": "ambient:nature:crickets-night",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "crickets-night",
+      "path": "ambient/nature/crickets-night.mp3",
+      "ext": ".mp3"
+    },
+    "ambient:nature:howling-wind": {
+      "tag": "ambient:nature:howling-wind",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "howling-wind",
+      "path": "ambient/nature/howling-wind.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:nature:rain-thunder": {
+      "tag": "ambient:nature:rain-thunder",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "rain-thunder",
+      "path": "ambient/nature/rain-thunder.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:nature:river-flowing": {
+      "tag": "ambient:nature:river-flowing",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "river-flowing",
+      "path": "ambient/nature/river-flowing.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:nature:swamp-insects": {
+      "tag": "ambient:nature:swamp-insects",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "swamp-insects",
+      "path": "ambient/nature/swamp-insects.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:nature:water-stream": {
+      "tag": "ambient:nature:water-stream",
+      "category": "ambient",
+      "subcategory": "nature",
+      "name": "water-stream",
+      "path": "ambient/nature/water-stream.mp3",
+      "ext": ".mp3"
+    },
+    "ambient:urban:crowd-commotion": {
+      "tag": "ambient:urban:crowd-commotion",
+      "category": "ambient",
+      "subcategory": "urban",
+      "name": "crowd-commotion",
+      "path": "ambient/urban/crowd-commotion.ogg",
+      "ext": ".ogg"
+    },
+    "ambient:urban:crowd-murmur": {
+      "tag": "ambient:urban:crowd-murmur",
+      "category": "ambient",
+      "subcategory": "urban",
+      "name": "crowd-murmur",
+      "path": "ambient/urban/crowd-murmur.mp3",
+      "ext": ".mp3"
+    },
+    "music:combat:fantasy:intense:battle-epic": {
+      "tag": "music:combat:fantasy:intense:battle-epic",
       "category": "music",
-      "subcategory": "combat",
+      "subcategory": "combat/fantasy/intense",
       "name": "battle-epic",
-      "path": "music/combat/battle-epic.mp3",
+      "path": "music/combat/fantasy/intense/battle-epic.mp3",
       "ext": ".mp3"
     },
-    "music:dialogue:town-peaceful": {
-      "tag": "music:dialogue:town-peaceful",
+    "music:dialogue:slice_of_life:calm:town-peaceful": {
+      "tag": "music:dialogue:slice_of_life:calm:town-peaceful",
       "category": "music",
-      "subcategory": "dialogue",
+      "subcategory": "dialogue/slice_of_life/calm",
       "name": "town-peaceful",
-      "path": "music/dialogue/town-peaceful.mp3",
+      "path": "music/dialogue/slice_of_life/calm/town-peaceful.mp3",
       "ext": ".mp3"
     },
-    "music:exploration:dark-forest": {
-      "tag": "music:exploration:dark-forest",
+    "music:exploration:fantasy:calm:field-of-dreams": {
+      "tag": "music:exploration:fantasy:calm:field-of-dreams",
       "category": "music",
-      "subcategory": "exploration",
-      "name": "dark-forest",
-      "path": "music/exploration/dark-forest.mp3",
-      "ext": ".mp3"
-    },
-    "music:exploration:field-of-dreams": {
-      "tag": "music:exploration:field-of-dreams",
-      "category": "music",
-      "subcategory": "exploration",
+      "subcategory": "exploration/fantasy/calm",
       "name": "field-of-dreams",
-      "path": "music/exploration/field-of-dreams.mp3",
+      "path": "music/exploration/fantasy/calm/field-of-dreams.mp3",
       "ext": ".mp3"
     },
-    "music:travel_rest:old-tower-inn": {
-      "tag": "music:travel_rest:old-tower-inn",
+    "music:exploration:horror:tense:dark-forest": {
+      "tag": "music:exploration:horror:tense:dark-forest",
       "category": "music",
-      "subcategory": "travel_rest",
+      "subcategory": "exploration/horror/tense",
+      "name": "dark-forest",
+      "path": "music/exploration/horror/tense/dark-forest.mp3",
+      "ext": ".mp3"
+    },
+    "music:travel_rest:fantasy:calm:old-tower-inn": {
+      "tag": "music:travel_rest:fantasy:calm:old-tower-inn",
+      "category": "music",
+      "subcategory": "travel_rest/fantasy/calm",
       "name": "old-tower-inn",
-      "path": "music/travel_rest/old-tower-inn.mp3",
+      "path": "music/travel_rest/fantasy/calm/old-tower-inn.mp3",
       "ext": ".mp3"
     },
     "sfx:combat:chainmail": {
@@ -122,6 +226,14 @@
       "path": "sfx/combat/sword-unsheathe.wav",
       "ext": ".wav"
     },
+    "sfx:exploration:bed-creak": {
+      "tag": "sfx:exploration:bed-creak",
+      "category": "sfx",
+      "subcategory": "exploration",
+      "name": "bed-creak",
+      "path": "sfx/exploration/bed-creak.wav",
+      "ext": ".wav"
+    },
     "sfx:exploration:chop": {
       "tag": "sfx:exploration:chop",
       "category": "sfx",
@@ -193,6 +305,14 @@
       "name": "footstep-4",
       "path": "sfx/exploration/footstep-4.ogg",
       "ext": ".ogg"
+    },
+    "sfx:exploration:wet-squelch": {
+      "tag": "sfx:exploration:wet-squelch",
+      "category": "sfx",
+      "subcategory": "exploration",
+      "name": "wet-squelch",
+      "path": "sfx/exploration/wet-squelch.wav",
+      "ext": ".wav"
     },
     "sfx:ui:book-close": {
       "tag": "sfx:ui:book-close",
@@ -314,114 +434,10 @@
       "path": "sfx/ui/potion.wav",
       "ext": ".wav"
     },
-    "ambient:interior:dungeon-cave": {
-      "tag": "ambient:interior:dungeon-cave",
-      "category": "ambient",
-      "subcategory": "interior",
-      "name": "dungeon-cave",
-      "path": "ambient/interior/dungeon-cave.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:interior:eerie-atmosphere": {
-      "tag": "ambient:interior:eerie-atmosphere",
-      "category": "ambient",
-      "subcategory": "interior",
-      "name": "eerie-atmosphere",
-      "path": "ambient/interior/eerie-atmosphere.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:interior:rain-on-roof": {
-      "tag": "ambient:interior:rain-on-roof",
-      "category": "ambient",
-      "subcategory": "interior",
-      "name": "rain-on-roof",
-      "path": "ambient/interior/rain-on-roof.mp3",
-      "ext": ".mp3"
-    },
-    "ambient:nature:autumn-wind-leaves": {
-      "tag": "ambient:nature:autumn-wind-leaves",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "autumn-wind-leaves",
-      "path": "ambient/nature/autumn-wind-leaves.mp3",
-      "ext": ".mp3"
-    },
-    "ambient:nature:birds-singing": {
-      "tag": "ambient:nature:birds-singing",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "birds-singing",
-      "path": "ambient/nature/birds-singing.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:nature:crickets-night": {
-      "tag": "ambient:nature:crickets-night",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "crickets-night",
-      "path": "ambient/nature/crickets-night.mp3",
-      "ext": ".mp3"
-    },
-    "ambient:nature:howling-wind": {
-      "tag": "ambient:nature:howling-wind",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "howling-wind",
-      "path": "ambient/nature/howling-wind.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:nature:rain-thunder": {
-      "tag": "ambient:nature:rain-thunder",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "rain-thunder",
-      "path": "ambient/nature/rain-thunder.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:nature:river-flowing": {
-      "tag": "ambient:nature:river-flowing",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "river-flowing",
-      "path": "ambient/nature/river-flowing.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:nature:swamp-insects": {
-      "tag": "ambient:nature:swamp-insects",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "swamp-insects",
-      "path": "ambient/nature/swamp-insects.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:nature:water-stream": {
-      "tag": "ambient:nature:water-stream",
-      "category": "ambient",
-      "subcategory": "nature",
-      "name": "water-stream",
-      "path": "ambient/nature/water-stream.mp3",
-      "ext": ".mp3"
-    },
-    "ambient:urban:crowd-commotion": {
-      "tag": "ambient:urban:crowd-commotion",
-      "category": "ambient",
-      "subcategory": "urban",
-      "name": "crowd-commotion",
-      "path": "ambient/urban/crowd-commotion.ogg",
-      "ext": ".ogg"
-    },
-    "ambient:urban:crowd-murmur": {
-      "tag": "ambient:urban:crowd-murmur",
-      "category": "ambient",
-      "subcategory": "urban",
-      "name": "crowd-murmur",
-      "path": "ambient/urban/crowd-murmur.mp3",
-      "ext": ".mp3"
-    },
     "sprites:generic-fantasy:anime-vn:char-1-default": {
       "tag": "sprites:generic-fantasy:anime-vn:char-1-default",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "char-1-default",
       "path": "sprites/generic-fantasy/anime-vn/char-1-default.png",
       "ext": ".png"
@@ -429,7 +445,7 @@
     "sprites:generic-fantasy:anime-vn:char-2-default": {
       "tag": "sprites:generic-fantasy:anime-vn:char-2-default",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "char-2-default",
       "path": "sprites/generic-fantasy/anime-vn/char-2-default.png",
       "ext": ".png"
@@ -437,7 +453,7 @@
     "sprites:generic-fantasy:anime-vn:char-3-default": {
       "tag": "sprites:generic-fantasy:anime-vn:char-3-default",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "char-3-default",
       "path": "sprites/generic-fantasy/anime-vn/char-3-default.png",
       "ext": ".png"
@@ -445,7 +461,7 @@
     "sprites:generic-fantasy:anime-vn:char-4-default": {
       "tag": "sprites:generic-fantasy:anime-vn:char-4-default",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "char-4-default",
       "path": "sprites/generic-fantasy/anime-vn/char-4-default.png",
       "ext": ".png"
@@ -453,7 +469,7 @@
     "sprites:generic-fantasy:anime-vn:char-5-default": {
       "tag": "sprites:generic-fantasy:anime-vn:char-5-default",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "char-5-default",
       "path": "sprites/generic-fantasy/anime-vn/char-5-default.png",
       "ext": ".png"
@@ -461,7 +477,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-angry": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-angry",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-angry",
       "path": "sprites/generic-fantasy/anime-vn/pl1-angry.png",
       "ext": ".png"
@@ -469,7 +485,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-blink": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-blink",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-blink",
       "path": "sprites/generic-fantasy/anime-vn/pl1-blink.png",
       "ext": ".png"
@@ -477,7 +493,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-concept": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-concept",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-concept",
       "path": "sprites/generic-fantasy/anime-vn/pl1-concept.png",
       "ext": ".png"
@@ -485,7 +501,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-happy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-happy",
       "path": "sprites/generic-fantasy/anime-vn/pl1-happy.png",
       "ext": ".png"
@@ -493,7 +509,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-hate": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-hate",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-hate",
       "path": "sprites/generic-fantasy/anime-vn/pl1-hate.png",
       "ext": ".png"
@@ -501,7 +517,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-plot": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-plot",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-plot",
       "path": "sprites/generic-fantasy/anime-vn/pl1-plot.png",
       "ext": ".png"
@@ -509,7 +525,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-sad": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-sad",
       "path": "sprites/generic-fantasy/anime-vn/pl1-sad.png",
       "ext": ".png"
@@ -517,7 +533,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-sadhappy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-sadhappy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-sadhappy",
       "path": "sprites/generic-fantasy/anime-vn/pl1-sadhappy.png",
       "ext": ".png"
@@ -525,7 +541,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-serious": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-serious",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-serious",
       "path": "sprites/generic-fantasy/anime-vn/pl1-serious.png",
       "ext": ".png"
@@ -533,7 +549,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-surprise": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-surprise",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-surprise",
       "path": "sprites/generic-fantasy/anime-vn/pl1-surprise.png",
       "ext": ".png"
@@ -541,7 +557,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wangry": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wangry",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wangry",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wangry.png",
       "ext": ".png"
@@ -549,7 +565,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wblink": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wblink",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wblink",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wblink.png",
       "ext": ".png"
@@ -557,7 +573,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wconcept": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wconcept",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wconcept",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wconcept.png",
       "ext": ".png"
@@ -565,7 +581,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-whappy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-whappy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-whappy",
       "path": "sprites/generic-fantasy/anime-vn/pl1-whappy.png",
       "ext": ".png"
@@ -573,7 +589,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-whate": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-whate",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-whate",
       "path": "sprites/generic-fantasy/anime-vn/pl1-whate.png",
       "ext": ".png"
@@ -581,7 +597,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wplot": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wplot",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wplot",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wplot.png",
       "ext": ".png"
@@ -589,7 +605,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wsad": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wsad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wsad",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wsad.png",
       "ext": ".png"
@@ -597,7 +613,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wsadhappy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wsadhappy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wsadhappy",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wsadhappy.png",
       "ext": ".png"
@@ -605,7 +621,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wserious": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wserious",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wserious",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wserious.png",
       "ext": ".png"
@@ -613,7 +629,7 @@
     "sprites:generic-fantasy:anime-vn:pl1-wsurprise": {
       "tag": "sprites:generic-fantasy:anime-vn:pl1-wsurprise",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl1-wsurprise",
       "path": "sprites/generic-fantasy/anime-vn/pl1-wsurprise.png",
       "ext": ".png"
@@ -621,7 +637,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-angry": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-angry",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-angry",
       "path": "sprites/generic-fantasy/anime-vn/pl2-angry.png",
       "ext": ".png"
@@ -629,7 +645,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-blink": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-blink",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-blink",
       "path": "sprites/generic-fantasy/anime-vn/pl2-blink.png",
       "ext": ".png"
@@ -637,7 +653,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-concept": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-concept",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-concept",
       "path": "sprites/generic-fantasy/anime-vn/pl2-concept.png",
       "ext": ".png"
@@ -645,7 +661,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-happy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-happy",
       "path": "sprites/generic-fantasy/anime-vn/pl2-happy.png",
       "ext": ".png"
@@ -653,7 +669,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-hate": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-hate",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-hate",
       "path": "sprites/generic-fantasy/anime-vn/pl2-hate.png",
       "ext": ".png"
@@ -661,7 +677,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-plot": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-plot",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-plot",
       "path": "sprites/generic-fantasy/anime-vn/pl2-plot.png",
       "ext": ".png"
@@ -669,7 +685,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-sad": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-sad",
       "path": "sprites/generic-fantasy/anime-vn/pl2-sad.png",
       "ext": ".png"
@@ -677,7 +693,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-shy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-shy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-shy",
       "path": "sprites/generic-fantasy/anime-vn/pl2-shy.png",
       "ext": ".png"
@@ -685,7 +701,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-surprise": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-surprise",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-surprise",
       "path": "sprites/generic-fantasy/anime-vn/pl2-surprise.png",
       "ext": ".png"
@@ -693,7 +709,7 @@
     "sprites:generic-fantasy:anime-vn:pl2-worry": {
       "tag": "sprites:generic-fantasy:anime-vn:pl2-worry",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl2-worry",
       "path": "sprites/generic-fantasy/anime-vn/pl2-worry.png",
       "ext": ".png"
@@ -701,7 +717,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-avoid": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-avoid",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-avoid",
       "path": "sprites/generic-fantasy/anime-vn/pl3-avoid.png",
       "ext": ".png"
@@ -709,7 +725,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-blink": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-blink",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-blink",
       "path": "sprites/generic-fantasy/anime-vn/pl3-blink.png",
       "ext": ".png"
@@ -717,7 +733,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-concept": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-concept",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-concept",
       "path": "sprites/generic-fantasy/anime-vn/pl3-concept.png",
       "ext": ".png"
@@ -725,7 +741,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-confusion": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-confusion",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-confusion",
       "path": "sprites/generic-fantasy/anime-vn/pl3-confusion.png",
       "ext": ".png"
@@ -733,7 +749,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-doubt": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-doubt",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-doubt",
       "path": "sprites/generic-fantasy/anime-vn/pl3-doubt.png",
       "ext": ".png"
@@ -741,7 +757,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-happy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-happy",
       "path": "sprites/generic-fantasy/anime-vn/pl3-happy.png",
       "ext": ".png"
@@ -749,7 +765,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-plot": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-plot",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-plot",
       "path": "sprites/generic-fantasy/anime-vn/pl3-plot.png",
       "ext": ".png"
@@ -757,7 +773,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-sad": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-sad",
       "path": "sprites/generic-fantasy/anime-vn/pl3-sad.png",
       "ext": ".png"
@@ -765,7 +781,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-shy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-shy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-shy",
       "path": "sprites/generic-fantasy/anime-vn/pl3-shy.png",
       "ext": ".png"
@@ -773,7 +789,7 @@
     "sprites:generic-fantasy:anime-vn:pl3-surprise": {
       "tag": "sprites:generic-fantasy:anime-vn:pl3-surprise",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl3-surprise",
       "path": "sprites/generic-fantasy/anime-vn/pl3-surprise.png",
       "ext": ".png"
@@ -781,7 +797,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-angry": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-angry",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-angry",
       "path": "sprites/generic-fantasy/anime-vn/pl4-angry.png",
       "ext": ".png"
@@ -789,7 +805,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-blink": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-blink",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-blink",
       "path": "sprites/generic-fantasy/anime-vn/pl4-blink.png",
       "ext": ".png"
@@ -797,7 +813,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-concept": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-concept",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-concept",
       "path": "sprites/generic-fantasy/anime-vn/pl4-concept.png",
       "ext": ".png"
@@ -805,7 +821,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-happy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-happy",
       "path": "sprites/generic-fantasy/anime-vn/pl4-happy.png",
       "ext": ".png"
@@ -813,7 +829,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-normal": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-normal",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-normal",
       "path": "sprites/generic-fantasy/anime-vn/pl4-normal.png",
       "ext": ".png"
@@ -821,7 +837,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-plot": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-plot",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-plot",
       "path": "sprites/generic-fantasy/anime-vn/pl4-plot.png",
       "ext": ".png"
@@ -829,7 +845,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-sad": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-sad",
       "path": "sprites/generic-fantasy/anime-vn/pl4-sad.png",
       "ext": ".png"
@@ -837,7 +853,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-scoff": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-scoff",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-scoff",
       "path": "sprites/generic-fantasy/anime-vn/pl4-scoff.png",
       "ext": ".png"
@@ -845,7 +861,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-shy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-shy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-shy",
       "path": "sprites/generic-fantasy/anime-vn/pl4-shy.png",
       "ext": ".png"
@@ -853,7 +869,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-surprise": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-surprise",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-surprise",
       "path": "sprites/generic-fantasy/anime-vn/pl4-surprise.png",
       "ext": ".png"
@@ -861,7 +877,7 @@
     "sprites:generic-fantasy:anime-vn:pl4-worry": {
       "tag": "sprites:generic-fantasy:anime-vn:pl4-worry",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl4-worry",
       "path": "sprites/generic-fantasy/anime-vn/pl4-worry.png",
       "ext": ".png"
@@ -869,7 +885,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-blink": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-blink",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-blink",
       "path": "sprites/generic-fantasy/anime-vn/pl5-blink.png",
       "ext": ".png"
@@ -877,7 +893,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-doubt": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-doubt",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-doubt",
       "path": "sprites/generic-fantasy/anime-vn/pl5-doubt.png",
       "ext": ".png"
@@ -885,7 +901,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-hate": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-hate",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-hate",
       "path": "sprites/generic-fantasy/anime-vn/pl5-hate.png",
       "ext": ".png"
@@ -893,7 +909,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-plot": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-plot",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-plot",
       "path": "sprites/generic-fantasy/anime-vn/pl5-plot.png",
       "ext": ".png"
@@ -901,7 +917,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-sad": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-sad",
       "path": "sprites/generic-fantasy/anime-vn/pl5-sad.png",
       "ext": ".png"
@@ -909,7 +925,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-scoff": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-scoff",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-scoff",
       "path": "sprites/generic-fantasy/anime-vn/pl5-scoff.png",
       "ext": ".png"
@@ -917,7 +933,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-shy": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-shy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-shy",
       "path": "sprites/generic-fantasy/anime-vn/pl5-shy.png",
       "ext": ".png"
@@ -925,7 +941,7 @@
     "sprites:generic-fantasy:anime-vn:pl5-surprise": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5-surprise",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5-surprise",
       "path": "sprites/generic-fantasy/anime-vn/pl5-surprise.png",
       "ext": ".png"
@@ -933,7 +949,7 @@
     "sprites:generic-fantasy:anime-vn:pl5": {
       "tag": "sprites:generic-fantasy:anime-vn:pl5",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/anime-vn",
       "name": "pl5",
       "path": "sprites/generic-fantasy/anime-vn/pl5.png",
       "ext": ".png"
@@ -941,7 +957,7 @@
     "sprites:generic-fantasy:cabbit-vn:anna-blush": {
       "tag": "sprites:generic-fantasy:cabbit-vn:anna-blush",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "anna-blush",
       "path": "sprites/generic-fantasy/cabbit-vn/anna-blush.png",
       "ext": ".png"
@@ -949,7 +965,7 @@
     "sprites:generic-fantasy:cabbit-vn:anna-happy": {
       "tag": "sprites:generic-fantasy:cabbit-vn:anna-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "anna-happy",
       "path": "sprites/generic-fantasy/cabbit-vn/anna-happy.png",
       "ext": ".png"
@@ -957,7 +973,7 @@
     "sprites:generic-fantasy:cabbit-vn:anna-neutral": {
       "tag": "sprites:generic-fantasy:cabbit-vn:anna-neutral",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "anna-neutral",
       "path": "sprites/generic-fantasy/cabbit-vn/anna-neutral.png",
       "ext": ".png"
@@ -965,7 +981,7 @@
     "sprites:generic-fantasy:cabbit-vn:anna-sad": {
       "tag": "sprites:generic-fantasy:cabbit-vn:anna-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "anna-sad",
       "path": "sprites/generic-fantasy/cabbit-vn/anna-sad.png",
       "ext": ".png"
@@ -973,7 +989,7 @@
     "sprites:generic-fantasy:cabbit-vn:dasha-happy": {
       "tag": "sprites:generic-fantasy:cabbit-vn:dasha-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "dasha-happy",
       "path": "sprites/generic-fantasy/cabbit-vn/dasha-happy.png",
       "ext": ".png"
@@ -981,7 +997,7 @@
     "sprites:generic-fantasy:cabbit-vn:dasha-neutral": {
       "tag": "sprites:generic-fantasy:cabbit-vn:dasha-neutral",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "dasha-neutral",
       "path": "sprites/generic-fantasy/cabbit-vn/dasha-neutral.png",
       "ext": ".png"
@@ -989,7 +1005,7 @@
     "sprites:generic-fantasy:cabbit-vn:dasha-sad": {
       "tag": "sprites:generic-fantasy:cabbit-vn:dasha-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "dasha-sad",
       "path": "sprites/generic-fantasy/cabbit-vn/dasha-sad.png",
       "ext": ".png"
@@ -997,7 +1013,7 @@
     "sprites:generic-fantasy:cabbit-vn:student-blush": {
       "tag": "sprites:generic-fantasy:cabbit-vn:student-blush",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "student-blush",
       "path": "sprites/generic-fantasy/cabbit-vn/student-blush.png",
       "ext": ".png"
@@ -1005,7 +1021,7 @@
     "sprites:generic-fantasy:cabbit-vn:student-excited": {
       "tag": "sprites:generic-fantasy:cabbit-vn:student-excited",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "student-excited",
       "path": "sprites/generic-fantasy/cabbit-vn/student-excited.png",
       "ext": ".png"
@@ -1013,7 +1029,7 @@
     "sprites:generic-fantasy:cabbit-vn:student-neutral": {
       "tag": "sprites:generic-fantasy:cabbit-vn:student-neutral",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "student-neutral",
       "path": "sprites/generic-fantasy/cabbit-vn/student-neutral.png",
       "ext": ".png"
@@ -1021,7 +1037,7 @@
     "sprites:generic-fantasy:cabbit-vn:student-puzzled": {
       "tag": "sprites:generic-fantasy:cabbit-vn:student-puzzled",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "student-puzzled",
       "path": "sprites/generic-fantasy/cabbit-vn/student-puzzled.png",
       "ext": ".png"
@@ -1029,7 +1045,7 @@
     "sprites:generic-fantasy:cabbit-vn:student-sad": {
       "tag": "sprites:generic-fantasy:cabbit-vn:student-sad",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "student-sad",
       "path": "sprites/generic-fantasy/cabbit-vn/student-sad.png",
       "ext": ".png"
@@ -1037,7 +1053,7 @@
     "sprites:generic-fantasy:cabbit-vn:visitor-a-happy": {
       "tag": "sprites:generic-fantasy:cabbit-vn:visitor-a-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "visitor-a-happy",
       "path": "sprites/generic-fantasy/cabbit-vn/visitor-a-happy.png",
       "ext": ".png"
@@ -1045,7 +1061,7 @@
     "sprites:generic-fantasy:cabbit-vn:visitor-a-neutral": {
       "tag": "sprites:generic-fantasy:cabbit-vn:visitor-a-neutral",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "visitor-a-neutral",
       "path": "sprites/generic-fantasy/cabbit-vn/visitor-a-neutral.png",
       "ext": ".png"
@@ -1053,7 +1069,7 @@
     "sprites:generic-fantasy:cabbit-vn:visitor-b-happy": {
       "tag": "sprites:generic-fantasy:cabbit-vn:visitor-b-happy",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "visitor-b-happy",
       "path": "sprites/generic-fantasy/cabbit-vn/visitor-b-happy.png",
       "ext": ".png"
@@ -1061,7 +1077,7 @@
     "sprites:generic-fantasy:cabbit-vn:visitor-b-neutral": {
       "tag": "sprites:generic-fantasy:cabbit-vn:visitor-b-neutral",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "visitor-b-neutral",
       "path": "sprites/generic-fantasy/cabbit-vn/visitor-b-neutral.png",
       "ext": ".png"
@@ -1069,7 +1085,7 @@
     "sprites:generic-fantasy:cabbit-vn:visitor-c": {
       "tag": "sprites:generic-fantasy:cabbit-vn:visitor-c",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/cabbit-vn",
       "name": "visitor-c",
       "path": "sprites/generic-fantasy/cabbit-vn/visitor-c.png",
       "ext": ".png"
@@ -1085,7 +1101,7 @@
     "sprites:generic-fantasy:rpg-portraits:1": {
       "tag": "sprites:generic-fantasy:rpg-portraits:1",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "1",
       "path": "sprites/generic-fantasy/rpg-portraits/1.png",
       "ext": ".png"
@@ -1093,7 +1109,7 @@
     "sprites:generic-fantasy:rpg-portraits:10": {
       "tag": "sprites:generic-fantasy:rpg-portraits:10",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "10",
       "path": "sprites/generic-fantasy/rpg-portraits/10.png",
       "ext": ".png"
@@ -1101,7 +1117,7 @@
     "sprites:generic-fantasy:rpg-portraits:11": {
       "tag": "sprites:generic-fantasy:rpg-portraits:11",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "11",
       "path": "sprites/generic-fantasy/rpg-portraits/11.png",
       "ext": ".png"
@@ -1109,7 +1125,7 @@
     "sprites:generic-fantasy:rpg-portraits:12": {
       "tag": "sprites:generic-fantasy:rpg-portraits:12",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "12",
       "path": "sprites/generic-fantasy/rpg-portraits/12.png",
       "ext": ".png"
@@ -1117,7 +1133,7 @@
     "sprites:generic-fantasy:rpg-portraits:13": {
       "tag": "sprites:generic-fantasy:rpg-portraits:13",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "13",
       "path": "sprites/generic-fantasy/rpg-portraits/13.png",
       "ext": ".png"
@@ -1125,7 +1141,7 @@
     "sprites:generic-fantasy:rpg-portraits:14": {
       "tag": "sprites:generic-fantasy:rpg-portraits:14",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "14",
       "path": "sprites/generic-fantasy/rpg-portraits/14.png",
       "ext": ".png"
@@ -1133,7 +1149,7 @@
     "sprites:generic-fantasy:rpg-portraits:15": {
       "tag": "sprites:generic-fantasy:rpg-portraits:15",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "15",
       "path": "sprites/generic-fantasy/rpg-portraits/15.png",
       "ext": ".png"
@@ -1141,7 +1157,7 @@
     "sprites:generic-fantasy:rpg-portraits:16": {
       "tag": "sprites:generic-fantasy:rpg-portraits:16",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "16",
       "path": "sprites/generic-fantasy/rpg-portraits/16.png",
       "ext": ".png"
@@ -1149,7 +1165,7 @@
     "sprites:generic-fantasy:rpg-portraits:17": {
       "tag": "sprites:generic-fantasy:rpg-portraits:17",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "17",
       "path": "sprites/generic-fantasy/rpg-portraits/17.png",
       "ext": ".png"
@@ -1157,7 +1173,7 @@
     "sprites:generic-fantasy:rpg-portraits:18": {
       "tag": "sprites:generic-fantasy:rpg-portraits:18",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "18",
       "path": "sprites/generic-fantasy/rpg-portraits/18.png",
       "ext": ".png"
@@ -1165,7 +1181,7 @@
     "sprites:generic-fantasy:rpg-portraits:2": {
       "tag": "sprites:generic-fantasy:rpg-portraits:2",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "2",
       "path": "sprites/generic-fantasy/rpg-portraits/2.png",
       "ext": ".png"
@@ -1173,7 +1189,7 @@
     "sprites:generic-fantasy:rpg-portraits:20": {
       "tag": "sprites:generic-fantasy:rpg-portraits:20",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "20",
       "path": "sprites/generic-fantasy/rpg-portraits/20.png",
       "ext": ".png"
@@ -1181,7 +1197,7 @@
     "sprites:generic-fantasy:rpg-portraits:21": {
       "tag": "sprites:generic-fantasy:rpg-portraits:21",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "21",
       "path": "sprites/generic-fantasy/rpg-portraits/21.png",
       "ext": ".png"
@@ -1189,7 +1205,7 @@
     "sprites:generic-fantasy:rpg-portraits:22": {
       "tag": "sprites:generic-fantasy:rpg-portraits:22",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "22",
       "path": "sprites/generic-fantasy/rpg-portraits/22.png",
       "ext": ".png"
@@ -1197,7 +1213,7 @@
     "sprites:generic-fantasy:rpg-portraits:23": {
       "tag": "sprites:generic-fantasy:rpg-portraits:23",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "23",
       "path": "sprites/generic-fantasy/rpg-portraits/23.png",
       "ext": ".png"
@@ -1205,7 +1221,7 @@
     "sprites:generic-fantasy:rpg-portraits:24": {
       "tag": "sprites:generic-fantasy:rpg-portraits:24",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "24",
       "path": "sprites/generic-fantasy/rpg-portraits/24.png",
       "ext": ".png"
@@ -1213,7 +1229,7 @@
     "sprites:generic-fantasy:rpg-portraits:25": {
       "tag": "sprites:generic-fantasy:rpg-portraits:25",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "25",
       "path": "sprites/generic-fantasy/rpg-portraits/25.png",
       "ext": ".png"
@@ -1221,7 +1237,7 @@
     "sprites:generic-fantasy:rpg-portraits:26": {
       "tag": "sprites:generic-fantasy:rpg-portraits:26",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "26",
       "path": "sprites/generic-fantasy/rpg-portraits/26.png",
       "ext": ".png"
@@ -1229,7 +1245,7 @@
     "sprites:generic-fantasy:rpg-portraits:27": {
       "tag": "sprites:generic-fantasy:rpg-portraits:27",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "27",
       "path": "sprites/generic-fantasy/rpg-portraits/27.png",
       "ext": ".png"
@@ -1237,7 +1253,7 @@
     "sprites:generic-fantasy:rpg-portraits:29": {
       "tag": "sprites:generic-fantasy:rpg-portraits:29",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "29",
       "path": "sprites/generic-fantasy/rpg-portraits/29.png",
       "ext": ".png"
@@ -1245,7 +1261,7 @@
     "sprites:generic-fantasy:rpg-portraits:3": {
       "tag": "sprites:generic-fantasy:rpg-portraits:3",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "3",
       "path": "sprites/generic-fantasy/rpg-portraits/3.png",
       "ext": ".png"
@@ -1253,7 +1269,7 @@
     "sprites:generic-fantasy:rpg-portraits:30": {
       "tag": "sprites:generic-fantasy:rpg-portraits:30",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "30",
       "path": "sprites/generic-fantasy/rpg-portraits/30.png",
       "ext": ".png"
@@ -1261,7 +1277,7 @@
     "sprites:generic-fantasy:rpg-portraits:31": {
       "tag": "sprites:generic-fantasy:rpg-portraits:31",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "31",
       "path": "sprites/generic-fantasy/rpg-portraits/31.png",
       "ext": ".png"
@@ -1269,7 +1285,7 @@
     "sprites:generic-fantasy:rpg-portraits:32": {
       "tag": "sprites:generic-fantasy:rpg-portraits:32",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "32",
       "path": "sprites/generic-fantasy/rpg-portraits/32.png",
       "ext": ".png"
@@ -1277,7 +1293,7 @@
     "sprites:generic-fantasy:rpg-portraits:33": {
       "tag": "sprites:generic-fantasy:rpg-portraits:33",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "33",
       "path": "sprites/generic-fantasy/rpg-portraits/33.png",
       "ext": ".png"
@@ -1285,7 +1301,7 @@
     "sprites:generic-fantasy:rpg-portraits:34": {
       "tag": "sprites:generic-fantasy:rpg-portraits:34",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "34",
       "path": "sprites/generic-fantasy/rpg-portraits/34.png",
       "ext": ".png"
@@ -1293,7 +1309,7 @@
     "sprites:generic-fantasy:rpg-portraits:35": {
       "tag": "sprites:generic-fantasy:rpg-portraits:35",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "35",
       "path": "sprites/generic-fantasy/rpg-portraits/35.png",
       "ext": ".png"
@@ -1301,7 +1317,7 @@
     "sprites:generic-fantasy:rpg-portraits:4_000": {
       "tag": "sprites:generic-fantasy:rpg-portraits:4_000",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "4_000",
       "path": "sprites/generic-fantasy/rpg-portraits/4_000.png",
       "ext": ".png"
@@ -1309,7 +1325,7 @@
     "sprites:generic-fantasy:rpg-portraits:5_000": {
       "tag": "sprites:generic-fantasy:rpg-portraits:5_000",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "5_000",
       "path": "sprites/generic-fantasy/rpg-portraits/5_000.png",
       "ext": ".png"
@@ -1317,7 +1333,7 @@
     "sprites:generic-fantasy:rpg-portraits:6": {
       "tag": "sprites:generic-fantasy:rpg-portraits:6",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "6",
       "path": "sprites/generic-fantasy/rpg-portraits/6.png",
       "ext": ".png"
@@ -1325,7 +1341,7 @@
     "sprites:generic-fantasy:rpg-portraits:7": {
       "tag": "sprites:generic-fantasy:rpg-portraits:7",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "7",
       "path": "sprites/generic-fantasy/rpg-portraits/7.png",
       "ext": ".png"
@@ -1333,7 +1349,7 @@
     "sprites:generic-fantasy:rpg-portraits:8": {
       "tag": "sprites:generic-fantasy:rpg-portraits:8",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "8",
       "path": "sprites/generic-fantasy/rpg-portraits/8.png",
       "ext": ".png"
@@ -1341,7 +1357,7 @@
     "sprites:generic-fantasy:rpg-portraits:9": {
       "tag": "sprites:generic-fantasy:rpg-portraits:9",
       "category": "sprites",
-      "subcategory": "generic-fantasy",
+      "subcategory": "generic-fantasy/rpg-portraits",
       "name": "9",
       "path": "sprites/generic-fantasy/rpg-portraits/9.png",
       "ext": ".png"
@@ -1454,43 +1470,43 @@
   "byCategory": {
     "music": [
       {
-        "tag": "music:combat:battle-epic",
+        "tag": "music:combat:fantasy:intense:battle-epic",
         "category": "music",
-        "subcategory": "combat",
+        "subcategory": "combat/fantasy/intense",
         "name": "battle-epic",
-        "path": "music/combat/battle-epic.mp3",
+        "path": "music/combat/fantasy/intense/battle-epic.mp3",
         "ext": ".mp3"
       },
       {
-        "tag": "music:dialogue:town-peaceful",
+        "tag": "music:dialogue:slice_of_life:calm:town-peaceful",
         "category": "music",
-        "subcategory": "dialogue",
+        "subcategory": "dialogue/slice_of_life/calm",
         "name": "town-peaceful",
-        "path": "music/dialogue/town-peaceful.mp3",
+        "path": "music/dialogue/slice_of_life/calm/town-peaceful.mp3",
         "ext": ".mp3"
       },
       {
-        "tag": "music:exploration:dark-forest",
+        "tag": "music:exploration:fantasy:calm:field-of-dreams",
         "category": "music",
-        "subcategory": "exploration",
-        "name": "dark-forest",
-        "path": "music/exploration/dark-forest.mp3",
-        "ext": ".mp3"
-      },
-      {
-        "tag": "music:exploration:field-of-dreams",
-        "category": "music",
-        "subcategory": "exploration",
+        "subcategory": "exploration/fantasy/calm",
         "name": "field-of-dreams",
-        "path": "music/exploration/field-of-dreams.mp3",
+        "path": "music/exploration/fantasy/calm/field-of-dreams.mp3",
         "ext": ".mp3"
       },
       {
-        "tag": "music:travel_rest:old-tower-inn",
+        "tag": "music:exploration:horror:tense:dark-forest",
         "category": "music",
-        "subcategory": "travel_rest",
+        "subcategory": "exploration/horror/tense",
+        "name": "dark-forest",
+        "path": "music/exploration/horror/tense/dark-forest.mp3",
+        "ext": ".mp3"
+      },
+      {
+        "tag": "music:travel_rest:fantasy:calm:old-tower-inn",
+        "category": "music",
+        "subcategory": "travel_rest/fantasy/calm",
         "name": "old-tower-inn",
-        "path": "music/travel_rest/old-tower-inn.mp3",
+        "path": "music/travel_rest/fantasy/calm/old-tower-inn.mp3",
         "ext": ".mp3"
       }
     ],
@@ -1576,6 +1592,14 @@
         "ext": ".wav"
       },
       {
+        "tag": "sfx:exploration:bed-creak",
+        "category": "sfx",
+        "subcategory": "exploration",
+        "name": "bed-creak",
+        "path": "sfx/exploration/bed-creak.wav",
+        "ext": ".wav"
+      },
+      {
         "tag": "sfx:exploration:chop",
         "category": "sfx",
         "subcategory": "exploration",
@@ -1646,6 +1670,14 @@
         "name": "footstep-4",
         "path": "sfx/exploration/footstep-4.ogg",
         "ext": ".ogg"
+      },
+      {
+        "tag": "sfx:exploration:wet-squelch",
+        "category": "sfx",
+        "subcategory": "exploration",
+        "name": "wet-squelch",
+        "path": "sfx/exploration/wet-squelch.wav",
+        "ext": ".wav"
       },
       {
         "tag": "sfx:ui:book-close",
@@ -1878,7 +1910,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:char-1-default",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "char-1-default",
         "path": "sprites/generic-fantasy/anime-vn/char-1-default.png",
         "ext": ".png"
@@ -1886,7 +1918,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:char-2-default",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "char-2-default",
         "path": "sprites/generic-fantasy/anime-vn/char-2-default.png",
         "ext": ".png"
@@ -1894,7 +1926,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:char-3-default",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "char-3-default",
         "path": "sprites/generic-fantasy/anime-vn/char-3-default.png",
         "ext": ".png"
@@ -1902,7 +1934,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:char-4-default",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "char-4-default",
         "path": "sprites/generic-fantasy/anime-vn/char-4-default.png",
         "ext": ".png"
@@ -1910,7 +1942,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:char-5-default",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "char-5-default",
         "path": "sprites/generic-fantasy/anime-vn/char-5-default.png",
         "ext": ".png"
@@ -1918,7 +1950,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-angry",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-angry",
         "path": "sprites/generic-fantasy/anime-vn/pl1-angry.png",
         "ext": ".png"
@@ -1926,7 +1958,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-blink",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-blink",
         "path": "sprites/generic-fantasy/anime-vn/pl1-blink.png",
         "ext": ".png"
@@ -1934,7 +1966,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-concept",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-concept",
         "path": "sprites/generic-fantasy/anime-vn/pl1-concept.png",
         "ext": ".png"
@@ -1942,7 +1974,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-happy",
         "path": "sprites/generic-fantasy/anime-vn/pl1-happy.png",
         "ext": ".png"
@@ -1950,7 +1982,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-hate",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-hate",
         "path": "sprites/generic-fantasy/anime-vn/pl1-hate.png",
         "ext": ".png"
@@ -1958,7 +1990,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-plot",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-plot",
         "path": "sprites/generic-fantasy/anime-vn/pl1-plot.png",
         "ext": ".png"
@@ -1966,7 +1998,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-sad",
         "path": "sprites/generic-fantasy/anime-vn/pl1-sad.png",
         "ext": ".png"
@@ -1974,7 +2006,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-sadhappy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-sadhappy",
         "path": "sprites/generic-fantasy/anime-vn/pl1-sadhappy.png",
         "ext": ".png"
@@ -1982,7 +2014,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-serious",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-serious",
         "path": "sprites/generic-fantasy/anime-vn/pl1-serious.png",
         "ext": ".png"
@@ -1990,7 +2022,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-surprise",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-surprise",
         "path": "sprites/generic-fantasy/anime-vn/pl1-surprise.png",
         "ext": ".png"
@@ -1998,7 +2030,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wangry",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wangry",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wangry.png",
         "ext": ".png"
@@ -2006,7 +2038,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wblink",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wblink",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wblink.png",
         "ext": ".png"
@@ -2014,7 +2046,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wconcept",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wconcept",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wconcept.png",
         "ext": ".png"
@@ -2022,7 +2054,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-whappy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-whappy",
         "path": "sprites/generic-fantasy/anime-vn/pl1-whappy.png",
         "ext": ".png"
@@ -2030,7 +2062,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-whate",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-whate",
         "path": "sprites/generic-fantasy/anime-vn/pl1-whate.png",
         "ext": ".png"
@@ -2038,7 +2070,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wplot",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wplot",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wplot.png",
         "ext": ".png"
@@ -2046,7 +2078,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wsad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wsad",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wsad.png",
         "ext": ".png"
@@ -2054,7 +2086,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wsadhappy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wsadhappy",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wsadhappy.png",
         "ext": ".png"
@@ -2062,7 +2094,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wserious",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wserious",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wserious.png",
         "ext": ".png"
@@ -2070,7 +2102,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl1-wsurprise",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl1-wsurprise",
         "path": "sprites/generic-fantasy/anime-vn/pl1-wsurprise.png",
         "ext": ".png"
@@ -2078,7 +2110,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-angry",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-angry",
         "path": "sprites/generic-fantasy/anime-vn/pl2-angry.png",
         "ext": ".png"
@@ -2086,7 +2118,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-blink",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-blink",
         "path": "sprites/generic-fantasy/anime-vn/pl2-blink.png",
         "ext": ".png"
@@ -2094,7 +2126,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-concept",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-concept",
         "path": "sprites/generic-fantasy/anime-vn/pl2-concept.png",
         "ext": ".png"
@@ -2102,7 +2134,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-happy",
         "path": "sprites/generic-fantasy/anime-vn/pl2-happy.png",
         "ext": ".png"
@@ -2110,7 +2142,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-hate",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-hate",
         "path": "sprites/generic-fantasy/anime-vn/pl2-hate.png",
         "ext": ".png"
@@ -2118,7 +2150,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-plot",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-plot",
         "path": "sprites/generic-fantasy/anime-vn/pl2-plot.png",
         "ext": ".png"
@@ -2126,7 +2158,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-sad",
         "path": "sprites/generic-fantasy/anime-vn/pl2-sad.png",
         "ext": ".png"
@@ -2134,7 +2166,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-shy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-shy",
         "path": "sprites/generic-fantasy/anime-vn/pl2-shy.png",
         "ext": ".png"
@@ -2142,7 +2174,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-surprise",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-surprise",
         "path": "sprites/generic-fantasy/anime-vn/pl2-surprise.png",
         "ext": ".png"
@@ -2150,7 +2182,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl2-worry",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl2-worry",
         "path": "sprites/generic-fantasy/anime-vn/pl2-worry.png",
         "ext": ".png"
@@ -2158,7 +2190,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-avoid",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-avoid",
         "path": "sprites/generic-fantasy/anime-vn/pl3-avoid.png",
         "ext": ".png"
@@ -2166,7 +2198,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-blink",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-blink",
         "path": "sprites/generic-fantasy/anime-vn/pl3-blink.png",
         "ext": ".png"
@@ -2174,7 +2206,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-concept",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-concept",
         "path": "sprites/generic-fantasy/anime-vn/pl3-concept.png",
         "ext": ".png"
@@ -2182,7 +2214,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-confusion",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-confusion",
         "path": "sprites/generic-fantasy/anime-vn/pl3-confusion.png",
         "ext": ".png"
@@ -2190,7 +2222,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-doubt",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-doubt",
         "path": "sprites/generic-fantasy/anime-vn/pl3-doubt.png",
         "ext": ".png"
@@ -2198,7 +2230,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-happy",
         "path": "sprites/generic-fantasy/anime-vn/pl3-happy.png",
         "ext": ".png"
@@ -2206,7 +2238,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-plot",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-plot",
         "path": "sprites/generic-fantasy/anime-vn/pl3-plot.png",
         "ext": ".png"
@@ -2214,7 +2246,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-sad",
         "path": "sprites/generic-fantasy/anime-vn/pl3-sad.png",
         "ext": ".png"
@@ -2222,7 +2254,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-shy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-shy",
         "path": "sprites/generic-fantasy/anime-vn/pl3-shy.png",
         "ext": ".png"
@@ -2230,7 +2262,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl3-surprise",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl3-surprise",
         "path": "sprites/generic-fantasy/anime-vn/pl3-surprise.png",
         "ext": ".png"
@@ -2238,7 +2270,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-angry",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-angry",
         "path": "sprites/generic-fantasy/anime-vn/pl4-angry.png",
         "ext": ".png"
@@ -2246,7 +2278,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-blink",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-blink",
         "path": "sprites/generic-fantasy/anime-vn/pl4-blink.png",
         "ext": ".png"
@@ -2254,7 +2286,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-concept",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-concept",
         "path": "sprites/generic-fantasy/anime-vn/pl4-concept.png",
         "ext": ".png"
@@ -2262,7 +2294,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-happy",
         "path": "sprites/generic-fantasy/anime-vn/pl4-happy.png",
         "ext": ".png"
@@ -2270,7 +2302,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-normal",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-normal",
         "path": "sprites/generic-fantasy/anime-vn/pl4-normal.png",
         "ext": ".png"
@@ -2278,7 +2310,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-plot",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-plot",
         "path": "sprites/generic-fantasy/anime-vn/pl4-plot.png",
         "ext": ".png"
@@ -2286,7 +2318,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-sad",
         "path": "sprites/generic-fantasy/anime-vn/pl4-sad.png",
         "ext": ".png"
@@ -2294,7 +2326,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-scoff",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-scoff",
         "path": "sprites/generic-fantasy/anime-vn/pl4-scoff.png",
         "ext": ".png"
@@ -2302,7 +2334,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-shy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-shy",
         "path": "sprites/generic-fantasy/anime-vn/pl4-shy.png",
         "ext": ".png"
@@ -2310,7 +2342,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-surprise",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-surprise",
         "path": "sprites/generic-fantasy/anime-vn/pl4-surprise.png",
         "ext": ".png"
@@ -2318,7 +2350,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl4-worry",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl4-worry",
         "path": "sprites/generic-fantasy/anime-vn/pl4-worry.png",
         "ext": ".png"
@@ -2326,7 +2358,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-blink",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-blink",
         "path": "sprites/generic-fantasy/anime-vn/pl5-blink.png",
         "ext": ".png"
@@ -2334,7 +2366,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-doubt",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-doubt",
         "path": "sprites/generic-fantasy/anime-vn/pl5-doubt.png",
         "ext": ".png"
@@ -2342,7 +2374,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-hate",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-hate",
         "path": "sprites/generic-fantasy/anime-vn/pl5-hate.png",
         "ext": ".png"
@@ -2350,7 +2382,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-plot",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-plot",
         "path": "sprites/generic-fantasy/anime-vn/pl5-plot.png",
         "ext": ".png"
@@ -2358,7 +2390,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-sad",
         "path": "sprites/generic-fantasy/anime-vn/pl5-sad.png",
         "ext": ".png"
@@ -2366,7 +2398,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-scoff",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-scoff",
         "path": "sprites/generic-fantasy/anime-vn/pl5-scoff.png",
         "ext": ".png"
@@ -2374,7 +2406,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-shy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-shy",
         "path": "sprites/generic-fantasy/anime-vn/pl5-shy.png",
         "ext": ".png"
@@ -2382,7 +2414,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5-surprise",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5-surprise",
         "path": "sprites/generic-fantasy/anime-vn/pl5-surprise.png",
         "ext": ".png"
@@ -2390,7 +2422,7 @@
       {
         "tag": "sprites:generic-fantasy:anime-vn:pl5",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/anime-vn",
         "name": "pl5",
         "path": "sprites/generic-fantasy/anime-vn/pl5.png",
         "ext": ".png"
@@ -2398,7 +2430,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:anna-blush",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "anna-blush",
         "path": "sprites/generic-fantasy/cabbit-vn/anna-blush.png",
         "ext": ".png"
@@ -2406,7 +2438,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:anna-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "anna-happy",
         "path": "sprites/generic-fantasy/cabbit-vn/anna-happy.png",
         "ext": ".png"
@@ -2414,7 +2446,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:anna-neutral",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "anna-neutral",
         "path": "sprites/generic-fantasy/cabbit-vn/anna-neutral.png",
         "ext": ".png"
@@ -2422,7 +2454,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:anna-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "anna-sad",
         "path": "sprites/generic-fantasy/cabbit-vn/anna-sad.png",
         "ext": ".png"
@@ -2430,7 +2462,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:dasha-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "dasha-happy",
         "path": "sprites/generic-fantasy/cabbit-vn/dasha-happy.png",
         "ext": ".png"
@@ -2438,7 +2470,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:dasha-neutral",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "dasha-neutral",
         "path": "sprites/generic-fantasy/cabbit-vn/dasha-neutral.png",
         "ext": ".png"
@@ -2446,7 +2478,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:dasha-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "dasha-sad",
         "path": "sprites/generic-fantasy/cabbit-vn/dasha-sad.png",
         "ext": ".png"
@@ -2454,7 +2486,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:student-blush",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "student-blush",
         "path": "sprites/generic-fantasy/cabbit-vn/student-blush.png",
         "ext": ".png"
@@ -2462,7 +2494,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:student-excited",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "student-excited",
         "path": "sprites/generic-fantasy/cabbit-vn/student-excited.png",
         "ext": ".png"
@@ -2470,7 +2502,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:student-neutral",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "student-neutral",
         "path": "sprites/generic-fantasy/cabbit-vn/student-neutral.png",
         "ext": ".png"
@@ -2478,7 +2510,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:student-puzzled",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "student-puzzled",
         "path": "sprites/generic-fantasy/cabbit-vn/student-puzzled.png",
         "ext": ".png"
@@ -2486,7 +2518,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:student-sad",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "student-sad",
         "path": "sprites/generic-fantasy/cabbit-vn/student-sad.png",
         "ext": ".png"
@@ -2494,7 +2526,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:visitor-a-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "visitor-a-happy",
         "path": "sprites/generic-fantasy/cabbit-vn/visitor-a-happy.png",
         "ext": ".png"
@@ -2502,7 +2534,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:visitor-a-neutral",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "visitor-a-neutral",
         "path": "sprites/generic-fantasy/cabbit-vn/visitor-a-neutral.png",
         "ext": ".png"
@@ -2510,7 +2542,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:visitor-b-happy",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "visitor-b-happy",
         "path": "sprites/generic-fantasy/cabbit-vn/visitor-b-happy.png",
         "ext": ".png"
@@ -2518,7 +2550,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:visitor-b-neutral",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "visitor-b-neutral",
         "path": "sprites/generic-fantasy/cabbit-vn/visitor-b-neutral.png",
         "ext": ".png"
@@ -2526,7 +2558,7 @@
       {
         "tag": "sprites:generic-fantasy:cabbit-vn:visitor-c",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/cabbit-vn",
         "name": "visitor-c",
         "path": "sprites/generic-fantasy/cabbit-vn/visitor-c.png",
         "ext": ".png"
@@ -2542,7 +2574,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:1",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "1",
         "path": "sprites/generic-fantasy/rpg-portraits/1.png",
         "ext": ".png"
@@ -2550,7 +2582,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:10",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "10",
         "path": "sprites/generic-fantasy/rpg-portraits/10.png",
         "ext": ".png"
@@ -2558,7 +2590,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:11",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "11",
         "path": "sprites/generic-fantasy/rpg-portraits/11.png",
         "ext": ".png"
@@ -2566,7 +2598,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:12",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "12",
         "path": "sprites/generic-fantasy/rpg-portraits/12.png",
         "ext": ".png"
@@ -2574,7 +2606,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:13",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "13",
         "path": "sprites/generic-fantasy/rpg-portraits/13.png",
         "ext": ".png"
@@ -2582,7 +2614,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:14",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "14",
         "path": "sprites/generic-fantasy/rpg-portraits/14.png",
         "ext": ".png"
@@ -2590,7 +2622,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:15",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "15",
         "path": "sprites/generic-fantasy/rpg-portraits/15.png",
         "ext": ".png"
@@ -2598,7 +2630,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:16",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "16",
         "path": "sprites/generic-fantasy/rpg-portraits/16.png",
         "ext": ".png"
@@ -2606,7 +2638,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:17",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "17",
         "path": "sprites/generic-fantasy/rpg-portraits/17.png",
         "ext": ".png"
@@ -2614,7 +2646,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:18",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "18",
         "path": "sprites/generic-fantasy/rpg-portraits/18.png",
         "ext": ".png"
@@ -2622,7 +2654,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:2",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "2",
         "path": "sprites/generic-fantasy/rpg-portraits/2.png",
         "ext": ".png"
@@ -2630,7 +2662,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:20",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "20",
         "path": "sprites/generic-fantasy/rpg-portraits/20.png",
         "ext": ".png"
@@ -2638,7 +2670,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:21",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "21",
         "path": "sprites/generic-fantasy/rpg-portraits/21.png",
         "ext": ".png"
@@ -2646,7 +2678,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:22",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "22",
         "path": "sprites/generic-fantasy/rpg-portraits/22.png",
         "ext": ".png"
@@ -2654,7 +2686,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:23",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "23",
         "path": "sprites/generic-fantasy/rpg-portraits/23.png",
         "ext": ".png"
@@ -2662,7 +2694,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:24",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "24",
         "path": "sprites/generic-fantasy/rpg-portraits/24.png",
         "ext": ".png"
@@ -2670,7 +2702,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:25",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "25",
         "path": "sprites/generic-fantasy/rpg-portraits/25.png",
         "ext": ".png"
@@ -2678,7 +2710,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:26",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "26",
         "path": "sprites/generic-fantasy/rpg-portraits/26.png",
         "ext": ".png"
@@ -2686,7 +2718,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:27",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "27",
         "path": "sprites/generic-fantasy/rpg-portraits/27.png",
         "ext": ".png"
@@ -2694,7 +2726,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:29",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "29",
         "path": "sprites/generic-fantasy/rpg-portraits/29.png",
         "ext": ".png"
@@ -2702,7 +2734,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:3",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "3",
         "path": "sprites/generic-fantasy/rpg-portraits/3.png",
         "ext": ".png"
@@ -2710,7 +2742,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:30",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "30",
         "path": "sprites/generic-fantasy/rpg-portraits/30.png",
         "ext": ".png"
@@ -2718,7 +2750,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:31",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "31",
         "path": "sprites/generic-fantasy/rpg-portraits/31.png",
         "ext": ".png"
@@ -2726,7 +2758,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:32",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "32",
         "path": "sprites/generic-fantasy/rpg-portraits/32.png",
         "ext": ".png"
@@ -2734,7 +2766,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:33",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "33",
         "path": "sprites/generic-fantasy/rpg-portraits/33.png",
         "ext": ".png"
@@ -2742,7 +2774,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:34",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "34",
         "path": "sprites/generic-fantasy/rpg-portraits/34.png",
         "ext": ".png"
@@ -2750,7 +2782,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:35",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "35",
         "path": "sprites/generic-fantasy/rpg-portraits/35.png",
         "ext": ".png"
@@ -2758,7 +2790,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:4_000",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "4_000",
         "path": "sprites/generic-fantasy/rpg-portraits/4_000.png",
         "ext": ".png"
@@ -2766,7 +2798,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:5_000",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "5_000",
         "path": "sprites/generic-fantasy/rpg-portraits/5_000.png",
         "ext": ".png"
@@ -2774,7 +2806,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:6",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "6",
         "path": "sprites/generic-fantasy/rpg-portraits/6.png",
         "ext": ".png"
@@ -2782,7 +2814,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:7",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "7",
         "path": "sprites/generic-fantasy/rpg-portraits/7.png",
         "ext": ".png"
@@ -2790,7 +2822,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:8",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "8",
         "path": "sprites/generic-fantasy/rpg-portraits/8.png",
         "ext": ".png"
@@ -2798,7 +2830,7 @@
       {
         "tag": "sprites:generic-fantasy:rpg-portraits:9",
         "category": "sprites",
-        "subcategory": "generic-fantasy",
+        "subcategory": "generic-fantasy/rpg-portraits",
         "name": "9",
         "path": "sprites/generic-fantasy/rpg-portraits/9.png",
         "ext": ".png"
