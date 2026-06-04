@@ -143,7 +143,6 @@ export function GamePartyBar({
             }}
             className="group relative block rounded-full focus:outline-none focus:ring-2 focus:ring-white/45"
             aria-expanded={mobileMenuOpen}
-            aria-haspopup="menu"
             aria-label={mobileMenuOpen ? "Close party members" : "Open party members"}
             title={memberVisuals.length === 1 ? "Open character sheet" : "Open party members"}
           >
