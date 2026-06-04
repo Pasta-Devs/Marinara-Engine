@@ -1,3 +1,4 @@
+import { Channel } from "@tauri-apps/api/core";
 import { invokeTauri } from "./tauri-client";
 import { ApiError } from "./api-errors";
 import { downloadPayloadFromApiValue, type DownloadPayload } from "./download-payload";
@@ -7,6 +8,7 @@ import {
   remoteFetchInit,
   remotePrivilegedHeaders,
   remoteRuntimeTarget,
+  streamRemoteFormEvents,
   type RuntimeTarget,
 } from "./remote-runtime";
 
@@ -27,6 +29,10 @@ const PROFILE_IMPORT_MANAGED_ASSET_KINDS: RemoteManagedAssetKind[] = [
   "lorebook",
   "sprite",
 ];
+
+export type ProfileImportProgressEvent = { type: string; data: unknown };
+type RawProfileImportEvent = { type?: unknown; data?: unknown; text?: unknown; [key: string]: unknown };
+type ProfileImportProgressHandler = (event: ProfileImportProgressEvent) => void;
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -91,10 +97,7 @@ async function importProfile<T>(envelope: unknown): Promise<T> {
   );
 }
 
-async function importProfileFile<T>(
-  path: string,
-  options?: { previewFingerprint?: string | null },
-): Promise<T> {
+async function importProfileFile<T>(path: string, options?: { previewFingerprint?: string | null }): Promise<T> {
   if (remoteRuntimeTarget()) {
     throw new ApiError(
       "Profile import from a local file path is not available while Remote Runtime is configured.",
@@ -107,6 +110,113 @@ async function importProfileFile<T>(
       path,
       previewFingerprint: options?.previewFingerprint ?? null,
     }),
+    PROFILE_IMPORT_MANAGED_ASSET_KINDS,
+  );
+}
+
+function normalizeProfileImportEvent(event: RawProfileImportEvent): ProfileImportProgressEvent {
+  const type = typeof event.type === "string" ? event.type : "message";
+  return { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
+}
+
+function profileImportEventError(event: ProfileImportProgressEvent): ApiError {
+  const data = event.data && typeof event.data === "object" && !Array.isArray(event.data) ? event.data : {};
+  const record = data as { message?: unknown; error?: unknown; code?: unknown };
+  return new ApiError(
+    typeof record.message === "string"
+      ? record.message
+      : typeof record.error === "string"
+        ? record.error
+        : "Profile import failed",
+    500,
+    { code: typeof record.code === "string" ? record.code : undefined, event },
+  );
+}
+
+async function runTauriProfileFileImportWithProgress<T>(
+  path: string,
+  options: { previewFingerprint?: string | null } | undefined,
+  onProgress?: ProfileImportProgressHandler,
+): Promise<T> {
+  const queue: RawProfileImportEvent[] = [];
+  let completed = false;
+  let failure: unknown = null;
+  let wake: (() => void) | null = null;
+  let doneData: T | null = null;
+  let hasDone = false;
+  const notify = () => {
+    wake?.();
+    wake = null;
+  };
+  const onEvent = new Channel<RawProfileImportEvent>((event) => {
+    queue.push(event);
+    if (event.type === "done" || event.type === "error") completed = true;
+    notify();
+  });
+  const command = invokeTauri<T>("profile_import_file_events", {
+    path,
+    previewFingerprint: options?.previewFingerprint ?? null,
+    onEvent,
+  }).then(
+    (value) => {
+      if (!hasDone && !failure) {
+        doneData = value;
+        hasDone = true;
+      }
+      completed = true;
+      notify();
+    },
+    (error) => {
+      if (!failure) failure = error;
+      completed = true;
+      notify();
+    },
+  );
+
+  while (!completed || queue.length > 0) {
+    if (queue.length === 0) {
+      if (failure) break;
+      await new Promise<void>((resolve) => {
+        wake = resolve;
+      });
+      continue;
+    }
+    const event = normalizeProfileImportEvent(queue.shift()!);
+    if (event.type === "progress") {
+      onProgress?.(event);
+      continue;
+    }
+    if (event.type === "done") {
+      doneData = event.data as T;
+      hasDone = true;
+      completed = true;
+      continue;
+    }
+    if (event.type === "error") {
+      failure = profileImportEventError(event);
+      completed = true;
+    }
+  }
+  await command;
+  if (failure) throw failure;
+  if (!hasDone) throw new ApiError("Profile import stream ended before completion", 500);
+  return doneData as T;
+}
+
+async function importProfileFileWithProgress<T>(
+  path: string,
+  options?: { previewFingerprint?: string | null },
+  onProgress?: ProfileImportProgressHandler,
+): Promise<T> {
+  if (remoteRuntimeTarget()) {
+    throw new ApiError(
+      "Profile import from a local file path is not available while Remote Runtime is configured.",
+      400,
+      { code: "remote_local_path_unsupported" },
+    );
+  }
+  return invalidateRemoteManagedAssetObjectUrlsAfter(
+    runTauriProfileFileImportWithProgress<T>(path, options, onProgress),
     PROFILE_IMPORT_MANAGED_ASSET_KINDS,
   );
 }
@@ -162,11 +272,46 @@ async function importRemoteProfileUpload<T>(target: RuntimeTarget, file: File): 
   return (await response.json()) as T;
 }
 
+async function importRemoteProfileUploadWithProgress<T>(
+  file: File,
+  onProgress?: ProfileImportProgressHandler,
+): Promise<T> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  let doneData: T | null = null;
+  let hasDone = false;
+  for await (const event of streamRemoteFormEvents("/api/profile/import/events", form, { privileged: true })) {
+    if (event.type === "progress") {
+      onProgress?.(event);
+      continue;
+    }
+    if (event.type === "done") {
+      doneData = event.data as T;
+      hasDone = true;
+    }
+  }
+  if (!hasDone) throw new ApiError("Profile import stream ended before completion", 500);
+  return doneData as T;
+}
+
 async function importProfileUpload<T>(file: File): Promise<T> {
   const target = remoteRuntimeTarget();
   return invalidateRemoteManagedAssetObjectUrlsAfter(
     target
       ? importRemoteProfileUpload<T>(target, file)
+      : invokeTauri<T>("profile_import_upload", {
+          filename: file.name,
+          base64: await readFileAsBase64(file),
+        }),
+    PROFILE_IMPORT_MANAGED_ASSET_KINDS,
+  );
+}
+
+async function importProfileUploadWithProgress<T>(file: File, onProgress?: ProfileImportProgressHandler): Promise<T> {
+  const target = remoteRuntimeTarget();
+  return invalidateRemoteManagedAssetObjectUrlsAfter(
+    target
+      ? importRemoteProfileUploadWithProgress<T>(file, onProgress)
       : invokeTauri<T>("profile_import_upload", {
           filename: file.name,
           base64: await readFileAsBase64(file),
@@ -203,7 +348,9 @@ export const profileApi = {
   previewProfileFile,
   previewProfileUpload,
   importProfileFile,
+  importProfileFileWithProgress,
   importProfileUpload,
+  importProfileUploadWithProgress,
 };
 
 export const backupApi = {

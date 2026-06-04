@@ -11,7 +11,8 @@ use super::assets::{
     restore_legacy_profile_json_assets,
 };
 use super::{
-    finish_profile_import_assets, insert_profile_import_aliases, normalize_profile_prompt_overrides,
+    finish_profile_import_assets, insert_profile_import_aliases,
+    normalize_profile_prompt_overrides, profile_import_progress_label, ProfileImportProgress,
 };
 use crate::state::AppState;
 use marinara_core::{AppError, AppResult};
@@ -369,24 +370,27 @@ fn legacy_array_format_error(
     AppError::with_details("invalid_input", message, Value::Object(details))
 }
 
-pub(super) fn import_legacy_profile_tables(
+pub(super) fn import_legacy_profile_tables_with_progress(
     state: &AppState,
     tables: &Map<String, Value>,
     raw_assets: Option<&Value>,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
     let mut restored_assets = restore_legacy_profile_json_assets(state, raw_assets)?;
     let restored_count = restored_assets.restored();
     let staging_root = restored_assets.staging_root().map(Path::to_path_buf);
-    let result = import_legacy_profile_tables_with_restored_assets(
+    let result = import_legacy_profile_tables_with_restored_assets_with_progress(
         state,
         tables,
         restored_count,
         staging_root.as_deref(),
+        progress,
         || restored_assets.install(),
     );
     finish_profile_import_assets(restored_assets, result)
 }
 
+#[cfg(test)]
 pub(super) fn import_legacy_profile_tables_with_restored_assets<F>(
     state: &AppState,
     tables: &Map<String, Value>,
@@ -397,10 +401,34 @@ pub(super) fn import_legacy_profile_tables_with_restored_assets<F>(
 where
     F: FnOnce() -> AppResult<()>,
 {
-    let plan = legacy_profile_import_plan(state, tables, restored_assets, staging_root)?;
+    let mut progress = ProfileImportProgress::disabled();
+    import_legacy_profile_tables_with_restored_assets_with_progress(
+        state,
+        tables,
+        restored_assets,
+        staging_root,
+        &mut progress,
+        install_assets,
+    )
+}
+
+pub(super) fn import_legacy_profile_tables_with_restored_assets_with_progress<F>(
+    state: &AppState,
+    tables: &Map<String, Value>,
+    restored_assets: usize,
+    staging_root: Option<&Path>,
+    progress: &mut ProfileImportProgress<'_>,
+    install_assets: F,
+) -> AppResult<Value>
+where
+    F: FnOnce() -> AppResult<()>,
+{
+    let plan = legacy_profile_import_plan(state, tables, restored_assets, staging_root, progress)?;
+    progress.prepare("write", "Writing profile data")?;
     state
         .storage
         .replace_all_many_and_then(plan.replacements, install_assets)?;
+    progress.advance_untracked_after_commit("write", "write", "Profile data written", 1);
     Ok(json!({ "success": true, "imported": plan.imported }))
 }
 
@@ -409,7 +437,8 @@ pub(super) fn preview_legacy_profile_tables(
     tables: &Map<String, Value>,
     restored_assets: usize,
 ) -> AppResult<Value> {
-    let plan = legacy_profile_import_plan(state, tables, restored_assets, None)?;
+    let mut progress = ProfileImportProgress::disabled();
+    let plan = legacy_profile_import_plan(state, tables, restored_assets, None, &mut progress)?;
     Ok(json!({ "success": true, "preview": true, "imported": plan.imported }))
 }
 
@@ -423,6 +452,7 @@ fn legacy_profile_import_plan(
     tables: &Map<String, Value>,
     restored_assets: usize,
     staging_root: Option<&Path>,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<LegacyProfileImportPlan> {
     let mut imported = Map::new();
     let mut replacements = Vec::new();
@@ -430,6 +460,19 @@ fn legacy_profile_import_plan(
     let mut imported_conversation_notes = 0usize;
     let mut imported_ooc_influences = 0usize;
     validate_legacy_profile_auxiliary_tables(tables)?;
+    progress.begin(
+        legacy_profile_progress_total(tables, restored_assets),
+        "collections",
+        "Importing legacy profile tables",
+    )?;
+    if restored_assets > 0 {
+        progress.advance(
+            "assets",
+            "files",
+            "Prepared profile assets",
+            restored_assets,
+        )?;
+    }
     for (table, collection) in LEGACY_PROFILE_TABLES {
         // A partial profile (an older backup, a hand-built export, or a file
         // missing a table) must not wipe collections it does not carry.
@@ -445,6 +488,7 @@ fn legacy_profile_import_plan(
         // against. Reject the import instead so nothing is replaced.
         validate_legacy_profile_table_array(tables, table)?;
         let mut rows = table_rows(tables, table);
+        let processed_rows = rows.len();
         match *collection {
             "app-settings" => normalize_legacy_app_settings(&mut rows),
             "characters" => normalize_legacy_character_data(&mut rows),
@@ -472,6 +516,13 @@ fn legacy_profile_import_plan(
             normalize_legacy_profile_asset_paths(state, staging_root, row);
         }
         imported.insert((*collection).to_string(), json!(rows.len()));
+        progress.advance_counted(
+            "collections",
+            *collection,
+            profile_import_progress_label("Importing", collection),
+            processed_rows,
+            Some(rows.len()),
+        )?;
         replacements.push((*collection, rows));
     }
     if tables.get("messages").is_some() {
@@ -500,6 +551,15 @@ fn legacy_profile_import_plan(
         imported,
         replacements,
     })
+}
+
+fn legacy_profile_progress_total(tables: &Map<String, Value>, restored_assets: usize) -> usize {
+    let row_count = LEGACY_PROFILE_TABLES
+        .iter()
+        .filter_map(|(table, _)| tables.get(*table).and_then(Value::as_array))
+        .map(Vec::len)
+        .sum::<usize>();
+    restored_assets.saturating_add(row_count).saturating_add(1)
 }
 
 fn validate_legacy_profile_auxiliary_tables(tables: &Map<String, Value>) -> AppResult<()> {
@@ -1077,6 +1137,105 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp profile dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn legacy_profile_import_emits_progress_events() {
+        let state = test_state("progress-events");
+        let mut tables = Map::new();
+        tables.insert(
+            "characters".to_string(),
+            json!([
+                { "id": "legacy-progress-1", "name": "Legacy Progress 1" },
+                { "id": "legacy-progress-2", "name": "Legacy Progress 2" }
+            ]),
+        );
+        let mut events = Vec::new();
+        let result = {
+            let mut progress = ProfileImportProgress::new(|event| {
+                events.push(event);
+                Ok(())
+            });
+            import_legacy_profile_tables_with_restored_assets_with_progress(
+                &state,
+                &tables,
+                0,
+                None,
+                &mut progress,
+                || Ok(()),
+            )
+        }
+        .expect("legacy profile import should succeed");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["imported"]["characters"], 2);
+        let progress_events = events
+            .iter()
+            .filter(|event| event["type"].as_str() == Some("progress"))
+            .collect::<Vec<_>>();
+        assert!(
+            progress_events.iter().any(|event| {
+                event["data"]["item"].as_str() == Some("characters")
+                    && event["data"]["imported"]["characters"].as_u64() == Some(2)
+            }),
+            "legacy character progress should include imported count"
+        );
+        let last = progress_events
+            .last()
+            .expect("legacy import should emit progress events");
+        assert_eq!(last["data"]["phase"], "write");
+        assert_eq!(last["data"]["current"], last["data"]["total"]);
+    }
+
+    #[test]
+    fn legacy_profile_import_ignores_post_commit_progress_delivery_failure() {
+        let state = test_state("post-commit-progress-failure");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "old-character" })])
+            .expect("old character fixture should write");
+
+        let mut tables = Map::new();
+        tables.insert(
+            "characters".to_string(),
+            json!([{ "id": "legacy-post-commit-character", "name": "Legacy Post Commit" }]),
+        );
+
+        let mut saw_post_commit_write = false;
+        let mut install_called = false;
+        let mut progress = ProfileImportProgress::new(|event| {
+            let data = &event["data"];
+            if data["phase"].as_str() == Some("write") && data["item"].as_str() == Some("write") {
+                saw_post_commit_write = true;
+                return Err(AppError::new(
+                    "profile_import_event_error",
+                    "progress receiver closed",
+                ));
+            }
+            Ok(())
+        });
+
+        let result = import_legacy_profile_tables_with_restored_assets_with_progress(
+            &state,
+            &tables,
+            0,
+            None,
+            &mut progress,
+            || {
+                install_called = true;
+                Ok(())
+            },
+        )
+        .expect("post-commit progress failure should not fail legacy import");
+        drop(progress);
+
+        assert!(install_called);
+        assert!(saw_post_commit_write);
+        assert_eq!(result["success"], true);
+        assert_eq!(
+            state.storage.list("characters").unwrap()[0]["id"],
+            "legacy-post-commit-character"
+        );
     }
 
     #[test]

@@ -235,6 +235,49 @@ pub fn profile_import_file(
 }
 
 #[tauri::command]
+pub fn profile_import_file_events(
+    state: State<'_, AppState>,
+    path: String,
+    preview_fingerprint: Option<String>,
+    on_event: tauri::ipc::Channel<Value>,
+) -> Result<Value, AppError> {
+    let result = profile::import_profile_file_path_with_progress(
+        &state,
+        &path,
+        preview_fingerprint.as_deref(),
+        |event| {
+            on_event
+                .send(event)
+                .map_err(|error| AppError::new("profile_import_event_error", error.to_string()))
+        },
+    );
+    match result {
+        Ok(value) => {
+            if let Err(error) = on_event.send(json!({ "type": "done", "data": value.clone() })) {
+                log::warn!("profile import completed but final event delivery failed: {error}");
+            }
+            Ok(value)
+        }
+        Err(error) => {
+            let payload = profile_import_error_event(&error);
+            let _ = on_event.send(payload);
+            Err(error)
+        }
+    }
+}
+
+fn profile_import_error_event(error: &AppError) -> Value {
+    json!({
+        "type": "error",
+        "data": {
+            "code": error.code.clone(),
+            "message": error.message.clone(),
+            "details": error.details.clone(),
+        },
+    })
+}
+
+#[tauri::command]
 pub fn profile_import_preview_upload(
     state: State<'_, AppState>,
     filename: String,

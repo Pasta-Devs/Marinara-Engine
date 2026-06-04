@@ -3,11 +3,14 @@ use super::assets::{
 };
 use super::legacy::preview_legacy_profile_tables;
 use super::{
-    finish_profile_import_assets, import_profile_collections_with_restored_assets,
-    legacy::{import_legacy_profile_tables_with_restored_assets, legacy_array_profile_tables},
+    finish_profile_import_assets, import_profile_collections_with_restored_assets_with_progress,
+    legacy::{
+        import_legacy_profile_tables_with_restored_assets_with_progress,
+        legacy_array_profile_tables,
+    },
     preview_profile_collections_with_restored_assets, profile_format_error,
     validate_native_profile_import, with_profile_import_metadata, with_profile_import_warnings,
-    ProfileImportMode, ProfileImportSourceFormat,
+    ProfileImportMode, ProfileImportProgress, ProfileImportSourceFormat,
 };
 use crate::state::AppState;
 use marinara_core::{AppError, AppResult};
@@ -31,31 +34,43 @@ struct ProfileZipAssetContext<'a> {
 }
 
 pub(super) fn import_profile_zip(state: &AppState, path: &Path) -> AppResult<Value> {
-    import_profile_zip_file(state, File::open(path)?)
+    let mut progress = ProfileImportProgress::disabled();
+    import_profile_zip_with_progress(state, path, &mut progress)
+}
+
+pub(super) fn import_profile_zip_with_progress(
+    state: &AppState,
+    path: &Path,
+    progress: &mut ProfileImportProgress<'_>,
+) -> AppResult<Value> {
+    import_profile_zip_file_with_progress(state, File::open(path)?, progress)
 }
 
 pub(super) fn preview_profile_zip(state: &AppState, path: &Path) -> AppResult<Value> {
     preview_profile_zip_file(state, File::open(path)?)
 }
 
-pub(super) fn import_profile_zip_file<R: Read + Seek>(
+pub(super) fn import_profile_zip_file_with_progress<R: Read + Seek>(
     state: &AppState,
     reader: R,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
-    run_profile_zip_reader(state, reader, ProfileImportMode::Commit)
+    run_profile_zip_reader(state, reader, ProfileImportMode::Commit, progress)
 }
 
 pub(super) fn preview_profile_zip_file<R: Read + Seek>(
     state: &AppState,
     reader: R,
 ) -> AppResult<Value> {
-    run_profile_zip_reader(state, reader, ProfileImportMode::Preview)
+    let mut progress = ProfileImportProgress::disabled();
+    run_profile_zip_reader(state, reader, ProfileImportMode::Preview, &mut progress)
 }
 
 fn run_profile_zip_reader<R: Read + Seek>(
     state: &AppState,
     reader: R,
     mode: ProfileImportMode,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
     let mut archive = zip::ZipArchive::new(reader)
         .map_err(|error| AppError::invalid_input(format!("Could not read profile ZIP: {error}")))?;
@@ -84,7 +99,14 @@ fn run_profile_zip_reader<R: Read + Seek>(
             profile_prefix: &profile_prefix,
             raw_assets: files,
         };
-        return run_profile_zip_collections(state, &mut archive, assets, collections, mode);
+        return run_profile_zip_collections(
+            state,
+            &mut archive,
+            assets,
+            collections,
+            mode,
+            progress,
+        );
     }
     if let Some(tables_value) = data
         .get("fileStorage")
@@ -108,6 +130,7 @@ fn run_profile_zip_reader<R: Read + Seek>(
             tables,
             ProfileImportSourceFormat::LegacyFileStorage,
             mode,
+            progress,
         );
     }
     if let Some(tables) = legacy_array_profile_tables(data)? {
@@ -123,6 +146,7 @@ fn run_profile_zip_reader<R: Read + Seek>(
             &tables,
             ProfileImportSourceFormat::LegacyArray,
             mode,
+            progress,
         );
     }
     Err(profile_format_error(
@@ -137,6 +161,7 @@ fn run_profile_zip_collections<R: Read + std::io::Seek>(
     assets: ProfileZipAssetContext<'_>,
     collections: &serde_json::Map<String, Value>,
     mode: ProfileImportMode,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
     match mode {
         ProfileImportMode::Preview => {
@@ -157,6 +182,7 @@ fn run_profile_zip_collections<R: Read + std::io::Seek>(
             ))
         }
         ProfileImportMode::Commit => {
+            progress.prepare("assets", "Preparing profile ZIP assets")?;
             let mut restored_assets = restore_profile_zip_assets(
                 state,
                 archive,
@@ -165,10 +191,11 @@ fn run_profile_zip_collections<R: Read + std::io::Seek>(
                 assets.raw_assets,
             )?;
             let restored_count = restored_assets.restored();
-            let result = import_profile_collections_with_restored_assets(
+            let result = import_profile_collections_with_restored_assets_with_progress(
                 state,
                 collections,
                 restored_count,
+                progress,
                 || restored_assets.install(),
             );
             finish_profile_import_assets(restored_assets, result).map(|value| {
@@ -185,6 +212,7 @@ fn run_profile_zip_legacy_tables<R: Read + std::io::Seek>(
     tables: &serde_json::Map<String, Value>,
     source_format: ProfileImportSourceFormat,
     mode: ProfileImportMode,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
     match mode {
         ProfileImportMode::Preview => {
@@ -201,6 +229,7 @@ fn run_profile_zip_legacy_tables<R: Read + std::io::Seek>(
             ))
         }
         ProfileImportMode::Commit => {
+            progress.prepare("assets", "Preparing profile ZIP assets")?;
             let mut restored_assets = restore_profile_zip_assets(
                 state,
                 archive,
@@ -210,11 +239,12 @@ fn run_profile_zip_legacy_tables<R: Read + std::io::Seek>(
             )?;
             let restored_count = restored_assets.restored();
             let staging_root = restored_assets.staging_root().map(Path::to_path_buf);
-            let result = import_legacy_profile_tables_with_restored_assets(
+            let result = import_legacy_profile_tables_with_restored_assets_with_progress(
                 state,
                 tables,
                 restored_count,
                 staging_root.as_deref(),
+                progress,
                 || restored_assets.install(),
             );
             finish_profile_import_assets(restored_assets, result)

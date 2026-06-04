@@ -504,36 +504,75 @@ export async function* streamRemoteJsonEvents(
       const parsed = parseSseData(buffer);
       buffer = parsed.rest;
       for (const data of parsed.events) {
-        const event = JSON.parse(data) as { type?: unknown; data?: unknown; text?: unknown };
-        const type = typeof event.type === "string" ? event.type : "message";
-        if (type === "error") {
-          const errorData = isRecord(event.data) ? event.data : {};
-          throw new ApiError(
-            readString(errorData.message) || readString(errorData.error) || "Remote event stream failed",
-            500,
-            event,
-          );
-        }
-        yield { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
+        yield parseRemoteJsonEvent(data);
       }
     }
     const finalParsed = parseSseData(`${buffer}\n\n`);
     for (const data of finalParsed.events) {
-      const event = JSON.parse(data) as { type?: unknown; data?: unknown; text?: unknown };
-      const type = typeof event.type === "string" ? event.type : "message";
-      if (type === "error") {
-        const errorData = isRecord(event.data) ? event.data : {};
-        throw new ApiError(
-          readString(errorData.message) || readString(errorData.error) || "Remote event stream failed",
-          500,
-          event,
-        );
-      }
-      yield { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
+      yield parseRemoteJsonEvent(data);
     }
   } finally {
     reader.releaseLock();
   }
+}
+
+export async function* streamRemoteFormEvents(
+  path: string,
+  body: FormData,
+  options: { signal?: AbortSignal; privileged?: boolean } = {},
+): AsyncGenerator<{ type: string; data: unknown }> {
+  const target = remoteRuntimeTarget();
+  if (!target) throw new ApiError("Remote runtime URL is not configured", 400);
+  const response = await fetch(
+    `${target.baseUrl}${path}`,
+    remoteFetchInit({
+      method: "POST",
+      headers: remoteHeaders(target, {
+        accept: "text/event-stream",
+        ...(options.privileged ? adminSecretHeader() : {}),
+      }),
+      body,
+      signal: options.signal,
+    }),
+  );
+  if (!response.ok) throw await readRemoteError(response);
+  if (!response.body) throw new ApiError("Remote runtime did not return an event stream", 500);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parsed = parseSseData(buffer);
+      buffer = parsed.rest;
+      for (const data of parsed.events) {
+        yield parseRemoteJsonEvent(data);
+      }
+    }
+    const finalParsed = parseSseData(`${buffer}\n\n`);
+    for (const data of finalParsed.events) {
+      yield parseRemoteJsonEvent(data);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function parseRemoteJsonEvent(data: string): { type: string; data: unknown } {
+  const event = JSON.parse(data) as { type?: unknown; data?: unknown; text?: unknown };
+  const type = typeof event.type === "string" ? event.type : "message";
+  if (type === "error") {
+    const errorData = isRecord(event.data) ? event.data : {};
+    throw new ApiError(
+      readString(errorData.message) || readString(errorData.error) || "Remote event stream failed",
+      500,
+      event,
+    );
+  }
+  return { type, data: "data" in event ? event.data : "text" in event ? event.text : event };
 }
 
 function parseSseData(buffer: string): { events: string[]; rest: string } {

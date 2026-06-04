@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, Download, FileSearch, Loader2 } from "lucide-react";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { profileApi } from "../../../../shared/api/profile-api";
+import { profileApi, type ProfileImportProgressEvent } from "../../../../shared/api/profile-api";
 import { remoteRuntimeTarget } from "../../../../shared/api/remote-runtime";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { cn } from "../../../../shared/lib/utils";
@@ -253,18 +253,36 @@ function profileImportMetadataFromResult(data?: ProfileImportResult) {
   };
 }
 
+function isProfileImportRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function profileImportProgressNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : undefined;
+}
+
+function profileImportStatsFromUnknown(value: unknown): ProfileImportStats | undefined {
+  if (!isProfileImportRecord(value)) return undefined;
+  const stats: ProfileImportStats = {};
+  for (const [key, count] of Object.entries(value)) {
+    if (typeof count === "number" && Number.isFinite(count)) {
+      stats[key] = Math.max(0, Math.floor(count));
+    }
+  }
+  return Object.keys(stats).length > 0 ? stats : undefined;
+}
+
 function formatProfileImportConfirmationMessage(preview: ProfileImportResult) {
   const { imported, warnings, sourceFormat, converted } = profileImportMetadataFromResult(preview);
   const found = formatProfileImportStats(imported) || "no counted records";
   const source = formatProfileImportSourceFormat(sourceFormat);
-  const conversion =
-    converted?.applied
-      ? `Conversion: ${formatProfileImportSourceFormat(converted.from) || "legacy"} -> ${
-          formatProfileImportSourceFormat(converted.to) || "refactor"
-        }.`
-      : converted?.applied === false
-        ? "Conversion: none."
-        : "";
+  const conversion = converted?.applied
+    ? `Conversion: ${formatProfileImportSourceFormat(converted.from) || "legacy"} -> ${
+        formatProfileImportSourceFormat(converted.to) || "refactor"
+      }.`
+    : converted?.applied === false
+      ? "Conversion: none."
+      : "";
   const skipped = formatProfileImportSkippedStats(imported);
   const warningSummary = formatProfileImportWarnings(warnings);
   const warningDetail = warningSummary
@@ -345,10 +363,36 @@ export function ProfileImportSection() {
     );
   };
 
+  const applyProfileImportProgressEvent = (event: ProfileImportProgressEvent, startedAt: number) => {
+    if (event.type !== "progress") return;
+    const data = isProfileImportRecord(event.data) ? event.data : {};
+    const label = typeof data.label === "string" && data.label.trim() ? data.label : "Importing profile";
+    const current = profileImportProgressNumber(data.current);
+    const total = profileImportProgressNumber(data.total);
+    const imported = profileImportStatsFromUnknown(data.imported);
+    setProfileImportProgress((progress) => {
+      if (!progress) return progress;
+      const totalItems = Math.max(1, total ?? progress.totalItems);
+      const completedItems = Math.min(totalItems, current ?? progress.completedItems);
+      return {
+        ...progress,
+        status: "running",
+        label,
+        completedItems,
+        totalItems,
+        elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        imported: imported ?? progress.imported,
+      };
+    });
+  };
+
   const runPreviewedProfileImport = async (
     startedAt: number,
     previewProfile: () => Promise<ProfileImportResult>,
-    importProfile: (preview: ProfileImportResult) => Promise<ProfileImportResult>,
+    importProfile: (
+      preview: ProfileImportResult,
+      onProgress: (event: ProfileImportProgressEvent) => void,
+    ) => Promise<ProfileImportResult>,
   ) => {
     setProfileImportProgress((current) =>
       current
@@ -408,7 +452,10 @@ export function ProfileImportSection() {
           }
         : current,
     );
-    finishProfileImport(await importProfile(preview), startedAt);
+    finishProfileImport(
+      await importProfile(preview, (event) => applyProfileImportProgressEvent(event, startedAt)),
+      startedAt,
+    );
   };
 
   const showProfileImportError = (err: unknown, startedAt: number) => {
@@ -462,10 +509,14 @@ export function ProfileImportSection() {
       await runPreviewedProfileImport(
         startedAt,
         () => profileApi.previewProfileFile<ProfileImportResult>(selected),
-        (preview) =>
-          profileApi.importProfileFile<ProfileImportResult>(selected, {
-            previewFingerprint: preview.fileFingerprint,
-          }),
+        (preview, onProgress) =>
+          profileApi.importProfileFileWithProgress<ProfileImportResult>(
+            selected,
+            {
+              previewFingerprint: preview.fileFingerprint,
+            },
+            onProgress,
+          ),
       );
     } catch (err) {
       showProfileImportError(err, startedAt);
@@ -489,7 +540,7 @@ export function ProfileImportSection() {
       await runPreviewedProfileImport(
         startedAt,
         () => profileApi.previewProfileUpload<ProfileImportResult>(file),
-        () => profileApi.importProfileUpload<ProfileImportResult>(file),
+        (_preview, onProgress) => profileApi.importProfileUploadWithProgress<ProfileImportResult>(file, onProgress),
       );
     } catch (err) {
       showProfileImportError(err, startedAt);
@@ -572,7 +623,8 @@ export function ProfileImportSection() {
                     </span>
                     {estimateProfileImportRemainingSeconds(profileImportProgress) !== null && (
                       <span>
-                        ETA {formatProfileImportDuration(estimateProfileImportRemainingSeconds(profileImportProgress) ?? 0)}
+                        ETA{" "}
+                        {formatProfileImportDuration(estimateProfileImportRemainingSeconds(profileImportProgress) ?? 0)}
                       </span>
                     )}
                   </div>

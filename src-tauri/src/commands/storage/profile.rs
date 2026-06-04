@@ -10,9 +10,10 @@ use self::assets::{
     profile_assets_manifest, restore_profile_assets, RestoredProfileAssets,
 };
 use self::legacy::{
-    import_legacy_profile_tables, legacy_array_profile_tables, preview_legacy_profile_tables,
+    import_legacy_profile_tables_with_progress, legacy_array_profile_tables,
+    preview_legacy_profile_tables,
 };
-use self::zip_import::{import_profile_zip, preview_profile_zip};
+use self::zip_import::{import_profile_zip, import_profile_zip_with_progress, preview_profile_zip};
 use super::contracts;
 use super::shared::*;
 use super::*;
@@ -67,6 +68,139 @@ struct ProfileFileSnapshot {
     fingerprint: String,
 }
 
+pub(super) struct ProfileImportProgress<'a> {
+    emit: Option<Box<dyn FnMut(Value) -> AppResult<()> + 'a>>,
+    current: usize,
+    total: usize,
+    imported: Map<String, Value>,
+}
+
+impl<'a> ProfileImportProgress<'a> {
+    pub(super) fn disabled() -> Self {
+        Self {
+            emit: None,
+            current: 0,
+            total: 1,
+            imported: Map::new(),
+        }
+    }
+
+    fn new(emit: impl FnMut(Value) -> AppResult<()> + 'a) -> Self {
+        Self {
+            emit: Some(Box::new(emit)),
+            current: 0,
+            total: 1,
+            imported: Map::new(),
+        }
+    }
+
+    pub(super) fn prepare(
+        &mut self,
+        phase: &'static str,
+        label: impl Into<String>,
+    ) -> AppResult<()> {
+        if self.emit.is_none() {
+            return Ok(());
+        }
+        self.total = self.total.max(1);
+        self.emit_event(phase, None, label.into())
+    }
+
+    pub(super) fn begin(
+        &mut self,
+        total: usize,
+        phase: &'static str,
+        label: impl Into<String>,
+    ) -> AppResult<()> {
+        if self.emit.is_none() {
+            return Ok(());
+        }
+        self.current = 0;
+        self.total = total.max(1);
+        self.imported.clear();
+        self.emit_event(phase, None, label.into())
+    }
+
+    pub(super) fn advance(
+        &mut self,
+        phase: &'static str,
+        item: impl Into<String>,
+        label: impl Into<String>,
+        count: usize,
+    ) -> AppResult<()> {
+        self.advance_counted(phase, item, label, count, Some(count))
+    }
+
+    pub(super) fn advance_untracked(
+        &mut self,
+        phase: &'static str,
+        item: impl Into<String>,
+        label: impl Into<String>,
+        count: usize,
+    ) -> AppResult<()> {
+        self.advance_counted(phase, item, label, count, None)
+    }
+
+    pub(super) fn advance_untracked_after_commit(
+        &mut self,
+        phase: &'static str,
+        item: impl Into<String>,
+        label: impl Into<String>,
+        count: usize,
+    ) {
+        if let Err(error) = self.advance_untracked(phase, item, label, count) {
+            log::warn!(
+                "profile import completed but progress delivery failed code={} message={}",
+                error.code,
+                error.message
+            );
+        }
+    }
+
+    pub(super) fn advance_counted(
+        &mut self,
+        phase: &'static str,
+        item: impl Into<String>,
+        label: impl Into<String>,
+        processed_count: usize,
+        imported_count: Option<usize>,
+    ) -> AppResult<()> {
+        if self.emit.is_none() {
+            return Ok(());
+        }
+        let item = item.into();
+        self.current = self.current.saturating_add(processed_count).min(self.total);
+        if let Some(imported_count) = imported_count {
+            self.imported.insert(item.clone(), json!(imported_count));
+        }
+        self.emit_event(phase, Some(item), label.into())
+    }
+
+    fn emit_event(
+        &mut self,
+        phase: &'static str,
+        item: Option<String>,
+        label: String,
+    ) -> AppResult<()> {
+        let Some(emit) = self.emit.as_mut() else {
+            return Ok(());
+        };
+        let mut data = Map::new();
+        data.insert("phase".to_string(), Value::String(phase.to_string()));
+        data.insert("label".to_string(), Value::String(label));
+        data.insert("current".to_string(), json!(self.current));
+        data.insert("total".to_string(), json!(self.total));
+        data.insert("imported".to_string(), Value::Object(self.imported.clone()));
+        if let Some(item) = item {
+            data.insert("item".to_string(), Value::String(item));
+        }
+        emit(json!({
+            "type": "progress",
+            "data": Value::Object(data),
+        }))
+    }
+}
+
 pub(crate) struct ProfileExportDownload {
     pub(crate) bytes: Vec<u8>,
     pub(crate) filename: &'static str,
@@ -108,6 +242,21 @@ pub(crate) fn import_profile_file_path(
     import_profile_file_with_preview_fingerprint(state, &path, preview_fingerprint)
 }
 
+pub(crate) fn import_profile_file_path_with_progress(
+    state: &AppState,
+    value: &str,
+    preview_fingerprint: Option<&str>,
+    emit: impl FnMut(Value) -> AppResult<()>,
+) -> AppResult<Value> {
+    let path = PathBuf::from(value.trim());
+    import_profile_file_with_preview_fingerprint_and_progress(
+        state,
+        &path,
+        preview_fingerprint,
+        emit,
+    )
+}
+
 pub(crate) fn preview_profile_file_path(state: &AppState, value: &str) -> AppResult<Value> {
     let path = PathBuf::from(value.trim());
     preview_profile_file(state, &path)
@@ -121,6 +270,36 @@ pub(crate) fn import_profile_file_with_preview_fingerprint(
     state: &AppState,
     path: &Path,
     preview_fingerprint: Option<&str>,
+) -> AppResult<Value> {
+    let mut progress = ProfileImportProgress::disabled();
+    import_profile_file_with_preview_fingerprint_inner(
+        state,
+        path,
+        preview_fingerprint,
+        &mut progress,
+    )
+}
+
+pub(crate) fn import_profile_file_with_preview_fingerprint_and_progress(
+    state: &AppState,
+    path: &Path,
+    preview_fingerprint: Option<&str>,
+    emit: impl FnMut(Value) -> AppResult<()>,
+) -> AppResult<Value> {
+    let mut progress = ProfileImportProgress::new(emit);
+    import_profile_file_with_preview_fingerprint_inner(
+        state,
+        path,
+        preview_fingerprint,
+        &mut progress,
+    )
+}
+
+fn import_profile_file_with_preview_fingerprint_inner(
+    state: &AppState,
+    path: &Path,
+    preview_fingerprint: Option<&str>,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
     with_profile_file_snapshot(state, path, |snapshot_path, extension, fingerprint| {
         if let Some(expected) = preview_fingerprint
@@ -139,12 +318,13 @@ pub(crate) fn import_profile_file_with_preview_fingerprint(
             }
         }
         match extension {
-            "json" => import_profile(
+            "json" => import_profile_with_progress(
                 state,
                 serde_json::from_reader(File::open(snapshot_path)?)
                     .map_err(invalid_profile_json_error)?,
+                progress,
             ),
-            "zip" => import_profile_zip(state, snapshot_path),
+            "zip" => import_profile_zip_with_progress(state, snapshot_path, progress),
             _ => unreachable!("profile_file_extension only returns json or zip"),
         }
     })
@@ -437,14 +617,29 @@ fn native_profile_export(state: &AppState) -> AppResult<Value> {
 }
 
 fn import_profile(state: &AppState, body: Value) -> AppResult<Value> {
-    run_profile_import(state, body, ProfileImportMode::Commit)
+    let mut progress = ProfileImportProgress::disabled();
+    import_profile_with_progress(state, body, &mut progress)
+}
+
+fn import_profile_with_progress(
+    state: &AppState,
+    body: Value,
+    progress: &mut ProfileImportProgress<'_>,
+) -> AppResult<Value> {
+    run_profile_import(state, body, ProfileImportMode::Commit, progress)
 }
 
 fn preview_profile(state: &AppState, body: Value) -> AppResult<Value> {
-    run_profile_import(state, body, ProfileImportMode::Preview)
+    let mut progress = ProfileImportProgress::disabled();
+    run_profile_import(state, body, ProfileImportMode::Preview, &mut progress)
 }
 
-fn run_profile_import(state: &AppState, body: Value, mode: ProfileImportMode) -> AppResult<Value> {
+fn run_profile_import(
+    state: &AppState,
+    body: Value,
+    mode: ProfileImportMode,
+    progress: &mut ProfileImportProgress<'_>,
+) -> AppResult<Value> {
     let data = body
         .get("data")
         .and_then(Value::as_object)
@@ -457,7 +652,7 @@ fn run_profile_import(state: &AppState, body: Value, mode: ProfileImportMode) ->
                 "invalid-refactor-native",
             )
         })?;
-        return run_profile_collections(state, data, collections, mode);
+        return run_profile_collections(state, data, collections, mode, progress);
     }
     if let Some(tables_value) = data
         .get("fileStorage")
@@ -476,6 +671,7 @@ fn run_profile_import(state: &AppState, body: Value, mode: ProfileImportMode) ->
             files,
             ProfileImportSourceFormat::LegacyFileStorage,
             mode,
+            progress,
         );
     }
     if let Some(tables) = legacy_array_profile_tables(data)? {
@@ -489,6 +685,7 @@ fn run_profile_import(state: &AppState, body: Value, mode: ProfileImportMode) ->
             files,
             ProfileImportSourceFormat::LegacyArray,
             mode,
+            progress,
         );
     }
     Err(profile_format_error(
@@ -502,6 +699,7 @@ fn run_profile_collections(
     data: &Map<String, Value>,
     collections: &Map<String, Value>,
     mode: ProfileImportMode,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
     validate_native_profile_import(data, collections)?;
     match mode {
@@ -518,12 +716,14 @@ fn run_profile_collections(
             ))
         }
         ProfileImportMode::Commit => {
+            progress.prepare("assets", "Preparing profile assets")?;
             let mut restored_assets = restore_profile_assets(state, data.get("assets"))?;
             let restored_count = restored_assets.restored();
-            let result = import_profile_collections_with_restored_assets(
+            let result = import_profile_collections_with_restored_assets_with_progress(
                 state,
                 collections,
                 restored_count,
+                progress,
                 || restored_assets.install(),
             );
             finish_profile_import_assets(restored_assets, result).map(|value| {
@@ -539,6 +739,7 @@ fn run_profile_legacy_tables(
     raw_assets: Option<&Value>,
     source_format: ProfileImportSourceFormat,
     mode: ProfileImportMode,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<Value> {
     match mode {
         ProfileImportMode::Preview => {
@@ -549,8 +750,11 @@ fn run_profile_legacy_tables(
                 warnings,
             ))
         }
-        ProfileImportMode::Commit => import_legacy_profile_tables(state, tables, raw_assets)
-            .map(|value| with_profile_import_metadata(value, source_format)),
+        ProfileImportMode::Commit => {
+            progress.prepare("assets", "Preparing profile assets")?;
+            import_legacy_profile_tables_with_progress(state, tables, raw_assets, progress)
+                .map(|value| with_profile_import_metadata(value, source_format))
+        }
     }
 }
 
@@ -559,11 +763,13 @@ pub(super) fn preview_profile_collections_with_restored_assets(
     collections: &Map<String, Value>,
     restored_assets: usize,
 ) -> AppResult<Value> {
+    let mut progress = ProfileImportProgress::disabled();
     let plan = profile_collections_import_plan(
         state,
         collections,
         restored_assets,
         ProfileImportMode::Preview,
+        &mut progress,
     )?;
     Ok(json!({ "success": true, "preview": true, "imported": plan.imported }))
 }
@@ -664,10 +870,31 @@ pub(super) fn validate_native_profile_import(
     Ok(())
 }
 
+#[cfg(test)]
 pub(super) fn import_profile_collections_with_restored_assets<F>(
     state: &AppState,
     collections: &Map<String, Value>,
     restored_assets: usize,
+    install_assets: F,
+) -> AppResult<Value>
+where
+    F: FnOnce() -> AppResult<()>,
+{
+    let mut progress = ProfileImportProgress::disabled();
+    import_profile_collections_with_restored_assets_with_progress(
+        state,
+        collections,
+        restored_assets,
+        &mut progress,
+        install_assets,
+    )
+}
+
+pub(super) fn import_profile_collections_with_restored_assets_with_progress<F>(
+    state: &AppState,
+    collections: &Map<String, Value>,
+    restored_assets: usize,
+    progress: &mut ProfileImportProgress<'_>,
     install_assets: F,
 ) -> AppResult<Value>
 where
@@ -678,10 +905,13 @@ where
         collections,
         restored_assets,
         ProfileImportMode::Commit,
+        progress,
     )?;
+    progress.prepare("write", "Writing profile data")?;
     state
         .storage
         .replace_all_many_and_then(plan.replacements, install_assets)?;
+    progress.advance_untracked_after_commit("write", "write", "Profile data written", 1);
     Ok(json!({ "success": true, "imported": plan.imported }))
 }
 
@@ -690,10 +920,26 @@ fn profile_collections_import_plan(
     collections: &Map<String, Value>,
     restored_assets: usize,
     mode: ProfileImportMode,
+    progress: &mut ProfileImportProgress<'_>,
 ) -> AppResult<ProfileCollectionsImportPlan> {
     let mut imported = Map::new();
     let mut replacements = Vec::new();
     let mut unsupported_prompt_overrides = 0usize;
+    if mode == ProfileImportMode::Commit {
+        progress.begin(
+            profile_collections_progress_total(collections, restored_assets),
+            "collections",
+            "Importing profile collections",
+        )?;
+        if restored_assets > 0 {
+            progress.advance(
+                "assets",
+                "files",
+                "Prepared profile assets",
+                restored_assets,
+            )?;
+        }
+    }
     for collection in contracts::profile_collections() {
         // A partial modern profile (a hand-built export, or a file missing a
         // collection) must not wipe collections it does not carry. Skipping the
@@ -714,6 +960,7 @@ fn profile_collections_import_plan(
             )));
         }
         let mut rows = collection_value.as_array().cloned().unwrap_or_default();
+        let processed_rows = rows.len();
         if collection == "prompt-overrides" {
             unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows);
         }
@@ -722,6 +969,15 @@ fn profile_collections_import_plan(
             rows = normalize_profile_connection_rows(state, rows, mode)?;
         }
         imported.insert(collection.to_string(), json!(rows.len()));
+        if mode == ProfileImportMode::Commit {
+            progress.advance_counted(
+                "collections",
+                collection,
+                profile_import_progress_label("Importing", collection),
+                processed_rows,
+                Some(rows.len()),
+            )?;
+        }
         replacements.push((collection, rows));
     }
     if collections.get("messages").is_some()
@@ -743,6 +999,21 @@ fn profile_collections_import_plan(
         imported,
         replacements,
     })
+}
+
+fn profile_collections_progress_total(
+    collections: &Map<String, Value>,
+    restored_assets: usize,
+) -> usize {
+    let row_count = contracts::profile_collections()
+        .filter_map(|collection| collections.get(collection).and_then(Value::as_array))
+        .map(Vec::len)
+        .sum::<usize>();
+    restored_assets.saturating_add(row_count).saturating_add(1)
+}
+
+pub(super) fn profile_import_progress_label(prefix: &str, item: &str) -> String {
+    format!("{prefix} {}", item.replace('-', " "))
 }
 
 fn normalize_profile_connection_rows(
@@ -936,6 +1207,114 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp profile dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn profile_file_import_emits_progress_events() {
+        let state = test_state("progress-events");
+        let path = state.data_dir.join("progress-profile.json");
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "characters".to_string(),
+            json!([
+                { "id": "progress-character-1", "name": "Progress 1" },
+                { "id": "progress-character-2", "name": "Progress 2" }
+            ]),
+        );
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }))
+            .expect("profile fixture should serialize"),
+        )
+        .expect("profile fixture should write");
+
+        let mut events = Vec::new();
+        let result = import_profile_file_with_preview_fingerprint_and_progress(
+            &state,
+            &path,
+            None,
+            |event| {
+                events.push(event);
+                Ok(())
+            },
+        )
+        .expect("profile import should succeed");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["imported"]["characters"], 2);
+        let progress_events = events
+            .iter()
+            .filter(|event| event["type"].as_str() == Some("progress"))
+            .collect::<Vec<_>>();
+        assert!(
+            progress_events.iter().any(|event| {
+                event["data"]["item"].as_str() == Some("characters")
+                    && event["data"]["imported"]["characters"].as_u64() == Some(2)
+            }),
+            "character progress event should include imported count"
+        );
+        let last = progress_events
+            .last()
+            .expect("profile import should emit progress events");
+        assert_eq!(last["data"]["phase"], "write");
+        assert_eq!(last["data"]["current"], last["data"]["total"]);
+    }
+
+    #[test]
+    fn native_profile_import_ignores_post_commit_progress_delivery_failure() {
+        let state = test_state("post-commit-progress-failure");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "old-character" })])
+            .expect("old character fixture should write");
+
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "characters".to_string(),
+            json!([{ "id": "post-commit-character", "name": "Post Commit" }]),
+        );
+
+        let mut saw_post_commit_write = false;
+        let mut install_called = false;
+        let mut progress = ProfileImportProgress::new(|event| {
+            let data = &event["data"];
+            if data["phase"].as_str() == Some("write") && data["item"].as_str() == Some("write") {
+                saw_post_commit_write = true;
+                return Err(AppError::new(
+                    "profile_import_event_error",
+                    "progress receiver closed",
+                ));
+            }
+            Ok(())
+        });
+
+        let result = import_profile_collections_with_restored_assets_with_progress(
+            &state,
+            &collections,
+            0,
+            &mut progress,
+            || {
+                install_called = true;
+                Ok(())
+            },
+        )
+        .expect("post-commit progress failure should not fail import");
+        drop(progress);
+
+        assert!(install_called);
+        assert!(saw_post_commit_write);
+        assert_eq!(result["success"], true);
+        assert_eq!(
+            state.storage.list("characters").unwrap()[0]["id"],
+            "post-commit-character"
+        );
     }
 
     #[test]

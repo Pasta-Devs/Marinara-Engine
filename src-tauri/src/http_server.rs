@@ -132,6 +132,11 @@ pub fn router(state: AppState) -> Router {
             "/api/profile/import",
             post(profile_import_upload).layer(DefaultBodyLimit::max(MAX_PROFILE_UPLOAD_BODY_BYTES)),
         )
+        .route(
+            "/api/profile/import/events",
+            post(profile_import_upload_stream)
+                .layer(DefaultBodyLimit::max(MAX_PROFILE_UPLOAD_BODY_BYTES)),
+        )
         .route("/api/import/st-bulk/run", post(import_st_bulk_run_stream))
         .route("/api/sidecar/v1/embeddings", post(sidecar_embeddings))
         .route("/api/assets/:kind/*path", get(managed_asset))
@@ -639,6 +644,70 @@ async fn profile_import_upload(
     }
 }
 
+async fn profile_import_upload_stream(
+    State(state): State<HttpState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Result<Sse<UnboundedReceiverStream<Result<Event, Infallible>>>, HttpError> {
+    require_admin_access_for_command("profile_import_upload_stream", &headers, addr.ip())?;
+    let upload_path = profile_upload_temp_file(&state.app, &mut multipart).await?;
+    let (tx, rx) = mpsc::unbounded_channel::<Result<Event, Infallible>>();
+    tokio::spawn(async move {
+        let started = Instant::now();
+        request_log("profile_import_upload_stream started");
+        let result = profile::import_profile_file_with_preview_fingerprint_and_progress(
+            &state.app,
+            &upload_path,
+            None,
+            |event| {
+                tx.send(Ok(Event::default().data(event.to_string())))
+                    .map_err(|error| AppError::new("sse_stream_error", error.to_string()))
+            },
+        );
+        let cleanup_result = tokio::fs::remove_file(&upload_path).await;
+        if let Err(error) = cleanup_result {
+            log::warn!(
+                "failed to remove temporary profile upload {}: {error}",
+                upload_path.display()
+            );
+        }
+        match result {
+            Ok(value) => {
+                request_log(format!(
+                    "profile_import_upload_stream ok in {}ms",
+                    started.elapsed().as_millis()
+                ));
+                let payload = json!({ "type": "done", "data": value });
+                let _ = tx.send(Ok(Event::default().data(payload.to_string())));
+            }
+            Err(error) => {
+                request_log(format!(
+                    "profile_import_upload_stream error code={} message={} in {}ms",
+                    error.code,
+                    error.message,
+                    started.elapsed().as_millis()
+                ));
+                let payload = profile_import_error_payload(&error);
+                let _ = tx.send(Ok(Event::default().data(payload.to_string())));
+            }
+        }
+    });
+
+    Ok(Sse::new(UnboundedReceiverStream::new(rx)).keep_alive(KeepAlive::default()))
+}
+
+fn profile_import_error_payload(error: &AppError) -> Value {
+    json!({
+        "type": "error",
+        "data": {
+            "code": error.code.clone(),
+            "message": error.message.clone(),
+            "details": error.details.clone(),
+        },
+    })
+}
+
 async fn profile_import_preview_upload(
     State(state): State<HttpState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -861,6 +930,7 @@ fn is_privileged_remote_command(command: &str) -> bool {
             | "profile_import"
             | "profile_import_preview_upload"
             | "profile_import_upload"
+            | "profile_import_upload_stream"
             | "backup_create"
             | "backup_list"
             | "backup_delete"

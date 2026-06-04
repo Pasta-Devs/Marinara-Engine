@@ -1163,6 +1163,7 @@ mod tests {
         "profile_import_preview_file",
         "profile_import_preview_upload",
         "profile_import_file",
+        "profile_import_file_events",
         "profile_import_upload",
     ];
 
