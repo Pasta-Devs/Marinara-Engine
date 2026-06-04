@@ -1047,13 +1047,18 @@ function messagesBeforeRegenerationTarget(
   return targetIndex >= 0 ? storedMessages.slice(0, targetIndex) : storedMessages;
 }
 
-function regenerationTargetExtra(
+async function regenerationTargetExtra(
+  storage: StorageGateway,
+  chatId: string,
   storedMessages: JsonRecord[],
   regenerateMessageId: string | null | undefined,
-): unknown {
+): Promise<unknown> {
   const targetId = readString(regenerateMessageId).trim();
   if (!targetId) return undefined;
-  return storedMessages.find((message) => readString(message.id) === targetId)?.extra;
+  const loadedTarget = storedMessages.find((message) => readString(message.id) === targetId);
+  if (loadedTarget) return loadedTarget.extra;
+  const target = await loadChatMessage(storage, targetId).catch(() => null);
+  return targetBelongsToChat(target, chatId) ? target.extra : undefined;
 }
 
 function roleplayIndividualGroupCharacterIds(chat: JsonRecord): string[] {
@@ -2906,7 +2911,7 @@ export async function* startGeneration(
           promptSnapshot,
           spriteExpressions: preSaveSpriteExpressions,
           contextInjections: runtime?.preInjections ?? null,
-          existingExtra: regenerationTargetExtra(storedMessages, input.regenerateMessageId),
+          existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
         });
     let latestSaved = saved;
     if (saved) {
@@ -3102,7 +3107,7 @@ export async function* startGeneration(
         attachments: connected.assistantAttachments,
         usage,
         promptSnapshot: promptSnapshotDirect,
-        existingExtra: regenerationTargetExtra(storedMessages, input.regenerateMessageId),
+        existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
       });
   if (saved) {
     await persistLorebookTimingStatesSafely(

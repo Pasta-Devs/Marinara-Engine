@@ -279,4 +279,54 @@ describe("startGeneration context injection compatibility", () => {
       },
     });
   });
+
+  it("falls back to direct target lookup when regenerated message extra is not in loaded history", async () => {
+    const capture: { extraPatches: Array<{ messageId: string; patch: Record<string, unknown> }> } = {
+      extraPatches: [],
+    };
+    const deps = createDeps("idle", { capture });
+    const target = {
+      id: "assistant-1",
+      chatId: "chat-1",
+      role: "assistant",
+      characterId: "char-1",
+      content: "Previous response.",
+      createdAt: "2026-06-01T00:00:00.000Z",
+      extra: {
+        contextInjections: ["Legacy prose guidance."],
+      },
+    };
+    const originalGet = deps.storage.get;
+    let targetReads = 0;
+    deps.storage.get = async <T = unknown>(
+      entity: StorageEntity,
+      id: string,
+      options?: Parameters<StorageGateway["get"]>[2],
+    ): Promise<T | null> => {
+      if (entity === "messages" && id === "assistant-1") {
+        targetReads += 1;
+        return (targetReads >= 3 ? target : null) as T | null;
+      }
+      return originalGet<T>(entity, id, options);
+    };
+
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      message: "Regenerate that.",
+      regenerateMessageId: "assistant-1",
+      agentInjectionOverrides: [{ agentType: "secret-plot", text: "New secret plot guidance." }],
+    })) {
+      if (event.type === "done") break;
+    }
+
+    expect(capture.extraPatches.at(-1)).toMatchObject({
+      messageId: "assistant-1",
+      patch: {
+        contextInjections: [
+          { agentType: "prose-guardian", text: "Legacy prose guidance." },
+          { agentType: "secret-plot", text: "New secret plot guidance." },
+        ],
+      },
+    });
+  });
 });

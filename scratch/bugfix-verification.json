@@ -36,13 +36,15 @@
     "baselineEvidence": "Passed line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
     "focusedProof": [
       "Before fix, the focused Vitest test failed because the regenerate patch dropped the legacy prose-guardian row.",
-      "After fix, the focused Vitest test passed and preserved legacy string plus current object rows while appending the new override."
+      "After fix, the focused Vitest test passed and preserved legacy string plus current object rows while appending the new override.",
+      "After review follow-up, the focused Vitest suite passed with a direct target lookup fallback row."
     ],
     "edgeCases": [
       "Existing object-shaped injection remains preserved while merging a new override.",
-      "Blank legacy string entries are skipped instead of becoming empty prose-guardian injections."
+      "Blank legacy string entries are skipped instead of becoming empty prose-guardian injections.",
+      "Regenerate merge falls back to direct target lookup when the loaded history list does not contain the target message extra."
     ],
-    "visualProof": "Non-UI logic proof captured as raw Vitest JSON output in scratch/issue-2170-before.json and scratch/issue-2170-after.json."
+    "visualProof": "Non-UI logic proof captured as raw Vitest JSON output in scratch/issue-2170-before.json, scratch/issue-2170-after.json, and scratch/issue-2170-after-review.json."
   },
   "manualBlockers": [],
   "riskClaimMatrix": {
@@ -59,7 +61,8 @@
     ],
     "positiveRowsTested": [
       "legacy bare string plus new object override merge",
-      "existing object-shaped injection plus new object override merge"
+      "existing object-shaped injection plus new object override merge",
+      "legacy bare string merge when the regenerated target extra is recovered by direct lookup fallback"
     ],
     "negativeRowsTested": [
       "blank legacy string entry is skipped"
