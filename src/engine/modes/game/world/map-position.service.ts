@@ -227,6 +227,19 @@ function findNodeMatch(location: string | null | undefined, nodes: readonly MapN
   return findBestMatch(locationName, nodes, (node) => [node.id, node.label])?.entry ?? null;
 }
 
+function gameMapContainsLocation(map: GameMap | null | undefined, location: string | null | undefined): boolean {
+  const locationName = location?.trim();
+  if (!map || !locationName) return false;
+
+  if (map.type === "node") {
+    return Boolean(findBestMatch(locationName, map.nodes ?? [], (node) => [node.id, node.label]));
+  }
+
+  return Boolean(
+    findBestMatch(locationName, map.cells ?? [], (cell) => [cell.label, `${cell.x},${cell.y}`, `${cell.x}:${cell.y}`]),
+  );
+}
+
 export function parseMapUpdateCommands(content: string): MapUpdateCommand[] {
   const commands: MapUpdateCommand[] = [];
   const regex = /\[map_update:\s*([^\]]+)\]/gi;
@@ -302,6 +315,92 @@ function applyMapUpdateCommand(map: GameMap | null, command: MapUpdateCommand): 
     nodes,
     edges,
     partyPosition: targetId,
+  };
+}
+
+function syncGameMapPartyPosition(map: GameMap | null, location: string | null | undefined): GameMap | null {
+  const locationName = location?.trim();
+  if (!map || !locationName) return map;
+
+  if (map.type === "node") {
+    const nodes = map.nodes ?? [];
+    const bestMatch = findBestMatch(locationName, nodes, (node) => [node.id, node.label]);
+    if (!bestMatch) return map;
+
+    const node = bestMatch.entry;
+    const currentNodeId = typeof map.partyPosition === "string" ? map.partyPosition : null;
+    if (currentNodeId === node.id && node.discovered) return map;
+
+    return {
+      ...map,
+      partyPosition: node.id,
+      nodes: nodes.map((entry) => (entry.id === node.id ? { ...entry, discovered: true } : entry)),
+    };
+  }
+
+  const cells = map.cells ?? [];
+  const bestMatch = findBestMatch(locationName, cells, (cell) => [
+    cell.label,
+    `${cell.x},${cell.y}`,
+    `${cell.x}:${cell.y}`,
+  ]);
+  if (!bestMatch) return map;
+
+  const cell = bestMatch.entry;
+  const currentCell = typeof map.partyPosition === "object" ? map.partyPosition : null;
+  if (currentCell?.x === cell.x && currentCell?.y === cell.y && cell.discovered) return map;
+
+  return {
+    ...map,
+    partyPosition: { x: cell.x, y: cell.y },
+    cells: cells.map((entry) => (entry.x === cell.x && entry.y === cell.y ? { ...entry, discovered: true } : entry)),
+  };
+}
+
+export function syncGameMapMetaPartyPosition(
+  meta: Record<string, unknown>,
+  location: string | null | undefined,
+): Record<string, unknown> {
+  const maps = getGameMapsFromMeta(meta);
+  if (maps.length === 0) return meta;
+
+  const activeId =
+    typeof meta.activeGameMapId === "string"
+      ? meta.activeGameMapId
+      : getGameMapId(isGameMap(meta.gameMap) ? meta.gameMap : null);
+  const activeIndex = activeId ? maps.findIndex((map, index) => getGameMapId(map, index) === activeId) : -1;
+  const orderedMaps =
+    activeIndex >= 0 ? [maps[activeIndex]!, ...maps.filter((_, index) => index !== activeIndex)] : maps;
+
+  for (const map of orderedMaps) {
+    if (!gameMapContainsLocation(map, location)) continue;
+
+    const syncedMap = syncGameMapPartyPosition(map, location) ?? map;
+    const syncedMapId = getGameMapId(syncedMap);
+    const metaGameMap = isGameMap(meta.gameMap) ? meta.gameMap : null;
+    const syncedMetaGameMap = syncGameMapPartyPosition(metaGameMap, location);
+    if (
+      syncedMap === map &&
+      activeId === syncedMapId &&
+      getGameMapId(metaGameMap) === syncedMapId &&
+      syncedMetaGameMap === metaGameMap
+    ) {
+      return meta;
+    }
+    return withActiveGameMapMeta({ ...meta, gameMaps: maps }, syncedMap);
+  }
+
+  const activeMap = activeIndex >= 0 ? maps[activeIndex]! : maps[0]!;
+  const metaGameMap = isGameMap(meta.gameMap) ? meta.gameMap : null;
+  const activeMapId = getGameMapId(activeMap);
+  if (getGameMapId(metaGameMap) === activeMapId && activeId === activeMapId) {
+    return meta;
+  }
+  return {
+    ...meta,
+    gameMap: activeMap,
+    gameMaps: maps,
+    activeGameMapId: getGameMapId(activeMap),
   };
 }
 
