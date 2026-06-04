@@ -260,31 +260,37 @@ function estimateImageReferenceBytes(dataUrl: string): number {
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
 }
 
-function supportedImageMimeType(value: unknown): string {
+function supportedImageMimeType(value: unknown): string | null {
   const normalized = readString(value).trim().toLowerCase().split(";")[0] ?? "";
   if (normalized === "image/jpg") return "image/jpeg";
   if (["image/png", "image/jpeg", "image/webp", "image/gif"].includes(normalized)) return normalized;
-  return "image/png";
+  return null;
 }
 
-function imageDataUrl(value: unknown, fallbackMimeType = "image/png"): string {
+function referenceImageFallbackMimeType(value: unknown): string | null {
+  return readString(value).trim() ? supportedImageMimeType(value) : "image/png";
+}
+
+function imageDataUrl(value: unknown, fallbackMimeType: string | null = "image/png"): string {
   const text = readString(value).trim();
   if (!text) return "";
-  if (text.startsWith("data:image/")) return text;
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,/i.test(text)) return text;
   const wrapped = text.match(/^[a-z][a-z0-9+.-]*:\/\/(data:image\/(?:png|jpe?g|webp|gif);base64,.*)$/i);
   if (wrapped?.[1]) return wrapped[1];
   const base64 = text.replace(/\s+/g, "");
-  if (/^[A-Za-z0-9+/=]+$/.test(base64) && base64.length > 80) return `data:${fallbackMimeType};base64,${base64}`;
+  if (fallbackMimeType && /^[A-Za-z0-9+/=]+$/.test(base64) && base64.length > 80) {
+    return `data:${fallbackMimeType};base64,${base64}`;
+  }
   return "";
 }
 
-function usableImageReference(value: unknown, fallbackMimeType = "image/png"): string {
+function usableImageReference(value: unknown, fallbackMimeType: string | null = "image/png"): string {
   const dataUrl = imageDataUrl(value, fallbackMimeType);
   if (!dataUrl) return "";
   return estimateImageReferenceBytes(dataUrl) <= IMAGE_REFERENCE_PROVIDER_BYTE_LIMIT ? dataUrl : "";
 }
 
-function firstUsableReference(fallbackMimeType: string, ...values: unknown[]): string {
+function firstUsableReference(fallbackMimeType: string | null, ...values: unknown[]): string {
   for (const value of values) {
     const image = usableImageReference(value, fallbackMimeType);
     if (image) return image;
@@ -303,7 +309,7 @@ async function resolveReferenceImage(
     avatarFilename?: unknown;
   },
 ): Promise<string> {
-  const fallbackMimeType = supportedImageMimeType(source.mimeType);
+  const fallbackMimeType = referenceImageFallbackMimeType(source.mimeType);
   const inline = firstUsableReference(fallbackMimeType, source.image, source.url, source.base64);
   if (inline) return inline;
   const resolved = visuals?.resolveReferenceImage
