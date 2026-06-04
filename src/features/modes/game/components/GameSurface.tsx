@@ -7246,14 +7246,15 @@ export function GameSurface({
           clearCommittedPendingMapMove();
           return false;
         }
-        const playerAction = stripGameDirectAddressPrefix(message);
+        const formattedMessage = formatTextQuotes(message, quoteFormat);
+        const playerAction = stripGameDirectAddressPrefix(formattedMessage);
         const requestId = partyTurnRequestIdRef.current + 1;
         partyTurnRequestIdRef.current = requestId;
         partyTurnInFlightRef.current = true;
         setPartyDialogue([]);
         setPartyChatMessageId(null);
         try {
-          await createMessage.mutateAsync({ role: "user", content: message });
+          await createMessage.mutateAsync({ role: "user", content: formattedMessage });
           if (partyTurnRequestIdRef.current !== requestId) return false;
           setPartyChatInput(playerAction);
           const result = await partyTurn.mutateAsync({
@@ -7295,6 +7296,7 @@ export function GameSurface({
       pendingInterrupt,
       pendingMapMove,
       partyTurn,
+      quoteFormat,
       latestNarrationText,
       sendMessage,
       sessionInteractive,
