@@ -362,11 +362,10 @@ fn legacy_array_format_error(
 
 pub(super) fn import_legacy_profile_tables(
     state: &AppState,
-    data: &Map<String, Value>,
     tables: &Map<String, Value>,
+    raw_assets: Option<&Value>,
 ) -> AppResult<Value> {
-    let files = data.get("fileStorage").and_then(|value| value.get("files"));
-    let mut restored_assets = restore_legacy_profile_json_assets(state, files)?;
+    let mut restored_assets = restore_legacy_profile_json_assets(state, raw_assets)?;
     let restored_count = restored_assets.restored();
     let staging_root = restored_assets.staging_root().map(Path::to_path_buf);
     let result = import_legacy_profile_tables_with_restored_assets(
@@ -389,6 +388,33 @@ pub(super) fn import_legacy_profile_tables_with_restored_assets<F>(
 where
     F: FnOnce() -> AppResult<()>,
 {
+    let plan = legacy_profile_import_plan(state, tables, restored_assets, staging_root)?;
+    state
+        .storage
+        .replace_all_many_and_then(plan.replacements, install_assets)?;
+    Ok(json!({ "success": true, "imported": plan.imported }))
+}
+
+pub(super) fn preview_legacy_profile_tables(
+    state: &AppState,
+    tables: &Map<String, Value>,
+    restored_assets: usize,
+) -> AppResult<Value> {
+    let plan = legacy_profile_import_plan(state, tables, restored_assets, None)?;
+    Ok(json!({ "success": true, "preview": true, "imported": plan.imported }))
+}
+
+struct LegacyProfileImportPlan {
+    imported: Map<String, Value>,
+    replacements: Vec<(&'static str, Vec<Value>)>,
+}
+
+fn legacy_profile_import_plan(
+    state: &AppState,
+    tables: &Map<String, Value>,
+    restored_assets: usize,
+    staging_root: Option<&Path>,
+) -> AppResult<LegacyProfileImportPlan> {
     let mut imported = Map::new();
     let mut replacements = Vec::new();
     let mut unsupported_prompt_overrides = 0usize;
@@ -447,9 +473,6 @@ where
         replacements.push((message_swipes::COLLECTION, Vec::new()));
     }
     super::normalize_message_swipe_replacements(&mut replacements, &mut imported)?;
-    state
-        .storage
-        .replace_all_many_and_then(replacements, install_assets)?;
     imported.insert("files".to_string(), json!(restored_assets));
     if unsupported_prompt_overrides > 0 {
         imported.insert(
@@ -467,7 +490,10 @@ where
         imported.insert("ooc-influences".to_string(), json!(imported_ooc_influences));
     }
     insert_profile_import_aliases(&mut imported);
-    Ok(json!({ "success": true, "imported": imported }))
+    Ok(LegacyProfileImportPlan {
+        imported,
+        replacements,
+    })
 }
 
 fn table_rows(tables: &Map<String, Value>, table: &str) -> Vec<Value> {

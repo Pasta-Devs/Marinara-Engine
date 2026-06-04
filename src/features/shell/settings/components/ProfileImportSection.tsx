@@ -1,6 +1,6 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Download, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, Download, FileSearch, Loader2 } from "lucide-react";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { profileApi } from "../../../../shared/api/profile-api";
@@ -10,21 +10,51 @@ import { cn } from "../../../../shared/lib/utils";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 
 type ProfileImportStats = {
+  [key: string]: number | undefined;
   characters?: number;
+  "character-groups"?: number;
+  "character-versions"?: number;
   personas?: number;
+  "persona-groups"?: number;
   lorebooks?: number;
+  "lorebook-entries"?: number;
+  "lorebook-folders"?: number;
+  prompts?: number;
+  "prompt-groups"?: number;
+  "prompt-sections"?: number;
+  "prompt-variables"?: number;
+  "prompt-overrides"?: number;
   presets?: number;
+  "chat-presets"?: number;
   agents?: number;
+  "agent-runs"?: number;
+  "agent-memory"?: number;
   themes?: number;
+  extensions?: number;
   chats?: number;
+  "chat-folders"?: number;
   messages?: number;
+  "message-swipes"?: number;
   connections?: number;
+  "connection-folders"?: number;
+  "custom-tools"?: number;
+  "regex-scripts"?: number;
+  "app-settings"?: number;
+  gallery?: number;
+  "character-gallery"?: number;
+  "background-metadata"?: number;
+  sprites?: number;
+  "knowledge-sources"?: number;
+  "game-state-snapshots"?: number;
+  "game-checkpoints"?: number;
+  "conversation-notes"?: number;
+  "ooc-influences"?: number;
   files?: number;
   unsupportedPromptOverrides?: number;
 };
 
 type ProfileImportProgressState = {
-  status: "reading" | "starting" | "running" | "success" | "error";
+  status: "reading" | "preview" | "starting" | "running" | "success" | "error";
   label: string;
   completedItems: number;
   totalItems: number;
@@ -45,12 +75,14 @@ type ProfileImportWarning = {
 
 type ProfileImportResult = {
   success?: boolean;
+  preview?: boolean;
   error?: string;
   message?: string;
   imported?: ProfileImportStats;
   warnings?: ProfileImportWarning[];
   sourceFormat?: string;
   converted?: ProfileImportConversion;
+  fileFingerprint?: string;
 };
 
 type ProfileImportConversion = {
@@ -58,6 +90,49 @@ type ProfileImportConversion = {
   from?: string;
   to?: string;
 };
+
+const PROFILE_IMPORT_STAT_LABELS: Array<{ key: string; singular: string; plural: string }> = [
+  { key: "characters", singular: "character", plural: "characters" },
+  { key: "character-groups", singular: "character group", plural: "character groups" },
+  { key: "character-versions", singular: "character version", plural: "character versions" },
+  { key: "personas", singular: "persona", plural: "personas" },
+  { key: "persona-groups", singular: "persona group", plural: "persona groups" },
+  { key: "lorebooks", singular: "lorebook", plural: "lorebooks" },
+  { key: "lorebook-entries", singular: "lorebook entry", plural: "lorebook entries" },
+  { key: "lorebook-folders", singular: "lorebook folder", plural: "lorebook folders" },
+  { key: "presets", singular: "preset", plural: "presets" },
+  { key: "prompt-groups", singular: "prompt group", plural: "prompt groups" },
+  { key: "prompt-sections", singular: "prompt section", plural: "prompt sections" },
+  { key: "prompt-variables", singular: "prompt variable", plural: "prompt variables" },
+  { key: "prompt-overrides", singular: "prompt override", plural: "prompt overrides" },
+  { key: "chat-presets", singular: "chat preset", plural: "chat presets" },
+  { key: "agents", singular: "agent", plural: "agents" },
+  { key: "agent-runs", singular: "agent run", plural: "agent runs" },
+  { key: "agent-memory", singular: "agent memory row", plural: "agent memory rows" },
+  { key: "themes", singular: "theme", plural: "themes" },
+  { key: "extensions", singular: "extension", plural: "extensions" },
+  { key: "connections", singular: "connection", plural: "connections" },
+  { key: "connection-folders", singular: "connection folder", plural: "connection folders" },
+  { key: "chats", singular: "chat", plural: "chats" },
+  { key: "chat-folders", singular: "chat folder", plural: "chat folders" },
+  { key: "messages", singular: "message", plural: "messages" },
+  { key: "message-swipes", singular: "message swipe", plural: "message swipes" },
+  { key: "custom-tools", singular: "custom tool", plural: "custom tools" },
+  { key: "regex-scripts", singular: "regex script", plural: "regex scripts" },
+  { key: "app-settings", singular: "app setting", plural: "app settings" },
+  { key: "gallery", singular: "gallery item", plural: "gallery items" },
+  { key: "character-gallery", singular: "character gallery item", plural: "character gallery items" },
+  { key: "background-metadata", singular: "background", plural: "backgrounds" },
+  { key: "sprites", singular: "sprite", plural: "sprites" },
+  { key: "knowledge-sources", singular: "knowledge source", plural: "knowledge sources" },
+  { key: "game-state-snapshots", singular: "game state snapshot", plural: "game state snapshots" },
+  { key: "game-checkpoints", singular: "game checkpoint", plural: "game checkpoints" },
+  { key: "conversation-notes", singular: "conversation note", plural: "conversation notes" },
+  { key: "ooc-influences", singular: "OOC influence", plural: "OOC influences" },
+  { key: "files", singular: "file", plural: "files" },
+];
+const PROFILE_IMPORT_STAT_META_KEYS = new Set(["unsupportedPromptOverrides"]);
+const PROFILE_IMPORT_STAT_ALIAS_KEYS = new Set(["prompts"]);
 
 function formatProfileImportDuration(seconds: number) {
   const safeSeconds = Math.max(0, Math.round(seconds));
@@ -77,6 +152,7 @@ function estimateProfileImportRemainingSeconds(progress: ProfileImportProgressSt
 
 function getProfileImportPercent(progress: ProfileImportProgressState) {
   if (progress.status === "success") return 100;
+  if (progress.status === "preview") return 0;
   if (progress.totalItems <= 0) return progress.status === "running" ? 8 : 0;
   const percent = Math.round((progress.completedItems / progress.totalItems) * 100);
   return Math.min(99, Math.max(progress.status === "running" ? 8 : 0, percent));
@@ -84,22 +160,44 @@ function getProfileImportPercent(progress: ProfileImportProgressState) {
 
 function formatProfileImportStats(stats?: ProfileImportStats) {
   if (!stats) return "";
-  const entries: Array<[number | undefined, string]> = [
-    [stats.characters, "characters"],
-    [stats.personas, "personas"],
-    [stats.lorebooks, "lorebooks"],
-    [stats.presets, "presets"],
-    [stats.agents, "agents"],
-    [stats.themes, "themes"],
-    [stats.chats, "chats"],
-    [stats.messages, "messages"],
-    [stats.connections, "connections"],
-    [stats.files, "files"],
-  ];
-  return entries
-    .filter(([count]) => typeof count === "number" && count > 0)
-    .map(([count, label]) => `${count} ${label}`)
+  return profileImportStatEntries(stats)
+    .map(({ count, singular, plural }) => `${count} ${count === 1 ? singular : plural}`)
     .join(", ");
+}
+
+function getProfileImportItemCount(stats?: ProfileImportStats) {
+  if (!stats) return 0;
+  return profileImportStatEntries(stats).reduce((total, { count }) => total + count, 0);
+}
+
+function profileImportStatEntries(stats: ProfileImportStats) {
+  const used = new Set<string>();
+  const entries: Array<{ key: string; count: number; singular: string; plural: string }> = [];
+  for (const label of PROFILE_IMPORT_STAT_LABELS) {
+    const count = stats[label.key];
+    used.add(label.key);
+    if (typeof count === "number" && count > 0) {
+      entries.push({ ...label, count });
+    }
+  }
+  for (const [key, count] of Object.entries(stats)) {
+    if (
+      used.has(key) ||
+      PROFILE_IMPORT_STAT_META_KEYS.has(key) ||
+      PROFILE_IMPORT_STAT_ALIAS_KEYS.has(key) ||
+      typeof count !== "number" ||
+      count <= 0
+    ) {
+      continue;
+    }
+    const label = formatUnknownProfileImportStatKey(key);
+    entries.push({ key, count, singular: label, plural: label });
+  }
+  return entries;
+}
+
+function formatUnknownProfileImportStatKey(key: string) {
+  return key.replace(/[-_]+/g, " ");
 }
 
 function formatProfileImportSkippedStats(stats?: ProfileImportStats) {
@@ -138,6 +236,41 @@ function formatProfileImportMetadata(progress: ProfileImportProgressState) {
   return parts.join(". ");
 }
 
+function profileImportMetadataFromResult(data?: ProfileImportResult) {
+  return {
+    imported: data?.imported,
+    warnings: Array.isArray(data?.warnings) ? data.warnings : [],
+    sourceFormat: typeof data?.sourceFormat === "string" ? data.sourceFormat : undefined,
+    converted: data?.converted && typeof data.converted === "object" ? data.converted : undefined,
+  };
+}
+
+function formatProfileImportConfirmationMessage(preview: ProfileImportResult) {
+  const { imported, warnings, sourceFormat, converted } = profileImportMetadataFromResult(preview);
+  const found = formatProfileImportStats(imported) || "no counted records";
+  const source = formatProfileImportSourceFormat(sourceFormat);
+  const conversion =
+    converted?.applied
+      ? `Conversion: ${formatProfileImportSourceFormat(converted.from) || "legacy"} -> ${
+          formatProfileImportSourceFormat(converted.to) || "refactor"
+        }.`
+      : converted?.applied === false
+        ? "Conversion: none."
+        : "";
+  const skipped = formatProfileImportSkippedStats(imported);
+  const warningSummary = formatProfileImportWarnings(warnings);
+  return [
+    `Found: ${found}.`,
+    source ? `Source: ${source}.` : "",
+    conversion,
+    skipped ? `Skipped during conversion: ${skipped}.` : "",
+    warningSummary ? `${warningSummary} detected. Missing assets will be skipped.` : "",
+    "Importing replaces the matching profile data areas from this file. This cannot be undone. Continue?",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 export function ProfileImportSection() {
   const qc = useQueryClient();
   const remoteProfileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +278,7 @@ export function ProfileImportSection() {
   const [profileImportProgress, setProfileImportProgress] = useState<ProfileImportProgressState | null>(null);
   const profileImportBusy =
     profileImportProgress?.status === "reading" ||
+    profileImportProgress?.status === "preview" ||
     profileImportProgress?.status === "starting" ||
     profileImportProgress?.status === "running";
   const isRemoteRuntime = remoteRuntimeUrl.trim().length > 0;
@@ -153,7 +287,11 @@ export function ProfileImportSection() {
     if (!profileImportBusy) return;
     const timer = window.setInterval(() => {
       setProfileImportProgress((current) =>
-        current && (current.status === "reading" || current.status === "starting" || current.status === "running")
+        current &&
+        (current.status === "reading" ||
+          current.status === "preview" ||
+          current.status === "starting" ||
+          current.status === "running")
           ? { ...current, elapsedSeconds: Math.floor((Date.now() - current.startedAt) / 1000) }
           : current,
       );
@@ -164,10 +302,7 @@ export function ProfileImportSection() {
   const finishProfileImport = (data: ProfileImportResult, startedAt: number) => {
     if (data?.success === false) throw new Error(data.error ?? data.message ?? "Unknown error");
     qc.invalidateQueries();
-    const imported = data?.imported;
-    const warnings = Array.isArray(data?.warnings) ? data.warnings : [];
-    const sourceFormat = typeof data?.sourceFormat === "string" ? data.sourceFormat : undefined;
-    const converted = data?.converted && typeof data.converted === "object" ? data.converted : undefined;
+    const { imported, warnings, sourceFormat, converted } = profileImportMetadataFromResult(data);
     const summary = formatProfileImportStats(imported);
     const skippedSummary = formatProfileImportSkippedStats(imported);
     const warningSummary = formatProfileImportWarnings(warnings);
@@ -197,11 +332,40 @@ export function ProfileImportSection() {
     );
   };
 
-  const runConfirmedProfileImport = async (startedAt: number, importProfile: () => Promise<ProfileImportResult>) => {
+  const runPreviewedProfileImport = async (
+    startedAt: number,
+    previewProfile: () => Promise<ProfileImportResult>,
+    importProfile: (preview: ProfileImportResult) => Promise<ProfileImportResult>,
+  ) => {
+    setProfileImportProgress((current) =>
+      current
+        ? {
+            ...current,
+            status: "reading",
+            label: "Scanning profile file",
+            elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+          }
+        : current,
+    );
+    const preview = await previewProfile();
+    if (preview?.success === false) throw new Error(preview.error ?? preview.message ?? "Unknown error");
+    const { imported, warnings, sourceFormat, converted } = profileImportMetadataFromResult(preview);
+    const totalItems = Math.max(1, getProfileImportItemCount(imported));
+    setProfileImportProgress({
+      status: "preview",
+      label: "Review profile import",
+      completedItems: 0,
+      totalItems,
+      startedAt,
+      elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
+      imported,
+      warnings,
+      sourceFormat,
+      converted,
+    });
     const confirmed = await showConfirmDialog({
       title: "Import Profile",
-      message:
-        "Importing a profile replaces data from the selected file and may remove existing collections, depending on the export format. This cannot be undone. Continue?",
+      message: formatProfileImportConfirmationMessage(preview),
       confirmLabel: "Import",
       cancelLabel: "Cancel",
       tone: "destructive",
@@ -215,7 +379,7 @@ export function ProfileImportSection() {
         ? {
             ...current,
             status: "starting",
-            label: "Reading profile file",
+            label: "Preparing profile import",
             elapsedSeconds: Math.floor((Date.now() - startedAt) / 1000),
           }
         : current,
@@ -231,7 +395,7 @@ export function ProfileImportSection() {
           }
         : current,
     );
-    finishProfileImport(await importProfile(), startedAt);
+    finishProfileImport(await importProfile(preview), startedAt);
   };
 
   const showProfileImportError = (err: unknown, startedAt: number) => {
@@ -282,7 +446,14 @@ export function ProfileImportSection() {
         setProfileImportProgress(null);
         return;
       }
-      await runConfirmedProfileImport(startedAt, () => profileApi.importProfileFile<ProfileImportResult>(selected));
+      await runPreviewedProfileImport(
+        startedAt,
+        () => profileApi.previewProfileFile<ProfileImportResult>(selected),
+        (preview) =>
+          profileApi.importProfileFile<ProfileImportResult>(selected, {
+            previewFingerprint: preview.fileFingerprint,
+          }),
+      );
     } catch (err) {
       showProfileImportError(err, startedAt);
     }
@@ -302,9 +473,11 @@ export function ProfileImportSection() {
       elapsedSeconds: 0,
     });
     try {
-      await runConfirmedProfileImport(startedAt, async () => {
-        return profileApi.importProfileUpload<ProfileImportResult>(file);
-      });
+      await runPreviewedProfileImport(
+        startedAt,
+        () => profileApi.previewProfileUpload<ProfileImportResult>(file),
+        () => profileApi.importProfileUpload<ProfileImportResult>(file),
+      );
     } catch (err) {
       showProfileImportError(err, startedAt);
     }
@@ -329,7 +502,11 @@ export function ProfileImportSection() {
         )}
       >
         {profileImportBusy ? <Loader2 size="1rem" className="animate-spin" /> : <Download size="1rem" />}
-        {profileImportBusy ? "Importing Profile..." : "Import Profile (JSON/ZIP)"}
+        {profileImportBusy
+          ? profileImportProgress?.status === "reading" || profileImportProgress?.status === "preview"
+            ? "Scanning Profile..."
+            : "Importing Profile..."
+          : "Import Profile (JSON/ZIP)"}
       </button>
 
       {profileImportProgress && (
@@ -351,6 +528,8 @@ export function ProfileImportSection() {
                 <Check size="0.875rem" className="shrink-0" />
               ) : profileImportProgress.status === "error" ? (
                 <AlertTriangle size="0.875rem" className="shrink-0" />
+              ) : profileImportProgress.status === "preview" ? (
+                <FileSearch size="0.875rem" className="shrink-0 text-emerald-500" />
               ) : (
                 <Loader2 size="0.875rem" className="shrink-0 animate-spin text-emerald-500" />
               )}
@@ -363,28 +542,33 @@ export function ProfileImportSection() {
 
           {profileImportProgress.status !== "error" && (
             <>
-              <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-300",
-                    profileImportProgress.status === "success" ? "bg-emerald-500" : "bg-emerald-400",
-                  )}
-                  style={{ width: `${getProfileImportPercent(profileImportProgress)}%` }}
-                />
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-                <span>
-                  {profileImportProgress.completedItems}/{profileImportProgress.totalItems} items
-                </span>
-                {estimateProfileImportRemainingSeconds(profileImportProgress) !== null && (
-                  <span>
-                    ETA {formatProfileImportDuration(estimateProfileImportRemainingSeconds(profileImportProgress) ?? 0)}
-                  </span>
-                )}
-              </div>
+              {profileImportProgress.status !== "preview" && (
+                <>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--border)]">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        profileImportProgress.status === "success" ? "bg-emerald-500" : "bg-emerald-400",
+                      )}
+                      style={{ width: `${getProfileImportPercent(profileImportProgress)}%` }}
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+                    <span>
+                      {profileImportProgress.completedItems}/{profileImportProgress.totalItems} items
+                    </span>
+                    {estimateProfileImportRemainingSeconds(profileImportProgress) !== null && (
+                      <span>
+                        ETA {formatProfileImportDuration(estimateProfileImportRemainingSeconds(profileImportProgress) ?? 0)}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
               {formatProfileImportStats(profileImportProgress.imported) && (
                 <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                  Imported so far: {formatProfileImportStats(profileImportProgress.imported)}
+                  {profileImportProgress.status === "success" ? "Imported" : "Found"}:{" "}
+                  {formatProfileImportStats(profileImportProgress.imported)}
                 </div>
               )}
               {formatProfileImportMetadata(profileImportProgress) && (

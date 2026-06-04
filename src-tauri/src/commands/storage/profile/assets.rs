@@ -328,6 +328,16 @@ pub(super) fn restore_profile_assets(
     restore_profile_json_assets(state, raw_assets, false)
 }
 
+pub(super) fn preview_profile_assets(raw_assets: Option<&Value>) -> AppResult<(usize, Vec<Value>)> {
+    preview_profile_json_assets(raw_assets, false)
+}
+
+pub(super) fn preview_legacy_profile_json_assets(
+    raw_assets: Option<&Value>,
+) -> AppResult<(usize, Vec<Value>)> {
+    preview_profile_json_assets(raw_assets, true)
+}
+
 pub(super) fn restore_legacy_profile_json_assets(
     state: &AppState,
     raw_assets: Option<&Value>,
@@ -405,6 +415,43 @@ fn decoded_profile_json_assets(
     Ok((decoded, warnings))
 }
 
+fn preview_profile_json_assets(
+    raw_assets: Option<&Value>,
+    allow_legacy_data_field: bool,
+) -> AppResult<(usize, Vec<Value>)> {
+    let Some(assets) = profile_asset_manifest(raw_assets)? else {
+        return Ok((0, Vec::new()));
+    };
+    let mut restored = 0usize;
+    let mut warnings = Vec::new();
+    for (index, asset) in assets.iter().enumerate() {
+        let path = profile_asset_manifest_path(asset, index)?;
+        if is_legacy_cleanup_backup_asset_path(path) {
+            continue;
+        }
+        safe_profile_asset_path(path)?;
+        let raw_data = if allow_legacy_data_field {
+            asset
+                .get("base64")
+                .or_else(|| asset.get("data"))
+                .and_then(Value::as_str)
+        } else {
+            asset.get("base64").and_then(Value::as_str)
+        };
+        if let Some(raw_data) = raw_data {
+            let _ = decode_profile_asset_data(raw_data)?;
+            restored += 1;
+        } else {
+            warnings.push(json!({
+                "type": "missing_asset",
+                "path": path,
+                "message": format!("Profile asset {path} is missing base64 data. Imported the rest of the profile without that asset."),
+            }));
+        }
+    }
+    Ok((restored, warnings))
+}
+
 pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
     state: &AppState,
     archive: &mut zip::ZipArchive<R>,
@@ -448,6 +495,42 @@ pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
         transaction: Some(transaction),
         warnings,
     })
+}
+
+pub(super) fn preview_profile_zip_assets(
+    raw_assets: Option<&Value>,
+    names: &[String],
+    profile_prefix: &str,
+) -> AppResult<(usize, Vec<Value>)> {
+    let Some(assets) = profile_asset_manifest(raw_assets)? else {
+        return Ok((0, Vec::new()));
+    };
+    let mut restored = 0usize;
+    let mut warnings = Vec::new();
+    for (index, asset) in assets.iter().enumerate() {
+        let path = profile_asset_manifest_path(asset, index)?;
+        if is_legacy_cleanup_backup_asset_path(path) {
+            continue;
+        }
+        safe_profile_asset_path(path)?;
+        if let Some(raw_data) = asset
+            .get("base64")
+            .or_else(|| asset.get("data"))
+            .and_then(Value::as_str)
+        {
+            let _ = decode_profile_asset_data(raw_data)?;
+            restored += 1;
+        } else if zip_asset_entry_name(names, profile_prefix, path).is_some() {
+            restored += 1;
+        } else {
+            warnings.push(json!({
+                "type": "missing_asset",
+                "path": path,
+                "message": format!("Profile ZIP is missing {path}. Imported the rest of the profile without that asset."),
+            }));
+        }
+    }
+    Ok((restored, warnings))
 }
 
 fn decoded_profile_zip_assets(

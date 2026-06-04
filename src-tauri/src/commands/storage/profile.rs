@@ -6,20 +6,33 @@ mod legacy;
 mod zip_import;
 
 use self::assets::{
-    profile_assets, profile_assets_manifest, restore_profile_assets, RestoredProfileAssets,
+    preview_legacy_profile_json_assets, preview_profile_assets, profile_assets,
+    profile_assets_manifest, restore_profile_assets, RestoredProfileAssets,
 };
-use self::legacy::{import_legacy_profile_tables, legacy_array_profile_tables};
-use self::zip_import::import_profile_zip;
+use self::legacy::{
+    import_legacy_profile_tables, legacy_array_profile_tables, preview_legacy_profile_tables,
+};
+use self::zip_import::{
+    import_profile_zip, import_profile_zip_file, preview_profile_zip, preview_profile_zip_file,
+};
 use super::contracts;
 use super::shared::*;
 use super::*;
 use base64::engine::general_purpose;
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fs::{self, File};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 const PROFILE_EXPORT_JSON_LIMIT_BYTES: usize = 256 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE: &str = "PROFILE_EXPORT_JSON_TOO_LARGE";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ProfileImportMode {
+    Preview,
+    Commit,
+}
 
 #[derive(Clone, Copy)]
 pub(super) enum ProfileImportSourceFormat {
@@ -44,6 +57,11 @@ impl ProfileImportSourceFormat {
             Self::LegacyArray => Some("legacy-array"),
         }
     }
+}
+
+struct ProfileCollectionsImportPlan {
+    imported: Map<String, Value>,
+    replacements: Vec<(&'static str, Vec<Value>)>,
 }
 
 pub(crate) struct ProfileExportDownload {
@@ -78,17 +96,51 @@ pub(crate) fn profile_backup_snapshot(state: &AppState) -> AppResult<Value> {
     }))
 }
 
-pub(crate) fn import_profile_file_path(state: &AppState, value: &str) -> AppResult<Value> {
+pub(crate) fn import_profile_file_path(
+    state: &AppState,
+    value: &str,
+    preview_fingerprint: Option<&str>,
+) -> AppResult<Value> {
     let path = PathBuf::from(value.trim());
-    import_profile_file(state, &path)
+    import_profile_file_with_preview_fingerprint(state, &path, preview_fingerprint)
+}
+
+pub(crate) fn preview_profile_file_path(state: &AppState, value: &str) -> AppResult<Value> {
+    let path = PathBuf::from(value.trim());
+    preview_profile_file(state, &path)
 }
 
 pub(crate) fn import_profile_file(state: &AppState, path: &Path) -> AppResult<Value> {
+    import_profile_file_with_preview_fingerprint(state, path, None)
+}
+
+pub(crate) fn import_profile_file_with_preview_fingerprint(
+    state: &AppState,
+    path: &Path,
+    preview_fingerprint: Option<&str>,
+) -> AppResult<Value> {
     if path.as_os_str().is_empty() {
         return Err(AppError::invalid_input("Profile file path is required"));
     }
     if !path.is_file() {
         return Err(AppError::invalid_input("Profile import path is not a file"));
+    }
+    let mut file = File::open(path)?;
+    if let Some(expected) = preview_fingerprint
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        let actual = profile_file_fingerprint(&mut file)?;
+        if actual != expected {
+            return Err(AppError::with_details(
+                "profile_file_changed",
+                "Profile file changed after preview. Select the file again before importing.",
+                json!({
+                    "expectedFingerprint": expected,
+                    "actualFingerprint": actual,
+                }),
+            ));
+        }
     }
     match path
         .extension()
@@ -98,13 +150,40 @@ pub(crate) fn import_profile_file(state: &AppState, path: &Path) -> AppResult<Va
     {
         Some("json") => import_profile(
             state,
-            serde_json::from_reader(File::open(path)?).map_err(invalid_profile_json_error)?,
+            serde_json::from_reader(file).map_err(invalid_profile_json_error)?,
         ),
-        Some("zip") => import_profile_zip(state, path),
+        Some("zip") => import_profile_zip_file(state, file),
         _ => Err(AppError::invalid_input(
             "Profile import must be a .json or .zip file",
         )),
     }
+}
+
+pub(crate) fn preview_profile_file(state: &AppState, path: &Path) -> AppResult<Value> {
+    if path.as_os_str().is_empty() {
+        return Err(AppError::invalid_input("Profile file path is required"));
+    }
+    if !path.is_file() {
+        return Err(AppError::invalid_input("Profile import path is not a file"));
+    }
+    let mut file = File::open(path)?;
+    let fingerprint = profile_file_fingerprint(&mut file)?;
+    let result = match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("json") => preview_profile(
+            state,
+            serde_json::from_reader(file).map_err(invalid_profile_json_error)?,
+        ),
+        Some("zip") => preview_profile_zip_file(state, file),
+        _ => Err(AppError::invalid_input(
+            "Profile import must be a .json or .zip file",
+        )),
+    }?;
+    Ok(with_profile_import_file_fingerprint(result, fingerprint))
 }
 
 pub(crate) fn import_profile_upload(
@@ -112,15 +191,7 @@ pub(crate) fn import_profile_upload(
     filename: &str,
     base64: &str,
 ) -> AppResult<Value> {
-    let extension = Path::new(filename)
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| extension.to_ascii_lowercase())
-        .ok_or_else(|| AppError::invalid_input("Profile upload must be a .json or .zip file"))?;
-    let bytes =
-        base64::Engine::decode(&general_purpose::STANDARD, base64.trim()).map_err(|error| {
-            AppError::invalid_input(format!("Invalid profile upload data: {error}"))
-        })?;
+    let (extension, bytes) = profile_upload_bytes(filename, base64)?;
     match extension.as_str() {
         "json" => import_profile(
             state,
@@ -141,6 +212,70 @@ pub(crate) fn import_profile_upload(
     }
 }
 
+pub(crate) fn preview_profile_upload(
+    state: &AppState,
+    filename: &str,
+    base64: &str,
+) -> AppResult<Value> {
+    let (extension, bytes) = profile_upload_bytes(filename, base64)?;
+    match extension.as_str() {
+        "json" => preview_profile(
+            state,
+            serde_json::from_slice(&bytes).map_err(invalid_profile_json_error)?,
+        ),
+        "zip" => {
+            let upload_dir = state.data_dir.join(".profile-upload-imports");
+            fs::create_dir_all(&upload_dir)?;
+            let path = upload_dir.join(format!("profile-preview-{}.zip", now_millis()));
+            fs::write(&path, bytes)?;
+            let result = preview_profile_zip(state, &path);
+            let _ = fs::remove_file(path);
+            result
+        }
+        _ => Err(AppError::invalid_input(
+            "Profile upload must be a .json or .zip file",
+        )),
+    }
+}
+
+fn profile_upload_bytes(filename: &str, base64: &str) -> AppResult<(String, Vec<u8>)> {
+    let extension = Path::new(filename)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .ok_or_else(|| AppError::invalid_input("Profile upload must be a .json or .zip file"))?;
+    let bytes =
+        base64::Engine::decode(&general_purpose::STANDARD, base64.trim()).map_err(|error| {
+            AppError::invalid_input(format!("Invalid profile upload data: {error}"))
+        })?;
+    Ok((extension, bytes))
+}
+
+fn profile_file_fingerprint(file: &mut File) -> AppResult<String> {
+    file.seek(SeekFrom::Start(0))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    file.seek(SeekFrom::Start(0))?;
+    Ok(format!("sha256:{}", hex_bytes(&hasher.finalize())))
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(HEX[(byte >> 4) as usize] as char);
+        output.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    output
+}
+
 fn invalid_profile_json_error(error: serde_json::Error) -> AppError {
     AppError::invalid_input(format!("Invalid profile JSON: {error}"))
 }
@@ -154,6 +289,7 @@ pub(crate) fn profile_call(
 ) -> AppResult<Value> {
     match (method, rest) {
         ("GET", ["export"]) => export_profile(state, route.query.get("format").map(String::as_str)),
+        ("POST", ["import", "preview"]) => preview_profile(state, body),
         ("POST", ["import"]) => import_profile(state, body),
         _ => Err(AppError::new(
             "route_not_found",
@@ -220,6 +356,14 @@ fn native_profile_export(state: &AppState) -> AppResult<Value> {
 }
 
 fn import_profile(state: &AppState, body: Value) -> AppResult<Value> {
+    run_profile_import(state, body, ProfileImportMode::Commit)
+}
+
+fn preview_profile(state: &AppState, body: Value) -> AppResult<Value> {
+    run_profile_import(state, body, ProfileImportMode::Preview)
+}
+
+fn run_profile_import(state: &AppState, body: Value, mode: ProfileImportMode) -> AppResult<Value> {
     let data = body
         .get("data")
         .and_then(Value::as_object)
@@ -232,7 +376,7 @@ fn import_profile(state: &AppState, body: Value) -> AppResult<Value> {
                 "invalid-refactor-native",
             )
         })?;
-        return import_profile_collections(state, data, collections);
+        return run_profile_collections(state, data, collections, mode);
     }
     if let Some(tables_value) = data
         .get("fileStorage")
@@ -244,14 +388,27 @@ fn import_profile(state: &AppState, body: Value) -> AppResult<Value> {
                 "invalid-legacy-modern-fileStorage",
             )
         })?;
-        return import_legacy_profile_tables(state, data, tables).map(|value| {
-            with_profile_import_metadata(value, ProfileImportSourceFormat::LegacyFileStorage)
-        });
+        let files = data.get("fileStorage").and_then(|value| value.get("files"));
+        return run_profile_legacy_tables(
+            state,
+            tables,
+            files,
+            ProfileImportSourceFormat::LegacyFileStorage,
+            mode,
+        );
     }
     if let Some(tables) = legacy_array_profile_tables(data)? {
-        return import_legacy_profile_tables(state, data, &tables).map(|value| {
-            with_profile_import_metadata(value, ProfileImportSourceFormat::LegacyArray)
-        });
+        let files = data
+            .get("fileStorage")
+            .and_then(|value| value.get("files"))
+            .or_else(|| data.get("assets"));
+        return run_profile_legacy_tables(
+            state,
+            &tables,
+            files,
+            ProfileImportSourceFormat::LegacyArray,
+            mode,
+        );
     }
     Err(profile_format_error(
         "Profile export must contain data.collections, data.fileStorage.tables, or legacy profile arrays",
@@ -259,20 +416,75 @@ fn import_profile(state: &AppState, body: Value) -> AppResult<Value> {
     ))
 }
 
-fn import_profile_collections(
+fn run_profile_collections(
     state: &AppState,
     data: &Map<String, Value>,
     collections: &Map<String, Value>,
+    mode: ProfileImportMode,
 ) -> AppResult<Value> {
     validate_native_profile_import(data, collections)?;
-    let mut restored_assets = restore_profile_assets(state, data.get("assets"))?;
-    let restored_count = restored_assets.restored();
-    let result =
-        import_profile_collections_with_restored_assets(state, collections, restored_count, || {
-            restored_assets.install()
-        });
-    finish_profile_import_assets(restored_assets, result)
-        .map(|value| with_profile_import_metadata(value, ProfileImportSourceFormat::RefactorNative))
+    match mode {
+        ProfileImportMode::Preview => {
+            let (restored_assets, warnings) = preview_profile_assets(data.get("assets"))?;
+            let result = preview_profile_collections_with_restored_assets(
+                state,
+                collections,
+                restored_assets,
+            )?;
+            Ok(with_profile_import_warnings(
+                with_profile_import_metadata(result, ProfileImportSourceFormat::RefactorNative),
+                warnings,
+            ))
+        }
+        ProfileImportMode::Commit => {
+            let mut restored_assets = restore_profile_assets(state, data.get("assets"))?;
+            let restored_count = restored_assets.restored();
+            let result = import_profile_collections_with_restored_assets(
+                state,
+                collections,
+                restored_count,
+                || restored_assets.install(),
+            );
+            finish_profile_import_assets(restored_assets, result).map(|value| {
+                with_profile_import_metadata(value, ProfileImportSourceFormat::RefactorNative)
+            })
+        }
+    }
+}
+
+fn run_profile_legacy_tables(
+    state: &AppState,
+    tables: &Map<String, Value>,
+    raw_assets: Option<&Value>,
+    source_format: ProfileImportSourceFormat,
+    mode: ProfileImportMode,
+) -> AppResult<Value> {
+    match mode {
+        ProfileImportMode::Preview => {
+            let (restored_assets, warnings) = preview_legacy_profile_json_assets(raw_assets)?;
+            let result = preview_legacy_profile_tables(state, tables, restored_assets)?;
+            Ok(with_profile_import_warnings(
+                with_profile_import_metadata(result, source_format),
+                warnings,
+            ))
+        }
+        ProfileImportMode::Commit => import_legacy_profile_tables(state, tables, raw_assets)
+            .map(|value| with_profile_import_metadata(value, source_format)),
+    }
+}
+
+pub(super) fn preview_profile_collections_with_restored_assets(
+    state: &AppState,
+    collections: &Map<String, Value>,
+    restored_assets: usize,
+) -> AppResult<Value> {
+    let plan = profile_collections_import_plan(
+        state,
+        collections,
+        restored_assets,
+        ProfileImportMode::Preview,
+    )?;
+    Ok(json!({ "success": true, "preview": true, "imported": plan.imported }))
 }
 
 pub(super) fn with_profile_import_metadata(
@@ -295,6 +507,22 @@ pub(super) fn with_profile_import_metadata(
             }),
         };
         object.insert("converted".to_string(), converted);
+    }
+    value
+}
+
+pub(super) fn with_profile_import_warnings(mut value: Value, warnings: Vec<Value>) -> Value {
+    if !warnings.is_empty() {
+        if let Some(object) = value.as_object_mut() {
+            object.insert("warnings".to_string(), Value::Array(warnings));
+        }
+    }
+    value
+}
+
+fn with_profile_import_file_fingerprint(mut value: Value, fingerprint: String) -> Value {
+    if let Some(object) = value.as_object_mut() {
+        object.insert("fileFingerprint".to_string(), Value::String(fingerprint));
     }
     value
 }
@@ -364,6 +592,24 @@ pub(super) fn import_profile_collections_with_restored_assets<F>(
 where
     F: FnOnce() -> AppResult<()>,
 {
+    let plan = profile_collections_import_plan(
+        state,
+        collections,
+        restored_assets,
+        ProfileImportMode::Commit,
+    )?;
+    state
+        .storage
+        .replace_all_many_and_then(plan.replacements, install_assets)?;
+    Ok(json!({ "success": true, "imported": plan.imported }))
+}
+
+fn profile_collections_import_plan(
+    state: &AppState,
+    collections: &Map<String, Value>,
+    restored_assets: usize,
+    mode: ProfileImportMode,
+) -> AppResult<ProfileCollectionsImportPlan> {
     let mut imported = Map::new();
     let mut replacements = Vec::new();
     let mut unsupported_prompt_overrides = 0usize;
@@ -392,10 +638,7 @@ where
         }
         normalize_profile_json_fields(collection, &mut rows)?;
         if collection == "connections" {
-            rows = rows
-                .into_iter()
-                .map(|row| connection_secrets::prepare_connection_for_create(state, row))
-                .collect::<AppResult<Vec<_>>>()?;
+            rows = normalize_profile_connection_rows(state, rows, mode)?;
         }
         imported.insert(collection.to_string(), json!(rows.len()));
         replacements.push((collection, rows));
@@ -407,9 +650,6 @@ where
         replacements.push((message_swipes::COLLECTION, Vec::new()));
     }
     normalize_message_swipe_replacements(&mut replacements, &mut imported)?;
-    state
-        .storage
-        .replace_all_many_and_then(replacements, install_assets)?;
     imported.insert("files".to_string(), json!(restored_assets));
     if unsupported_prompt_overrides > 0 {
         imported.insert(
@@ -418,7 +658,33 @@ where
         );
     }
     insert_profile_import_aliases(&mut imported);
-    Ok(json!({ "success": true, "imported": imported }))
+    Ok(ProfileCollectionsImportPlan {
+        imported,
+        replacements,
+    })
+}
+
+fn normalize_profile_connection_rows(
+    state: &AppState,
+    rows: Vec<Value>,
+    mode: ProfileImportMode,
+) -> AppResult<Vec<Value>> {
+    match mode {
+        ProfileImportMode::Commit => rows
+            .into_iter()
+            .map(|row| connection_secrets::prepare_connection_for_create(state, row))
+            .collect(),
+        ProfileImportMode::Preview => {
+            for row in &rows {
+                if !row.is_object() {
+                    return Err(AppError::invalid_input(
+                        "Profile collection `connections` rows must be JSON objects",
+                    ));
+                }
+            }
+            Ok(rows)
+        }
+    }
 }
 
 pub(super) fn normalize_message_swipe_replacements(
@@ -1122,6 +1388,40 @@ mod tests {
     }
 
     #[test]
+    fn profile_import_legacy_array_restores_top_level_assets_manifest() {
+        let state = test_state("legacy-array-top-level-assets");
+        let result = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "characters": [],
+                    "assets": [{
+                        "path": "avatars/legacy-array-asset.png",
+                        "base64": "aGVybw=="
+                    }]
+                }
+            }),
+        )
+        .expect("legacy array import should restore data.assets payloads");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["sourceFormat"], "legacy-array");
+        assert_eq!(result["imported"]["files"], 1);
+        assert_eq!(
+            std::fs::read(
+                state
+                    .data_dir
+                    .join("avatars")
+                    .join("legacy-array-asset.png")
+            )
+            .expect("restored legacy array asset should exist"),
+            b"hero"
+        );
+    }
+
+    #[test]
     fn profile_import_legacy_array_rejects_non_array_without_wiping() {
         let state = test_state("legacy-array-reject-no-wipe");
         state
@@ -1628,6 +1928,254 @@ mod tests {
             .expect("chat lookup should not fail")
             .expect("uploaded chat should import");
         assert_eq!(chat["name"], "Uploaded Chat");
+    }
+
+    #[test]
+    fn profile_import_preview_reports_counts_without_writing() {
+        let state = test_state("profile-preview-no-write");
+        let preview = preview_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "characters": [{
+                        "id": "preview-char",
+                        "name": "Preview Character",
+                        "data": "{\"name\":\"Preview Character\"}"
+                    }],
+                    "presets": [{
+                        "id": "preview-preset",
+                        "name": "Preview Preset",
+                        "sections": [{
+                            "id": "preview-section",
+                            "name": "Section"
+                        }]
+                    }]
+                }
+            }),
+        )
+        .expect("legacy array preview should succeed");
+
+        assert_eq!(preview["success"], true);
+        assert_eq!(preview["preview"], true);
+        assert_eq!(preview["sourceFormat"], "legacy-array");
+        assert_eq!(preview["converted"]["applied"], true);
+        assert_eq!(preview["imported"]["characters"], 1);
+        assert_eq!(preview["imported"]["presets"], 1);
+        assert_eq!(preview["imported"]["prompt-sections"], 1);
+        assert!(state
+            .storage
+            .get("characters", "preview-char")
+            .expect("character lookup should not fail")
+            .is_none());
+    }
+
+    #[test]
+    fn profile_import_preview_warns_for_json_manifest_assets_without_payload() {
+        let state = test_state("profile-preview-missing-json-asset");
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "characters".to_string(),
+            json!([{ "id": "char-1", "name": "Hero", "data": {} }]),
+        );
+
+        let preview = preview_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": [{ "path": "avatars/char-1.png", "size": 12 }]
+                }
+            }),
+        )
+        .expect("preview should preserve profile data and warn about missing asset data");
+
+        assert_eq!(preview["success"], true);
+        assert_eq!(preview["preview"], true);
+        assert_eq!(preview["sourceFormat"], "refactor-native");
+        assert_eq!(preview["imported"]["characters"], 1);
+        assert_eq!(preview["imported"]["files"], 0);
+        assert_eq!(preview["warnings"][0]["type"], "missing_asset");
+        assert_eq!(preview["warnings"][0]["path"], "avatars/char-1.png");
+        assert!(state
+            .storage
+            .get("characters", "char-1")
+            .expect("character lookup should not fail")
+            .is_none());
+    }
+
+    #[test]
+    fn profile_import_preview_rejects_invalid_inline_asset_data_without_writing() {
+        let state = test_state("profile-preview-invalid-asset-data");
+        let collections = complete_empty_profile_collections();
+
+        let error = preview_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": [{
+                        "path": "avatars/bad-inline.png",
+                        "base64": "not valid base64"
+                    }]
+                }
+            }),
+        )
+        .expect_err("preview should reject invalid inline profile asset data");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid profile asset data"));
+        assert!(!state
+            .data_dir
+            .join("avatars")
+            .join("bad-inline.png")
+            .exists());
+    }
+
+    #[test]
+    fn profile_import_preview_counts_connections_without_creating_secret_key() {
+        let state = test_state("profile-preview-connection-no-secret-write");
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "connections".to_string(),
+            json!([{
+                "id": "preview-connection",
+                "name": "Preview Connection",
+                "provider": "openai",
+                "apiKey": "preview-secret"
+            }]),
+        );
+
+        let preview = preview_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect("preview should count connection rows without committing secrets");
+
+        assert_eq!(preview["success"], true);
+        assert_eq!(preview["preview"], true);
+        assert_eq!(preview["imported"]["connections"], 1);
+        assert!(state
+            .storage
+            .get("connections", "preview-connection")
+            .expect("connection lookup should not fail")
+            .is_none());
+        assert!(!state
+            .data_dir
+            .join("secrets")
+            .join("connection-master.key")
+            .exists());
+    }
+
+    #[test]
+    fn profile_upload_preview_accepts_json_payloads_without_writing() {
+        let state = test_state("profile-upload-preview-json");
+        let envelope = json!({
+            "type": "marinara_profile",
+            "version": 1,
+            "data": {
+                "fileStorage": {
+                    "tables": {
+                        "chats": [
+                            {
+                                "id": "chat-preview",
+                                "name": "Preview Chat",
+                                "mode": "conversation",
+                                "metadata": {},
+                                "characterIds": []
+                            }
+                        ]
+                    }
+                }
+            }
+        });
+        let base64 = base64::Engine::encode(
+            &general_purpose::STANDARD,
+            serde_json::to_vec(&envelope).unwrap(),
+        );
+
+        let preview = preview_profile_upload(&state, "profile.json", &base64)
+            .expect("uploaded profile JSON preview should succeed");
+
+        assert_eq!(preview["success"], true);
+        assert_eq!(preview["preview"], true);
+        assert_eq!(preview["sourceFormat"], "legacy-modern-fileStorage");
+        assert_eq!(preview["imported"]["chats"], 1);
+        assert!(state
+            .storage
+            .get("chats", "chat-preview")
+            .expect("chat lookup should not fail")
+            .is_none());
+    }
+
+    #[test]
+    fn profile_file_import_rejects_file_changed_after_preview() {
+        let state = test_state("profile-file-preview-changed");
+        let path = state.data_dir.join("profile.json");
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "characters": [{
+                        "id": "preview-character",
+                        "name": "Preview Character"
+                    }]
+                }
+            }))
+            .expect("profile fixture should serialize"),
+        )
+        .expect("profile fixture should write");
+
+        let preview = preview_profile_file(&state, &path).expect("preview should succeed");
+        let fingerprint = preview["fileFingerprint"]
+            .as_str()
+            .expect("preview should include a file fingerprint")
+            .to_string();
+
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "characters": [{
+                        "id": "changed-character",
+                        "name": "Changed Character"
+                    }]
+                }
+            }))
+            .expect("changed profile fixture should serialize"),
+        )
+        .expect("changed profile fixture should write");
+
+        let error = import_profile_file_with_preview_fingerprint(&state, &path, Some(&fingerprint))
+            .expect_err("changed file should be rejected before import");
+
+        assert_eq!(error.code, "profile_file_changed");
+        assert!(state
+            .storage
+            .get("characters", "changed-character")
+            .expect("character lookup should not fail")
+            .is_none());
+        assert!(state
+            .storage
+            .get("characters", "preview-character")
+            .expect("character lookup should not fail")
+            .is_none());
     }
 
     #[test]

@@ -87,6 +87,8 @@ pub fn run() {
             storage_commands::profile_commands::load_url_binary,
             storage_commands::profile_commands::profile_export,
             storage_commands::profile_commands::profile_import,
+            storage_commands::profile_commands::profile_import_preview_file,
+            storage_commands::profile_commands::profile_import_preview_upload,
             storage_commands::profile_commands::profile_import_file,
             storage_commands::profile_commands::profile_import_upload,
             storage_commands::backup_commands::backup_create,

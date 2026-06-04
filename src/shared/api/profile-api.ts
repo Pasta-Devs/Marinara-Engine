@@ -91,7 +91,10 @@ async function importProfile<T>(envelope: unknown): Promise<T> {
   );
 }
 
-async function importProfileFile<T>(path: string): Promise<T> {
+async function importProfileFile<T>(
+  path: string,
+  options?: { previewFingerprint?: string | null },
+): Promise<T> {
   if (remoteRuntimeTarget()) {
     throw new ApiError(
       "Profile import from a local file path is not available while Remote Runtime is configured.",
@@ -100,9 +103,48 @@ async function importProfileFile<T>(path: string): Promise<T> {
     );
   }
   return invalidateRemoteManagedAssetObjectUrlsAfter(
-    invokeTauri<T>("profile_import_file", { path }),
+    invokeTauri<T>("profile_import_file", {
+      path,
+      previewFingerprint: options?.previewFingerprint ?? null,
+    }),
     PROFILE_IMPORT_MANAGED_ASSET_KINDS,
   );
+}
+
+async function previewProfileFile<T>(path: string): Promise<T> {
+  if (remoteRuntimeTarget()) {
+    throw new ApiError(
+      "Profile preview from a local file path is not available while Remote Runtime is configured.",
+      400,
+      { code: "remote_local_path_unsupported" },
+    );
+  }
+  return invokeTauri<T>("profile_import_preview_file", { path });
+}
+
+async function previewRemoteProfileUpload<T>(target: RuntimeTarget, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const response = await fetch(
+    `${target.baseUrl}/api/profile/import/preview`,
+    remoteFetchInit({
+      method: "POST",
+      headers: remotePrivilegedHeaders(target, { accept: "application/json" }),
+      body: form,
+    }),
+  );
+  if (!response.ok) throw await readRemoteError(response);
+  return (await response.json()) as T;
+}
+
+async function previewProfileUpload<T>(file: File): Promise<T> {
+  const target = remoteRuntimeTarget();
+  return target
+    ? previewRemoteProfileUpload<T>(target, file)
+    : invokeTauri<T>("profile_import_preview_upload", {
+        filename: file.name,
+        base64: await readFileAsBase64(file),
+      });
 }
 
 async function importRemoteProfileUpload<T>(target: RuntimeTarget, file: File): Promise<T> {
@@ -158,6 +200,8 @@ async function downloadBackup(name?: string): Promise<DownloadPayload> {
 export const profileApi = {
   exportProfile,
   importProfile,
+  previewProfileFile,
+  previewProfileUpload,
   importProfileFile,
   importProfileUpload,
 };

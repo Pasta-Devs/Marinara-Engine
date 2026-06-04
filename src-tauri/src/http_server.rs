@@ -124,6 +124,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/invoke", post(invoke))
         .route("/api/profile/export", get(profile_export_download))
         .route(
+            "/api/profile/import/preview",
+            post(profile_import_preview_upload)
+                .layer(DefaultBodyLimit::max(MAX_PROFILE_UPLOAD_BODY_BYTES)),
+        )
+        .route(
             "/api/profile/import",
             post(profile_import_upload).layer(DefaultBodyLimit::max(MAX_PROFILE_UPLOAD_BODY_BYTES)),
         )
@@ -634,6 +639,49 @@ async fn profile_import_upload(
     }
 }
 
+async fn profile_import_preview_upload(
+    State(state): State<HttpState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Response {
+    let started = Instant::now();
+    request_log("profile_import_preview_upload started");
+    let result = async {
+        require_admin_access_for_command("profile_import_preview_upload", &headers, addr.ip())?;
+        let upload_path = profile_upload_temp_file(&state.app, &mut multipart).await?;
+        let preview_result = profile::preview_profile_file(&state.app, &upload_path);
+        let cleanup_result = tokio::fs::remove_file(&upload_path).await;
+        if let Err(error) = cleanup_result {
+            log::warn!(
+                "failed to remove temporary profile preview upload {}: {error}",
+                upload_path.display()
+            );
+        }
+        preview_result
+    }
+    .await;
+
+    match result {
+        Ok(value) => {
+            request_log(format!(
+                "profile_import_preview_upload ok in {}ms",
+                started.elapsed().as_millis()
+            ));
+            Json(value).into_response()
+        }
+        Err(error) => {
+            request_log(format!(
+                "profile_import_preview_upload error code={} message={} in {}ms",
+                error.code,
+                error.message,
+                started.elapsed().as_millis()
+            ));
+            app_error_response(error)
+        }
+    }
+}
+
 async fn profile_upload_temp_file(
     state: &AppState,
     multipart: &mut Multipart,
@@ -811,6 +859,7 @@ fn is_privileged_remote_command(command: &str) -> bool {
         command,
         "profile_export"
             | "profile_import"
+            | "profile_import_preview_upload"
             | "profile_import_upload"
             | "backup_create"
             | "backup_list"

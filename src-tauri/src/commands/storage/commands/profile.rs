@@ -218,8 +218,29 @@ pub fn profile_import(state: State<'_, AppState>, envelope: Value) -> Result<Val
 }
 
 #[tauri::command]
-pub fn profile_import_file(state: State<'_, AppState>, path: String) -> Result<Value, AppError> {
-    profile::import_profile_file_path(&state, &path)
+pub fn profile_import_preview_file(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Value, AppError> {
+    profile::preview_profile_file_path(&state, &path)
+}
+
+#[tauri::command]
+pub fn profile_import_file(
+    state: State<'_, AppState>,
+    path: String,
+    preview_fingerprint: Option<String>,
+) -> Result<Value, AppError> {
+    profile::import_profile_file_path(&state, &path, preview_fingerprint.as_deref())
+}
+
+#[tauri::command]
+pub fn profile_import_preview_upload(
+    state: State<'_, AppState>,
+    filename: String,
+    base64: String,
+) -> Result<Value, AppError> {
+    profile::preview_profile_upload(&state, &filename, &base64)
 }
 
 #[tauri::command]
