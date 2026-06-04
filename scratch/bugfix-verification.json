@@ -1,117 +1,95 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2171,
-    "title": "Agent injection-review trigger lost three guards",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2171"
+    "number": 2184,
+    "title": "[Issue]: Lorebook runtime no longer enforces max activated entry cap",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2184"
   },
   "pr": {
-    "number": 2248,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2248",
+    "number": "2247",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2247",
     "base": "refactor",
     "draft": true
   },
-  "coreClaim": "Agent injection review pauses only for reviewable writer pre-injections during initial roleplay/visual_novel generations.",
+  "coreClaim": "Prompt-time active lorebook scanning includes no more than LIMITS.MAX_LOREBOOK_ENTRIES entries while preserving the existing priority order: constants first, fresh latest-user-message matches next, then injection order.",
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "pnpm exec vitest run src/engine/generation/start-generation.test.ts --reporter=verbose",
-    "beforeSummary": "Before the production fix, the focused regression test failed because HTML static injection appeared in the review event, regenerate still emitted agent_injection_review, and conversation mode still paused.",
-    "preflight": {
-      "noAssociatedPr": true,
-      "assignedToSelf": true
-    }
+    "command": "pnpm exec vitest run src/engine/generation/active-lorebook-scanner.test.ts",
+    "evidence": "Before the production fix, the focused scanner test failed because processedLore.includedEntries had 105 entries instead of LIMITS.MAX_LOREBOOK_ENTRIES=100."
   },
   "verification": {
     "originalReproPassed": true,
-    "originalReproCommand": "pnpm exec vitest run src/engine/generation/start-generation.test.ts --reporter=verbose",
-    "originalReproEvidence": "Passed 6 tests after the fix, including the 3 issue-2171 regression rows.",
-    "baselinePassed": true,
-    "baselineCommand": "pnpm check",
-    "baselineEvidence": "Passed line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
+    "originalReproCommand": "pnpm exec vitest run src/engine/generation/active-lorebook-scanner.test.ts",
+    "originalReproEvidence": "After the fix, active-lorebook-scanner.test.ts passed with 2 tests, including the cap/priority regression.",
     "focusedProof": [
-      "Roleplay review event contains the Prose Guardian writer injection and filters out Knowledge Retrieval plus HTML static injection.",
-      "Regenerate with regenerateMessageId does not emit agent_injection_review.",
-      "Conversation mode does not emit agent_injection_review.",
-      "Visual novel mode still emits agent_injection_review for reviewable writer output."
+      "The regression row creates 105 active entries with unlimited token budget and verifies only 100 are included.",
+      "The regression row verifies constant entries stay ahead of fresh latest-user-message entries even with higher injection order.",
+      "The regression row verifies older-message matches are dropped when constants plus fresh matches fill the cap."
     ],
     "edgeCases": [
-      "Knowledge Retrieval and HTML/static-context injections are present in runtime.preInjections but excluded from the review modal payload.",
-      "Regenerate/swipe path with an existing assistant message skips the pause.",
-      "Non-roleplay conversation mode skips the pause even with the review flag and injections present.",
-      "Visual novel remains included in the positive mode gate."
+      "Existing batched active-lorebook storage and disabled-folder behavior still passes in the same scanner suite."
     ],
-    "visualProof": "Non-UI engine contract proof captured as raw Vitest output in scratch/issue2171-proof-output.txt."
+    "visualProof": "scratch/issue-2184-after-vitest.txt",
+    "baselinePassed": true,
+    "baselineCommand": "pnpm check",
+    "baselineEvidence": "Passed line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks."
   },
   "manualBlockers": [],
   "notes": [
-    "UI/browser proof is not applicable because the bug is the engine event contract that feeds the modal; the regression proof exercises startGeneration directly."
+    "UI/browser proof is not applicable because this is a React-free engine prompt-selection bug; raw Vitest output is captured in scratch/issue-2184-after-vitest.txt."
   ],
   "preflight": {
     "noAssociatedPr": true,
     "issueAssigned": true,
-    "evidence": "gh PR search for issue 2171 returned no matches; local branch/worktree search found no 2171 branch; issue is assigned to @me."
+    "evidence": "GitHub PR searches for #2184, MAX_LOREBOOK_ENTRIES, and max activated entry cap found no associated open/closed fix PR; issue comments had no linked fix; local branch/worktree search found no 2184 branch or worktree; issue assigned to @me."
   },
   "dependencies": {
     "installedFromLockfile": true,
     "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change package.json or pnpm-lock.yaml."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Agent injection review pauses only for reviewable writer pre-injections during initial roleplay/visual_novel generations.",
-    "riskType": "generation event contract parity",
+    "coreClaim": "Prompt-time active lorebook scanning caps injected entries at LIMITS.MAX_LOREBOOK_ENTRIES while preserving existing priority order.",
+    "riskType": "prompt assembly regression parity",
     "entrypoints": [
-      "src/engine/generation/start-generation.ts agent_injection_review event",
-      "runtime pre-generation agent injection review modal consumer"
+      "scanActiveLorebooks shared engine scanner",
+      "assemblePrompt activatedLorebookEntries",
+      "scanActiveLorebookEntries Active World Info data"
     ],
     "currentPathsOrFormats": [
-      "runtime.preInjections containing prose-guardian writer output",
-      "runtime.preInjections containing knowledge-retrieval output",
-      "runtime.preInjections containing html static context injection",
-      "StartGenerationInput.regenerateMessageId",
-      "chat.mode/chat.chatMode values roleplay, visual_novel, and conversation"
+      "Refactor active lorebook scanner",
+      "Shared prompt-injector budget processing"
     ],
     "legacyPathsOrFormats": [
-      "main packages/server generate route parity noted in issue #2171: reviewable writer filter, regenerate skip, roleplay/visual_novel mode gate"
+      "Legacy lorebook selection capped by LIMITS.MAX_LOREBOOK_ENTRIES"
     ],
     "positiveRowsTested": [
-      "roleplay chat with review flag and prose-guardian/knowledge-retrieval/html pre-injections pauses with only prose-guardian in payload",
-      "visual_novel chat with review flag and prose-guardian/knowledge-retrieval/html pre-injections still pauses"
+      "105 matching entries with unlimited token budget caps to 100 included entries.",
+      "Constants outrank fresh latest-user-message matches.",
+      "Fresh latest-user-message matches outrank older-message matches."
     ],
     "negativeRowsTested": [
-      "knowledge-retrieval injection is filtered from review payload",
-      "html static-context injection is filtered from review payload",
-      "regenerateMessageId skips agent_injection_review",
-      "conversation mode skips agent_injection_review"
+      "Disabled-folder entry remains excluded by the existing scanner test."
     ],
     "groundTruthFacts": [
       {
-        "fact": "Knowledge/static context injections should not be offered for writer review; regenerate should not pause; review pause is roleplay/visual_novel only.",
-        "method": "derived from issue artifact and confirmed by failing harness",
-        "evidence": "GitHub issue #2171 regression notes"
-      },
-      {
-        "fact": "Refactor startGeneration previously checked only overrides, non-empty injections, and reviewWriterAgentOutputs.",
-        "method": "measured by focused regression harness",
-        "evidence": "Failing focused regression test before production patch"
+        "fact": "LIMITS.MAX_LOREBOOK_ENTRIES is 100 in src/engine/contracts/constants/defaults.ts.",
+        "sourceType": "derived",
+        "evidence": "Imported LIMITS in the regression test."
       }
     ],
-    "userActionCopy": [],
-    "manualBlockers": [
-      {
-        "description": "Copy/backup guidance is not applicable because this change does not touch storage, import/export, migration, deletion, or user data files.",
-        "blockingCoreClaim": false
-      }
-    ]
+    "userActionCopy": "No user-facing copy changed.",
+    "manualBlockers": []
   },
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Focused before/after regression proof passed after the fix, negative controls covered the missing guards, and pnpm check passed."
+    "notes": "Focused proof, pnpm typecheck, pnpm check, proof gate, and Bunny review passed."
   },
   "bunny": {
     "status": "pass",
-    "evidence": "Issue match is direct; production diff is limited to engine review-pause guard/filter behavior; focused regression covers writer-positive, knowledge/static filtering, regenerate skip, conversation skip, and visual_novel positive mode; proof gate and pnpm check passed; no dependency, schema, auth, storage, prompt-assembly, or version files changed."
+    "evidence": "Issue match is direct; the shared prompt-injector now applies LIMITS.MAX_LOREBOOK_ENTRIES through the same constant/latest/order priority used by token budgets; the active scanner is the single prompt-time call site; focused before/after Vitest, pnpm typecheck, pnpm check, and marinara-proof-gate passed; no dependencies, schema, auth, storage persistence, UI, or release files changed."
   }
 }
