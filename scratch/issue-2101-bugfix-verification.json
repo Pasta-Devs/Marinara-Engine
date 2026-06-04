@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "issue": {
+    "number": 2101,
+    "title": "[Issue]: New Conversation and New Chat can create completely empty conversations",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2101"
+  },
+  "pr": {
+    "number": 2103,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2103"
+  },
+  "coreClaim": "New Conversation and New Chat setup does not keep a persisted chat when setup finishes with no messages and no selected characters.",
+  "assignment": {
+    "assignee": "cha1latte",
+    "assignedBeforeWork": true,
+    "evidence": "Issue #2101 was assigned to cha1latte before implementation."
+  },
+  "preflight": {
+    "noAssociatedPr": true,
+    "details": "gh issue view showed no comments or linked fix. gh PR search for 2101 found only unrelated closed PR #1238."
+  },
+  "reproduction": {
+    "attempted": true,
+    "reproducedBeforeFix": true,
+    "method": "Static source repro from upstream/refactor.",
+    "evidence": "On upstream/refactor, useStartNewChat and ModeHomeSurface create a chat with characterIds: [], ChatSetupWizard keeps Start Chatting disabled until characters exist, and the Skip buttons call onFinish. ConversationModeRoute and RoleplayModeRoute passed overlays.finishWizard as onWizardFinish, which only closed the wizard/opened settings and did not delete the placeholder."
+  },
+  "verification": {
+    "originalReproPassed": true,
+    "focusedProof": [
+      "pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts: passed 5 tests.",
+      "pnpm typecheck: passed.",
+      "pnpm check: passed."
+    ],
+    "edgeCases": [
+      "Empty persisted setup placeholder with no characters and zero messages is classified for cleanup only when it matches the retained setup chat id.",
+      "Known setup placeholder is still classified for cleanup before message rows finish loading.",
+      "Setup with at least one selected character is kept.",
+      "Setup with at least one message is kept.",
+      "Unrelated empty chats are not treated as setup placeholders.",
+      "Legacy wizard open retains setup identity after clearing legacy store flags; cancellation and active chat changes still clear it."
+    ],
+    "baselinePassed": true,
+    "baselineCommand": "pnpm check",
+    "baselineEvidence": "pnpm check passed after the final diff.",
+    "visualProof": "Static/terminal proof only; no local Tauri shell UI was available for a screenshot of the affected persisted-state flow."
+  },
+  "manualBlockers": [
+    {
+      "description": "True Tauri-shell click-through of New Conversation/New Chat persistence requires the desktop shell/runtime state; local proof uses static source reproduction plus focused regression tests.",
+      "blockingCoreClaim": false
+    }
+  ],
+  "riskClaimMatrix": {
+    "coreClaim": "New chat setup cleanup deletes only empty setup placeholders and keeps configured or messaged chats.",
+    "riskType": "persisted chat cleanup",
+    "entrypoints": [
+      "src/app/shell/useStartNewChat.ts new chat action",
+      "src/features/modes/router/components/ModeHomeSurface.tsx quick start",
+      "src/features/modes/shared/chat-ui/components/NewChatConnectionGate.tsx gated setup",
+      "src/features/modes/shared/chat-ui/hooks/use-chat-overlays.ts retained setup identity",
+      "src/features/modes/conversation/components/ConversationModeRoute.tsx setup finish",
+      "src/features/modes/roleplay/components/RoleplayModeRoute.tsx setup finish"
+    ],
+    "currentPathsOrFormats": [
+      "conversation chat records with no messages and no characterIds",
+      "roleplay chat records with no messages and no characterIds"
+    ],
+    "legacyPathsOrFormats": [
+      "existing persisted chats that already have messages",
+      "existing persisted chats that already have selected characters"
+    ],
+    "positiveRowsTested": [
+      "empty chat setup placeholder is classified for cleanup",
+      "known setup placeholder with unloaded message rows is classified for cleanup"
+    ],
+    "negativeRowsTested": [
+      "chat with characterIds is not classified for cleanup",
+      "chat with messages is not classified for cleanup",
+      "unrelated empty chat id is not classified for cleanup"
+    ],
+    "groundTruthFacts": [
+      "Derived from artifact: upstream/refactor source inspection recorded in reproduction.evidence shows Skip called onFinish while Start Chatting was disabled without characters.",
+      "Harness-proven: pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts passed and covers empty setup, unloaded setup, configured, messaged, and unrelated empty chat rows.",
+      "Derived from artifact: diff inspection shows legacy setup flag cleanup no longer clears newChatSetupChatId after a successful wizard open; scheduled cancellation, explicit clearNewChatSetup, finishWizard, and active chat changes still clear it."
+    ],
+    "userActionCopy": "No user action required."
+  },
+  "notes": [
+    "This issue-specific proof file avoids overwriting the base branch proof artifact for issue #2102 while preserving issue #2101 evidence in this PR."
+  ],
+  "finalDoneGate": {
+    "didFixBug": true,
+    "hasProfessionalVisualProof": false,
+    "prWouldBeAccepted": true,
+    "claimBoundariesProven": true
+  }
+}
