@@ -132,11 +132,18 @@ interface ResolvedAgentsResult {
 const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const DIRECTOR_AGENT_TYPE = "director";
 const ILLUSTRATOR_AGENT_TYPE = "illustrator";
+const CARD_EVOLUTION_AUDITOR_AGENT_TYPE = "card-evolution-auditor";
+const CHAT_SUMMARY_AGENT_TYPE = "chat-summary";
 const HAPTIC_AGENT_TYPE = "haptic";
 const KNOWLEDGE_RETRIEVAL_AGENT_TYPE = "knowledge-retrieval";
 const KNOWLEDGE_ROUTER_AGENT_TYPE = "knowledge-router";
 const KNOWLEDGE_AGENT_TYPES = new Set([KNOWLEDGE_RETRIEVAL_AGENT_TYPE, KNOWLEDGE_ROUTER_AGENT_TYPE]);
-const ASSISTANT_INTERVAL_AGENT_TYPES = new Set([DIRECTOR_AGENT_TYPE, ILLUSTRATOR_AGENT_TYPE]);
+const ASSISTANT_INTERVAL_AGENT_TYPES = new Set([
+  DIRECTOR_AGENT_TYPE,
+  ILLUSTRATOR_AGENT_TYPE,
+  CARD_EVOLUTION_AUDITOR_AGENT_TYPE,
+]);
+const USER_INTERVAL_AGENT_TYPES = new Set([CHAT_SUMMARY_AGENT_TYPE]);
 const STATIC_CONTEXT_INJECTION_AGENT_TYPES = new Set<string>([BUILT_IN_AGENT_IDS.HTML]);
 const TRACKER_AGENT_TYPES = new Set(
   BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id),
@@ -783,15 +790,17 @@ function automaticIntervalGate(
   builtInAgent: boolean,
 ): AutomaticIntervalGate | null {
   if (input.agentTypes && input.agentTypes.size > 0) return null;
-  if (builtInAgent && ASSISTANT_INTERVAL_AGENT_TYPES.has(type)) {
-    const fallback = positiveInteger(BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[type], 5, MAX_ASSISTANT_RUN_INTERVAL);
-    const runInterval = positiveInteger(settings.runInterval, fallback, MAX_ASSISTANT_RUN_INTERVAL);
+  if (builtInAgent && (ASSISTANT_INTERVAL_AGENT_TYPES.has(type) || USER_INTERVAL_AGENT_TYPES.has(type))) {
+    const messageRole: AutomaticIntervalMessageRole = USER_INTERVAL_AGENT_TYPES.has(type) ? "user" : "assistant";
+    const maxInterval = messageRole === "user" ? MAX_CUSTOM_AGENT_USER_RUN_INTERVAL : MAX_ASSISTANT_RUN_INTERVAL;
+    const fallback = positiveInteger(BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[type], 5, maxInterval);
+    const runInterval = positiveInteger(settings.runInterval, fallback, maxInterval);
     return runInterval > 1
       ? {
           agentId: id,
           agentType: type,
-          messageRole: "assistant",
-          includePendingMessage: true,
+          messageRole,
+          includePendingMessage: messageRole === "assistant",
           runInterval,
         }
       : null;
