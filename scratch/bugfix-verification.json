@@ -20,12 +20,12 @@
   "verification": {
     "originalReproPassed": true,
     "originalReproCommand": "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose",
-    "originalReproEvidence": "5 tests passed after fix, including the quest completion timestamp reversal and repeated-completed preservation rows added from Bunny review.",
+    "originalReproEvidence": "6 tests passed after fix, including quest completion timestamp edges and combat outcome precedence rows added from reviewer feedback.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
     "baselineEvidence": "Full PR gate passed after merging current upstream/refactor: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, and unused exports.",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 5 tests using a local ignored proof harness.",
+      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 6 tests using a local ignored proof harness.",
       "pnpm typecheck passed.",
       "pnpm check:architecture passed.",
       "pnpm check:unused passed after internalizing journal row-builder helpers.",
@@ -41,7 +41,8 @@
       "PlayerStats.activeQuests hydrate journal.quests with active/completed status and objective text.",
       "Deterministic structured recaps include Active quests and Key NPC interactions after hydration.",
       "Quest completedAt is cleared when a later quest update changes status back to active.",
-      "Quest completedAt is preserved when a completed quest receives another completed update without a valid explicit replacement timestamp, including a blank completedAt payload."
+      "Quest completedAt is preserved when a completed quest receives another completed update without a valid explicit replacement timestamp, including a blank completedAt payload.",
+      "Combat journal commands prefer defeat or fled result values over conflicting victory outcome values."
     ],
     "visualProof": "scratch/issue-2140-vitest-after.txt"
   },
@@ -85,6 +86,7 @@
       "active quest with completed and incomplete objectives",
       "completed quest updated back to active clears completedAt",
       "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
+      "combat result fled overrides conflicting victory outcome",
       "location command using location payload",
       "item command using item payload"
     ],
@@ -127,6 +129,7 @@
       "Local ignored proof harness syncs tracked NPCs and active player quests into deterministic recap output.",
       "Local ignored proof harness clears stale completedAt when a completed quest becomes active again.",
       "Local ignored proof harness preserves completedAt when a completed quest receives another completed update without a valid explicit replacement, including blank completedAt.",
+      "Local ignored proof harness keeps combat result precedence for fled or defeat over conflicting outcome values.",
       "Local ignored proof harness keeps existing location and item command payload fields working."
     ]
   },
@@ -138,6 +141,7 @@
       "active quest with completed and incomplete objectives",
       "completed quest updated back to active clears completedAt",
       "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
+      "combat result fled overrides conflicting victory outcome",
       "location command using location payload",
       "item command using item payload"
     ],

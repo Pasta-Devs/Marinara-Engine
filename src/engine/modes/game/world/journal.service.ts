@@ -341,11 +341,8 @@ export function applyJournalEntry(journal: Journal, type: string, data: Record<s
   }
   if (type === "combat") {
     const { content } = normalizeJournalEntry(type, data);
-    const outcome =
-      data.outcome === "defeat" || data.outcome === "fled" || data.result === "defeat" || data.result === "fled"
-        ? (data.outcome ?? data.result)
-        : "victory";
-    return addCombatEntry(journal, content, outcome as "victory" | "defeat" | "fled");
+    const outcome = data.result === "defeat" || data.result === "fled" ? data.result : data.outcome;
+    return addCombatEntry(journal, content, outcome === "defeat" || outcome === "fled" ? outcome : "victory");
   }
   if (type === "quest") {
     const quest = normalizeQuestJournalCommand(data);
