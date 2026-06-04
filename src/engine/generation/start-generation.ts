@@ -2588,6 +2588,7 @@ export async function* startGeneration(
       return;
     }
   }
+  const explicitManualTargetCharacterId = readString(input.forCharacterId).trim();
   const sequentialGroupTargetId = sequentialGroupTargetCharacterId(chat, input, storedMessages);
   if (sequentialGroupTargetId) {
     input = { ...input, forCharacterId: sequentialGroupTargetId };
@@ -2616,12 +2617,12 @@ export async function* startGeneration(
   }
   const directMessages = requestMessages(input);
   if (!directMessages && input.impersonate !== true) {
-    const manualTargetCharacterId = readString(input.forCharacterId).trim();
+    const targetCharacterId = readString(input.forCharacterId).trim() || resolvedGroupTarget;
     const availability = await resolveConversationAvailability({
       storage: deps.storage,
       chat,
-      targetCharacterId: manualTargetCharacterId || resolvedGroupTarget,
-      manualTargetCharacterId,
+      targetCharacterId,
+      manualTargetCharacterId: explicitManualTargetCharacterId,
       mentionedCharacterNames: preparedUserInput.mentionedCharacterNames,
     });
     throwIfAborted(signal);

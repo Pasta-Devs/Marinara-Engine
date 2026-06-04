@@ -189,6 +189,7 @@ describe("startGeneration conversation availability delays", () => {
     try {
       expect(delayedMs(await collectEvents("idle", {}))).toBe(120_000);
       expect(delayedMs(await collectEvents("dnd", {}))).toBe(180_000);
+      expect(delayedMs(await collectEvents("idle", {}, { secondStatus: "dnd" }))).toBe(120_000);
     } finally {
       random.mockRestore();
     }
