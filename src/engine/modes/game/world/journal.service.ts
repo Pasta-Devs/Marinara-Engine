@@ -150,7 +150,8 @@ function upsertQuest(
   const name = quest.name.trim() || id;
   if (!id || !name) return journal;
   const now = new Date().toISOString();
-  const completedAt = quest.status === "completed" ? (quest.completedAt ?? now) : undefined;
+  const explicitCompletedAt = quest.completedAt?.trim() || undefined;
+  const completedAt = quest.status === "completed" ? (explicitCompletedAt ?? now) : undefined;
 
   const normalizedQuest: QuestEntry = {
     id,
@@ -169,7 +170,7 @@ function upsertQuest(
         ? (() => {
             const { completedAt: _completedAt, ...entryWithoutCompletedAt } = entry;
             const nextCompletedAt =
-              normalizedQuest.status === "completed" ? (quest.completedAt ?? entry.completedAt ?? now) : undefined;
+              normalizedQuest.status === "completed" ? (explicitCompletedAt ?? entry.completedAt ?? now) : undefined;
             return {
               ...entryWithoutCompletedAt,
               name: normalizedQuest.name || entry.name,

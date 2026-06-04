@@ -41,7 +41,7 @@
       "PlayerStats.activeQuests hydrate journal.quests with active/completed status and objective text.",
       "Deterministic structured recaps include Active quests and Key NPC interactions after hydration.",
       "Quest completedAt is cleared when a later quest update changes status back to active.",
-      "Quest completedAt is preserved when a completed quest receives another completed update without an explicit replacement timestamp."
+      "Quest completedAt is preserved when a completed quest receives another completed update without a valid explicit replacement timestamp, including a blank completedAt payload."
     ],
     "visualProof": "scratch/issue-2140-vitest-after.txt"
   },
@@ -84,7 +84,7 @@
       "tracked NPC with location",
       "active quest with completed and incomplete objectives",
       "completed quest updated back to active clears completedAt",
-      "completed quest updated as completed preserves existing completedAt",
+      "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
       "location command using location payload",
       "item command using item payload"
     ],
@@ -126,7 +126,7 @@
       "Local ignored proof harness routes quest commands into journal.quests and quest entries.",
       "Local ignored proof harness syncs tracked NPCs and active player quests into deterministic recap output.",
       "Local ignored proof harness clears stale completedAt when a completed quest becomes active again.",
-      "Local ignored proof harness preserves completedAt when a completed quest receives another completed update without explicit replacement.",
+      "Local ignored proof harness preserves completedAt when a completed quest receives another completed update without a valid explicit replacement, including blank completedAt.",
       "Local ignored proof harness keeps existing location and item command payload fields working."
     ]
   },
@@ -137,7 +137,7 @@
       "tracked NPC with location",
       "active quest with completed and incomplete objectives",
       "completed quest updated back to active clears completedAt",
-      "completed quest updated as completed preserves existing completedAt",
+      "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
       "location command using location payload",
       "item command using item payload"
     ],
