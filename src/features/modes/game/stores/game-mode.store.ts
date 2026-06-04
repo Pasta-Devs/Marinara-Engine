@@ -69,7 +69,7 @@ interface GameModeStore {
   applyWidgetUpdate: (update: WidgetUpdate) => HudWidget[];
   setBlueprint: (bp: GameBlueprint | null) => void;
   /** Patch avatarUrl on tracked NPCs after server-side image generation. */
-  patchNpcAvatars: (avatars: Array<{ name: string; avatarUrl: string }>) => void;
+  patchNpcAvatars: (avatars: Array<{ name: string; avatarUrl: string; avatarGalleryId?: string | null }>) => void;
   reset: () => void;
 }
 
@@ -142,7 +142,7 @@ function removeListWidgetItem(items: string[], target: string): string[] {
   return items.filter((_, index) => index !== partialMatches[0]!.index);
 }
 
-function buildTrackedNpcStub(name: string, avatarUrl: string): GameNpc {
+function buildTrackedNpcStub(name: string, avatarUrl: string, avatarGalleryId?: string | null): GameNpc {
   const slug = name
     .trim()
     .toLowerCase()
@@ -159,6 +159,7 @@ function buildTrackedNpcStub(name: string, avatarUrl: string): GameNpc {
     met: true,
     notes: [],
     avatarUrl,
+    avatarGalleryId: avatarGalleryId ?? null,
   };
 }
 
@@ -298,9 +299,17 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
       let modified = false;
       const nextNpcs = s.npcs.map((npc) => {
         const match = avatars.find((a) => a.name.toLowerCase() === npc.name.toLowerCase());
-        if (match && match.avatarUrl !== npc.avatarUrl) {
+        if (
+          match &&
+          (match.avatarUrl !== npc.avatarUrl ||
+            (match.avatarGalleryId !== undefined && match.avatarGalleryId !== (npc.avatarGalleryId ?? null)))
+        ) {
           modified = true;
-          return { ...npc, avatarUrl: match.avatarUrl };
+          return {
+            ...npc,
+            avatarUrl: match.avatarUrl,
+            ...(match.avatarGalleryId !== undefined ? { avatarGalleryId: match.avatarGalleryId } : {}),
+          };
         }
         return npc; // preserve reference — no churn
       });
@@ -308,7 +317,7 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
       for (const avatar of avatars) {
         const exists = nextNpcs.some((npc) => npc.name.toLowerCase() === avatar.name.toLowerCase());
         if (!exists) {
-          nextNpcs.push(buildTrackedNpcStub(avatar.name, avatar.avatarUrl));
+          nextNpcs.push(buildTrackedNpcStub(avatar.name, avatar.avatarUrl, avatar.avatarGalleryId));
           modified = true;
         }
       }

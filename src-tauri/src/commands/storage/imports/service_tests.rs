@@ -246,6 +246,49 @@ fn import_st_character_rolls_back_character_and_avatar_when_embedded_lorebook_fa
 }
 
 #[test]
+fn import_st_character_materializes_mixed_case_inline_avatar() {
+    let app_root = temp_path("mixed-case-avatar");
+    let state =
+        AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
+
+    let result = import_st_character(
+        &state,
+        json!({
+            "spec": "chara_card_v2",
+            "data": {
+                "name": "Mixed Case Avatar",
+                "description": "Uses a mixed-case data URL prefix"
+            },
+            "_avatarDataUrl": format!("DaTa:Image/PNG;BaSe64,{TINY_PNG}")
+        }),
+    )
+    .expect("mixed-case inline avatar should import");
+
+    let character = result
+        .get("character")
+        .and_then(Value::as_object)
+        .expect("import should return a character record");
+    let avatar_path = character
+        .get("avatarPath")
+        .and_then(Value::as_str)
+        .expect("managed avatar URL should be stored");
+    assert!(
+        !avatar_path.to_ascii_lowercase().starts_with("data:image/"),
+        "mixed-case inline avatars should be stored as managed files"
+    );
+    let avatar_file_path = character
+        .get("avatarFilePath")
+        .and_then(Value::as_str)
+        .expect("managed avatar file path should be stored");
+    assert!(
+        Path::new(avatar_file_path).exists(),
+        "managed avatar file should exist"
+    );
+
+    let _ = fs::remove_dir_all(app_root);
+}
+
+#[test]
 fn import_st_preset_rolls_back_prompt_tree_when_section_flush_fails() {
     let app_root = temp_path("st-preset-rollback");
     let state =

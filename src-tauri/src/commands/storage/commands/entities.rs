@@ -522,7 +522,7 @@ fn gallery_defaults_for_create(state: &AppState, value: Value) -> Result<Value, 
         .get("url")
         .and_then(Value::as_str)
         .map(str::trim)
-        .filter(|value| value.starts_with("data:image/"))
+        .filter(|value| media_uploads::is_inline_image_data_url(value))
         .map(str::to_string)
     else {
         return Ok(Value::Object(object));
@@ -550,7 +550,7 @@ fn gallery_create_persists_inline_image(entity: &str, value: &Value) -> bool {
             .get("url")
             .and_then(Value::as_str)
             .map(str::trim)
-            .is_some_and(|value| value.starts_with("data:image/"))
+            .is_some_and(media_uploads::is_inline_image_data_url)
 }
 
 fn connection_folder_defaults_for_create(
@@ -1989,7 +1989,7 @@ mod tests {
     fn gallery_create_persists_data_url_as_managed_file() {
         let state = test_state("gallery-create-managed-file");
         let image =
-            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTmZsgAAAABJRU5ErkJggg==";
+            "DaTa:Image/PNG;BaSe64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lTmZsgAAAABJRU5ErkJggg==";
 
         let created = storage_create_inner(
             &state,
@@ -2009,7 +2009,7 @@ mod tests {
             .and_then(Value::as_str)
             .expect("gallery url should be present");
         assert!(
-            !url.starts_with("data:image/"),
+            !url.to_ascii_lowercase().starts_with("data:image/"),
             "gallery rows should not store inline image data"
         );
         let filename = created

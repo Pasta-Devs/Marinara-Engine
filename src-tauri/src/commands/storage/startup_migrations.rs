@@ -1,7 +1,7 @@
 use super::{
     media_uploads::{
-        decode_image_payload, extension_for_image_mime, file_path_asset_url, safe_filename,
-        unique_file_path,
+        decode_image_payload, extension_for_image_mime, file_path_asset_url,
+        is_inline_image_data_url, safe_filename, unique_file_path,
     },
     message_swipes,
 };
@@ -622,13 +622,6 @@ fn inline_image_string(value: Option<&Value>) -> Option<String> {
     } else {
         None
     }
-}
-
-fn is_inline_image_data_url(value: &str) -> bool {
-    value
-        .trim_start()
-        .to_ascii_lowercase()
-        .starts_with("data:image/")
 }
 
 fn persist_inline_image_reference(

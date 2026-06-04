@@ -11,7 +11,7 @@ pub(super) fn data_string_name(record: &Value) -> Option<String> {
 pub(super) fn data_image_string(value: Option<&Value>) -> Option<String> {
     value
         .and_then(Value::as_str)
-        .filter(|value| value.starts_with("data:image/"))
+        .filter(|value| is_inline_image_data_url(value))
         .map(ToOwned::to_owned)
 }
 

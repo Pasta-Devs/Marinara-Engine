@@ -79,7 +79,7 @@ fn restore_sprites_for_owner(
             .get("data")
             .or_else(|| sprite.get("url"))
             .and_then(Value::as_str)
-            .filter(|value| value.starts_with("data:image/"))
+            .filter(|value| is_inline_image_data_url(value))
         else {
             continue;
         };
@@ -126,7 +126,7 @@ pub(super) fn restore_character_gallery(
             .get("data")
             .or_else(|| item.get("url"))
             .and_then(Value::as_str)
-            .filter(|value| value.starts_with("data:image/"))
+            .filter(|value| is_inline_image_data_url(value))
         else {
             continue;
         };

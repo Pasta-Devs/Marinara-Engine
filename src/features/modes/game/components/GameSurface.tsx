@@ -213,7 +213,7 @@ type GameAssetGenerationResult = {
   generatedBackground: string | null;
   fallbackBackground?: string | null;
   generatedIllustration: { tag: string; segment?: number } | null;
-  generatedNpcAvatars: Array<{ name: string; avatarUrl: string }>;
+  generatedNpcAvatars: Array<{ name: string; avatarUrl: string; avatarGalleryId?: string | null }>;
   sessionChat?: Chat;
 };
 

@@ -112,6 +112,12 @@ export const ResolvedAvatarImage = forwardRef<
     const cachedSrc = readCachedResolvedAvatarSrc(resolutionKey);
     const nextInitialSrc = cachedSrc ?? immediateSrc;
     setResolvedState({ key: resolutionKey, src: nextInitialSrc });
+    if (cachedSrc) {
+      if (!effectiveThumbnailSize) onResolvedSrc?.(cachedSrc);
+      return () => {
+        cancelled = true;
+      };
+    }
     if (nextInitialSrc && !effectiveThumbnailSize) onResolvedSrc?.(nextInitialSrc);
     const resolveSrc = effectiveThumbnailSize
       ? resolveAvatarThumbnailFileUrl(avatarFilename, avatarFilePath, effectiveThumbnailSize, src)

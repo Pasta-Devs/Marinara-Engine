@@ -470,9 +470,10 @@ async function generateSelfie(args: {
       width: size.width,
       height: size.height,
     });
+    const storedImageUrl = readString(gallery.url).trim() || imageUrl;
     const attachment = {
       type: "image",
-      url: imageUrl,
+      url: storedImageUrl,
       filename: `selfie_${characterName.toLowerCase().replace(/\s+/g, "_")}.${imageExtension(mimeType)}`,
       prompt,
       galleryId: readString(gallery.id) || null,
@@ -483,7 +484,7 @@ async function generateSelfie(args: {
       data: {
         characterId,
         characterName,
-        imageUrl,
+        imageUrl: storedImageUrl,
         prompt,
         galleryId: readString(gallery.id) || null,
       },

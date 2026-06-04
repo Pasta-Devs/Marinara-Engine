@@ -768,9 +768,10 @@ async function generateIllustrationAttachments(args: {
           referenceData.referenceSubjectNames.length > 0 ? referenceData.referenceSubjectNames : item.characterNames,
         referenceImageCount: referenceData.referenceImages.length,
       });
+      const storedImageUrl = readString(gallery.url).trim() || imageUrl;
       const attachment = {
         type: "image",
-        url: imageUrl,
+        url: storedImageUrl,
         filename,
         prompt,
         galleryId: readString(gallery.id) || null,
@@ -779,7 +780,7 @@ async function generateIllustrationAttachments(args: {
       events.push({
         type: "illustration",
         data: {
-          imageUrl,
+          imageUrl: storedImageUrl,
           prompt,
           reason: item.reason,
           galleryId: readString(gallery.id) || null,
