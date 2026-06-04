@@ -1,96 +1,93 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2135,
-    "title": "Game mode GM and party system prompts no longer receive the per-character sprite list",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2135"
+    "number": 2139,
+    "title": "Game mode party map marker no longer auto-syncs to the narrated location",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2139"
   },
-  "pr": {
-    "number": 2211,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2211"
-  },
-  "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
+  "coreClaim": "Game map party position sync consumes structured location changes, not only explicit map_update tags.",
   "assignment": {
     "assignee": "cha1latte",
-    "evidence": "Issue #2135 was assigned to cha1latte before implementation."
+    "evidence": "gh issue edit 2139 --repo Pasta-Devs/Marinara-Engine --add-assignee '@me' returned the issue URL before implementation."
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "Exact PR search for 2135 returned no matches; broader sprite-title search did not show an associated #2135 fix PR."
+    "details": "Exact PR search for 2139 returned no matches; no local issue-2139 branch or worktree existed before this worktree."
+  },
+  "prBoundary": {
+    "inScope": "Restore location-driven game map party marker sync and discovery parity.",
+    "outOfScope": "No game map UI redesign, no unrelated world-state behavior changes."
   },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Copied the new prompt-assembly regression test into a pristine upstream/refactor worktree.",
+    "method": "Focused Vitest repro imported the missing location-sync exports and exercised node, grid, meta map selection, and no-match behavior.",
     "evidence": [
-      "C:/tmp/Marinara-Engine-issue-2135-before: pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts failed before the fix.",
-      "The failing assertion showed the assembled game prompt did not contain Available custom sprites per character."
+      "Before fix: pnpm exec vitest run src/engine/modes/game/world/map-position.service.test.ts failed with TypeError: syncGameMapPartyPosition is not a function, syncGameMapMetaPartyPosition is not a function, and gameMapContainsLocation is not a function."
     ]
   },
   "verification": {
     "originalReproPassed": true,
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "passed after the reserved-only sprite edge-case patch and after merging upstream/refactor",
+    "baselineEvidence": "passed after the unused-export cleanup",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts src/engine/modes/game/prompts/sprite.service.test.ts passed before and after merging upstream/refactor; after Bunny repair it passed with 7 tests.",
-      "pnpm typecheck passed before full baseline.",
-      "pnpm check passed before and after merging upstream/refactor.",
-      "git diff --check passed.",
-      "node C:/Users/celia/.codex/tools/marinara-proof-gate.mjs scratch/bugfix-verification.json passed."
+      "pnpm exec vitest run src/engine/modes/game/world/map-position.service.test.ts passed with 5 tests after the fix.",
+      "pnpm exec vitest run src/engine/modes/game/world/map-position.service.test.ts --reporter=json --outputFile=scratch/issue-2139-vitest-after.json passed and wrote a JSON report.",
+      "pnpm typecheck passed.",
+      "pnpm check:architecture passed.",
+      "pnpm check passed."
     ],
     "edgeCases": [
-      "GM prompt reminder includes party character expression sprite names from the visual asset gateway.",
-      "GM prompt reminder includes custom full-body aliases with the full_ prefix removed.",
-      "Engine-reserved automatic full-body poses such as full_idle are not exposed as model-visible full-body aliases.",
-      "Legacy/default full-body poses full_neutral, full_default, and full_walk are treated as automatic poses, not custom aliases.",
-      "A character with only automatic full-body poses is omitted from model-visible sprite listings instead of producing an empty party prompt line.",
-      "Per-character visual asset lookup failures are treated as missing optional sprite enrichment and do not abort prompt assembly or party turns.",
-      "Prompt preview receives the visual asset gateway so manual prompt inspection matches generation.",
-      "Party turn passes the same characterSprites structure into buildPartySystemPrompt."
+      "Node maps: structured location text moves partyPosition to an existing node and marks it discovered.",
+      "Grid maps: structured location text moves partyPosition to a matching cell and marks it discovered.",
+      "Multiple maps: metadata sync selects the map containing the reported location and updates activeGameMapId.",
+      "No-match location: metadata stays on the current active map and does not invent a new location.",
+      "Location detection: node and grid map containment both return true for matching labels and false for unrelated labels."
     ],
-    "visualProof": "Backend prompt bug; before/after terminal proof from targeted Vitest runs is recorded in the PR body."
+    "visualProof": "Backend/logic bug with no meaningful UI state; machine proof is the focused Vitest output and scratch/issue-2139-vitest-after.json."
   },
-  "manualBlockers": [],
   "riskClaimMatrix": {
-    "coreClaim": "Game GM and party prompts receive saved party character sprite expressions and custom full-body aliases.",
-    "riskType": "prompt assembly contract",
+    "coreClaim": "Location-driven map sync restores legacy parity for existing game maps without changing explicit map_update behavior.",
+    "riskType": "compatibility",
     "entrypoints": [
-      "src/engine/generation/start-generation.ts",
-      "src/engine/generation/prompt-preview.ts",
-      "src/features/modes/game/api/game-api.ts partyTurn"
+      "src/engine/modes/game/world/map-position.service.ts",
+      "src/features/modes/game/components/GameSurface.tsx"
     ],
     "currentPathsOrFormats": [
-      "VisualAssetGateway.listSprites(ownerId, \"character\")",
-      "sprite expressions with full_ prefix for full-body poses"
+      "chatMeta.gameMap",
+      "chatMeta.gameMaps",
+      "chatMeta.activeGameMapId",
+      "gameSnapshot.location"
     ],
     "legacyPathsOrFormats": [
-      "main listPartySprites buckets expression sprites, custom full-body aliases, and automatic poses"
+      "main packages/server/src/services/game/map-position.service.ts syncGameMapPartyPosition",
+      "main packages/server/src/services/game/map-position.service.ts syncGameMapMetaPartyPosition",
+      "main packages/server/src/services/game/map-position.service.ts gameMapContainsLocation"
     ],
     "positiveRowsTested": [
-      "expression sprites",
-      "custom full-body alias sprites",
-      "multiple party characters",
-      "visual asset gateway rejection on one party character"
+      "existing node location",
+      "existing grid cell location",
+      "location on a non-active stored map"
     ],
     "negativeRowsTested": [
-      "automatic-only full-body pose is not shown as a custom alias",
-      "legacy/default full-body poses neutral, default, and walk are not shown as custom aliases"
+      "unmatched location does not create a node",
+      "unmatched location does not switch active map"
     ],
     "groundTruthFacts": [
       {
-        "fact": "Saved sprites are exposed to engine code through VisualAssetGateway, not generic storage rows.",
-        "method": "derived from src/engine/capabilities/visual-assets.ts, src/shared/api/visual-assets-api.ts, and src-tauri/src/commands/storage/sprites.rs list_sprites."
+        "fact": "Refactor had parse/apply map_update command support but no exported location-driven sync functions before this change.",
+        "method": "harness-proven by the focused pre-fix Vitest failure and derived from rg across src and src-tauri."
       }
     ],
-    "userActionCopy": [],
     "manualBlockers": []
   },
+  "manualBlockers": [],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local proof, pnpm check, proof gate, Bunny pass, and upstream/refactor merge validation are complete. PR body marks Feature Discoverability as N/A with a reason."
+    "notes": "Focused proof, typecheck, architecture check, full pnpm check, proof gate, and Bunny pass completed. PR creation, CI, and CodeRabbit are pending."
   }
 }
