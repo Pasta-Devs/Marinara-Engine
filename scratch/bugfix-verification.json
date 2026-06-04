@@ -15,6 +15,12 @@
     "foundDuplicate": false,
     "evidence": "gh PR search for #2148, party morale, party_morale, and formatMoraleContext found no associated open or closed fix PR; issue timeline had only label events; local branch search found no 2148/morale branch."
   },
+  "pr": {
+    "number": 2230,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2230",
+    "base": "refactor",
+    "draft": true
+  },
   "branch": {
     "base": "origin/refactor",
     "name": "fix/issue-2148-party-morale-context"
@@ -107,6 +113,6 @@
   },
   "bunny": {
     "status": "pass",
-    "evidence": "Bunny pass before commit/opening draft: issue match, direct prompt-assembly proof, all morale tiers and absent-morale row covered, import boundaries clean, no debug/dependency/schema/version changes, and focused diff."
+    "evidence": "Bunny pass before commit/opening draft and again after push/PR: issue match, direct prompt-assembly proof, all morale tiers and absent-morale row covered, import boundaries clean, no debug/dependency/schema/version changes, focused one-commit diff, no blocking manual verification."
   }
 }
