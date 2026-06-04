@@ -5,12 +5,13 @@ use super::{
     },
     message_swipes,
 };
-use marinara_core::{AppError, AppResult};
+use marinara_core::{new_id, now_iso, AppError, AppResult};
 use marinara_storage::FileStorage;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::fs;
-use std::path::Path;
+use std::io::ErrorKind;
+use std::path::{Path, PathBuf};
 
 const INLINE_AVATAR_FIELDS: &[&str] = &["avatarPath", "avatar", "avatarUrl"];
 const INLINE_NPC_AVATAR_FIELDS: &[&str] = &["avatarUrl", "avatarPath", "avatar", "image"];
@@ -22,6 +23,15 @@ struct MigratedInlineImageReference {
     stored_value: String,
     absolute_path: String,
     filename: String,
+}
+
+struct InlineAttachmentBackfillContext<'a> {
+    data_dir: &'a Path,
+    chat_id: &'a str,
+    message_id: &'a str,
+    gallery_rows: &'a mut Vec<Value>,
+    gallery_urls: &'a mut HashMap<String, String>,
+    created_files: &'a mut Vec<PathBuf>,
 }
 
 pub(crate) fn migrate_inline_image_references(
@@ -45,48 +55,61 @@ fn migrate_inline_avatar_collection(
     collection: &str,
     folder: &str,
 ) -> AppResult<()> {
-    let mut rows = storage.list(collection)?;
-    let mut changed = false;
-    for row in &mut rows {
-        let Some(object) = row.as_object_mut() else {
-            continue;
-        };
-        let Some(data_url) = inline_image_field(object, INLINE_AVATAR_FIELDS) else {
-            continue;
-        };
-        let fallback = format!("{collection}-avatar");
-        let hint = inline_image_filename_hint(object, &fallback);
-        let Some(reference) =
-            persist_inline_image_reference(data_dir, folder, &hint, &data_url, collection)?
-        else {
-            continue;
-        };
-        object.insert(
-            "avatarPath".to_string(),
-            Value::String(reference.stored_value.clone()),
-        );
-        for field in ["avatar", "avatarUrl"] {
-            if object.contains_key(field) {
-                object.insert(
-                    field.to_string(),
-                    Value::String(reference.stored_value.clone()),
-                );
+    let mut created_files = Vec::new();
+    let result = (|| -> AppResult<()> {
+        let mut rows = storage.list(collection)?;
+        let mut changed = false;
+        for row in &mut rows {
+            let Some(object) = row.as_object_mut() else {
+                continue;
+            };
+            let Some(data_url) = inline_image_field(object, INLINE_AVATAR_FIELDS) else {
+                continue;
+            };
+            let fallback = format!("{collection}-avatar");
+            let hint = inline_image_filename_hint(object, &fallback);
+            let Some(reference) = persist_inline_image_reference(
+                data_dir,
+                folder,
+                &hint,
+                &data_url,
+                collection,
+                &mut created_files,
+            )?
+            else {
+                continue;
+            };
+            object.insert(
+                "avatarPath".to_string(),
+                Value::String(reference.stored_value.clone()),
+            );
+            for field in ["avatar", "avatarUrl"] {
+                if object.contains_key(field) {
+                    object.insert(
+                        field.to_string(),
+                        Value::String(reference.stored_value.clone()),
+                    );
+                }
             }
+            object.insert(
+                "avatarFilePath".to_string(),
+                Value::String(reference.absolute_path),
+            );
+            object.insert(
+                "avatarFilename".to_string(),
+                Value::String(reference.filename),
+            );
+            changed = true;
         }
-        object.insert(
-            "avatarFilePath".to_string(),
-            Value::String(reference.absolute_path),
-        );
-        object.insert(
-            "avatarFilename".to_string(),
-            Value::String(reference.filename),
-        );
-        changed = true;
+        if changed {
+            storage.replace_all(collection, rows)?;
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        rollback_created_files(&created_files);
     }
-    if changed {
-        storage.replace_all(collection, rows)?;
-    }
-    Ok(())
+    result
 }
 
 fn migrate_inline_gallery_collection(
@@ -94,33 +117,46 @@ fn migrate_inline_gallery_collection(
     data_dir: &Path,
     collection: &str,
 ) -> AppResult<()> {
-    let mut rows = storage.list(collection)?;
-    let mut changed = false;
-    for row in &mut rows {
-        let Some(object) = row.as_object_mut() else {
-            continue;
-        };
-        let Some(data_url) = inline_image_string(object.get("url")) else {
-            continue;
-        };
-        let hint = inline_image_filename_hint(object, "gallery-image");
-        let Some(reference) =
-            persist_inline_image_reference(data_dir, "gallery", &hint, &data_url, collection)?
-        else {
-            continue;
-        };
-        object.insert("url".to_string(), Value::String(reference.stored_value));
-        object.insert(
-            "filePath".to_string(),
-            Value::String(reference.absolute_path),
-        );
-        object.insert("filename".to_string(), Value::String(reference.filename));
-        changed = true;
+    let mut created_files = Vec::new();
+    let result = (|| -> AppResult<()> {
+        let mut rows = storage.list(collection)?;
+        let mut changed = false;
+        for row in &mut rows {
+            let Some(object) = row.as_object_mut() else {
+                continue;
+            };
+            let Some(data_url) = inline_image_string(object.get("url")) else {
+                continue;
+            };
+            let hint = inline_image_filename_hint(object, "gallery-image");
+            let Some(reference) = persist_inline_image_reference(
+                data_dir,
+                "gallery",
+                &hint,
+                &data_url,
+                collection,
+                &mut created_files,
+            )?
+            else {
+                continue;
+            };
+            object.insert("url".to_string(), Value::String(reference.stored_value));
+            object.insert(
+                "filePath".to_string(),
+                Value::String(reference.absolute_path),
+            );
+            object.insert("filename".to_string(), Value::String(reference.filename));
+            changed = true;
+        }
+        if changed {
+            storage.replace_all(collection, rows)?;
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        rollback_created_files(&created_files);
     }
-    if changed {
-        storage.replace_all(collection, rows)?;
-    }
-    Ok(())
+    result
 }
 
 fn gallery_url_lookup(storage: &FileStorage) -> AppResult<HashMap<String, String>> {
@@ -152,54 +188,78 @@ fn migrate_inline_chat_hot_image_references(
     storage: &FileStorage,
     data_dir: &Path,
 ) -> AppResult<()> {
-    let mut rows = storage.list("chats")?;
-    let mut changed = false;
-    for row in &mut rows {
-        let Some(object) = row.as_object_mut() else {
-            continue;
-        };
-        let mut row_changed = false;
-        if let Some(game_state) = object.get_mut("gameState") {
-            row_changed |= migrate_inline_present_characters(data_dir, game_state)?;
-        }
-        if let Some(metadata) = object.get_mut("metadata").and_then(Value::as_object_mut) {
-            if let Some(game_npcs) = metadata.get_mut("gameNpcs") {
-                row_changed |= migrate_inline_avatar_array(
-                    data_dir,
-                    "avatars/npc",
-                    game_npcs,
-                    INLINE_NPC_AVATAR_FIELDS,
-                    "game-npc",
-                )?;
+    let mut created_files = Vec::new();
+    let result = (|| -> AppResult<()> {
+        let mut rows = storage.list("chats")?;
+        let mut changed = false;
+        for row in &mut rows {
+            let Some(object) = row.as_object_mut() else {
+                continue;
+            };
+            let mut row_changed = false;
+            if let Some(game_state) = object.get_mut("gameState") {
+                row_changed |=
+                    migrate_inline_present_characters(data_dir, game_state, &mut created_files)?;
             }
-            if let Some(game_state) = metadata.get_mut("gameState") {
-                row_changed |= migrate_inline_present_characters(data_dir, game_state)?;
+            if let Some(metadata) = object.get_mut("metadata").and_then(Value::as_object_mut) {
+                if let Some(game_npcs) = metadata.get_mut("gameNpcs") {
+                    row_changed |= migrate_inline_avatar_array(
+                        data_dir,
+                        "avatars/npc",
+                        game_npcs,
+                        INLINE_NPC_AVATAR_FIELDS,
+                        "game-npc",
+                        &mut created_files,
+                    )?;
+                }
+                if let Some(game_state) = metadata.get_mut("gameState") {
+                    row_changed |= migrate_inline_present_characters(
+                        data_dir,
+                        game_state,
+                        &mut created_files,
+                    )?;
+                }
             }
+            changed |= row_changed;
         }
-        changed |= row_changed;
+        if changed {
+            storage.replace_all("chats", rows)?;
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        rollback_created_files(&created_files);
     }
-    if changed {
-        storage.replace_all("chats", rows)?;
-    }
-    Ok(())
+    result
 }
 
 fn migrate_inline_snapshot_present_character_references(
     storage: &FileStorage,
     data_dir: &Path,
 ) -> AppResult<()> {
-    let mut rows = storage.list("game-state-snapshots")?;
-    let mut changed = false;
-    for row in &mut rows {
-        changed |= migrate_inline_present_characters(data_dir, row)?;
+    let mut created_files = Vec::new();
+    let result = (|| -> AppResult<()> {
+        let mut rows = storage.list("game-state-snapshots")?;
+        let mut changed = false;
+        for row in &mut rows {
+            changed |= migrate_inline_present_characters(data_dir, row, &mut created_files)?;
+        }
+        if changed {
+            storage.replace_all("game-state-snapshots", rows)?;
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        rollback_created_files(&created_files);
     }
-    if changed {
-        storage.replace_all("game-state-snapshots", rows)?;
-    }
-    Ok(())
+    result
 }
 
-fn migrate_inline_present_characters(data_dir: &Path, value: &mut Value) -> AppResult<bool> {
+fn migrate_inline_present_characters(
+    data_dir: &Path,
+    value: &mut Value,
+    created_files: &mut Vec<PathBuf>,
+) -> AppResult<bool> {
     let Some(object) = value.as_object_mut() else {
         return Ok(false);
     };
@@ -212,6 +272,7 @@ fn migrate_inline_present_characters(data_dir: &Path, value: &mut Value) -> AppR
         present_characters,
         INLINE_TRACKER_AVATAR_FIELDS,
         "tracker-character",
+        created_files,
     )
 }
 
@@ -221,6 +282,7 @@ fn migrate_inline_avatar_array(
     value: &mut Value,
     fields: &[&str],
     fallback_prefix: &str,
+    created_files: &mut Vec<PathBuf>,
 ) -> AppResult<bool> {
     let Some(items) = value.as_array_mut() else {
         return Ok(false);
@@ -235,8 +297,14 @@ fn migrate_inline_avatar_array(
         };
         let fallback = format!("{fallback_prefix}-{}", index + 1);
         let hint = inline_image_filename_hint(object, &fallback);
-        let Some(reference) =
-            persist_inline_image_reference(data_dir, folder, &hint, &data_url, fallback_prefix)?
+        let Some(reference) = persist_inline_image_reference(
+            data_dir,
+            folder,
+            &hint,
+            &data_url,
+            fallback_prefix,
+            created_files,
+        )?
         else {
             continue;
         };
@@ -270,75 +338,88 @@ fn migrate_inline_message_attachment_references(
     data_dir: &Path,
     gallery_urls: &mut HashMap<String, String>,
 ) -> AppResult<()> {
-    let mut rows = storage.list("messages")?;
-    let mut changed = false;
-    for row in &mut rows {
-        let Some(object) = row.as_object_mut() else {
-            continue;
-        };
-        let chat_id = object
-            .get("chatId")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .unwrap_or_default()
-            .to_string();
-        let message_id = object
-            .get("id")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("message")
-            .to_string();
-        let mut row_changed = false;
-        if let Some(attachments) = object.get_mut("attachments") {
-            row_changed |= migrate_inline_attachment_array(
-                storage,
-                data_dir,
-                &chat_id,
-                &message_id,
-                attachments,
-                gallery_urls,
-            )?;
-        }
-        if let Some(extra) = object.get_mut("extra").and_then(Value::as_object_mut) {
-            if let Some(attachments) = extra.get_mut("attachments") {
-                row_changed |= migrate_inline_attachment_array(
-                    storage,
+    let mut created_files = Vec::new();
+    let mut local_gallery_urls = gallery_urls.clone();
+    let result = (|| -> AppResult<()> {
+        let mut rows = storage.list("messages")?;
+        let mut gallery_rows = storage.list("gallery")?;
+        let mut changed = false;
+        for row in &mut rows {
+            let Some(object) = row.as_object_mut() else {
+                continue;
+            };
+            let chat_id = object
+                .get("chatId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string();
+            let message_id = object
+                .get("id")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("message")
+                .to_string();
+            let mut row_changed = false;
+            if let Some(attachments) = object.get_mut("attachments") {
+                let mut context = InlineAttachmentBackfillContext {
                     data_dir,
-                    &chat_id,
-                    &message_id,
-                    attachments,
-                    gallery_urls,
-                )?;
+                    chat_id: &chat_id,
+                    message_id: &message_id,
+                    gallery_rows: &mut gallery_rows,
+                    gallery_urls: &mut local_gallery_urls,
+                    created_files: &mut created_files,
+                };
+                row_changed |= migrate_inline_attachment_array(&mut context, attachments)?;
             }
-        }
-        if let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) {
-            for swipe in swipes {
-                let Some(swipe_object) = swipe.as_object_mut() else {
-                    continue;
-                };
-                let Some(extra) = swipe_object.get_mut("extra").and_then(Value::as_object_mut)
-                else {
-                    continue;
-                };
+            if let Some(extra) = object.get_mut("extra").and_then(Value::as_object_mut) {
                 if let Some(attachments) = extra.get_mut("attachments") {
-                    row_changed |= migrate_inline_attachment_array(
-                        storage,
+                    let mut context = InlineAttachmentBackfillContext {
                         data_dir,
-                        &chat_id,
-                        &message_id,
-                        attachments,
-                        gallery_urls,
-                    )?;
+                        chat_id: &chat_id,
+                        message_id: &message_id,
+                        gallery_rows: &mut gallery_rows,
+                        gallery_urls: &mut local_gallery_urls,
+                        created_files: &mut created_files,
+                    };
+                    row_changed |= migrate_inline_attachment_array(&mut context, attachments)?;
                 }
             }
+            if let Some(swipes) = object.get_mut("swipes").and_then(Value::as_array_mut) {
+                for swipe in swipes {
+                    let Some(swipe_object) = swipe.as_object_mut() else {
+                        continue;
+                    };
+                    let Some(extra) = swipe_object.get_mut("extra").and_then(Value::as_object_mut)
+                    else {
+                        continue;
+                    };
+                    if let Some(attachments) = extra.get_mut("attachments") {
+                        let mut context = InlineAttachmentBackfillContext {
+                            data_dir,
+                            chat_id: &chat_id,
+                            message_id: &message_id,
+                            gallery_rows: &mut gallery_rows,
+                            gallery_urls: &mut local_gallery_urls,
+                            created_files: &mut created_files,
+                        };
+                        row_changed |= migrate_inline_attachment_array(&mut context, attachments)?;
+                    }
+                }
+            }
+            changed |= row_changed;
         }
-        changed |= row_changed;
+        if changed {
+            storage.replace_all_many(vec![("messages", rows), ("gallery", gallery_rows)])?;
+            *gallery_urls = local_gallery_urls;
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        rollback_created_files(&created_files);
     }
-    if changed {
-        storage.replace_all("messages", rows)?;
-    }
-    Ok(())
+    result
 }
 
 fn migrate_inline_message_swipe_attachment_references(
@@ -346,53 +427,63 @@ fn migrate_inline_message_swipe_attachment_references(
     data_dir: &Path,
     gallery_urls: &mut HashMap<String, String>,
 ) -> AppResult<()> {
-    let mut rows = storage.list(message_swipes::COLLECTION)?;
-    let mut changed = false;
-    for row in &mut rows {
-        let Some(object) = row.as_object_mut() else {
-            continue;
-        };
-        let chat_id = object
-            .get("chatId")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .unwrap_or_default()
-            .to_string();
-        let message_id = object
-            .get("messageId")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("message")
-            .to_string();
-        let Some(extra) = object.get_mut("extra").and_then(Value::as_object_mut) else {
-            continue;
-        };
-        let Some(attachments) = extra.get_mut("attachments") else {
-            continue;
-        };
-        changed |= migrate_inline_attachment_array(
-            storage,
-            data_dir,
-            &chat_id,
-            &message_id,
-            attachments,
-            gallery_urls,
-        )?;
+    let mut created_files = Vec::new();
+    let mut local_gallery_urls = gallery_urls.clone();
+    let result = (|| -> AppResult<()> {
+        let mut rows = storage.list(message_swipes::COLLECTION)?;
+        let mut gallery_rows = storage.list("gallery")?;
+        let mut changed = false;
+        for row in &mut rows {
+            let Some(object) = row.as_object_mut() else {
+                continue;
+            };
+            let chat_id = object
+                .get("chatId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string();
+            let message_id = object
+                .get("messageId")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or("message")
+                .to_string();
+            let Some(extra) = object.get_mut("extra").and_then(Value::as_object_mut) else {
+                continue;
+            };
+            let Some(attachments) = extra.get_mut("attachments") else {
+                continue;
+            };
+            let mut context = InlineAttachmentBackfillContext {
+                data_dir,
+                chat_id: &chat_id,
+                message_id: &message_id,
+                gallery_rows: &mut gallery_rows,
+                gallery_urls: &mut local_gallery_urls,
+                created_files: &mut created_files,
+            };
+            changed |= migrate_inline_attachment_array(&mut context, attachments)?;
+        }
+        if changed {
+            storage.replace_all_many(vec![
+                (message_swipes::COLLECTION, rows),
+                ("gallery", gallery_rows),
+            ])?;
+            *gallery_urls = local_gallery_urls;
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        rollback_created_files(&created_files);
     }
-    if changed {
-        storage.replace_all(message_swipes::COLLECTION, rows)?;
-    }
-    Ok(())
+    result
 }
 
 fn migrate_inline_attachment_array(
-    storage: &FileStorage,
-    data_dir: &Path,
-    chat_id: &str,
-    message_id: &str,
+    context: &mut InlineAttachmentBackfillContext<'_>,
     value: &mut Value,
-    gallery_urls: &mut HashMap<String, String>,
 ) -> AppResult<bool> {
     let Some(attachments) = value.as_array_mut() else {
         return Ok(false);
@@ -405,19 +496,10 @@ fn migrate_inline_attachment_array(
         let Some(data_url) = inline_image_field(object, INLINE_ATTACHMENT_SOURCE_FIELDS) else {
             continue;
         };
-        let stored = if let Some(url) = attachment_gallery_url(object, gallery_urls) {
+        let stored = if let Some(url) = attachment_gallery_url(object, context.gallery_urls) {
             Some(url)
         } else {
-            create_gallery_row_for_inline_attachment(
-                storage,
-                data_dir,
-                chat_id,
-                message_id,
-                index,
-                object,
-                &data_url,
-                gallery_urls,
-            )?
+            stage_gallery_row_for_inline_attachment(context, index, object, &data_url)?
         };
         let Some(stored_url) = stored else {
             continue;
@@ -458,56 +540,49 @@ fn attachment_gallery_url(
         .cloned()
 }
 
-fn create_gallery_row_for_inline_attachment(
-    storage: &FileStorage,
-    data_dir: &Path,
-    chat_id: &str,
-    message_id: &str,
+fn stage_gallery_row_for_inline_attachment(
+    context: &mut InlineAttachmentBackfillContext<'_>,
     index: usize,
     attachment: &mut Map<String, Value>,
     data_url: &str,
-    gallery_urls: &mut HashMap<String, String>,
 ) -> AppResult<Option<String>> {
-    if chat_id.trim().is_empty() {
+    if context.chat_id.trim().is_empty() {
         return Ok(None);
     }
-    let hint = attachment_filename_hint(attachment, message_id, index);
-    let Some(reference) =
-        persist_inline_image_reference(data_dir, "gallery", &hint, data_url, "message attachment")?
+    let hint = attachment_filename_hint(attachment, context.message_id, index);
+    let Some(reference) = persist_inline_image_reference(
+        context.data_dir,
+        "gallery",
+        &hint,
+        data_url,
+        "message attachment",
+        context.created_files,
+    )?
     else {
         return Ok(None);
     };
+    let gallery_id = unique_gallery_id(context.gallery_rows);
+    let now = now_iso();
     let record = json!({
-        "chatId": chat_id,
+        "id": gallery_id,
+        "chatId": context.chat_id,
         "filePath": reference.absolute_path.clone(),
         "filename": reference.filename.clone(),
         "url": reference.stored_value.clone(),
         "prompt": attachment.get("prompt").cloned().unwrap_or(Value::Null),
-        "provider": Value::Null,
-        "model": Value::Null,
-        "width": Value::Null,
-        "height": Value::Null,
+        "provider": attachment.get("provider").cloned().unwrap_or(Value::Null),
+        "model": attachment.get("model").cloned().unwrap_or(Value::Null),
+        "width": attachment.get("width").cloned().unwrap_or(Value::Null),
+        "height": attachment.get("height").cloned().unwrap_or(Value::Null),
+        "createdAt": now.clone(),
+        "updatedAt": now,
         "kind": "attachment-backfill"
     });
-    let created = match storage.create("gallery", record) {
-        Ok(created) => created,
-        Err(error) => {
-            let _ = fs::remove_file(&reference.absolute_path);
-            return Err(error);
-        }
-    };
-    if let Some(gallery_id) = created
-        .get("id")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        attachment.insert(
-            "galleryId".to_string(),
-            Value::String(gallery_id.to_string()),
-        );
-        gallery_urls.insert(gallery_id.to_string(), reference.stored_value.clone());
-    }
+    context.gallery_rows.push(record);
+    attachment.insert("galleryId".to_string(), Value::String(gallery_id.clone()));
+    context
+        .gallery_urls
+        .insert(gallery_id, reference.stored_value.clone());
     attachment.insert(
         "filePath".to_string(),
         Value::String(reference.absolute_path.clone()),
@@ -517,6 +592,18 @@ fn create_gallery_row_for_inline_attachment(
         Value::String(reference.filename.clone()),
     );
     Ok(Some(reference.stored_value))
+}
+
+fn unique_gallery_id(gallery_rows: &[Value]) -> String {
+    loop {
+        let id = new_id();
+        if !gallery_rows
+            .iter()
+            .any(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+        {
+            return id;
+        }
+    }
 }
 
 fn inline_image_field(object: &Map<String, Value>, fields: &[&str]) -> Option<String> {
@@ -550,6 +637,7 @@ fn persist_inline_image_reference(
     filename_hint: &str,
     data_url: &str,
     context: &str,
+    created_files: &mut Vec<PathBuf>,
 ) -> AppResult<Option<MigratedInlineImageReference>> {
     let (mime, bytes) = match decode_image_payload(data_url, context) {
         Ok(decoded) => decoded,
@@ -566,6 +654,7 @@ fn persist_inline_image_reference(
     let filename = inline_image_filename(filename_hint, ext);
     let target = unique_file_path(&dir.join(filename))?;
     fs::write(&target, bytes)?;
+    created_files.push(target.clone());
     let filename = target
         .file_name()
         .map(|value| value.to_string_lossy().to_string())
@@ -575,6 +664,19 @@ fn persist_inline_image_reference(
         absolute_path: target.to_string_lossy().to_string(),
         filename,
     }))
+}
+
+fn rollback_created_files(paths: &[PathBuf]) {
+    for path in paths.iter().rev() {
+        match fs::remove_file(path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::NotFound => {}
+            Err(error) => log::warn!(
+                "failed to remove staged inline image migration file {}: {error}",
+                path.display()
+            ),
+        }
+    }
 }
 
 fn inline_image_filename(filename_hint: &str, ext: &str) -> String {

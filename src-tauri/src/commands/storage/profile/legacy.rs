@@ -615,7 +615,9 @@ fn normalize_legacy_gallery_rows(
             .and_then(Value::as_str)
             .is_some_and(|value| !value.trim().is_empty());
         if let Some(asset) = gallery_asset_from_legacy_row(state, staging_root, object) {
-            object.insert("url".to_string(), Value::String(asset.asset_url));
+            if should_replace_legacy_gallery_url(state, staging_root, object.get("url")) {
+                object.insert("url".to_string(), Value::String(asset.asset_url));
+            }
             object.insert("filePath".to_string(), Value::String(asset.absolute_path));
             if object
                 .get("filename")
@@ -642,7 +644,7 @@ fn gallery_asset_from_legacy_row(
     staging_root: Option<&Path>,
     object: &Map<String, Value>,
 ) -> Option<LegacyProfileGalleryAsset> {
-    for field in ["filePath", "path", "filename"] {
+    for field in ["filePath", "path", "url", "filename"] {
         let Some(raw) = object.get(field).and_then(Value::as_str) else {
             continue;
         };
@@ -668,6 +670,24 @@ fn gallery_asset_from_legacy_row(
         }
     }
     None
+}
+
+fn should_replace_legacy_gallery_url(
+    state: &AppState,
+    staging_root: Option<&Path>,
+    value: Option<&Value>,
+) -> bool {
+    let Some(url) = value
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return true;
+    };
+    if url.trim_start().starts_with("data:") {
+        return true;
+    }
+    legacy_profile_gallery_asset_for_path(state, staging_root, url).is_some()
 }
 
 fn normalize_legacy_agent_runs(rows: &mut [Value], tables: &Map<String, Value>) {
@@ -1252,6 +1272,10 @@ mod tests {
         std::fs::create_dir_all(&gallery_dir).expect("gallery dir should be created");
         std::fs::write(gallery_dir.join("legacy-chat.png"), b"chat-image")
             .expect("chat gallery asset should be written");
+        std::fs::write(gallery_dir.join("legacy-url-only.jpg"), b"url-only-image")
+            .expect("url-only gallery asset should be written");
+        std::fs::write(gallery_dir.join("legacy-remote.png"), b"remote-image")
+            .expect("remote gallery asset should be written");
         std::fs::write(
             gallery_dir.join("legacy-character.webp"),
             b"character-image",
@@ -1265,6 +1289,17 @@ mod tests {
                     "id": "chat-image-1",
                     "chatId": "chat-1",
                     "filePath": "/api/gallery/file/legacy-chat.png"
+                },
+                {
+                    "id": "chat-image-url-only",
+                    "chatId": "chat-1",
+                    "url": "/api/gallery/file/legacy-url-only.jpg"
+                },
+                {
+                    "id": "chat-image-remote",
+                    "chatId": "chat-1",
+                    "filePath": "/api/gallery/file/legacy-remote.png",
+                    "url": "https://cdn.example.test/legacy-remote.png"
                 }
             ]),
         );
@@ -1304,6 +1339,36 @@ mod tests {
             chat_image["filePath"]
                 .as_str()
                 .expect("chat gallery file path should be stored")
+        )
+        .is_file());
+        let url_only_image = state
+            .storage
+            .get("gallery", "chat-image-url-only")
+            .expect("url-only gallery lookup should not fail")
+            .expect("url-only gallery row should import");
+        let url_only_image_url = url_only_image["url"]
+            .as_str()
+            .expect("url-only gallery url should be stored");
+        assert!(
+            url_only_image_url.starts_with("asset://localhost")
+                || url_only_image_url.starts_with("http://asset.localhost"),
+            "legacy gallery URLs should be converted to managed asset URLs"
+        );
+        assert_eq!(url_only_image["filename"], "legacy-url-only.jpg");
+
+        let remote_image = state
+            .storage
+            .get("gallery", "chat-image-remote")
+            .expect("remote gallery lookup should not fail")
+            .expect("remote gallery row should import");
+        assert_eq!(
+            remote_image["url"],
+            "https://cdn.example.test/legacy-remote.png"
+        );
+        assert!(std::path::Path::new(
+            remote_image["filePath"]
+                .as_str()
+                .expect("remote gallery file path should be stored")
         )
         .is_file());
 

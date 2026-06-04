@@ -1400,7 +1400,11 @@ mod tests {
                             "type": "image",
                             "imageUrl": INLINE_PNG_DATA_URL,
                             "data": INLINE_PNG_DATA_URL,
-                            "prompt": "new prompt"
+                            "prompt": "new prompt",
+                            "provider": "test-provider",
+                            "model": "test-model",
+                            "width": 512,
+                            "height": 768
                         },
                         {
                             "type": "image",
@@ -1478,6 +1482,18 @@ mod tests {
         assert_eq!(attachments[1]["imageUrl"], attachments[1]["url"]);
         assert!(attachments[1]["galleryId"].as_str().is_some());
         assert!(attachments[1]["data"].is_null());
+        let new_gallery_id = attachments[1]["galleryId"]
+            .as_str()
+            .expect("new attachment gallery id should be stored");
+        let new_gallery = state
+            .storage
+            .get("gallery", new_gallery_id)
+            .expect("new gallery row should load")
+            .expect("new gallery row should exist");
+        assert_eq!(new_gallery["provider"].as_str(), Some("test-provider"));
+        assert_eq!(new_gallery["model"].as_str(), Some("test-model"));
+        assert_eq!(new_gallery["width"].as_u64(), Some(512));
+        assert_eq!(new_gallery["height"].as_u64(), Some(768));
 
         let data_only_url = attachments[2]["url"]
             .as_str()
