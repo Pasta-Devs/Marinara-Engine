@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LorebookEntry } from "../../contracts/types/lorebook";
 import { scanForActivatedEntries } from "./keyword-scanner";
-import { applyTokenBudgetWithSkipped, injectAtDepth, type PromptMessage } from "./prompt-injector";
+import { injectAtDepth, processActivatedEntries, type PromptMessage } from "./prompt-injector";
 
 function entry(
   overrides: Partial<LorebookEntry> & Pick<LorebookEntry, "id" | "name" | "keys" | "content" | "order">,
@@ -58,7 +58,7 @@ function entry(
   };
 }
 
-describe("applyTokenBudgetWithSkipped", () => {
+describe("processActivatedEntries", () => {
   it("keeps latest user-message primary-key matches ahead of older context matches", () => {
     const activated = scanForActivatedEntries(
       [
@@ -84,7 +84,7 @@ describe("applyTokenBudgetWithSkipped", () => {
       ],
     );
 
-    const budgeted = applyTokenBudgetWithSkipped(activated, 5);
+    const budgeted = processActivatedEntries(activated, 5);
 
     expect(budgeted.includedEntries.map((activatedEntry) => activatedEntry.entry.id)).toEqual(["latest-user"]);
     expect(budgeted.skippedEntries.map((skipped) => skipped.activatedEntry.entry.id)).toEqual(["older-context"]);

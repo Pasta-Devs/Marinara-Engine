@@ -1,95 +1,85 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2184,
-    "title": "[Issue]: Lorebook runtime no longer enforces max activated entry cap",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2184"
+    "number": 2185,
+    "title": "Lorebook recursive scan cannot activate entries across active lorebooks",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2185"
   },
   "pr": {
-    "number": "2247",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2247",
-    "base": "refactor",
-    "draft": true
+    "number": null,
+    "url": null
   },
-  "coreClaim": "Prompt-time active lorebook scanning includes no more than LIMITS.MAX_LOREBOOK_ENTRIES entries while preserving the existing priority order: constants first, fresh latest-user-message matches next, then injection order.",
+  "coreClaim": "Recursive lorebook scanning activates entries across the full active lorebook set from budget-selected frontier content while respecting depth and preventRecursion.",
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "pnpm exec vitest run src/engine/generation/active-lorebook-scanner.test.ts",
-    "evidence": "Before the production fix, the focused scanner test failed because processedLore.includedEntries had 105 entries instead of LIMITS.MAX_LOREBOOK_ENTRIES=100."
+    "command": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts",
+    "observedFailure": "Before the production fix, the focused scanner suite failed because cross-book recursive activation omitted entry-b, and a budget-skipped frontier still activated entry-recursive-only.",
+    "duplicatePreflight": "No existing issue PR or local issue branch found before worktree creation.",
+    "assignedIssue": true
   },
   "verification": {
     "originalReproPassed": true,
-    "originalReproCommand": "pnpm exec vitest run src/engine/generation/active-lorebook-scanner.test.ts",
-    "originalReproEvidence": "After the fix, active-lorebook-scanner.test.ts passed with 2 tests, including the cap/priority regression.",
-    "focusedProof": [
-      "The regression row creates 105 active entries with unlimited token budget and verifies only 100 are included.",
-      "The regression row verifies constant entries stay ahead of fresh latest-user-message entries even with higher injection order.",
-      "The regression row verifies older-message matches are dropped when constants plus fresh matches fill the cap."
-    ],
-    "edgeCases": [
-      "Existing batched active-lorebook storage and disabled-folder behavior still passes in the same scanner suite."
-    ],
-    "visualProof": "scratch/issue-2184-after-vitest.txt",
+    "targetedProofCommand": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts",
+    "targetedProofResult": "Passed with 4 tests. Regression rows cover cross-lorebook recursion, preventRecursion, configured recursion depth, and budget-selected frontier behavior.",
+    "laneValidationCommand": "pnpm typecheck",
+    "laneValidationResult": "Passed.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Passed line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks."
+    "baselineEvidence": "Passed pnpm check after final diff: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
+    "visualProof": "Backend logic proof: targeted Vitest output captured in command log; no meaningful UI state.",
+    "focusedProof": "pnpm test src/engine/generation/active-lorebook-scanner.test.ts src/engine/generation-core/lorebooks/prompt-injector.test.ts passed with 7 tests."
   },
   "manualBlockers": [],
-  "notes": [
-    "UI/browser proof is not applicable because this is a React-free engine prompt-selection bug; raw Vitest output is captured in scratch/issue-2184-after-vitest.txt."
-  ],
-  "preflight": {
-    "noAssociatedPr": true,
-    "issueAssigned": true,
-    "evidence": "GitHub PR searches for #2184, MAX_LOREBOOK_ENTRIES, and max activated entry cap found no associated open/closed fix PR; issue comments had no linked fix; local branch/worktree search found no 2184 branch or worktree; issue assigned to @me."
+  "notes": [],
+  "riskClaimMatrix": {
+    "coreClaim": "Recursive lorebook scanning activates entries across the full active lorebook set from budget-selected frontier content while respecting depth and preventRecursion.",
+    "riskType": "prompt assembly compatibility regression",
+    "entrypoints": [
+      "chat prompt assembly",
+      "roleplay prompt assembly",
+      "game prompt assembly"
+    ],
+    "currentPathsOrFormats": [
+      "src/engine/generation/active-lorebook-scanner.ts"
+    ],
+    "legacyPathsOrFormats": [
+      "upstream/main packages/server/src/services/lorebook/index.ts combined allEntries recursion"
+    ],
+    "positiveRowsTested": [
+      "Cross-lorebook A-to-B activation from selected frontier content.",
+      "Same-book recursive-only entry remains inactive when its frontier entry exceeds the chat lorebook budget."
+    ],
+    "negativeRowsTested": [
+      "Entry with preventRecursion did not activate a target keyed only by that prevented content.",
+      "Configured maxRecursionDepth=1 did not activate the second-hop target keyed by first recursive result content."
+    ],
+    "groundTruthFacts": [
+      {
+        "fact": "Legacy scanned all relevant entries together and recursed only from budget-selected candidates.",
+        "method": "derived from upstream/main packages/server/src/services/lorebook/index.ts"
+      },
+      {
+        "fact": "The refactor prompt-time scanner is React-free src/engine logic used by shared prompt assembly.",
+        "method": "derived from source inspection of src/engine/generation/active-lorebook-scanner.ts and prompt-assembly call sites"
+      }
+    ],
+    "userActionCopy": [],
+    "manualBlockers": []
   },
   "dependencies": {
     "installedFromLockfile": true,
     "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change package.json or pnpm-lock.yaml."
   },
-  "riskClaimMatrix": {
-    "coreClaim": "Prompt-time active lorebook scanning caps injected entries at LIMITS.MAX_LOREBOOK_ENTRIES while preserving existing priority order.",
-    "riskType": "prompt assembly regression parity",
-    "entrypoints": [
-      "scanActiveLorebooks shared engine scanner",
-      "assemblePrompt activatedLorebookEntries",
-      "scanActiveLorebookEntries Active World Info data"
-    ],
-    "currentPathsOrFormats": [
-      "Refactor active lorebook scanner",
-      "Shared prompt-injector budget processing"
-    ],
-    "legacyPathsOrFormats": [
-      "Legacy lorebook selection capped by LIMITS.MAX_LOREBOOK_ENTRIES"
-    ],
-    "positiveRowsTested": [
-      "105 matching entries with unlimited token budget caps to 100 included entries.",
-      "Constants outrank fresh latest-user-message matches.",
-      "Fresh latest-user-message matches outrank older-message matches."
-    ],
-    "negativeRowsTested": [
-      "Disabled-folder entry remains excluded by the existing scanner test."
-    ],
-    "groundTruthFacts": [
-      {
-        "fact": "LIMITS.MAX_LOREBOOK_ENTRIES is 100 in src/engine/contracts/constants/defaults.ts.",
-        "sourceType": "derived",
-        "evidence": "Imported LIMITS in the regression test."
-      }
-    ],
-    "userActionCopy": "No user-facing copy changed.",
-    "manualBlockers": []
-  },
   "finalDoneGate": {
     "didFixBug": true,
+    "claimBoundariesProven": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
-    "claimBoundariesProven": true,
-    "notes": "Focused proof, pnpm typecheck, pnpm check, proof gate, and Bunny review passed."
+    "notes": "Focused tests, typecheck, full pnpm check, and proof gate passed after final diff."
   },
   "bunny": {
     "status": "pass",
-    "evidence": "Issue match is direct; the shared prompt-injector now applies LIMITS.MAX_LOREBOOK_ENTRIES through the same constant/latest/order priority used by token budgets; the active scanner is the single prompt-time call site; focused before/after Vitest, pnpm typecheck, pnpm check, and marinara-proof-gate passed; no dependencies, schema, auth, storage persistence, UI, or release files changed."
+    "evidence": "Issue match is direct; combined active-entry recursion now scans across active lorebooks and only recurses from budget-selected entries; regression tests cover cross-book activation, preventRecursion, max depth, and budget-skipped frontier negative control; proof gate and pnpm check passed; no dependencies, schema, storage persistence, API, UI, auth, or release files changed."
   }
 }
