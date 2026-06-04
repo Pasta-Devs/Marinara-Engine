@@ -30,7 +30,15 @@ import {
 export interface ToolRuntimeInput {
   chat: JsonRecord;
   storedMessages?: JsonRecord[];
-  activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
+  activatedLorebookEntries: Array<{
+    id: string;
+    name: string;
+    content: string;
+    tag: string;
+    matchedKeys?: string[];
+    keys?: string[];
+    secondaryKeys?: string[];
+  }>;
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
   chatSummary: string | null;
@@ -259,6 +267,8 @@ async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInp
     name: entry.name,
     content: entry.content,
     tag: entry.tag,
+    keys: [...(entry.matchedKeys ?? []), ...(entry.keys ?? [])],
+    secondaryKeys: entry.secondaryKeys ?? [],
     source: "activated",
   }));
   const stored = rows.map((entry) => ({
@@ -266,6 +276,8 @@ async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInp
     name: entry.name || "Lorebook entry",
     content: entry.content,
     tag: entry.tag || String(entry.position),
+    keys: entry.keys,
+    secondaryKeys: entry.secondaryKeys,
     source: "stored",
   }));
   const seen = new Set<string>();
@@ -277,7 +289,8 @@ async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInp
       return true;
     })
     .map((entry) => {
-      const haystack = `${entry.name} ${entry.tag} ${entry.content}`.toLowerCase();
+      const keyText = [...entry.keys, ...entry.secondaryKeys].join(" ");
+      const haystack = `${entry.name} ${entry.tag} ${entry.content} ${keyText}`.toLowerCase();
       const score =
         (haystack.includes(query) ? 10 : 0) +
         tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
@@ -292,6 +305,8 @@ async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInp
       tag: entry.tag || null,
       source: entry.source,
       score: entry.score,
+      keys: entry.keys.slice(0, 12),
+      secondaryKeys: entry.secondaryKeys.slice(0, 12),
       content: entry.content.slice(0, 4000),
     }));
   return { query, entries: scored };
