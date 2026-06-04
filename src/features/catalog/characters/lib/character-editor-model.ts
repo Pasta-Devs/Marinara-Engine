@@ -42,10 +42,13 @@ const QUOTE_FORMATTED_CHARACTER_FIELDS = new Set<keyof CharacterData>([
   "scenario",
   "first_mes",
   "mes_example",
+  "creator_notes",
+  "system_prompt",
+  "post_history_instructions",
   "alternate_greetings",
 ]);
 
-const QUOTE_FORMATTED_EXTENSION_FIELDS = new Set(["backstory", "appearance", "altDescriptions"]);
+const QUOTE_FORMATTED_EXTENSION_FIELDS = new Set(["backstory", "appearance", "altDescriptions", "depth_prompt"]);
 
 function formatAltDescriptions(value: unknown, quoteFormat: QuoteFormat): unknown {
   if (!Array.isArray(value)) return value;
@@ -57,6 +60,15 @@ function formatAltDescriptions(value: unknown, quoteFormat: QuoteFormat): unknow
       content: typeof record.content === "string" ? formatTextQuotes(record.content, quoteFormat) : record.content,
     };
   });
+}
+
+function formatDepthPrompt(value: unknown, quoteFormat: QuoteFormat): unknown {
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  return {
+    ...record,
+    prompt: typeof record.prompt === "string" ? formatTextQuotes(record.prompt, quoteFormat) : record.prompt,
+  };
 }
 
 export function formatCharacterEditorField<K extends keyof CharacterData>(
@@ -78,6 +90,7 @@ export function formatCharacterEditorExtension(key: string, value: unknown, quot
   if (!QUOTE_FORMATTED_EXTENSION_FIELDS.has(key)) return value;
   if (typeof value === "string") return formatTextQuotes(value, quoteFormat);
   if (key === "altDescriptions") return formatAltDescriptions(value, quoteFormat);
+  if (key === "depth_prompt") return formatDepthPrompt(value, quoteFormat);
   return value;
 }
 
