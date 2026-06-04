@@ -129,6 +129,41 @@ fn native_marinara_character_import_materializes_embedded_avatar() {
 }
 
 #[test]
+fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
+    let state = test_state("native-character-avatar-rollback");
+
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_character",
+            "version": 1,
+            "data": {
+                "spec": "chara_card_v2",
+                "data": {
+                    "name": "Rollback Native Character Avatar",
+                    "description": "Should be removed"
+                },
+                "avatar": embedded_avatar(),
+                "sprites": [
+                    { "data": "data:image/png;base64,not-valid-base64!" }
+                ]
+            }
+        }),
+    )
+    .expect_err("sprite decode failure should reject character import");
+
+    assert_eq!(error.code, "invalid_input");
+    assert!(
+        state.storage.list("characters").unwrap().is_empty(),
+        "failed native character import must remove the created character"
+    );
+    assert!(
+        !state.data_dir.join("avatars").join("characters").exists(),
+        "failed native character import must remove the managed avatar file"
+    );
+}
+
+#[test]
 fn native_marinara_storage_record_import_materializes_embedded_avatar() {
     let state = test_state("native-storage-avatar");
     let imported = import_marinara_envelope(
