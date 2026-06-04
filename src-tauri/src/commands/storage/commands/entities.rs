@@ -443,6 +443,9 @@ pub(crate) fn storage_create_inner(
         connection_secrets::mask_connection_for_read(&mut masked);
         return Ok(masked);
     }
+    if entity == "lorebook-entries" {
+        sync_linked_character_books_for_entry_rows(state, &[&created])?;
+    }
     Ok(created)
 }
 
@@ -479,6 +482,11 @@ pub(crate) fn storage_update_inner(
         return patch_chat_preset(state, &id, patch);
     }
     validate_connection_folder_for_patch(state, &entity, &patch)?;
+    let previous_lorebook_entry = if entity == "lorebook-entries" {
+        state.storage.get(&entity, &id)?
+    } else {
+        None
+    };
     let updated = if entity == "connections" {
         connection_secrets::patch_connection(
             state,
@@ -494,6 +502,15 @@ pub(crate) fn storage_update_inner(
     };
     if entity == "connections" {
         clear_other_default_agent_connections(state, &updated)?;
+    }
+    if entity == "lorebook-entries" {
+        sync_linked_character_books_for_entry_rows(
+            state,
+            &[previous_lorebook_entry.as_ref(), Some(&updated)]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>(),
+        )?;
     }
     Ok(updated)
 }
@@ -733,7 +750,11 @@ pub(crate) fn delete_entity(
             "Default chat presets cannot be deleted",
         ));
     }
-    let existing = owned_record_for_delete(state, entity, id)?;
+    let existing = if entity == "lorebook-entries" {
+        state.storage.get(entity, id)?
+    } else {
+        owned_record_for_delete(state, entity, id)?
+    };
     let message_chat_id = if entity == "messages" {
         existing
             .as_ref()
@@ -756,6 +777,11 @@ pub(crate) fn delete_entity(
             existing.as_ref(),
             message_chat_id.as_deref(),
         )?;
+        if entity == "lorebook-entries" {
+            if let Some(existing) = existing.as_ref() {
+                sync_linked_character_books_for_entry_rows(state, &[existing])?;
+            }
+        }
     }
     Ok(json!({ "deleted": deleted }))
 }
@@ -926,6 +952,119 @@ fn delete_lorebook_children(state: &AppState, lorebook_id: &str) -> Result<(), A
     state.storage.delete_where("lorebook-entries", &filters)?;
     state.storage.delete_where("lorebook-folders", &filters)?;
     Ok(())
+}
+
+fn lorebook_entry_lorebook_id(entry: &Value) -> Option<&str> {
+    entry
+        .get("lorebookId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn sync_linked_character_books_for_entry_rows(
+    state: &AppState,
+    entries: &[&Value],
+) -> Result<(), AppError> {
+    let lorebook_ids = entries
+        .iter()
+        .filter_map(|entry| lorebook_entry_lorebook_id(entry))
+        .collect::<HashSet<_>>();
+    for lorebook_id in lorebook_ids {
+        sync_linked_character_books_for_lorebook(state, lorebook_id)?;
+    }
+    Ok(())
+}
+
+fn sync_linked_character_books_for_lorebook(
+    state: &AppState,
+    lorebook_id: &str,
+) -> Result<(), AppError> {
+    let mut filters = Map::new();
+    filters.insert(
+        "lorebookId".to_string(),
+        Value::String(lorebook_id.to_string()),
+    );
+    let mut entries = state.storage.list_where("lorebook-entries", &filters)?;
+    entries.sort_by(|left, right| {
+        compare_json_values(
+            left.get("sortOrder").or_else(|| left.get("order")),
+            right.get("sortOrder").or_else(|| right.get("order")),
+        )
+        .then_with(|| compare_json_values(left.get("createdAt"), right.get("createdAt")))
+    });
+
+    for character in state.storage.list("characters")? {
+        let Some(character_id) = character.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let mut data = character.get("data").cloned().unwrap_or_else(|| json!({}));
+        if embedded_lorebook_id(&data) != Some(lorebook_id) {
+            continue;
+        }
+        let Some(data_object) = data.as_object_mut() else {
+            continue;
+        };
+        let mut book = data_object
+            .get("character_book")
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        book.insert(
+            "entries".to_string(),
+            Value::Array(
+                entries
+                    .iter()
+                    .enumerate()
+                    .map(|(index, entry)| linked_character_book_entry(entry, index))
+                    .collect(),
+            ),
+        );
+        data_object.insert("character_book".to_string(), Value::Object(book));
+
+        if let Some(import_metadata) = data
+            .pointer_mut("/extensions/importMetadata/embeddedLorebook")
+            .and_then(Value::as_object_mut)
+        {
+            import_metadata.insert("entriesImported".to_string(), json!(entries.len()));
+            import_metadata.insert("hasEmbeddedLorebook".to_string(), Value::Bool(true));
+        }
+        state
+            .storage
+            .patch("characters", character_id, json!({ "data": data }))?;
+    }
+    Ok(())
+}
+
+fn linked_character_book_entry(entry: &Value, index: usize) -> Value {
+    let name = entry
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("Entry");
+    json!({
+        "keys": shared::string_array_from_value(entry.get("keys")),
+        "content": entry.get("content").and_then(Value::as_str).unwrap_or(""),
+        "extensions": entry.get("extensions").cloned().unwrap_or_else(|| json!({})),
+        "enabled": entry.get("enabled").and_then(Value::as_bool).unwrap_or(true),
+        "insertion_order": entry.get("order").or_else(|| entry.get("sortOrder")).and_then(Value::as_i64).unwrap_or(index as i64),
+        "case_sensitive": entry.get("caseSensitive").and_then(Value::as_bool).unwrap_or(false),
+        "name": name,
+        "priority": entry.get("priority").and_then(Value::as_i64).unwrap_or(100),
+        "id": index as i64,
+        "comment": entry.get("comment").and_then(Value::as_str).unwrap_or(name),
+        "selective": entry.get("selective").and_then(Value::as_bool).unwrap_or(false),
+        "secondary_keys": shared::string_array_from_value(entry.get("secondaryKeys")),
+        "constant": entry.get("constant").and_then(Value::as_bool).unwrap_or(false),
+        "position": linked_character_book_position(entry.get("position")),
+    })
+}
+
+fn linked_character_book_position(value: Option<&Value>) -> &'static str {
+    match value {
+        Some(Value::String(raw)) if raw == "after_char" => "after_char",
+        _ => "before_char",
+    }
 }
 
 fn remove_string_from_json_array(value: Option<&Value>, removed_id: &str) -> Option<Value> {
@@ -1341,11 +1480,213 @@ mod tests {
             .unwrap_or(false)
     }
 
+    fn seed_linked_character_book(state: &AppState) {
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-1",
+                    "name": "Mira",
+                    "data": {
+                        "name": "Mira",
+                        "character_book": {
+                            "entries": [
+                                {
+                                    "name": "Old",
+                                    "comment": "Old",
+                                    "content": "old text",
+                                    "keys": ["old"],
+                                    "secondary_keys": []
+                                }
+                            ]
+                        },
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "linked-book",
+                                    "entriesImported": 1
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("character should seed");
+        state
+            .storage
+            .create(
+                "lorebooks",
+                json!({
+                    "id": "linked-book",
+                    "name": "Mira Lorebook",
+                    "category": "character",
+                    "sourceCharacterId": "character-1"
+                }),
+            )
+            .expect("lorebook should seed");
+    }
+
+    fn character_book_entries(state: &AppState) -> Vec<Value> {
+        state
+            .storage
+            .get("characters", "character-1")
+            .expect("character should read")
+            .and_then(|character| {
+                character
+                    .pointer("/data/character_book/entries")
+                    .and_then(Value::as_array)
+                    .cloned()
+            })
+            .unwrap_or_default()
+    }
+
+    fn first_character_book_entry(state: &AppState) -> Value {
+        character_book_entries(state)
+            .into_iter()
+            .next()
+            .expect("character book should have an entry")
+    }
+
     fn cleanup_registered(collection: &str, cleanup: contracts::DeleteCleanup) -> bool {
         contracts::collection_contract(collection)
             .expect("collection should be registered")
             .delete_cleanup
             .contains(&cleanup)
+    }
+
+    #[test]
+    fn creating_linked_lorebook_entry_syncs_character_book() {
+        let state = test_state("linked-character-book-entry-create");
+        seed_linked_character_book(&state);
+
+        storage_create_inner(
+            &state,
+            "lorebook-entries".to_string(),
+            json!({
+                "lorebookId": "linked-book",
+                "name": "Moon",
+                "content": "moon text",
+                "keys": ["moon"],
+                "secondaryKeys": ["silver"],
+                "order": 4,
+                "position": "after_char"
+            }),
+        )
+        .expect("entry create should sync");
+
+        let entry = first_character_book_entry(&state);
+        assert_eq!(entry.get("name").and_then(Value::as_str), Some("Moon"));
+        assert_eq!(
+            entry.get("content").and_then(Value::as_str),
+            Some("moon text")
+        );
+        assert_eq!(entry["keys"], json!(["moon"]));
+        assert_eq!(entry["secondary_keys"], json!(["silver"]));
+        assert_eq!(
+            entry.get("insertion_order").and_then(Value::as_i64),
+            Some(4)
+        );
+        assert_eq!(
+            entry.get("position").and_then(Value::as_str),
+            Some("after_char")
+        );
+    }
+
+    #[test]
+    fn updating_linked_lorebook_entry_syncs_character_book() {
+        let state = test_state("linked-character-book-entry-update");
+        seed_linked_character_book(&state);
+        storage_create_inner(
+            &state,
+            "lorebook-entries".to_string(),
+            json!({
+                "id": "entry-1",
+                "lorebookId": "linked-book",
+                "name": "Moon",
+                "content": "moon text",
+                "keys": ["moon"]
+            }),
+        )
+        .expect("entry should seed through create");
+
+        storage_update_inner(
+            &state,
+            "lorebook-entries".to_string(),
+            "entry-1".to_string(),
+            json!({
+                "name": "Sun",
+                "content": "sun text",
+                "keys": ["sun"],
+                "enabled": false
+            }),
+        )
+        .expect("entry update should sync");
+
+        let entry = first_character_book_entry(&state);
+        assert_eq!(entry.get("name").and_then(Value::as_str), Some("Sun"));
+        assert_eq!(
+            entry.get("content").and_then(Value::as_str),
+            Some("sun text")
+        );
+        assert_eq!(entry["keys"], json!(["sun"]));
+        assert_eq!(entry.get("enabled").and_then(Value::as_bool), Some(false));
+    }
+
+    #[test]
+    fn moving_entry_out_of_linked_lorebook_removes_it_from_character_book() {
+        let state = test_state("linked-character-book-entry-move");
+        seed_linked_character_book(&state);
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "other-book", "name": "Other" }))
+            .expect("target lorebook should seed");
+        storage_create_inner(
+            &state,
+            "lorebook-entries".to_string(),
+            json!({
+                "id": "entry-1",
+                "lorebookId": "linked-book",
+                "name": "Moon",
+                "content": "moon text",
+                "keys": ["moon"]
+            }),
+        )
+        .expect("entry should seed through create");
+
+        storage_update_inner(
+            &state,
+            "lorebook-entries".to_string(),
+            "entry-1".to_string(),
+            json!({ "lorebookId": "other-book" }),
+        )
+        .expect("moving entry should sync source lorebook");
+
+        assert!(character_book_entries(&state).is_empty());
+    }
+
+    #[test]
+    fn deleting_linked_lorebook_entry_syncs_character_book() {
+        let state = test_state("linked-character-book-entry-delete");
+        seed_linked_character_book(&state);
+        storage_create_inner(
+            &state,
+            "lorebook-entries".to_string(),
+            json!({
+                "id": "entry-1",
+                "lorebookId": "linked-book",
+                "name": "Moon",
+                "content": "moon text",
+                "keys": ["moon"]
+            }),
+        )
+        .expect("entry should seed through create");
+
+        delete_entity(&state, "lorebook-entries", "entry-1", false)
+            .expect("entry delete should sync");
+
+        assert!(character_book_entries(&state).is_empty());
     }
 
     #[test]
