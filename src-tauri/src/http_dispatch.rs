@@ -592,7 +592,15 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
             "notes",
             Vec::new(),
         ),
-        "chat_group_delete" => chats::delete_chat_group(state, required_string(&args, "groupId")?),
+        "chat_group_delete" => {
+            let state = state.clone();
+            let group_id = required_string(&args, "groupId")?.to_string();
+            tauri::async_runtime::spawn_blocking(move || {
+                chats::delete_chat_group(&state, &group_id)
+            })
+            .await
+            .map_err(|error| AppError::new("task_join_error", error.to_string()))?
+        }
         "chat_messages_bulk_delete" => chats::bulk_delete_messages(
             state,
             required_string(&args, "chatId")?,

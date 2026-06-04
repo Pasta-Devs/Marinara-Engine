@@ -9,13 +9,14 @@
     "number": 2104,
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2104"
   },
-  "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous Tauri command, and the user sees a pending delete state until the command settles.",
+  "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous embedded or hostable command, and the user sees a pending delete state until the command settles.",
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
     "method": "Source-level command-path repro against upstream/refactor plus affected UI inspection.",
     "evidence": [
       "upstream/refactor exported `pub fn chat_group_delete` and directly called `chats::delete_chat_group(&state, &group_id)` with no `spawn_blocking` handoff.",
+      "upstream/refactor HTTP dispatch also called `chats::delete_chat_group(state, required_string(&args, \"groupId\")?)` directly.",
       "The two group-delete UI consumers closed their modal/drawer immediately after starting the mutation, so the pending state was not kept visible for large deletes."
     ],
     "duplicatePrPreflight": "No matching PRs found for #2100 or conversation group delete wording; no local issue-2100 branch/worktree existed before this run."
@@ -54,24 +55,28 @@
     "details": "workflow-health did not flag a duplicate for #2100; gh PR search for direct #2100 and conversation group delete wording returned no matches."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous Tauri command, and the user sees a pending delete state until the command settles.",
+    "coreClaim": "Deleting a conversation group no longer runs the long storage cascade as a synchronous embedded or hostable command, and the user sees a pending delete state until the command settles.",
     "riskType": "cross-boundary Tauri command responsiveness and delete UI feedback",
     "entrypoints": [
       "src-tauri chat_group_delete command",
+      "src-tauri HTTP dispatch chat_group_delete command",
       "src/app/shell/ChatSidebar.tsx delete group modal",
       "src/features/modes/shared/chat-ui/components/ChatFilesDrawer.tsx delete group footer"
     ],
     "currentPathsOrFormats": [
       "chat_group_delete(groupId)",
+      "remote /api/invoke chat_group_delete(groupId)",
       "sidebar branched-chat delete modal",
       "Manage Chat Files drawer delete group action"
     ],
     "legacyPathsOrFormats": [
       "pre-fix synchronous `pub fn chat_group_delete` command",
+      "pre-fix hostable HTTP dispatch direct `chats::delete_chat_group` call",
       "pre-fix UI closes modal/drawer immediately after firing the group delete mutation"
     ],
     "positiveRowsTested": [
-      "Rust command compiles after async spawn_blocking handoff.",
+      "Rust embedded command compiles after async spawn_blocking handoff.",
+      "Rust hostable HTTP dispatch compiles after async spawn_blocking handoff.",
       "TypeScript compiles after pending-state UI changes.",
       "Existing cascade regression test still deletes grouped chats and owned scene children."
     ],
@@ -82,6 +87,7 @@
     "groundTruthFacts": [
       "Derived from `git show upstream/refactor:src-tauri/src/commands/storage/commands/chats.rs`: baseline `chat_group_delete` was synchronous.",
       "Derived from current source and `cargo check`: fixed `chat_group_delete` is async and uses `tauri::async_runtime::spawn_blocking`.",
+      "Derived from current source and `cargo check`: fixed HTTP dispatch `chat_group_delete` uses `tauri::async_runtime::spawn_blocking`.",
       "Derived from current source and `pnpm typecheck`: both UI consumers compile with the pending delete state."
     ],
     "manualBlockers": [
