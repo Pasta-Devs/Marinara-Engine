@@ -17,6 +17,7 @@ const GENERATED_BACKGROUND_HEIGHT: u32 = 720;
 const MAX_GENERATED_BACKGROUND_DIMENSION: u32 = 8192;
 const MAX_GENERATED_BACKGROUND_PIXELS: u64 = 50_000_000;
 const MAX_GENERATED_BACKGROUND_ALLOC_BYTES: u64 = 256 * 1024 * 1024;
+const GENERATED_BACKGROUND_RESIZE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
 const RASTER_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif"];
 const SPRITE_IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "avif", "svg"];
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "ogg", "wav", "flac", "m4a", "aac", "opus", "webm"];
@@ -632,10 +633,7 @@ fn should_resize_generated_background_upload(category: &str, subcategory: Option
 }
 
 fn cover_resize_generated_background(filename: &str, bytes: &[u8]) -> AppResult<Vec<u8>> {
-    let extension = path_extension(Path::new(filename));
-    let format = ImageFormat::from_extension(&extension).ok_or_else(|| {
-        AppError::invalid_input("Generated background uses an unsupported image type")
-    })?;
+    let format = generated_background_resize_format(filename)?;
     let (width, height) = ImageReader::with_format(Cursor::new(bytes), format)
         .into_dimensions()
         .map_err(|error| {
@@ -672,6 +670,21 @@ fn cover_resize_generated_background(filename: &str, bytes: &[u8]) -> AppResult<
             )
         })?;
     Ok(output)
+}
+
+fn generated_background_resize_format(filename: &str) -> AppResult<ImageFormat> {
+    let extension = path_extension(Path::new(filename));
+    if !GENERATED_BACKGROUND_RESIZE_EXTENSIONS.contains(&extension.as_str()) {
+        return Err(AppError::invalid_input(
+            "Generated background uploads support PNG, JPEG, and WebP",
+        ));
+    }
+    match extension.as_str() {
+        "png" => Ok(ImageFormat::Png),
+        "jpg" | "jpeg" => Ok(ImageFormat::Jpeg),
+        "webp" => Ok(ImageFormat::WebP),
+        _ => unreachable!("generated background resize extension list drifted"),
+    }
 }
 
 fn generated_background_decode_limits() -> Limits {
@@ -1038,6 +1051,31 @@ mod tests {
             .message
             .contains("Generated background dimensions are too large"));
         assert!(!root.join("backgrounds/generated/oversized-scene.png").exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rejects_generated_background_resize_formats_without_enabled_codecs() {
+        let root = temp_root("generated-background-unsupported-codec");
+        let service = AssetService::new(&root).expect("create asset service");
+
+        for extension in ["gif", "avif"] {
+            let filename = format!("unsupported-scene.{extension}");
+            let error = service
+                .write_upload(
+                    "backgrounds",
+                    Some("generated"),
+                    &png_upload_file(&filename, 512, 512),
+                )
+                .expect_err("unsupported generated background resize format should reject");
+
+            assert_eq!(error.code, "invalid_input");
+            assert!(error
+                .message
+                .contains("Generated background uploads support PNG, JPEG, and WebP"));
+            assert!(!root.join("backgrounds/generated").join(&filename).exists());
+        }
 
         let _ = fs::remove_dir_all(root);
     }
