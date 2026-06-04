@@ -17,7 +17,7 @@ import {
   assertChatHasActiveCharacters,
   assertRequestedCharacterIsActive,
 } from "./active-characters";
-import { persistSecretPlotAgentMemory } from "./agent-memory-runtime";
+import { persistSecretPlotAgentMemory, type SecretPlotRerollMode } from "./agent-memory-runtime";
 import { createGenerationAgentRuntime } from "./agent-runner";
 import { consumePendingConnectedInfluences, persistConnectedCommandTags } from "./connected-commands";
 import { fitMessagesToContextWindow } from "./context-window";
@@ -1621,9 +1621,10 @@ async function persistSecretPlotAgentMemorySafely(
   storage: StorageGateway,
   chatId: string,
   results: AgentResult[],
+  options: { rerollMode?: SecretPlotRerollMode | null } = {},
 ): Promise<void> {
   try {
-    await persistSecretPlotAgentMemory(storage, chatId, results);
+    await persistSecretPlotAgentMemory(storage, chatId, results, options);
   } catch (error) {
     console.warn("[generation] secret plot memory persist failed", error);
   }
@@ -2332,6 +2333,11 @@ function retryBypassesCustomAgentActivation(input: RetryAgentsInput): boolean {
   return boolish(parseRecord(input.options).bypassActivation, false);
 }
 
+function secretPlotRerollMode(input: RetryAgentsInput): SecretPlotRerollMode | null {
+  const mode = readString(input.options?.secretPlotRerollMode).trim();
+  return mode === "full" || mode === "turn_only" ? mode : null;
+}
+
 async function commitVisibleTrackerSnapshotSafely(
   storage: StorageGateway,
   chatId: string,
@@ -2456,7 +2462,9 @@ async function runGenerationAgentsForTarget(args: {
   if (target) {
     await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline, mainResponse);
   }
-  await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults);
+  await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults, {
+    rerollMode: secretPlotRerollMode(input),
+  });
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
 
   const events: GenerationEvent[] = [];

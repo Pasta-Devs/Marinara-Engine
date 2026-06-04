@@ -3,6 +3,12 @@ import type { StorageGateway } from "../capabilities/storage";
 import { normalizeSecretPlotSceneDirections, normalizeStringArray } from "./agent-normalizers";
 import { isRecord, nowIso, readString, type JsonRecord } from "./runtime-records";
 
+export type SecretPlotRerollMode = "full" | "turn_only";
+
+interface SecretPlotAgentMemoryPersistOptions {
+  rerollMode?: SecretPlotRerollMode | null;
+}
+
 export async function loadAgentMemory(
   storage: StorageGateway,
   agentId: string,
@@ -35,13 +41,14 @@ export async function persistSecretPlotAgentMemory(
   storage: StorageGateway,
   chatId: string,
   results: AgentResult[],
+  options: SecretPlotAgentMemoryPersistOptions = {},
 ): Promise<void> {
   const result = results.find((entry) => entry.success && entry.type === "secret_plot" && isRecord(entry.data));
   if (!result || !isRecord(result.data)) return;
   const agentConfigId = result.agentId;
   const data = result.data;
 
-  if (data.overarchingArc) {
+  if (data.overarchingArc && options.rerollMode !== "turn_only") {
     await setAgentMemoryValue(storage, agentConfigId, chatId, "overarchingArc", data.overarchingArc);
   }
 
