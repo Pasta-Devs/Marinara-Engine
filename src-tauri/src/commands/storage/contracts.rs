@@ -20,7 +20,6 @@ pub(crate) enum DeleteCleanup {
     ClearLorebookReferences,
     DeleteCharacterGallery,
     DeleteLorebookChildren,
-    DeleteMessageSwipes,
     DeleteMessageTrackerSnapshots,
     DeletePromptChildren,
     RemoveOwnedMedia,
@@ -193,12 +192,7 @@ const CHARACTER_CLEANUP: &[DeleteCleanup] = &[
     DeleteCleanup::DeleteCharacterGallery,
 ];
 const MEDIA_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::RemoveOwnedMedia];
-const MESSAGE_CLEANUP: &[DeleteCleanup] = &[
-    // Deleting a message must also remove its swipe sidecar rows; otherwise message-swipes for
-    // the deleted parent are orphaned in storage.
-    DeleteCleanup::DeleteMessageSwipes,
-    DeleteCleanup::DeleteMessageTrackerSnapshots,
-];
+const MESSAGE_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::DeleteMessageTrackerSnapshots];
 
 pub(crate) const COLLECTIONS: &[StorageCollectionContract] = &[
     contract(
