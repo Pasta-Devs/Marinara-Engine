@@ -1428,10 +1428,14 @@ async function resolveConversationAvailability(args: {
       schedule: isRecord(row?.schedule) ? (row.schedule as unknown as WeekSchedule) : null,
     });
   }
-  const allOffline = characters.length > 0 && characters.every((character) => character.status === "offline");
+  const mentionedCharacters =
+    mentionedNames.size > 0 ? characters.filter((character) => mentionedNames.has(character.name.toLowerCase())) : [];
+  const availableCharacters = mentionedCharacters.length > 0 ? mentionedCharacters : characters;
+  const allOffline =
+    availableCharacters.length > 0 && availableCharacters.every((character) => character.status === "offline");
   let delayMs = 0;
   let delayStatus: ConversationAvailabilityStatus = "online";
-  for (const character of characters) {
+  for (const character of availableCharacters) {
     const isMentionedOrManualTarget =
       (manualTarget.length > 0 && character.id === manualTarget) || mentionedNames.has(character.name.toLowerCase());
     const characterDelay = isMentionedOrManualTarget
@@ -1442,7 +1446,7 @@ async function resolveConversationAvailability(args: {
       delayStatus = character.status;
     }
   }
-  return { characters, allOffline, delayMs, delayStatus };
+  return { characters: availableCharacters, allOffline, delayMs, delayStatus };
 }
 
 function abortableDelay(delayMs: number, signal?: AbortSignal): Promise<void> {

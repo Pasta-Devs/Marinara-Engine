@@ -23,19 +23,29 @@ function scheduleFor(status: "idle" | "dnd" | "offline"): WeekSchedule {
   };
 }
 
-function createStore(status: "idle" | "dnd" | "offline"): Store {
+function createStore(
+  status: "idle" | "dnd" | "offline",
+  options: { secondStatus?: "idle" | "dnd" | "offline" } = {},
+): Store {
+  const characterIds = options.secondStatus ? ["char-1", "char-2"] : ["char-1"];
   return {
     chats: {
       "chat-1": {
         id: "chat-1",
         mode: "conversation",
         connectionId: "conn-1",
-        characterIds: ["char-1"],
-        metadata: { characterSchedules: { "char-1": scheduleFor(status) } },
+        characterIds,
+        metadata: {
+          characterSchedules: {
+            "char-1": scheduleFor(status),
+            ...(options.secondStatus ? { "char-2": scheduleFor(options.secondStatus) } : {}),
+          },
+        },
       },
     },
     characters: {
       "char-1": { id: "char-1", data: { name: "Mira" } },
+      ...(options.secondStatus ? { "char-2": { id: "char-2", data: { name: "Sol" } } } : {}),
     },
     connections: {
       "conn-1": { id: "conn-1", provider: "test", model: "test-model" },
@@ -118,7 +128,7 @@ function createStorage(store: Store): StorageGateway {
   };
 }
 
-function createDeps(status: "idle" | "dnd" | "offline") {
+function createDeps(status: "idle" | "dnd" | "offline", options: { secondStatus?: "idle" | "dnd" | "offline" } = {}) {
   const llm: LlmGateway = {
     async complete() {
       return "";
@@ -131,15 +141,19 @@ function createDeps(status: "idle" | "dnd" | "offline") {
     },
   };
   return {
-    storage: createStorage(createStore(status)),
+    storage: createStorage(createStore(status, options)),
     integrations: {} as IntegrationGateway,
     llm,
   };
 }
 
-async function collectEvents(status: "idle" | "dnd" | "offline", input: Partial<StartGenerationInput>) {
+async function collectEvents(
+  status: "idle" | "dnd" | "offline",
+  input: Partial<StartGenerationInput>,
+  options: { secondStatus?: "idle" | "dnd" | "offline" } = {},
+) {
   const events = [];
-  for await (const event of startGeneration(createDeps(status), {
+  for await (const event of startGeneration(createDeps(status, options), {
     chatId: "chat-1",
     message: "Hi @Mira",
     ...input,
@@ -162,6 +176,9 @@ describe("startGeneration conversation availability delays", () => {
       expect(delayedMs(await collectEvents("idle", { mentionedCharacterNames: ["Mira"] }))).toBe(5_000);
       expect(delayedMs(await collectEvents("dnd", { mentionedCharacterNames: ["Mira"] }))).toBe(30_000);
       expect(delayedMs(await collectEvents("idle", { forCharacterId: "char-1" }))).toBe(5_000);
+      expect(
+        delayedMs(await collectEvents("idle", { mentionedCharacterNames: ["Mira"] }, { secondStatus: "dnd" })),
+      ).toBe(5_000);
     } finally {
       random.mockRestore();
     }
@@ -183,6 +200,14 @@ describe("startGeneration conversation availability delays", () => {
       const offlineEvents = await collectEvents("offline", { mentionedCharacterNames: ["Mira"] });
       expect(offlineEvents.some((event) => event.type === "offline")).toBe(true);
       expect(delayedMs(offlineEvents)).toBeNull();
+
+      const offlineMentionEvents = await collectEvents(
+        "offline",
+        { mentionedCharacterNames: ["Mira"] },
+        { secondStatus: "idle" },
+      );
+      expect(offlineMentionEvents.some((event) => event.type === "offline")).toBe(true);
+      expect(delayedMs(offlineMentionEvents)).toBeNull();
 
       const regenerateEvents = await collectEvents("idle", {
         regenerateMessageId: "assistant-1",
