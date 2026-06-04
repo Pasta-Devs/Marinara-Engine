@@ -5,6 +5,10 @@
     "title": "[Issue]: Illustrator \"Send avatars as reference images\" silently does nothing on NovelAI V4.5 (uses V3 Vibe Transfer fields)",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2122"
   },
+  "pr": {
+    "number": 2200,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2200"
+  },
   "coreClaim": "NovelAI V4.5 image requests include precise/director reference parameters when Illustrator supplies avatar reference images.",
   "assignment": {
     "assignee": "@me",
