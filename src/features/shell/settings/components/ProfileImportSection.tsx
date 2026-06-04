@@ -91,7 +91,7 @@ type ProfileImportConversion = {
   to?: string;
 };
 
-const PROFILE_IMPORT_STAT_LABELS: Array<{ key: string; singular: string; plural: string }> = [
+const PROFILE_IMPORT_STAT_LABELS: Array<{ key: string; aliases?: string[]; singular: string; plural: string }> = [
   { key: "characters", singular: "character", plural: "characters" },
   { key: "character-groups", singular: "character group", plural: "character groups" },
   { key: "character-versions", singular: "character version", plural: "character versions" },
@@ -100,7 +100,7 @@ const PROFILE_IMPORT_STAT_LABELS: Array<{ key: string; singular: string; plural:
   { key: "lorebooks", singular: "lorebook", plural: "lorebooks" },
   { key: "lorebook-entries", singular: "lorebook entry", plural: "lorebook entries" },
   { key: "lorebook-folders", singular: "lorebook folder", plural: "lorebook folders" },
-  { key: "presets", singular: "preset", plural: "presets" },
+  { key: "presets", aliases: ["prompts"], singular: "preset", plural: "presets" },
   { key: "prompt-groups", singular: "prompt group", plural: "prompt groups" },
   { key: "prompt-sections", singular: "prompt section", plural: "prompt sections" },
   { key: "prompt-variables", singular: "prompt variable", plural: "prompt variables" },
@@ -174,10 +174,14 @@ function profileImportStatEntries(stats: ProfileImportStats) {
   const used = new Set<string>();
   const entries: Array<{ key: string; count: number; singular: string; plural: string }> = [];
   for (const label of PROFILE_IMPORT_STAT_LABELS) {
-    const count = stats[label.key];
-    used.add(label.key);
+    const keys = [label.key, ...(label.aliases ?? [])];
+    for (const key of keys) used.add(key);
+    const count =
+      typeof stats[label.key] === "number"
+        ? stats[label.key]
+        : label.aliases?.map((key) => stats[key]).find((value) => typeof value === "number");
     if (typeof count === "number" && count > 0) {
-      entries.push({ ...label, count });
+      entries.push({ key: label.key, singular: label.singular, plural: label.plural, count });
     }
   }
   for (const [key, count] of Object.entries(stats)) {
@@ -210,6 +214,10 @@ function formatProfileImportWarnings(warnings?: ProfileImportWarning[]) {
   const count = warnings?.length ?? 0;
   if (count <= 0) return "";
   return `${count} warning${count === 1 ? "" : "s"}`;
+}
+
+function hasProfileImportWarningType(warnings: ProfileImportWarning[] | undefined, type: string) {
+  return warnings?.some((warning) => warning.type === type) ?? false;
 }
 
 function formatProfileImportSourceFormat(sourceFormat?: string) {
@@ -259,12 +267,17 @@ function formatProfileImportConfirmationMessage(preview: ProfileImportResult) {
         : "";
   const skipped = formatProfileImportSkippedStats(imported);
   const warningSummary = formatProfileImportWarnings(warnings);
+  const warningDetail = warningSummary
+    ? hasProfileImportWarningType(warnings, "missing_asset")
+      ? `${warningSummary} detected. Missing assets will be skipped.`
+      : `${warningSummary} detected. Review warnings before continuing.`
+    : "";
   return [
     `Found: ${found}.`,
     source ? `Source: ${source}.` : "",
     conversion,
     skipped ? `Skipped during conversion: ${skipped}.` : "",
-    warningSummary ? `${warningSummary} detected. Missing assets will be skipped.` : "",
+    warningDetail,
     "Importing replaces the matching profile data areas from this file. This cannot be undone. Continue?",
   ]
     .filter(Boolean)

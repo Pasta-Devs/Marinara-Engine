@@ -12,17 +12,15 @@ use self::assets::{
 use self::legacy::{
     import_legacy_profile_tables, legacy_array_profile_tables, preview_legacy_profile_tables,
 };
-use self::zip_import::{
-    import_profile_zip, import_profile_zip_file, preview_profile_zip, preview_profile_zip_file,
-};
+use self::zip_import::{import_profile_zip, preview_profile_zip};
 use super::contracts;
 use super::shared::*;
 use super::*;
 use base64::engine::general_purpose;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
-use std::fs::{self, File};
-use std::io::{Read, Seek, SeekFrom};
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 const PROFILE_EXPORT_JSON_LIMIT_BYTES: usize = 256 * 1024 * 1024;
@@ -62,6 +60,11 @@ impl ProfileImportSourceFormat {
 struct ProfileCollectionsImportPlan {
     imported: Map<String, Value>,
     replacements: Vec<(&'static str, Vec<Value>)>,
+}
+
+struct ProfileFileSnapshot {
+    path: PathBuf,
+    fingerprint: String,
 }
 
 pub(crate) struct ProfileExportDownload {
@@ -119,71 +122,50 @@ pub(crate) fn import_profile_file_with_preview_fingerprint(
     path: &Path,
     preview_fingerprint: Option<&str>,
 ) -> AppResult<Value> {
-    if path.as_os_str().is_empty() {
-        return Err(AppError::invalid_input("Profile file path is required"));
-    }
-    if !path.is_file() {
-        return Err(AppError::invalid_input("Profile import path is not a file"));
-    }
-    let mut file = File::open(path)?;
-    if let Some(expected) = preview_fingerprint
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        let actual = profile_file_fingerprint(&mut file)?;
-        if actual != expected {
-            return Err(AppError::with_details(
-                "profile_file_changed",
-                "Profile file changed after preview. Select the file again before importing.",
-                json!({
-                    "expectedFingerprint": expected,
-                    "actualFingerprint": actual,
-                }),
-            ));
+    with_profile_file_snapshot(state, path, |snapshot_path, extension, fingerprint| {
+        if let Some(expected) = preview_fingerprint
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            if fingerprint != expected {
+                return Err(AppError::with_details(
+                    "profile_file_changed",
+                    "Profile file changed after preview. Select the file again before importing.",
+                    json!({
+                        "expectedFingerprint": expected,
+                        "actualFingerprint": fingerprint,
+                    }),
+                ));
+            }
         }
-    }
-    match path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| extension.to_ascii_lowercase())
-        .as_deref()
-    {
-        Some("json") => import_profile(
-            state,
-            serde_json::from_reader(file).map_err(invalid_profile_json_error)?,
-        ),
-        Some("zip") => import_profile_zip_file(state, file),
-        _ => Err(AppError::invalid_input(
-            "Profile import must be a .json or .zip file",
-        )),
-    }
+        match extension {
+            "json" => import_profile(
+                state,
+                serde_json::from_reader(File::open(snapshot_path)?)
+                    .map_err(invalid_profile_json_error)?,
+            ),
+            "zip" => import_profile_zip(state, snapshot_path),
+            _ => unreachable!("profile_file_extension only returns json or zip"),
+        }
+    })
 }
 
 pub(crate) fn preview_profile_file(state: &AppState, path: &Path) -> AppResult<Value> {
-    if path.as_os_str().is_empty() {
-        return Err(AppError::invalid_input("Profile file path is required"));
-    }
-    if !path.is_file() {
-        return Err(AppError::invalid_input("Profile import path is not a file"));
-    }
-    let mut file = File::open(path)?;
-    let fingerprint = profile_file_fingerprint(&mut file)?;
-    let result = match path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| extension.to_ascii_lowercase())
-        .as_deref()
-    {
-        Some("json") => preview_profile(
-            state,
-            serde_json::from_reader(file).map_err(invalid_profile_json_error)?,
-        ),
-        Some("zip") => preview_profile_zip_file(state, file),
-        _ => Err(AppError::invalid_input(
-            "Profile import must be a .json or .zip file",
-        )),
-    }?;
-    Ok(with_profile_import_file_fingerprint(result, fingerprint))
+    with_profile_file_snapshot(state, path, |snapshot_path, extension, fingerprint| {
+        let result = match extension {
+            "json" => preview_profile(
+                state,
+                serde_json::from_reader(File::open(snapshot_path)?)
+                    .map_err(invalid_profile_json_error)?,
+            ),
+            "zip" => preview_profile_zip(state, snapshot_path),
+            _ => unreachable!("profile_file_extension only returns json or zip"),
+        }?;
+        Ok(with_profile_import_file_fingerprint(
+            result,
+            fingerprint.to_string(),
+        ))
+    })
 }
 
 pub(crate) fn import_profile_upload(
@@ -200,8 +182,7 @@ pub(crate) fn import_profile_upload(
         "zip" => {
             let upload_dir = state.data_dir.join(".profile-upload-imports");
             fs::create_dir_all(&upload_dir)?;
-            let path = upload_dir.join(format!("profile-import-{}.zip", now_millis()));
-            fs::write(&path, bytes)?;
+            let path = write_profile_temp_file(&upload_dir, "profile-import", "zip", &bytes)?;
             let result = import_profile_zip(state, &path);
             let _ = fs::remove_file(path);
             result
@@ -226,8 +207,7 @@ pub(crate) fn preview_profile_upload(
         "zip" => {
             let upload_dir = state.data_dir.join(".profile-upload-imports");
             fs::create_dir_all(&upload_dir)?;
-            let path = upload_dir.join(format!("profile-preview-{}.zip", now_millis()));
-            fs::write(&path, bytes)?;
+            let path = write_profile_temp_file(&upload_dir, "profile-preview", "zip", &bytes)?;
             let result = preview_profile_zip(state, &path);
             let _ = fs::remove_file(path);
             result
@@ -251,19 +231,120 @@ fn profile_upload_bytes(filename: &str, base64: &str) -> AppResult<(String, Vec<
     Ok((extension, bytes))
 }
 
-fn profile_file_fingerprint(file: &mut File) -> AppResult<String> {
-    file.seek(SeekFrom::Start(0))?;
+fn with_profile_file_snapshot<T>(
+    state: &AppState,
+    path: &Path,
+    operation: impl FnOnce(&Path, &str, &str) -> AppResult<T>,
+) -> AppResult<T> {
+    validate_profile_file_path(path)?;
+    let extension = profile_file_extension(path)?;
+    let upload_dir = state.data_dir.join(".profile-upload-imports");
+    fs::create_dir_all(&upload_dir)?;
+    let snapshot = copy_profile_file_snapshot(path, &upload_dir, &extension)?;
+    let result = operation(&snapshot.path, &extension, &snapshot.fingerprint);
+    let _ = fs::remove_file(snapshot.path);
+    result
+}
+
+fn validate_profile_file_path(path: &Path) -> AppResult<()> {
+    if path.as_os_str().is_empty() {
+        return Err(AppError::invalid_input("Profile file path is required"));
+    }
+    if !path.is_file() {
+        return Err(AppError::invalid_input("Profile import path is not a file"));
+    }
+    Ok(())
+}
+
+fn profile_file_extension(path: &Path) -> AppResult<String> {
+    match path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("json") => Ok("json".to_string()),
+        Some("zip") => Ok("zip".to_string()),
+        _ => Err(AppError::invalid_input(
+            "Profile import must be a .json or .zip file",
+        )),
+    }
+}
+
+fn copy_profile_file_snapshot(
+    source_path: &Path,
+    upload_dir: &Path,
+    extension: &str,
+) -> AppResult<ProfileFileSnapshot> {
+    let mut source = File::open(source_path)?;
+    let (path, mut output) =
+        create_profile_temp_file(upload_dir, "profile-file-snapshot", extension)?;
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 64 * 1024];
-    loop {
-        let read = file.read(&mut buffer)?;
-        if read == 0 {
-            break;
+    let copy_result: AppResult<()> = (|| {
+        loop {
+            let read = source.read(&mut buffer)?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+            output.write_all(&buffer[..read])?;
         }
-        hasher.update(&buffer[..read]);
+        output.flush()?;
+        Ok(())
+    })();
+    drop(output);
+    if let Err(error) = copy_result {
+        let _ = fs::remove_file(&path);
+        return Err(error);
     }
-    file.seek(SeekFrom::Start(0))?;
-    Ok(format!("sha256:{}", hex_bytes(&hasher.finalize())))
+    Ok(ProfileFileSnapshot {
+        path,
+        fingerprint: format!("sha256:{}", hex_bytes(&hasher.finalize())),
+    })
+}
+
+fn write_profile_temp_file(
+    upload_dir: &Path,
+    prefix: &str,
+    extension: &str,
+    bytes: &[u8],
+) -> AppResult<PathBuf> {
+    let (path, mut file) = create_profile_temp_file(upload_dir, prefix, extension)?;
+    let write_result: AppResult<()> = (|| {
+        file.write_all(bytes)?;
+        file.flush()?;
+        Ok(())
+    })();
+    drop(file);
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&path);
+        return Err(error);
+    }
+    Ok(path)
+}
+
+fn create_profile_temp_file(
+    upload_dir: &Path,
+    prefix: &str,
+    extension: &str,
+) -> AppResult<(PathBuf, File)> {
+    for attempt in 0..1000 {
+        let path = upload_dir.join(format!(
+            "{prefix}-{}-{}-{attempt}.{extension}",
+            now_millis(),
+            std::process::id()
+        ));
+        match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(file) => return Ok((path, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Err(AppError::new(
+        "profile_temp_file_unavailable",
+        "Could not create a unique temporary profile import file",
+    ))
 }
 
 fn hex_bytes(bytes: &[u8]) -> String {

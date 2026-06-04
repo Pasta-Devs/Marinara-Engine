@@ -134,7 +134,7 @@ fn run_profile_zip_collections<R: Read + std::io::Seek>(
     match mode {
         ProfileImportMode::Preview => {
             let (restored_assets, warnings) =
-                preview_profile_zip_assets(raw_assets, names, profile_prefix)?;
+                preview_profile_zip_assets(archive, raw_assets, names, profile_prefix)?;
             let result = preview_profile_collections_with_restored_assets(
                 state,
                 collections,
@@ -175,7 +175,7 @@ fn run_profile_zip_legacy_tables<R: Read + std::io::Seek>(
     match mode {
         ProfileImportMode::Preview => {
             let (restored_assets, warnings) =
-                preview_profile_zip_assets(raw_assets, names, profile_prefix)?;
+                preview_profile_zip_assets(archive, raw_assets, names, profile_prefix)?;
             let result = preview_legacy_profile_tables(state, tables, restored_assets)?;
             Ok(with_profile_import_warnings(
                 with_profile_import_metadata(result, source_format),
@@ -294,6 +294,34 @@ mod tests {
         writer
             .write_all(profile_json.as_bytes())
             .expect("zip entry should write");
+        writer.finish().expect("zip should finalize");
+        zip_path
+    }
+
+    fn write_profile_zip_with_asset(
+        label: &str,
+        profile_json: &str,
+        asset_path: &str,
+        asset_bytes: &[u8],
+    ) -> PathBuf {
+        let zip_path =
+            std::env::temp_dir().join(format!("marinara-zip-import-{label}-{}.zip", nonce()));
+        let file = File::create(&zip_path).expect("zip file should be creatable");
+        let mut writer = zip::ZipWriter::new(file);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        writer
+            .start_file(PROFILE_JSON_ENTRY, options)
+            .expect("profile zip entry should start");
+        writer
+            .write_all(profile_json.as_bytes())
+            .expect("profile zip entry should write");
+        writer
+            .start_file(asset_path, options)
+            .expect("asset zip entry should start");
+        writer
+            .write_all(asset_bytes)
+            .expect("asset zip entry should write");
         writer.finish().expect("zip should finalize");
         zip_path
     }
@@ -468,6 +496,63 @@ mod tests {
             preview["warnings"][0]["path"],
             "avatars/missing-from-zip.png"
         );
+        assert!(state
+            .storage
+            .get("chats", "chat-preview")
+            .expect("chat lookup should not fail")
+            .is_none());
+
+        let _ = std::fs::remove_file(&zip_path);
+    }
+
+    #[test]
+    fn preview_profile_zip_rejects_corrupt_asset_entry_without_importing() {
+        let state = test_state("preview-corrupt-asset");
+        let asset_bytes = b"valid-asset-bytes";
+        let profile_json = json!({
+            "type": "marinara_profile",
+            "data": {
+                "fileStorage": {
+                    "tables": {
+                        "chats": [
+                            {
+                                "id": "chat-preview",
+                                "name": "Preview Chat",
+                                "mode": "conversation",
+                                "metadata": {},
+                                "characterIds": []
+                            }
+                        ]
+                    },
+                    "files": [
+                        {
+                            "path": "avatars/avatar.png",
+                            "size": asset_bytes.len()
+                        }
+                    ]
+                }
+            }
+        })
+        .to_string();
+        let zip_path = write_profile_zip_with_asset(
+            "preview-corrupt-asset",
+            &profile_json,
+            "avatars/avatar.png",
+            asset_bytes,
+        );
+        let mut zip_bytes = std::fs::read(&zip_path).expect("zip should be readable");
+        let offset = zip_bytes
+            .windows(asset_bytes.len())
+            .position(|window| window == asset_bytes)
+            .expect("asset bytes should be present in stored zip entry");
+        zip_bytes[offset] ^= 0xff;
+        std::fs::write(&zip_path, zip_bytes).expect("corrupted zip should write");
+
+        let error = preview_profile_zip(&state, &zip_path)
+            .expect_err("zip preview should reject corrupt asset entries");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Could not read profile asset"));
         assert!(state
             .storage
             .get("chats", "chat-preview")

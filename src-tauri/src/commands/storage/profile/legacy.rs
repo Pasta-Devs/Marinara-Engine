@@ -55,6 +55,15 @@ const LEGACY_PROFILE_TABLES: &[(&str, &str)] = &[
     ("game_checkpoints", "game-checkpoints"),
 ];
 
+const LEGACY_PROFILE_AUXILIARY_TABLES: &[&str] = &[
+    "lorebook_character_links",
+    "lorebook_persona_links",
+    "memory_chunks",
+    "conversation_notes",
+    "ooc_influences",
+    "message_swipes",
+];
+
 const LEGACY_GAME_STATE_ALIASES: &[(&str, &str)] = &[
     ("chatId", "chat_id"),
     ("messageId", "message_id"),
@@ -420,24 +429,21 @@ fn legacy_profile_import_plan(
     let mut unsupported_prompt_overrides = 0usize;
     let mut imported_conversation_notes = 0usize;
     let mut imported_ooc_influences = 0usize;
+    validate_legacy_profile_auxiliary_tables(tables)?;
     for (table, collection) in LEGACY_PROFILE_TABLES {
         // A partial profile (an older backup, a hand-built export, or a file
         // missing a table) must not wipe collections it does not carry.
         // Skipping the replacement leaves the user's existing collection
         // untouched; a table that is present but empty is still an explicit
         // clear and falls through to a normal empty replacement.
-        let Some(table_value) = tables.get(*table) else {
+        let Some(_) = tables.get(*table) else {
             continue;
         };
         // A present-but-non-array table is malformed (e.g. `"characters": {}`).
         // `table_rows` would coerce it to an empty array, which silently clears
         // the collection - the same data loss the absent-key skip above guards
         // against. Reject the import instead so nothing is replaced.
-        if !table_value.is_array() {
-            return Err(AppError::invalid_input(format!(
-                "Legacy profile table `{table}` must be a JSON array"
-            )));
-        }
+        validate_legacy_profile_table_array(tables, table)?;
         let mut rows = table_rows(tables, table);
         match *collection {
             "app-settings" => normalize_legacy_app_settings(&mut rows),
@@ -494,6 +500,24 @@ fn legacy_profile_import_plan(
         imported,
         replacements,
     })
+}
+
+fn validate_legacy_profile_auxiliary_tables(tables: &Map<String, Value>) -> AppResult<()> {
+    for table in LEGACY_PROFILE_AUXILIARY_TABLES {
+        validate_legacy_profile_table_array(tables, table)?;
+    }
+    Ok(())
+}
+
+fn validate_legacy_profile_table_array(tables: &Map<String, Value>, table: &str) -> AppResult<()> {
+    if let Some(table_value) = tables.get(table) {
+        if !table_value.is_array() {
+            return Err(AppError::invalid_input(format!(
+                "Legacy profile table `{table}` must be a JSON array"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn table_rows(tables: &Map<String, Value>, table: &str) -> Vec<Value> {
@@ -1717,6 +1741,35 @@ mod tests {
             .storage
             .get("characters", "char-1")
             .expect("character lookup should not fail")
+            .is_some());
+    }
+
+    #[test]
+    fn legacy_malformed_auxiliary_table_is_rejected_without_wiping() {
+        let state = test_state("malformed-aux-table-no-wipe");
+        state
+            .storage
+            .upsert_with_id(
+                "messages",
+                "message-1",
+                json!({ "id": "message-1", "chatId": "chat-1", "content": "Keep Me" }),
+            )
+            .expect("seeded message should write");
+
+        let mut tables = Map::new();
+        tables.insert("messages".to_string(), json!([]));
+        tables.insert("message_swipes".to_string(), json!({}));
+
+        let error =
+            import_legacy_profile_tables_with_restored_assets(&state, &tables, 0, None, || Ok(()))
+                .expect_err("a present-but-non-array auxiliary table should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("message_swipes"));
+        assert!(state
+            .storage
+            .get("messages", "message-1")
+            .expect("message lookup should not fail")
             .is_some());
     }
 }
