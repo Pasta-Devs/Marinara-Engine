@@ -91,16 +91,73 @@
     "groundTruthFacts": [
       {
         "fact": "The refactor journal service had no NPC or quest row builders before this fix.",
-        "method": "Measured with rg before the patch: addNpcEntry and upsertQuest returned no implementation in the refactor journal service."
+        "sourceType": "measured",
+        "method": "Measured with rg before the patch: addNpcEntry and upsertQuest returned no implementation in the refactor journal service.",
+        "evidence": "Pre-fix rg for addNpcEntry and upsertQuest returned no implementation in src/engine/modes/game/world/journal.service.ts; before-fix regression test failed because applyJournalEntry and syncJournalFromGameState were not functions."
       },
       {
         "fact": "The refactor API previously routed unknown journal command types through addEventEntry.",
-        "method": "Derived from the pre-patch applyJournalEntry implementation in src/features/modes/game/api/game-api.ts before moving dispatch into the engine journal service."
+        "sourceType": "derived",
+        "method": "Derived from the pre-patch applyJournalEntry implementation in src/features/modes/game/api/game-api.ts before moving dispatch into the engine journal service.",
+        "evidence": "Pre-patch applyJournalEntry only handled location, combat, item, and note before falling through to addEventEntry."
       }
     ],
     "userActionCopy": [],
     "manualBlockers": []
   },
+  "contractLaneGate": {
+    "brokenContract": "NPC and quest journal producers emitted structured data, but the refactor journal owner no longer had NPC/quest builders or dispatch branches.",
+    "producer": "gameApi.addJournalEntry journal commands plus tracked game state in metadata.gameNpcs and chat.gameState.playerStats.activeQuests",
+    "consumer": "GameJournal, buildStructuredRecap, and gameApi.concludeSession deterministic session summaries",
+    "impliedContract": "NPC interactions populate journal.npcLog and quest progress populates journal.quests so journal and recap consumers render those sections.",
+    "actualEnforcement": "applyJournalEntry handles npc and quest commands, and syncJournalFromGameState hydrates npcLog/quests before journal reads, journal writes, and session conclusion.",
+    "primaryOwnerLane": "src/engine",
+    "primaryOwnerDetail": "src/engine/modes/game/world/journal.service.ts owns journal row construction and command dispatch.",
+    "consumerOnlyLanes": [
+      "src/features"
+    ],
+    "wrongLaneFixToAvoid": "Do not patch GameJournal or recap UI to fake NPC/quest sections from unrelated metadata while journal.npcLog and journal.quests remain empty.",
+    "regressionProof": [
+      "journal.service.test.ts routes npc commands into npcLog and npc entries.",
+      "journal.service.test.ts routes quest commands into journal.quests and quest entries.",
+      "journal.service.test.ts syncs tracked NPCs and active player quests into deterministic recap output.",
+      "journal.service.test.ts keeps existing location and item command payload fields working."
+    ]
+  },
+  "proofRows": {
+    "positiveRows": [
+      "npc command with npc object plus interaction",
+      "quest command with nested quest object",
+      "tracked NPC with location",
+      "active quest with completed and incomplete objectives",
+      "location command using location payload",
+      "item command using item payload"
+    ],
+    "contradictionRows": [
+      "Duplicate tracked NPC interaction is checked before append",
+      "Empty NPC name or interaction command returns the journal unchanged",
+      "Empty quest id/name command returns the journal unchanged"
+    ],
+    "legacyDefaultRows": [
+      "Legacy tracked NPC reconciliation restored as gameNpcs to npcLog using Tracked at <location>.",
+      "Legacy active quest reconciliation restored as PlayerStats.activeQuests to journal.quests.",
+      "Existing default location, item, combat, note, and event command dispatch remains in applyJournalEntry."
+    ],
+    "untestedRows": []
+  },
+  "ownedFacts": [
+    {
+      "fact": "The refactor journal service had no NPC or quest row builders before this fix.",
+      "sourceType": "measured",
+      "evidence": "Pre-fix rg for addNpcEntry and upsertQuest returned no implementation in src/engine/modes/game/world/journal.service.ts; the before-fix regression test failed because applyJournalEntry and syncJournalFromGameState were not functions."
+    },
+    {
+      "fact": "The refactor API previously routed npc and quest command types through addEventEntry.",
+      "sourceType": "derived",
+      "evidence": "Derived from the pre-patch applyJournalEntry implementation in src/features/modes/game/api/game-api.ts, which only handled location/combat/item/note before the catch-all addEventEntry branch."
+    }
+  ],
+  "manualBlockers": [],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
