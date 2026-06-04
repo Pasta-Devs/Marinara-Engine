@@ -27,15 +27,16 @@
   "verification": {
     "originalReproPassed": true,
     "focusedProof": [
-      "pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts: passed 4 tests.",
+      "pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts: passed 5 tests.",
       "pnpm typecheck: passed.",
       "pnpm check: passed."
     ],
     "edgeCases": [
-      "Empty persisted setup placeholder with no characters and zero messages is classified for cleanup.",
+      "Empty persisted setup placeholder with no characters and zero messages is classified for cleanup only when it matches the retained setup chat id.",
+      "Known setup placeholder is still classified for cleanup before message rows finish loading.",
       "Setup with at least one selected character is kept.",
       "Setup with at least one message is kept.",
-      "Unloaded chat state is not treated as an empty placeholder."
+      "Unrelated empty chats are not treated as setup placeholders."
     ],
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
@@ -55,6 +56,7 @@
       "src/app/shell/useStartNewChat.ts new chat action",
       "src/features/modes/router/components/ModeHomeSurface.tsx quick start",
       "src/features/modes/shared/chat-ui/components/NewChatConnectionGate.tsx gated setup",
+      "src/features/modes/shared/chat-ui/hooks/use-chat-overlays.ts retained setup identity",
       "src/features/modes/conversation/components/ConversationModeRoute.tsx setup finish",
       "src/features/modes/roleplay/components/RoleplayModeRoute.tsx setup finish"
     ],
@@ -67,16 +69,17 @@
       "existing persisted chats that already have selected characters"
     ],
     "positiveRowsTested": [
-      "empty chat setup placeholder is classified for cleanup"
+      "empty chat setup placeholder is classified for cleanup",
+      "known setup placeholder with unloaded message rows is classified for cleanup"
     ],
     "negativeRowsTested": [
       "chat with characterIds is not classified for cleanup",
       "chat with messages is not classified for cleanup",
-      "null/unloaded chat is not classified for cleanup"
+      "unrelated empty chat id is not classified for cleanup"
     ],
     "groundTruthFacts": [
       "Derived from artifact: upstream/refactor source inspection recorded in reproduction.evidence shows Skip called onFinish while Start Chatting was disabled without characters.",
-      "Harness-proven: pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts passed and covers empty, configured, messaged, and unloaded chat rows."
+      "Harness-proven: pnpm test -- src/features/modes/shared/chat-ui/lib/empty-new-chat.test.ts passed and covers empty setup, unloaded setup, configured, messaged, and unrelated empty chat rows."
     ],
     "userActionCopy": "No user action required."
   },

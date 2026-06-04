@@ -112,6 +112,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
     void deleteChat
       .mutateAsync(cancellingChatId)
       .then(() => {
+        overlays.clearNewChatSetup();
         if (useChatStore.getState().activeChatId === cancellingChatId) setActiveChatId(null);
       })
       .catch(() => {
@@ -122,16 +123,25 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
   const handleFinishNewConversationSetup = useCallback(() => {
     if (
       isEmptyNewChatSetup({
-        chat: data.chat,
+        activeChatId,
+        setupChatId: overlays.newChatSetupChatId,
         chatCharIds: data.chatCharIds,
         totalMessageCount: data.totalMessageCount,
+        messagesLoaded: data.messages !== undefined,
       })
     ) {
       handleCancelNewConversationSetup();
       return;
     }
     overlays.finishWizard();
-  }, [data.chat, data.chatCharIds, data.totalMessageCount, handleCancelNewConversationSetup, overlays]);
+  }, [
+    activeChatId,
+    data.chatCharIds,
+    data.messages,
+    data.totalMessageCount,
+    handleCancelNewConversationSetup,
+    overlays,
+  ]);
 
   const cardCssMode = (() => {
     const mode = data.chatMeta.cardCssMode;

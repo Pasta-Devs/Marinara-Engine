@@ -286,9 +286,11 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
   const handleFinishNewRoleplaySetup = useCallback(() => {
     if (
       isEmptyNewChatSetup({
-        chat: data.chat,
+        activeChatId,
+        setupChatId: overlays.newChatSetupChatId,
         chatCharIds: data.chatCharIds,
         totalMessageCount: data.totalMessageCount,
+        messagesLoaded: data.messages !== undefined,
       })
     ) {
       const cancellingChatId = activeChatId;
@@ -296,6 +298,7 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
       void deleteChat
         .mutateAsync(cancellingChatId)
         .then(() => {
+          overlays.clearNewChatSetup();
           if (useChatStore.getState().activeChatId === cancellingChatId) setActiveChatId(null);
         })
         .catch(() => {
@@ -304,7 +307,15 @@ export function RoleplayModeRoute({ activeChatId, fallbackChatMode = "roleplay" 
       return;
     }
     overlays.finishWizard();
-  }, [activeChatId, data.chat, data.chatCharIds, data.totalMessageCount, deleteChat, overlays, setActiveChatId]);
+  }, [
+    activeChatId,
+    data.chatCharIds,
+    data.messages,
+    data.totalMessageCount,
+    deleteChat,
+    overlays,
+    setActiveChatId,
+  ]);
 
   const cardCssMode = (() => {
     const mode = data.chatMeta.cardCssMode;
