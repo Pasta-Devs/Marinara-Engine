@@ -150,6 +150,7 @@ import { scoreMusic, scoreAmbient } from "../../../../engine/shared/scoring/musi
 import {
   applyMapUpdateCommandsToMeta,
   parseMapUpdateCommands,
+  syncGameMapMetaPartyPosition,
 } from "../../../../engine/modes/game/world/map-position.service";
 import { GameNarration } from "./GameNarration";
 import { formatNarration } from "../lib/game-narration-format";
@@ -4894,6 +4895,30 @@ export function GameSurface({
   gameSetupResetRef.current = gameSetup.reset;
   startGameResetRef.current = startGame.reset;
   startSessionResetRef.current = startSession.reset;
+
+  useEffect(() => {
+    const location = gameSnapshot?.location;
+    if (!location?.trim()) return;
+
+    const nextMeta = syncGameMapMetaPartyPosition(chatMeta, location);
+    if (nextMeta === chatMeta) return;
+
+    const nextMaps = Array.isArray(nextMeta.gameMaps) ? (nextMeta.gameMaps as GameMap[]) : [];
+    const nextActiveMapId = typeof nextMeta.activeGameMapId === "string" ? nextMeta.activeGameMapId : null;
+    if (nextMaps.length > 0) {
+      useGameModeStore.getState().setMaps(nextMaps, nextActiveMapId);
+    }
+    updateChatMetadata
+      .mutateAsync({
+        id: activeChatId,
+        gameMap: nextMeta.gameMap,
+        gameMaps: nextMeta.gameMaps,
+        activeGameMapId: nextMeta.activeGameMapId,
+      })
+      .catch((error) => {
+        console.warn("Failed to persist location-derived map position", error);
+      });
+  }, [activeChatId, chatMeta, gameSnapshot?.location, updateChatMetadata]);
 
   const handleMapChange = useCallback(
     async (updatedMap: GameMap) => {

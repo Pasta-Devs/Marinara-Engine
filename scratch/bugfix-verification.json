@@ -23,13 +23,13 @@
     "originalReproEvidence": "3 tests passed after fix.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Full PR gate passed: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, unused exports.",
+    "baselineEvidence": "Full PR gate passed after merging current upstream/refactor: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, and unused exports.",
     "focusedProof": [
       "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 3 tests using a local ignored proof harness.",
       "pnpm typecheck passed.",
       "pnpm check:architecture passed.",
       "pnpm check:unused passed after internalizing journal row-builder helpers.",
-      "pnpm check passed after the final diff.",
+      "pnpm check passed after merging current upstream/refactor.",
       "node C:/Users/celia/.codex/tools/marinara-proof-gate.mjs scratch/bugfix-verification.json passed."
     ],
     "edgeCases": [
@@ -103,7 +103,6 @@
         "evidence": "Pre-patch applyJournalEntry only handled location, combat, item, and note before falling through to addEventEntry."
       }
     ],
-    "userActionCopy": [],
     "manualBlockers": []
   },
   "contractLaneGate": {
@@ -158,13 +157,12 @@
       "evidence": "Derived from the pre-patch applyJournalEntry implementation in src/features/modes/game/api/game-api.ts, which only handled location/combat/item/note before the catch-all addEventEntry branch."
     }
   ],
-  "manualBlockers": [],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local regression proof, full pnpm check, proof gate, Bunny pass, commit, push, and draft PR creation completed. GitHub checks and CodeRabbit still need current-head review."
+    "notes": "Local regression proof, proof gate, conflict resolution, and full pnpm check passed after merging current upstream/refactor."
   },
   "branch": {
     "base": "upstream/refactor",
@@ -175,6 +173,6 @@
   },
   "bunny": {
     "status": "pass",
-    "evidence": "Bunny pass before commit: scoped diff, proof quality, risk matrix, pnpm check, and proof gate were clean; target base is refactor per workflow-health and issue labels."
+    "evidence": "Bunny pass before opening the draft, and later review thread about submitted test proof was addressed by moving the proof harness out of the PR diff."
   }
 }
