@@ -1,4 +1,5 @@
 use super::super::images::percent_encode_component;
+use super::super::media_uploads::file_path_asset_url;
 use crate::state::AppState;
 use base64::{engine::general_purpose, Engine as _};
 use marinara_core::{AppError, AppResult};
@@ -48,6 +49,12 @@ struct LegacyProfileAsset {
     absolute_path: String,
     filename: String,
     kind: LegacyProfileAssetKind,
+}
+
+pub(super) struct LegacyProfileGalleryAsset {
+    pub(super) asset_url: String,
+    pub(super) absolute_path: String,
+    pub(super) filename: String,
 }
 
 enum ProfileAssetSource {
@@ -671,12 +678,33 @@ pub(super) fn normalize_legacy_profile_asset_paths(
     }
 }
 
-pub(super) fn legacy_profile_asset_url_for_path(
+pub(super) fn legacy_profile_gallery_asset_for_path(
     state: &AppState,
     staging_root: Option<&Path>,
     value: &str,
-) -> Option<String> {
-    legacy_profile_asset_for_path(state, staging_root, value).map(|asset| asset.value)
+) -> Option<LegacyProfileGalleryAsset> {
+    let relative = legacy_profile_asset_relative_path(value)?;
+    if !relative.starts_with(Path::new("gallery")) {
+        return None;
+    }
+    let staged_path = staging_root.map(|root| root.join(&relative));
+    let staged_present = staged_path
+        .as_ref()
+        .map(|path| path.is_file())
+        .unwrap_or(false);
+    let installed_path = state.data_dir.join(&relative);
+    if !staged_present && !installed_path.is_file() {
+        return None;
+    }
+    let filename = relative
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .filter(|value| !value.trim().is_empty())?;
+    Some(LegacyProfileGalleryAsset {
+        asset_url: file_path_asset_url(&installed_path),
+        absolute_path: installed_path.to_string_lossy().to_string(),
+        filename,
+    })
 }
 
 fn legacy_profile_asset_for_path(

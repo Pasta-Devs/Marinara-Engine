@@ -72,6 +72,8 @@ pub(crate) mod prompts;
 pub(crate) mod shared;
 #[path = "storage/sprites.rs"]
 pub(crate) mod sprites;
+#[path = "storage/startup_migrations.rs"]
+pub(crate) mod startup_migrations;
 #[path = "storage/translation.rs"]
 pub(crate) mod translation;
 #[path = "storage/updates.rs"]

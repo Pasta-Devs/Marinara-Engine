@@ -7,8 +7,8 @@ use super::super::{
     },
 };
 use super::assets::{
-    legacy_profile_asset_url_for_path, normalize_legacy_profile_asset_paths,
-    restore_legacy_profile_json_assets,
+    legacy_profile_gallery_asset_for_path, normalize_legacy_profile_asset_paths,
+    restore_legacy_profile_json_assets, LegacyProfileGalleryAsset,
 };
 use super::{
     finish_profile_import_assets, insert_profile_import_aliases,
@@ -614,15 +614,21 @@ fn normalize_legacy_gallery_rows(
             .get("url")
             .and_then(Value::as_str)
             .is_some_and(|value| !value.trim().is_empty());
-        if !has_url {
-            if let Some(url) = gallery_image_url_from_legacy_row(state, staging_root, object) {
-                object.insert("url".to_string(), Value::String(url));
+        if let Some(asset) = gallery_asset_from_legacy_row(state, staging_root, object) {
+            object.insert("url".to_string(), Value::String(asset.asset_url));
+            object.insert("filePath".to_string(), Value::String(asset.absolute_path));
+            if object
+                .get("filename")
+                .and_then(Value::as_str)
+                .is_none_or(|value| value.trim().is_empty())
+            {
+                object.insert("filename".to_string(), Value::String(asset.filename));
             }
-        }
-        if object
-            .get("filename")
-            .and_then(Value::as_str)
-            .is_none_or(|value| value.trim().is_empty())
+        } else if !has_url
+            && object
+                .get("filename")
+                .and_then(Value::as_str)
+                .is_none_or(|value| value.trim().is_empty())
         {
             if let Some(filename) = gallery_filename_from_legacy_row(object) {
                 object.insert("filename".to_string(), Value::String(filename));
@@ -631,11 +637,11 @@ fn normalize_legacy_gallery_rows(
     }
 }
 
-fn gallery_image_url_from_legacy_row(
+fn gallery_asset_from_legacy_row(
     state: &AppState,
     staging_root: Option<&Path>,
     object: &Map<String, Value>,
-) -> Option<String> {
+) -> Option<LegacyProfileGalleryAsset> {
     for field in ["filePath", "path", "filename"] {
         let Some(raw) = object.get(field).and_then(Value::as_str) else {
             continue;
@@ -644,8 +650,8 @@ fn gallery_image_url_from_legacy_row(
         if trimmed.is_empty() {
             continue;
         }
-        if let Some(url) = legacy_profile_asset_url_for_path(state, staging_root, trimmed) {
-            return Some(url);
+        if let Some(asset) = legacy_profile_gallery_asset_for_path(state, staging_root, trimmed) {
+            return Some(asset);
         }
         if !trimmed.contains('/')
             && !trimmed.contains('\\')
@@ -654,9 +660,10 @@ fn gallery_image_url_from_legacy_row(
             && !trimmed.starts_with("https://")
         {
             let gallery_path = format!("gallery/{trimmed}");
-            if let Some(url) = legacy_profile_asset_url_for_path(state, staging_root, &gallery_path)
+            if let Some(asset) =
+                legacy_profile_gallery_asset_for_path(state, staging_root, &gallery_path)
             {
-                return Some(url);
+                return Some(asset);
             }
         }
     }
@@ -1280,28 +1287,50 @@ mod tests {
             .get("gallery", "chat-image-1")
             .expect("chat gallery lookup should not fail")
             .expect("chat gallery row should import");
+        let chat_image_url = chat_image["url"]
+            .as_str()
+            .expect("chat gallery url should be stored");
         assert!(
-            chat_image["url"]
-                .as_str()
-                .unwrap_or_default()
-                .starts_with("data:image/png;base64,"),
-            "chat gallery row should have a renderable data URL"
+            !chat_image_url.starts_with("data:image/"),
+            "chat gallery row should not store inline image data"
+        );
+        assert!(
+            chat_image_url.starts_with("asset://localhost")
+                || chat_image_url.starts_with("http://asset.localhost"),
+            "chat gallery row should have a renderable managed asset URL"
         );
         assert_eq!(chat_image["filename"], "legacy-chat.png");
+        assert!(std::path::Path::new(
+            chat_image["filePath"]
+                .as_str()
+                .expect("chat gallery file path should be stored")
+        )
+        .is_file());
 
         let character_image = state
             .storage
             .get("character-gallery", "character-image-1")
             .expect("character gallery lookup should not fail")
             .expect("character gallery row should import");
+        let character_image_url = character_image["url"]
+            .as_str()
+            .expect("character gallery url should be stored");
         assert!(
-            character_image["url"]
-                .as_str()
-                .unwrap_or_default()
-                .starts_with("data:image/webp;base64,"),
-            "character gallery row should have a renderable data URL"
+            !character_image_url.starts_with("data:image/"),
+            "character gallery row should not store inline image data"
+        );
+        assert!(
+            character_image_url.starts_with("asset://localhost")
+                || character_image_url.starts_with("http://asset.localhost"),
+            "character gallery row should have a renderable managed asset URL"
         );
         assert_eq!(character_image["filename"], "legacy-character.webp");
+        assert!(std::path::Path::new(
+            character_image["filePath"]
+                .as_str()
+                .expect("character gallery file path should be stored")
+        )
+        .is_file());
     }
 
     #[test]
