@@ -52,7 +52,10 @@ import {
   shouldPreferLatestVisibleGameState,
   type PromptAttachment,
 } from "./generate-route-utils";
-import { prepareManagedImageAttachments, resolveImageAttachmentDataUrls } from "./managed-attachments";
+import {
+  prepareManagedImageAttachments,
+  resolveImageAttachmentDataUrls,
+} from "../shared/attachments/image-attachments";
 import type { GenerationEvent } from "./generation-events";
 import {
   applyGenerationReplayToRegenerateInput,

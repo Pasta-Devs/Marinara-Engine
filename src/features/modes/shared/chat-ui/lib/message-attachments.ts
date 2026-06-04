@@ -66,8 +66,10 @@ export function isImageMessageAttachment(attachment: MessageAttachment): boolean
 }
 
 export function messageAttachmentImageSource(attachment: MessageAttachment): string | null {
-  const source = attachment.url ?? attachment.data;
-  return typeof source === "string" && source.length > 0 ? source : null;
+  const source = [attachment.url, attachment.imageUrl, attachment.data].find(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+  return source ?? null;
 }
 
 export function messageAttachmentImageAlt(attachment: MessageAttachment): string {

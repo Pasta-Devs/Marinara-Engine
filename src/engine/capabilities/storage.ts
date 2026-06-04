@@ -55,14 +55,14 @@ export interface AddChatMessageSwipeOptions {
 }
 
 export interface StorageImageAttachmentReference {
-  type?: unknown;
-  url?: unknown;
-  data?: unknown;
-  imageUrl?: unknown;
-  filename?: unknown;
-  name?: unknown;
-  filePath?: unknown;
-  galleryId?: unknown;
+  type?: string | null;
+  url?: string | null;
+  data?: string | null;
+  imageUrl?: string | null;
+  filename?: string | null;
+  name?: string | null;
+  filePath?: string | null;
+  galleryId?: string | null;
 }
 
 export interface StorageGateway {

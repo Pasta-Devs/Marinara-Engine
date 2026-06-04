@@ -12,7 +12,7 @@ import { useChatStore } from "../../../../shared/stores/chat.store";
 import { translateDraftText } from "../../../../shared/lib/draft-translation";
 import { MAX_FILE_SIZES } from "../../../../engine/contracts/constants/defaults";
 import type { DiceRollResult } from "../../../../engine/contracts/types/game";
-import type { PromptAttachment } from "../../../../engine/generation/generate-route-utils";
+import type { PromptAttachment } from "../../../../shared/api/message-attachment-api";
 import {
   CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
   CHAT_INPUT_ICON_BUTTON_CLASS,

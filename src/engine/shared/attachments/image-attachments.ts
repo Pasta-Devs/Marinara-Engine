@@ -1,6 +1,22 @@
-import type { StorageGateway } from "../capabilities/storage";
-import { getAttachmentFilename, type PromptAttachment } from "./generate-route-utils";
-import { readString } from "./runtime-records";
+import type { StorageGateway } from "../../capabilities/storage";
+import { readString } from "../value-readers";
+
+export type PromptAttachment = {
+  type?: string | null;
+  url?: string | null;
+  data?: string | null;
+  imageUrl?: string | null;
+  filePath?: string | null;
+  filename?: string | null;
+  name?: string | null;
+  prompt?: string | null;
+  galleryId?: string | null;
+};
+
+export interface PreparedManagedImageAttachments {
+  attachments: PromptAttachment[];
+  createdGalleryIds: string[];
+}
 
 const IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
 
@@ -54,6 +70,11 @@ function galleryStringField(row: unknown, field: string): string {
     : "";
 }
 
+export function getAttachmentFilename(attachment: PromptAttachment): string {
+  const rawName = attachment.filename ?? attachment.name;
+  return typeof rawName === "string" && rawName.trim() ? rawName.trim() : "attachment";
+}
+
 function attachmentFilename(attachment: PromptAttachment, index: number): string {
   const filename = getAttachmentFilename(attachment).trim();
   return filename && filename !== "attachment" ? filename : `attachment-${index + 1}`;
@@ -82,43 +103,72 @@ function managedAttachmentFromGallery(
   return next;
 }
 
+async function deleteGalleryIds(storage: StorageGateway, galleryIds: string[]): Promise<void> {
+  const uniqueIds = Array.from(new Set(galleryIds.map((id) => id.trim()).filter(Boolean)));
+  await Promise.all(uniqueIds.map((id) => storage.delete("gallery", id)));
+}
+
+export async function prepareManagedImageAttachmentBatch(
+  storage: StorageGateway,
+  chatId: string,
+  attachments: PromptAttachment[] | undefined,
+): Promise<PreparedManagedImageAttachments> {
+  const normalizedAttachments = attachments ?? [];
+  if (normalizedAttachments.length === 0) return { attachments: [], createdGalleryIds: [] };
+
+  const normalizedChatId = readString(chatId).trim();
+  if (!normalizedChatId) return { attachments: normalizedAttachments, createdGalleryIds: [] };
+
+  const managed: PromptAttachment[] = [];
+  const createdGalleryIds: string[] = [];
+  try {
+    for (let index = 0; index < normalizedAttachments.length; index += 1) {
+      const attachment = normalizedAttachments[index]!;
+      if (!isImageAttachment(attachment)) {
+        managed.push(attachment);
+        continue;
+      }
+
+      const dataUrl = attachmentInlineImageDataUrl(attachment);
+      if (!dataUrl) {
+        managed.push(attachment);
+        continue;
+      }
+
+      const filename = attachmentFilename(attachment, index);
+      const gallery = await storage.create<Record<string, unknown>>("gallery", {
+        chatId: normalizedChatId,
+        filePath: filename,
+        filename,
+        kind: "attachment",
+        prompt: attachment.prompt ?? null,
+        url: dataUrl,
+      });
+      const galleryId = galleryStringField(gallery, "id");
+      if (galleryId) createdGalleryIds.push(galleryId);
+      managed.push(managedAttachmentFromGallery(attachment, gallery, filename));
+    }
+  } catch (error) {
+    await deleteGalleryIds(storage, createdGalleryIds).catch(() => undefined);
+    throw error;
+  }
+
+  return { attachments: managed, createdGalleryIds };
+}
+
 export async function prepareManagedImageAttachments(
   storage: StorageGateway,
   chatId: string,
   attachments: PromptAttachment[] | undefined,
 ): Promise<PromptAttachment[]> {
-  const normalizedAttachments = attachments ?? [];
-  if (normalizedAttachments.length === 0) return [];
+  return (await prepareManagedImageAttachmentBatch(storage, chatId, attachments)).attachments;
+}
 
-  const normalizedChatId = readString(chatId).trim();
-  if (!normalizedChatId) return normalizedAttachments;
-
-  const managed: PromptAttachment[] = [];
-  for (let index = 0; index < normalizedAttachments.length; index += 1) {
-    const attachment = normalizedAttachments[index]!;
-    if (!isImageAttachment(attachment)) {
-      managed.push(attachment);
-      continue;
-    }
-
-    const dataUrl = attachmentInlineImageDataUrl(attachment);
-    if (!dataUrl) {
-      managed.push(attachment);
-      continue;
-    }
-
-    const filename = attachmentFilename(attachment, index);
-    const gallery = await storage.create<Record<string, unknown>>("gallery", {
-      chatId: normalizedChatId,
-      filePath: filename,
-      filename,
-      kind: "attachment",
-      prompt: attachment.prompt ?? null,
-      url: dataUrl,
-    });
-    managed.push(managedAttachmentFromGallery(attachment, gallery, filename));
-  }
-  return managed;
+export async function deletePreparedManagedImageAttachments(
+  storage: StorageGateway,
+  prepared: PreparedManagedImageAttachments,
+): Promise<void> {
+  await deleteGalleryIds(storage, prepared.createdGalleryIds);
 }
 
 export async function resolveImageAttachmentDataUrls(
