@@ -400,7 +400,7 @@ const BUILT_IN_AGENT_DEFINITIONS: Array<Omit<BuiltInAgentMeta, "credit">> = [
     description:
       "Injects a prompt directive that encourages the model to include inline HTML, CSS, and JS for immersive in-world visual elements.",
     phase: "pre_generation",
-    enabledByDefault: false,
+    enabledByDefault: true,
     category: "misc",
   },
   {
