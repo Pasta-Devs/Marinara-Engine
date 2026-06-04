@@ -17,7 +17,6 @@ pub(crate) struct TypedJsonField {
 pub(crate) enum DeleteCleanup {
     ActivateDefaultChatPreset,
     ClearConnectionFolder,
-    ClearLorebookFolderEntries,
     ClearLorebookReferences,
     DeleteCharacterGallery,
     DeleteLorebookChildren,
@@ -188,7 +187,6 @@ const LOREBOOK_CLEANUP: &[DeleteCleanup] = &[
 const PROMPT_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::DeletePromptChildren];
 const CHAT_PRESET_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::ActivateDefaultChatPreset];
 const CONNECTION_FOLDER_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::ClearConnectionFolder];
-const LOREBOOK_FOLDER_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::ClearLorebookFolderEntries];
 const CHARACTER_CLEANUP: &[DeleteCleanup] = &[
     DeleteCleanup::RemoveOwnedMedia,
     DeleteCleanup::DeleteCharacterGallery,
@@ -259,7 +257,7 @@ pub(crate) const COLLECTIONS: &[StorageCollectionContract] = &[
         false,
         EMPTY_DEFAULTS,
         EMPTY_FIELDS,
-        LOREBOOK_FOLDER_CLEANUP,
+        EMPTY_CLEANUP,
     ),
     contract(
         "prompts",
