@@ -41,6 +41,11 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
 
   const chatFiles = (groupChats ?? []) as Chat[];
 
+  const handleClose = () => {
+    if (deleteChatGroup.isPending) return;
+    onClose();
+  };
+
   const handleImportChat = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -78,6 +83,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
   };
 
   const handleSwitch = (chatId: string) => {
+    if (deleteChatGroup.isPending) return;
     setActiveChatId(chatId);
     onClose();
   };
@@ -125,13 +131,13 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
   if (!groupId) {
     return (
       <>
-        <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+        <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={handleClose} />
         <div className="absolute right-0 top-0 z-50 flex h-full w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:pt-[env(safe-area-inset-top)]">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <h3 className="text-sm font-bold">Manage Chat Files</h3>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Close chat files drawer"
               className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
             >
@@ -194,7 +200,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
   return (
     <>
       {/* Backdrop */}
-      <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={handleClose} />
 
       {/* Drawer */}
       <div className="absolute right-0 top-0 z-50 flex h-full w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:pt-[env(safe-area-inset-top)]">
@@ -203,9 +209,10 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
           <h3 className="text-sm font-bold">Manage Chat Files</h3>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={deleteChatGroup.isPending}
             aria-label="Close chat files drawer"
-            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
+            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] disabled:cursor-wait disabled:opacity-50"
           >
             <X size="1rem" />
           </button>

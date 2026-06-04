@@ -100,7 +100,7 @@
   },
   "finalDoneGate": {
     "didFixBug": true,
-    "hasProfessionalVisualProof": true,
+    "hasProfessionalVisualProof": false,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true
   }
