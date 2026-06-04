@@ -1147,6 +1147,15 @@ function characterFieldValue(character: GenerationCharacterContext, fieldName: s
   }
 }
 
+function characterMarkerFieldValue(
+  character: GenerationCharacterContext,
+  fieldName: string,
+  macros: MacroContext | null,
+): string {
+  const value = characterFieldValue(character, fieldName);
+  return macros ? resolveMacros(value, macroContextForCharacter(macros, character), { trimResult: false }) : value;
+}
+
 function characterMarkerFields(marker: MarkerConfig | null): string[] {
   const fields = marker?.characterFields?.filter((fieldName) => typeof fieldName === "string" && fieldName.trim());
   return fields?.length ? fields : [...DEFAULT_CHARACTER_MARKER_FIELDS];
@@ -1167,6 +1176,7 @@ function renderCharacters(
   characters: GenerationCharacterContext[],
   wrapFormat: WrapFormat,
   marker: MarkerConfig | null,
+  macros: MacroContext | null = null,
 ): string {
   const fields = characterMarkerFields(marker);
   return characters
@@ -1176,7 +1186,7 @@ function renderCharacters(
           ["Name", character.name],
           ...fields.map((fieldName): [string, string] => [
             CHARACTER_FIELD_LABELS[fieldName] ?? fieldName,
-            characterFieldValue(character, fieldName),
+            characterMarkerFieldValue(character, fieldName, macros),
           ]),
         ],
         wrapFormat,
@@ -2733,10 +2743,11 @@ function sectionContent(args: {
   summary: string | null;
   agentData: Record<string, string>;
   wrapFormat: WrapFormat;
+  macros: MacroContext | null;
 }) {
   switch (args.marker?.type) {
     case "character":
-      return renderCharacters(args.characters, args.wrapFormat, args.marker);
+      return renderCharacters(args.characters, args.wrapFormat, args.marker, args.macros);
     case "persona":
       return renderPersona(args.persona, args.wrapFormat);
     case "dialogue_examples":
@@ -2902,6 +2913,7 @@ export async function assembleGenerationPrompt(
         summary,
         agentData,
         wrapFormat,
+        macros,
       });
       const resolved = cleanPromptText(resolveMacros(rawContent, macros));
       if (!resolved.trim()) continue;

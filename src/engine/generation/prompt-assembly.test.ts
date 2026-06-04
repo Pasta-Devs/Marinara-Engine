@@ -127,6 +127,76 @@ describe("assembleGenerationPrompt depth injection", () => {
   });
 });
 
+describe("assembleGenerationPrompt character markers", () => {
+  it("resolves character field macros against each rendered character in a group", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content: "Global speaker is {{char}}.",
+          enabled: true,
+        },
+        {
+          id: "characters",
+          presetId: "preset-1",
+          identifier: "character",
+          role: "system",
+          enabled: true,
+          markerConfig: { type: "character", characterFields: ["description", "personality"] },
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice description.",
+            personality: "Alice personality",
+          },
+        },
+        {
+          id: "char-2",
+          data: {
+            name: "Bob",
+            description: "Bob description references {{personality}} for {{char}} and {{user}}.",
+            personality: "Bob personality",
+          },
+        },
+      ],
+      personas: [{ id: "persona-1", isActive: true, data: { name: "Celia" } }],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: { id: "chat-1", mode: "roleplay", characterIds: ["char-1", "char-2"], metadata: {} },
+      storedMessages: [],
+      connection: {},
+      request: {},
+      latestUserInput: "",
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Global speaker is Alice.");
+    expect(prompt).toContain("Bob description references Bob personality for Bob and Celia.");
+    expect(prompt).not.toContain("Bob description references Alice personality for Alice and Celia.");
+  });
+});
+
 describe("assembleGenerationPrompt game sprites", () => {
   const visuals: VisualAssetGateway = {
     listSprites: async (ownerId) =>
