@@ -669,10 +669,15 @@ fn autonomous_unread_increment(body: &Value) -> AppResult<i64> {
 fn autonomous_unread_character_id(body: &Value) -> AppResult<Option<String>> {
     match body.get("characterId") {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::String(id)) if !id.is_empty() => Ok(Some(id.clone())),
-        Some(Value::String(_)) => Err(AppError::invalid_input(
-            "Autonomous unread characterId must be non-empty",
-        )),
+        Some(Value::String(id)) => {
+            let id = id.trim();
+            if id.is_empty() {
+                return Err(AppError::invalid_input(
+                    "Autonomous unread characterId must be non-empty",
+                ));
+            }
+            Ok(Some(id.to_string()))
+        }
         Some(_) => Err(AppError::invalid_input(
             "Autonomous unread characterId must be a string",
         )),
@@ -1522,6 +1527,55 @@ mod tests {
         for index in 0..WORKERS {
             assert!(ids.contains(format!("char-{index}").as_str()));
         }
+    }
+
+    #[test]
+    fn mark_autonomous_unread_trims_and_rejects_blank_character_ids() {
+        let state = test_state("autonomous-unread-character-id-normalization");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Autonomous chat",
+                    "metadata": {
+                        "autonomousUnreadCount": 1,
+                        "autonomousUnreadCharacterIds": ["char-a"]
+                    }
+                }),
+            )
+            .expect("chat should be created");
+
+        let updated =
+            mark_autonomous_unread(&state, "chat-1", json!({ "characterId": "  char-b  " }))
+                .expect("trimmed character id should succeed");
+        let metadata = updated
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(
+            metadata.get("autonomousUnreadCharacterIds"),
+            Some(&json!(["char-a", "char-b"]))
+        );
+
+        let result = mark_autonomous_unread(&state, "chat-1", json!({ "characterId": "   " }));
+
+        assert!(result.is_err(), "blank character id should be rejected");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should succeed")
+            .expect("chat should still exist");
+        let metadata = chat
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(metadata.get("autonomousUnreadCount"), Some(&json!(2)));
+        assert_eq!(
+            metadata.get("autonomousUnreadCharacterIds"),
+            Some(&json!(["char-a", "char-b"]))
+        );
     }
 
     #[test]
