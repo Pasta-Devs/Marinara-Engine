@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { Message, MessageExtra } from "../../../../engine/contracts/types/chat";
+import type { ConversationAvatarOverride } from "../../../../engine/contracts/types/character";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { cn, copyToClipboard, getAvatarCropStyle, parseAvatarCropJson } from "../../../../shared/lib/utils";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../../../shared/lib/markdown";
@@ -83,6 +84,28 @@ function readGenerationDurationMs(generationInfo: unknown): number | null {
   if (typeof record.durationMs === "number" && record.durationMs > 0) return record.durationMs;
   if (typeof record.duration === "number" && record.duration > 0) return record.duration * 1000;
   return null;
+}
+
+/**
+ * Resolve a character's Conversation-mode avatar override into a renderable form.
+ * `fallbackUrl` is the character's normal avatar (used for "default", or as a fallback
+ * when a sprite/gallery reference couldn't be resolved).
+ */
+function resolveConversationAvatar(
+  info: { conversationAvatar?: ConversationAvatarOverride; conversationAvatarSrc?: string | null } | null | undefined,
+  fallbackUrl: string | null,
+): { hide: boolean; emoji: string | null; url: string | null; isOverride: boolean } {
+  const override = info?.conversationAvatar;
+  if (!override || override.mode === "default") {
+    return { hide: false, emoji: null, url: fallbackUrl, isOverride: false };
+  }
+  if (override.mode === "hide") return { hide: true, emoji: null, url: null, isOverride: true };
+  if (override.mode === "emoji") {
+    return { hide: false, emoji: override.value?.trim() || null, url: null, isOverride: true };
+  }
+  // "sprite" | "gallery": prefer the resolved src; fall back to the real avatar if unresolved.
+  const resolved = info?.conversationAvatarSrc ?? null;
+  return { hide: false, emoji: null, url: resolved ?? fallbackUrl, isOverride: !!resolved };
 }
 
 function HiddenFromAIConversationButton({
@@ -307,6 +330,10 @@ interface ConversationMessageProps {
   multiSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (toggle: MessageSelectionToggle) => void;
+  /** When true, omit the data-card-css hook so the message renders vanilla (used while editing). */
+  suppressCardCss?: boolean;
+  /** When set and the body is empty, shows "X is typing..." inside the message body (CSS hooks: .mari-typing-*). */
+  typingLabel?: string;
 }
 
 export const ConversationMessage = memo(function ConversationMessage({
@@ -332,8 +359,12 @@ export const ConversationMessage = memo(function ConversationMessage({
   multiSelectMode,
   isSelected,
   onToggleSelect,
+  suppressCardCss,
+  typingLabel,
 }: ConversationMessageProps) {
   const [editing, setEditing] = useState(false);
+  // Drop the card-CSS hook while editing (or when asked to) so the edit view renders vanilla.
+  const cardCssId = editing || suppressCardCss ? undefined : (message.characterId ?? undefined);
   const [editValue, setEditValue] = useState(message.content);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -449,6 +480,8 @@ export const ConversationMessage = memo(function ConversationMessage({
     ? (msgPersona?.name ?? personaInfo?.name ?? "You")
     : (primaryCharInfo?.name ?? "Assistant");
   const nameColor = isUser ? (msgPersona?.nameColor ?? personaInfo?.nameColor) : charInfo?.nameColor;
+  // Conversation-mode avatar override (Default / Hide / Emoji / Sprite / Gallery). User messages are never overridden.
+  const conversationAvatar = resolveConversationAvatar(isUser ? null : charInfo, avatarUrl);
   const renderedContent = useMemo(
     () =>
       resolveMessageMacros(message.content, {
@@ -767,7 +800,8 @@ export const ConversationMessage = memo(function ConversationMessage({
           isStreaming && "bg-[var(--secondary)]/20",
           multiSelectMode && isSelected && "bg-[var(--destructive)]/10",
         )}
-        data-card-css={message.characterId ?? undefined}
+        data-card-css={cardCssId}
+        data-grouped={isGrouped || undefined}
         onClick={handleMessageClick}
         onDoubleClick={handleMessageDoubleClick}
       >
@@ -797,6 +831,7 @@ export const ConversationMessage = memo(function ConversationMessage({
           const segAvatarCropStyle = getAvatarCropStyle(segChar?.avatarCrop);
           const segName = segChar?.name ?? grp.speaker ?? "";
           const segColor = segChar?.nameColor;
+          const segAvatarOverride = resolveConversationAvatar(segChar, segAvatar);
           const isFirst = i === 0;
           const combinedText = grp.lines.join("\n");
 
@@ -830,21 +865,27 @@ export const ConversationMessage = memo(function ConversationMessage({
                     <div className="flex gap-4">
                       {/* Avatar */}
                       <div className="w-10 flex-shrink-0">
-                        <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
-                          {segAvatar ? (
-                            <img
-                              src={segAvatar}
-                              alt={segName}
-                              loading="lazy"
-                              className="h-full w-full object-cover"
-                              style={segAvatarCropStyle}
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
-                              {segName[0]?.toUpperCase()}
-                            </div>
-                          )}
-                        </div>
+                        {!segAvatarOverride.hide && (
+                          <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
+                            {segAvatarOverride.emoji ? (
+                              <div className="flex h-full w-full items-center justify-center text-2xl leading-none">
+                                {segAvatarOverride.emoji}
+                              </div>
+                            ) : segAvatarOverride.url ? (
+                              <img
+                                src={segAvatarOverride.url}
+                                alt={segName}
+                                loading="lazy"
+                                className="h-full w-full object-cover"
+                                style={segAvatarOverride.isOverride ? undefined : segAvatarCropStyle}
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--muted-foreground)]">
+                                {segName[0]?.toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {isFirst && (showActions || forceShowActions || showMessageNumbers) && messageIndex != null && (
                           <span className="mt-0.5 block text-center text-[0.5rem] font-medium text-[var(--muted-foreground)] select-none">
                             #{messageIndex}
@@ -1083,7 +1124,8 @@ export const ConversationMessage = memo(function ConversationMessage({
       )}
       data-message-id={message.id}
       data-message-role={message.role}
-      data-card-css={message.characterId ?? undefined}
+      data-card-css={cardCssId}
+      data-grouped={isGrouped || undefined}
       onClick={handleMessageClick}
       onDoubleClick={handleMessageDoubleClick}
     >
@@ -1105,10 +1147,24 @@ export const ConversationMessage = memo(function ConversationMessage({
 
       {/* Avatar column — fixed 40px width */}
       <div className="mari-message-avatar w-10 flex-shrink-0">
-        {!isGrouped && (
+        {!isGrouped && !conversationAvatar.hide && (
           <>
             <div className="relative h-10 w-10 overflow-hidden rounded-full bg-[var(--accent)]">
-              {avatarUrl ? (
+              {/* Emoji and resolved sprite/gallery overrides render directly; the normal avatar
+                  goes through the file-path/thumbnail-aware resolver with crop styling. */}
+              {conversationAvatar.emoji ? (
+                <div className="flex h-full w-full items-center justify-center text-2xl leading-none">
+                  {conversationAvatar.emoji}
+                </div>
+              ) : conversationAvatar.isOverride && conversationAvatar.url ? (
+                <img
+                  src={conversationAvatar.url}
+                  alt={displayName}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              ) : avatarUrl ? (
                 <ResolvedAvatarImage
                   src={avatarUrl}
                   avatarFilePath={avatarFilePath}
@@ -1201,11 +1257,22 @@ export const ConversationMessage = memo(function ConversationMessage({
           <div
             className={cn(
               "mari-message-content text-[0.9375rem] leading-relaxed break-words whitespace-pre-wrap",
-              isStreaming && !renderedContent && "py-1",
+              (isStreaming || typingLabel) && !renderedContent && "py-1",
             )}
             style={messageTextStyle}
           >
-            {isStreaming && !renderedContent ? (
+            {!renderedContent && typingLabel ? (
+              <div className="mari-typing-indicator flex items-center gap-2" data-typing-name={displayName}>
+                <span className="mari-typing-dots flex items-center gap-1">
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--muted-foreground)]/60 [animation-delay:0ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--muted-foreground)]/60 [animation-delay:150ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--muted-foreground)]/60 [animation-delay:300ms]" />
+                </span>
+                <span className="mari-typing-text text-[0.8125rem] italic text-[var(--text-secondary)]">
+                  {typingLabel}
+                </span>
+              </div>
+            ) : isStreaming && !renderedContent ? (
               <div className="flex items-center gap-1">
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--muted-foreground)]/60 [animation-delay:0ms]" />
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--muted-foreground)]/60 [animation-delay:150ms]" />

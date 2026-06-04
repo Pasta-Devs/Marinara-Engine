@@ -51,7 +51,25 @@ export interface CharacterExtensions {
   rpgStats?: RPGStatsConfig;
   /** Marinara Engine: Conversation-mode availability status */
   conversationStatus?: "online" | "idle" | "dnd" | "offline";
+  /** Marinara Engine: Conversation-mode avatar override (Default / Hide / Emoji / Sprite / Gallery) */
+  conversationAvatar?: ConversationAvatarOverride;
   [key: string]: unknown;
+}
+
+/** Marinara Engine: Conversation-mode avatar override modes. */
+export type ConversationAvatarMode = "default" | "hide" | "emoji" | "sprite" | "gallery";
+
+/** Marinara Engine: per-character avatar override applied only in Conversation mode. */
+export interface ConversationAvatarOverride {
+  mode: ConversationAvatarMode;
+  /**
+   * Reference for the chosen mode:
+   * - "emoji": the emoji glyph to display
+   * - "sprite": the sprite expression key (resolved to an image at render time)
+   * - "gallery": the character-gallery image id (resolved to an image at render time)
+   * Unused for "default" and "hide".
+   */
+  value?: string;
 }
 
 /** RPG stats configuration attached to a character card. */

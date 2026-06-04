@@ -1,4 +1,5 @@
 import type { AvatarCropValue } from "../../../shared/lib/utils";
+import type { ConversationAvatarOverride } from "../../../engine/contracts/types/character";
 
 export type CharacterMap = Map<
   string,
@@ -21,6 +22,10 @@ export type CharacterMap = Map<
     avatarCrop?: AvatarCropValue | null;
     conversationStatus?: "online" | "idle" | "dnd" | "offline";
     conversationActivity?: string;
+    /** Conversation-mode avatar override (raw reference; sprite/gallery resolved into conversationAvatarSrc) */
+    conversationAvatar?: ConversationAvatarOverride;
+    /** Resolved image src for sprite/gallery override modes (filled during map build); undefined otherwise */
+    conversationAvatarSrc?: string | null;
   }
 >;
 

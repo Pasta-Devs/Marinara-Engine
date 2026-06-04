@@ -102,13 +102,14 @@ Roleplay mode renders full HTML in messages, so you have the most creative freed
 | `.mari-message-narrator` | Narrator messages |
 | `.mari-message-assistant` | Character messages |
 | `.mari-message-user` | User messages |
+| `[data-grouped]` | Present on consecutive messages from the same character (grouped/continuation messages) |
 
 **What works well in RP mode:**
 - Full HTML structures injected via regex scripts (camera overlays, terminal windows, custom layouts)
 - CSS animations (`@keyframes`, transitions)
 - Pseudo-elements (`::before`, `::after`) for decorative effects
 - Custom backgrounds, borders, shadows, gradients
-- Custom fonts via `font-family` (system fonts and web-safe fonts only — `@font-face` with external URLs is blocked for security)
+- Custom fonts via `font-family` (system/web-safe fonts, or embedded `@font-face` with font `data:` URIs; external font URLs are blocked for security)
 
 ### Conversation Mode
 
@@ -118,10 +119,17 @@ Conversation mode renders messages as plain text with markdown — it does not r
 
 | Selector | What it targets |
 |----------|----------------|
-| `[data-card-css]` | The message wrapper div — this is your main styling target |
+| `[data-card-css]` | The message wrapper div — your main styling target |
+| `[data-card-css] .mari-message-body` | The message "bubble" container — background, border, corners, shadows |
+| `[data-card-css] .mari-message-meta` | The header row that holds the name + timestamp |
 | `[data-card-css] .mari-message-name` | The character's display name |
+| `[data-card-css] .mari-message-timestamp` | The message timestamp |
+| `[data-card-css] .mari-message-content` | The container around the message text |
+| `[data-card-css] .mari-message-avatar` | The avatar column; `.mari-message-avatar > div` is the avatar circle (override `border-radius` to reshape it) |
 | `[data-card-css] p` | Paragraph elements in the message text |
 | `[data-card-css] span` | Inline text spans |
+| `[data-card-css] .mari-typing-indicator` | The "(name) is typing…" indicator (see **Typing Indicator** below) |
+| `[data-grouped]` | Present on consecutive messages from the same character — use `[data-card-css]:not([data-grouped])` for first-in-group styling |
 
 **What works well in Convo mode:**
 - Message bubbles (border-radius, background, padding, shadows)
@@ -155,6 +163,66 @@ Conversation mode renders messages as plain text with markdown — it does not r
 }
 ```
 
+#### Typing Indicator
+
+While a character is generating a reply, Marinara shows a "*(name) is typing…*" indicator, and it's fully themeable. If the message it belongs to already has a bubble on screen (for example, during **regeneration**), the indicator renders **inside that bubble**; otherwise it appears as a **standalone row** below the messages. Both expose the same hooks:
+
+| Selector | What it targets |
+|----------|----------------|
+| `[data-card-css] .mari-typing-indicator` | The indicator row / container |
+| `[data-card-css] .mari-typing-dots` | The animated dots wrapper — style the individual dots with `.mari-typing-dots span` |
+| `[data-card-css] .mari-typing-text` | The "(name) is typing…" label |
+
+The character's name is also exposed on the indicator as a `data-typing-name` attribute, so you can compose your own label with `content: attr(data-typing-name)`.
+
+> **Scoping note:** on the *standalone* row, `data-card-css` sits **on** the `.mari-typing-indicator` element itself. Target the row with **no space** (`[data-card-css].mari-typing-indicator`) and its children **with a space** (`[data-card-css] .mari-typing-text`). The descendant selectors also match the in-bubble version.
+
+```css
+@chat-mode conversation {
+  /* Recolor / restyle the default label and dots */
+  [data-card-css] .mari-typing-text { color: #c77b92; font-style: italic; font-family: 'Courier New', monospace; }
+  [data-card-css] .mari-typing-dots span { background: #e3a8bd; }
+
+  /* OR replace the label text entirely (including the character's name) */
+  [data-card-css] .mari-typing-text { display: none; }
+  [data-card-css].mari-typing-indicator::after {
+    content: attr(data-typing-name) " is cooking up a reply…";
+    font-style: italic;
+    color: #c77b92;
+  }
+}
+```
+
+> **Group chats (Exclusive mode):** when several characters generate at once, the standalone
+> indicator normally combines their names into one row (e.g. *"Aria, Bryn are typing…"*), which
+> a single character's CSS can't meaningfully restyle. In **Exclusive** card-CSS mode, any
+> character whose CSS targets these hooks (`.mari-typing-*` or `data-typing-name`) is instead
+> given **its own row**, sorted alphabetically, so each custom label renders in isolation;
+> characters without typing CSS stay grouped in the shared row above them. This split only
+> applies in Exclusive mode — Chat mode scopes all card CSS to the shared `.mari-card-css`, so a
+> typing rule there would affect every row identically.
+
+#### Avatar
+
+The avatar is a 40px circle by default — but `border-radius` (and the rest) is yours to override:
+
+```css
+@chat-mode conversation {
+  [data-card-css] .mari-message-avatar > div {
+    border-radius: 8px;            /* square it off — 0 = sharp corners, 50% = back to a circle */
+    box-shadow: 0 0 0 3px #fff;    /* white "sticker" border */
+    transform: scale(1.2);         /* enlarge slightly */
+  }
+}
+```
+
+You can also **swap the avatar image itself**, per character, without any CSS: the editor's **Colors** tab has a **Conversation Avatar** control to set it to an emoji, one of the character's **sprites**, a **gallery** image, or **hide** it entirely (Conversation mode only — Roleplay is unaffected). This pairs nicely with the CSS above — e.g. choose a gallery image, then square it off and add a sticker border. (Sprite/Gallery require a saved character with assets already uploaded; Emoji works any time. The chosen image is center-cropped to the circle/square, so pick a roughly square source for the cleanest result.)
+
+#### Editing & multi-paragraph messages
+
+- **While a message is being edited, its card CSS is turned off** so the edit box uses the app's plain style. You don't need to design for the editing state — only the normal display.
+- **A multi-paragraph reply renders as a single `.mari-message-body`**, not several stacked bubbles — so your borders, corners, and `::after` stickers wrap the whole reply cleanly. Use `[data-card-css]:not([data-grouped])` for the first message in a run and `[data-grouped]` for continuations.
+
 ### Game Mode
 
 Game mode is primarily GM/narrator-driven. Currently, card CSS applies to log entries that are attributed to specific characters via `data-card-css`. The active narration/dialogue segments do not yet carry character-specific CSS attributes — this may be added in a future update.
@@ -172,17 +240,24 @@ These are blocked by the CSS sanitizer for security:
 
 | Blocked | Why |
 |---------|-----|
-| `url(https://...)` | Prevents network requests that could track users or exfiltrate data. Only `url(data:image/...)` is allowed for inline images. |
-| `@font-face` | Prevents font-loading network requests to external servers |
+| `url(https://...)` | Prevents network requests that could track users or exfiltrate data. Only `url(data:...)` is allowed for inline images and embedded fonts. |
+| `@font-face` with external URLs | `@font-face` blocks that reference external URLs are stripped. Blocks using only `data:` URIs (base64-embedded fonts) are allowed; the embedded family name is automatically namespaced (e.g. `Inter` → an internal `mc-font-*` name) so it can't override fonts used elsewhere in the app, and your own `font-family` references are rewritten to match. Only font `data:` URIs — `font/*`, `application/font*`, `application/x-font*` — are valid as `@font-face` sources. (The wider `url(data:...)` allowlist that also permits `image/*` applies to general `url()` usage, not font sources.) |
 | `@import` | Prevents loading external stylesheets |
 | `:has()` selectors | Prevents probing elements outside the chat area |
-| `content: "text"` | Prevents injecting fake UI text (phishing). `content: ''` for pseudo-element clearing is allowed. |
+| `content: "text"` with HTML | `content` text is allowed for decorative labels (e.g., window titles in themed cards) but `<` and `>` characters are stripped and text is capped at 200 characters to prevent UI spoofing. CSS functions such as `attr()` and `counter()` are also permitted (e.g. `content: attr(data-typing-name)`). |
 | `position: fixed` | Automatically converted to `position: absolute` to prevent full-screen overlays |
 | `!important` | Stripped to prevent overriding the app's own styles |
 | App theme tokens | Declarations like `--background: red` or `--primary: blue` are stripped so card CSS can't repaint the app UI |
 
-**If you need a custom font**, use system fonts or web-safe font stacks:
+**Custom fonts:** You can embed fonts directly in your card CSS using base64-encoded `@font-face` blocks with `data:` URIs. External font URLs (like Google Fonts) are blocked for security. You can also use system fonts or web-safe font stacks:
 ```css
+/* Embedded font (base64) — works */
+@font-face {
+  font-family: 'MyPixelFont';
+  src: url(data:font/woff2;base64,d09GMgABAAAAA...) format('woff2');
+}
+
+/* System / web-safe fonts — always works */
 font-family: 'Courier New', Consolas, monospace;
 font-family: Georgia, 'Times New Roman', serif;
 font-family: 'Segoe UI', system-ui, sans-serif;
@@ -230,6 +305,10 @@ In Exclusive mode, `[data-card-css]` targets only THIS character's message wrapp
 
 7. **Layer your mode CSS.** Put shared styles (keyframes, base classes) outside `@chat-mode` blocks, and mode-specific styling inside them. This avoids duplicating rules.
 
+8. **Theme the "typing…" state.** Style `.mari-typing-text` and `.mari-typing-dots span` so the "(name) is typing…" indicator matches your card — or replace the label entirely with `content: attr(data-typing-name) "…"`. It shows both in-bubble (during regeneration) and as a standalone row, so a little styling here goes a long way.
+
+9. **Reshape the avatar.** The avatar circle is just an overridable `border-radius` on `.mari-message-avatar > div`. Pair it with the per-character **Conversation Avatar** setting (emoji / sprite / gallery / hide) in the editor's Colors tab for a fully custom look.
+
 ---
 
 ## Using an AI Assistant to Create Card CSS
@@ -244,14 +323,18 @@ If you're not comfortable writing CSS by hand, you can ask an AI assistant to ge
 >
 > **Technical constraints:**
 > - Use `[data-card-css]` as the selector for the message wrapper element
+> - Use `[data-card-css] .mari-message-body` for the message bubble (background / border / corners) and `[data-card-css] .mari-message-content` for the text area
 > - Use `[data-card-css] .mari-message-name` for the character's display name
+> - Use `[data-card-css] .mari-message-avatar > div` for the avatar circle (override `border-radius` to reshape it)
 > - Use `[data-card-css] p` for message text paragraphs
+> - Style the "typing…" indicator via `[data-card-css] .mari-typing-text` and `[data-card-css] .mari-typing-dots span` (the character name is available as `attr(data-typing-name)` for custom label text)
 > - Wrap roleplay-only CSS in `@chat-mode roleplay { ... }`
 > - Wrap conversation-only CSS in `@chat-mode conversation { ... }`
 > - CSS outside these blocks applies to all modes
-> - `url(https://...)` is blocked — only `url(data:image/...)` works for inline images
-> - `@font-face` is blocked — use system/web-safe fonts only
-> - `content: "text"` is blocked — only `content: ''` is allowed
+> - `url(https://...)` is blocked — only `url(data:...)` works for inline images and embedded fonts
+> - `@font-face` with external URLs is blocked — use base64-embedded `data:` URIs or system/web-safe fonts
+> - `content: "text"` is allowed for decorative labels but `<>` chars are stripped and text is capped at 200 chars
+> - `[data-grouped]` is present on continuation messages from the same character — use `:not([data-grouped])` to target first-in-group
 > - `position: fixed` is converted to `position: absolute`
 > - `!important` is stripped
 > - `:has()` selectors are blocked

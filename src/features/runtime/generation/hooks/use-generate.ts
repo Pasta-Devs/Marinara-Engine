@@ -124,6 +124,14 @@ function showGenerationFailureToast(message: string): void {
   });
 }
 
+function dispatchGenerationFailureEvent(chatId: string, message: string): void {
+  window.dispatchEvent(
+    new CustomEvent("marinara:generation-error", {
+      detail: { chatId, message },
+    }),
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
@@ -1652,6 +1660,7 @@ export async function runGenerationWithUi(
   } catch (error) {
     if (!isAbortError(error)) {
       const message = errorMessage(error);
+      dispatchGenerationFailureEvent(chatId, message);
       showGenerationFailureToast(message);
     }
     throw error;

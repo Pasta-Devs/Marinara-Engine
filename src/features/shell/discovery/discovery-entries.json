@@ -44,6 +44,17 @@
     "coverage": "core"
   },
   {
+    "id": "conversation-avatar",
+    "title": "Conversation Avatar",
+    "category": "Library",
+    "summary": "Override a character's avatar in Conversation mode — show an emoji, one of its sprites, a gallery image, or hide it entirely.",
+    "keywords": ["avatar", "conversation avatar", "emoji avatar", "sprite avatar", "gallery avatar", "profile picture", "hide avatar", "character appearance", "card css"],
+    "audience": "Users theming how a character looks next to their messages in Conversation mode.",
+    "where": "Character editor > Colors tab > Conversation Avatar.",
+    "actions": [{ "type": "open-panel", "panel": "characters", "label": "Open Characters" }],
+    "coverage": "advanced"
+  },
+  {
     "id": "personas",
     "title": "Personas",
     "category": "Library",
