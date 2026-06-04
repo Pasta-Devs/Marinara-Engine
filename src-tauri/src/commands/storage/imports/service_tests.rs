@@ -3,6 +3,9 @@ use crate::state::AppState;
 use base64::engine::general_purpose;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const TINY_PNG: &str =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
 fn temp_path(label: &str) -> PathBuf {
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -208,7 +211,6 @@ fn import_st_character_rolls_back_character_and_avatar_when_embedded_lorebook_fa
         AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
     block_collection_writes(&state, "lorebook-entries");
 
-    let avatar = general_purpose::STANDARD.encode(b"avatar-bytes");
     let error = import_st_character(
         &state,
         json!({
@@ -221,7 +223,7 @@ fn import_st_character_rolls_back_character_and_avatar_when_embedded_lorebook_fa
                     "entries": [{ "content": "entry", "keys": ["rollback"] }]
                 }
             },
-            "_avatarDataUrl": format!("data:image/png;base64,{avatar}")
+            "_avatarDataUrl": format!("data:image/png;base64,{TINY_PNG}")
         }),
     )
     .expect_err("embedded lorebook storage failure should reject character import");
@@ -346,7 +348,13 @@ fn import_st_character_uses_trusted_avatar_source_path() {
     let source_root = temp_path("source");
     fs::create_dir_all(&source_root).expect("source dir should be created");
     let source = source_root.join("trusted-avatar.png");
-    fs::write(&source, b"trusted-avatar-bytes").expect("source fixture should be written");
+    fs::write(
+        &source,
+        general_purpose::STANDARD
+            .decode(TINY_PNG)
+            .expect("fixture PNG should decode"),
+    )
+    .expect("source fixture should be written");
     let state =
         AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
 

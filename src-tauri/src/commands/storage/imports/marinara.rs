@@ -2,10 +2,13 @@ use super::*;
 
 #[path = "marinara_assets.rs"]
 mod marinara_assets;
+#[path = "marinara_helpers.rs"]
+mod marinara_helpers;
 #[path = "marinara_rollback.rs"]
 mod marinara_rollback;
 
 use marinara_assets::*;
+use marinara_helpers::*;
 use marinara_rollback::*;
 
 const PROFILE_IMPORT_GUIDANCE: &str =
@@ -99,121 +102,6 @@ pub(super) fn import_marinara_file(state: &AppState, body: Value) -> AppResult<V
     import_marinara_envelope(state, envelope)
 }
 
-fn data_string_name(record: &Value) -> Option<String> {
-    record
-        .get("data")
-        .and_then(|data| data.get("name"))
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-}
-
-fn data_image_string(value: Option<&Value>) -> Option<String> {
-    value
-        .and_then(Value::as_str)
-        .filter(|value| value.starts_with("data:image/"))
-        .map(ToOwned::to_owned)
-}
-
-fn remove_fields(value: &mut Value, fields: &[&str]) {
-    if let Some(object) = value.as_object_mut() {
-        for field in fields {
-            object.remove(*field);
-        }
-    }
-}
-
-fn hydrate_metadata_timestamps(value: &mut Value) {
-    let Some(metadata) = value.get_mut("metadata").and_then(Value::as_object_mut) else {
-        return;
-    };
-    if metadata.contains_key("timestamps") {
-        return;
-    }
-    let created_at = metadata.get("createdAt").cloned();
-    let updated_at = metadata.get("updatedAt").cloned();
-    if created_at.is_none() && updated_at.is_none() {
-        return;
-    }
-    metadata.insert(
-        "timestamps".to_string(),
-        json!({
-            "createdAt": created_at.unwrap_or(Value::Null),
-            "updatedAt": updated_at.unwrap_or(Value::Null)
-        }),
-    );
-}
-
-fn inherit_wrapper_timestamps(record: &mut Value, wrapper: &Value) {
-    let Some(timestamps) = wrapper
-        .get("metadata")
-        .and_then(|metadata| metadata.get("timestamps"))
-        .cloned()
-    else {
-        return;
-    };
-    let Some(object) = record.as_object_mut() else {
-        return;
-    };
-    let metadata = object
-        .entry("metadata".to_string())
-        .or_insert_with(|| json!({}));
-    if let Some(metadata) = metadata.as_object_mut() {
-        metadata
-            .entry("timestamps".to_string())
-            .or_insert(timestamps);
-    }
-}
-
-fn apply_import_timestamps(record: &mut Value, payload: &Value) {
-    let mut timestamp_payload = payload.clone();
-    hydrate_metadata_timestamps(&mut timestamp_payload);
-    apply_timestamp_overrides(record, &Value::Null, &timestamp_payload);
-}
-
-fn created_record_id(record: &Value, label: &str) -> AppResult<String> {
-    record
-        .get("id")
-        .and_then(Value::as_str)
-        .filter(|id| !id.trim().is_empty())
-        .map(ToOwned::to_owned)
-        .ok_or_else(|| AppError::new("storage_error", format!("Created {label} is missing an id")))
-}
-
-fn array_from_envelope(data: &Value, envelope: &Map<String, Value>, key: &str) -> Vec<Value> {
-    data.get(key)
-        .or_else(|| envelope.get(key))
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
-}
-
-fn remap_imported_child_order(
-    value: Option<&Value>,
-    id_map: &HashMap<String, String>,
-    fallback: &[String],
-) -> Vec<String> {
-    let mut ordered = Vec::new();
-    if let Some(items) = value.and_then(Value::as_array) {
-        for item in items {
-            let Some(old_id) = item.as_str() else {
-                continue;
-            };
-            let Some(new_id) = id_map.get(old_id) else {
-                continue;
-            };
-            if !ordered.iter().any(|id| id == new_id) {
-                ordered.push(new_id.clone());
-            }
-        }
-    }
-    for new_id in fallback {
-        if !ordered.iter().any(|id| id == new_id) {
-            ordered.push(new_id.clone());
-        }
-    }
-    ordered
-}
-
 fn native_character_avatar_payload(data: &Value) -> Value {
     let mut payload = data.clone();
     let Some(avatar) = data_image_string(data.get("avatar")) else {
@@ -225,6 +113,15 @@ fn native_character_avatar_payload(data: &Value) -> Value {
     payload
 }
 
+fn created_record_id(record: &Value, label: &str) -> AppResult<String> {
+    record
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| AppError::new("storage_error", format!("Created {label} is missing an id")))
+}
+
 fn apply_imported_character_avatar_metadata(
     record: &mut Value,
     avatar: ImportedAvatarReference,
@@ -233,6 +130,24 @@ fn apply_imported_character_avatar_metadata(
     let object = record
         .as_object_mut()
         .expect("native character import record should be an object");
+    object.insert("avatarPath".to_string(), Value::String(avatar.asset_url));
+    object.insert(
+        "avatarFilePath".to_string(),
+        Value::String(absolute_path.clone()),
+    );
+    object.insert("avatarFilename".to_string(), Value::String(avatar.filename));
+    absolute_path
+}
+
+fn apply_imported_avatar_metadata(record: &mut Value, avatar: ImportedAvatarReference) -> String {
+    let absolute_path = avatar.absolute_path.clone();
+    let object = record
+        .as_object_mut()
+        .expect("import record should be an object");
+    object.insert(
+        "avatar".to_string(),
+        Value::String(avatar.asset_url.clone()),
+    );
     object.insert("avatarPath".to_string(), Value::String(avatar.asset_url));
     object.insert(
         "avatarFilePath".to_string(),
@@ -401,10 +316,23 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
     let mut source = data.clone();
     remove_fields(&mut source, &["id", "metadata", "avatar", "sprites"]);
     let mut record_value = with_entity_defaults("personas", source)?;
-    if let Some(avatar) = data.get("avatar").and_then(Value::as_str) {
-        if let Some(record) = record_value.as_object_mut() {
-            record.insert("avatarPath".to_string(), Value::String(avatar.to_string()));
-            record.insert("avatar".to_string(), Value::String(avatar.to_string()));
+    let avatar_absolute_path = data_image_string(data.get("avatar"))
+        .map(|avatar| {
+            let mut payload = data.clone();
+            if let Some(object) = payload.as_object_mut() {
+                object.insert("_avatarDataUrl".to_string(), Value::String(avatar));
+            }
+            imported_avatar_reference_in_folder(state, &payload, None, None, "avatars/personas")
+        })
+        .transpose()?
+        .flatten()
+        .map(|avatar| apply_imported_avatar_metadata(&mut record_value, avatar));
+    if avatar_absolute_path.is_none() {
+        if let Some(avatar) = data.get("avatar").and_then(Value::as_str) {
+            if let Some(record) = record_value.as_object_mut() {
+                record.insert("avatarPath".to_string(), Value::String(avatar.to_string()));
+                record.insert("avatar".to_string(), Value::String(avatar.to_string()));
+            }
         }
     }
     apply_import_timestamps(&mut record_value, &data);
@@ -420,6 +348,7 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
             "type": "marinara_persona",
             "id": record.get("id").cloned().unwrap_or(Value::Null),
             "name": record.get("name").cloned().unwrap_or(Value::Null),
+            "persona": record,
             "spritesImported": sprites_imported
         }))
     })();
@@ -433,6 +362,9 @@ fn import_marinara_persona(state: &AppState, data: Value) -> AppResult<Value> {
                 &[persona_id.to_string()],
                 &mut rollback_errors,
             );
+        }
+        if let Some(path) = avatar_absolute_path.as_deref() {
+            rollback_managed_file_path(state, "avatars/personas", path, &mut rollback_errors);
         }
         append_marinara_rollback_errors(error, "persona import", rollback_errors)
     })

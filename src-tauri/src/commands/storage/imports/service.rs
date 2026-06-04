@@ -269,13 +269,29 @@ fn imported_avatar_reference(
     filename: Option<&str>,
     trusted_avatar_source: Option<&Path>,
 ) -> AppResult<Option<ImportedAvatarReference>> {
+    imported_avatar_reference_in_folder(
+        state,
+        payload,
+        filename,
+        trusted_avatar_source,
+        "avatars/characters",
+    )
+}
+
+fn imported_avatar_reference_in_folder(
+    state: &AppState,
+    payload: &Value,
+    filename: Option<&str>,
+    trusted_avatar_source: Option<&Path>,
+    folder: &str,
+) -> AppResult<Option<ImportedAvatarReference>> {
     if let Some(source) = trusted_avatar_source {
         let filename_hint = source
             .file_name()
             .and_then(|value| value.to_str())
             .or(filename)
             .unwrap_or("avatar.png");
-        let stored = persist_image_file_copy(state, "avatars/characters", filename_hint, source)?;
+        let stored = persist_image_file_copy(state, folder, filename_hint, source)?;
         return Ok(Some(ImportedAvatarReference {
             asset_url: stored.asset_url,
             absolute_path: stored.absolute_path,
@@ -296,13 +312,7 @@ fn imported_avatar_reference(
         .and_then(Value::as_str)
         .or(filename)
         .unwrap_or("avatar");
-    let stored = persist_image_bytes(
-        state,
-        "avatars/characters",
-        &safe_filename(fallback),
-        &bytes,
-        &mime,
-    )?;
+    let stored = persist_image_bytes(state, folder, &safe_filename(fallback), &bytes, &mime)?;
     Ok(Some(ImportedAvatarReference {
         asset_url: stored.asset_url,
         absolute_path: stored.absolute_path,

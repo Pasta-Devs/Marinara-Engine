@@ -4,7 +4,9 @@ use super::images::{
 };
 use super::shared::*;
 use super::*;
-use crate::storage_commands::media_uploads::file_path_asset_url;
+use crate::storage_commands::media_uploads::{
+    decode_image_payload, extension_for_image_mime, file_path_asset_url,
+};
 
 use image::{DynamicImage, GenericImageView, ImageFormat, Rgba, RgbaImage};
 use std::collections::VecDeque;
@@ -1597,26 +1599,8 @@ fn encode_png(image: DynamicImage) -> AppResult<Vec<u8>> {
 }
 
 fn decode_image_value(value: &str) -> AppResult<(Vec<u8>, String)> {
-    let (mime, base64) = if let Some((prefix, payload)) = value.split_once(',') {
-        let mime = prefix
-            .strip_prefix("data:")
-            .and_then(|rest| rest.split(';').next())
-            .unwrap_or("image/png");
-        (mime, payload)
-    } else {
-        ("image/png", value)
-    };
-    let ext = match mime {
-        "image/jpeg" => "jpg",
-        "image/webp" => "webp",
-        "image/gif" => "gif",
-        "image/avif" => "avif",
-        "image/svg+xml" => "svg",
-        _ => "png",
-    };
-    let bytes = general_purpose::STANDARD
-        .decode(base64.trim())
-        .map_err(|error| AppError::invalid_input(format!("Invalid image data: {error}")))?;
+    let (mime, bytes) = decode_image_payload(value, "image")?;
+    let ext = extension_for_image_mime(&mime).unwrap_or("png");
     Ok((bytes, ext.to_string()))
 }
 
@@ -2477,6 +2461,9 @@ mod sprite_upload_tests {
     use super::*;
     use std::fs;
 
+    const TINY_PNG: &str =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
     fn test_state(label: &str) -> (AppState, PathBuf) {
         let root = env::temp_dir().join(format!("marinara-sprite-upload-{label}-{}", now_millis()));
         let data_dir = root.join("data");
@@ -2493,7 +2480,7 @@ mod sprite_upload_tests {
             "character-1",
             json!({
                 "sprites": [
-                    { "expression": "Happy Face", "image": "data:image/png;base64,aGVsbG8=" },
+                    { "expression": "Happy Face", "image": format!("data:image/png;base64,{TINY_PNG}") },
                     { "expression": "missing-image" },
                     { "expression": "bad-image", "image": "not base64!" }
                 ]
@@ -2538,7 +2525,7 @@ mod sprite_upload_tests {
         let error = upload_sprites(
             &state,
             "../character-1",
-            json!({ "sprites": [{ "expression": "happy", "image": "data:image/png;base64,aGVsbG8=" }] }),
+            json!({ "sprites": [{ "expression": "happy", "image": format!("data:image/png;base64,{TINY_PNG}") }] }),
             None,
         )
         .expect_err("unsafe character IDs should be rejected");
@@ -2576,14 +2563,14 @@ mod sprite_upload_tests {
         upload_sprite(
             &state,
             "shared-id",
-            json!({ "expression": "neutral", "image": "data:image/png;base64,Y2hhcmFjdGVy" }),
+            json!({ "expression": "neutral", "image": format!("data:image/png;base64,{TINY_PNG}") }),
             None,
         )
         .expect("character sprite upload should succeed");
         upload_sprite(
             &state,
             "shared-id",
-            json!({ "expression": "neutral", "image": "data:image/png;base64,cGVyc29uYQ==" }),
+            json!({ "expression": "neutral", "image": format!("data:image/png;base64,{TINY_PNG}") }),
             Some("persona"),
         )
         .expect("persona sprite upload should succeed");

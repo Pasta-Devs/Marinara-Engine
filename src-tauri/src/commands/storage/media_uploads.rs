@@ -46,16 +46,19 @@ pub(crate) fn persist_image_file_copy(
     filename_hint: &str,
     source_path: &Path,
 ) -> AppResult<StoredManagedImage> {
+    let bytes = fs::read(source_path)?;
     let ext = source_path
         .file_name()
         .and_then(|value| value.to_str())
         .and_then(extension_from_filename)
         .unwrap_or("png");
+    let mime = (ext == "svg").then_some("image/svg+xml");
+    validate_image_bytes_for_mime(mime, &bytes)?;
     let dir = state.data_dir.join(folder);
     fs::create_dir_all(&dir)?;
     let filename = managed_image_filename(filename_hint, ext);
     let target = unique_file_path(&dir.join(filename))?;
-    fs::copy(source_path, &target)?;
+    fs::write(&target, bytes)?;
     stored_managed_image(target)
 }
 
@@ -66,6 +69,7 @@ pub(crate) fn persist_image_bytes(
     bytes: &[u8],
     mime: &str,
 ) -> AppResult<StoredManagedImage> {
+    validate_image_bytes_for_mime(Some(mime), bytes)?;
     let ext = extension_for_image_mime(mime).unwrap_or("png");
     let dir = state.data_dir.join(folder);
     fs::create_dir_all(&dir)?;
@@ -224,13 +228,65 @@ pub(crate) fn decode_image_payload(value: &str, field_name: &str) -> AppResult<(
             let bytes = general_purpose::STANDARD.decode(payload).map_err(|error| {
                 AppError::invalid_input(format!("Invalid {field_name} data: {error}"))
             })?;
+            validate_image_bytes_for_mime(Some(&mime), &bytes)?;
             return Ok((mime, bytes));
         }
     }
     let bytes = general_purpose::STANDARD
         .decode(value)
         .map_err(|error| AppError::invalid_input(format!("Invalid {field_name} data: {error}")))?;
+    validate_image_bytes_for_mime(Some("image/png"), &bytes)?;
     Ok(("image/png".to_string(), bytes))
+}
+
+pub(crate) fn validate_image_bytes_for_mime(mime: Option<&str>, bytes: &[u8]) -> AppResult<()> {
+    if bytes.is_empty() {
+        return Err(AppError::invalid_input("Invalid image data"));
+    }
+    if mime.is_some_and(|value| value.eq_ignore_ascii_case("image/svg+xml")) {
+        if bytes_have_svg_root(bytes) {
+            return Ok(());
+        }
+        return Err(AppError::invalid_input("Invalid image data"));
+    }
+    image::guess_format(bytes)
+        .map(|_| ())
+        .map_err(|_| AppError::invalid_input("Invalid image data"))
+}
+
+fn bytes_have_svg_root(bytes: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return false;
+    };
+    let mut rest = text.trim_start_matches('\u{feff}').trim_start();
+    loop {
+        if let Some(after) = rest.strip_prefix("<?") {
+            let Some(end) = after.find("?>") else {
+                return false;
+            };
+            rest = after[end + 2..].trim_start();
+        } else if let Some(after) = rest.strip_prefix("<!--") {
+            let Some(end) = after.find("-->") else {
+                return false;
+            };
+            rest = after[end + 3..].trim_start();
+        } else if rest.starts_with("<!") {
+            let Some(end) = rest.find('>') else {
+                return false;
+            };
+            rest = rest[end + 1..].trim_start();
+        } else {
+            break;
+        }
+    }
+    let Some(after) = rest
+        .get(..4)
+        .filter(|head| head.eq_ignore_ascii_case("<svg"))
+        .map(|_| &rest[4..])
+    else {
+        return false;
+    };
+    after.is_empty() || after.starts_with(['>', '/']) || after.starts_with(char::is_whitespace)
 }
 
 pub(crate) fn extension_for_image_mime(mime: &str) -> Option<&'static str> {
@@ -308,6 +364,18 @@ pub(crate) fn unique_file_path(target: &Path) -> AppResult<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    const TINY_PNG: &str =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("marinara-media-upload-{label}-{nonce}"))
+    }
 
     #[test]
     fn file_path_asset_url_matches_tauri_encoding_on_windows() {
@@ -326,5 +394,71 @@ mod tests {
                 "asset://localhost/C%3A%5CUsers%5CMari%5CMy%20Avatar.png"
             );
         }
+    }
+
+    #[test]
+    fn decode_image_payload_rejects_declared_image_with_non_image_bytes() {
+        let result = decode_image_payload("data:image/png;base64,bm9wZQ==", "avatar");
+
+        let Err(error) = result else {
+            panic!("fake PNG payload should be rejected");
+        };
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid image data"));
+    }
+
+    #[test]
+    fn decode_image_payload_accepts_valid_png_bytes() {
+        let (mime, bytes) =
+            decode_image_payload(&format!("data:image/png;base64,{TINY_PNG}"), "avatar")
+                .expect("valid PNG payload should decode");
+
+        assert_eq!(mime, "image/png");
+        assert!(!bytes.is_empty());
+    }
+
+    #[test]
+    fn persist_image_file_copy_rejects_extension_with_non_image_bytes() {
+        let root = temp_dir("file-copy-invalid");
+        let state = AppState::from_data_dir(root.join("data"), Vec::new())
+            .expect("test app state should initialize");
+        let source = root.join("source.png");
+        fs::create_dir_all(&root).expect("source root should be created");
+        fs::write(&source, b"not an image").expect("source fixture should be written");
+
+        let Err(error) = persist_image_file_copy(&state, "avatars/personas", "avatar.png", &source)
+        else {
+            panic!("fake image source should be rejected");
+        };
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(!state.data_dir.join("avatars").exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn persist_image_file_copy_accepts_svg_source_extension() {
+        let root = temp_dir("file-copy-svg");
+        let state = AppState::from_data_dir(root.join("data"), Vec::new())
+            .expect("test app state should initialize");
+        let source = root.join("source.svg");
+        fs::create_dir_all(&root).expect("source root should be created");
+        fs::write(
+            &source,
+            br#"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#,
+        )
+        .expect("source fixture should be written");
+
+        let stored = persist_image_file_copy(&state, "avatars/personas", "avatar", &source)
+            .expect("valid SVG source should be copied");
+
+        assert_eq!(stored.filename, "avatar.svg");
+        assert_eq!(
+            fs::read_to_string(&stored.absolute_path).expect("stored SVG should be readable"),
+            r#"<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>"#
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 }

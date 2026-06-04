@@ -331,6 +331,12 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    const TINY_PNG_BYTES: &[u8] = &[
+        137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 4,
+        0, 0, 0, 181, 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84, 120, 218, 99, 100, 96, 248, 95, 15,
+        0, 2, 135, 1, 128, 235, 71, 186, 146, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+    ];
+
     fn test_state(label: &str) -> AppState {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -379,7 +385,7 @@ mod tests {
         let avatar_dir = state.data_dir.join("avatars").join("characters");
         std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
         let source_path = avatar_dir.join("rina.png");
-        std::fs::write(&source_path, b"avatar bytes").expect("source avatar should be written");
+        std::fs::write(&source_path, TINY_PNG_BYTES).expect("source avatar should be written");
         let source_path_string = source_path.to_string_lossy().to_string();
 
         state
@@ -416,11 +422,11 @@ mod tests {
         assert_ne!(duplicate_path, source_path);
         assert_eq!(
             std::fs::read(&duplicate_path).expect("duplicate avatar should exist"),
-            b"avatar bytes".to_vec()
+            TINY_PNG_BYTES.to_vec()
         );
         assert_eq!(
             std::fs::read(&source_path).expect("source avatar should still exist"),
-            b"avatar bytes".to_vec()
+            TINY_PNG_BYTES.to_vec()
         );
 
         super::super::avatars::remove_avatar_file(&state, "characters", &duplicate);

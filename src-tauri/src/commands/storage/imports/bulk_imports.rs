@@ -1583,6 +1583,9 @@ mod tests {
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    const TINY_PNG: &str =
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
     fn temp_path(label: &str) -> PathBuf {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1661,7 +1664,9 @@ mod tests {
                 &data_dir
                     .join("User Avatars")
                     .join(format!("persona-{index:02}.png")),
-                b"persona-avatar-bytes",
+                &general_purpose::STANDARD
+                    .decode(TINY_PNG)
+                    .expect("fixture PNG should decode"),
             );
         }
     }
@@ -2431,7 +2436,13 @@ mod tests {
         let source_root = temp_path("persona-source");
         fs::create_dir_all(&source_root).expect("source dir should be created");
         let source = source_root.join("persona.png");
-        fs::write(&source, b"persona-avatar-bytes").expect("source fixture should be written");
+        fs::write(
+            &source,
+            general_purpose::STANDARD
+                .decode(TINY_PNG)
+                .expect("fixture PNG should decode"),
+        )
+        .expect("source fixture should be written");
         let state = AppState::from_data_dir(&app_root, Vec::new())
             .expect("test app state should initialize");
         block_collection_writes(&state, "personas");

@@ -84,6 +84,7 @@ export interface GenerationAgentRuntimeInput {
   persona: GenerationPersonaContext | null;
   activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
   chatSummary: string | null;
+  embeddingSource?: { embed(texts: string[]): Promise<number[][] | null> } | null;
   debugMode?: boolean;
   debugSink?: AgentContext["debugSink"];
   signal?: AbortSignal;
@@ -560,6 +561,7 @@ async function runKnowledgePreGenerationAgents(
       result = await executeKnowledgeRouter(agent, context, agent.provider, agent.model, scopedEntries, {
         activatedEntries: scopedEntries.filter((entry) => activatedEntryIds.has(entry.id)),
         keywordScanEntries: scopedEntries.filter((entry) => !activatedEntryIds.has(entry.id)),
+        embeddingSource: input.embeddingSource,
         scanMessages: context.recentMessages.map((message) => ({
           role: message.role,
           content: message.content,

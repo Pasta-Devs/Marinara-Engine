@@ -83,7 +83,9 @@ fn restore_sprites_for_owner(
         else {
             continue;
         };
-        let (mime, bytes) = decode_image_payload(image, "sprite")?;
+        let Ok((mime, bytes)) = decode_image_payload(image, "sprite") else {
+            continue;
+        };
         let ext = extension_for_image_mime(&mime)
             .or_else(|| {
                 sprite

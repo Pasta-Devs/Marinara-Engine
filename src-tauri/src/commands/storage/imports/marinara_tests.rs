@@ -46,7 +46,7 @@ fn block_collection_writes(state: &AppState, collection: &str) {
 }
 
 fn embedded_avatar() -> String {
-    "data:image/png;base64,bmF0aXZlLWF2YXRhci1ieXRlcw==".to_string()
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==".to_string()
 }
 
 fn assert_managed_character_avatar(character: &Value) {
@@ -129,6 +129,39 @@ fn native_marinara_character_import_materializes_embedded_avatar() {
 }
 
 #[test]
+fn native_marinara_character_import_rolls_back_avatar_when_record_write_fails() {
+    let state = test_state("native-character-avatar-rollback");
+    block_collection_writes(&state, "characters");
+
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_character",
+            "version": 1,
+            "data": {
+                "spec": "chara_card_v2",
+                "data": {
+                    "name": "Rollback Native Character Avatar",
+                    "description": "Should be removed"
+                },
+                "avatar": embedded_avatar()
+            }
+        }),
+    )
+    .expect_err("character write failure should reject character import");
+
+    assert_eq!(error.code, "io_error");
+    assert!(
+        state.storage.list("characters").unwrap().is_empty(),
+        "failed native character import must remove the created character"
+    );
+    assert!(
+        !state.data_dir.join("avatars").join("characters").exists(),
+        "failed native character import must remove the managed avatar file"
+    );
+}
+
+#[test]
 fn native_marinara_storage_record_import_materializes_embedded_avatar() {
     let state = test_state("native-storage-avatar");
     let imported = import_marinara_envelope(
@@ -182,10 +215,10 @@ fn native_marinara_storage_record_import_preserves_plain_avatar_string() {
 }
 
 #[test]
-fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
-    let state = test_state("native-character-avatar-rollback");
+fn native_marinara_character_import_skips_malformed_optional_sprite() {
+    let state = test_state("native-character-invalid-sprite");
 
-    let error = import_marinara_envelope(
+    let imported = import_marinara_envelope(
         &state,
         json!({
             "type": "marinara_character",
@@ -203,16 +236,81 @@ fn native_marinara_character_import_rolls_back_avatar_when_sprite_fails() {
             }
         }),
     )
-    .expect_err("sprite decode failure should reject character import");
+    .expect("malformed optional sprites should be skipped");
 
-    assert_eq!(error.code, "invalid_input");
+    assert_managed_character_avatar(&imported["character"]);
+    assert_eq!(imported["spritesImported"], json!(0));
+}
+
+#[test]
+fn native_marinara_persona_import_materializes_embedded_avatar() {
+    let state = test_state("native-persona-avatar");
+
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_persona",
+            "version": 1,
+            "data": {
+                "name": "Native Persona Avatar",
+                "avatar": embedded_avatar()
+            }
+        }),
+    )
+    .expect("native persona import should succeed");
+
+    let persona = &imported["persona"];
     assert!(
-        state.storage.list("characters").unwrap().is_empty(),
-        "failed native character import must remove the created character"
+        test_string(persona, "avatarPath").starts_with("asset://localhost/")
+            || test_string(persona, "avatarPath").starts_with("http://asset.localhost/"),
+        "persona avatar should be stored as a managed asset URL"
     );
     assert!(
-        !state.data_dir.join("avatars").join("characters").exists(),
-        "failed native character import must remove the managed avatar file"
+        test_string(persona, "avatarFilePath").contains("avatars")
+            && test_string(persona, "avatarFilePath").contains("personas"),
+        "persona avatar should stay under persona avatar storage"
+    );
+    assert!(
+        Path::new(test_string(persona, "avatarFilePath")).exists(),
+        "managed persona avatar file should exist"
+    );
+    assert_eq!(
+        persona.get("avatar").and_then(Value::as_str),
+        persona.get("avatarPath").and_then(Value::as_str),
+        "persona avatar aliases should both point at the managed asset URL"
+    );
+    assert!(
+        !test_string(persona, "avatar").starts_with("data:image/"),
+        "native persona imports should not keep embedded avatar bytes inline"
+    );
+}
+
+#[test]
+fn native_marinara_persona_import_rolls_back_avatar_when_record_write_fails() {
+    let state = test_state("native-persona-avatar-rollback");
+    block_collection_writes(&state, "personas");
+
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_persona",
+            "version": 1,
+            "data": {
+                "name": "Rollback Native Persona Avatar",
+                "avatar": embedded_avatar()
+            }
+        }),
+    )
+    .expect_err("persona write failure should reject persona import");
+
+    assert_eq!(error.code, "io_error");
+    assert!(
+        state.storage.list("personas").unwrap().is_empty(),
+        "failed native persona import must remove the created persona"
+    );
+    assert!(
+        !state.data_dir.join("avatars").join("personas").exists(),
+        "failed native persona import must remove the managed avatar file"
     );
 }
 
