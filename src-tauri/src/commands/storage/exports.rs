@@ -250,6 +250,14 @@ pub(crate) fn export_lorebooks(state: &AppState, body: Value) -> AppResult<Value
 }
 
 pub(crate) fn export_compatible_profile(state: &AppState) -> AppResult<Value> {
+    Ok(binary_download(
+        export_compatible_profile_bytes(state)?,
+        "application/zip",
+        "marinara-compatible-export.zip",
+    ))
+}
+
+pub(crate) fn export_compatible_profile_bytes(state: &AppState) -> AppResult<Vec<u8>> {
     let mut zip = ExportZip::new();
     let characters = state.storage.list("characters")?;
     let personas = state.storage.list("personas")?;
@@ -284,11 +292,7 @@ pub(crate) fn export_compatible_profile(state: &AppState) -> AppResult<Value> {
         )?;
     }
 
-    Ok(binary_download(
-        zip.finish()?,
-        "application/zip",
-        "marinara-compatible-export.zip",
-    ))
+    zip.finish()
 }
 
 fn native_record_export(

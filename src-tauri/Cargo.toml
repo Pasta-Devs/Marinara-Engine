@@ -41,7 +41,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 aes-gcm = "0.10"
 autoagents = "0.3.7"
-axum = "0.7"
+axum = { version = "0.7", features = ["multipart"] }
 base64 = "0.22"
 buttplug = "10.0.2"
 buttplug_core = "10.0.2"

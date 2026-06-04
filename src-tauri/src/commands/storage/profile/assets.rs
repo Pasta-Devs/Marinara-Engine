@@ -352,8 +352,15 @@ fn restore_profile_json_assets_in_root(
             warnings: Vec::new(),
         });
     }
-    let assets = decoded_profile_json_assets(raw_assets, allow_legacy_data_field)?;
+    let (assets, warnings) = decoded_profile_json_assets(raw_assets, allow_legacy_data_field)?;
     let restored = assets.len();
+    if restored == 0 && !warnings.is_empty() {
+        return Ok(RestoredProfileAssets {
+            restored,
+            transaction: None,
+            warnings,
+        });
+    }
     let transaction = ProfileAssetTransaction::new(data_dir)?;
     for (relative, bytes) in assets {
         transaction.stage_bytes(&relative, &bytes)?;
@@ -361,18 +368,19 @@ fn restore_profile_json_assets_in_root(
     Ok(RestoredProfileAssets {
         restored,
         transaction: Some(transaction),
-        warnings: Vec::new(),
+        warnings,
     })
 }
 
 fn decoded_profile_json_assets(
     raw_assets: Option<&Value>,
     allow_legacy_data_field: bool,
-) -> AppResult<Vec<(PathBuf, Vec<u8>)>> {
+) -> AppResult<(Vec<(PathBuf, Vec<u8>)>, Vec<Value>)> {
     let Some(assets) = profile_asset_manifest(raw_assets)? else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), Vec::new()));
     };
     let mut decoded = Vec::new();
+    let mut warnings = Vec::new();
     for (index, asset) in assets.iter().enumerate() {
         let path = profile_asset_manifest_path(asset, index)?;
         if is_legacy_cleanup_backup_asset_path(path) {
@@ -388,14 +396,17 @@ fn decoded_profile_json_assets(
             asset.get("base64").and_then(Value::as_str)
         };
         let Some(raw_data) = raw_data else {
-            return Err(AppError::invalid_input(format!(
-                "Profile asset {path} is missing base64 data"
-            )));
+            warnings.push(json!({
+                "type": "missing_asset",
+                "path": path,
+                "message": format!("Profile asset {path} is missing base64 data. Imported the rest of the profile without that asset."),
+            }));
+            continue;
         };
         let bytes = decode_profile_asset_data(raw_data)?;
         decoded.push((relative, bytes));
     }
-    Ok(decoded)
+    Ok((decoded, warnings))
 }
 
 pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
@@ -1078,9 +1089,10 @@ mod tests {
             }
         ]);
 
-        let decoded = decoded_profile_json_assets(Some(&assets), true)
+        let (decoded, warnings) = decoded_profile_json_assets(Some(&assets), true)
             .expect("legacy cleanup backups should be skipped, not reject the profile");
 
+        assert!(warnings.is_empty());
         assert_eq!(decoded.len(), 1);
         assert_eq!(
             decoded[0].0,
@@ -1119,20 +1131,20 @@ mod tests {
     }
 
     #[test]
-    fn profile_json_assets_reject_manifest_entries_without_payload() {
+    fn profile_json_assets_warn_manifest_entries_without_payload() {
         let assets = json!([
             {
                 "path": "avatars/missing-data.png",
             }
         ]);
 
-        let error = match decoded_profile_json_assets(Some(&assets), false) {
-            Ok(_) => panic!("missing JSON asset payload should reject the import"),
-            Err(error) => error,
-        };
+        let (decoded, warnings) = decoded_profile_json_assets(Some(&assets), false)
+            .expect("missing JSON asset payload should warn without rejecting the import");
 
-        assert_eq!(error.code, "invalid_input");
-        assert!(error.message.contains("missing-data.png"));
+        assert!(decoded.is_empty());
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0]["type"], "missing_asset");
+        assert_eq!(warnings[0]["path"], "avatars/missing-data.png");
     }
 
     #[test]

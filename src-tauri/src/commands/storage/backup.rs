@@ -255,6 +255,15 @@ pub(crate) fn download_backup(state: &AppState, name: Option<&str>) -> AppResult
 }
 
 pub(crate) fn download_profile_zip(state: &AppState) -> AppResult<Value> {
+    let bytes = download_profile_zip_bytes(state)?;
+    Ok(json!({
+        "base64": general_purpose::STANDARD.encode(bytes),
+        "filename": "marinara-profile.zip",
+        "contentType": "application/zip",
+    }))
+}
+
+pub(crate) fn download_profile_zip_bytes(state: &AppState) -> AppResult<Vec<u8>> {
     let temp_dir = state
         .data_dir
         .join(".profile-export-downloads")
@@ -265,11 +274,7 @@ pub(crate) fn download_profile_zip(state: &AppState) -> AppResult<Value> {
     write_backup_payload(state, &temp_dir)?;
     let bytes = zip_backup_folder(&temp_dir, "marinara-profile")?;
     let _ = fs::remove_dir_all(temp_dir);
-    Ok(json!({
-        "base64": general_purpose::STANDARD.encode(bytes),
-        "filename": "marinara-profile.zip",
-        "contentType": "application/zip",
-    }))
+    Ok(bytes)
 }
 
 #[cfg(test)]

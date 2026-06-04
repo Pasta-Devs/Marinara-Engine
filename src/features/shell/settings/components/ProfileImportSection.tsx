@@ -104,10 +104,6 @@ function formatProfileImportWarnings(warnings?: ProfileImportWarning[]) {
   return `${count} warning${count === 1 ? "" : "s"}`;
 }
 
-function isProfileZipFile(file: File) {
-  return file.name.toLowerCase().endsWith(".zip") || file.type.toLowerCase().includes("zip");
-}
-
 export function ProfileImportSection() {
   const qc = useQueryClient();
   const remoteProfileInputRef = useRef<HTMLInputElement>(null);
@@ -269,11 +265,7 @@ export function ProfileImportSection() {
     });
     try {
       await runConfirmedProfileImport(startedAt, async () => {
-        if (isProfileZipFile(file)) {
-          return profileApi.importProfileUpload<ProfileImportResult>(file);
-        }
-        const envelope = JSON.parse(await file.text()) as unknown;
-        return profileApi.importProfile<ProfileImportResult>(envelope);
+        return profileApi.importProfileUpload<ProfileImportResult>(file);
       });
     } catch (err) {
       showProfileImportError(err, startedAt);

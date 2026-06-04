@@ -1,10 +1,11 @@
 use crate::http_dispatch::{dispatch, InvokeRequest};
 use crate::state::AppState;
 use crate::storage_commands::{
-    avatars, fonts, imports, llm, lorebook_images, managed_thumbnails, prompts,
+    avatars, fonts, imports, llm, lorebook_images, managed_thumbnails, profile, prompts,
 };
 use axum::body::Body;
-use axum::extract::{ConnectInfo, DefaultBodyLimit, Path, State};
+use axum::extract::multipart::Field;
+use axum::extract::{ConnectInfo, DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::http::{header, HeaderMap, HeaderName, HeaderValue, Method, Request, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::sse::{Event, KeepAlive, Sse};
@@ -12,7 +13,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use base64::{engine::general_purpose, Engine as _};
-use marinara_core::AppError;
+use marinara_core::{AppError, AppResult};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -23,7 +24,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::{ReceiverStream, UnboundedReceiverStream};
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -32,6 +33,7 @@ const CSRF_HEADER_NAME: &str = "x-marinara-csrf";
 const CSRF_HEADER_VALUE: &str = "1";
 const ADMIN_SECRET_HEADER_NAME: &str = "x-admin-secret";
 const MAX_API_BODY_BYTES: usize = 256 * 1024 * 1024;
+const MAX_PROFILE_UPLOAD_BYTES: usize = 1024 * 1024 * 1024;
 const DEFAULT_API_RATE_LIMIT: u32 = 600;
 const INVOKE_PRE_EXTRACTION_API_RATE_LIMIT: u32 = DEFAULT_API_RATE_LIMIT * 10;
 const DEFAULT_API_RATE_WINDOW: Duration = Duration::from_secs(60);
@@ -98,6 +100,11 @@ pub struct LlmStreamRequest {
     request: Value,
 }
 
+#[derive(Debug, Deserialize)]
+struct ProfileExportQuery {
+    format: Option<String>,
+}
+
 pub async fn serve(state: AppState, addr: SocketAddr) -> Result<(), std::io::Error> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(
@@ -114,6 +121,11 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/api/invoke", post(invoke))
+        .route("/api/profile/export", get(profile_export_download))
+        .route(
+            "/api/profile/import",
+            post(profile_import_upload).layer(DefaultBodyLimit::max(MAX_PROFILE_UPLOAD_BYTES)),
+        )
         .route("/api/import/st-bulk/run", post(import_st_bulk_run_stream))
         .route("/api/sidecar/v1/embeddings", post(sidecar_embeddings))
         .route("/api/assets/:kind/*path", get(managed_asset))
@@ -543,6 +555,184 @@ async fn invoke(
     }
 }
 
+async fn profile_export_download(
+    State(state): State<HttpState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    Query(query): Query<ProfileExportQuery>,
+) -> Result<Response, HttpError> {
+    require_admin_access_for_command("profile_export", &headers, addr.ip())?;
+    let started = Instant::now();
+    request_log("profile_export_download started");
+    let download = profile::export_profile_download(&state.app, query.format.as_deref())?;
+    request_log(format!(
+        "profile_export_download ok bytes={} in {}ms",
+        download.bytes.len(),
+        started.elapsed().as_millis()
+    ));
+    let content_length = download.bytes.len();
+    let mut response = Body::from(download.bytes).into_response();
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static(download.content_type),
+    );
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!(
+            "attachment; filename=\"{}\"",
+            download.filename.replace('"', "")
+        ))
+        .unwrap_or_else(|_| HeaderValue::from_static("attachment")),
+    );
+    if let Ok(value) = HeaderValue::from_str(&content_length.to_string()) {
+        response.headers_mut().insert(header::CONTENT_LENGTH, value);
+    }
+    Ok(response)
+}
+
+async fn profile_import_upload(
+    State(state): State<HttpState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Response {
+    let started = Instant::now();
+    request_log("profile_import_upload started");
+    let result = async {
+        require_admin_access_for_command("profile_import_upload", &headers, addr.ip())?;
+        let upload_path = profile_upload_temp_file(&state.app, &mut multipart).await?;
+        let import_result = profile::import_profile_file(&state.app, &upload_path);
+        let cleanup_result = tokio::fs::remove_file(&upload_path).await;
+        if let Err(error) = cleanup_result {
+            log::warn!(
+                "failed to remove temporary profile upload {}: {error}",
+                upload_path.display()
+            );
+        }
+        import_result
+    }
+    .await;
+
+    match result {
+        Ok(value) => {
+            request_log(format!(
+                "profile_import_upload ok in {}ms",
+                started.elapsed().as_millis()
+            ));
+            Json(value).into_response()
+        }
+        Err(error) => {
+            request_log(format!(
+                "profile_import_upload error code={} message={} in {}ms",
+                error.code,
+                error.message,
+                started.elapsed().as_millis()
+            ));
+            app_error_response(error)
+        }
+    }
+}
+
+async fn profile_upload_temp_file(
+    state: &AppState,
+    multipart: &mut Multipart,
+) -> Result<PathBuf, AppError> {
+    let mut upload_path = None;
+    while let Some(field) = multipart.next_field().await.map_err(|error| {
+        AppError::invalid_input(format!("Could not read profile upload: {error}"))
+    })? {
+        if upload_path.is_some() {
+            if let Some(path) = upload_path {
+                let _ = tokio::fs::remove_file(path).await;
+            }
+            return Err(AppError::invalid_input(
+                "Profile upload must contain a single file",
+            ));
+        }
+        upload_path = Some(write_profile_upload_field(state, field).await?);
+    }
+    upload_path.ok_or_else(|| AppError::invalid_input("Profile upload file is required"))
+}
+
+async fn write_profile_upload_field(state: &AppState, mut field: Field<'_>) -> AppResult<PathBuf> {
+    let filename = field.file_name().map(ToOwned::to_owned);
+    let content_type = field.content_type().map(ToOwned::to_owned);
+    let extension = profile_upload_extension(filename.as_deref(), content_type.as_deref())?;
+    let upload_dir = state.data_dir.join(".profile-upload-imports");
+    tokio::fs::create_dir_all(&upload_dir).await?;
+    let path = upload_dir.join(profile_upload_temp_filename(&extension));
+    let mut output = tokio::fs::File::create(&path).await?;
+    let mut written = 0usize;
+
+    let write_result: AppResult<()> = async {
+        while let Some(chunk) = field.chunk().await.map_err(|error| {
+            AppError::invalid_input(format!("Could not read profile upload: {error}"))
+        })? {
+            written = written
+                .checked_add(chunk.len())
+                .ok_or_else(profile_upload_too_large_error)?;
+            if written > MAX_PROFILE_UPLOAD_BYTES {
+                return Err(profile_upload_too_large_error());
+            }
+            output.write_all(&chunk).await?;
+        }
+        output.flush().await?;
+        Ok(())
+    }
+    .await;
+    if let Err(error) = write_result {
+        let _ = tokio::fs::remove_file(&path).await;
+        return Err(error);
+    }
+    if written == 0 {
+        let _ = tokio::fs::remove_file(&path).await;
+        return Err(AppError::invalid_input("Profile upload file is empty"));
+    }
+    Ok(path)
+}
+
+fn profile_upload_extension(
+    filename: Option<&str>,
+    content_type: Option<&str>,
+) -> AppResult<String> {
+    if let Some(extension) = filename
+        .and_then(|value| FsPath::new(value).extension())
+        .and_then(|value| value.to_str())
+        .map(|value| value.to_ascii_lowercase())
+        .filter(|value| matches!(value.as_str(), "json" | "zip"))
+    {
+        return Ok(extension);
+    }
+    let content_type = content_type.unwrap_or_default().to_ascii_lowercase();
+    if content_type.contains("json") {
+        Ok("json".to_string())
+    } else if content_type.contains("zip") {
+        Ok("zip".to_string())
+    } else {
+        Err(AppError::invalid_input(
+            "Profile upload must be a .json or .zip file",
+        ))
+    }
+}
+
+fn profile_upload_temp_filename(extension: &str) -> String {
+    let suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    format!("profile-import-{}-{suffix}.{extension}", std::process::id())
+}
+
+fn profile_upload_too_large_error() -> AppError {
+    AppError::with_details(
+        "request_body_too_large",
+        "Profile upload is too large",
+        json!({
+            "limitBytes": MAX_PROFILE_UPLOAD_BYTES,
+        }),
+    )
+}
+
 async fn import_st_bulk_run_stream(
     State(state): State<HttpState>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -856,6 +1046,7 @@ fn http_status_for_app_error(error: &AppError) -> StatusCode {
     match error.code.as_str() {
         "not_found" => StatusCode::NOT_FOUND,
         "invalid_input" => StatusCode::BAD_REQUEST,
+        "request_body_too_large" => StatusCode::PAYLOAD_TOO_LARGE,
         "admin_access_invalid" => StatusCode::UNAUTHORIZED,
         "admin_access_required" => StatusCode::FORBIDDEN,
         "custom_tool_script_unsupported" => StatusCode::UNPROCESSABLE_ENTITY,
@@ -1144,6 +1335,12 @@ fn rate_limit_rule_for_path(path: &str) -> ApiRateLimitRule {
             limit: 20,
             window: DEFAULT_API_RATE_WINDOW,
         }
+    } else if api_route_matches(path, "/api/profile") {
+        ApiRateLimitRule {
+            key: "profile-transfer",
+            limit: 20,
+            window: DEFAULT_API_RATE_WINDOW,
+        }
     } else if api_route_matches(path, "/api/invoke") {
         ApiRateLimitRule {
             key: "invoke-pre-extraction",
@@ -1215,7 +1412,8 @@ fn reject_oversized_api_body(request: &Request<Body>) -> Option<Response> {
         .get(header::CONTENT_LENGTH)
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse::<usize>().ok())?;
-    if content_length <= MAX_API_BODY_BYTES {
+    let limit = max_api_body_bytes_for_path(path);
+    if content_length <= limit {
         return None;
     }
 
@@ -1227,6 +1425,14 @@ fn reject_oversized_api_body(request: &Request<Body>) -> Option<Response> {
     apply_security_headers(response.headers_mut());
     apply_api_no_store_headers(response.headers_mut(), path);
     Some(response)
+}
+
+fn max_api_body_bytes_for_path(path: &str) -> usize {
+    if api_route_matches(path, "/api/profile/import") {
+        MAX_PROFILE_UPLOAD_BYTES
+    } else {
+        MAX_API_BODY_BYTES
+    }
 }
 
 fn api_json_error_response(
@@ -1983,6 +2189,30 @@ mod tests {
     }
 
     #[test]
+    fn api_body_size_uses_larger_profile_upload_limit() {
+        let profile_upload = request(
+            Method::POST,
+            "/api/profile/import",
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            &[("content-length", &(MAX_API_BODY_BYTES + 1).to_string())],
+        );
+        assert!(reject_oversized_api_body(&profile_upload).is_none());
+
+        let oversized_profile_upload = request(
+            Method::POST,
+            "/api/profile/import",
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            &[(
+                "content-length",
+                &(MAX_PROFILE_UPLOAD_BYTES + 1).to_string(),
+            )],
+        );
+        let response = reject_oversized_api_body(&oversized_profile_upload)
+            .expect("profile upload should still reject bodies above profile cap");
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
+
+    #[test]
     fn api_body_size_does_not_reject_non_api_or_safe_requests() {
         let asset_request = request(
             Method::POST,
@@ -2072,6 +2302,11 @@ mod tests {
         assert_eq!(
             rate_limit_rule_for_path("/api/sidecar/v1/embeddings").limit,
             20
+        );
+        assert_eq!(rate_limit_rule_for_path("/api/profile/import").limit, 20);
+        assert_eq!(
+            rate_limit_rule_for_path("/api/profile/export").key,
+            "profile-transfer"
         );
         assert_eq!(
             rate_limit_rule_for_path("/api/invoke").limit,
@@ -2467,13 +2702,14 @@ mod tests {
             HeaderValue::from_static("expected-secret"),
         );
         assert!(require_admin_access_for_command("backup_list", &headers, loopback_ip).is_ok());
-        assert!(require_admin_access_for_command("storage_list", &HeaderMap::new(), loopback_ip)
-            .is_ok());
+        assert!(
+            require_admin_access_for_command("storage_list", &HeaderMap::new(), loopback_ip)
+                .is_ok()
+        );
 
         env::set_var("MARINARA_REQUIRE_ADMIN_SECRET_ON_LOOPBACK", "false");
         assert!(
-            require_admin_access_for_command("backup_list", &HeaderMap::new(), loopback_ip)
-                .is_ok(),
+            require_admin_access_for_command("backup_list", &HeaderMap::new(), loopback_ip).is_ok(),
             "explicit false should keep the legacy loopback bypass"
         );
     }
@@ -2487,12 +2723,9 @@ mod tests {
         let remote_ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10));
         env::remove_var("ADMIN_SECRET");
 
-        let missing_secret = require_admin_access_for_command(
-            "import_st_bulk_scan",
-            &HeaderMap::new(),
-            remote_ip,
-        )
-        .expect_err("non-loopback bulk scan should require ADMIN_SECRET");
+        let missing_secret =
+            require_admin_access_for_command("import_st_bulk_scan", &HeaderMap::new(), remote_ip)
+                .expect_err("non-loopback bulk scan should require ADMIN_SECRET");
 
         assert_eq!(missing_secret.code, "admin_access_required");
 

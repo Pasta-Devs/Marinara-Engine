@@ -2,7 +2,13 @@ import { invokeTauri } from "./tauri-client";
 import { ApiError } from "./api-errors";
 import { downloadPayloadFromApiValue, type DownloadPayload } from "./download-payload";
 import { invalidateRemoteManagedAssetObjectUrlsAfter, type RemoteManagedAssetKind } from "./local-file-api";
-import { remoteRuntimeTarget } from "./remote-runtime";
+import {
+  readRemoteError,
+  remoteFetchInit,
+  remotePrivilegedHeaders,
+  remoteRuntimeTarget,
+  type RuntimeTarget,
+} from "./remote-runtime";
 
 export type ProfileExportFormat = "native" | "compatible" | "zip";
 
@@ -34,7 +40,45 @@ function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
+function profileExportUrl(target: RuntimeTarget, format: ProfileExportFormat) {
+  const params = new URLSearchParams({ format });
+  return `${target.baseUrl}/api/profile/export?${params.toString()}`;
+}
+
+function filenameFromContentDisposition(value: string | null, fallback: string) {
+  if (!value) return fallback;
+  const encoded = value.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) {
+    try {
+      const decoded = decodeURIComponent(encoded.trim().replace(/^"|"$/g, ""));
+      if (decoded) return decoded;
+    } catch {
+      // Fall back to plain filename parsing below.
+    }
+  }
+  const plain = value.match(/filename="?([^";]+)"?/i)?.[1]?.trim();
+  return plain || fallback;
+}
+
+async function exportRemoteProfile(target: RuntimeTarget, format: ProfileExportFormat): Promise<DownloadPayload> {
+  const fallback = PROFILE_EXPORT_FALLBACKS[format];
+  const response = await fetch(
+    profileExportUrl(target, format),
+    remoteFetchInit({
+      method: "GET",
+      headers: remotePrivilegedHeaders(target, { accept: fallback.contentType }),
+    }),
+  );
+  if (!response.ok) throw await readRemoteError(response);
+  return {
+    blob: await response.blob(),
+    filename: filenameFromContentDisposition(response.headers.get("content-disposition"), fallback.filename),
+  };
+}
+
 async function exportProfile(format: ProfileExportFormat = "native"): Promise<DownloadPayload> {
+  const target = remoteRuntimeTarget();
+  if (target) return exportRemoteProfile(target, format);
   const value = await invokeTauri("profile_export", { format });
   const fallback = PROFILE_EXPORT_FALLBACKS[format];
   return downloadPayloadFromApiValue(value, fallback.filename, fallback.contentType);
@@ -61,12 +105,30 @@ async function importProfileFile<T>(path: string): Promise<T> {
   );
 }
 
-async function importProfileUpload<T>(file: File): Promise<T> {
-  return invalidateRemoteManagedAssetObjectUrlsAfter(
-    invokeTauri<T>("profile_import_upload", {
-      filename: file.name,
-      base64: await readFileAsBase64(file),
+async function importRemoteProfileUpload<T>(target: RuntimeTarget, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const response = await fetch(
+    `${target.baseUrl}/api/profile/import`,
+    remoteFetchInit({
+      method: "POST",
+      headers: remotePrivilegedHeaders(target, { accept: "application/json" }),
+      body: form,
     }),
+  );
+  if (!response.ok) throw await readRemoteError(response);
+  return (await response.json()) as T;
+}
+
+async function importProfileUpload<T>(file: File): Promise<T> {
+  const target = remoteRuntimeTarget();
+  return invalidateRemoteManagedAssetObjectUrlsAfter(
+    target
+      ? importRemoteProfileUpload<T>(target, file)
+      : invokeTauri<T>("profile_import_upload", {
+          filename: file.name,
+          base64: await readFileAsBase64(file),
+        }),
     PROFILE_IMPORT_MANAGED_ASSET_KINDS,
   );
 }

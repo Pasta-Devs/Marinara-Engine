@@ -21,6 +21,12 @@ use std::path::{Path, PathBuf};
 const PROFILE_EXPORT_JSON_LIMIT_BYTES: usize = 256 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE: &str = "PROFILE_EXPORT_JSON_TOO_LARGE";
 
+pub(crate) struct ProfileExportDownload {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) filename: &'static str,
+    pub(crate) content_type: &'static str,
+}
+
 pub(crate) fn profile_snapshot(state: &AppState) -> AppResult<Value> {
     Ok(json!({
         "type": "marinara_profile",
@@ -49,6 +55,10 @@ pub(crate) fn profile_backup_snapshot(state: &AppState) -> AppResult<Value> {
 
 pub(crate) fn import_profile_file_path(state: &AppState, value: &str) -> AppResult<Value> {
     let path = PathBuf::from(value.trim());
+    import_profile_file(state, &path)
+}
+
+pub(crate) fn import_profile_file(state: &AppState, path: &Path) -> AppResult<Value> {
     if path.as_os_str().is_empty() {
         return Err(AppError::invalid_input("Profile file path is required"));
     }
@@ -61,7 +71,10 @@ pub(crate) fn import_profile_file_path(state: &AppState, value: &str) -> AppResu
         .map(|extension| extension.to_ascii_lowercase())
         .as_deref()
     {
-        Some("json") => import_profile(state, serde_json::from_reader(File::open(path)?)?),
+        Some("json") => import_profile(
+            state,
+            serde_json::from_reader(File::open(path)?).map_err(invalid_profile_json_error)?,
+        ),
         Some("zip") => import_profile_zip(state, &path),
         _ => Err(AppError::invalid_input(
             "Profile import must be a .json or .zip file",
@@ -84,7 +97,10 @@ pub(crate) fn import_profile_upload(
             AppError::invalid_input(format!("Invalid profile upload data: {error}"))
         })?;
     match extension.as_str() {
-        "json" => import_profile(state, serde_json::from_slice(&bytes)?),
+        "json" => import_profile(
+            state,
+            serde_json::from_slice(&bytes).map_err(invalid_profile_json_error)?,
+        ),
         "zip" => {
             let upload_dir = state.data_dir.join(".profile-upload-imports");
             fs::create_dir_all(&upload_dir)?;
@@ -98,6 +114,10 @@ pub(crate) fn import_profile_upload(
             "Profile upload must be a .json or .zip file",
         )),
     }
+}
+
+fn invalid_profile_json_error(error: serde_json::Error) -> AppError {
+    AppError::invalid_input(format!("Invalid profile JSON: {error}"))
 }
 
 pub(crate) fn profile_call(
@@ -122,6 +142,35 @@ pub(crate) fn export_profile(state: &AppState, format: Option<&str>) -> AppResul
         Some("native") | None => native_profile_export(state),
         Some("compatible") => super::exports::export_compatible_profile(state),
         Some("zip") => super::backup::download_profile_zip(state),
+        Some(_) => Err(AppError::invalid_input(
+            "Profile export format must be native, compatible, or zip.",
+        )),
+    }
+}
+
+pub(crate) fn export_profile_download(
+    state: &AppState,
+    format: Option<&str>,
+) -> AppResult<ProfileExportDownload> {
+    match format {
+        Some("native") | None => {
+            let snapshot = native_profile_export(state)?;
+            Ok(ProfileExportDownload {
+                bytes: serde_json::to_vec_pretty(&snapshot)?,
+                filename: "marinara-profile.json",
+                content_type: "application/json",
+            })
+        }
+        Some("compatible") => Ok(ProfileExportDownload {
+            bytes: super::exports::export_compatible_profile_bytes(state)?,
+            filename: "marinara-compatible-export.zip",
+            content_type: "application/zip",
+        }),
+        Some("zip") => Ok(ProfileExportDownload {
+            bytes: super::backup::download_profile_zip_bytes(state)?,
+            filename: "marinara-profile.zip",
+            content_type: "application/zip",
+        }),
         Some(_) => Err(AppError::invalid_input(
             "Profile export format must be native, compatible, or zip.",
         )),
@@ -595,6 +644,47 @@ mod tests {
             .get("messages", "new-message")
             .expect("new message lookup should not fail")
             .is_none());
+    }
+
+    #[test]
+    fn native_profile_import_warns_for_json_manifest_assets_without_payload() {
+        let state = test_state("json-manifest-missing-assets");
+        let avatar_dir = state.data_dir.join("avatars");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        std::fs::write(avatar_dir.join("keep.png"), b"keep").expect("avatar fixture should write");
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "characters".to_string(),
+            json!([{ "id": "char-1", "name": "Hero", "data": {} }]),
+        );
+
+        let result = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": [{ "path": "avatars/char-1.png", "size": 12 }]
+                }
+            }),
+        )
+        .expect("JSON-only profile should import data and warn about missing assets");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["imported"]["characters"], 1);
+        assert_eq!(result["imported"]["files"], 0);
+        assert_eq!(result["warnings"][0]["type"], "missing_asset");
+        assert_eq!(result["warnings"][0]["path"], "avatars/char-1.png");
+        assert!(state
+            .storage
+            .get("characters", "char-1")
+            .expect("character lookup should not fail")
+            .is_some());
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("existing avatar should remain"),
+            b"keep"
+        );
     }
 
     #[test]
@@ -1102,6 +1192,31 @@ mod tests {
             .expect("chat lookup should not fail")
             .expect("uploaded chat should import");
         assert_eq!(chat["name"], "Uploaded Chat");
+    }
+
+    #[test]
+    fn profile_upload_import_rejects_invalid_json_as_invalid_input() {
+        let state = test_state("profile-upload-invalid-json");
+        let base64 = base64::Engine::encode(&general_purpose::STANDARD, b"{ nope");
+
+        let error = import_profile_upload(&state, "profile.json", &base64)
+            .expect_err("invalid uploaded profile JSON should reject as invalid input");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid profile JSON"));
+    }
+
+    #[test]
+    fn profile_file_import_rejects_invalid_json_as_invalid_input() {
+        let state = test_state("profile-file-invalid-json");
+        let path = state.data_dir.join("profile.json");
+        std::fs::write(&path, b"{ nope").expect("invalid profile fixture should write");
+
+        let error = import_profile_file(&state, &path)
+            .expect_err("invalid profile JSON file should reject as invalid input");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid profile JSON"));
     }
 
     #[test]

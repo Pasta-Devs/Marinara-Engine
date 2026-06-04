@@ -5,9 +5,7 @@ import { ignoreLlmStreamCancelFailure } from "./llm-cancel-logging";
 
 const REMOTE_COMMANDS = new Set([
   "load_url_binary",
-  "profile_export",
   "profile_import",
-  "profile_import_upload",
   "backup_create",
   "backup_list",
   "backup_delete",
@@ -182,9 +180,7 @@ const REMOTE_COMMANDS = new Set([
 ]);
 
 const PRIVILEGED_REMOTE_COMMANDS = new Set([
-  "profile_export",
   "profile_import",
-  "profile_import_upload",
   "backup_create",
   "backup_list",
   "backup_delete",
@@ -272,7 +268,14 @@ export function remoteHeaders(target: RuntimeTarget, extra?: HeadersInit): Heade
   };
 }
 
-function remoteFetchInit(init: RequestInit): RequestInit {
+export function remotePrivilegedHeaders(target: RuntimeTarget, extra?: HeadersInit): HeadersInit {
+  return remoteHeaders(target, {
+    ...extra,
+    ...adminSecretHeader(),
+  });
+}
+
+export function remoteFetchInit(init: RequestInit): RequestInit {
   return {
     ...init,
     cache: "no-store",
@@ -419,7 +422,7 @@ export async function checkRemoteRuntimeHealth(
   }
 }
 
-async function readRemoteError(response: Response): Promise<ApiError> {
+export async function readRemoteError(response: Response): Promise<ApiError> {
   const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
   try {
     const body = await response.json();
