@@ -10,11 +10,8 @@ use std::collections::HashSet;
 use tauri::State;
 
 type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
-type LorebookFolderDeleteAtomicRows<'a> = (
-    &'a mut Vec<Value>,
-    &'a mut Vec<Value>,
-    &'a mut Vec<Value>,
-);
+type LorebookFolderDeleteAtomicRows<'a> =
+    (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
 
 fn validate_storage_entity(entity: &str) -> Result<(), AppError> {
     if contracts::collection_contract(entity).is_some() {

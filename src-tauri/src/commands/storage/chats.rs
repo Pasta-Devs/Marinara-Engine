@@ -317,20 +317,36 @@ fn should_activate_new_swipe(body: &Value) -> bool {
     !body.get("silent").and_then(Value::as_bool).unwrap_or(false)
 }
 
+fn update_chat_metadata(
+    state: &AppState,
+    chat_id: &str,
+    update: impl FnOnce(&mut Map<String, Value>),
+) -> AppResult<Value> {
+    let mut update = Some(update);
+    state
+        .storage
+        .patch_if("chats", chat_id, |chat| {
+            let mut metadata = metadata_map(&Value::Object(chat.clone()));
+            let update = update.take().ok_or_else(|| {
+                AppError::new("storage_error", "Chat metadata update already ran")
+            })?;
+            update(&mut metadata);
+            chat.insert("metadata".to_string(), Value::Object(metadata));
+            Ok(true)
+        })?
+        .ok_or_else(|| AppError::not_found(format!("chats/{chat_id} was not found")))
+}
+
 fn merge_chat_metadata(
     state: &AppState,
     chat_id: &str,
     patch: Map<String, Value>,
 ) -> AppResult<Value> {
-    let mut chat = get_required(state, "chats", chat_id)?;
-    let mut metadata = metadata_map(&chat);
-    for (key, value) in patch {
-        metadata.insert(key, value);
-    }
-    chat.as_object_mut()
-        .ok_or_else(|| AppError::invalid_input("Chat is not an object"))?
-        .insert("metadata".to_string(), Value::Object(metadata));
-    state.storage.patch("chats", chat_id, chat)
+    update_chat_metadata(state, chat_id, |metadata| {
+        for (key, value) in patch {
+            metadata.insert(key, value);
+        }
+    })
 }
 
 pub(crate) fn message_swipes(
@@ -631,33 +647,93 @@ pub(crate) fn bulk_delete_messages(
     Ok(json!({ "deleted": deleted }))
 }
 
+fn autonomous_unread_increment(body: &Value) -> AppResult<i64> {
+    match body.get("count") {
+        None | Some(Value::Null) => Ok(1),
+        Some(value) => {
+            let Some(count) = value.as_i64() else {
+                return Err(AppError::invalid_input(
+                    "Autonomous unread count must be an integer",
+                ));
+            };
+            if !(1..=100).contains(&count) {
+                return Err(AppError::invalid_input(
+                    "Autonomous unread count must be between 1 and 100",
+                ));
+            }
+            Ok(count)
+        }
+    }
+}
+
+fn autonomous_unread_character_id(body: &Value) -> AppResult<Option<String>> {
+    match body.get("characterId") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(id)) => {
+            let id = id.trim();
+            if id.is_empty() {
+                return Err(AppError::invalid_input(
+                    "Autonomous unread characterId must be non-empty",
+                ));
+            }
+            Ok(Some(id.to_string()))
+        }
+        Some(_) => Err(AppError::invalid_input(
+            "Autonomous unread characterId must be a string",
+        )),
+    }
+}
+
+fn current_autonomous_unread_count(metadata: &Map<String, Value>) -> i64 {
+    metadata
+        .get("autonomousUnreadCount")
+        .and_then(Value::as_i64)
+        .filter(|count| *count > 0)
+        .unwrap_or(0)
+}
+
+fn current_autonomous_unread_character_ids(metadata: &Map<String, Value>) -> Vec<String> {
+    let mut ids = Vec::new();
+    let Some(values) = metadata
+        .get("autonomousUnreadCharacterIds")
+        .and_then(Value::as_array)
+    else {
+        return ids;
+    };
+    for value in values {
+        let Some(id) = value.as_str().map(str::trim).filter(|id| !id.is_empty()) else {
+            continue;
+        };
+        if !ids.iter().any(|existing| existing == id) {
+            ids.push(id.to_string());
+        }
+    }
+    ids
+}
+
 pub(crate) fn mark_autonomous_unread(
     state: &AppState,
     chat_id: &str,
     body: Value,
 ) -> AppResult<Value> {
-    get_required(state, "chats", chat_id)?;
-    let mut patch = Map::new();
-    let count = body
-        .get("count")
-        .and_then(Value::as_i64)
-        .unwrap_or(1)
-        .max(1);
-    let character_id = body
-        .get("characterId")
-        .and_then(Value::as_str)
-        .map(str::to_string);
-    let mut character_ids = Vec::new();
-    if let Some(id) = character_id {
-        character_ids.push(Value::String(id));
-    }
-    patch.insert("autonomousUnreadCount".to_string(), json!(count));
-    patch.insert(
-        "autonomousUnreadCharacterIds".to_string(),
-        Value::Array(character_ids),
-    );
-    patch.insert("autonomousUnreadAt".to_string(), Value::String(now_iso()));
-    merge_chat_metadata(state, chat_id, patch)
+    let increment = autonomous_unread_increment(&body)?;
+    let character_id = autonomous_unread_character_id(&body)?;
+    let timestamp = now_iso();
+    update_chat_metadata(state, chat_id, |metadata| {
+        let count = current_autonomous_unread_count(metadata).saturating_add(increment);
+        let mut character_ids = current_autonomous_unread_character_ids(metadata);
+        if let Some(id) = character_id {
+            if !character_ids.iter().any(|existing| existing == &id) {
+                character_ids.push(id);
+            }
+        }
+        metadata.insert("autonomousUnreadCount".to_string(), json!(count));
+        metadata.insert(
+            "autonomousUnreadCharacterIds".to_string(),
+            json!(character_ids),
+        );
+        metadata.insert("autonomousUnreadAt".to_string(), Value::String(timestamp));
+    })
 }
 
 pub(crate) fn clear_autonomous_unread(state: &AppState, chat_id: &str) -> AppResult<Value> {
@@ -1320,6 +1396,8 @@ fn object_or_parse(value: Option<&Value>) -> Map<String, Value> {
 mod tests {
     use super::*;
     use crate::state::AppState;
+    use std::sync::{Arc, Barrier};
+    use std::thread;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn test_state(label: &str) -> AppState {
@@ -1332,6 +1410,209 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp chat delete dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    #[test]
+    fn mark_autonomous_unread_accumulates_count_and_character_ids() {
+        let state = test_state("autonomous-unread-accumulates");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Autonomous chat",
+                    "metadata": {
+                        "autonomousUnreadCount": 2,
+                        "autonomousUnreadCharacterIds": [" char-a ", "char-a", "   ", "", 7],
+                        "autonomousUnreadAt": "2026-06-01T00:00:00.000Z"
+                    }
+                }),
+            )
+            .expect("chat should be created");
+
+        let updated = mark_autonomous_unread(
+            &state,
+            "chat-1",
+            json!({ "characterId": "char-b", "count": 3 }),
+        )
+        .expect("unread mark should succeed");
+
+        let metadata = updated
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(metadata.get("autonomousUnreadCount"), Some(&json!(5)));
+        assert_eq!(
+            metadata.get("autonomousUnreadCharacterIds"),
+            Some(&json!(["char-a", "char-b"]))
+        );
+        assert_ne!(
+            metadata.get("autonomousUnreadAt").and_then(Value::as_str),
+            Some("2026-06-01T00:00:00.000Z")
+        );
+
+        let updated = mark_autonomous_unread(&state, "chat-1", json!({ "characterId": "char-b" }))
+            .expect("default unread mark should succeed");
+        let metadata = updated
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(metadata.get("autonomousUnreadCount"), Some(&json!(6)));
+        assert_eq!(
+            metadata.get("autonomousUnreadCharacterIds"),
+            Some(&json!(["char-a", "char-b"]))
+        );
+    }
+
+    #[test]
+    fn mark_autonomous_unread_preserves_concurrent_marks() {
+        let state = test_state("autonomous-unread-concurrent");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Autonomous chat",
+                    "metadata": {
+                        "autonomousUnreadCount": 0,
+                        "autonomousUnreadCharacterIds": []
+                    }
+                }),
+            )
+            .expect("chat should be created");
+
+        const WORKERS: usize = 12;
+        let barrier = Arc::new(Barrier::new(WORKERS));
+        let mut handles = Vec::with_capacity(WORKERS);
+        for index in 0..WORKERS {
+            let state = state.clone();
+            let barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                mark_autonomous_unread(
+                    &state,
+                    "chat-1",
+                    json!({ "characterId": format!("char-{index}") }),
+                )
+                .expect("concurrent unread mark should succeed");
+            }));
+        }
+        for handle in handles {
+            handle.join().expect("worker should not panic");
+        }
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should succeed")
+            .expect("chat should still exist");
+        let metadata = chat
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(
+            metadata.get("autonomousUnreadCount"),
+            Some(&json!(WORKERS as i64))
+        );
+        let ids = metadata
+            .get("autonomousUnreadCharacterIds")
+            .and_then(Value::as_array)
+            .expect("character ids should remain an array")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<HashSet<_>>();
+        assert_eq!(ids.len(), WORKERS);
+        for index in 0..WORKERS {
+            assert!(ids.contains(format!("char-{index}").as_str()));
+        }
+    }
+
+    #[test]
+    fn mark_autonomous_unread_trims_and_rejects_blank_character_ids() {
+        let state = test_state("autonomous-unread-character-id-normalization");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Autonomous chat",
+                    "metadata": {
+                        "autonomousUnreadCount": 1,
+                        "autonomousUnreadCharacterIds": ["char-a"]
+                    }
+                }),
+            )
+            .expect("chat should be created");
+
+        let updated =
+            mark_autonomous_unread(&state, "chat-1", json!({ "characterId": "  char-b  " }))
+                .expect("trimmed character id should succeed");
+        let metadata = updated
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(
+            metadata.get("autonomousUnreadCharacterIds"),
+            Some(&json!(["char-a", "char-b"]))
+        );
+
+        let result = mark_autonomous_unread(&state, "chat-1", json!({ "characterId": "   " }));
+
+        assert!(result.is_err(), "blank character id should be rejected");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should succeed")
+            .expect("chat should still exist");
+        let metadata = chat
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(metadata.get("autonomousUnreadCount"), Some(&json!(2)));
+        assert_eq!(
+            metadata.get("autonomousUnreadCharacterIds"),
+            Some(&json!(["char-a", "char-b"]))
+        );
+    }
+
+    #[test]
+    fn mark_autonomous_unread_rejects_invalid_count() {
+        let state = test_state("autonomous-unread-invalid-count");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Autonomous chat",
+                    "metadata": {
+                        "autonomousUnreadCount": 2,
+                        "autonomousUnreadCharacterIds": ["char-a"]
+                    }
+                }),
+            )
+            .expect("chat should be created");
+
+        let result = mark_autonomous_unread(&state, "chat-1", json!({ "count": 101 }));
+
+        assert!(result.is_err(), "oversized count should be rejected");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat lookup should succeed")
+            .expect("chat should still exist");
+        let metadata = chat
+            .get("metadata")
+            .and_then(Value::as_object)
+            .expect("metadata should remain an object");
+        assert_eq!(metadata.get("autonomousUnreadCount"), Some(&json!(2)));
+        assert_eq!(
+            metadata.get("autonomousUnreadCharacterIds"),
+            Some(&json!(["char-a"]))
+        );
     }
 
     #[test]

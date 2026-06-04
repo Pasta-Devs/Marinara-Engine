@@ -29,6 +29,7 @@ dist-ssr
 .env
 .marinara-legacy-profile-import.json
 .docker-marinara-data/
+/scratch/
 packages/
 
 # Rust / Tauri
