@@ -5,6 +5,15 @@ type ImagePromptSettings = {
   format?: "descriptive" | "tags";
 };
 
+export type GameImageGenerationPromptItem = {
+  kind: GameImageAssetKind;
+  prompt: string;
+  negativePrompt?: string;
+  width: number;
+  height: number;
+  referenceImages?: string[];
+};
+
 const GAME_PORTRAIT_NEGATIVE_PROMPT =
   "text, letters, captions, subtitles, UI, watermark, logo, signature, speech bubble, split screen, panel, collage, contact sheet, grid, four portraits, multiple portraits, duplicated face, extra head, extra person, bad anatomy, low quality";
 const GAME_BACKGROUND_NEGATIVE_PROMPT =
@@ -30,6 +39,22 @@ export function gameAssetNegativePrompt(kind: GameImageAssetKind): string {
   if (kind === "background") return GAME_BACKGROUND_NEGATIVE_PROMPT;
   if (kind === "illustration") return GAME_ILLUSTRATION_NEGATIVE_PROMPT;
   return GAME_PORTRAIT_NEGATIVE_PROMPT;
+}
+
+export function gameImageGenerationRequest(
+  connectionId: string,
+  item: GameImageGenerationPromptItem,
+): Record<string, unknown> {
+  return {
+    connectionId,
+    prompt: item.prompt,
+    negativePrompt: item.negativePrompt,
+    width: item.width,
+    height: item.height,
+    ...(item.kind === "illustration" && item.referenceImages?.length
+      ? { referenceImages: item.referenceImages }
+      : {}),
+  };
 }
 
 const ANIMAL_SPECIES_PATTERN =

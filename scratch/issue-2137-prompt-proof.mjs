@@ -11,7 +11,9 @@ try {
 const source = `${apiSource}\n${promptSource}`;
 
 const checks = {
-  forwardsNegativePrompt: /negativePrompt:\s*item\.negativePrompt/.test(apiSource),
+  forwardsNegativePrompt:
+    /gameImageGenerationRequest\(imageConnectionId,\s*item\)/.test(apiSource) &&
+    /negativePrompt:\s*item\.negativePrompt/.test(promptSource),
   hasPortraitNegativePrompt: /GAME_PORTRAIT_NEGATIVE_PROMPT/.test(source),
   hasBackgroundNegativePrompt: /GAME_BACKGROUND_NEGATIVE_PROMPT/.test(source),
   hasIllustrationNegativePrompt: /GAME_ILLUSTRATION_NEGATIVE_PROMPT/.test(source),

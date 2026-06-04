@@ -24,12 +24,12 @@
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "node scratch\\issue-2137-prompt-proof.mjs before",
+    "command": "node scratch/issue-2137-prompt-proof.mjs before",
     "evidence": "Before the fix, the proof script reported forwardsNegativePrompt=false and all three game negative prompt constants plus both portrait species safeguard strings missing from src/features/modes/game/api/game-api.ts."
   },
   "verification": {
     "originalReproPassed": true,
-    "command": "node scratch\\issue-2137-prompt-proof.mjs after",
+    "command": "node scratch/issue-2137-prompt-proof.mjs after",
     "evidence": "After the fix, the proof script reported forwardsNegativePrompt=true, all three game negative prompt constants present, and both non-human preservation and human-default portrait rule strings present.",
     "edgeCases": [
       "Portrait negative prompt includes duplicated-face and four-portrait blockers.",
@@ -40,8 +40,8 @@
       "An explicit non-human name such as Talking Cat still receives the species-preservation rule when description details are omitted.",
       "Tag-format portrait prompts retain the species safeguard text."
     ],
-    "focusedTestCommand": "pnpm test src\\features\\modes\\game\\api\\game-api.test.ts",
-    "focusedTestEvidence": "5 Vitest cases passed for negative prompts, non-human description preservation, plain/color-marked species positives, human-name and animal-themed descriptor negative controls, explicit non-human name handling, and tag-format safeguards.",
+    "focusedTestCommand": "pnpm test src/features/modes/game/api/game-api.test.ts",
+    "focusedTestEvidence": "6 Vitest cases passed for negative prompts, request payload forwarding, non-human description preservation, plain/color-marked species positives, human-name and animal-themed descriptor negative controls, explicit non-human name handling, and tag-format safeguards.",
     "laneCheckCommand": "pnpm typecheck",
     "laneCheckEvidence": "tsc -b passed after the focused change.",
     "visualProof": "Non-UI request-building bug; proof is the actual terminal output from the before/after source proof script and focused Vitest run.",
@@ -81,9 +81,9 @@
       "human NPC named Spirit remains human/humanoid by default"
     ],
     "groundTruthFacts": [
-      "harness-proven: node scratch\\issue-2137-prompt-proof.mjs after verified generateAssets request body contains negativePrompt: item.negativePrompt",
-      "harness-proven: pnpm test src\\features\\modes\\game\\api\\game-api.test.ts verified gameAssetNegativePrompt returns per-kind prompt text",
-      "harness-proven: pnpm test src\\features\\modes\\game\\api\\game-api.test.ts verified sceneAssetPrompt applies portrait species rules"
+      "harness-proven: node scratch/issue-2137-prompt-proof.mjs after verified generateAssets request body contains negativePrompt: item.negativePrompt",
+      "harness-proven: pnpm test src/features/modes/game/api/game-api.test.ts verified gameAssetNegativePrompt returns per-kind prompt text",
+      "harness-proven: pnpm test src/features/modes/game/api/game-api.test.ts verified sceneAssetPrompt applies portrait species rules"
     ],
     "userActionCopy": [],
     "manualBlockers": []

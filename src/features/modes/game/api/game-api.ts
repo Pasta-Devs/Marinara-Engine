@@ -107,6 +107,7 @@ import {
 import { parsePartyDialogue } from "../lib/party-dialogue-parser";
 import {
   gameAssetNegativePrompt,
+  gameImageGenerationRequest,
   sceneAssetPrompt,
   type GameImageAssetKind,
 } from "./game-asset-prompts";
@@ -3036,16 +3037,7 @@ export const gameApi = {
           image?: string;
           provider?: string;
           model?: string;
-        }>({
-          connectionId: imageConnectionId,
-          prompt: item.prompt,
-          negativePrompt: item.negativePrompt,
-          width: item.width,
-          height: item.height,
-          ...(item.kind === "illustration" && item.referenceImages?.length
-            ? { referenceImages: item.referenceImages }
-            : {}),
-        });
+        }>(gameImageGenerationRequest(imageConnectionId, item));
       } catch (error) {
         if (item.kind === "background") {
           fallbackBackground = fallbackSceneBackground(meta);

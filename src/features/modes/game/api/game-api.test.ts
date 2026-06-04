@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gameAssetNegativePrompt, sceneAssetPrompt } from "./game-asset-prompts";
+import { gameAssetNegativePrompt, gameImageGenerationRequest, sceneAssetPrompt } from "./game-asset-prompts";
 
 describe("game asset image prompt safeguards", () => {
   it("uses per-kind negative prompts for generated game images", () => {
@@ -9,6 +9,42 @@ describe("game asset image prompt safeguards", () => {
     expect(gameAssetNegativePrompt("background")).toContain("multiple frames");
     expect(gameAssetNegativePrompt("illustration")).toContain("unrelated character");
     expect(gameAssetNegativePrompt("illustration")).toContain("character sheet");
+  });
+
+  it("builds image generation request payloads with negative prompts and illustration references", () => {
+    expect(
+      gameImageGenerationRequest("image-connection", {
+        kind: "portrait",
+        prompt: "Portrait of Raven",
+        negativePrompt: gameAssetNegativePrompt("portrait"),
+        width: 768,
+        height: 1024,
+      }),
+    ).toEqual({
+      connectionId: "image-connection",
+      prompt: "Portrait of Raven",
+      negativePrompt: gameAssetNegativePrompt("portrait"),
+      width: 768,
+      height: 1024,
+    });
+
+    expect(
+      gameImageGenerationRequest("image-connection", {
+        kind: "illustration",
+        prompt: "Scene illustration",
+        negativePrompt: gameAssetNegativePrompt("illustration"),
+        width: 1024,
+        height: 768,
+        referenceImages: ["ref-a", "ref-b"],
+      }),
+    ).toEqual({
+      connectionId: "image-connection",
+      prompt: "Scene illustration",
+      negativePrompt: gameAssetNegativePrompt("illustration"),
+      width: 1024,
+      height: 768,
+      referenceImages: ["ref-a", "ref-b"],
+    });
   });
 
   it("preserves explicit non-human NPC species in portrait prompts", () => {
