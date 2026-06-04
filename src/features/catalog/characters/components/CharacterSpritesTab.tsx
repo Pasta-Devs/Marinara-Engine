@@ -145,6 +145,17 @@ export function CharacterSpritesTab({
     downloadBlob(blob, sprite.filename || `${sprite.expression}.png`);
   }, []);
 
+  const handleDownloadSprite = useCallback(
+    async (sprite: SpriteInfo) => {
+      try {
+        await downloadSpriteFile(sprite);
+      } catch (error) {
+        toast.error(getErrorMessage(error, "Failed to download sprite."));
+      }
+    },
+    [downloadSpriteFile],
+  );
+
   const handleExportSprites = useCallback(
     async (spritesToExport: SpriteInfo[], modeLabel: string) => {
       if (spritesToExport.length === 0) return;
@@ -347,7 +358,7 @@ export function CharacterSpritesTab({
         displayExpression={displayExpression}
         onOpenWandCleanup={setWandCleanupSprite}
         onFrame={setFramingSprite}
-        onDownload={(sprite) => void downloadSpriteFile(sprite)}
+        onDownload={(sprite) => void handleDownloadSprite(sprite)}
         onReplace={startUpload}
         onDelete={setDeleteSpriteRequest}
       />
