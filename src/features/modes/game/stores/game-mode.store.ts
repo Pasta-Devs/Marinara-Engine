@@ -163,6 +163,12 @@ function buildTrackedNpcStub(name: string, avatarUrl: string, avatarGalleryId?: 
   };
 }
 
+function sameAvatarUrl(left: string | null | undefined, right: string | null | undefined): boolean {
+  const normalizedLeft = left?.trim() ?? "";
+  const normalizedRight = right?.trim() ?? "";
+  return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
+}
+
 function slugifyMapId(value: string): string {
   return value
     .trim()
@@ -296,14 +302,15 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
       const merged = npcs.map((npc) => {
         const preserved = existingByName.get((npc.name ?? "").toLowerCase());
         if (!preserved) return npc;
+        const preserveAvatarUrl = !npc.avatarUrl && Boolean(preserved.avatarUrl);
+        const preserveAvatarGalleryId =
+          npc.avatarGalleryId === undefined &&
+          preserved.avatarGalleryId !== undefined &&
+          (preserveAvatarUrl || sameAvatarUrl(npc.avatarUrl, preserved.avatarUrl));
         return {
           ...npc,
-          ...(npc.avatarUrl ? {} : preserved.avatarUrl ? { avatarUrl: preserved.avatarUrl } : {}),
-          ...(npc.avatarGalleryId !== undefined
-            ? {}
-            : preserved.avatarGalleryId !== undefined
-              ? { avatarGalleryId: preserved.avatarGalleryId ?? null }
-              : {}),
+          ...(preserveAvatarUrl ? { avatarUrl: preserved.avatarUrl } : {}),
+          ...(preserveAvatarGalleryId ? { avatarGalleryId: preserved.avatarGalleryId ?? null } : {}),
         };
       });
       return { npcs: sanitizeGameNpcAvatarUrls(merged) };
