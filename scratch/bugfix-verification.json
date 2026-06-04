@@ -1,60 +1,105 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2128,
-    "title": "Character editor quote formatting misses advanced card fields",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2128"
+    "number": 2130,
+    "title": "Native character export omits managed gallery images",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2130"
   },
   "pr": {
-    "number": 2201,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2201"
+    "number": null,
+    "url": null
   },
-  "coreClaim": "Character editor save formatting normalizes configured quote style for creator notes, system prompt, post-history instructions, and depth prompt text.",
+  "coreClaim": "Native character .marinara export embeds managed character-gallery assets so import/export round trips preserve gallery images.",
   "assignment": {
-    "assignee": "cha1latte",
+    "assignee": "@me",
     "assignedBeforeWork": true,
-    "evidence": "gh issue edit 2128 --repo Pasta-Devs/Marinara-Engine --add-assignee \"@me\" returned the issue URL before reproduction or edits."
+    "assignedToSelf": true
   },
   "preflight": {
     "noAssociatedPr": true,
-    "details": "gh PR search for #2128 and the issue title returned no matches; no local branch or worktree for issue 2128 existed before this run."
+    "details": "No PRs or local issue branches/worktrees were found for #2130 or the issue title before work started.",
+    "base": "upstream/refactor",
+    "worktree": "C:/tmp/Marinara-Engine-issue-2130"
+  },
+  "riskClaimMatrix": {
+    "coreClaim": "Native character .marinara export embeds managed character-gallery assets so import/export round trips preserve gallery images.",
+    "riskType": "import-export compatibility and managed user assets",
+    "entrypoints": [
+      "src-tauri native character export",
+      "src-tauri native character import",
+      "character-gallery managed upload rows",
+      "character gallery delete cleanup"
+    ],
+    "currentPathsOrFormats": [
+      "character-gallery rows with filePath, filename, and asset URL",
+      "native marinara_character envelope data.gallery entries with embedded data URLs"
+    ],
+    "legacyPathsOrFormats": [
+      "character-gallery rows whose url is already an inline data:image value",
+      "native marinara_character envelope data.gallery entries with inline data"
+    ],
+    "positiveRowsTested": [
+      "Managed character-gallery row exports as one embedded data:image gallery entry.",
+      "Native marinara_character import materializes embedded gallery data as a managed gallery asset URL and file.",
+      "Inline legacy gallery row still exports unchanged."
+    ],
+    "negativeRowsTested": [
+      "Missing managed gallery file is skipped instead of exporting a broken asset reference."
+    ],
+    "groundTruthFacts": [
+      "harness-proven: native_character_export_embeds_managed_gallery_assets creates the managed gallery file under AppState.data_dir/gallery and verifies gallery_for_character returns embedded data:image data.",
+      "harness-proven: native_marinara_character_import_materializes_embedded_gallery_assets reads the created character-gallery row and verifies the stored file exists on disk."
+    ],
+    "userActionCopy": [
+      {
+        "action": "copy the exported native .marinara file, and optionally back up the app-owned gallery data before import/export testing",
+        "items": [
+          "*.marinara",
+          "DATA_DIR/gallery",
+          "DATA_DIR/collections/character-gallery.json",
+          "DATA_DIR/collections/characters.json"
+        ],
+        "destination": "a separate folder outside the active Marinara profile data directory",
+        "currentLayouts": [
+          "current managed gallery layout: character-gallery row has filePath, filename, and asset URL; bytes live under DATA_DIR/gallery"
+        ],
+        "legacyLayouts": [
+          "legacy inline gallery layout: character-gallery row url is an inline data:image value"
+        ]
+      }
+    ],
+    "manualBlockers": []
   },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Focused Vitest regression test against the formatter model before the production patch.",
-    "evidence": [
-      "pnpm exec vitest run src\\features\\catalog\\characters\\lib\\character-editor-model.test.ts failed before the fix.",
-      "creator_notes returned `Creator says \"draft\".` instead of typographic quotes.",
-      "depth_prompt.prompt returned `Remember \"the signal\".` instead of typographic quotes."
-    ]
+    "command": "cargo test --manifest-path src-tauri\\Cargo.toml gallery_assets -- --nocapture",
+    "evidence": "Before the export fix, storage_commands::exports::tests::native_character_export_embeds_managed_gallery_assets failed because gallery_for_character returned 0 exported gallery items instead of 1 for a managed character-gallery row."
   },
   "verification": {
     "originalReproPassed": true,
+    "command": "cargo test --manifest-path src-tauri\\Cargo.toml gallery -- --nocapture",
+    "evidence": "17 gallery-focused Rust tests passed, including managed native export, inline gallery compatibility, missing-file negative control, native import materialization, and existing gallery delete cleanup tests.",
+    "edgeCases": [
+      "Managed character-gallery asset exports as embedded data:image data.",
+      "Inline legacy gallery data remains exportable.",
+      "Missing managed gallery file is skipped.",
+      "Native marinara_character import materializes embedded gallery data back into managed asset rows.",
+      "Existing gallery row delete and character/chat delete cleanup tests still pass."
+    ],
+    "visualProof": "Backend/storage bug with no meaningful UI state; the actual command proof is recorded in reproduction.evidence and verification.evidence.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "pnpm check passed after the final production diff and again after merging upstream/refactor to resolve PR conflicts.",
-    "focusedProof": [
-      "pnpm exec vitest run src\\features\\catalog\\characters\\lib\\character-editor-model.test.ts passed after the fix and Bunny repair.",
-      "pnpm typecheck passed.",
-      "git diff --check passed."
-    ],
-    "edgeCases": [
-      "creator_notes, system_prompt, and post_history_instructions now use typographic quote formatting.",
-      "creator_notes preserves complete <style>...</style> blocks while formatting surrounding prose.",
-      "depth_prompt.prompt now uses typographic quote formatting.",
-      "depth_prompt.depth, depth_prompt.role, and unrelated extension properties are preserved unchanged."
-    ],
-    "visualProof": "scratch/issue-2128-vitest-after.png",
-    "visualProofNotes": "Local screenshot rendered from the raw passing Vitest output in scratch/issue-2128-vitest-after.txt. There is no meaningful app UI state for this formatter-model proof."
+    "baselineEvidence": "pnpm check passed after pnpm install --frozen-lockfile in the isolated worktree.",
+    "laneCheckCommand": "cargo check --manifest-path src-tauri\\Cargo.toml",
+    "laneCheckEvidence": "cargo check passed for the Tauri storage lane."
   },
   "manualBlockers": [],
-  "riskClaimMatrix": null,
+  "notes": [],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
-    "claimBoundariesProven": true,
-    "notes": "Local proof, pnpm check, proof gate, and Bunny pass are complete. A later Bunny finding about creator-notes CSS was repaired with a focused regression row; the branch was merged with upstream/refactor to clear PR conflicts."
+    "claimBoundariesProven": true
   }
 }

@@ -810,18 +810,10 @@ fn gallery_for_character(state: &AppState, character_id: &str) -> AppResult<Vec<
     )?;
     let mut gallery = Vec::new();
     for record in records.as_array().into_iter().flatten() {
-        let Some(data) = record
-            .get("url")
-            .and_then(Value::as_str)
-            .filter(|value| value.starts_with("data:image/"))
-        else {
+        let Some((data, image_path)) = gallery_record_data_url(state, record)? else {
             continue;
         };
-        let filename = record
-            .get("filename")
-            .or_else(|| record.get("filePath"))
-            .and_then(Value::as_str)
-            .unwrap_or("image.png");
+        let filename = gallery_record_filename(record, image_path.as_deref());
         gallery.push(json!({
             "filename": filename,
             "data": data,
@@ -833,6 +825,49 @@ fn gallery_for_character(state: &AppState, character_id: &str) -> AppResult<Vec<
         }));
     }
     Ok(gallery)
+}
+
+fn gallery_record_data_url(
+    state: &AppState,
+    record: &Value,
+) -> AppResult<Option<(String, Option<PathBuf>)>> {
+    if let Some(data) = record
+        .get("url")
+        .and_then(Value::as_str)
+        .filter(|value| media_uploads::is_inline_image_data_url(value))
+    {
+        return Ok(Some((data.to_string(), None)));
+    }
+    let Some(path) =
+        media_uploads::managed_record_file_path(state, "gallery", record, "filePath", "filename")?
+    else {
+        return Ok(None);
+    };
+    if !is_export_image_file(&path) {
+        return Ok(None);
+    }
+    Ok(data_url_from_file(&path).map(|data| (data, Some(path))))
+}
+
+fn gallery_record_filename(record: &Value, image_path: Option<&Path>) -> String {
+    record
+        .get("filename")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            record
+                .get("filePath")
+                .and_then(Value::as_str)
+                .and_then(|value| Path::new(value).file_name())
+                .map(|value| value.to_string_lossy().to_string())
+        })
+        .or_else(|| {
+            image_path
+                .and_then(Path::file_name)
+                .map(|value| value.to_string_lossy().to_string())
+        })
+        .unwrap_or_else(|| "image.png".to_string())
 }
 
 fn data_url_from_file(path: &Path) -> Option<String> {
@@ -1086,6 +1121,7 @@ fn safe_export_name(name: &str, fallback: &str) -> String {
 mod tests {
     use super::*;
     use crate::state::AppState;
+    use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn test_state(label: &str) -> AppState {
@@ -1106,6 +1142,124 @@ mod tests {
             .as_array()
             .cloned()
             .unwrap_or_default()
+    }
+
+    fn tiny_png_bytes() -> Vec<u8> {
+        general_purpose::STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
+            .expect("embedded test PNG should decode")
+    }
+
+    #[test]
+    fn native_character_export_embeds_managed_gallery_assets() {
+        let state = test_state("managed-character-gallery-export");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-1",
+                    "data": { "name": "Gallery Character" }
+                }),
+            )
+            .expect("character should be created");
+        let gallery_dir = state.data_dir.join("gallery");
+        fs::create_dir_all(&gallery_dir).expect("gallery directory should be created");
+        let image_path = gallery_dir.join("managed-gallery.png");
+        fs::write(&image_path, tiny_png_bytes()).expect("managed gallery image should be written");
+        let asset_url = media_uploads::file_path_asset_url(&image_path);
+        state
+            .storage
+            .create(
+                "character-gallery",
+                json!({
+                    "id": "gallery-1",
+                    "characterId": "character-1",
+                    "filePath": image_path.to_string_lossy(),
+                    "filename": "managed-gallery.png",
+                    "url": asset_url,
+                    "prompt": "pose reference",
+                    "provider": "local",
+                    "model": "test",
+                    "width": 1,
+                    "height": 1
+                }),
+            )
+            .expect("managed gallery row should be created");
+
+        let gallery =
+            gallery_for_character(&state, "character-1").expect("character gallery should export");
+
+        assert_eq!(gallery.len(), 1);
+        assert_eq!(
+            gallery[0].get("filename").and_then(Value::as_str),
+            Some("managed-gallery.png")
+        );
+        assert!(
+            gallery[0]
+                .get("data")
+                .and_then(Value::as_str)
+                .is_some_and(|value| value.starts_with("data:image/png;base64,")),
+            "managed gallery export should embed image data"
+        );
+        assert_eq!(
+            gallery[0].get("prompt").and_then(Value::as_str),
+            Some("pose reference")
+        );
+    }
+
+    #[test]
+    fn native_character_export_keeps_inline_gallery_and_skips_missing_files() {
+        let state = test_state("inline-character-gallery-export");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-1",
+                    "data": { "name": "Inline Gallery Character" }
+                }),
+            )
+            .expect("character should be created");
+        let inline_data =
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+        state
+            .storage
+            .create(
+                "character-gallery",
+                json!({
+                    "id": "gallery-inline",
+                    "characterId": "character-1",
+                    "filename": "inline.png",
+                    "url": inline_data
+                }),
+            )
+            .expect("inline gallery row should be created");
+        state
+            .storage
+            .create(
+                "character-gallery",
+                json!({
+                    "id": "gallery-missing",
+                    "characterId": "character-1",
+                    "filename": "missing.png",
+                    "url": media_uploads::file_path_asset_url(&state.data_dir.join("gallery").join("missing.png"))
+                }),
+            )
+            .expect("missing gallery row should be created");
+
+        let gallery =
+            gallery_for_character(&state, "character-1").expect("character gallery should export");
+
+        assert_eq!(gallery.len(), 1);
+        assert_eq!(
+            gallery[0].get("filename").and_then(Value::as_str),
+            Some("inline.png")
+        );
+        assert_eq!(
+            gallery[0].get("data").and_then(Value::as_str),
+            Some(inline_data)
+        );
     }
 
     #[test]

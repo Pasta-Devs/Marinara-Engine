@@ -129,6 +129,59 @@ fn native_marinara_character_import_materializes_embedded_avatar() {
 }
 
 #[test]
+fn native_marinara_character_import_materializes_embedded_gallery_assets() {
+    let state = test_state("native-character-gallery");
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_character",
+            "version": 1,
+            "data": {
+                "spec": "chara_card_v2",
+                "data": {
+                    "name": "Native Gallery Character"
+                },
+                "gallery": [
+                    {
+                        "filename": "pose.png",
+                        "data": embedded_avatar(),
+                        "prompt": "pose reference",
+                        "provider": "local",
+                        "model": "test",
+                        "width": 1,
+                        "height": 1
+                    }
+                ]
+            }
+        }),
+    )
+    .expect("native character gallery import should succeed");
+
+    let character_id = test_string(&imported, "characterId");
+    let rows = state
+        .storage
+        .list("character-gallery")
+        .expect("character gallery rows should be readable");
+    let gallery = record_with_field(&rows, "characterId", character_id);
+    let url = test_string(gallery, "url");
+    assert!(
+        url.starts_with("asset://localhost/") || url.starts_with("http://asset.localhost/"),
+        "imported gallery rows should use managed asset URLs"
+    );
+    assert!(
+        !url.starts_with("data:image/"),
+        "imported gallery rows should not keep inline image data"
+    );
+    assert!(
+        Path::new(test_string(gallery, "filePath")).exists(),
+        "imported gallery image should be written as a managed file"
+    );
+    assert_eq!(test_string(gallery, "filename"), "pose.png");
+    assert_eq!(test_string(gallery, "prompt"), "pose reference");
+    assert_eq!(imported["galleryImported"], json!(1));
+}
+
+#[test]
 fn native_marinara_character_import_rolls_back_avatar_when_record_write_fails() {
     let state = test_state("native-character-avatar-rollback");
     block_collection_writes(&state, "characters");
