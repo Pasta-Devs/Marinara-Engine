@@ -277,20 +277,34 @@ export const useGameModeStore = create<GameModeStore>((set) => ({
     }),
   setNpcs: (npcs) =>
     set((s) => {
-      // Preserve existing avatarUrls: the incoming list may come from a stale
+      // Preserve existing avatar metadata: the incoming list may come from a stale
       // chat-metadata cache that predates a recent /generate-assets call. If
-      // we already have an avatarUrl for an NPC and the incoming record is
-      // missing one, keep ours rather than clobbering it to null.
-      const existingByName = new Map<string, string>();
+      // we already have an avatar for an NPC and the incoming record is
+      // missing it, keep ours rather than severing managed gallery linkage.
+      const existingByName = new Map<
+        string,
+        { avatarUrl: string | null; avatarGalleryId: string | null | undefined }
+      >();
       for (const existing of s.npcs) {
-        if (existing.avatarUrl && existing.name) {
-          existingByName.set(existing.name.toLowerCase(), existing.avatarUrl);
+        if (existing.name) {
+          existingByName.set(existing.name.toLowerCase(), {
+            avatarUrl: existing.avatarUrl ?? null,
+            avatarGalleryId: existing.avatarGalleryId,
+          });
         }
       }
       const merged = npcs.map((npc) => {
-        if (npc.avatarUrl) return npc;
         const preserved = existingByName.get((npc.name ?? "").toLowerCase());
-        return preserved ? { ...npc, avatarUrl: preserved } : npc;
+        if (!preserved) return npc;
+        return {
+          ...npc,
+          ...(npc.avatarUrl ? {} : preserved.avatarUrl ? { avatarUrl: preserved.avatarUrl } : {}),
+          ...(npc.avatarGalleryId !== undefined
+            ? {}
+            : preserved.avatarGalleryId !== undefined
+              ? { avatarGalleryId: preserved.avatarGalleryId ?? null }
+              : {}),
+        };
       });
       return { npcs: sanitizeGameNpcAvatarUrls(merged) };
     }),

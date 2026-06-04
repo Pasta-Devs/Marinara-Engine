@@ -1409,6 +1409,16 @@ function isManagedLocalAssetUrl(value: string): boolean {
   return normalized.startsWith("http://asset.localhost/") || normalized.startsWith("asset://localhost/");
 }
 
+function isBrowserFetchableImageReferenceUrl(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("blob:");
+}
+
+function isRemoteImageReferenceUrl(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("http://") || normalized.startsWith("https://");
+}
+
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1418,19 +1428,28 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-async function managedImageReferenceDataUrl(value: string): Promise<string> {
-  if (!isManagedLocalAssetUrl(value)) return "";
+async function blobImageReferenceDataUrl(value: string): Promise<string> {
+  const response = await fetch(value);
+  if (!response.ok) return "";
+  const blob = await response.blob();
+  if (blob.type && !blob.type.toLowerCase().startsWith("image/")) return "";
+  return blobToDataUrl(blob);
+}
+
+async function managedImageReferenceDataUrl(value: string, allowResolvedUrl = false): Promise<string> {
+  if (allowResolvedUrl && isBrowserFetchableImageReferenceUrl(value)) return blobImageReferenceDataUrl(value);
+  if (!isManagedLocalAssetUrl(value) && !(allowResolvedUrl && isRemoteImageReferenceUrl(value))) return "";
   const blob = await urlBinaryApi.load(value, "image/png");
   if (blob.type && !blob.type.toLowerCase().startsWith("image/")) return "";
   return blobToDataUrl(blob);
 }
 
-async function providerReferenceImage(value: unknown): Promise<string> {
+async function providerReferenceImage(value: unknown, allowResolvedUrl = false): Promise<string> {
   const direct = usableReferenceImage(value);
   if (direct) return direct;
   const text = readTrimmed(value);
   if (!text) return "";
-  return managedImageReferenceDataUrl(text).catch(() => "");
+  return managedImageReferenceDataUrl(text, allowResolvedUrl).catch(() => "");
 }
 
 async function galleryReferenceImage(galleryId: unknown): Promise<string> {
@@ -1443,7 +1462,7 @@ async function galleryReferenceImage(galleryId: unknown): Promise<string> {
   const resolved = await resolveGalleryFileUrl(readTrimmed(gallery.filename), readTrimmed(gallery.filePath)).catch(
     () => null,
   );
-  return resolved ? providerReferenceImage(resolved) : "";
+  return resolved ? providerReferenceImage(resolved, true) : "";
 }
 
 async function npcReferenceImage(npc: Record<string, unknown>): Promise<string> {
@@ -2920,10 +2939,8 @@ export const gameApi = {
       for (const avatar of generatedNpcAvatars) {
         const existing = npcs.find((npc) => npc.name.toLowerCase() === avatar.name.toLowerCase());
         if (existing) {
-          (existing as GameNpc & { avatarUrl?: string; avatarGalleryId?: string | null }).avatarUrl =
-            avatar.avatarUrl;
-          (existing as GameNpc & { avatarGalleryId?: string | null }).avatarGalleryId =
-            avatar.avatarGalleryId ?? null;
+          existing.avatarUrl = avatar.avatarUrl;
+          existing.avatarGalleryId = avatar.avatarGalleryId ?? null;
         } else {
           npcs.push({
             id: newId("npc"),

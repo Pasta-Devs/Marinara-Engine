@@ -110,10 +110,12 @@ pub(crate) fn file_path_asset_url(path: &Path) -> String {
 }
 
 pub(crate) fn is_inline_image_data_url(value: &str) -> bool {
+    const DATA_IMAGE_PREFIX: &[u8] = b"data:image/";
     value
         .trim_start()
-        .to_ascii_lowercase()
-        .starts_with("data:image/")
+        .as_bytes()
+        .get(..DATA_IMAGE_PREFIX.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(DATA_IMAGE_PREFIX))
 }
 
 fn percent_encode_asset_path(value: &str) -> String {
