@@ -95,6 +95,8 @@ import {
   createInitialTime,
   formatGameTime,
   advanceTime as advanceGameTime,
+  isTimeOfDayLabel,
+  setTimeOfDay,
   type GameTime,
 } from "../../../../engine/modes/game/world/time.service";
 import {
@@ -2514,7 +2516,10 @@ export const gameApi = {
     action: string;
   }): Promise<{ time: GameTime; formatted: string; sessionChat: Chat }> {
     const meta = chatMeta(await getChat(data.chatId));
-    const time = advanceGameTime(gameTimeFromMeta(meta), data.action);
+    const currentTime = gameTimeFromMeta(meta);
+    const time = isTimeOfDayLabel(data.action)
+      ? setTimeOfDay(currentTime, data.action)
+      : advanceGameTime(currentTime, data.action);
     const formatted = formatGameTime(time);
     const sessionChat = await patchChatMetadata(data.chatId, { gameTime: time, gameTimeFormatted: formatted });
     return { time, formatted, sessionChat };
