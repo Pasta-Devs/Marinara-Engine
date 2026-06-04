@@ -2368,6 +2368,8 @@ async function runGenerationAgentsForTarget(args: {
       hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
       signal,
       regenerateMessageId: readString(input.regenerateMessageId).trim() || null,
+      spotifyDjManualRetry: agentTypes.has("spotify"),
+      spotifyDjForceFreshPick: agentTypes.has("spotify"),
     },
     (result) => results.push(result),
   );

@@ -94,6 +94,8 @@ export interface GenerationAgentRuntimeInput {
   hideAutomatedSummarySourceMessages?: boolean;
   regenerateMessageId?: string | null;
   agentInjectionOverrides?: AgentInjection[];
+  spotifyDjManualRetry?: boolean;
+  spotifyDjForceFreshPick?: boolean;
 }
 
 export interface GenerationAgentRuntime {
@@ -328,6 +330,13 @@ function enabledToolNames(settings: Record<string, unknown>): string[] {
   return value.map((item) => readString(item).trim()).filter(Boolean);
 }
 
+function enabledAgentToolNames(agentType: string, settings: Record<string, unknown>): string[] {
+  const configured = enabledToolNames(settings);
+  if (configured.length > 0) return configured;
+  if (agentType === "spotify") return DEFAULT_AGENT_TOOLS.spotify ?? [];
+  return configured;
+}
+
 function stringSet(value: unknown): Set<string> {
   if (!Array.isArray(value)) return new Set();
   return new Set(value.map((item) => readString(item).trim()).filter(Boolean));
@@ -335,6 +344,14 @@ function stringSet(value: unknown): Set<string> {
 
 function chatMetadata(input: GenerationAgentRuntimeInput): JsonRecord {
   return parseRecord(input.chat.metadata);
+}
+
+function chatToolsEnabled(input: GenerationAgentRuntimeInput): boolean {
+  return boolish(chatMetadata(input).enableTools, false);
+}
+
+function chatActiveToolIds(input: GenerationAgentRuntimeInput): Set<string> {
+  return stringSet(chatMetadata(input).activeToolIds);
 }
 
 function chatHasActiveAgents(input: GenerationAgentRuntimeInput): boolean {
@@ -595,14 +612,6 @@ async function runKnowledgePreGenerationAgents(
   return { injections, results };
 }
 
-function chatToolsEnabled(input: GenerationAgentRuntimeInput): boolean {
-  return boolish(chatMetadata(input).enableTools, false);
-}
-
-function chatActiveToolIds(input: GenerationAgentRuntimeInput): Set<string> {
-  return stringSet(chatMetadata(input).activeToolIds);
-}
-
 function promptVisibleStoredMessages(
   input: GenerationAgentRuntimeInput,
   chatMode = readString(input.chat.mode || input.chat.chatMode, "roleplay"),
@@ -809,8 +818,9 @@ function buildAgentToolContext(
   customTools: Map<string, CustomToolRecord>,
 ): AgentToolContext | undefined {
   if (!chatToolsEnabled(input)) return undefined;
+  const agentType = readString(agent.type || agent.agentType).trim();
   const scopedToolIds = chatActiveToolIds(input);
-  const selectedNames = enabledToolNames(settings).filter(
+  const selectedNames = enabledAgentToolNames(agentType, settings).filter(
     (name) => scopedToolIds.size === 0 || scopedToolIds.has(name),
   );
   const selectedBuiltIns = selectedNames.map(builtInToolDefinition).filter((tool): tool is LLMToolDefinition => !!tool);
@@ -818,11 +828,18 @@ function buildAgentToolContext(
     .map((name) => customTools.get(name))
     .filter((tool): tool is CustomToolRecord => !!tool && !BUILT_IN_TOOL_MAP.has(tool.name));
   if (selectedBuiltIns.length === 0 && selectedCustomTools.length === 0) return undefined;
+  const allowedToolNames = new Set([
+    ...selectedBuiltIns.map((tool) => tool.name),
+    ...selectedCustomTools.map((tool) => tool.name),
+  ]);
 
   return {
     tools: [...selectedBuiltIns, ...selectedCustomTools.map(customToolDefinition)],
     executeToolCall: async (call: LLMToolCall) => {
       const toolName = call.function?.name || call.name;
+      if (!allowedToolNames.has(toolName)) {
+        return stringifyToolResult({ error: `Tool not enabled for this agent: ${toolName}` });
+      }
       if (BUILT_IN_TOOL_MAP.has(toolName)) {
         return stringifyToolResult(await executeBuiltInTool(deps, input, agent, call));
       }
@@ -1008,7 +1025,11 @@ function cleanOptionalString(value: unknown): string | null {
   return text || null;
 }
 
-function buildSpotifyDjConstraints(chatMode: string, chatMeta: JsonRecord): Record<string, unknown> {
+function buildSpotifyDjConstraints(
+  chatMode: string,
+  chatMeta: JsonRecord,
+  options: { manualRetry?: boolean; forceFreshPick?: boolean } = {},
+): Record<string, unknown> {
   const isGame = chatMode === "game";
   const sourceType = normalizeSpotifyDjSourceType(isGame ? chatMeta.gameSpotifySourceType : chatMeta.spotifySourceType);
   const playlistId = cleanOptionalString(isGame ? chatMeta.gameSpotifyPlaylistId : chatMeta.spotifyPlaylistId);
@@ -1022,6 +1043,9 @@ function buildSpotifyDjConstraints(chatMode: string, chatMeta: JsonRecord): Reco
     playlistName: sourceType === "playlist" ? playlistName : null,
     artist: sourceType === "artist" ? artist : null,
   };
+
+  if (options.manualRetry) constraints.manualRetry = true;
+  if (options.forceFreshPick) constraints.forceFreshPick = true;
 
   if (sourceType === "liked") {
     constraints.note =
@@ -1037,6 +1061,12 @@ function buildSpotifyDjConstraints(chatMode: string, chatMeta: JsonRecord): Reco
   } else {
     constraints.note =
       "Spotify catalogue search is allowed. Still inspect current playback first and prefer the user's library when it fits.";
+  }
+
+  if (options.manualRetry || options.forceFreshPick) {
+    constraints.retryNote = isGame
+      ? "This is a manual Spotify DJ retry from game mode. Pick a fresh fitting track now and call spotify_play unless Spotify playback is unavailable; do not keep the current track merely because it still fits."
+      : "This is a manual Spotify DJ retry from roleplay. Pick a fresh fitting queue now and call spotify_play unless Spotify playback is unavailable.";
   }
 
   return constraints;
@@ -1297,7 +1327,10 @@ async function buildAgentContext(
   const memory = Object.assign({}, ...memoryRows);
   const secretPlotState = secretPlotStateFromMemory(memory);
   if (secretPlotState) memory._secretPlotState = secretPlotState;
-  memory._spotifyDjConstraints = buildSpotifyDjConstraints(chatMode, chatMeta);
+  memory._spotifyDjConstraints = buildSpotifyDjConstraints(chatMode, chatMeta, {
+    manualRetry: input.spotifyDjManualRetry === true,
+    forceFreshPick: input.spotifyDjForceFreshPick === true,
+  });
   if (lorebookKeeperActiveForContext(input)) {
     const existingLorebookEntries = await loadLorebookKeeperEntries(deps.storage, input);
     if (existingLorebookEntries) memory._existingLorebookEntries = existingLorebookEntries;

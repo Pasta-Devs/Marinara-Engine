@@ -445,6 +445,8 @@ export async function executeBuiltInTool(
       if (uris.length > 0) body.uris = uris;
       else if (uri.startsWith("spotify:track:")) body.uri = uri;
       else body.contextUri = uri;
+      const chatMode = readString(input.chat.mode || input.chat.chatMode).trim();
+      if (chatMode === "game") body.repeatAfterPlay = "track";
       return integrations.spotify.play(body);
     }
     case "spotify_set_volume":
