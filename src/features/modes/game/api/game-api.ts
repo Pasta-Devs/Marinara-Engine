@@ -20,7 +20,7 @@ import type {
   SkillCheckResult,
 } from "../../../../engine/contracts/types/game";
 import type { RPGAttributes } from "../../../../engine/contracts/types/game-state";
-import { ApiError, type JsonRepairRequest } from "../../../../shared/api/api-errors";
+import { ApiError, isJsonRepairApiError, type JsonRepairRequest } from "../../../../shared/api/api-errors";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
 import { imageGenerationApi, spriteApi } from "../../../../shared/api/image-generation-api";
 import { integrationGateway } from "../../../../shared/api/integration-gateway";
@@ -1890,12 +1890,6 @@ async function writeGameLorebookKeeperEntries(data: {
   entries: unknown[];
 }): Promise<{ lorebookId: string; entryCount: number; sessionChat: Chat }> {
   const lorebook = await resolveGameLorebookKeeperLorebook(data.chat, data.meta);
-  const existingEntries = await storageApi.list<LorebookEntry>("lorebook-entries", {
-    filters: { lorebookId: lorebook.id },
-  });
-  const staleEntries = existingEntries.filter((entry) => keeperEntrySessionNumber(entry) === data.sessionNumber);
-  await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
-
   const normalizedEntries = data.entries.length
     ? data.entries.map((entry, index) => normalizeGameLorebookKeeperEntry(entry, data.sessionNumber, index))
     : [
@@ -1909,9 +1903,28 @@ async function writeGameLorebookKeeperEntries(data: {
           0,
         ),
       ];
-  for (const entry of normalizedEntries) {
-    await storageApi.create("lorebook-entries", createLorebookEntrySchema.parse({ ...entry, lorebookId: lorebook.id }));
+  const entriesToCreate = normalizedEntries.map((entry) =>
+    createLorebookEntrySchema.parse({ ...entry, lorebookId: lorebook.id }),
+  );
+
+  const createdEntries: LorebookEntry[] = [];
+  try {
+    for (const entry of entriesToCreate) {
+      createdEntries.push(await storageApi.create<LorebookEntry>("lorebook-entries", entry));
+    }
+  } catch (error) {
+    await Promise.all(createdEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id).catch(() => null)));
+    throw error;
   }
+
+  const existingEntries = await storageApi.list<LorebookEntry>("lorebook-entries", {
+    filters: { lorebookId: lorebook.id },
+  });
+  const createdEntryIds = new Set(createdEntries.map((entry) => entry.id));
+  const staleEntries = existingEntries.filter(
+    (entry) => !createdEntryIds.has(entry.id) && keeperEntrySessionNumber(entry) === data.sessionNumber,
+  );
+  await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
 
   const sessionChat = await patchChatMetadata(data.chat.id, {
     gameLorebookKeeperLorebookId: lorebook.id,
@@ -1928,10 +1941,10 @@ async function writeGameLorebookKeeperEntries(data: {
       status: "success",
       updatedAt: nowIso(),
       lorebookId: lorebook.id,
-      entryCount: normalizedEntries.length,
+      entryCount: entriesToCreate.length,
     },
   });
-  return { lorebookId: lorebook.id, entryCount: normalizedEntries.length, sessionChat };
+  return { lorebookId: lorebook.id, entryCount: entriesToCreate.length, sessionChat };
 }
 
 async function runGameLorebookKeeperAfterConclusion(data: {
@@ -1941,6 +1954,7 @@ async function runGameLorebookKeeperAfterConclusion(data: {
   summary: SessionSummary;
   connectionId?: string;
   generated?: Record<string, unknown>;
+  propagateRepairErrors?: boolean;
 }): Promise<{ lorebookId: string | null; entryCount?: number; sessionChat: Chat }> {
   const startedAt = nowIso();
   await patchChatMetadata(data.chat.id, {
@@ -2006,6 +2020,9 @@ async function runGameLorebookKeeperAfterConclusion(data: {
         error: error instanceof Error ? error.message : "Game Lorebook Keeper failed.",
       },
     });
+    if (data.propagateRepairErrors && isJsonRepairApiError(error)) {
+      throw error;
+    }
     return { lorebookId, sessionChat };
   }
 }
@@ -2372,6 +2389,7 @@ export const gameApi = {
       summary,
       connectionId: data.connectionId,
       generated: data.generated,
+      propagateRepairErrors: true,
     });
     if (keeperRun.entryCount === undefined || !keeperRun.lorebookId) {
       throw new Error("Game Lorebook Keeper failed to regenerate this session.");
