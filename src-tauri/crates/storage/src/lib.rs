@@ -297,6 +297,25 @@ impl FileStorage {
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.ensure_writes_available()?;
+        self.create_locked(collection, value, false)
+    }
+
+    pub fn create_immediate(&self, collection: &str, value: Value) -> AppResult<Value> {
+        self.ensure_writes_available()?;
+        let _guard = self
+            .lock
+            .write()
+            .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
+        self.ensure_writes_available()?;
+        self.create_locked(collection, value, true)
+    }
+
+    fn create_locked(
+        &self,
+        collection: &str,
+        value: Value,
+        write_immediately: bool,
+    ) -> AppResult<Value> {
         let mut object = ensure_object(value)?;
         let had_id = object
             .get("id")
@@ -322,7 +341,8 @@ impl FileStorage {
             .entry("updatedAt".to_string())
             .or_insert_with(|| Value::String(now));
         let record = Value::Object(object);
-        if matches!(collection, "messages" | "chats")
+        if !write_immediately
+            && matches!(collection, "messages" | "chats")
             && !had_id
             && !self.is_collection_cached(collection)?
         {
@@ -332,7 +352,11 @@ impl FileStorage {
         let mut rows = self.read_collection(collection)?;
         rows.retain(|row| row.get("id").and_then(Value::as_str) != Some(id.as_str()));
         rows.push(record.clone());
-        self.write_collection(collection, &rows)?;
+        if write_immediately {
+            self.write_collection_immediate(collection, &rows)?;
+        } else {
+            self.write_collection(collection, &rows)?;
+        }
         Ok(record)
     }
 

@@ -2605,7 +2605,7 @@ pub(crate) fn upload_gallery_image(
     record.insert("width".to_string(), Value::Null);
     record.insert("height".to_string(), Value::Null);
     let record = Value::Object(record);
-    match state.storage.create(collection, record.clone()) {
+    match state.storage.create_immediate(collection, record.clone()) {
         Ok(created) => Ok(created),
         Err(error) => {
             media_uploads::remove_managed_record_file(
