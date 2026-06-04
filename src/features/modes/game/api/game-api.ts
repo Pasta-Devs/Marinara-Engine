@@ -921,13 +921,18 @@ function journalFromMeta(meta: Record<string, unknown>): Journal {
   };
 }
 
-function journalFromChat(chat: Chat, meta: Record<string, unknown> = chatMeta(chat)): Journal {
+function journalFromChat(
+  chat: Chat,
+  meta: Record<string, unknown> = chatMeta(chat),
+  options: { includeCurrentLocation?: boolean } = {},
+): Journal {
   const gameState = asRecord((chat as { gameState?: unknown }).gameState);
   const playerStats = gameState.playerStats == null ? null : clonePlayerStats(gameState.playerStats);
   return syncJournalFromGameState(journalFromMeta(meta), {
     gameNpcs: Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [],
     playerStats,
-    currentLocation: typeof gameState.location === "string" ? gameState.location : null,
+    currentLocation:
+      options.includeCurrentLocation === true && typeof gameState.location === "string" ? gameState.location : null,
   });
 }
 
@@ -970,7 +975,7 @@ function gameSetupMetadataPatch(config: GameSetupConfig): Record<string, unknown
 }
 
 function sessionSummary(sessionNumber: number, chat: Chat, meta: Record<string, unknown>): SessionSummary {
-  const journal = journalFromChat(chat, meta);
+  const journal = journalFromChat(chat, meta, { includeCurrentLocation: true });
   const npcs = Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [];
   const map = (meta.gameMap as GameMap | null) ?? null;
   return {
@@ -2173,7 +2178,7 @@ export const gameApi = {
     const nextSummaries = summaries.filter((item) => item.sessionNumber !== sessionNumber).concat(summary);
     const sessionChat = await patchChatMetadata(data.chatId, {
       gameSessionStatus: "concluded",
-      gameJournal: journalFromChat(chat, meta),
+      gameJournal: journalFromChat(chat, meta, { includeCurrentLocation: false }),
       gamePreviousSessionSummaries: nextSummaries,
       gameCampaignProgression: campaignProgression,
       gameCharacterCards: characterCards,
@@ -2633,7 +2638,7 @@ export const gameApi = {
   }): Promise<{ journal: Journal; sessionChat: Chat }> {
     const chat = await getChat(data.chatId);
     const meta = chatMeta(chat);
-    const journal = applyJournalEntry(journalFromChat(chat, meta), data.type, data.data);
+    const journal = applyJournalEntry(journalFromChat(chat, meta, { includeCurrentLocation: false }), data.type, data.data);
     const sessionChat = await patchChatMetadata(data.chatId, { gameJournal: journal });
     return { journal, sessionChat };
   },
@@ -2641,7 +2646,7 @@ export const gameApi = {
   async getJournal(chatId: string): Promise<GameJournalResponse> {
     const chat = await getChat(chatId);
     const meta = chatMeta(chat);
-    const journal = journalFromChat(chat, meta);
+    const journal = journalFromChat(chat, meta, { includeCurrentLocation: true });
     const sessionNumber = Number(meta.gameSessionNumber ?? 1);
     return {
       journal,

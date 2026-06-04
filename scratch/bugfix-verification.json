@@ -20,12 +20,12 @@
   "verification": {
     "originalReproPassed": true,
     "originalReproCommand": "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose",
-    "originalReproEvidence": "6 tests passed after fix, including quest completion timestamp edges and combat outcome precedence rows added from reviewer feedback.",
+    "originalReproEvidence": "7 tests passed after fix, including quest completion timestamp edges, combat outcome precedence, and location hydration boundary rows added from reviewer feedback.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
     "baselineEvidence": "Full PR gate passed after merging current upstream/refactor: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, and unused exports.",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 6 tests using a local ignored proof harness.",
+      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 7 tests using a local ignored proof harness.",
       "pnpm typecheck passed.",
       "pnpm check:architecture passed.",
       "pnpm check:unused passed after internalizing journal row-builder helpers.",
@@ -42,7 +42,8 @@
       "Deterministic structured recaps include Active quests and Key NPC interactions after hydration.",
       "Quest completedAt is cleared when a later quest update changes status back to active.",
       "Quest completedAt is preserved when a completed quest receives another completed update without a valid explicit replacement timestamp, including a blank completedAt payload.",
-      "Combat journal commands prefer defeat or fled result values over conflicting victory outcome values."
+      "Combat journal commands prefer defeat or fled result values over conflicting victory outcome values.",
+      "Current-location hydration is opt-in for read/summary paths so addJournalEntry and concludeSession do not persist synthetic location entries."
     ],
     "visualProof": "scratch/issue-2140-vitest-after.txt"
   },
@@ -87,6 +88,7 @@
       "completed quest updated back to active clears completedAt",
       "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
       "combat result fled overrides conflicting victory outcome",
+      "location hydration is omitted unless currentLocation is explicitly requested",
       "location command using location payload",
       "item command using item payload"
     ],
@@ -130,6 +132,7 @@
       "Local ignored proof harness clears stale completedAt when a completed quest becomes active again.",
       "Local ignored proof harness preserves completedAt when a completed quest receives another completed update without a valid explicit replacement, including blank completedAt.",
       "Local ignored proof harness keeps combat result precedence for fled or defeat over conflicting outcome values.",
+      "Local ignored proof harness proves syncJournalFromGameState omits synthetic location rows unless currentLocation is explicitly passed.",
       "Local ignored proof harness keeps existing location and item command payload fields working."
     ]
   },
@@ -142,6 +145,7 @@
       "completed quest updated back to active clears completedAt",
       "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
       "combat result fled overrides conflicting victory outcome",
+      "location hydration is omitted unless currentLocation is explicitly requested",
       "location command using location payload",
       "item command using item payload"
     ],
