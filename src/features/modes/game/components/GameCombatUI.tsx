@@ -802,7 +802,8 @@ export function GameCombatUI({
         continue;
       }
 
-      byCombatantId.set(match.combatant.id, [line]);
+      const existing = byCombatantId.get(match.combatant.id) ?? [];
+      byCombatantId.set(match.combatant.id, [...existing, line].slice(-2));
     }
 
     return { byCombatantId, unanchored: unanchored.slice(-3) };
@@ -2899,7 +2900,7 @@ function CombatantCard({
             "w-[var(--combat-dialogue-width)]",
           )}
         >
-          {dialogueLines.slice(-1).map((line, index) => (
+          {dialogueLines.map((line, index) => (
             <button
               key={`${buildCombatDialogueLineKey(line)}-${index}`}
               type="button"
