@@ -612,16 +612,47 @@ export function ConversationInput({
         filename: a.name,
         name: a.name,
       }));
-      let managedAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> = [];
+      let createdMessageId: string | null = null;
+      let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
       try {
-        managedAttachments = currentAttachments.length
-          ? await prepareManagedImageAttachments(activeChatId, currentAttachments)
-          : [];
+        const created = await createMessage.mutateAsync({
+          role: "user",
+          content: message,
+          characterId: null,
+        });
+        createdMessageId = created.id;
+        preparedManagedAttachments = currentAttachments.length
+          ? await prepareManagedImageAttachmentBatch(activeChatId, currentAttachments)
+          : null;
+        const managedAttachments = preparedManagedAttachments?.attachments ?? [];
+        if (managedAttachments.length) {
+          await updateMessageExtra.mutateAsync({
+            messageId: created.id,
+            extra: { attachments: managedAttachments },
+          });
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
+        }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to prepare image attachments.");
+        let rollbackFailed = false;
+        if (preparedManagedAttachments?.createdGalleryIds.length) {
+          try {
+            await deletePreparedManagedImageAttachments(preparedManagedAttachments);
+          } catch {
+            rollbackFailed = true;
+          }
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, preparedManagedAttachments.attachments);
+        }
+        if (createdMessageId) {
+          try {
+            await deleteMessage.mutateAsync(createdMessageId);
+          } catch {
+            rollbackFailed = true;
+          }
+        }
+        const msg = error instanceof Error ? error.message : "Failed to send message";
+        toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
         return;
       }
-      invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
       if (textareaRef.current) {
         textareaRef.current.value = "";
         textareaRef.current.style.height = "auto";
@@ -629,17 +660,6 @@ export function ConversationInput({
       clearInputDraft(activeChatId);
       syncInputState("");
       replaceAttachments([]);
-      const created = await createMessage.mutateAsync({
-        role: "user",
-        content: message,
-        characterId: null,
-      });
-      if (managedAttachments.length) {
-        await updateMessageExtra.mutateAsync({
-          messageId: created.id,
-          extra: { attachments: managedAttachments },
-        });
-      }
       return;
     }
 
@@ -790,6 +810,7 @@ export function ConversationInput({
     extractMentions,
     clearInputDraft,
     createMessage,
+    deleteMessage,
     updateMessageExtra,
     characterNames,
     latestAssistantMessage,
