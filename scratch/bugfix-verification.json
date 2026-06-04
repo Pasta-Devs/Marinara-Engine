@@ -6,8 +6,10 @@
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2185"
   },
   "pr": {
-    "number": null,
-    "url": null
+    "number": "2250",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2250",
+    "base": "refactor",
+    "draft": true
   },
   "coreClaim": "Recursive lorebook scanning activates entries across the full active lorebook set from budget-selected frontier content while respecting depth and preventRecursion.",
   "reproduction": {
