@@ -288,6 +288,14 @@ async fn fetch_google_font_faces(family: &str) -> AppResult<Vec<FontFace>> {
         .map_err(|error| AppError::new("font_client_error", error.to_string()))?;
     let css2 = fetch_google_css(&client, &css2_url).await?;
     let legacy = fetch_google_css(&client, &legacy_url).await?;
+    google_font_faces_from_css_results(family, css2, legacy)
+}
+
+fn google_font_faces_from_css_results(
+    family: &str,
+    css2: GoogleCssResult,
+    legacy: GoogleCssResult,
+) -> AppResult<Vec<FontFace>> {
     let css2_faces = css2
         .css
         .as_deref()
@@ -307,6 +315,19 @@ async fn fetch_google_font_faces(family: &str) -> AppResult<Vec<FontFace>> {
     };
     if !faces.is_empty() {
         return Ok(faces);
+    }
+    if let Some(error) = [
+        css2.request_error.as_deref(),
+        legacy.request_error.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
+    {
+        return Err(AppError::new(
+            "font_lookup_failed",
+            format!("Could not reach Google Fonts. Check your internet connection. {error}"),
+        ));
     }
     if !css2.reached_google && !legacy.reached_google {
         return Err(AppError::new(
@@ -333,6 +354,7 @@ struct GoogleCssResult {
     css: Option<String>,
     reached_google: bool,
     non_success_status: Option<reqwest::StatusCode>,
+    request_error: Option<String>,
 }
 
 async fn fetch_google_css(client: &reqwest::Client, url: &str) -> AppResult<GoogleCssResult> {
@@ -341,29 +363,41 @@ async fn fetch_google_css(client: &reqwest::Client, url: &str) -> AppResult<Goog
         .header(reqwest::header::USER_AGENT, GOOGLE_FONTS_USER_AGENT)
         .send()
         .await;
-    let Ok(response) = response else {
-        return Ok(GoogleCssResult {
-            css: None,
-            reached_google: false,
-            non_success_status: None,
-        });
+    let response = match response {
+        Ok(response) => response,
+        Err(error) => {
+            return Ok(GoogleCssResult {
+                css: None,
+                reached_google: false,
+                non_success_status: None,
+                request_error: Some(error.to_string()),
+            });
+        }
     };
     if !response.status().is_success() {
         return Ok(GoogleCssResult {
             css: None,
             reached_google: true,
             non_success_status: Some(response.status()),
+            request_error: None,
         });
     }
+    let text = match response.text().await {
+        Ok(text) => text,
+        Err(error) => {
+            return Ok(GoogleCssResult {
+                css: None,
+                reached_google: true,
+                non_success_status: None,
+                request_error: Some(error.to_string()),
+            });
+        }
+    };
     Ok(GoogleCssResult {
-        css: Some(
-            response
-                .text()
-                .await
-                .map_err(|error| AppError::new("font_lookup_failed", error.to_string()))?,
-        ),
+        css: Some(text),
         reached_google: true,
         non_success_status: None,
+        request_error: None,
     })
 }
 
@@ -715,6 +749,64 @@ mod tests {
             face: regular_face(),
             bytes: bytes.to_vec(),
         }
+    }
+
+    fn google_css_result(
+        css: Option<&str>,
+        reached_google: bool,
+        non_success_status: Option<reqwest::StatusCode>,
+        request_error: Option<&str>,
+    ) -> GoogleCssResult {
+        GoogleCssResult {
+            css: css.map(ToOwned::to_owned),
+            reached_google,
+            non_success_status,
+            request_error: request_error.map(ToOwned::to_owned),
+        }
+    }
+
+    #[test]
+    fn google_font_lookup_keeps_partial_request_error_when_other_endpoint_is_empty() {
+        let result = google_font_faces_from_css_results(
+            "Missing Font",
+            google_css_result(Some("/* no faces */"), true, None, None),
+            google_css_result(None, false, None, Some("connection reset")),
+        );
+        let error = match result {
+            Ok(_) => panic!("partial request failure must not become not found"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.code, "font_lookup_failed");
+        assert!(
+            error.message.contains("connection reset"),
+            "transport detail should stay visible"
+        );
+    }
+
+    #[test]
+    fn google_font_lookup_accepts_successful_endpoint_despite_other_request_error() {
+        let css = r#"
+            @font-face {
+                font-family: 'Example';
+                font-style: normal;
+                font-weight: 400;
+                src: url(https://fonts.gstatic.com/s/example/v1/example.woff2) format('woff2');
+            }
+        "#;
+
+        let faces = google_font_faces_from_css_results(
+            "Example",
+            google_css_result(Some(css), true, None, None),
+            google_css_result(None, false, None, Some("connection reset")),
+        )
+        .expect("successful endpoint should produce faces");
+
+        assert_eq!(faces.len(), 1);
+        assert_eq!(
+            faces[0].url,
+            "https://fonts.gstatic.com/s/example/v1/example.woff2"
+        );
     }
 
     #[test]
