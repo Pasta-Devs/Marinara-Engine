@@ -196,6 +196,9 @@ export interface EncounterInitRequest {
   settings: EncounterSettings;
   /** Optional spellbook lorebook ID to inject spell/attack data into combat */
   spellbookId?: string | null;
+  /** When enabled, emit the generated combat request/response diagnostics. */
+  debugMode?: boolean;
+  debugSink?: import("./agent.js").AgentContext["debugSink"];
 }
 
 /** Response from encounter initialization. */

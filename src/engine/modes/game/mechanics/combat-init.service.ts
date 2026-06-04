@@ -64,12 +64,27 @@ export async function initGameCombatEncounter(
   const context = await buildGameCombatInitContext(capabilities.storage, input);
   const history = await recentHistory(capabilities.storage, input.chatId, input.settings.historyDepth);
   const messages = buildInitPrompt(context, history);
-  const parsed = await completeJsonObject(capabilities, context.chat, input.connectionId ?? null, messages, {
+  const debug = createCombatInitDebug(input);
+  debug("[debug/game/combat:init] request", {
+    chatId: input.chatId,
+    connectionId: input.connectionId ?? null,
+    historyMessages: history.length,
+    settings: input.settings,
+    messages,
+  });
+  const result = await completeJsonObject(capabilities, context.chat, input.connectionId ?? null, messages, {
     temperature: 0.8,
     maxTokens: COMBAT_BLUEPRINT_OUTPUT_TOKENS,
   });
+  debug("[debug/game/combat:init] raw response", {
+    chatId: input.chatId,
+    chars: result.raw.length,
+    raw: result.raw,
+  });
+  const parsed = result.parsed;
   const rawCombatState = recordValue(parsed?.combatState) ?? parsed;
   const combatState = sanitizeCombatInitState(rawCombatState, context.fallbackState);
+  debug("[debug/game/combat:init] parsed response", { chatId: input.chatId, combatState });
 
   return { combatState };
 }
@@ -342,15 +357,27 @@ async function completeJsonObject(
   overrideConnectionId: string | null,
   messages: LlmMessage[],
   parameters: Record<string, unknown>,
-): Promise<JsonRecord | null> {
+): Promise<{ parsed: JsonRecord | null; raw: string }> {
   const connectionId = await resolveConnectionId(capabilities.storage, chat, overrideConnectionId);
   const raw = await capabilities.llm.complete({ connectionId, messages, parameters });
   try {
     const parsed = parseGameJsonish(raw);
-    return isRecord(parsed) ? parsed : null;
+    return { parsed: isRecord(parsed) ? parsed : null, raw };
   } catch {
-    return null;
+    return { parsed: null, raw };
   }
+}
+
+function createCombatInitDebug(input: Pick<EncounterInitRequest, "debugMode" | "debugSink">) {
+  return (message: string, payload: unknown) => {
+    if (input.debugMode !== true) return;
+    input.debugSink?.({
+      level: "debug",
+      phase: "game-combat-init",
+      message,
+      args: [payload],
+    });
+  };
 }
 
 async function resolveConnectionId(

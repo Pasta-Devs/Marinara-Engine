@@ -32,6 +32,7 @@ import { gameApi } from "../api/game-api";
 import { gameTrackerApi } from "../api/game-tracker-api";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
+import { useAgentStore } from "../../../../shared/stores/agent.store";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useGameStatePatcher } from "../../../runtime/world-state/index";
 import type { GameStatePatchField, GameStatePatchValue } from "../../../runtime/world-state/types";
@@ -6197,6 +6198,8 @@ export function GameSurface({
         connectionId: null,
         settings: GAME_COMBAT_GENERATION_SETTINGS,
         spellbookId: null,
+        debugMode: useUIStore.getState().debugMode,
+        debugSink: useAgentStore.getState().addDebugEntry,
       })
       .then(async (response) => {
         const combatants = hydrateGeneratedCombatState(response.combatState);
