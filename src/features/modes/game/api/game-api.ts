@@ -2533,20 +2533,22 @@ export const gameApi = {
     type?: string;
   }): Promise<{ changed: boolean; weather: WeatherState; sessionChat: Chat }> {
     const chat = await getChat(data.chatId);
-    let forced: WeatherState;
+    const biome = inferBiome(data.location ?? "");
+    const season = weatherSeason(data.season);
+    if (data.season && season === "summer" && data.season !== "summer") {
+      console.warn("[game] Invalid weather season; defaulting to summer", {
+        season: data.season,
+        biome,
+        location: data.location ?? "",
+      });
+    }
+    let forced = generateWeather(biome, season);
     if (data.type) {
-      forced = { type: data.type, temperature: 20, description: "", wind: "calm", visibility: "clear" } as WeatherState;
-    } else {
-      const biome = inferBiome(data.location ?? "");
-      const season = weatherSeason(data.season);
-      if (data.season && season === "summer" && data.season !== "summer") {
-        console.warn("[game] Invalid weather season; defaulting to summer", {
-          season: data.season,
-          biome,
-          location: data.location ?? "",
-        });
-      }
-      forced = generateWeather(biome, season);
+      forced = {
+        ...forced,
+        type: data.type as WeatherState["type"],
+        description: `The weather is ${data.type}.`,
+      };
     }
     const changed =
       Boolean(data.type) ||
