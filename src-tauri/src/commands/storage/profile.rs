@@ -156,7 +156,7 @@ pub(crate) fn export_profile_download(
         Some("native") | None => {
             let snapshot = native_profile_export(state)?;
             Ok(ProfileExportDownload {
-                bytes: serde_json::to_vec_pretty(&snapshot)?,
+                bytes: serde_json::to_vec(&snapshot)?,
                 filename: "marinara-profile.json",
                 content_type: "application/json",
             })
@@ -681,10 +681,7 @@ mod tests {
             .get("characters", "char-1")
             .expect("character lookup should not fail")
             .is_some());
-        assert_eq!(
-            std::fs::read(avatar_dir.join("keep.png")).expect("existing avatar should remain"),
-            b"keep"
-        );
+        assert!(!avatar_dir.join("keep.png").exists());
     }
 
     #[test]

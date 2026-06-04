@@ -34,6 +34,7 @@ const CSRF_HEADER_VALUE: &str = "1";
 const ADMIN_SECRET_HEADER_NAME: &str = "x-admin-secret";
 const MAX_API_BODY_BYTES: usize = 256 * 1024 * 1024;
 const MAX_PROFILE_UPLOAD_BYTES: usize = 1024 * 1024 * 1024;
+const MAX_PROFILE_UPLOAD_BODY_BYTES: usize = MAX_PROFILE_UPLOAD_BYTES + 1024 * 1024;
 const DEFAULT_API_RATE_LIMIT: u32 = 600;
 const INVOKE_PRE_EXTRACTION_API_RATE_LIMIT: u32 = DEFAULT_API_RATE_LIMIT * 10;
 const DEFAULT_API_RATE_WINDOW: Duration = Duration::from_secs(60);
@@ -124,7 +125,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/profile/export", get(profile_export_download))
         .route(
             "/api/profile/import",
-            post(profile_import_upload).layer(DefaultBodyLimit::max(MAX_PROFILE_UPLOAD_BYTES)),
+            post(profile_import_upload).layer(DefaultBodyLimit::max(MAX_PROFILE_UPLOAD_BODY_BYTES)),
         )
         .route("/api/import/st-bulk/run", post(import_st_bulk_run_stream))
         .route("/api/sidecar/v1/embeddings", post(sidecar_embeddings))
@@ -660,8 +661,7 @@ async fn write_profile_upload_field(state: &AppState, mut field: Field<'_>) -> A
     let extension = profile_upload_extension(filename.as_deref(), content_type.as_deref())?;
     let upload_dir = state.data_dir.join(".profile-upload-imports");
     tokio::fs::create_dir_all(&upload_dir).await?;
-    let path = upload_dir.join(profile_upload_temp_filename(&extension));
-    let mut output = tokio::fs::File::create(&path).await?;
+    let (path, mut output) = open_unique_profile_upload_file(&upload_dir, &extension).await?;
     let mut written = 0usize;
 
     let write_result: AppResult<()> = async {
@@ -691,6 +691,29 @@ async fn write_profile_upload_field(state: &AppState, mut field: Field<'_>) -> A
     Ok(path)
 }
 
+async fn open_unique_profile_upload_file(
+    upload_dir: &FsPath,
+    extension: &str,
+) -> AppResult<(PathBuf, tokio::fs::File)> {
+    for attempt in 0..100 {
+        let path = upload_dir.join(profile_upload_temp_filename(extension, attempt));
+        match tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .await
+        {
+            Ok(file) => return Ok((path, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Err(AppError::new(
+        "profile_upload_temp_error",
+        "Could not create a unique profile upload file",
+    ))
+}
+
 fn profile_upload_extension(
     filename: Option<&str>,
     content_type: Option<&str>,
@@ -715,12 +738,15 @@ fn profile_upload_extension(
     }
 }
 
-fn profile_upload_temp_filename(extension: &str) -> String {
+fn profile_upload_temp_filename(extension: &str, attempt: usize) -> String {
     let suffix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or_default();
-    format!("profile-import-{}-{suffix}.{extension}", std::process::id())
+    format!(
+        "profile-import-{}-{suffix}-{attempt}.{extension}",
+        std::process::id()
+    )
 }
 
 fn profile_upload_too_large_error() -> AppError {
@@ -1429,7 +1455,7 @@ fn reject_oversized_api_body(request: &Request<Body>) -> Option<Response> {
 
 fn max_api_body_bytes_for_path(path: &str) -> usize {
     if api_route_matches(path, "/api/profile/import") {
-        MAX_PROFILE_UPLOAD_BYTES
+        MAX_PROFILE_UPLOAD_BODY_BYTES
     } else {
         MAX_API_BODY_BYTES
     }
@@ -2198,7 +2224,7 @@ mod tests {
         );
         assert!(reject_oversized_api_body(&profile_upload).is_none());
 
-        let oversized_profile_upload = request(
+        let profile_upload_with_envelope = request(
             Method::POST,
             "/api/profile/import",
             IpAddr::V4(Ipv4Addr::LOCALHOST),
@@ -2207,8 +2233,19 @@ mod tests {
                 &(MAX_PROFILE_UPLOAD_BYTES + 1).to_string(),
             )],
         );
+        assert!(reject_oversized_api_body(&profile_upload_with_envelope).is_none());
+
+        let oversized_profile_upload = request(
+            Method::POST,
+            "/api/profile/import",
+            IpAddr::V4(Ipv4Addr::LOCALHOST),
+            &[(
+                "content-length",
+                &(MAX_PROFILE_UPLOAD_BODY_BYTES + 1).to_string(),
+            )],
+        );
         let response = reject_oversized_api_body(&oversized_profile_upload)
-            .expect("profile upload should still reject bodies above profile cap");
+            .expect("profile upload should still reject bodies above profile request cap");
         assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 

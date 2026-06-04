@@ -271,10 +271,12 @@ pub(crate) fn download_profile_zip_bytes(state: &AppState) -> AppResult<Vec<u8>>
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir)?;
     }
-    write_backup_payload(state, &temp_dir)?;
-    let bytes = zip_backup_folder(&temp_dir, "marinara-profile")?;
-    let _ = fs::remove_dir_all(temp_dir);
-    Ok(bytes)
+    let result = (|| {
+        write_backup_payload(state, &temp_dir)?;
+        zip_backup_folder(&temp_dir, "marinara-profile")
+    })();
+    let _ = fs::remove_dir_all(&temp_dir);
+    result
 }
 
 #[cfg(test)]

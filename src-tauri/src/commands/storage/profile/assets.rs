@@ -354,13 +354,6 @@ fn restore_profile_json_assets_in_root(
     }
     let (assets, warnings) = decoded_profile_json_assets(raw_assets, allow_legacy_data_field)?;
     let restored = assets.len();
-    if restored == 0 && !warnings.is_empty() {
-        return Ok(RestoredProfileAssets {
-            restored,
-            transaction: None,
-            warnings,
-        });
-    }
     let transaction = ProfileAssetTransaction::new(data_dir)?;
     for (relative, bytes) in assets {
         transaction.stage_bytes(&relative, &bytes)?;
