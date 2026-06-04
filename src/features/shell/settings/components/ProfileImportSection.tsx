@@ -47,6 +47,12 @@ type ProfileImportResult = {
   message?: string;
   imported?: ProfileImportStats;
   warnings?: ProfileImportWarning[];
+  sourceFormat?: string;
+  converted?: {
+    applied?: boolean;
+    from?: string;
+    to?: string;
+  };
 };
 
 function formatProfileImportDuration(seconds: number) {

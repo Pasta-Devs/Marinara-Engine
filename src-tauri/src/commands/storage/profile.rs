@@ -8,7 +8,7 @@ mod zip_import;
 use self::assets::{
     profile_assets, profile_assets_manifest, restore_profile_assets, RestoredProfileAssets,
 };
-use self::legacy::import_legacy_profile_tables;
+use self::legacy::{import_legacy_profile_tables, legacy_array_profile_tables};
 use self::zip_import::import_profile_zip;
 use super::contracts;
 use super::shared::*;
@@ -20,6 +20,31 @@ use std::path::{Path, PathBuf};
 
 const PROFILE_EXPORT_JSON_LIMIT_BYTES: usize = 256 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE: &str = "PROFILE_EXPORT_JSON_TOO_LARGE";
+
+#[derive(Clone, Copy)]
+pub(super) enum ProfileImportSourceFormat {
+    RefactorNative,
+    LegacyFileStorage,
+    LegacyArray,
+}
+
+impl ProfileImportSourceFormat {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::RefactorNative => "refactor-native",
+            Self::LegacyFileStorage => "legacy-modern-fileStorage",
+            Self::LegacyArray => "legacy-array",
+        }
+    }
+
+    fn converted_from(self) -> Option<&'static str> {
+        match self {
+            Self::RefactorNative => None,
+            Self::LegacyFileStorage => Some("legacy-modern-fileStorage"),
+            Self::LegacyArray => Some("legacy-array"),
+        }
+    }
+}
 
 pub(crate) struct ProfileExportDownload {
     pub(crate) bytes: Vec<u8>,
@@ -200,19 +225,38 @@ fn import_profile(state: &AppState, body: Value) -> AppResult<Value> {
         .and_then(Value::as_object)
         .filter(|_| body.get("type").and_then(Value::as_str) == Some("marinara_profile"))
         .ok_or_else(|| AppError::invalid_input("Invalid Marinara profile export"))?;
-    if let Some(collections) = data.get("collections").and_then(Value::as_object) {
-        return import_profile_collections(state, data, collections);
-    }
-    let tables = data
-        .get("fileStorage")
-        .and_then(|value| value.get("tables"))
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            AppError::invalid_input(
-                "Profile export must contain data.collections or data.fileStorage.tables",
+    if let Some(collections_value) = data.get("collections") {
+        let collections = collections_value.as_object().ok_or_else(|| {
+            profile_format_error(
+                "Profile export data.collections must be an object",
+                "invalid-refactor-native",
             )
         })?;
-    import_legacy_profile_tables(state, data, tables)
+        return import_profile_collections(state, data, collections);
+    }
+    if let Some(tables_value) = data
+        .get("fileStorage")
+        .and_then(|file_storage| file_storage.get("tables"))
+    {
+        let tables = tables_value.as_object().ok_or_else(|| {
+            profile_format_error(
+                "Profile export data.fileStorage.tables must be an object",
+                "invalid-legacy-modern-fileStorage",
+            )
+        })?;
+        return import_legacy_profile_tables(state, data, tables).map(|value| {
+            with_profile_import_metadata(value, ProfileImportSourceFormat::LegacyFileStorage)
+        });
+    }
+    if let Some(tables) = legacy_array_profile_tables(data)? {
+        return import_legacy_profile_tables(state, data, &tables).map(|value| {
+            with_profile_import_metadata(value, ProfileImportSourceFormat::LegacyArray)
+        });
+    }
+    Err(profile_format_error(
+        "Profile export must contain data.collections, data.fileStorage.tables, or legacy profile arrays",
+        "unknown",
+    ))
 }
 
 fn import_profile_collections(
@@ -228,6 +272,49 @@ fn import_profile_collections(
             restored_assets.install()
         });
     finish_profile_import_assets(restored_assets, result)
+        .map(|value| with_profile_import_metadata(value, ProfileImportSourceFormat::RefactorNative))
+}
+
+pub(super) fn with_profile_import_metadata(
+    mut value: Value,
+    source_format: ProfileImportSourceFormat,
+) -> Value {
+    if let Some(object) = value.as_object_mut() {
+        object.insert(
+            "sourceFormat".to_string(),
+            Value::String(source_format.as_str().to_string()),
+        );
+        let converted = match source_format.converted_from() {
+            Some(from) => json!({
+                "applied": true,
+                "from": from,
+                "to": "refactor-collections",
+            }),
+            None => json!({
+                "applied": false,
+            }),
+        };
+        object.insert("converted".to_string(), converted);
+    }
+    value
+}
+
+pub(super) fn profile_format_error(
+    message: impl Into<String>,
+    source_format: &'static str,
+) -> AppError {
+    AppError::with_details(
+        "invalid_input",
+        message,
+        json!({
+            "sourceFormat": source_format,
+            "expectedFormats": [
+                "refactor-native",
+                "legacy-modern-fileStorage",
+                "legacy-array",
+            ],
+        }),
+    )
 }
 
 pub(super) fn validate_native_profile_import(
@@ -880,6 +967,262 @@ mod tests {
             std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
             b"keep"
         );
+    }
+
+    #[test]
+    fn profile_import_native_reports_source_format_metadata() {
+        let state = test_state("native-source-format");
+        let result = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": complete_empty_profile_collections(),
+                    "assets": []
+                }
+            }),
+        )
+        .expect("native profile import should succeed");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["sourceFormat"], "refactor-native");
+        assert_eq!(result["converted"]["applied"], false);
+    }
+
+    #[test]
+    fn profile_import_legacy_file_storage_reports_source_format_metadata() {
+        let state = test_state("legacy-file-storage-source-format");
+        let result = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "fileStorage": {
+                        "tables": {
+                            "chats": []
+                        }
+                    }
+                }
+            }),
+        )
+        .expect("legacy fileStorage profile import should succeed");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["sourceFormat"], "legacy-modern-fileStorage");
+        assert_eq!(result["converted"]["applied"], true);
+        assert_eq!(result["converted"]["from"], "legacy-modern-fileStorage");
+        assert_eq!(result["converted"]["to"], "refactor-collections");
+    }
+
+    #[test]
+    fn profile_import_legacy_array_imports_direct_arrays() {
+        let state = test_state("legacy-array-direct");
+        let result = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "characters": [{
+                        "id": "char-1",
+                        "name": "Hero",
+                        "data": "{\"name\":\"Hero\"}",
+                        "avatarBase64": "aGVybw=="
+                    }],
+                    "personas": [{
+                        "id": "persona-1",
+                        "name": "Player",
+                        "avatarBase64": "cGxheWVy"
+                    }],
+                    "lorebooks": [{
+                        "id": "lorebook-1",
+                        "name": "Book",
+                        "entries": [{
+                            "id": "entry-1",
+                            "keys": "[\"key\"]",
+                            "enabled": "true"
+                        }],
+                        "folders": [{
+                            "id": "folder-1",
+                            "name": "Folder"
+                        }]
+                    }],
+                    "presets": [{
+                        "id": "preset-1",
+                        "name": "Preset",
+                        "groups": [{
+                            "id": "group-1",
+                            "name": "Group"
+                        }],
+                        "sections": [{
+                            "id": "section-1",
+                            "name": "Section"
+                        }],
+                        "choices": [{
+                            "id": "choice-1",
+                            "name": "Choice"
+                        }]
+                    }],
+                    "agents": [{
+                        "id": "agent-1",
+                        "name": "Agent",
+                        "type": "custom-agent",
+                        "settings": {}
+                    }],
+                    "themes": [{
+                        "id": "theme-1",
+                        "name": "Theme"
+                    }]
+                }
+            }),
+        )
+        .expect("legacy array profile import should succeed");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["sourceFormat"], "legacy-array");
+        assert_eq!(result["converted"]["applied"], true);
+        assert_eq!(result["converted"]["from"], "legacy-array");
+        assert_eq!(result["imported"]["characters"], 1);
+        assert_eq!(result["imported"]["personas"], 1);
+        assert_eq!(result["imported"]["lorebooks"], 1);
+        assert_eq!(result["imported"]["lorebook-entries"], 1);
+        assert_eq!(result["imported"]["lorebook-folders"], 1);
+        assert_eq!(result["imported"]["presets"], 1);
+        assert_eq!(result["imported"]["prompt-groups"], 1);
+        assert_eq!(result["imported"]["prompt-sections"], 1);
+        assert_eq!(result["imported"]["prompt-variables"], 1);
+        assert_eq!(result["imported"]["agents"], 1);
+        assert_eq!(result["imported"]["themes"], 1);
+
+        let character = state
+            .storage
+            .get("characters", "char-1")
+            .expect("character lookup should not fail")
+            .expect("character should import");
+        assert_eq!(character["data"]["name"], "Hero");
+        assert!(character["avatarPath"]
+            .as_str()
+            .expect("avatar path should be a string")
+            .starts_with("data:image/png;base64,"));
+        let entry = state
+            .storage
+            .get("lorebook-entries", "entry-1")
+            .expect("entry lookup should not fail")
+            .expect("entry should import");
+        assert_eq!(entry["lorebookId"], "lorebook-1");
+        assert_eq!(entry["keys"][0], "key");
+        let section = state
+            .storage
+            .get("prompt-sections", "section-1")
+            .expect("section lookup should not fail")
+            .expect("section should import");
+        assert_eq!(section["presetId"], "preset-1");
+    }
+
+    #[test]
+    fn profile_import_legacy_array_rejects_non_array_without_wiping() {
+        let state = test_state("legacy-array-reject-no-wipe");
+        state
+            .storage
+            .replace_all("characters", vec![json!({ "id": "existing-character" })])
+            .expect("existing character should seed");
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "characters": {}
+                }
+            }),
+        )
+        .expect_err("non-array legacy field should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        let details = error
+            .details
+            .expect("legacy array error should include details");
+        assert_eq!(details["sourceFormat"], "invalid-legacy-array");
+        assert_eq!(details["field"], "characters");
+        assert!(state
+            .storage
+            .get("characters", "existing-character")
+            .expect("character lookup should not fail")
+            .is_some());
+    }
+
+    #[test]
+    fn profile_import_legacy_array_empty_parents_clear_nested_tables() {
+        let state = test_state("legacy-array-clear-nested");
+        state
+            .storage
+            .replace_all(
+                "lorebook-entries",
+                vec![json!({ "id": "stale-entry", "lorebookId": "old-book" })],
+            )
+            .expect("stale lorebook entry should seed");
+        state
+            .storage
+            .replace_all(
+                "prompt-sections",
+                vec![json!({ "id": "stale-section", "presetId": "old-preset" })],
+            )
+            .expect("stale prompt section should seed");
+
+        let result = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "lorebooks": [],
+                    "presets": []
+                }
+            }),
+        )
+        .expect("empty legacy parent arrays should import");
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["imported"]["lorebooks"], 0);
+        assert_eq!(result["imported"]["lorebook-entries"], 0);
+        assert_eq!(result["imported"]["presets"], 0);
+        assert_eq!(result["imported"]["prompt-sections"], 0);
+        assert!(state
+            .storage
+            .list("lorebook-entries")
+            .expect("lorebook entries should list")
+            .is_empty());
+        assert!(state
+            .storage
+            .list("prompt-sections")
+            .expect("prompt sections should list")
+            .is_empty());
+    }
+
+    #[test]
+    fn profile_import_unknown_reports_expected_formats() {
+        let state = test_state("unknown-source-format");
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {}
+            }),
+        )
+        .expect_err("unknown profile shape should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        let details = error
+            .details
+            .expect("unknown profile error should include details");
+        assert_eq!(details["sourceFormat"], "unknown");
+        assert_eq!(details["expectedFormats"][0], "refactor-native");
+        assert_eq!(details["expectedFormats"][1], "legacy-modern-fileStorage");
+        assert_eq!(details["expectedFormats"][2], "legacy-array");
     }
 
     fn complete_empty_profile_collections() -> Map<String, Value> {

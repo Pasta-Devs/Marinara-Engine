@@ -1,7 +1,9 @@
 use super::assets::{normalize_zip_entry_name, restore_profile_zip_assets};
 use super::{
     finish_profile_import_assets, import_profile_collections_with_restored_assets,
-    legacy::import_legacy_profile_tables_with_restored_assets, validate_native_profile_import,
+    legacy::{import_legacy_profile_tables_with_restored_assets, legacy_array_profile_tables},
+    profile_format_error, validate_native_profile_import, with_profile_import_metadata,
+    ProfileImportSourceFormat,
 };
 use crate::state::AppState;
 use marinara_core::{AppError, AppResult};
@@ -34,7 +36,13 @@ pub(super) fn import_profile_zip(state: &AppState, path: &Path) -> AppResult<Val
         .get("fileStorage")
         .and_then(|value| value.get("files"))
         .or_else(|| data.get("assets"));
-    if let Some(collections) = data.get("collections").and_then(Value::as_object) {
+    if let Some(collections_value) = data.get("collections") {
+        let collections = collections_value.as_object().ok_or_else(|| {
+            profile_format_error(
+                "Profile ZIP data.collections must be an object",
+                "invalid-refactor-native",
+            )
+        })?;
         validate_native_profile_import(data, collections)?;
         let mut restored_assets =
             restore_profile_zip_assets(state, &mut archive, &names, &profile_prefix, files)?;
@@ -45,17 +53,20 @@ pub(super) fn import_profile_zip(state: &AppState, path: &Path) -> AppResult<Val
             restored_count,
             || restored_assets.install(),
         );
-        finish_profile_import_assets(restored_assets, result)
-    } else {
-        let tables = data
-            .get("fileStorage")
-            .and_then(|value| value.get("tables"))
-            .and_then(Value::as_object)
-            .ok_or_else(|| {
-                AppError::invalid_input(
-                    "Profile ZIP must contain data.collections or data.fileStorage.tables",
-                )
-            })?;
+        return finish_profile_import_assets(restored_assets, result).map(|value| {
+            with_profile_import_metadata(value, ProfileImportSourceFormat::RefactorNative)
+        });
+    }
+    if let Some(tables_value) = data
+        .get("fileStorage")
+        .and_then(|file_storage| file_storage.get("tables"))
+    {
+        let tables = tables_value.as_object().ok_or_else(|| {
+            profile_format_error(
+                "Profile ZIP data.fileStorage.tables must be an object",
+                "invalid-legacy-modern-fileStorage",
+            )
+        })?;
         let mut restored_assets =
             restore_profile_zip_assets(state, &mut archive, &names, &profile_prefix, files)?;
         let restored_count = restored_assets.restored();
@@ -67,8 +78,30 @@ pub(super) fn import_profile_zip(state: &AppState, path: &Path) -> AppResult<Val
             staging_root.as_deref(),
             || restored_assets.install(),
         );
-        finish_profile_import_assets(restored_assets, result)
+        return finish_profile_import_assets(restored_assets, result).map(|value| {
+            with_profile_import_metadata(value, ProfileImportSourceFormat::LegacyFileStorage)
+        });
     }
+    if let Some(tables) = legacy_array_profile_tables(data)? {
+        let mut restored_assets =
+            restore_profile_zip_assets(state, &mut archive, &names, &profile_prefix, files)?;
+        let restored_count = restored_assets.restored();
+        let staging_root = restored_assets.staging_root().map(Path::to_path_buf);
+        let result = import_legacy_profile_tables_with_restored_assets(
+            state,
+            &tables,
+            restored_count,
+            staging_root.as_deref(),
+            || restored_assets.install(),
+        );
+        return finish_profile_import_assets(restored_assets, result).map(|value| {
+            with_profile_import_metadata(value, ProfileImportSourceFormat::LegacyArray)
+        });
+    }
+    Err(profile_format_error(
+        "Profile ZIP must contain data.collections, data.fileStorage.tables, or legacy profile arrays",
+        "unknown",
+    ))
 }
 
 fn zip_entry_names<R: Read + std::io::Seek>(
@@ -195,6 +228,7 @@ mod tests {
 
         let result = import_profile_zip(&state, &zip_path).expect("zip import should succeed");
         assert_eq!(result["success"], true);
+        assert_eq!(result["sourceFormat"], "legacy-modern-fileStorage");
 
         let chat = state
             .storage
@@ -202,6 +236,45 @@ mod tests {
             .expect("chat lookup should not fail")
             .expect("imported chat should be present");
         assert_eq!(chat["name"], "Imported Chat");
+
+        let _ = std::fs::remove_file(&zip_path);
+    }
+
+    #[test]
+    fn import_profile_zip_imports_legacy_array_profile() {
+        let state = test_state("legacy-array");
+        let profile_json = json!({
+            "type": "marinara_profile",
+            "data": {
+                "characters": [
+                    {
+                        "id": "char-zip",
+                        "name": "Zip Hero",
+                        "data": "{\"name\":\"Zip Hero\"}",
+                        "avatarBase64": "emlw"
+                    }
+                ]
+            }
+        })
+        .to_string();
+        let zip_path = write_profile_zip("legacy-array", &profile_json);
+
+        let result = import_profile_zip(&state, &zip_path).expect("zip import should succeed");
+        assert_eq!(result["success"], true);
+        assert_eq!(result["sourceFormat"], "legacy-array");
+        assert_eq!(result["converted"]["applied"], true);
+        assert_eq!(result["imported"]["characters"], 1);
+
+        let character = state
+            .storage
+            .get("characters", "char-zip")
+            .expect("character lookup should not fail")
+            .expect("legacy array character should import");
+        assert_eq!(character["data"]["name"], "Zip Hero");
+        assert!(character["avatarPath"]
+            .as_str()
+            .expect("avatar path should be a string")
+            .starts_with("data:image/png;base64,"));
 
         let _ = std::fs::remove_file(&zip_path);
     }

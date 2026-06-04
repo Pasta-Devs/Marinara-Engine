@@ -67,6 +67,291 @@ const LEGACY_GAME_STATE_ALIASES: &[(&str, &str)] = &[
     ("createdAt", "created_at"),
 ];
 
+pub(super) fn legacy_array_profile_tables(
+    data: &Map<String, Value>,
+) -> AppResult<Option<Map<String, Value>>> {
+    let mut tables = Map::new();
+    let mut found = false;
+
+    if let Some(rows) = legacy_array_rows(data, "characters")? {
+        found = true;
+        tables.insert(
+            "characters".to_string(),
+            Value::Array(normalize_legacy_array_avatar_rows(rows)),
+        );
+    }
+    if let Some(rows) = legacy_array_rows(data, "personas")? {
+        found = true;
+        tables.insert(
+            "personas".to_string(),
+            Value::Array(normalize_legacy_array_avatar_rows(rows)),
+        );
+    }
+    if let Some(rows) = legacy_array_rows(data, "agents")? {
+        found = true;
+        tables.insert("agent_configs".to_string(), Value::Array(rows));
+    }
+    if let Some(rows) = legacy_array_rows(data, "themes")? {
+        found = true;
+        tables.insert("custom_themes".to_string(), Value::Array(rows));
+    }
+    if let Some(rows) = legacy_array_rows(data, "lorebooks")? {
+        found = true;
+        let extracted = legacy_array_lorebook_tables(rows)?;
+        tables.insert("lorebooks".to_string(), Value::Array(extracted.parents));
+        tables.insert(
+            "lorebook_entries".to_string(),
+            Value::Array(extracted.entries),
+        );
+        tables.insert(
+            "lorebook_folders".to_string(),
+            Value::Array(extracted.folders),
+        );
+    }
+    if let Some(rows) = legacy_array_rows(data, "presets")? {
+        found = true;
+        let extracted = legacy_array_preset_tables(rows)?;
+        tables.insert(
+            "prompt_presets".to_string(),
+            Value::Array(extracted.parents),
+        );
+        tables.insert("prompt_groups".to_string(), Value::Array(extracted.groups));
+        tables.insert(
+            "prompt_sections".to_string(),
+            Value::Array(extracted.sections),
+        );
+        tables.insert("choice_blocks".to_string(), Value::Array(extracted.choices));
+    }
+
+    Ok(found.then_some(tables))
+}
+
+fn legacy_array_rows(
+    data: &Map<String, Value>,
+    field: &'static str,
+) -> AppResult<Option<Vec<Value>>> {
+    let Some(value) = data.get(field) else {
+        return Ok(None);
+    };
+    let rows = value.as_array().ok_or_else(|| {
+        legacy_array_format_error(
+            format!("Legacy profile field `{field}` must be a JSON array"),
+            field,
+            None,
+        )
+    })?;
+    let mut normalized = Vec::with_capacity(rows.len());
+    for (index, row) in rows.iter().cloned().enumerate() {
+        if !row.is_object() {
+            return Err(legacy_array_format_error(
+                format!("Legacy profile field `{field}` row {index} must be a JSON object"),
+                field,
+                Some(index),
+            ));
+        }
+        normalized.push(row);
+    }
+    Ok(Some(normalized))
+}
+
+struct LegacyArrayLorebookTables {
+    parents: Vec<Value>,
+    entries: Vec<Value>,
+    folders: Vec<Value>,
+}
+
+fn legacy_array_lorebook_tables(rows: Vec<Value>) -> AppResult<LegacyArrayLorebookTables> {
+    let mut parents = Vec::with_capacity(rows.len());
+    let mut entries = Vec::new();
+    let mut folders = Vec::new();
+
+    for mut row in rows {
+        let parent_id = row
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string);
+        let object = row
+            .as_object_mut()
+            .expect("legacy_array_rows ensures rows are objects");
+        if let Some(value) = object.remove("entries") {
+            append_legacy_array_child_rows(
+                &mut entries,
+                "lorebooks.entries",
+                value,
+                parent_id.as_deref(),
+                "lorebookId",
+            )?;
+        }
+        if let Some(value) = object.remove("folders") {
+            append_legacy_array_child_rows(
+                &mut folders,
+                "lorebooks.folders",
+                value,
+                parent_id.as_deref(),
+                "lorebookId",
+            )?;
+        }
+        parents.push(row);
+    }
+
+    Ok(LegacyArrayLorebookTables {
+        parents,
+        entries,
+        folders,
+    })
+}
+
+struct LegacyArrayPresetTables {
+    parents: Vec<Value>,
+    groups: Vec<Value>,
+    sections: Vec<Value>,
+    choices: Vec<Value>,
+}
+
+fn legacy_array_preset_tables(rows: Vec<Value>) -> AppResult<LegacyArrayPresetTables> {
+    let mut parents = Vec::with_capacity(rows.len());
+    let mut groups = Vec::new();
+    let mut sections = Vec::new();
+    let mut choices = Vec::new();
+
+    for mut row in rows {
+        let parent_id = row
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .map(str::to_string);
+        let object = row
+            .as_object_mut()
+            .expect("legacy_array_rows ensures rows are objects");
+        if let Some(value) = object.remove("groups") {
+            append_legacy_array_child_rows(
+                &mut groups,
+                "presets.groups",
+                value,
+                parent_id.as_deref(),
+                "presetId",
+            )?;
+        }
+        if let Some(value) = object.remove("sections") {
+            append_legacy_array_child_rows(
+                &mut sections,
+                "presets.sections",
+                value,
+                parent_id.as_deref(),
+                "presetId",
+            )?;
+        }
+        if let Some(value) = object.remove("choices") {
+            append_legacy_array_child_rows(
+                &mut choices,
+                "presets.choices",
+                value,
+                parent_id.as_deref(),
+                "presetId",
+            )?;
+        }
+        parents.push(row);
+    }
+
+    Ok(LegacyArrayPresetTables {
+        parents,
+        groups,
+        sections,
+        choices,
+    })
+}
+
+fn append_legacy_array_child_rows(
+    output: &mut Vec<Value>,
+    field: &'static str,
+    value: Value,
+    parent_id: Option<&str>,
+    parent_field: &'static str,
+) -> AppResult<()> {
+    let rows = value.as_array().ok_or_else(|| {
+        legacy_array_format_error(
+            format!("Legacy profile field `{field}` must be a JSON array"),
+            field,
+            None,
+        )
+    })?;
+    for (index, child) in rows.iter().cloned().enumerate() {
+        if !child.is_object() {
+            return Err(legacy_array_format_error(
+                format!("Legacy profile field `{field}` row {index} must be a JSON object"),
+                field,
+                Some(index),
+            ));
+        }
+        let mut child = child;
+        if let (Some(parent_id), Some(object)) = (parent_id, child.as_object_mut()) {
+            let needs_parent = object
+                .get(parent_field)
+                .and_then(Value::as_str)
+                .is_none_or(|value| value.trim().is_empty());
+            if needs_parent {
+                object.insert(
+                    parent_field.to_string(),
+                    Value::String(parent_id.to_string()),
+                );
+            }
+        }
+        output.push(child);
+    }
+    Ok(())
+}
+
+fn normalize_legacy_array_avatar_rows(rows: Vec<Value>) -> Vec<Value> {
+    rows.into_iter()
+        .map(|mut row| {
+            normalize_legacy_array_avatar_base64(&mut row);
+            row
+        })
+        .collect()
+}
+
+fn normalize_legacy_array_avatar_base64(row: &mut Value) {
+    let Some(object) = row.as_object_mut() else {
+        return;
+    };
+    let Some(raw) = object.remove("avatarBase64") else {
+        return;
+    };
+    let Some(raw) = raw
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return;
+    };
+    let avatar_url = if raw.starts_with("data:") {
+        raw.to_string()
+    } else {
+        format!("data:image/png;base64,{raw}")
+    };
+    object.insert("avatar".to_string(), Value::String(avatar_url.clone()));
+    object.insert("avatarPath".to_string(), Value::String(avatar_url.clone()));
+    object.insert("avatarUrl".to_string(), Value::String(avatar_url));
+}
+
+fn legacy_array_format_error(
+    message: impl Into<String>,
+    field: &'static str,
+    index: Option<usize>,
+) -> AppError {
+    let mut details = Map::new();
+    details.insert(
+        "sourceFormat".to_string(),
+        Value::String("invalid-legacy-array".to_string()),
+    );
+    details.insert("field".to_string(), Value::String(field.to_string()));
+    if let Some(index) = index {
+        details.insert("index".to_string(), json!(index));
+    }
+    AppError::with_details("invalid_input", message, Value::Object(details))
+}
+
 pub(super) fn import_legacy_profile_tables(
     state: &AppState,
     data: &Map<String, Value>,
