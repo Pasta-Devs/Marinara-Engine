@@ -31,8 +31,15 @@ const PROFILE_IMPORT_MANAGED_ASSET_KINDS: RemoteManagedAssetKind[] = [
 ];
 
 export type ProfileImportProgressEvent = { type: string; data: unknown };
-type RawProfileImportEvent = { type?: unknown; data?: unknown; text?: unknown; [key: string]: unknown };
 type ProfileImportProgressHandler = (event: ProfileImportProgressEvent) => void;
+type ProfileImportFileOptions = {
+  previewFingerprint?: string | null;
+  onProgress?: ProfileImportProgressHandler;
+};
+type ProfileImportUploadOptions = {
+  onProgress?: ProfileImportProgressHandler;
+};
+type RawProfileImportEvent = { type?: unknown; data?: unknown; text?: unknown; [key: string]: unknown };
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -97,21 +104,8 @@ async function importProfile<T>(envelope: unknown): Promise<T> {
   );
 }
 
-async function importProfileFile<T>(path: string, options?: { previewFingerprint?: string | null }): Promise<T> {
-  if (remoteRuntimeTarget()) {
-    throw new ApiError(
-      "Profile import from a local file path is not available while Remote Runtime is configured.",
-      400,
-      { code: "remote_local_path_unsupported" },
-    );
-  }
-  return invalidateRemoteManagedAssetObjectUrlsAfter(
-    invokeTauri<T>("profile_import_file", {
-      path,
-      previewFingerprint: options?.previewFingerprint ?? null,
-    }),
-    PROFILE_IMPORT_MANAGED_ASSET_KINDS,
-  );
+async function importProfileFile<T>(path: string, options?: ProfileImportFileOptions): Promise<T> {
+  return importProfileFileWithProgress<T>(path, options, options?.onProgress);
 }
 
 function normalizeProfileImportEvent(event: RawProfileImportEvent): ProfileImportProgressEvent {
@@ -149,7 +143,7 @@ function profileImportEventError(event: ProfileImportProgressEvent): ApiError {
 
 async function runTauriProfileFileImportWithProgress<T>(
   path: string,
-  options: { previewFingerprint?: string | null } | undefined,
+  options: ProfileImportFileOptions | undefined,
   onProgress?: ProfileImportProgressHandler,
 ): Promise<T> {
   const queue: RawProfileImportEvent[] = [];
@@ -221,9 +215,10 @@ async function runTauriProfileFileImportWithProgress<T>(
 
 async function importProfileFileWithProgress<T>(
   path: string,
-  options?: { previewFingerprint?: string | null },
+  options?: ProfileImportFileOptions,
   onProgress?: ProfileImportProgressHandler,
 ): Promise<T> {
+  const progressHandler = onProgress ?? options?.onProgress;
   if (remoteRuntimeTarget()) {
     throw new ApiError(
       "Profile import from a local file path is not available while Remote Runtime is configured.",
@@ -232,7 +227,7 @@ async function importProfileFileWithProgress<T>(
     );
   }
   return invalidateRemoteManagedAssetObjectUrlsAfter(
-    runTauriProfileFileImportWithProgress<T>(path, options, onProgress),
+    runTauriProfileFileImportWithProgress<T>(path, options, progressHandler),
     PROFILE_IMPORT_MANAGED_ASSET_KINDS,
   );
 }
@@ -273,21 +268,6 @@ async function previewProfileUpload<T>(file: File): Promise<T> {
       });
 }
 
-async function importRemoteProfileUpload<T>(target: RuntimeTarget, file: File): Promise<T> {
-  const form = new FormData();
-  form.append("file", file, file.name);
-  const response = await fetch(
-    `${target.baseUrl}/api/profile/import`,
-    remoteFetchInit({
-      method: "POST",
-      headers: remotePrivilegedHeaders(target, { accept: "application/json" }),
-      body: form,
-    }),
-  );
-  if (!response.ok) throw await readRemoteError(response);
-  return (await response.json()) as T;
-}
-
 async function importRemoteProfileUploadWithProgress<T>(
   file: File,
   onProgress?: ProfileImportProgressHandler,
@@ -310,28 +290,26 @@ async function importRemoteProfileUploadWithProgress<T>(
   return doneData as T;
 }
 
-async function importProfileUpload<T>(file: File): Promise<T> {
-  const target = remoteRuntimeTarget();
-  return invalidateRemoteManagedAssetObjectUrlsAfter(
-    target
-      ? importRemoteProfileUpload<T>(target, file)
-      : invokeTauri<T>("profile_import_upload", {
-          filename: file.name,
-          base64: await readFileAsBase64(file),
-        }),
-    PROFILE_IMPORT_MANAGED_ASSET_KINDS,
-  );
+async function importProfileUpload<T>(file: File, options?: ProfileImportUploadOptions): Promise<T> {
+  return importProfileUploadWithProgress<T>(file, options?.onProgress);
 }
 
 async function importProfileUploadWithProgress<T>(file: File, onProgress?: ProfileImportProgressHandler): Promise<T> {
   const target = remoteRuntimeTarget();
+  if (!target) {
+    // Embedded upload buffers through FileReader before Rust receives the file,
+    // so this compatibility path cannot emit real import progress. The local
+    // UI uses file-path import for progress.
+    return invalidateRemoteManagedAssetObjectUrlsAfter(
+      invokeTauri<T>("profile_import_upload", {
+        filename: file.name,
+        base64: await readFileAsBase64(file),
+      }),
+      PROFILE_IMPORT_MANAGED_ASSET_KINDS,
+    );
+  }
   return invalidateRemoteManagedAssetObjectUrlsAfter(
-    target
-      ? importRemoteProfileUploadWithProgress<T>(file, onProgress)
-      : invokeTauri<T>("profile_import_upload", {
-          filename: file.name,
-          base64: await readFileAsBase64(file),
-        }),
+    importRemoteProfileUploadWithProgress<T>(file, onProgress),
     PROFILE_IMPORT_MANAGED_ASSET_KINDS,
   );
 }

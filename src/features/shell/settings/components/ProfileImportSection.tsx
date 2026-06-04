@@ -510,13 +510,10 @@ export function ProfileImportSection() {
         startedAt,
         () => profileApi.previewProfileFile<ProfileImportResult>(selected),
         (preview, onProgress) =>
-          profileApi.importProfileFileWithProgress<ProfileImportResult>(
-            selected,
-            {
-              previewFingerprint: preview.fileFingerprint,
-            },
+          profileApi.importProfileFile<ProfileImportResult>(selected, {
+            previewFingerprint: preview.fileFingerprint,
             onProgress,
-          ),
+          }),
       );
     } catch (err) {
       showProfileImportError(err, startedAt);
@@ -540,7 +537,7 @@ export function ProfileImportSection() {
       await runPreviewedProfileImport(
         startedAt,
         () => profileApi.previewProfileUpload<ProfileImportResult>(file),
-        (_preview, onProgress) => profileApi.importProfileUploadWithProgress<ProfileImportResult>(file, onProgress),
+        (_preview, onProgress) => profileApi.importProfileUpload<ProfileImportResult>(file, { onProgress }),
       );
     } catch (err) {
       showProfileImportError(err, startedAt);

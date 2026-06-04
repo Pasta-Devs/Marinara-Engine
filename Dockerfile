@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
+COPY src ./src
 COPY src-tauri/crates ./src-tauri/crates
 COPY src-tauri/src ./src-tauri/src
 COPY src-tauri/build.rs ./src-tauri/build.rs
