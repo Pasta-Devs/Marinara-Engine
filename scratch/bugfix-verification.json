@@ -5,7 +5,10 @@
     "title": "Game mode generated NPC/background/illustration prompts lost negative-prompt and species safeguards",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2137"
   },
-  "pr": {},
+  "pr": {
+    "number": 2218,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2218"
+  },
   "coreClaim": "Game asset generation forwards per-kind negative prompts and preserves NPC species cues in portrait prompts.",
   "assignment": {
     "assignee": "@me",
