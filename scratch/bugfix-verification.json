@@ -5,7 +5,12 @@
     "title": "[Issue]: Chub card import merge drops most field overrides and flips extensions precedence",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2159"
   },
-  "pr": {},
+  "pr": {
+    "number": 2237,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2237",
+    "base": "refactor",
+    "draft": true
+  },
   "coreClaim": "Chub PNG imports overlay legacy-supported Chub detail fields onto embedded PNG card data and Chub detail extension keys win.",
   "preflight": {
     "noAssociatedPr": true,
