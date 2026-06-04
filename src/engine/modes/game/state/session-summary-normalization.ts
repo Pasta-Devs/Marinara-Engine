@@ -1,5 +1,6 @@
 export interface SessionSummaryFactLists {
   keyDiscoveries: string[];
+  legacyRevelations?: string[];
   characterMoments: string[];
   littleDetails: string[];
   npcUpdates: string[];
@@ -33,7 +34,7 @@ export function dedupeSessionSummaryLists(lists: SessionSummaryFactLists): Sessi
   const characterMoments = dedupeBucket(lists.characterMoments, seen);
   const npcUpdates = dedupeBucket(lists.npcUpdates, seen);
   const littleDetails = dedupeBucket(lists.littleDetails, seen);
-  const keyDiscoveries = dedupeBucket(lists.keyDiscoveries, seen);
+  const keyDiscoveries = dedupeBucket([...lists.keyDiscoveries, ...(lists.legacyRevelations ?? [])], seen);
 
   return {
     keyDiscoveries,

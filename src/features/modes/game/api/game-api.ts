@@ -1003,6 +1003,7 @@ function normalizeSessionSummaryPayload(
   const record = asRecord(raw);
   const factLists = dedupeSessionSummaryLists({
     keyDiscoveries: normalizeSessionSummaryTextList(record.keyDiscoveries, fallback.keyDiscoveries),
+    legacyRevelations: normalizeSessionSummaryTextList(record.revelations, []),
     characterMoments: normalizeSessionSummaryTextList(record.characterMoments, fallback.characterMoments),
     littleDetails: normalizeSessionSummaryTextList(record.littleDetails, fallback.littleDetails),
     npcUpdates: normalizeSessionSummaryTextList(record.npcUpdates, fallback.npcUpdates),
