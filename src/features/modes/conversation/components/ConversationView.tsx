@@ -78,6 +78,8 @@ interface ConversationViewProps {
   chatName?: string;
   chatGroupId?: string | null;
   chatCharIds: string[];
+  /** Active characters whose card CSS targets the typing indicator (exclusive mode only). */
+  typingStyledCharacterIds?: Set<string>;
   onDelete: (messageId: string) => void;
   onRegenerate: (messageId: string) => void;
   onEdit: (messageId: string, content: string) => void | Promise<void>;
@@ -126,6 +128,42 @@ function getDayKey(dateStr: string): string {
 
 function chatMetaString(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
+}
+
+/**
+ * A single "… is/are typing…" row. CSS hooks: `.mari-typing-indicator` (row),
+ * `.mari-typing-dots` (the dots), `.mari-typing-text` (the label). `data-card-css`
+ * scopes the row to a character in exclusive mode; `data-typing-name` exposes the
+ * name(s) for `content: attr(data-typing-name)`.
+ */
+function TypingIndicatorRow({ names, cardCssId }: { names: string[]; cardCssId?: string }) {
+  const label = names.join(", ");
+  const verb = label.includes(",") || label.includes(" & ") ? "are" : "is";
+  return (
+    <div
+      className="mari-typing-indicator flex items-center gap-2 px-4 py-1.5 text-[0.8125rem] text-[var(--text-secondary)]"
+      data-card-css={cardCssId}
+      data-typing-name={label}
+    >
+      <span className="mari-typing-dots flex gap-0.5">
+        <span
+          className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-secondary)]"
+          style={{ animationDelay: "0ms" }}
+        />
+        <span
+          className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-secondary)]"
+          style={{ animationDelay: "150ms" }}
+        />
+        <span
+          className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-secondary)]"
+          style={{ animationDelay: "300ms" }}
+        />
+      </span>
+      <span className="mari-typing-text italic">
+        {label} {verb} typing...
+      </span>
+    </div>
+  );
 }
 
 /** Check if a message's content uses "Name: text" format with known chat-member character names */
@@ -343,6 +381,7 @@ export function ConversationView({
   chatName,
   chatGroupId,
   chatCharIds,
+  typingStyledCharacterIds,
   onDelete,
   onRegenerate,
   onEdit,
@@ -394,6 +433,79 @@ export function ConversationView({
   const liveTypingVerb = liveTypingName.includes(",") || liveTypingName.includes(" & ") ? "are" : "is";
   const showTypingIndicator =
     isStreaming && !delayedCharacterInfo && (!regenerateMessageId || (!streamBuffer && !thinkingBuffer));
+  const liveTypingLabel = `${liveTypingName} ${liveTypingVerb} typing...`;
+
+  // ── Group typing rows ──
+  // Characters whose card CSS targets the typing indicator (exclusive mode) get their own
+  // row so their custom text/styling applies in isolation; everyone else shares one combined
+  // "A, B are typing…" row. The styled set is derived in ConversationModeRoute (empty unless
+  // exclusive card-CSS mode is active, so chat/disabled modes keep the single combined row).
+  //
+  // We only split when the indicator can be tied to concrete character ids: the single
+  // streaming character, or the explicit `typingCharacterName` mapped back to ids. Returning
+  // `null` means "render one combined row from `liveTypingName`" — we never invent typists
+  // from the full active roster when the runtime told us a specific (sub)set is typing.
+  const typingParticipants = useMemo<Array<{ id: string; name: string }> | null>(() => {
+    if (streamingCharacterId) {
+      const name = characterMap.get(streamingCharacterId)?.name;
+      return name ? [{ id: streamingCharacterId, name }] : null;
+    }
+    const nameToIds = new Map<string, string[]>();
+    for (const id of activeChatCharIds) {
+      const name = characterMap.get(id)?.name;
+      if (name) nameToIds.set(name, [...(nameToIds.get(name) ?? []), id]);
+    }
+    if (typingCharacterName) {
+      // The typing event lists the actual responders by name; only split if every name maps
+      // to one concrete id (dedup by id). Duplicate display names are ambiguous, so keep the
+      // explicit label as one row instead of attributing CSS to the wrong card.
+      const names = typingCharacterName
+        .split(",")
+        .map((n) => n.trim())
+        .filter(Boolean);
+      if (names.length === 0 || names.some((name) => (nameToIds.get(name)?.length ?? 0) !== 1)) return null;
+      const seen = new Set<string>();
+      const participants: Array<{ id: string; name: string }> = [];
+      for (const name of names) {
+        const id = nameToIds.get(name)![0]!;
+        if (!seen.has(id)) {
+          seen.add(id);
+          participants.push({ id, name });
+        }
+      }
+      return participants;
+    }
+    // No streaming id and no explicit label → fall back to the active roster (matches the
+    // pre-split `liveTypingName` fallback, which also listed every active character).
+    const fromActive = activeChatCharIds
+      .map((id) => ({ id, name: characterMap.get(id)?.name }))
+      .filter((p): p is { id: string; name: string } => !!p.name);
+    return fromActive.length > 0 ? fromActive : null;
+  }, [streamingCharacterId, typingCharacterName, activeChatCharIds, characterMap]);
+  const { typingStyledRows, typingPlainNames, typingPlainCardCssId } = useMemo(() => {
+    // Couldn't resolve concrete participants → one combined row with the explicit live label.
+    if (!typingParticipants) {
+      return {
+        typingStyledRows: [] as Array<{ id: string; name: string }>,
+        typingPlainNames: [liveTypingName],
+        typingPlainCardCssId: streamingCharacterId ?? activeChatCharIds[0] ?? undefined,
+      };
+    }
+    const styled: Array<{ id: string; name: string }> = [];
+    const plain: Array<{ id: string; name: string }> = [];
+    for (const p of typingParticipants) {
+      if (typingStyledCharacterIds?.has(p.id)) styled.push(p);
+      else plain.push(p);
+    }
+    styled.sort((a, b) => a.name.localeCompare(b.name));
+    plain.sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      typingStyledRows: styled,
+      typingPlainNames: plain.map((p) => p.name),
+      typingPlainCardCssId: streamingCharacterId ?? plain[0]?.id ?? activeChatCharIds[0] ?? undefined,
+    };
+  }, [typingParticipants, typingStyledCharacterIds, streamingCharacterId, activeChatCharIds, liveTypingName]);
+
   const isPageActive = usePageActivity();
 
   // ── Periodic status refresh (every 60s) ──
@@ -561,8 +673,7 @@ export function ConversationView({
   const isOptimistic = newestMsgId?.startsWith("__optimistic_");
   useEffect(() => {
     const previousTail = previousTailRef.current;
-    const tailMessageChanged =
-      !!newestMsgId && !!previousTail.messageId && previousTail.messageId !== newestMsgId;
+    const tailMessageChanged = !!newestMsgId && !!previousTail.messageId && previousTail.messageId !== newestMsgId;
     const streamingStarted = isStreaming && !previousTail.isStreaming;
     if (transcriptWindowStart !== null && !isLoadingMoreRef.current && (tailMessageChanged || streamingStarted)) {
       setTranscriptWindowStart(null);
@@ -929,6 +1040,24 @@ export function ConversationView({
     }
   }, [hiddenCount]);
 
+  // When the message currently generating has a bubble in the list, render the typing
+  // indicator inside that bubble; otherwise it falls back to the standalone row below.
+  // ConversationMessage only renders typingLabel when its body is empty, so we may only
+  // route into a bubble that will actually be empty at render time:
+  //   • regeneration — the target bubble's content is cleared while we wait, or
+  //   • a deliberately-empty placeholder message.
+  // A brand-new generation otherwise targets lastAssistantMessageId (the previous, NON-empty
+  // assistant message); routing into it would swallow the indicator and show no feedback, so
+  // we leave the standalone row alive in that case.
+  const typingTargetId = showTypingIndicator ? (regenerateMessageId ?? lastAssistantMessageId) : null;
+  const typingLabelInMessage =
+    !!typingTargetId &&
+    renderedItems.some((item) => {
+      if (item.type !== "message") return false;
+      if (!(item.msg.id === typingTargetId || item.key.startsWith(typingTargetId + "__"))) return false;
+      return regenerateMessageId != null || (item.msg.content ?? "").trim() === "";
+    });
+
   return (
     <div
       className="mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden"
@@ -1137,6 +1266,7 @@ export function ConversationView({
                   onPeekPrompt={onPeekPrompt}
                   onToggleHiddenFromAI={onToggleHiddenFromAI}
                   onBranch={onBranch}
+                  typingLabel={typingLabelInMessage && item.msg.id === typingTargetId ? liveTypingLabel : undefined}
                 />,
               );
               i = j;
@@ -1147,8 +1277,8 @@ export function ConversationView({
             const { msg, isGrouped } = item;
             const isRegenerating = isStreaming && regenerateMessageId === msg.id;
             // During regeneration, don't pass isStreaming until content arrives — the
-            // "X is typing..." indicator at the bottom provides visual feedback instead
-            // of showing bouncing dots inside the message bubble.
+            // "X is typing..." indicator inside the message body provides feedback, and the
+            // old content is cleared while waiting so the indicator shows in an empty bubble.
             const hasStreamContent = isRegenerating && (!!streamBuffer || !!thinkingBuffer);
             // Strip old-swipe attachments during regeneration so a previous
             // illustration doesn't linger while new text is streaming in.
@@ -1157,7 +1287,7 @@ export function ConversationView({
                   const parsed = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
                   return {
                     ...msg,
-                    content: streamBuffer || (thinkingBuffer ? "Thinking..." : msg.content),
+                    content: streamBuffer || (thinkingBuffer ? "Thinking..." : ""),
                     extra: { ...parsed, attachments: null, thinking: thinkingBuffer || parsed.thinking },
                   };
                 })()
@@ -1184,6 +1314,7 @@ export function ConversationView({
                 multiSelectMode={multiSelectMode}
                 isSelected={selectedMessageIds?.has(msg.id)}
                 onToggleSelect={onToggleSelectMessage}
+                typingLabel={typingLabelInMessage && msg.id === typingTargetId ? liveTypingLabel : undefined}
               />,
             );
             i++;
@@ -1213,27 +1344,26 @@ export function ConversationView({
           </div>
         )}
 
-        {/* Typing indicator — shown when generation is actively running */}
-        {showTypingIndicator && (
-          <div className="flex items-center gap-2 px-4 py-1.5 text-[0.8125rem] text-[var(--text-secondary)]">
-            <span className="flex gap-0.5">
-              <span
-                className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-secondary)]"
-                style={{ animationDelay: "0ms" }}
-              />
-              <span
-                className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-secondary)]"
-                style={{ animationDelay: "150ms" }}
-              />
-              <span
-                className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--text-secondary)]"
-                style={{ animationDelay: "300ms" }}
-              />
-            </span>
-            <span className="italic">
-              {liveTypingName} {liveTypingVerb} typing...
-            </span>
-          </div>
+        {/* Typing indicator — shown when generation is actively running.
+            CSS-targetable per character via data-card-css. Hooks:
+              .mari-typing-indicator  — the row
+              .mari-typing-dots        — the bouncing dots (style `.mari-typing-dots span`)
+              .mari-typing-text        — the "X is typing..." label
+            data-typing-name carries the character name (usable as content: attr(data-typing-name)).
+            In group chats, characters whose card CSS targets these hooks (exclusive mode) get
+            their own row so their custom text applies in isolation; the rest share one row. */}
+        {showTypingIndicator && !typingLabelInMessage && (
+          <>
+            {/* Combined row for characters without typing-targeted CSS (shown first). When no
+                concrete participants resolve, this carries the single live typing label. */}
+            {typingPlainNames.length > 0 && (
+              <TypingIndicatorRow names={typingPlainNames} cardCssId={typingPlainCardCssId} />
+            )}
+            {/* One row per character whose card CSS targets the typing indicator (alphabetical). */}
+            {typingStyledRows.map((p) => (
+              <TypingIndicatorRow key={p.id} names={[p.name]} cardCssId={p.id} />
+            ))}
+          </>
         )}
 
         {/* Scene banner — inline at bottom of messages (origin variant only) */}
@@ -1319,6 +1449,7 @@ function SplitMessageGroup({
   onPeekPrompt,
   onToggleHiddenFromAI,
   onBranch,
+  typingLabel,
 }: {
   items: Array<{ key: string; msg: Message; isGrouped: boolean; index: number }>;
   isStreaming: boolean;
@@ -1336,6 +1467,7 @@ function SplitMessageGroup({
   onPeekPrompt: (options?: PeekPromptOptions) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
   onBranch: (messageId: string) => void;
+  typingLabel?: string;
 }) {
   const [showActions, setShowActions] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -1358,15 +1490,18 @@ function SplitMessageGroup({
     setEditing(false);
   }, [editValue, fullContent, messageId, onEdit]);
 
+  const groupCharacterId = items[0]!.msg.characterId ?? undefined;
+
   if (editing) {
     // Show the first message header + a single textarea for the full content
     const firstItem = items[0]!;
     const { msg } = firstItem;
     return (
-      <div className="group relative">
+      <div className="mari-message-group group relative">
         <ConversationMessage
           key={firstItem.key}
           message={{ ...msg, content: "" }}
+          suppressCardCss
           isStreaming={false}
           isGrouped={firstItem.isGrouped}
           noHoverGroup
@@ -1420,11 +1555,15 @@ function SplitMessageGroup({
   }
 
   return (
-    <div className="group relative" onClick={() => setShowActions((v) => !v)}>
+    <div
+      className="mari-message-group group relative"
+      data-card-css-group={groupCharacterId}
+      onClick={() => setShowActions((v) => !v)}
+    >
       {(() => {
         // During regeneration, the split lines all belong to the same message ID.
         // Collapse them into a single ConversationMessage showing the streamed content
-        // (or "X is typing…" via the indicator below) rather than repeating dots/content per line.
+        // (or the in-bubble "X is typing…" label) rather than repeating dots/content per line.
         const firstItem = items[0]!;
         const isRegen = isStreaming && regenerateMessageId === firstItem.msg.id;
         // Strip old-swipe attachments during regeneration so a previous
@@ -1437,8 +1576,7 @@ function SplitMessageGroup({
             })()
           : undefined;
         if (isRegen) {
-          // While waiting for content, don't render — the "X is typing..." indicator
-          // at the bottom of the message list provides the visual feedback.
+          // While waiting for content, show the "X is typing..." label inside the (empty) bubble.
           if (!streamBuffer && !thinkingBuffer) {
             return (
               <ConversationMessage
@@ -1459,6 +1597,7 @@ function SplitMessageGroup({
                 characterMap={characterMap}
                 chatCharacterIds={chatCharacterIds}
                 personaInfo={personaInfo}
+                typingLabel={typingLabel}
               />
             );
           }
@@ -1493,34 +1632,42 @@ function SplitMessageGroup({
           );
         }
 
-        return items.map((gi) => {
-          const { msg, isGrouped: grp } = gi;
-          const isChild = !/(?:__block0|__line0)$/.test(gi.key);
-          return (
-            <ConversationMessage
-              key={gi.key}
-              message={msg}
-              isStreaming={false}
-              isGrouped={grp}
-              hideActions={isChild}
-              noHoverGroup
-              forceShowActions={showActions}
-              onDelete={onDelete}
-              onRegenerate={onRegenerate}
-              onEdit={onEdit}
-              onSetActiveSwipe={onSetActiveSwipe}
-              onPeekPrompt={onPeekPrompt}
-              onToggleHiddenFromAI={isChild ? undefined : onToggleHiddenFromAI}
-              onBranch={isChild ? undefined : onBranch}
-              onEditClick={handleStartEdit}
-              isLastAssistantMessage={msg.id === lastAssistantMessageId}
-              characterMap={characterMap}
-              chatCharacterIds={chatCharacterIds}
-              personaInfo={personaInfo}
-              messageIndex={gi.index + 1}
-            />
-          );
-        });
+        // Combine all split paragraphs into a single ConversationMessage so that
+        // card CSS can style one seamless container (continuous borders, corners, stickers).
+        // The stagger animation still works: as hidden blocks become visible the items
+        // array grows and the combined content expands inside the same message body.
+        const lastItem = items[items.length - 1]!;
+        const combinedContent = items.map((gi) => gi.msg.content).join("\n\n");
+        const combinedMsg = {
+          ...firstItem.msg,
+          content: combinedContent,
+          // The last block carries the real extras (attachments, generationInfo, etc.)
+          extra: lastItem.msg.extra,
+        };
+        return (
+          <ConversationMessage
+            key={firstItem.key}
+            message={combinedMsg}
+            isStreaming={false}
+            isGrouped={firstItem.isGrouped}
+            hideActions={false}
+            noHoverGroup
+            forceShowActions={showActions}
+            onDelete={onDelete}
+            onRegenerate={onRegenerate}
+            onEdit={onEdit}
+            onSetActiveSwipe={onSetActiveSwipe}
+            onPeekPrompt={onPeekPrompt}
+            onToggleHiddenFromAI={onToggleHiddenFromAI}
+            onBranch={onBranch}
+            onEditClick={handleStartEdit}
+            isLastAssistantMessage={firstItem.msg.id === lastAssistantMessageId}
+            characterMap={characterMap}
+            chatCharacterIds={chatCharacterIds}
+            personaInfo={personaInfo}
+            messageIndex={firstItem.index + 1}
+          />
+        );
       })()}
     </div>
   );

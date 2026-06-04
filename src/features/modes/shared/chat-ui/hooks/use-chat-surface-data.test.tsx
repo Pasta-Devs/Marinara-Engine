@@ -2,22 +2,25 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useChatSurfaceData } from "./use-chat-surface-data";
 
-const catalogMocks = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({
+  useChat: vi.fn(),
   useChatMessages: vi.fn(),
+  useCharacterSummariesByIds: vi.fn(),
 }));
 
 vi.mock("../../../../catalog/chats/index", () => ({
-  useChat: () => ({ data: undefined, error: null }),
+  useChat: mocks.useChat,
   useChatMessageCount: () => ({ data: undefined }),
-  useChatMessages: catalogMocks.useChatMessages,
+  useChatMessages: mocks.useChatMessages,
 }));
 
 vi.mock("../../../../catalog/characters/index", () => ({
   characterAvatarUrl: () => null,
-  useCharacterSummariesByIds: () => ({ data: [] }),
+  useCharacterSummariesByIds: mocks.useCharacterSummariesByIds,
 }));
 
 vi.mock("../../../../catalog/personas/index", () => ({
@@ -27,11 +30,13 @@ vi.mock("../../../../catalog/personas/index", () => ({
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function Harness() {
+type Mode = "conversation" | "roleplay" | "game";
+
+function Harness({ fallbackChatMode = "conversation" }: { fallbackChatMode?: Mode }) {
   useChatSurfaceData({
     activeChatId: "chat-1",
     messagePageSize: 20,
-    fallbackChatMode: "conversation",
+    fallbackChatMode,
     personaFallback: "active-persona",
   });
   return null;
@@ -40,9 +45,17 @@ function Harness() {
 describe("useChatSurfaceData", () => {
   let container: HTMLDivElement;
   let root: Root;
+  let client: QueryClient;
 
   beforeEach(() => {
-    catalogMocks.useChatMessages.mockReturnValue({
+    mocks.useChat.mockReturnValue({
+      data: undefined,
+      error: null,
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
+    mocks.useChatMessages.mockReturnValue({
       data: undefined,
       isLoading: true,
       fetchNextPage: vi.fn(),
@@ -50,9 +63,11 @@ describe("useChatSurfaceData", () => {
       isFetchingNextPage: false,
       refetch: vi.fn(),
     });
+    mocks.useCharacterSummariesByIds.mockReturnValue({ data: [] });
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   });
 
   afterEach(() => {
@@ -60,14 +75,25 @@ describe("useChatSurfaceData", () => {
       root.unmount();
     });
     container.remove();
-    catalogMocks.useChatMessages.mockReset();
+    client.clear();
+    vi.clearAllMocks();
   });
 
-  it("starts loading messages as soon as an active chat id exists", () => {
-    act(() => {
-      root.render(<Harness />);
+  async function render(props: { fallbackChatMode?: Mode } = {}) {
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={client}>
+          <Harness {...props} />
+        </QueryClientProvider>,
+      );
     });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
 
-    expect(catalogMocks.useChatMessages).toHaveBeenCalledWith("chat-1", 20, true);
+  it("starts loading messages as soon as an active chat id exists", async () => {
+    await render();
+    expect(mocks.useChatMessages).toHaveBeenCalledWith("chat-1", 20, true);
   });
 });

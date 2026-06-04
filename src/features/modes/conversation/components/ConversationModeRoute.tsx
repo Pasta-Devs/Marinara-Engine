@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { getChatDisplayName, parseChatMetadata } from "../../../../shared/lib/chat-display";
+import { extractCreatorNotesCss } from "../../../../shared/lib/creator-notes-css";
+import { cssTargetsTypingIndicator, filterCssByMode } from "../../../../shared/lib/chat-css";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import {
@@ -16,6 +18,7 @@ import {
 import { useDeleteChat } from "../../../catalog/chats/index";
 import { ChatConversationSurface } from "./ChatConversationSurface";
 import { CreatorNotesCssInjector } from "../../shared/chat-ui/index";
+import { useConversationAvatarOverrides } from "../hooks/use-conversation-avatar-overrides";
 
 type ConversationModeRouteProps = {
   activeChatId: string;
@@ -32,6 +35,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
     fallbackChatMode: "conversation",
     personaFallback: "active-persona",
   });
+  const conversationCharacterMap = useConversationAvatarOverrides(data.characterMap);
   const { chatBackground } = useChatMetadataSync({
     chat: data.chat,
     chatMeta: data.chatMeta,
@@ -85,7 +89,7 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
     chatId: activeChatId,
     mode: "conversation",
     messages: data.messages,
-    characterMap: data.characterMap,
+    characterMap: conversationCharacterMap,
     isStreaming: timeline.isStreaming,
   });
 
@@ -147,6 +151,34 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
     return "chat" as const;
   })();
 
+  // Which active characters carry card CSS that targets the typing indicator? Their typing
+  // row is rendered separately (so per-character text/styling applies in isolation) instead
+  // of being merged into the combined "A, B are typing…" row. This only differentiates in
+  // exclusive mode — chat mode scopes all card CSS to the shared `.mari-card-css`, so a typing
+  // rule would apply to every row identically and splitting would be meaningless.
+  const typingStyledCharacterIds = useMemo(() => {
+    const set = new Set<string>();
+    if (cardCssMode !== "exclusive" || !data.allCharacters) return set;
+    const byId = new Map(data.allCharacters.map((c) => [c.id, c]));
+    for (const id of data.chatCharIds) {
+      const row = byId.get(id);
+      if (!row) continue;
+      let parsed: Record<string, unknown>;
+      try {
+        const raw = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+        parsed = raw as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      const notes = parsed.creator_notes;
+      if (typeof notes !== "string" || !notes) continue;
+      const { css } = extractCreatorNotesCss(notes);
+      if (css && cssTargetsTypingIndicator(filterCssByMode(css, "conversation"))) set.add(id);
+    }
+    return set;
+  }, [cardCssMode, data.allCharacters, data.chatCharIds]);
+
   return (
     <>
       <CreatorNotesCssInjector
@@ -165,11 +197,12 @@ export function ConversationModeRoute({ activeChatId }: ConversationModeRoutePro
         fetchNextPage={data.fetchNextPage}
         pageCount={data.pageCount}
         totalMessageCount={data.totalMessageCount}
-        characterMap={data.characterMap}
+        characterMap={conversationCharacterMap}
         characterNames={data.characterNames}
         personaInfo={data.personaInfo}
         chatMeta={data.chatMeta}
         chatCharIds={data.chatCharIds}
+        typingStyledCharacterIds={typingStyledCharacterIds}
         enabledAgentTypes={agentThoughtBubbleTypes}
         connectedChatName={data.connectedChatName}
         sceneInfo={sceneInfo}

@@ -1963,6 +1963,7 @@ export const ChatMessage = memo(function ChatMessage({
           data-message-id={message.id}
           data-message-role={message.role}
           data-card-css={message.characterId ?? undefined}
+          data-grouped={isGrouped || undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleMessageDoubleClick}
           style={roleplayAvatarScaleStyle}
@@ -2529,6 +2530,7 @@ export const ChatMessage = memo(function ChatMessage({
       data-message-id={message.id}
       data-message-role={message.role}
       data-card-css={message.characterId ?? undefined}
+      data-grouped={isGrouped || undefined}
       onClick={handleMobileTap}
       onDoubleClick={handleMessageDoubleClick}
     >

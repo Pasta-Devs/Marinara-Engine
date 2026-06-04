@@ -7,15 +7,18 @@ import { extractColorsFromImage } from "../../../../shared/lib/avatar-color-extr
 import { parseTrackerCardColorConfig } from "../../../../shared/lib/tracker-card-colors";
 import { cn } from "../../../../shared/lib/utils";
 import { CharacterEditorSectionHeader } from "./CharacterEditorSectionHeader";
+import { ConversationAvatarControl, parseConversationAvatarOverride } from "./ConversationAvatarControl";
 
 export function CharacterColorsTab({
   formData,
   updateExtension,
   avatarUrl,
+  characterId,
 }: {
   formData: CharacterData;
   updateExtension: (key: string, value: unknown) => void;
   avatarUrl: string | null;
+  characterId: string | null;
 }) {
   const nameColor = (formData.extensions.nameColor as string) ?? "";
   const dialogueColor = (formData.extensions.dialogueColor as string) ?? "";
@@ -149,6 +152,12 @@ export function CharacterColorsTab({
         onChange={(value) => updateExtension("trackerCardColors", value)}
         chatColors={{ nameColor, dialogueColor, boxColor }}
         entityLabel="Character"
+      />
+
+      <ConversationAvatarControl
+        characterId={characterId}
+        value={parseConversationAvatarOverride(formData.extensions.conversationAvatar)}
+        onChange={(next) => updateExtension("conversationAvatar", next)}
       />
     </div>
   );

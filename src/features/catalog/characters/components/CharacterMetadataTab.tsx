@@ -1,7 +1,9 @@
-import { Tag, X } from "lucide-react";
+import { useState } from "react";
+import { Maximize2, Tag, X } from "lucide-react";
 
 import type { CharacterData } from "../../../../engine/contracts/types/character";
 import { AvatarCropWidget } from "../../../../shared/components/ui/AvatarCropWidget";
+import { ExpandedTextarea } from "../../../../shared/components/ui/ExpandedTextarea";
 import { HelpTooltip } from "../../../../shared/components/ui/HelpTooltip";
 import type { AvatarCrop } from "../../../../shared/lib/utils";
 import { CharacterEditorSectionHeader as SectionHeader } from "./CharacterEditorSectionHeader";
@@ -32,10 +34,11 @@ export function CharacterMetadataTab({
   removeAllTags: () => void;
   avatarPreview: string | null;
 }) {
+  const [expandedCreatorNotes, setExpandedCreatorNotes] = useState(false);
+  const creatorNotesId = "character-creator-notes";
   // Read the saved source-rectangle crop and write the same current shape on edit.
   const savedCrop = (formData.extensions.avatarCrop as AvatarCrop | undefined) ?? null;
-  const talkativeness =
-    typeof formData.extensions.talkativeness === "number" ? formData.extensions.talkativeness : 0.5;
+  const talkativeness = typeof formData.extensions.talkativeness === "number" ? formData.extensions.talkativeness : 0.5;
 
   return (
     <div className="space-y-5">
@@ -161,19 +164,42 @@ export function CharacterMetadataTab({
         </div>
       </div>
 
-      <label className="block space-y-1.5">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          Creator Notes{" "}
-          <HelpTooltip text="Private notes about this character — tips for use, known quirks, recommended settings. Not sent to the AI." />
-        </span>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label
+            htmlFor={creatorNotesId}
+            className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]"
+          >
+            Creator Notes{" "}
+            <HelpTooltip text="Private notes about this character — tips for use, known quirks, recommended settings. Not sent to the AI." />
+          </label>
+          <button
+            type="button"
+            onClick={() => setExpandedCreatorNotes(true)}
+            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            title="Expand editor"
+          >
+            <Maximize2 size="0.875rem" />
+          </button>
+        </div>
         <textarea
+          id={creatorNotesId}
           value={formData.creator_notes}
           onChange={(event) => updateField("creator_notes", event.target.value)}
           rows={4}
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           placeholder="Notes about this character, intended use, tips for best results…"
         />
-      </label>
+      </div>
+
+      <ExpandedTextarea
+        open={expandedCreatorNotes}
+        onClose={() => setExpandedCreatorNotes(false)}
+        title="Creator Notes"
+        value={formData.creator_notes}
+        onChange={(value) => updateField("creator_notes", value)}
+        placeholder="Notes about this character, intended use, tips for best results…"
+      />
     </div>
   );
 }
