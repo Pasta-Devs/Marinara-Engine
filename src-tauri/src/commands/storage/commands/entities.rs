@@ -741,6 +741,10 @@ pub(crate) fn delete_entity(
         let deleted = delete_lorebook_entry_with_character_book_sync(state, id)?;
         return Ok(json!({ "deleted": deleted }));
     }
+    if entity == "lorebook-folders" {
+        let deleted = delete_lorebook_folder_with_entry_reparent_sync(state, id)?;
+        return Ok(json!({ "deleted": deleted }));
+    }
     let existing = owned_record_for_delete(state, entity, id)?;
     let message_chat_id = if entity == "messages" {
         existing
@@ -1062,6 +1066,49 @@ fn delete_lorebook_entry_with_character_book_sync(
     )
 }
 
+fn delete_lorebook_folder_with_entry_reparent_sync(
+    state: &AppState,
+    folder_id: &str,
+) -> Result<bool, AppError> {
+    state.storage.update_collections_atomically(
+        vec!["lorebook-folders", "lorebook-entries", "characters"],
+        move |collections| {
+            let (folder_rows, entry_rows, character_rows) =
+                lorebook_folder_delete_atomic_rows(collections)?;
+            let before = folder_rows.len();
+            folder_rows.retain(|row| row.get("id").and_then(Value::as_str) != Some(folder_id));
+            let deleted = folder_rows.len() != before;
+            if !deleted {
+                return Ok(false);
+            }
+
+            let now = now_iso();
+            let mut changed_entries = Vec::new();
+            for entry in entry_rows.iter_mut() {
+                if entry.get("folderId").and_then(Value::as_str) != Some(folder_id) {
+                    continue;
+                }
+                let Some(object) = entry.as_object_mut() else {
+                    return Err(AppError::invalid_input("Stored record is not an object"));
+                };
+                object.insert("folderId".to_string(), Value::Null);
+                object.insert("updatedAt".to_string(), Value::String(now.clone()));
+                changed_entries.push(Value::Object(object.clone()));
+            }
+
+            if !changed_entries.is_empty() {
+                let changed_refs = changed_entries.iter().collect::<Vec<_>>();
+                sync_linked_character_books_for_entry_rows_in_place(
+                    character_rows,
+                    entry_rows,
+                    &changed_refs,
+                )?;
+            }
+            Ok(true)
+        },
+    )
+}
+
 fn lorebook_entry_atomic_rows(
     collections: &mut [marinara_storage::AtomicCollectionRows],
 ) -> Result<(&mut Vec<Value>, &mut Vec<Value>), AppError> {
@@ -1076,6 +1123,32 @@ fn lorebook_entry_atomic_rows(
         _ => Err(AppError::new(
             "storage_error",
             "Lorebook entry sync received unexpected collections",
+        )),
+    }
+}
+
+fn lorebook_folder_delete_atomic_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+) -> Result<(&mut Vec<Value>, &mut Vec<Value>, &mut Vec<Value>), AppError> {
+    let [folders, entries, characters] = collections else {
+        return Err(AppError::new(
+            "storage_error",
+            "Lorebook folder delete expected folder, entry, and character collections",
+        ));
+    };
+    match (
+        folders.collection(),
+        entries.collection(),
+        characters.collection(),
+    ) {
+        ("lorebook-folders", "lorebook-entries", "characters") => Ok((
+            folders.rows_mut(),
+            entries.rows_mut(),
+            characters.rows_mut(),
+        )),
+        _ => Err(AppError::new(
+            "storage_error",
+            "Lorebook folder delete received unexpected collections",
         )),
     }
 }
@@ -2414,6 +2487,154 @@ mod tests {
             ids_for_lorebook(&state, "lorebook-folders", "book-keep"),
             vec!["folder-keep".to_string()]
         );
+    }
+
+    #[test]
+    fn deleting_lorebook_folder_reparents_entries_with_matching_folder_id() {
+        let state = test_state("lorebook-folder-delete-reparent");
+        state
+            .storage
+            .create(
+                "lorebooks",
+                json!({ "id": "book-delete", "name": "Delete folder" }),
+            )
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book-keep", "name": "Keep" }))
+            .expect("other lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-delete", "lorebookId": "book-delete", "name": "Delete" }),
+            )
+            .expect("folder should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-reparent",
+                    "lorebookId": "book-delete",
+                    "folderId": "folder-delete",
+                    "name": "Reparent",
+                    "content": "x"
+                }),
+            )
+            .expect("entry should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-stale-cross-lorebook",
+                    "lorebookId": "book-keep",
+                    "folderId": "folder-delete",
+                    "name": "Stale",
+                    "content": "x"
+                }),
+            )
+            .expect("stale cross-lorebook entry should be created");
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-other-folder",
+                    "lorebookId": "book-keep",
+                    "folderId": "folder-keep",
+                    "name": "Other",
+                    "content": "x"
+                }),
+            )
+            .expect("negative-control entry should be created");
+
+        delete_entity(&state, "lorebook-folders", "folder-delete", false)
+            .expect("folder delete should succeed");
+
+        let reparented = state
+            .storage
+            .get("lorebook-entries", "entry-reparent")
+            .expect("entry should read")
+            .expect("entry should remain");
+        assert!(reparented.get("folderId").is_none_or(Value::is_null));
+        let stale = state
+            .storage
+            .get("lorebook-entries", "entry-stale-cross-lorebook")
+            .expect("stale cross-lorebook entry should read")
+            .expect("stale cross-lorebook entry should remain");
+        assert!(stale.get("folderId").is_none_or(Value::is_null));
+        let other_folder = state
+            .storage
+            .get("lorebook-entries", "entry-other-folder")
+            .expect("negative-control entry should read")
+            .expect("negative-control entry should remain");
+        assert_eq!(other_folder["folderId"], "folder-keep");
+    }
+
+    #[test]
+    fn deleting_lorebook_folder_reparent_rolls_back_when_character_book_sync_fails() {
+        let state = test_state("lorebook-folder-delete-reparent-atomic");
+        seed_linked_character_book(&state);
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-linked", "lorebookId": "linked-book", "name": "Linked" }),
+            )
+            .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "lorebook-entries".to_string(),
+            json!({
+                "id": "entry-linked",
+                "lorebookId": "linked-book",
+                "folderId": "folder-linked",
+                "name": "Linked",
+                "content": "linked text",
+                "keys": ["linked"]
+            }),
+        )
+        .expect("entry should seed through sync path");
+        state
+            .storage
+            .patch(
+                "characters",
+                "character-1",
+                json!({
+                    "data": {
+                        "name": "Mira",
+                        "character_book": "malformed",
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "linked-book",
+                                    "entriesImported": 1
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("malformed linked character book should seed");
+
+        let error = delete_entity(&state, "lorebook-folders", "folder-linked", false)
+            .expect_err("malformed linked character book should reject folder delete");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("lorebook-folders", "folder-linked")
+            .expect("folder should read")
+            .is_some());
+        let entry = state
+            .storage
+            .get("lorebook-entries", "entry-linked")
+            .expect("entry should read")
+            .expect("entry should remain");
+        assert_eq!(entry["folderId"], "folder-linked");
     }
 
     #[test]

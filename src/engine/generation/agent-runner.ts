@@ -82,7 +82,15 @@ export interface GenerationAgentRuntimeInput {
   cadenceMessages?: JsonRecord[];
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
-  activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
+  activatedLorebookEntries: Array<{
+    id: string;
+    name: string;
+    content: string;
+    tag: string;
+    matchedKeys?: string[];
+    keys?: string[];
+    secondaryKeys?: string[];
+  }>;
   chatSummary: string | null;
   embeddingSource?: { embed(texts: string[]): Promise<number[][] | null> } | null;
   debugMode?: boolean;
