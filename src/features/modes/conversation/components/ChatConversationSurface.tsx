@@ -39,6 +39,7 @@ type ConversationSurfaceProps = {
   personaInfo?: PersonaInfo;
   chatMeta: Record<string, unknown>;
   chatCharIds: string[];
+  typingStyledCharacterIds?: Set<string>;
   enabledAgentTypes?: Set<string>;
   connectedChatName?: string;
   sceneInfo?: SceneInfo;
@@ -105,6 +106,7 @@ export function ChatConversationSurface({
   personaInfo,
   chatMeta,
   chatCharIds,
+  typingStyledCharacterIds,
   enabledAgentTypes,
   connectedChatName,
   sceneInfo,
@@ -174,6 +176,7 @@ export function ChatConversationSurface({
           chatName={chat?.name}
           chatGroupId={chat?.groupId ?? null}
           chatCharIds={chatCharIds}
+          typingStyledCharacterIds={typingStyledCharacterIds}
           onDelete={onDelete}
           onRegenerate={onRegenerate}
           onEdit={onEdit}

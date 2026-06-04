@@ -266,7 +266,7 @@ export function useChatSurfaceData({
     [chatCharIds, chatMeta, messages],
   );
   const { data: characterRows } = useCharacterSummariesByIds(neededCharacterIds, neededCharacterIds.length > 0);
-  const characterMap: CharacterMap = useMemo(() => {
+  const baseCharacterMap: CharacterMap = useMemo(() => {
     const map: CharacterMap = new Map();
     for (const character of (characterRows ?? []) as CharacterRow[]) {
       try {
@@ -298,6 +298,13 @@ export function useChatSurfaceData({
                 ? "online"
                 : undefined,
           conversationActivity: readString(extensions.conversationActivity) || undefined,
+          conversationAvatar: (() => {
+            const rec = readRecord(extensions.conversationAvatar);
+            const mode = readString(rec.mode);
+            return mode === "hide" || mode === "emoji" || mode === "sprite" || mode === "gallery"
+              ? { mode, value: readString(rec.value) || undefined }
+              : undefined;
+          })(),
         });
       } catch {
         map.set(character.id, { name: "Unknown", avatarUrl: null });
@@ -305,6 +312,8 @@ export function useChatSurfaceData({
     }
     return map;
   }, [characterRows]);
+
+  const characterMap = baseCharacterMap;
 
   const characterNames = useMemo(
     () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((name): name is string => !!name),

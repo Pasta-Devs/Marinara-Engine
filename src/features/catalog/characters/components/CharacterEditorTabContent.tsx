@@ -122,7 +122,12 @@ export function CharacterEditorTabContent({
           <CharacterGalleryTab characterId={characterId} characterName={formData.name} />
         )}
         {activeTab === "colors" && (
-          <CharacterColorsTab formData={formData} updateExtension={updateExtension} avatarUrl={avatarPreview} />
+          <CharacterColorsTab
+            formData={formData}
+            updateExtension={updateExtension}
+            avatarUrl={avatarPreview}
+            characterId={characterId ?? null}
+          />
         )}
         {activeTab === "stats" && <CharacterStatsTab formData={formData} updateExtension={updateExtension} />}
         {activeTab === "lorebook" && <CharacterLorebookTab characterId={characterId} formData={formData} />}
