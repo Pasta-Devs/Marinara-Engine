@@ -17,6 +17,21 @@ const CATEGORY_OPTIONS: Array<{ value: LorebookCategory; label: string; icon: ty
 
 type ScopeSummaryLine = { label: string; names: string };
 
+function appendLorebookOverviewTags(tags: readonly string[], rawInput: string): string[] {
+  const nextTags = [...tags];
+  const tagSet = new Set(nextTags);
+  for (const tag of rawInput
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)) {
+    if (!tagSet.has(tag)) {
+      nextTags.push(tag);
+      tagSet.add(tag);
+    }
+  }
+  return nextTags;
+}
+
 export type LorebookOverviewScopeSummary =
   | null
   | { text: string }
@@ -121,9 +136,9 @@ export function LorebookOverviewTab({
   onDirty: () => void;
 }) {
   const addTag = () => {
-    const tag = newTag.trim();
-    if (tag && !tags.includes(tag)) {
-      onTagsChange([...tags, tag]);
+    const nextTags = appendLorebookOverviewTags(tags, newTag);
+    if (nextTags.length !== tags.length) {
+      onTagsChange(nextTags);
       onDirty();
     }
     onNewTagChange("");
