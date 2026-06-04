@@ -6,8 +6,10 @@
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2170"
   },
   "pr": {
-    "number": null,
-    "url": null
+    "number": 2246,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2246",
+    "base": "refactor",
+    "draft": true
   },
   "coreClaim": "Legacy bare-string context injections are preserved as prose-guardian injections in engine generation normalization.",
   "preflight": {
@@ -86,7 +88,7 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": false,
     "claimBoundariesProven": true,
-    "notes": "Focused repro passed after the fix, edge rows passed, proof gate passed, pnpm typecheck passed, and pnpm check passed. PR acceptance remains pending Bunny, commit, draft PR health, CI, and CodeRabbit."
+    "notes": "Focused repro passed after the fix, edge rows passed, proof gate passed, pnpm typecheck passed, and pnpm check passed. PR acceptance remains pending current-head Bunny, CI, and CodeRabbit."
   },
   "bunny": {
     "status": "pass",
