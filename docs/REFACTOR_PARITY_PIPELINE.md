@@ -54,6 +54,14 @@ Work proceeds in these lanes, one slice at a time. A lane only moves to complete
 | UI parity                   | Stale controls, input buttons, loading surfaces, status indicators                               | In progress | Chat bulk export format menu and several missing settings restored. Need app/browser pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | Integrations                | TTS, haptics, Spotify, knowledge sources, GIFs, image generation, sprites                        | In progress | Spotify mini player and TTS audio format restored; frontend and Rust checks pass.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
+## Known Compatibility Decisions
+
+Use this ledger for legacy behaviors that the refactor intentionally preserves, especially when parity scans could read the behavior as an unresolved product decision.
+
+| Area | Decision | Rationale | Source |
+| --- | --- | --- | --- |
+| Lorebooks: missing schedule state | Schedule gates constrain activation only when the corresponding game-state field is available. If `time`, `date`, `location`, or the whole game-state object is absent, the missing value does not block an otherwise matching entry. | This keeps v1.6.1 prompt assembly, scanner preview, and Active World Info behavior compatible for chats that do not have complete game-state snapshots. | [#2182](https://github.com/Pasta-Devs/Marinara-Engine/issues/2182), [#2183](https://github.com/Pasta-Devs/Marinara-Engine/issues/2183) |
+
 ## Completed Slice: Connected Conversation Notes And Influences
 
 This was the first completed parity slice because it crossed migration, prompt assembly, and generation behavior:
