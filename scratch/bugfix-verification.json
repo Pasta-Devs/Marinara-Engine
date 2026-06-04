@@ -35,13 +35,13 @@
       "Portrait negative prompt includes duplicated-face and four-portrait blockers.",
       "Background negative prompt blocks people/characters and multiple frames.",
       "Illustration negative prompt blocks unrelated characters and character sheets.",
-      "Non-human description such as a stone golem gets the species-preservation rule.",
-      "A human NPC named Raven and a fox-masked, raven-haired human description stay under the human/humanoid default rule instead of becoming animal subjects.",
+      "Non-human descriptions such as a stone golem, black cat, and red fox get the species-preservation rule.",
+      "A human NPC named Raven, a fox-masked/raven-haired human description, a wolf-cloak costume, and a human named Spirit stay under the human/humanoid default rule instead of becoming animal subjects.",
       "An explicit non-human name such as Talking Cat still receives the species-preservation rule when description details are omitted.",
       "Tag-format portrait prompts retain the species safeguard text."
     ],
     "focusedTestCommand": "pnpm test src\\features\\modes\\game\\api\\game-api.test.ts",
-    "focusedTestEvidence": "5 Vitest cases passed for negative prompts, non-human description preservation, human-name and animal-themed descriptor negative controls, explicit non-human name handling, and tag-format safeguards.",
+    "focusedTestEvidence": "5 Vitest cases passed for negative prompts, non-human description preservation, plain/color-marked species positives, human-name and animal-themed descriptor negative controls, explicit non-human name handling, and tag-format safeguards.",
     "laneCheckCommand": "pnpm typecheck",
     "laneCheckEvidence": "tsc -b passed after the focused change.",
     "visualProof": "Non-UI request-building bug; proof is the actual terminal output from the before/after source proof script and focused Vitest run.",
@@ -70,13 +70,15 @@
       "background negative prompt",
       "illustration negative prompt",
       "portrait negative prompt",
-      "non-human portrait description",
+      "non-human portrait descriptions for stone golem, black cat, and red fox",
       "explicit non-human portrait name",
       "tag-format portrait prompt"
     ],
     "negativeRowsTested": [
       "human NPC with animal-like name Raven remains human/humanoid by default",
-      "human NPC with fox-masked and raven-haired descriptors remains human/humanoid by default"
+      "human NPC with fox-masked and raven-haired descriptors remains human/humanoid by default",
+      "human NPC with wolf-cloak costume remains human/humanoid by default",
+      "human NPC named Spirit remains human/humanoid by default"
     ],
     "groundTruthFacts": [
       "harness-proven: node scratch\\issue-2137-prompt-proof.mjs after verified generateAssets request body contains negativePrompt: item.negativePrompt",

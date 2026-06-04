@@ -12,16 +12,32 @@ describe("game asset image prompt safeguards", () => {
   });
 
   it("preserves explicit non-human NPC species in portrait prompts", () => {
-    const prompt = sceneAssetPrompt(
+    const golemPrompt = sceneAssetPrompt(
       "portrait",
       "Mossbell",
       "ancient stone golem with glowing eyes and mossy shoulders",
       "painterly fantasy visual novel art",
       { format: "descriptive" },
     );
+    const catPrompt = sceneAssetPrompt(
+      "portrait",
+      "Whisk",
+      "black cat with green eyes and a brass collar",
+      "painterly fantasy visual novel art",
+      { format: "descriptive" },
+    );
+    const foxPrompt = sceneAssetPrompt(
+      "portrait",
+      "Copper",
+      "red fox wearing a tiny travel satchel",
+      "painterly fantasy visual novel art",
+      { format: "descriptive" },
+    );
 
-    expect(prompt).toContain("Preserve that exact species, body plan, age category, and silhouette");
-    expect(prompt).toContain("do not turn it into a human or kemonomimi");
+    expect(golemPrompt).toContain("Preserve that exact species, body plan, age category, and silhouette");
+    expect(catPrompt).toContain("Preserve that exact species, body plan, age category, and silhouette");
+    expect(foxPrompt).toContain("Preserve that exact species, body plan, age category, and silhouette");
+    expect(golemPrompt).toContain("do not turn it into a human or kemonomimi");
   });
 
   it("keeps human NPC portraits from drifting into animal subjects", () => {
@@ -39,11 +55,27 @@ describe("game asset image prompt safeguards", () => {
       "painterly fantasy visual novel art",
       { format: "descriptive" },
     );
+    const cloakPrompt = sceneAssetPrompt(
+      "portrait",
+      "Toma",
+      "ranger in a wolf cloak and owl-feather brooch",
+      "painterly fantasy visual novel art",
+      { format: "descriptive" },
+    );
+    const spiritPrompt = sceneAssetPrompt(
+      "portrait",
+      "Spirit",
+      "quiet bard with a weathered lute",
+      "painterly fantasy visual novel art",
+      { format: "descriptive" },
+    );
 
     expect(ravenPrompt).toContain("depict this NPC as a human or humanoid person");
     expect(ravenPrompt).toContain("Do not infer an animal species from the name, mood, speech verbs, or setting");
     expect(foxPrompt).toContain("depict this NPC as a human or humanoid person");
     expect(foxPrompt).toContain("Do not infer an animal species from the name, mood, speech verbs, or setting");
+    expect(cloakPrompt).toContain("depict this NPC as a human or humanoid person");
+    expect(spiritPrompt).toContain("depict this NPC as a human or humanoid person");
   });
 
   it("still allows explicit non-human names when no description is available", () => {
