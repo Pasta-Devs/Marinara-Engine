@@ -185,7 +185,7 @@ impl ImportStringFallback for String {
     }
 }
 
-pub(super) fn lorebook_entries(value: &Value) -> Vec<Value> {
+pub(crate) fn lorebook_entries(value: &Value) -> Vec<Value> {
     match value.get("entries") {
         Some(Value::Array(items)) => items.clone(),
         Some(Value::Object(map)) => map.values().cloned().collect(),
@@ -193,7 +193,7 @@ pub(super) fn lorebook_entries(value: &Value) -> Vec<Value> {
     }
 }
 
-pub(super) fn lorebook_entry_count(value: &Value) -> usize {
+pub(crate) fn lorebook_entry_count(value: &Value) -> usize {
     lorebook_entries(value).len()
 }
 
@@ -234,11 +234,12 @@ fn selective_logic_value(value: Option<&Value>) -> &'static str {
     }
 }
 
-pub(super) fn normalize_lorebook_entry(lorebook_id: &str, entry: &Value, index: usize) -> Value {
+pub(crate) fn normalize_lorebook_entry(lorebook_id: &str, entry: &Value, index: usize) -> Value {
     let keys = entry.get("key").or_else(|| entry.get("keys"));
     let secondary = entry
         .get("keysecondary")
-        .or_else(|| entry.get("secondary_keys"));
+        .or_else(|| entry.get("secondary_keys"))
+        .or_else(|| entry.get("secondaryKeys"));
     let enabled = entry
         .get("disable")
         .and_then(Value::as_bool)
@@ -288,7 +289,7 @@ pub(super) fn normalize_lorebook_entry(lorebook_id: &str, entry: &Value, index: 
         "additionalMatchingSources": [],
         "position": position,
         "depth": number(entry.get("depth"), 4),
-        "order": number(entry.get("order").or_else(|| entry.get("insertion_order")).or_else(|| entry.get("uid")).or_else(|| entry.get("id")), 100),
+        "order": number(entry.get("order").or_else(|| entry.get("insertion_order")).or_else(|| entry.get("uid")).or_else(|| entry.get("id")), index as i64),
         "role": role,
         "sticky": optional_number(entry.get("sticky")),
         "cooldown": optional_number(entry.get("cooldown")),

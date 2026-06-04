@@ -1,3 +1,4 @@
+use super::imports::{lorebook_entries, normalize_lorebook_entry};
 use super::shared::*;
 use super::*;
 use serde_json::Map;
@@ -115,11 +116,7 @@ pub(crate) fn import_character_embedded_lorebook(
         })
         .cloned()
         .unwrap_or(Value::Null);
-    let entries = book
-        .get("entries")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let entries = lorebook_entries(&book);
     if entries.is_empty() {
         return Err(AppError::invalid_input(
             "Character does not contain an embedded lorebook",
@@ -169,7 +166,7 @@ pub(crate) fn import_character_embedded_lorebook(
         .to_string();
     let mut imported = 0;
     for (index, entry) in entries.into_iter().enumerate() {
-        let normalized = normalize_character_book_entry(&entry, index, &lorebook_id);
+        let normalized = normalize_lorebook_entry(&lorebook_id, &entry, index);
         state.storage.create("lorebook-entries", normalized)?;
         imported += 1;
     }
@@ -613,27 +610,6 @@ fn remove_duplicate_embedded_lorebooks(
         state.storage.delete("lorebooks", id)?;
     }
     Ok(())
-}
-
-fn normalize_character_book_entry(entry: &Value, index: usize, lorebook_id: &str) -> Value {
-    let keys = entry
-        .get("keys")
-        .or_else(|| entry.get("key"))
-        .cloned()
-        .unwrap_or_else(|| json!([]));
-    json!({
-        "lorebookId": lorebook_id,
-        "name": entry.get("name").or_else(|| entry.get("comment")).and_then(Value::as_str).unwrap_or("Entry"),
-        "content": entry.get("content").and_then(Value::as_str).unwrap_or(""),
-        "keys": keys,
-        "secondaryKeys": entry.get("secondary_keys").or_else(|| entry.get("secondaryKeys")).cloned().unwrap_or_else(|| json!([])),
-        "constant": entry.get("constant").and_then(Value::as_bool).unwrap_or(false),
-        "selective": entry.get("selective").and_then(Value::as_bool).unwrap_or(false),
-        "enabled": entry.get("enabled").and_then(Value::as_bool).unwrap_or(true),
-        "order": entry.get("insertion_order").or_else(|| entry.get("order")).and_then(Value::as_i64).unwrap_or(index as i64),
-        "position": entry.get("position").and_then(Value::as_str).unwrap_or("before_char"),
-        "folderId": Value::Null
-    })
 }
 
 fn patch_character_embedded_lorebook_pointer(
@@ -1260,6 +1236,102 @@ mod tests {
             gallery[0].get("data").and_then(Value::as_str),
             Some(inline_data)
         );
+    }
+
+    #[test]
+    fn embedded_lorebook_import_preserves_st_character_book_fields() {
+        let state = test_state("embedded-lorebook-st-fields");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-1",
+                    "name": "Mira",
+                    "data": {
+                        "name": "Mira",
+                        "character_book": {
+                            "entries": [
+                                {
+                                    "comment": "Moon Memory",
+                                    "content": "moon lore",
+                                    "key": ["moon"],
+                                    "keysecondary": ["tide"],
+                                    "disable": true,
+                                    "order": 12,
+                                    "position": "at_depth",
+                                    "role": "assistant",
+                                    "depth": 7,
+                                    "scan_depth": 9,
+                                    "probability": 45,
+                                    "useProbability": true,
+                                    "match_whole_words": true,
+                                    "case_sensitive": true,
+                                    "regex": true,
+                                    "sticky": 2,
+                                    "cooldown": 3,
+                                    "delay": 4,
+                                    "ephemeral": 5,
+                                    "group": "memory",
+                                    "groupWeight": 6,
+                                    "excludeRecursion": true,
+                                    "locked": true
+                                },
+                                {
+                                    "comment": "Sun Signal",
+                                    "content": "sun lore",
+                                    "keys": ["sun"],
+                                    "secondaryKeys": ["flare"]
+                                }
+                            ]
+                        }
+                    }
+                }),
+            )
+            .expect("character should be created");
+
+        let imported = import_character_embedded_lorebook(&state, "character-1")
+            .expect("embedded lorebook should import");
+        let lorebook_id = imported
+            .get("lorebookId")
+            .and_then(Value::as_str)
+            .expect("import should return lorebook id");
+        let entries = entries_for_lorebook(&state, lorebook_id);
+
+        assert_eq!(entries.len(), 2);
+        let entry = entries
+            .iter()
+            .find(|entry| entry.get("name").and_then(Value::as_str) == Some("Moon Memory"))
+            .expect("moon entry should import");
+        assert_eq!(entry["name"], "Moon Memory");
+        assert_eq!(entry["content"], "moon lore");
+        assert_eq!(entry["keys"], json!(["moon"]));
+        assert_eq!(entry["secondaryKeys"], json!(["tide"]));
+        assert_eq!(entry["enabled"], false);
+        assert_eq!(entry["order"], 12);
+        assert_eq!(entry["position"], 2);
+        assert_eq!(entry["role"], "assistant");
+        assert_eq!(entry["depth"], 7);
+        assert_eq!(entry["scanDepth"], 9);
+        assert_eq!(entry["probability"], 45);
+        assert_eq!(entry["matchWholeWords"], true);
+        assert_eq!(entry["caseSensitive"], true);
+        assert_eq!(entry["useRegex"], true);
+        assert_eq!(entry["sticky"], 2);
+        assert_eq!(entry["cooldown"], 3);
+        assert_eq!(entry["delay"], 4);
+        assert_eq!(entry["ephemeral"], 5);
+        assert_eq!(entry["group"], "memory");
+        assert_eq!(entry["groupWeight"], 6);
+        assert_eq!(entry["preventRecursion"], true);
+        assert_eq!(entry["locked"], true);
+
+        let camel_case_entry = entries
+            .iter()
+            .find(|entry| entry.get("name").and_then(Value::as_str) == Some("Sun Signal"))
+            .expect("camelCase secondary key entry should import");
+        assert_eq!(camel_case_entry["secondaryKeys"], json!(["flare"]));
+        assert_eq!(camel_case_entry["order"], 1);
     }
 
     #[test]
