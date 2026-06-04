@@ -169,7 +169,15 @@ export interface AgentContext {
   /** Optional sink for structured runtime debug entries when debugMode is enabled. */
   debugSink?: (entry: Omit<AgentDebugEntry, "timestamp"> & { timestamp?: number }) => void;
   /** Lorebook entries activated for this generation (read context) */
-  activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }> | null;
+  activatedLorebookEntries: Array<{
+    id: string;
+    name: string;
+    content: string;
+    tag: string;
+    matchedKeys?: string[];
+    keys?: string[];
+    secondaryKeys?: string[];
+  }> | null;
   /** All lorebook IDs the agent can write to */
   writableLorebookIds: string[] | null;
   /** Chat summary text (if any) — helps agents avoid duplicating summarized info */

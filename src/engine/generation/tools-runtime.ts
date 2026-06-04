@@ -30,7 +30,15 @@ import {
 export interface ToolRuntimeInput {
   chat: JsonRecord;
   storedMessages?: JsonRecord[];
-  activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }>;
+  activatedLorebookEntries: Array<{
+    id: string;
+    name: string;
+    content: string;
+    tag: string;
+    matchedKeys?: string[];
+    keys?: string[];
+    secondaryKeys?: string[];
+  }>;
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
   chatSummary: string | null;
@@ -154,6 +162,16 @@ function stringArrayArg(args: JsonRecord, key: string): string[] {
   return value.map((item) => readString(item).trim()).filter(Boolean);
 }
 
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const trimmed = value.trim();
+    if (!trimmed || seen.has(trimmed)) return false;
+    seen.add(trimmed);
+    return true;
+  });
+}
+
 function toolError(message: string): never {
   throw new Error(message);
 }
@@ -254,30 +272,41 @@ async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInp
   const category = stringArg(args, "category").toLowerCase();
   const tokens = query.split(/\s+/).filter((token) => token.length > 1);
   const rows = await loadSearchableStoredLorebookEntries(storage, input);
+  const storedById = new Map(rows.map((entry) => [entry.id, entry]));
+  const activatedIds = new Set(input.activatedLorebookEntries.map((entry) => entry.id).filter(Boolean));
   const activated = input.activatedLorebookEntries.map((entry) => ({
     id: entry.id,
-    name: entry.name,
-    content: entry.content,
-    tag: entry.tag,
+    name: storedById.get(entry.id)?.name || entry.name,
+    content: storedById.get(entry.id)?.content || entry.content,
+    tag: storedById.get(entry.id)?.tag || entry.tag,
+    keys: uniqueStrings([
+      ...(entry.matchedKeys ?? []),
+      ...(entry.keys ?? []),
+      ...(storedById.get(entry.id)?.keys ?? []),
+    ]),
+    secondaryKeys: uniqueStrings([...(entry.secondaryKeys ?? []), ...(storedById.get(entry.id)?.secondaryKeys ?? [])]),
     source: "activated",
   }));
-  const stored = rows.map((entry) => ({
-    id: entry.id,
-    name: entry.name || "Lorebook entry",
-    content: entry.content,
-    tag: entry.tag || String(entry.position),
-    source: "stored",
-  }));
-  const seen = new Set<string>();
+  const stored = rows
+    .filter((entry) => !activatedIds.has(entry.id))
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name || "Lorebook entry",
+      content: entry.content,
+      tag: entry.tag || String(entry.position),
+      keys: entry.keys,
+      secondaryKeys: entry.secondaryKeys,
+      source: "stored",
+    }));
   const scored = [...activated, ...stored]
     .filter((entry) => {
-      if (!entry.id || seen.has(entry.id)) return false;
-      seen.add(entry.id);
+      if (!entry.id) return false;
       if (category && !`${entry.name} ${entry.tag}`.toLowerCase().includes(category)) return false;
       return true;
     })
     .map((entry) => {
-      const haystack = `${entry.name} ${entry.tag} ${entry.content}`.toLowerCase();
+      const keyText = [...entry.keys, ...entry.secondaryKeys].join(" ");
+      const haystack = `${entry.name} ${entry.tag} ${entry.content} ${keyText}`.toLowerCase();
       const score =
         (haystack.includes(query) ? 10 : 0) +
         tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
@@ -292,6 +321,8 @@ async function searchLorebookTool(storage: StorageGateway, input: ToolRuntimeInp
       tag: entry.tag || null,
       source: entry.source,
       score: entry.score,
+      keys: entry.keys.slice(0, 12),
+      secondaryKeys: entry.secondaryKeys.slice(0, 12),
       content: entry.content.slice(0, 4000),
     }));
   return { query, entries: scored };
