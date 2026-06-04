@@ -78,11 +78,11 @@ export interface GameStateForScanning {
  */
 function evaluateConditions(conditions: ActivationCondition[], gameState: GameStateForScanning | null): boolean {
   if (conditions.length === 0) return true;
-  if (!gameState) return true;
+  if (!gameState) return false;
 
   for (const condition of conditions) {
     const fieldValue = getGameStateValue(gameState, condition.field);
-    if (fieldValue === null) continue;
+    if (fieldValue === null) return false;
 
     switch (condition.operator) {
       case "equals":
