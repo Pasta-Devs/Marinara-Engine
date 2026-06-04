@@ -61,12 +61,7 @@ async function fetchBlobUrl(url: string, fallbackMimeType: string): Promise<stri
 
 async function loadUrlDataUrl(url: string, fallbackMimeType: string): Promise<string | null> {
   if (url.startsWith("blob:")) return fetchBlobUrl(url, fallbackMimeType);
-  try {
-    return blobToDataUrl(await urlBinaryApi.load(url, fallbackMimeType), fallbackMimeType);
-  } catch (error) {
-    if (typeof fetch !== "function") throw error;
-    return fetchBlobUrl(url, fallbackMimeType);
-  }
+  return blobToDataUrl(await urlBinaryApi.load(url, fallbackMimeType), fallbackMimeType);
 }
 
 export const visualAssetsApi: VisualAssetGateway = {

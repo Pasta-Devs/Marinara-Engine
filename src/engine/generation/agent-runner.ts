@@ -277,9 +277,9 @@ function usableImageReference(value: unknown, fallbackMimeType = "image/png"): s
   return estimateImageReferenceBytes(dataUrl) <= IMAGE_REFERENCE_PROVIDER_BYTE_LIMIT ? dataUrl : "";
 }
 
-function firstUsableReference(...values: unknown[]): string {
+function firstUsableReference(fallbackMimeType: string, ...values: unknown[]): string {
   for (const value of values) {
-    const image = usableImageReference(value);
+    const image = usableImageReference(value, fallbackMimeType);
     if (image) return image;
   }
   return "";
@@ -296,7 +296,8 @@ async function resolveReferenceImage(
     avatarFilename?: unknown;
   },
 ): Promise<string> {
-  const inline = firstUsableReference(source.image, source.url, source.base64);
+  const fallbackMimeType = readString(source.mimeType).trim() || "image/png";
+  const inline = firstUsableReference(fallbackMimeType, source.image, source.url, source.base64);
   if (inline) return inline;
   const resolved = visuals?.resolveReferenceImage
     ? await visuals
@@ -310,7 +311,7 @@ async function resolveReferenceImage(
         })
         .catch(() => null)
     : null;
-  return usableImageReference(resolved);
+  return usableImageReference(resolved, fallbackMimeType);
 }
 
 async function fullBodySpriteReference(
