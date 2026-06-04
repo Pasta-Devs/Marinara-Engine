@@ -29,8 +29,18 @@ export interface GameAssetManifest {
   [key: string]: unknown;
 }
 
+export interface VisualReferenceImageSource {
+  image?: string | null;
+  url?: string | null;
+  base64?: string | null;
+  mimeType?: string | null;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+}
+
 export interface VisualAssetGateway {
   listSprites(ownerId: string, ownerType?: SpriteOwnerType): Promise<SpriteAssetInfo[]>;
   listBackgrounds(): Promise<BackgroundAssetInfo[]>;
   gameAssetsManifest?(): Promise<GameAssetManifest | null>;
+  resolveReferenceImage?(source: VisualReferenceImageSource): Promise<string | null>;
 }

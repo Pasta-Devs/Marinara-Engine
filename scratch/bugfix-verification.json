@@ -1,194 +1,118 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2140,
-    "title": "Game mode journal NPC and quest logs are never populated",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2140"
+    "number": 2148,
+    "title": "Game mode GM party-morale context downgraded to a bare number",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2148"
+  },
+  "coreClaim": "Game GM prompt assembly emits tier-aware party morale context instead of a bare morale number.",
+  "assignment": {
+    "assignee": "cha1latte",
+    "assigned": true,
+    "evidence": "gh issue edit 2148 --repo Pasta-Devs/Marinara-Engine --add-assignee \"@me\" succeeded before implementation."
+  },
+  "associatedPrPreflight": {
+    "foundDuplicate": false,
+    "evidence": "gh PR search for #2148, party morale, party_morale, and formatMoraleContext found no associated open or closed fix PR; issue timeline had only label events; local branch search found no 2148/morale branch."
   },
   "pr": {
-    "number": 2220,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2220"
+    "number": 2230,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2230",
+    "base": "refactor",
+    "draft": true
   },
-  "coreClaim": "Game journal NPC and quest entries populate npcLog and quests instead of generic events, and deterministic recaps include those rows.",
+  "branch": {
+    "base": "origin/refactor",
+    "name": "fix/issue-2148-party-morale-context"
+  },
+  "dependencies": {
+    "installedFromLockfile": true,
+    "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change dependency declarations."
+  },
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "command": "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts",
-    "method": "Local ignored Vitest harness kept out of the submitted PR diff per repo policy.",
-    "evidence": "Failed before fix: applyJournalEntry is not a function; syncJournalFromGameState is not a function."
+    "command": "pnpm exec vitest run --config scratch/vitest.issue-2148.config.ts --reporter verbose",
+    "method": "Local ignored Vitest harness exercised assembleGenerationPrompt for a game chat with gameMorale=5.",
+    "beforeSummary": "Failed because the assembled game GM system prompt lacked <party_morale> and emitted Current party morale: 5 / 100."
   },
   "verification": {
     "originalReproPassed": true,
-    "originalReproCommand": "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose",
-    "originalReproEvidence": "7 tests passed after fix, including quest completion timestamp edges, combat outcome precedence, and location hydration boundary rows added from reviewer feedback.",
+    "originalReproCommand": "pnpm exec vitest run --config scratch/vitest.issue-2148.config.ts --reporter verbose",
+    "originalReproEvidence": "7 tests passed after the fix: the original broken-tier repro, all five morale tiers, and the absent-morale negative row.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Full PR gate passed after merging current upstream/refactor: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, and unused exports.",
+    "baselineEvidence": "Full PR gate passed: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery, launcher safety, and unused exports.",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/modes/game/world/journal.service.test.ts --reporter verbose passed with 7 tests using a local ignored proof harness.",
+      "Before fix, scratch Vitest failed because the assembled game GM system prompt lacked <party_morale> and contained Current party morale: 5 / 100.",
+      "After fix, scratch Vitest passed with 7 rows covering broken, low, steady, high, inspired, and no-morale.",
       "pnpm typecheck passed.",
       "pnpm check:architecture passed.",
-      "pnpm check:unused passed after internalizing journal row-builder helpers.",
-      "pnpm check passed after merging current upstream/refactor.",
-      "node C:/Users/celia/.codex/tools/marinara-proof-gate.mjs scratch/bugfix-verification.json passed."
+      "pnpm check passed.",
+      "Proof gate script unavailable: C:/Users/celia/.codex/tools/marinara-proof-gate.mjs was not present on this machine."
     ],
     "edgeCases": [
-      "Explicit npc journal commands append structured npcLog rows and npc entries instead of generic events.",
-      "Explicit quest journal commands append structured quest rows and quest entries instead of generic events.",
-      "Existing location commands preserve the location payload field.",
-      "Existing item commands preserve the item payload field.",
-      "Tracked gameNpcs hydrate npcLog with the legacy Tracked at <location>. interaction.",
-      "PlayerStats.activeQuests hydrate journal.quests with active/completed status and objective text.",
-      "Deterministic structured recaps include Active quests and Key NPC interactions after hydration.",
-      "Quest completedAt is cleared when a later quest update changes status back to active.",
-      "Quest completedAt is preserved when a completed quest receives another completed update without a valid explicit replacement timestamp, including a blank completedAt payload.",
-      "Combat journal commands prefer defeat or fled result values over conflicting victory outcome values.",
-      "Current-location hydration is opt-in for read/summary paths so addJournalEntry and concludeSession do not persist synthetic location entries."
+      "Broken morale score 5 emits Morale: broken (5/100) and the demoralized directive.",
+      "Low morale score 20 emits Morale: low (20/100) and the flagging morale directive.",
+      "Steady morale score 50 emits Morale: steady (50/100) and the stable morale directive.",
+      "High morale score 75 emits Morale: high (75/100) and the high spirits directive.",
+      "Inspired morale score 90 emits Morale: inspired (90/100) and the confidence directive.",
+      "Missing gameMorale still omits party morale context and does not emit the old bare-number line."
     ],
-    "visualProof": "scratch/issue-2140-vitest-after.txt"
-  },
-  "manualBlockers": [],
-  "notes": [],
-  "assignment": {
-    "assignee": "cha1latte",
-    "evidence": "Issue #2140 was assigned to cha1latte before implementation."
-  },
-  "preflight": {
-    "assigned": true,
-    "noAssociatedPr": true,
-    "details": "PR searches for #2140, npcLog, and upsertQuest returned no associated fix PRs; local branch search found no issue-2140 branch."
+    "visualProof": "No UI screenshot: this is a backend/prompt-assembly bug. Proof is the before/after command output from the scratch harness."
   },
   "riskClaimMatrix": {
-    "coreClaim": "Game journal NPC and quest rows are restored from current command and game-state entrypoints without breaking existing location, item, combat, note, or event journal commands.",
-    "riskType": "game-state compatibility and journal command contract",
+    "coreClaim": "Game GM prompt assembly emits tier-aware party morale context instead of a bare morale number.",
+    "riskType": "prompt assembly legacy parity",
     "entrypoints": [
-      "gameApi.addJournalEntry",
-      "gameApi.getJournal",
-      "gameApi.concludeSession",
-      "buildStructuredRecap"
+      "assembleGenerationPrompt for game chats",
+      "buildGmSystemPrompt server-computed context insertion"
     ],
     "currentPathsOrFormats": [
-      "metadata.gameJournal.entries",
-      "metadata.gameJournal.npcLog",
-      "metadata.gameJournal.quests",
-      "metadata.gameNpcs",
-      "chat.gameState.playerStats.activeQuests"
+      "chat.metadata.gameMorale",
+      "GmPromptContext.moraleContext",
+      "src/engine/modes/game/mechanics/morale.service.ts"
     ],
     "legacyPathsOrFormats": [
-      "main addNpcEntry journal builder",
-      "main upsertQuest journal builder",
-      "main reconcileJournal tracked NPC loop",
-      "main reconcileJournal active quest loop"
+      "main packages/server/src/services/game/morale.service.ts formatMoraleContext",
+      "main gm-prompts moraleContext insertion"
     ],
     "positiveRowsTested": [
-      "npc command with npc object plus interaction",
-      "quest command with nested quest object",
-      "tracked NPC with location",
-      "active quest with completed and incomplete objectives",
-      "completed quest updated back to active clears completedAt",
-      "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
-      "combat result fled overrides conflicting victory outcome",
-      "location hydration is omitted unless currentLocation is explicitly requested",
-      "location command using location payload",
-      "item command using item payload"
+      "gameMorale=5 maps to broken tier and demoralized directive",
+      "gameMorale=20 maps to low tier and flagging directive",
+      "gameMorale=50 maps to steady tier and stable directive",
+      "gameMorale=75 maps to high tier and high spirits directive",
+      "gameMorale=90 maps to inspired tier and confidence directive"
     ],
     "negativeRowsTested": [
-      "Duplicate tracked NPC interaction is checked before append",
-      "Empty NPC name or interaction command returns the journal unchanged",
-      "Empty quest id/name command returns the journal unchanged"
+      "Absent gameMorale omits morale context",
+      "After the fix, the old bare-number Current party morale line is absent"
     ],
     "groundTruthFacts": [
       {
-        "fact": "The refactor journal service had no NPC or quest row builders before this fix.",
+        "fact": "Refactor prompt assembly emitted a bare morale number before this fix.",
         "sourceType": "measured",
-        "method": "Measured with rg before the patch: addNpcEntry and upsertQuest returned no implementation in the refactor journal service.",
-        "evidence": "Pre-fix rg for addNpcEntry and upsertQuest returned no implementation in src/engine/modes/game/world/journal.service.ts; before-fix regression test failed because applyJournalEntry and syncJournalFromGameState were not functions."
+        "evidence": "Before-fix scratch repro output included Current party morale: 5 / 100 and no <party_morale> block."
       },
       {
-        "fact": "The refactor API previously routed unknown journal command types through addEventEntry.",
+        "fact": "Legacy main formatted morale as a <party_morale> block with tier and directive.",
         "sourceType": "derived",
-        "method": "Derived from the pre-patch applyJournalEntry implementation in src/features/modes/game/api/game-api.ts before moving dispatch into the engine journal service.",
-        "evidence": "Pre-patch applyJournalEntry only handled location, combat, item, and note before falling through to addEventEntry."
+        "evidence": "git show FETCH_HEAD:packages/server/src/services/game/morale.service.ts showed formatMoraleContext with tierDescriptions and <party_morale> output."
       }
     ],
+    "userActionCopy": "No user action copy changed.",
     "manualBlockers": []
   },
-  "contractLaneGate": {
-    "brokenContract": "NPC and quest journal producers emitted structured data, but the refactor journal owner no longer had NPC/quest builders or dispatch branches.",
-    "producer": "gameApi.addJournalEntry journal commands plus tracked game state in metadata.gameNpcs and chat.gameState.playerStats.activeQuests",
-    "consumer": "GameJournal, buildStructuredRecap, and gameApi.concludeSession deterministic session summaries",
-    "impliedContract": "NPC interactions populate journal.npcLog and quest progress populates journal.quests so journal and recap consumers render those sections.",
-    "actualEnforcement": "applyJournalEntry handles npc and quest commands, and syncJournalFromGameState hydrates npcLog/quests before journal reads, journal writes, and session conclusion.",
-    "primaryOwnerLane": "src/engine",
-    "primaryOwnerDetail": "src/engine/modes/game/world/journal.service.ts owns journal row construction and command dispatch.",
-    "consumerOnlyLanes": [
-      "src/features"
-    ],
-    "wrongLaneFixToAvoid": "Do not patch GameJournal or recap UI to fake NPC/quest sections from unrelated metadata while journal.npcLog and journal.quests remain empty.",
-    "regressionProof": [
-      "Local ignored proof harness routes npc commands into npcLog and npc entries.",
-      "Local ignored proof harness routes quest commands into journal.quests and quest entries.",
-      "Local ignored proof harness syncs tracked NPCs and active player quests into deterministic recap output.",
-      "Local ignored proof harness clears stale completedAt when a completed quest becomes active again.",
-      "Local ignored proof harness preserves completedAt when a completed quest receives another completed update without a valid explicit replacement, including blank completedAt.",
-      "Local ignored proof harness keeps combat result precedence for fled or defeat over conflicting outcome values.",
-      "Local ignored proof harness proves syncJournalFromGameState omits synthetic location rows unless currentLocation is explicitly passed.",
-      "Local ignored proof harness keeps existing location and item command payload fields working."
-    ]
-  },
-  "proofRows": {
-    "positiveRows": [
-      "npc command with npc object plus interaction",
-      "quest command with nested quest object",
-      "tracked NPC with location",
-      "active quest with completed and incomplete objectives",
-      "completed quest updated back to active clears completedAt",
-      "completed quest updated as completed with missing or blank completedAt preserves existing completedAt",
-      "combat result fled overrides conflicting victory outcome",
-      "location hydration is omitted unless currentLocation is explicitly requested",
-      "location command using location payload",
-      "item command using item payload"
-    ],
-    "contradictionRows": [
-      "Duplicate tracked NPC interaction is checked before append",
-      "Empty NPC name or interaction command returns the journal unchanged",
-      "Empty quest id/name command returns the journal unchanged"
-    ],
-    "legacyDefaultRows": [
-      "Legacy tracked NPC reconciliation restored as gameNpcs to npcLog using Tracked at <location>.",
-      "Legacy active quest reconciliation restored as PlayerStats.activeQuests to journal.quests.",
-      "Existing default location, item, combat, note, and event command dispatch remains in applyJournalEntry."
-    ],
-    "untestedRows": []
-  },
-  "ownedFacts": [
-    {
-      "fact": "The refactor journal service had no NPC or quest row builders before this fix.",
-      "sourceType": "measured",
-      "evidence": "Pre-fix rg for addNpcEntry and upsertQuest returned no implementation in src/engine/modes/game/world/journal.service.ts; the before-fix regression test failed because applyJournalEntry and syncJournalFromGameState were not functions."
-    },
-    {
-      "fact": "The refactor API previously routed npc and quest command types through addEventEntry.",
-      "sourceType": "derived",
-      "evidence": "Derived from the pre-patch applyJournalEntry implementation in src/features/modes/game/api/game-api.ts, which only handled location/combat/item/note before the catch-all addEventEntry branch."
-    }
-  ],
+  "manualBlockers": [],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Local regression proof, proof gate, conflict resolution, and full pnpm check passed after merging current upstream/refactor."
-  },
-  "branch": {
-    "base": "upstream/refactor",
-    "name": "fix/issue-2140-game-journal-logs"
-  },
-  "dependencies": {
-    "installedFromLockfile": true
+    "notes": "Bug-specific proof, full pnpm check, and Bunny pass completed. Repo proof-gate script was unavailable."
   },
   "bunny": {
     "status": "pass",
-    "evidence": "Bunny pass before opening the draft, and later review thread about submitted test proof was addressed by moving the proof harness out of the PR diff."
+    "evidence": "Bunny pass before commit/opening draft and again after push/PR: issue match, direct prompt-assembly proof, all morale tiers and absent-morale row covered, import boundaries clean, no debug/dependency/schema/version changes, focused one-commit diff, no blocking manual verification."
   }
 }

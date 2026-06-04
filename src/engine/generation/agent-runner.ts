@@ -17,6 +17,7 @@ import type {
   GameAssetManifest,
   GameAssetManifestEntry,
   SpriteAssetInfo,
+  SpriteOwnerType,
   VisualAssetGateway,
 } from "../capabilities/visual-assets";
 import type {
@@ -143,6 +144,8 @@ const TRACKER_AGENT_TYPES = new Set(
 const MAX_ASSISTANT_RUN_INTERVAL = 100;
 const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
 const MAX_AGENT_PARALLEL_JOBS = 16;
+const MAX_ILLUSTRATOR_REFERENCE_IMAGES = 8;
+const IMAGE_REFERENCE_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
 const PROMPT_INJECTABLE_RESULT_TYPES = new Set(["context_injection", "director_event"]);
 type AutomaticIntervalMessageRole = "assistant" | "user";
 
@@ -249,6 +252,88 @@ function buildAvailableSpriteCharacterFromAssets(
   return buildAvailableSpriteCharacter(characterId, characterName, spriteExpressionsForAgent(sprites, displayModes));
 }
 
+function estimateImageReferenceBytes(dataUrl: string): number {
+  const commaIndex = dataUrl.indexOf(",");
+  if (!dataUrl.startsWith("data:") || commaIndex < 0) return new TextEncoder().encode(dataUrl).length;
+  const payload = dataUrl.slice(commaIndex + 1);
+  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+}
+
+function imageDataUrl(value: unknown, fallbackMimeType = "image/png"): string {
+  const text = readString(value).trim();
+  if (!text) return "";
+  if (text.startsWith("data:image/")) return text;
+  const wrapped = text.match(/^[a-z][a-z0-9+.-]*:\/\/(data:image\/(?:png|jpe?g|webp|gif);base64,.*)$/i);
+  if (wrapped?.[1]) return wrapped[1];
+  const base64 = text.replace(/\s+/g, "");
+  if (/^[A-Za-z0-9+/=]+$/.test(base64) && base64.length > 80) return `data:${fallbackMimeType};base64,${base64}`;
+  return "";
+}
+
+function usableImageReference(value: unknown, fallbackMimeType = "image/png"): string {
+  const dataUrl = imageDataUrl(value, fallbackMimeType);
+  if (!dataUrl) return "";
+  return estimateImageReferenceBytes(dataUrl) <= IMAGE_REFERENCE_PROVIDER_BYTE_LIMIT ? dataUrl : "";
+}
+
+function firstUsableReference(...values: unknown[]): string {
+  for (const value of values) {
+    const image = usableImageReference(value);
+    if (image) return image;
+  }
+  return "";
+}
+
+async function resolveReferenceImage(
+  visuals: VisualAssetGateway | undefined,
+  source: {
+    image?: unknown;
+    url?: unknown;
+    base64?: unknown;
+    mimeType?: unknown;
+    avatarFilePath?: unknown;
+    avatarFilename?: unknown;
+  },
+): Promise<string> {
+  const inline = firstUsableReference(source.image, source.url, source.base64);
+  if (inline) return inline;
+  const resolved = visuals?.resolveReferenceImage
+    ? await visuals
+        .resolveReferenceImage({
+          image: readString(source.image).trim() || null,
+          url: readString(source.url).trim() || null,
+          base64: readString(source.base64).trim() || null,
+          mimeType: readString(source.mimeType).trim() || null,
+          avatarFilePath: readString(source.avatarFilePath).trim() || null,
+          avatarFilename: readString(source.avatarFilename).trim() || null,
+        })
+        .catch(() => null)
+    : null;
+  return usableImageReference(resolved);
+}
+
+async function fullBodySpriteReference(
+  visuals: VisualAssetGateway | undefined,
+  sprites: Array<Record<string, unknown>>,
+): Promise<string> {
+  const fullBody = sprites.filter((sprite) => readString(sprite.expression).trim().toLowerCase().startsWith("full_"));
+  const preferred =
+    fullBody.find((sprite) =>
+      ["full_idle", "full_neutral", "full_default"].includes(readString(sprite.expression).trim().toLowerCase()),
+    ) ?? fullBody[0];
+  return preferred ? resolveReferenceImage(visuals, preferred) : "";
+}
+
+function illustratorUsesAvatarReferences(agent: ResolvedAgent | undefined, chatMeta: JsonRecord): boolean {
+  if (!agent) return false;
+  return (
+    (agent.settings.useAvatarReferences === undefined || agent.settings.useAvatarReferences === null
+      ? true
+      : boolish(agent.settings.useAvatarReferences, false)) || boolish(chatMeta.illustrationUseAvatarReferences, false)
+  );
+}
+
 interface AutomaticIntervalGate {
   agentId: string;
   agentType: string;
@@ -271,6 +356,9 @@ function llmProvider(
           message.role === "system" || message.role === "assistant" || message.role === "tool" ? message.role : "user",
         content: message.content,
         name: typeof message.name === "string" ? message.name : undefined,
+        images: Array.isArray(message.images)
+          ? message.images.filter((image): image is string => typeof image === "string" && image.trim().length > 0)
+          : undefined,
         tool_call_id: typeof message.tool_call_id === "string" ? message.tool_call_id : undefined,
         tool_calls: Array.isArray(message.tool_calls) ? message.tool_calls : undefined,
       }));
@@ -771,10 +859,8 @@ function intervalAnchorRun(
       .filter((run) => agentType !== ILLUSTRATOR_AGENT_TYPE || illustratorRunCountsTowardInterval(run))
       .map((run) => ({ run, messageIndex: indexes.get(runMessageId(run)) ?? -1 }))
       .filter((entry) => entry.messageIndex >= 0)
-      .sort(
-        (a, b) =>
-          b.messageIndex - a.messageIndex || runCreatedAt(b.run).localeCompare(runCreatedAt(a.run)),
-      )[0]?.run ?? null
+      .sort((a, b) => b.messageIndex - a.messageIndex || runCreatedAt(b.run).localeCompare(runCreatedAt(a.run)))[0]
+      ?.run ?? null
   );
 }
 
@@ -1171,6 +1257,70 @@ async function loadAgentAvailableSprites(
   }
 }
 
+async function loadAgentIllustratorReferences(
+  visuals: VisualAssetGateway | undefined,
+  input: GenerationAgentRuntimeInput,
+  context: AgentContext,
+): Promise<void> {
+  const references: Array<{ name: string; ownerType: SpriteOwnerType; image: string }> = [];
+  const pushReference = (name: string, ownerType: SpriteOwnerType, image: string) => {
+    if (!name.trim() || !image) return;
+    if (references.some((reference) => reference.image === image)) return;
+    references.push({ name: name.trim(), ownerType, image });
+  };
+
+  const subjects: Array<{
+    id: string;
+    name: string;
+    ownerType: SpriteOwnerType;
+    avatarUrl?: string | null;
+    avatarFilePath?: string | null;
+    avatarFilename?: string | null;
+  }> = context.characters.map((character) => ({
+    id: character.id,
+    name: character.name,
+    ownerType: "character",
+    avatarUrl: character.avatarUrl,
+    avatarFilePath: character.avatarFilePath,
+    avatarFilename: character.avatarFilename,
+  }));
+
+  const personaId = readString(input.chat.personaId).trim();
+  if (personaId && context.persona) {
+    subjects.push({
+      id: personaId,
+      name: context.persona.name,
+      ownerType: "persona",
+      avatarUrl: context.persona.avatarUrl,
+      avatarFilePath: context.persona.avatarFilePath,
+      avatarFilename: context.persona.avatarFilename,
+    });
+  }
+
+  const limitedSubjects =
+    personaId && context.persona && subjects.length > MAX_ILLUSTRATOR_REFERENCE_IMAGES
+      ? [...subjects.slice(0, MAX_ILLUSTRATOR_REFERENCE_IMAGES - 1), subjects[subjects.length - 1]!]
+      : subjects.slice(0, MAX_ILLUSTRATOR_REFERENCE_IMAGES);
+
+  for (const subject of limitedSubjects) {
+    const sprites = visuals ? await visuals.listSprites(subject.id, subject.ownerType).catch(() => []) : [];
+    const spriteReference = await fullBodySpriteReference(visuals, sprites as Array<Record<string, unknown>>);
+    const avatarReference =
+      spriteReference ||
+      (await resolveReferenceImage(visuals, {
+        image: subject.avatarUrl,
+        url: subject.avatarUrl,
+        avatarFilePath: subject.avatarFilePath,
+        avatarFilename: subject.avatarFilename,
+      }));
+    pushReference(subject.name, subject.ownerType, avatarReference);
+  }
+
+  if (references.length > 0) {
+    context.memory._illustratorReferenceImages = references;
+  }
+}
+
 function availableSpritesFromContext(context: AgentContext): AvailableSpriteCharacter[] {
   const sprites = context.memory._availableSprites;
   return Array.isArray(sprites) ? (sprites as AvailableSpriteCharacter[]) : [];
@@ -1262,6 +1412,11 @@ async function populateAgentVisualContext(
   chatMeta: JsonRecord,
   agents: ResolvedAgent[],
 ): Promise<void> {
+  const illustratorAgent = agents.find((agent) => agent.type === ILLUSTRATOR_AGENT_TYPE);
+  if (illustratorUsesAvatarReferences(illustratorAgent, chatMeta)) {
+    await loadAgentIllustratorReferences(deps.visuals, input, context);
+  }
+
   if (!deps.visuals) return;
   if (agentTypeActive(agents, "expression")) {
     await loadAgentAvailableSprites(deps.visuals, input, context, chatMeta);
@@ -1281,17 +1436,13 @@ function normalizedHapticDevices(status: HapticStatus | null): HapticDevice[] {
   if (!status?.connected || !Array.isArray(status.devices)) return [];
   return status.devices
     .filter((device): device is HapticDevice => {
-      return (
-        typeof device.index === "number" &&
-        typeof device.name === "string" &&
-        Array.isArray(device.capabilities)
-      );
+      return typeof device.index === "number" && typeof device.name === "string" && Array.isArray(device.capabilities);
     })
     .map((device) => ({
       index: device.index,
       name: device.name,
-      capabilities: device.capabilities.filter((capability): capability is HapticDevice["capabilities"][number] =>
-        typeof capability === "string",
+      capabilities: device.capabilities.filter(
+        (capability): capability is HapticDevice["capabilities"][number] => typeof capability === "string",
       ),
     }));
 }
@@ -1362,6 +1513,9 @@ async function buildAgentContext(
       id: character.id,
       name: character.name,
       description: character.description,
+      avatarUrl: character.avatarUrl,
+      avatarFilePath: character.avatarFilePath,
+      avatarFilename: character.avatarFilename,
       personality: character.personality,
       scenario: character.scenario,
       creatorNotes: character.creatorNotes,

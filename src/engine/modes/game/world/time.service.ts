@@ -14,7 +14,17 @@ export interface GameTime {
   minute: number;
 }
 
-type TimeOfDay = "dawn" | "morning" | "afternoon" | "evening" | "night" | "midnight";
+export type SceneTimeOfDayLabel = "dawn" | "morning" | "noon" | "afternoon" | "evening" | "night" | "midnight";
+
+const TIME_OF_DAY_HOURS: Record<SceneTimeOfDayLabel, number> = {
+  dawn: 6,
+  morning: 8,
+  noon: 12,
+  afternoon: 14,
+  evening: 18,
+  night: 21,
+  midnight: 0,
+};
 
 /** Minutes advanced per action type. */
 const ACTION_DURATIONS: Record<string, number> = {
@@ -37,6 +47,10 @@ export function advanceTime(current: GameTime, action: string): GameTime {
   return addMinutes(current, minutes);
 }
 
+export function isTimeOfDayLabel(action: string): action is SceneTimeOfDayLabel {
+  return Object.prototype.hasOwnProperty.call(TIME_OF_DAY_HOURS, action);
+}
+
 /** Add a specific number of minutes to the clock. */
 function addMinutes(current: GameTime, minutes: number): GameTime {
   let totalMinutes = current.day * 24 * 60 + current.hour * 60 + current.minute + minutes;
@@ -50,13 +64,27 @@ function addMinutes(current: GameTime, minutes: number): GameTime {
 }
 
 /** Get the time-of-day label for the current hour. */
-function getTimeOfDay(hour: number): TimeOfDay {
+function getTimeOfDay(hour: number): SceneTimeOfDayLabel {
   if (hour >= 5 && hour < 7) return "dawn";
   if (hour >= 7 && hour < 12) return "morning";
+  if (hour === 12) return "noon";
   if (hour >= 12 && hour < 17) return "afternoon";
   if (hour >= 17 && hour < 20) return "evening";
   if (hour >= 20) return "night";
   return "midnight";
+}
+
+function timeMatchesLabel(time: GameTime, label: SceneTimeOfDayLabel): boolean {
+  return getTimeOfDay(time.hour) === label;
+}
+
+/** Apply a scene analyzer time-of-day label without inventing a day skip on repeated labels. */
+export function setTimeOfDay(current: GameTime, label: SceneTimeOfDayLabel): GameTime {
+  if (timeMatchesLabel(current, label)) return current;
+
+  const targetHour = TIME_OF_DAY_HOURS[label];
+  const targetDay = targetHour <= current.hour ? current.day + 1 : current.day;
+  return { ...current, day: targetDay, hour: targetHour, minute: 0 };
 }
 
 /** Format time as a human-readable string for narration injection. */

@@ -465,6 +465,8 @@ type IllustrationReferenceSubject = {
   id: string;
   name: string;
   avatar: string;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
   spriteOwnerType: SpriteOwnerType;
 };
 
@@ -524,9 +526,9 @@ function recordName(record: JsonRecord): string {
 
 function recordAvatar(record: JsonRecord): string {
   const data = parseRecord(record.data);
-  return usableReferenceImage(
+  return readString(
     record.avatarPath ?? record.avatar ?? record.avatarUrl ?? data.avatarPath ?? data.avatar ?? data.avatarUrl,
-  );
+  ).trim();
 }
 
 function matchesIllustrationSubject(subject: IllustrationReferenceSubject, item: IllustrationPromptData): boolean {
@@ -546,13 +548,46 @@ function matchesIllustrationSubject(subject: IllustrationReferenceSubject, item:
     .some((part) => prompt.includes(part));
 }
 
-function fullBodySpriteReference(sprites: Array<Record<string, unknown>>): string {
+async function resolveIllustrationReferenceImage(
+  visuals: VisualAssetGateway | undefined,
+  source: {
+    image?: unknown;
+    url?: unknown;
+    base64?: unknown;
+    mimeType?: unknown;
+    avatarFilePath?: unknown;
+    avatarFilename?: unknown;
+  },
+): Promise<string> {
+  const inline =
+    usableReferenceImage(source.image) || usableReferenceImage(source.url) || usableReferenceImage(source.base64);
+  if (inline) return inline;
+  return (
+    (visuals?.resolveReferenceImage
+      ? await visuals
+          .resolveReferenceImage({
+            image: readString(source.image).trim() || null,
+            url: readString(source.url).trim() || null,
+            base64: readString(source.base64).trim() || null,
+            mimeType: readString(source.mimeType).trim() || null,
+            avatarFilePath: readString(source.avatarFilePath).trim() || null,
+            avatarFilename: readString(source.avatarFilename).trim() || null,
+          })
+          .catch(() => null)
+      : null) ?? ""
+  );
+}
+
+async function fullBodySpriteReference(
+  visuals: VisualAssetGateway | undefined,
+  sprites: Array<Record<string, unknown>>,
+): Promise<string> {
   const fullBody = sprites.filter((sprite) => readString(sprite.expression).trim().toLowerCase().startsWith("full_"));
   const preferred =
     fullBody.find((sprite) =>
       ["full_idle", "full_neutral", "full_default"].includes(readString(sprite.expression).trim().toLowerCase()),
     ) ?? fullBody[0];
-  return usableReferenceImage(preferred?.url ?? preferred?.image ?? preferred?.base64);
+  return preferred ? resolveIllustrationReferenceImage(visuals, preferred) : "";
 }
 
 async function defaultIllustratorImageConnectionId(storage: StorageGateway): Promise<string> {
@@ -613,6 +648,8 @@ async function loadIllustrationReferenceSubjects(
     id: readString(row.id).trim(),
     name: recordName(row),
     avatar: recordAvatar(row),
+    avatarFilePath: readString(row.avatarFilePath ?? parseRecord(row.data).avatarFilePath).trim() || null,
+    avatarFilename: readString(row.avatarFilename ?? parseRecord(row.data).avatarFilename).trim() || null,
     spriteOwnerType: "character",
   }));
   const personaId = readString(chat.personaId).trim();
@@ -622,6 +659,8 @@ async function loadIllustrationReferenceSubjects(
       id: personaId || readString(persona.id).trim(),
       name: recordName(persona),
       avatar: recordAvatar(persona),
+      avatarFilePath: readString(persona.avatarFilePath ?? parseRecord(persona.data).avatarFilePath).trim() || null,
+      avatarFilename: readString(persona.avatarFilename ?? parseRecord(persona.data).avatarFilename).trim() || null,
       spriteOwnerType: "persona",
     });
   }
@@ -644,8 +683,15 @@ async function illustrationReferenceData(args: {
     const sprites = args.visuals
       ? await args.visuals.listSprites(subject.id, subject.spriteOwnerType).catch(() => [])
       : [];
-    const spriteReference = fullBodySpriteReference(sprites as Array<Record<string, unknown>>);
-    const reference = spriteReference || subject.avatar;
+    const spriteReference = await fullBodySpriteReference(args.visuals, sprites as Array<Record<string, unknown>>);
+    const reference =
+      spriteReference ||
+      (await resolveIllustrationReferenceImage(args.visuals, {
+        image: subject.avatar,
+        url: subject.avatar,
+        avatarFilePath: subject.avatarFilePath,
+        avatarFilename: subject.avatarFilename,
+      }));
     if (reference && !referenceImages.includes(reference)) referenceImages.push(reference);
     if (reference && !referenceSubjectNames.includes(subject.name)) referenceSubjectNames.push(subject.name);
   }
@@ -2751,10 +2797,7 @@ export async function* startGeneration(
         continueAssistantResponse,
       },
     );
-    prompt = withImageAttachments(
-      [...assembly.messages, ...generationDirectiveMessages],
-      preparedUserInput.images,
-    );
+    prompt = withImageAttachments([...assembly.messages, ...generationDirectiveMessages], preparedUserInput.images);
     const promptPreviewMessages = withImageAttachments(
       [...assembly.previewMessages, ...generationDirectiveMessages],
       preparedUserInput.images,

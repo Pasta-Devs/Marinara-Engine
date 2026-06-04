@@ -623,6 +623,8 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
 
   const readablePlaceholderRe = /^__READABLE_(\d+)__$/;
   const compactDialogueRegex = /^\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/;
+  const legacyDialogueRegex = /^\s*Dialogue\s*\[([^\]]+)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
+  const narrationPrefixRegex = /^\s*Narration\s*:\s*(.+)$/i;
   const partyLineRegex =
     /^\s*\[([^\]]+)\]\s*\[(main|side|extra|action|thought|whisper(?::([^\]]+))?)\]\s*(?:\[([^\]]+)\])?\s*:\s*(.+)$/i;
   const inventoryRegex = /\[inventory:\s*([^\]]+)\]/gi;
@@ -680,7 +682,11 @@ export function parseSegmentInventoryUpdates(content: string): SegmentInventoryU
     }
 
     const isStandaloneSegment =
-      readablePlaceholderRe.test(line) || partyLineRegex.test(line) || compactDialogueRegex.test(line);
+      readablePlaceholderRe.test(line) ||
+      partyLineRegex.test(line) ||
+      narrationPrefixRegex.test(line) ||
+      legacyDialogueRegex.test(line) ||
+      compactDialogueRegex.test(line);
 
     if (isStandaloneSegment) {
       if (fallbackActive) {

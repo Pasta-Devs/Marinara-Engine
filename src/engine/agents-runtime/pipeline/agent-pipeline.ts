@@ -154,6 +154,7 @@ function shouldExecuteIndividually(agent: ResolvedAgent): boolean {
   return (
     agent.type === "expression" ||
     agent.type === "echo-chamber" ||
+    agent.type === "illustrator" ||
     agent.type === "spotify" ||
     agent.type === "knowledge-retrieval" ||
     agent.type === "knowledge-router" ||

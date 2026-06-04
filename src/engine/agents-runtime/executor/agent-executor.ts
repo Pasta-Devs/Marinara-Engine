@@ -27,6 +27,7 @@ const EXPRESSION_AGENT_RESPONSE_CHAR_LIMIT = 6000;
 const ECHO_AGENT_RECENT_CONTEXT_MESSAGES = 6;
 const ECHO_AGENT_CONTEXT_CHAR_LIMIT = 1200;
 const ECHO_AGENT_RESPONSE_CHAR_LIMIT = 6000;
+const ILLUSTRATOR_AGENT_TYPE = "illustrator";
 
 async function yieldToHost(): Promise<void> {
   await new Promise<void>((resolve) => {
@@ -993,9 +994,36 @@ function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type">): bool
   return (
     config.type === "expression" ||
     config.type === "echo-chamber" ||
+    config.type === ILLUSTRATOR_AGENT_TYPE ||
     config.type === "lorebook-keeper" ||
     config.type === "spotify"
   );
+}
+
+function illustratorReferenceEntries(context: AgentContext): Array<{ name: string; ownerType: string; image: string }> {
+  const entries = context.memory._illustratorReferenceImages;
+  if (!Array.isArray(entries)) return [];
+  return entries
+    .filter((entry): entry is { name?: unknown; ownerType?: unknown; image?: unknown } => isJsonRecord(entry))
+    .map((entry) => ({
+      name: typeof entry.name === "string" ? entry.name.trim() : "",
+      ownerType: typeof entry.ownerType === "string" ? entry.ownerType.trim() : "character",
+      image: typeof entry.image === "string" ? entry.image.trim() : "",
+    }))
+    .filter((entry) => entry.name && entry.image);
+}
+
+function attachImagesToLastUserMessage(messages: ChatMessage[], images: string[]): ChatMessage[] {
+  if (images.length === 0) return messages;
+  const next = messages.map((message) => ({ ...message }));
+  for (let index = next.length - 1; index >= 0; index -= 1) {
+    if (next[index]?.role !== "user") continue;
+    const existingImages = Array.isArray(next[index]!.images) ? (next[index]!.images as string[]) : [];
+    next[index] = { ...next[index]!, images: [...existingImages, ...images] };
+    return next;
+  }
+  next.push({ role: "user", content: "", images });
+  return next;
 }
 
 function buildStandardAgentMessages(config: AgentExecConfig, template: string, context: AgentContext): ChatMessage[] {
@@ -1019,7 +1047,12 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
 
   // Build multi-turn message array for this agent (sliced to its own contextSize)
   const agentContextSize = normalizeAgentContextSize(config.settings.contextSize);
-  return buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize);
+  const messages = buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize);
+  if (config.type !== ILLUSTRATOR_AGENT_TYPE) return messages;
+  return attachImagesToLastUserMessage(
+    messages,
+    illustratorReferenceEntries(context).map((reference) => reference.image),
+  );
 }
 
 function buildKnowledgeRetrievalAgentMessages(
@@ -1134,7 +1167,9 @@ function agentSpeakerLabel(message: { role: string; characterId?: string }, cont
 }
 
 function mainResponseSpeakerLabel(context: AgentContext): string {
-  return characterNameForId(context, context.mainResponseCharacterId) || context.characters[0]?.name?.trim() || "Assistant";
+  return (
+    characterNameForId(context, context.mainResponseCharacterId) || context.characters[0]?.name?.trim() || "Assistant"
+  );
 }
 
 function buildSpotifyAgentMessages(config: AgentExecConfig, template: string, context: AgentContext): ChatMessage[] {
@@ -1158,9 +1193,7 @@ function buildSpotifyAgentMessages(config: AgentExecConfig, template: string, co
   }
 
   const agentContextSize = normalizeAgentContextSize(config.settings.contextSize);
-  const recentContext = context.recentMessages
-    .slice(-agentContextSize)
-    .filter((message) => message.content.trim());
+  const recentContext = context.recentMessages.slice(-agentContextSize).filter((message) => message.content.trim());
   const latestUser = findLatestUserMessage(context);
   const latestTurn = context.mainResponse?.trim() || findLatestAssistantMessage(context)?.content || "";
   const userParts: string[] = [];
@@ -1583,6 +1616,21 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
       `If no listed background fits a changed or new location, request a generated reusable location background instead of forcing a weak match.`,
     );
     parts.push(`</background_generation>`);
+  }
+
+  if (agentTypes.includes(ILLUSTRATOR_AGENT_TYPE)) {
+    const references = illustratorReferenceEntries(context);
+    if (references.length > 0) {
+      parts.push(`<visual_references>`);
+      parts.push(
+        `Attached reference images are provided to preserve visible identity details such as eye color, hair, face, body proportions, skin tone, scars, markings, and distinctive accessories. They correspond to these subjects in order:`,
+      );
+      for (let index = 0; index < references.length; index += 1) {
+        const reference = references[index]!;
+        parts.push(`${index + 1}. ${reference.name} (${reference.ownerType})`);
+      }
+      parts.push(`</visual_references>`);
+    }
   }
 
   if (agentTypes.includes("spotify") && context.memory._spotifyDjConstraints) {

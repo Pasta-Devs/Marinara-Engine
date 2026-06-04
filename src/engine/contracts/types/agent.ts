@@ -139,6 +139,9 @@ export interface AgentContext {
     id: string;
     name: string;
     description: string;
+    avatarUrl?: string;
+    avatarFilePath?: string;
+    avatarFilename?: string;
     personality?: string;
     scenario?: string;
     creatorNotes?: string;
@@ -153,6 +156,9 @@ export interface AgentContext {
   persona: {
     name: string;
     description: string;
+    avatarUrl?: string;
+    avatarFilePath?: string;
+    avatarFilename?: string;
     personality?: string;
     backstory?: string;
     appearance?: string;
