@@ -16,6 +16,8 @@ export interface CharacterSpriteSubject {
 }
 
 const AUTOMATIC_FULL_BODY_POSES = new Set([
+  "neutral",
+  "default",
   "idle",
   "walk",
   "run",
@@ -103,7 +105,7 @@ export async function loadCharacterSprites(
 
   const rows = await Promise.all(
     subjects.map(async (subject) => {
-      const sprites = await visuals.listSprites(subject.id, "character");
+      const sprites = await visuals.listSprites(subject.id, "character").catch(() => []);
       return buildCharacterSpriteInfo(subject.name, sprites);
     }),
   );

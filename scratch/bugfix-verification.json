@@ -33,7 +33,7 @@
     "baselineCommand": "pnpm check",
     "baselineEvidence": "passed after the reserved-only sprite edge-case patch and after merging upstream/refactor",
     "focusedProof": [
-      "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts src/engine/modes/game/prompts/sprite.service.test.ts passed before and after merging upstream/refactor.",
+      "pnpm exec vitest run src/engine/generation/prompt-assembly.test.ts src/engine/modes/game/prompts/sprite.service.test.ts passed before and after merging upstream/refactor; after Bunny repair it passed with 7 tests.",
       "pnpm typecheck passed before full baseline.",
       "pnpm check passed before and after merging upstream/refactor.",
       "git diff --check passed.",
@@ -43,7 +43,9 @@
       "GM prompt reminder includes party character expression sprite names from the visual asset gateway.",
       "GM prompt reminder includes custom full-body aliases with the full_ prefix removed.",
       "Engine-reserved automatic full-body poses such as full_idle are not exposed as model-visible full-body aliases.",
+      "Legacy/default full-body poses full_neutral, full_default, and full_walk are treated as automatic poses, not custom aliases.",
       "A character with only automatic full-body poses is omitted from model-visible sprite listings instead of producing an empty party prompt line.",
+      "Per-character visual asset lookup failures are treated as missing optional sprite enrichment and do not abort prompt assembly or party turns.",
       "Prompt preview receives the visual asset gateway so manual prompt inspection matches generation.",
       "Party turn passes the same characterSprites structure into buildPartySystemPrompt."
     ],
@@ -68,10 +70,12 @@
     "positiveRowsTested": [
       "expression sprites",
       "custom full-body alias sprites",
-      "multiple party characters"
+      "multiple party characters",
+      "visual asset gateway rejection on one party character"
     ],
     "negativeRowsTested": [
-      "automatic-only full-body pose is not shown as a custom alias"
+      "automatic-only full-body pose is not shown as a custom alias",
+      "legacy/default full-body poses neutral, default, and walk are not shown as custom aliases"
     ],
     "groundTruthFacts": [
       {
