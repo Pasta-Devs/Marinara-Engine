@@ -87,6 +87,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
     setActiveChatId(chatId);
     onClose();
   };
+  const isGroupDeletePending = deleteChatGroup.isPending;
 
   const updateMetadata = useUpdateChatMetadata();
 
@@ -279,9 +280,13 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                 <div
                   key={cf.id}
                   onClick={() => handleSwitch(cf.id)}
+                  aria-disabled={isGroupDeletePending}
                   className={cn(
-                    "group flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all",
-                    isActive ? "bg-sky-400/10 ring-1 ring-sky-400/30" : "hover:bg-[var(--accent)]",
+                    "group flex items-center gap-3 rounded-xl p-2.5 transition-all",
+                    isGroupDeletePending ? "cursor-wait opacity-70" : "cursor-pointer",
+                    isActive
+                      ? "bg-sky-400/10 ring-1 ring-sky-400/30"
+                      : !isGroupDeletePending && "hover:bg-[var(--accent)]",
                   )}
                 >
                   <div
@@ -310,9 +315,11 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (isGroupDeletePending) return;
                           void handleRename(cf);
                         }}
-                        className="rounded-lg p-1.5 transition-all hover:bg-[var(--accent)]/80 active:scale-[0.95] ring-1 ring-transparent hover:ring-[var(--border)]"
+                        disabled={isGroupDeletePending}
+                        className="rounded-lg p-1.5 ring-1 ring-transparent transition-all hover:bg-[var(--accent)]/80 hover:ring-[var(--border)] active:scale-[0.95] disabled:cursor-wait disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:ring-transparent"
                         title="Rename branch"
                       >
                         <Pencil size="0.75rem" className="text-[var(--muted-foreground)]" />
@@ -320,9 +327,10 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (isGroupDeletePending) return;
                           void handleDelete(cf.id);
                         }}
-                        disabled={deleteChat.isPending}
+                        disabled={deleteChat.isPending || isGroupDeletePending}
                         className="rounded-lg p-1.5 transition-all hover:bg-[var(--destructive)]/15"
                         title="Delete branch"
                       >
