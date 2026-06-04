@@ -1,4 +1,5 @@
 import type { Chat } from "../../../../engine/contracts/types/chat";
+import type { Lorebook, LorebookEntry } from "../../../../engine/contracts/types/lorebook";
 import type {
   CombatInitState,
   CombatMechanic,
@@ -129,6 +130,8 @@ const DEFAULT_COMBAT_ENCOUNTER_SETTINGS: EncounterSettings = {
   },
   historyDepth: 10,
 };
+
+const GAME_LOREBOOK_KEEPER_SOURCE_ID = "game-lorebook-keeper";
 
 export interface CreateGameResponse {
   sessionChat: Chat;
@@ -977,7 +980,7 @@ function gameSetupMetadataPatch(config: GameSetupConfig): Record<string, unknown
     gameSpotifyPlaylistId: config.spotifyPlaylistId ?? null,
     gameSpotifyPlaylistName: config.spotifyPlaylistName ?? null,
     gameSpotifyArtist: config.spotifyArtist ?? null,
-    gameEnableLorebookKeeper: Boolean(config.enableLorebookKeeper),
+    gameLorebookKeeperEnabled: Boolean(config.enableLorebookKeeper),
     gameGenerationParameters: config.generationParameters ?? null,
     gameLanguage: config.language ?? null,
     gameRating: config.rating ?? "sfw",
@@ -1131,6 +1134,9 @@ function gameCarryoverPatch(meta: Record<string, unknown>) {
     "gameJournal",
     "gameSessionLorebookId",
     "gameSessionLorebookEntryCount",
+    "gameLorebookKeeperEnabled",
+    "gameLorebookKeeperLorebookId",
+    "gameLorebookKeeperLastRun",
     "gameJournal",
     "discordWebhookUrl",
   ];
@@ -1803,6 +1809,207 @@ async function sessionTranscript(chatId: string, limit = 80): Promise<string> {
     .join("\n");
 }
 
+function keeperEntrySessionNumber(entry: LorebookEntry): number | null {
+  const state = asRecord(entry.dynamicState);
+  const value = Number(state.gameLorebookKeeperSessionNumber);
+  return Number.isFinite(value) ? value : null;
+}
+
+function gameLorebookKeeperEnabled(meta: Record<string, unknown>): boolean {
+  return meta.gameLorebookKeeperEnabled === true || meta.gameEnableLorebookKeeper === true;
+}
+
+function normalizeGameLorebookKeeperEntry(
+  rawEntry: unknown,
+  sessionNumber: number,
+  index: number,
+): Record<string, unknown> {
+  const entry = asRecord(rawEntry);
+  const name = readTrimmed(entry.name) || `Session ${sessionNumber} Lore ${index + 1}`;
+  const content =
+    readTrimmed(entry.content) || readTrimmed(entry.description) || "No durable session detail was provided.";
+  const keys = Array.isArray(entry.keys)
+    ? entry.keys.map((key) => readTrimmed(key)).filter(Boolean)
+    : [`session ${sessionNumber}`];
+  const tag = readTrimmed(entry.tag) || `game-session-${sessionNumber}`;
+  return {
+    name,
+    content,
+    keys: keys.length ? keys : [`session ${sessionNumber}`],
+    secondaryKeys: [],
+    enabled: true,
+    constant: false,
+    selective: false,
+    order: index,
+    sortOrder: index,
+    position: 0,
+    role: "system",
+    tag,
+    dynamicState: {
+      ...asRecord(entry.dynamicState),
+      gameLorebookKeeperSessionNumber: sessionNumber,
+      gameLorebookKeeperUpdatedAt: nowIso(),
+    },
+    excludeFromVectorization: false,
+  };
+}
+
+async function resolveGameLorebookKeeperLorebook(chat: Chat, meta: Record<string, unknown>): Promise<Lorebook> {
+  const existingId = readTrimmed(meta.gameLorebookKeeperLorebookId);
+  if (existingId) {
+    const existing = await storageApi.get<Lorebook>("lorebooks", existingId).catch(() => null);
+    if (existing) return existing;
+  }
+
+  const lorebook = await storageApi.create<Lorebook>(
+    "lorebooks",
+    createLorebookSchema.parse({
+      name: `${chat.name || "Game"} Lorebook`,
+      description: "Maintained automatically from concluded game sessions.",
+      category: "game",
+      chatId: chat.id,
+      enabled: true,
+      generatedBy: "game-session",
+      sourceAgentId: GAME_LOREBOOK_KEEPER_SOURCE_ID,
+    }),
+  );
+  const activeLorebookIds = Array.isArray(meta.activeLorebookIds)
+    ? meta.activeLorebookIds.filter((id): id is string => typeof id === "string")
+    : [];
+  await patchChatMetadata(chat.id, {
+    gameLorebookKeeperLorebookId: lorebook.id,
+    activeLorebookIds: Array.from(new Set([...activeLorebookIds, lorebook.id])),
+  });
+  return lorebook;
+}
+
+async function writeGameLorebookKeeperEntries(data: {
+  chat: Chat;
+  meta: Record<string, unknown>;
+  sessionNumber: number;
+  entries: unknown[];
+}): Promise<{ lorebookId: string; entryCount: number; sessionChat: Chat }> {
+  const lorebook = await resolveGameLorebookKeeperLorebook(data.chat, data.meta);
+  const existingEntries = await storageApi.list<LorebookEntry>("lorebook-entries", {
+    filters: { lorebookId: lorebook.id },
+  });
+  const staleEntries = existingEntries.filter((entry) => keeperEntrySessionNumber(entry) === data.sessionNumber);
+  await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
+
+  const normalizedEntries = data.entries.length
+    ? data.entries.map((entry, index) => normalizeGameLorebookKeeperEntry(entry, data.sessionNumber, index))
+    : [
+        normalizeGameLorebookKeeperEntry(
+          {
+            name: `Session ${data.sessionNumber} Recap`,
+            content: "No durable lore was generated for this concluded session.",
+            keys: [`session ${data.sessionNumber}`],
+          },
+          data.sessionNumber,
+          0,
+        ),
+      ];
+  for (const entry of normalizedEntries) {
+    await storageApi.create("lorebook-entries", createLorebookEntrySchema.parse({ ...entry, lorebookId: lorebook.id }));
+  }
+
+  const sessionChat = await patchChatMetadata(data.chat.id, {
+    gameLorebookKeeperLorebookId: lorebook.id,
+    activeLorebookIds: Array.from(
+      new Set([
+        ...(Array.isArray(data.meta.activeLorebookIds)
+          ? data.meta.activeLorebookIds.filter((id): id is string => typeof id === "string")
+          : []),
+        lorebook.id,
+      ]),
+    ),
+    gameLorebookKeeperLastRun: {
+      sessionNumber: data.sessionNumber,
+      status: "success",
+      updatedAt: nowIso(),
+      lorebookId: lorebook.id,
+      entryCount: normalizedEntries.length,
+    },
+  });
+  return { lorebookId: lorebook.id, entryCount: normalizedEntries.length, sessionChat };
+}
+
+async function runGameLorebookKeeperAfterConclusion(data: {
+  chat: Chat;
+  meta: Record<string, unknown>;
+  sessionNumber: number;
+  summary: SessionSummary;
+  connectionId?: string;
+  generated?: Record<string, unknown>;
+}): Promise<{ lorebookId: string | null; entryCount?: number; sessionChat: Chat }> {
+  const startedAt = nowIso();
+  await patchChatMetadata(data.chat.id, {
+    gameLorebookKeeperLastRun: {
+      sessionNumber: data.sessionNumber,
+      status: "running",
+      updatedAt: startedAt,
+      lorebookId: readTrimmed(data.meta.gameLorebookKeeperLorebookId) || null,
+    },
+  });
+
+  try {
+    const transcript = await sessionTranscript(data.chat.id, 160);
+    const fallbackEntries = [
+      {
+        name: `Session ${data.sessionNumber} Recap`,
+        content: data.summary.summary || transcript.split("\n").slice(-12).join("\n"),
+        keys: [`session ${data.sessionNumber}`, "recap", "campaign"],
+      },
+    ];
+    const parsed =
+      data.generated ??
+      (await llmJson({
+        connectionId: data.connectionId,
+        fallback: { entries: fallbackEntries },
+        system:
+          "Extract durable game campaign lore from this concluded session. Return strict JSON with an entries array; each entry has name, content, keys array, and optional tag.",
+        user: [
+          `Session number: ${data.sessionNumber}`,
+          ``,
+          `Session summary:`,
+          JSON.stringify(data.summary, null, 2),
+          ``,
+          `Session transcript:`,
+          transcript,
+        ].join("\n"),
+        parameters: { temperature: 0.3, maxTokens: 2500 },
+        repair: {
+          kind: "session_lorebook",
+          title: `Repair Session ${data.sessionNumber} Lorebook JSON`,
+          applyBody: {
+            chatId: data.chat.id,
+            sessionNumber: data.sessionNumber,
+            connectionId: data.connectionId,
+          },
+        },
+      }));
+    const entries = Array.isArray(parsed.entries) && parsed.entries.length ? parsed.entries : fallbackEntries;
+    return await writeGameLorebookKeeperEntries({
+      chat: data.chat,
+      meta: data.meta,
+      sessionNumber: data.sessionNumber,
+      entries,
+    });
+  } catch (error) {
+    const lorebookId = readTrimmed(data.meta.gameLorebookKeeperLorebookId) || null;
+    const sessionChat = await patchChatMetadata(data.chat.id, {
+      gameLorebookKeeperLastRun: {
+        sessionNumber: data.sessionNumber,
+        status: "failed",
+        updatedAt: nowIso(),
+        lorebookId,
+        error: error instanceof Error ? error.message : "Game Lorebook Keeper failed.",
+      },
+    });
+    return { lorebookId, sessionChat };
+  }
+}
+
 export const gameApi = {
   async createGame(data: {
     name: string;
@@ -2118,18 +2325,29 @@ export const gameApi = {
       ? [...(meta.gamePreviousSessionSummaries as SessionSummary[])]
       : [];
     const nextSummaries = summaries.filter((item) => item.sessionNumber !== sessionNumber).concat(summary);
-    const sessionChat = await patchChatMetadata(data.chatId, {
+    let sessionChat = await patchChatMetadata(data.chatId, {
       gameSessionStatus: "concluded",
       gameJournal: journalFromChat(chat, meta, { includeCurrentLocation: false }),
       gamePreviousSessionSummaries: nextSummaries,
       gameCampaignProgression: campaignProgression,
       gameCharacterCards: characterCards,
+      ...(gameLorebookKeeperEnabled(meta) ? { gameLorebookKeeperEnabled: true } : {}),
     });
     const checkpointWarning = await createAutomaticGameCheckpoint({
       chatId: data.chatId,
       label: "Session ended",
       triggerType: "session_end",
     });
+    if (gameLorebookKeeperEnabled(meta)) {
+      const keeperRun = await runGameLorebookKeeperAfterConclusion({
+        chat: sessionChat,
+        meta: { ...meta, ...chatMeta(sessionChat), gameLorebookKeeperEnabled: true },
+        sessionNumber,
+        summary,
+        connectionId: data.connectionId,
+      });
+      sessionChat = keeperRun.sessionChat;
+    }
     return { summary, sessionChat, ...(checkpointWarning ? { checkpointWarning } : {}) };
   },
 
@@ -2139,80 +2357,31 @@ export const gameApi = {
     connectionId?: string;
     generated?: Record<string, unknown>;
   }): Promise<RegenerateSessionLorebookResponse> {
-    const transcript = await sessionTranscript(data.chatId);
-    const fallbackEntries = transcript.trim()
-      ? [
-          {
-            name: `Session ${data.sessionNumber} Recap`,
-            content: transcript.split("\n").slice(0, 12).join("\n"),
-            keys: [`session ${data.sessionNumber}`, "recap", "campaign"],
-          },
-        ]
-      : [
-          {
-            name: `Session ${data.sessionNumber} State`,
-            content: "No transcript was available; preserve the current campaign state from the chat metadata.",
-            keys: [`session ${data.sessionNumber}`],
-          },
-        ];
-    const parsed =
-      data.generated ??
-      (await llmJson({
-        connectionId: data.connectionId,
-        fallback: { entries: fallbackEntries },
-        system:
-          "Extract durable campaign lore from the session transcript. Return strict JSON with an entries array; each entry has name, content, and keys array.",
-        user: transcript,
-        parameters: { temperature: 0.3, maxTokens: 2500 },
-        repair: {
-          kind: "session_lorebook",
-          title: `Repair Session ${data.sessionNumber} Lorebook JSON`,
-          applyBody: {
-            chatId: data.chatId,
-            sessionNumber: data.sessionNumber,
-            connectionId: data.connectionId,
-          },
-        },
-      }));
-    const entries = Array.isArray(parsed.entries) && parsed.entries.length ? parsed.entries : fallbackEntries;
-    const lorebook = await storageApi.create<{ id: string }>(
-      "lorebooks",
-      createLorebookSchema.parse({
-        name: `Game Session ${data.sessionNumber} Lore`,
-        description: "Generated from local game session state.",
-        category: "game",
-        chatId: data.chatId,
-        enabled: true,
-        generatedBy: "game-session",
-      }),
-    );
-    let entryCount = 0;
-    for (const [index, rawEntry] of entries.entries()) {
-      const entry = asRecord(rawEntry);
-      await storageApi.create(
-        "lorebook-entries",
-        createLorebookEntrySchema.parse({
-          lorebookId: lorebook.id,
-          name: typeof entry.name === "string" ? entry.name : "Session Lore",
-          content: typeof entry.content === "string" ? entry.content : "",
-          keys: Array.isArray(entry.keys) ? entry.keys : [`session ${data.sessionNumber}`],
-          secondaryKeys: [],
-          enabled: true,
-          constant: false,
-          selective: false,
-          order: index,
-          position: 0,
-          role: "system",
-          excludeFromVectorization: false,
-        }),
-      );
-      entryCount += 1;
-    }
-    const sessionChat = await patchChatMetadata(data.chatId, {
-      gameSessionLorebookId: lorebook.id,
-      gameSessionLorebookEntryCount: entryCount,
+    const chat = await getChat(data.chatId);
+    const meta = chatMeta(chat);
+    const summaries = Array.isArray(meta.gamePreviousSessionSummaries)
+      ? (meta.gamePreviousSessionSummaries as SessionSummary[])
+      : [];
+    const summary =
+      summaries.find((item) => item.sessionNumber === data.sessionNumber) ??
+      sessionSummary(data.sessionNumber, chat, meta);
+    const keeperRun = await runGameLorebookKeeperAfterConclusion({
+      chat,
+      meta: { ...meta, gameLorebookKeeperEnabled: true },
+      sessionNumber: data.sessionNumber,
+      summary,
+      connectionId: data.connectionId,
+      generated: data.generated,
     });
-    return { sessionNumber: data.sessionNumber, lorebookId: lorebook.id, entryCount, sessionChat };
+    if (keeperRun.entryCount === undefined || !keeperRun.lorebookId) {
+      throw new Error("Game Lorebook Keeper failed to regenerate this session.");
+    }
+    return {
+      sessionNumber: data.sessionNumber,
+      lorebookId: keeperRun.lorebookId,
+      entryCount: keeperRun.entryCount,
+      sessionChat: keeperRun.sessionChat,
+    };
   },
 
   async updateCampaignProgression(data: {
@@ -2585,7 +2754,11 @@ export const gameApi = {
   }): Promise<{ journal: Journal; sessionChat: Chat }> {
     const chat = await getChat(data.chatId);
     const meta = chatMeta(chat);
-    const journal = applyJournalEntry(journalFromChat(chat, meta, { includeCurrentLocation: false }), data.type, data.data);
+    const journal = applyJournalEntry(
+      journalFromChat(chat, meta, { includeCurrentLocation: false }),
+      data.type,
+      data.data,
+    );
     const sessionChat = await patchChatMetadata(data.chatId, { gameJournal: journal });
     return { journal, sessionChat };
   },
