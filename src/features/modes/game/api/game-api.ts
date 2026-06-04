@@ -51,6 +51,7 @@ import {
   resolveSkillCheck,
 } from "../../../../engine/modes/game/mechanics/skill-check.service";
 import { serializeResolvedSkillCheckTag } from "../../../../engine/shared/scoring/skill-check-format";
+import { parseGameJsonish } from "../../../../engine/shared/parsing-jsonish";
 import {
   applyMoraleEvent,
   getMoraleTier,
@@ -463,23 +464,9 @@ async function createAutomaticGameCheckpoint(data: {
 
 function parseJsonObject(text: string): Record<string, unknown> | null {
   try {
-    const parsed = JSON.parse(text);
+    const parsed = parseGameJsonish(text);
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
   } catch {
-    const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
-    if (fenced) return parseJsonObject(fenced);
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      try {
-        const parsed = JSON.parse(text.slice(start, end + 1));
-        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-          ? (parsed as Record<string, unknown>)
-          : null;
-      } catch {
-        return null;
-      }
-    }
     return null;
   }
 }
