@@ -5,6 +5,10 @@
     "title": "[Issue]: New Conversation and New Chat can create completely empty conversations",
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2101"
   },
+  "pr": {
+    "number": 2103,
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2103"
+  },
   "coreClaim": "New Conversation and New Chat setup does not keep a persisted chat when setup finishes with no messages and no selected characters.",
   "assignment": {
     "assignee": "cha1latte",
