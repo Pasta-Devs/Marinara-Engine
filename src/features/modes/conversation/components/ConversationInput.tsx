@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
+import { storageApi } from "../../../../shared/api/storage-api";
 import { useGenerate } from "../../../runtime/generation/index";
 import { readScopedRegexMode, useApplyRegex } from "../../../catalog/agents/regex-application";
 import {
@@ -35,6 +36,7 @@ import {
   chatKeys,
 } from "../../../catalog/chats/index";
 import { characterKeys } from "../../../catalog/characters/index";
+import { invalidateGalleryImagesForManagedAttachments } from "../../../catalog/gallery/index";
 import {
   personaKeys,
   useActivePersonaSummary,
@@ -72,6 +74,7 @@ import { EmojiPicker } from "../../../../shared/components/ui/EmojiPicker";
 import { GifPicker } from "../../../../shared/components/ui/GifPicker";
 import { SpeechToTextButton } from "../../../../shared/components/ui/SpeechToTextButton";
 import type { Message } from "../../../../engine/contracts/types/chat";
+import { prepareManagedImageAttachments } from "../../../../engine/generation/managed-attachments";
 import { buildGuidedGenerationInstructionMessage } from "../../../../engine/shared/text/generation-guide";
 
 interface Attachment {
@@ -599,28 +602,38 @@ export function ConversationInput({
       }
       // Final pass: resolve macros introduced by translation while {{input}} still points to raw.
       message = resolveInputMacros(message);
-      if (textareaRef.current) {
-        textareaRef.current.value = "";
-        textareaRef.current.style.height = "auto";
-      }
-      clearInputDraft(activeChatId);
-      syncInputState("");
       const currentAttachments = attachments.map((a) => ({
         type: a.type,
         data: a.data,
         filename: a.name,
         name: a.name,
       }));
+      let managedAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> = [];
+      try {
+        managedAttachments = currentAttachments.length
+          ? await prepareManagedImageAttachments(storageApi, activeChatId, currentAttachments)
+          : [];
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to prepare image attachments.");
+        return;
+      }
+      invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
+      if (textareaRef.current) {
+        textareaRef.current.value = "";
+        textareaRef.current.style.height = "auto";
+      }
+      clearInputDraft(activeChatId);
+      syncInputState("");
       replaceAttachments([]);
       const created = await createMessage.mutateAsync({
         role: "user",
         content: message,
         characterId: null,
       });
-      if (currentAttachments.length) {
+      if (managedAttachments.length) {
         await updateMessageExtra.mutateAsync({
           messageId: created.id,
-          extra: { attachments: currentAttachments },
+          extra: { attachments: managedAttachments },
         });
       }
       return;
@@ -712,6 +725,18 @@ export function ConversationInput({
     // Final pass: resolve macros introduced by translation while {{input}} still points to raw.
     message = resolveInputMacros(message);
 
+    const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
+    let managedAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> = [];
+    try {
+      managedAttachments = pendingAttachments.length
+        ? await prepareManagedImageAttachments(storageApi, activeChatId, pendingAttachments)
+        : [];
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to prepare image attachments.");
+      return;
+    }
+    invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
+
     if (textareaRef.current) {
       textareaRef.current.value = "";
       textareaRef.current.style.height = "auto";
@@ -719,7 +744,6 @@ export function ConversationInput({
     clearInputDraft(activeChatId);
     syncInputState("");
 
-    const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
     replaceAttachments([]);
 
     // Extract @mentions from the raw message (before regex transforms)
@@ -731,10 +755,10 @@ export function ConversationInput({
         content: message,
         characterId: null,
       });
-      if (pendingAttachments.length) {
+      if (managedAttachments.length) {
         await updateMessageExtra.mutateAsync({
           messageId: created.id,
-          extra: { attachments: pendingAttachments },
+          extra: { attachments: managedAttachments },
         });
       }
       return;
@@ -745,7 +769,7 @@ export function ConversationInput({
         chatId: activeChatId,
         connectionId: null,
         userMessage: message,
-        ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+        ...(managedAttachments.length ? { attachments: managedAttachments } : {}),
         ...(mentioned.length ? { mentionedCharacterNames: mentioned } : {}),
       });
     } catch {
@@ -939,16 +963,20 @@ export function ConversationInput({
 
     let createdMessageId: string | null = null;
     try {
+      const managedAttachments = pendingAttachments.length
+        ? await prepareManagedImageAttachments(storageApi, submittingChatId, pendingAttachments)
+        : [];
+      invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, managedAttachments);
       const created = await createMessage.mutateAsync({
         role: "user",
         content: message,
         characterId: null,
       });
       createdMessageId = created.id;
-      if (pendingAttachments.length) {
+      if (managedAttachments.length) {
         await updateMessageExtra.mutateAsync({
           messageId: created.id,
-          extra: { attachments: pendingAttachments },
+          extra: { attachments: managedAttachments },
         });
       }
     } catch (error) {
@@ -1261,11 +1289,13 @@ export function ConversationInput({
       if (!activeChatId) return;
 
       // Fetch the GIF and convert to PNG so all providers can handle it
-      let gifAttachments: Array<{ type: string; data: string }> | undefined;
+      let gifAttachments: Array<{ type: string; data: string; filename: string; name: string }> | undefined;
       try {
         const blob = await loadUrlBlob(gifUrl);
         const attachment = await prepareImageAttachment(blob, "gif");
-        gifAttachments = [{ type: attachment.type, data: attachment.data }];
+        gifAttachments = [
+          { type: attachment.type, data: attachment.data, filename: attachment.name, name: attachment.name },
+        ];
       } catch {
         // If fetch fails (CORS etc.), send without attachment — still shows as image in chat
       }
@@ -1281,14 +1311,27 @@ export function ConversationInput({
         return;
       }
 
+      let managedGifAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> | undefined;
+      try {
+        managedGifAttachments = gifAttachments
+          ? await prepareManagedImageAttachments(storageApi, activeChatId, gifAttachments)
+          : undefined;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to prepare GIF attachment.");
+        return;
+      }
+      if (managedGifAttachments) {
+        invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedGifAttachments);
+      }
+
       await generate({
         chatId: activeChatId,
         connectionId: null,
         userMessage: gifUrl,
-        ...(gifAttachments ? { attachments: gifAttachments } : {}),
+        ...(managedGifAttachments?.length ? { attachments: managedGifAttachments } : {}),
       });
     },
-    [activeChatId, isStreaming, groupResponseOrder, characterNames.length, generate, createMessage],
+    [activeChatId, isStreaming, groupResponseOrder, characterNames.length, generate, createMessage, qc],
   );
 
   const handleCharacterResponse = useCallback(

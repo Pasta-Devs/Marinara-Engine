@@ -7,6 +7,8 @@ export type PromptAttachment = {
   type?: string | null;
   url?: string | null;
   data?: string | null;
+  imageUrl?: string | null;
+  filePath?: string | null;
   filename?: string | null;
   name?: string | null;
   prompt?: string | null;

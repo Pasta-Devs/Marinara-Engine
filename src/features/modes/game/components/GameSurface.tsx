@@ -36,6 +36,8 @@ import { useAgentStore } from "../../../../shared/stores/agent.store";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useGameStatePatcher } from "../../../runtime/world-state/index";
 import type { GameStatePatchField, GameStatePatchValue } from "../../../runtime/world-state/types";
+import type { PromptAttachment } from "../../../../engine/generation/generate-route-utils";
+import { prepareManagedImageAttachments } from "../../../../engine/generation/managed-attachments";
 import { makeManualTrackerRowId } from "../../../../engine/shared/game-state/tracker-row-ids";
 import {
   useSyncGameState,
@@ -72,7 +74,7 @@ import {
   useUpdateChatMetadata,
   useUpdateMessage,
 } from "../../../catalog/chats/index";
-import { galleryKeys } from "../../../catalog/gallery/query-keys";
+import { galleryKeys, invalidateGalleryImagesForManagedAttachments } from "../../../catalog/gallery/index";
 import { useConnections } from "../../../catalog/connections/index";
 import { useGameGeneration } from "../hooks/use-game-generation";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -82,6 +84,7 @@ import { npcAvatarApi } from "../../../../shared/api/avatar-api";
 import { spriteApi } from "../../../../shared/api/image-generation-api";
 import { spotifyApi } from "../../../../shared/api/integration-utility-api";
 import { gameAssetFileUrlFromPath, userBackgroundUrl } from "../../../../shared/api/local-file-api";
+import { storageApi } from "../../../../shared/api/storage-api";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
 import { formatTextQuotes } from "../../../../shared/lib/dialogue-quotes";
 import { cn, type AvatarCropValue } from "../../../../shared/lib/utils";
@@ -4850,22 +4853,33 @@ export function GameSurface({
   ]);
 
   const sendMessage = useCallback(
-    (message: string, attachments?: Array<{ type: string; data: string }>) => {
-      if ((chatMeta.gameSessionStatus as string) === "concluded") return;
+    async (message: string, attachments?: PromptAttachment[]): Promise<boolean> => {
+      if ((chatMeta.gameSessionStatus as string) === "concluded") return false;
       const trimmedMessage = message.trim();
       const hasAttachments = !!attachments?.length;
-      if (!trimmedMessage && !hasAttachments) return;
+      if (!trimmedMessage && !hasAttachments) return false;
+      let managedAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> = [];
+      try {
+        managedAttachments = hasAttachments
+          ? await prepareManagedImageAttachments(storageApi, activeChatId, attachments ?? [])
+          : [];
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to prepare image attachments.");
+        return false;
+      }
+      invalidateGalleryImagesForManagedAttachments(queryClient, activeChatId, managedAttachments);
       void generateGameTurn({
         chatId: activeChatId,
         connectionId: null,
         kind: "turn",
         userMessage: formatTextQuotes(trimmedMessage, quoteFormat),
-        ...(hasAttachments ? { attachments } : {}),
+        ...(managedAttachments.length ? { attachments: managedAttachments } : {}),
       }).catch(() => {
         // Generation UI already shows the recoverable error state.
       });
+      return true;
     },
-    [activeChatId, chatMeta.gameSessionStatus, generateGameTurn, quoteFormat],
+    [activeChatId, chatMeta.gameSessionStatus, generateGameTurn, queryClient, quoteFormat],
   );
 
   // Game mutations
@@ -7185,7 +7199,7 @@ export function GameSurface({
   const handleSendGameTurn = useCallback(
     async (
       message: string,
-      attachments?: Array<{ type: string; data: string }>,
+      attachments?: PromptAttachment[],
       options?: { commitPendingMove?: boolean },
     ) => {
       if (!sessionInteractive) return false;
@@ -7282,9 +7296,9 @@ export function GameSurface({
         }
         return true;
       }
-      sendMessage(message, attachments);
-      clearCommittedPendingMapMove();
-      return true;
+      const sent = await sendMessage(message, attachments);
+      if (sent) clearCommittedPendingMapMove();
+      return sent;
     },
     [
       activeChatId,

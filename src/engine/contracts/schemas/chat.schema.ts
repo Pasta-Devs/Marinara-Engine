@@ -65,9 +65,14 @@ export const generateRequestSchema = z.object({
     .array(
       z.object({
         type: z.string(),
-        data: z.string(),
-        filename: z.string().optional(),
-        name: z.string().optional(),
+        url: z.string().nullable().optional(),
+        data: z.string().nullable().optional(),
+        imageUrl: z.string().nullable().optional(),
+        filePath: z.string().nullable().optional(),
+        filename: z.string().nullable().optional(),
+        name: z.string().nullable().optional(),
+        prompt: z.string().nullable().optional(),
+        galleryId: z.string().nullable().optional(),
       }),
     )
     .optional()

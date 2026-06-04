@@ -45,7 +45,6 @@ import {
 } from "./context";
 import {
   appendReadableAttachmentsToContent,
-  extractImageAttachmentDataUrls,
   getAttachmentFilename,
   resolveRegenerationGameStateAnchor,
   resolveRegenerationGameStateFallbackMessageIds,
@@ -53,6 +52,7 @@ import {
   shouldPreferLatestVisibleGameState,
   type PromptAttachment,
 } from "./generate-route-utils";
+import { prepareManagedImageAttachments, resolveImageAttachmentDataUrls } from "./managed-attachments";
 import type { GenerationEvent } from "./generation-events";
 import {
   applyGenerationReplayToRegenerateInput,
@@ -281,16 +281,17 @@ function imageAttachmentNotes(attachments: PromptAttachment[]): string {
 async function prepareUserInput(storage: StorageGateway, input: StartGenerationInput): Promise<PreparedUserInput> {
   const raw = inputUserMessage(input).trim();
   const attachments = inputAttachments(input);
-  const images = extractImageAttachmentDataUrls(attachments);
+  const images = await resolveImageAttachmentDataUrls(storage, attachments);
+  const managedAttachments = await prepareManagedImageAttachments(storage, input.chatId, attachments);
   const mentionedCharacterNames = stringArray(input.mentionedCharacterNames).filter((name) => name.trim().length > 0);
   const regexed = raw ? await applyRuntimeRegexScripts(storage, "user_input", raw) : "";
-  const withReadableAttachments = appendReadableAttachmentsToContent(regexed, attachments);
-  const imageNotes = imageAttachmentNotes(attachments);
+  const withReadableAttachments = appendReadableAttachmentsToContent(regexed, managedAttachments);
+  const imageNotes = imageAttachmentNotes(managedAttachments);
   return {
     content: collapseExcessBlankLines(
       [withReadableAttachments, imageNotes].filter((part) => part.trim().length > 0).join("\n\n"),
     ),
-    attachments,
+    attachments: managedAttachments,
     images,
     mentionedCharacterNames,
   };
@@ -302,7 +303,11 @@ function shouldSaveUserMessage(
   internalOptions: InternalStartGenerationOptions = {},
 ): boolean {
   if (internalOptions.skipUserMessageSave === true) return false;
-  return !!prepared.content.trim() && input.impersonate !== true && !readString(input.regenerateMessageId).trim();
+  return (
+    (!!prepared.content.trim() || prepared.attachments.length > 0) &&
+    input.impersonate !== true &&
+    !readString(input.regenerateMessageId).trim()
+  );
 }
 
 async function saveUserMessage(

@@ -20,12 +20,15 @@ import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
+import { storageApi } from "../../../../../shared/api/storage-api";
 import { useGenerate } from "../../../../runtime/generation/index";
 import { readScopedRegexMode, useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../../../catalog/chats/index";
 import { characterKeys } from "../../../../catalog/characters/index";
+import { invalidateGalleryImagesForManagedAttachments } from "../../../../catalog/gallery/index";
 import { personaKeys } from "../../../../catalog/personas/index";
 import type { Message } from "../../../../../engine/contracts/types/chat";
+import { prepareManagedImageAttachments } from "../../../../../engine/generation/managed-attachments";
 import { buildGuidedGenerationInstructionMessage } from "../../../../../engine/shared/text/generation-guide";
 import {
   matchSlashCommand,
@@ -612,13 +615,24 @@ export const ChatInput = memo(function ChatInput({
 
     message = resolveInputMacros(message);
 
+    const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
+    let managedAttachments: Awaited<ReturnType<typeof prepareManagedImageAttachments>> = [];
+    try {
+      managedAttachments = pendingAttachments.length
+        ? await prepareManagedImageAttachments(storageApi, activeChatId, pendingAttachments)
+        : [];
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to prepare image attachments.");
+      return;
+    }
+    invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
+
     if (textareaRef.current) {
       textareaRef.current.value = "";
       textareaRef.current.style.height = "auto";
     }
     syncInputState("");
     setCompletions([]);
-    const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
     replaceAttachments([]);
     clearInputDraft(activeChatId);
 
@@ -630,10 +644,10 @@ export const ChatInput = memo(function ChatInput({
           content: message,
           characterId: null,
         });
-        if (pendingAttachments.length) {
+        if (managedAttachments.length) {
           await updateMessageExtra.mutateAsync({
             messageId: created.id,
-            extra: { attachments: pendingAttachments },
+            extra: { attachments: managedAttachments },
           });
         }
       } catch (error) {
@@ -648,7 +662,7 @@ export const ChatInput = memo(function ChatInput({
         chatId: activeChatId,
         connectionId: null,
         userMessage: message,
-        ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+        ...(managedAttachments.length ? { attachments: managedAttachments } : {}),
       });
     } catch (error) {
       if (isAbortError(error)) return;
@@ -813,16 +827,20 @@ export const ChatInput = memo(function ChatInput({
 
     let createdMessageId: string | null = null;
     try {
+      const managedAttachments = pendingAttachments.length
+        ? await prepareManagedImageAttachments(storageApi, submittingChatId, pendingAttachments)
+        : [];
+      invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, managedAttachments);
       const created = await createMessage.mutateAsync({
         role: "user",
         content: message,
         characterId: null,
       });
       createdMessageId = created.id;
-      if (pendingAttachments.length) {
+      if (managedAttachments.length) {
         await updateMessageExtra.mutateAsync({
           messageId: created.id,
-          extra: { attachments: pendingAttachments },
+          extra: { attachments: managedAttachments },
         });
       }
     } catch (error) {

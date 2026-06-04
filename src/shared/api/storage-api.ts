@@ -1,14 +1,20 @@
 import type {
   AddChatMessageSwipeOptions,
+  StorageImageAttachmentReference,
   StorageEntity,
   StorageGateway,
   StorageListOptions,
 } from "../../engine/capabilities/storage";
 import { collapseExcessBlankLines } from "../../engine/shared/text/newlines";
 import { ApiError } from "./api-errors";
-import { invalidateRemoteManagedAssetObjectUrlsAfter, type RemoteManagedAssetKind } from "./local-file-api";
+import {
+  invalidateRemoteManagedAssetObjectUrlsAfter,
+  resolveGalleryFileUrl,
+  type RemoteManagedAssetKind,
+} from "./local-file-api";
 import { invokeTauri } from "./tauri-client";
 import { trackerSnapshotApi, type TrackerSnapshotInput } from "./tracker-snapshot-api";
+import { urlBinaryApi } from "./url-binary-api";
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
@@ -214,6 +220,76 @@ async function patchChatSummariesField<T>(chatId: string, patch: Record<string, 
   return storageApi.update<T>("chats", chatId, { metadata });
 }
 
+function textField(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function inlineImageDataUrl(value: unknown): string {
+  const text = textField(value);
+  return text.toLowerCase().startsWith("data:image/") ? text : "";
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+      } else {
+        reject(new Error("Image attachment resolver returned an invalid file payload."));
+      }
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Image attachment resolver failed to read the file."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadImageUrlAsDataUrl(url: string, fallbackMimeType = "image/png"): Promise<string | null> {
+  if (!url) return null;
+  const inline = inlineImageDataUrl(url);
+  if (inline) return inline;
+  try {
+    const blob = await urlBinaryApi.load(url, fallbackMimeType);
+    const mimeType = textField(blob.type).toLowerCase();
+    if (mimeType && !mimeType.startsWith("image/")) return null;
+    return blobToDataUrl(blob);
+  } catch {
+    return null;
+  }
+}
+
+async function galleryImageDataUrl(gallery: unknown): Promise<string | null> {
+  if (!gallery || typeof gallery !== "object" || Array.isArray(gallery)) return null;
+  const record = gallery as Record<string, unknown>;
+  const urlData = await loadImageUrlAsDataUrl(textField(record.url));
+  if (urlData) return urlData;
+  const resolvedUrl = await resolveGalleryFileUrl(textField(record.filename), textField(record.filePath));
+  return resolvedUrl ? loadImageUrlAsDataUrl(resolvedUrl) : null;
+}
+
+async function resolveImageAttachmentDataUrl(
+  attachment: StorageImageAttachmentReference,
+): Promise<string | null> {
+  const inline =
+    inlineImageDataUrl(attachment.data) ||
+    inlineImageDataUrl(attachment.url) ||
+    inlineImageDataUrl(attachment.imageUrl);
+  if (inline) return inline;
+
+  const galleryId = textField(attachment.galleryId);
+  if (galleryId) {
+    const gallery = await storageApi.get<Record<string, unknown>>("gallery", galleryId).catch(() => null);
+    const galleryData = await galleryImageDataUrl(gallery);
+    if (galleryData) return galleryData;
+  }
+
+  const urlData = await loadImageUrlAsDataUrl(textField(attachment.url) || textField(attachment.imageUrl));
+  if (urlData) return urlData;
+
+  const resolvedUrl = await resolveGalleryFileUrl(textField(attachment.filename), textField(attachment.filePath));
+  return resolvedUrl ? loadImageUrlAsDataUrl(resolvedUrl) : null;
+}
+
 export const storageApi: StorageGateway = {
   list: async (entity: StorageEntity, options?: StorageListOptions) =>
     normalizeStorageReadResult(
@@ -289,6 +365,7 @@ export const storageApi: StorageGateway = {
       extra: { ...asRecord(message.extra), ...patch },
     });
   },
+  resolveImageAttachmentDataUrl,
   addChatMessageSwipe: (chatId, messageId, content, options) =>
     invokeTauri("chat_message_add_swipe", {
       chatId,

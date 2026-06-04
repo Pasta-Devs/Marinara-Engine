@@ -1,6 +1,16 @@
 import type { MessageAttachment, MessageAttachmentExtraValue } from "../../../../../engine/contracts/types/chat";
 
-const MESSAGE_ATTACHMENT_KEYS = ["type", "url", "data", "filename", "name", "prompt", "galleryId"] as const;
+const MESSAGE_ATTACHMENT_KEYS = [
+  "type",
+  "url",
+  "data",
+  "imageUrl",
+  "filePath",
+  "filename",
+  "name",
+  "prompt",
+  "galleryId",
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);

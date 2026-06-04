@@ -54,6 +54,17 @@ export interface AddChatMessageSwipeOptions {
   characterId?: string | null;
 }
 
+export interface StorageImageAttachmentReference {
+  type?: unknown;
+  url?: unknown;
+  data?: unknown;
+  imageUrl?: unknown;
+  filename?: unknown;
+  name?: unknown;
+  filePath?: unknown;
+  galleryId?: unknown;
+}
+
 export interface StorageGateway {
   list<T = unknown>(entity: StorageEntity, options?: StorageListOptions): Promise<T[]>;
   get<T = unknown>(
@@ -75,6 +86,7 @@ export interface StorageGateway {
   ): Promise<{ updated: boolean; message?: T }>;
   deleteChatMessage(messageId: string): Promise<{ deleted: boolean }>;
   patchChatMessageExtra<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
+  resolveImageAttachmentDataUrl?(attachment: StorageImageAttachmentReference): Promise<string | null>;
   /**
    * Evict saved generation prompt snapshots from older assistant messages,
    * keeping only the most recent `keepLast` (default 2, matching v1.6.1). Bounds
