@@ -31,7 +31,11 @@ import { resolveGalleryFileUrl } from "../../../../shared/api/local-file-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { urlBinaryApi } from "../../../../shared/api/url-binary-api";
 import { visualAssetsApi } from "../../../../shared/api/visual-assets-api";
-import { createLorebookEntrySchema, createLorebookSchema } from "../../../../engine/contracts/schemas/lorebook.schema";
+import {
+  createLorebookEntrySchema,
+  createLorebookSchema,
+  updateLorebookEntrySchema,
+} from "../../../../engine/contracts/schemas/lorebook.schema";
 import { resolveCombatRound } from "../../../../engine/modes/game/mechanics/combat.service";
 import { initGameCombatEncounter } from "../../../../engine/modes/game/mechanics/combat-init.service";
 import { rollDice as rollGameDice } from "../../../../engine/modes/game/mechanics/dice.service";
@@ -1904,18 +1908,40 @@ async function writeGameLorebookKeeperEntries(data: {
         ),
       ];
   const entriesToCreate = normalizedEntries.map((entry) =>
-    createLorebookEntrySchema.parse({ ...entry, lorebookId: lorebook.id }),
+    createLorebookEntrySchema.parse({
+      ...entry,
+      lorebookId: lorebook.id,
+      enabled: false,
+      dynamicState: { ...asRecord(entry.dynamicState), gameLorebookKeeperPending: true },
+    }),
   );
 
   const createdEntries: LorebookEntry[] = [];
-  const cleanupCreatedEntries = () =>
-    Promise.all(createdEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id).catch(() => null)));
+  const disableCreatedEntries = () =>
+    Promise.all(
+      createdEntries.map((entry) =>
+        storageApi
+          .update(
+            "lorebook-entries",
+            entry.id,
+            updateLorebookEntrySchema.parse({
+              enabled: false,
+              dynamicState: {
+                ...asRecord(entry.dynamicState),
+                gameLorebookKeeperPending: true,
+                gameLorebookKeeperFinalizationFailedAt: nowIso(),
+              },
+            }),
+          )
+          .catch(() => null),
+      ),
+    );
   try {
     for (const entry of entriesToCreate) {
       createdEntries.push(await storageApi.create<LorebookEntry>("lorebook-entries", entry));
     }
   } catch (error) {
-    await cleanupCreatedEntries();
+    await Promise.all(createdEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id).catch(() => null)));
     throw error;
   }
 
@@ -1926,26 +1952,45 @@ async function writeGameLorebookKeeperEntries(data: {
   const staleEntries = existingEntries.filter(
     (entry) => !createdEntryIds.has(entry.id) && keeperEntrySessionNumber(entry) === data.sessionNumber,
   );
-  await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
-
-  const sessionChat = await patchChatMetadata(data.chat.id, {
-    gameLorebookKeeperLorebookId: lorebook.id,
-    activeLorebookIds: Array.from(
-      new Set([
-        ...(Array.isArray(data.meta.activeLorebookIds)
-          ? data.meta.activeLorebookIds.filter((id): id is string => typeof id === "string")
-          : []),
-        lorebook.id,
-      ]),
-    ),
-    gameLorebookKeeperLastRun: {
-      sessionNumber: data.sessionNumber,
-      status: "success",
-      updatedAt: nowIso(),
-      lorebookId: lorebook.id,
-      entryCount: entriesToCreate.length,
-    },
-  });
+  let sessionChat: Chat;
+  try {
+    await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
+    for (const entry of createdEntries) {
+      await storageApi.update(
+        "lorebook-entries",
+        entry.id,
+        updateLorebookEntrySchema.parse({
+          enabled: true,
+          dynamicState: {
+            ...asRecord(entry.dynamicState),
+            gameLorebookKeeperPending: false,
+            gameLorebookKeeperCommittedAt: nowIso(),
+          },
+        }),
+      );
+    }
+    sessionChat = await patchChatMetadata(data.chat.id, {
+      gameLorebookKeeperLorebookId: lorebook.id,
+      activeLorebookIds: Array.from(
+        new Set([
+          ...(Array.isArray(data.meta.activeLorebookIds)
+            ? data.meta.activeLorebookIds.filter((id): id is string => typeof id === "string")
+            : []),
+          lorebook.id,
+        ]),
+      ),
+      gameLorebookKeeperLastRun: {
+        sessionNumber: data.sessionNumber,
+        status: "success",
+        updatedAt: nowIso(),
+        lorebookId: lorebook.id,
+        entryCount: entriesToCreate.length,
+      },
+    });
+  } catch (error) {
+    await disableCreatedEntries();
+    throw error;
+  }
   return { lorebookId: lorebook.id, entryCount: entriesToCreate.length, sessionChat };
 }
 
