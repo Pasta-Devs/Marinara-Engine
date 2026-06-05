@@ -3,6 +3,7 @@ import { BookOpen, HelpCircle, MessageSquare, Theater } from "lucide-react";
 import { APP_VERSION } from "../../../../engine/contracts/constants/defaults";
 import { useConnections } from "../../../catalog/connections/index";
 import { useCreateChat } from "../../../catalog/chats/index";
+import { useApplyUserStarredChatPreset } from "../../../catalog/chat-presets/index";
 import { NewChatConnectionGate } from "../../shared/chat-ui/index";
 import { filterLanguageGenerationConnections } from "../../../../shared/lib/connection-filters";
 import { cn } from "../../../../shared/lib/utils";
@@ -34,6 +35,7 @@ function prewarmAllQuickStartModes(): void {
 export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?: ReactNode }) {
   const { data: connections } = useConnections();
   const createChat = useCreateChat();
+  const applyUserStarredChatPreset = useApplyUserStarredChatPreset();
   const pendingNewChatMode = useChatStore((state) => state.pendingNewChatMode);
 
   useEffect(() => {
@@ -65,15 +67,21 @@ export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?
       createChat.mutate(
         { name: `New ${label}`, mode, characterIds: [], connectionId: connectionRows[0]!.id },
         {
-          onSuccess: (chat) => {
-            useChatStore.getState().setActiveChatId(chat.id);
-            useChatStore.getState().setShouldOpenSettings(true, chat.id);
-            useChatStore.getState().setShouldOpenWizard(true, chat.id);
+          onSuccess: async (chat) => {
+            const store = useChatStore.getState();
+            store.setActiveChatId(chat.id);
+            try {
+              await applyUserStarredChatPreset({ mode, chatId: chat.id });
+            } catch {
+              /* non-fatal: chat still opens with system defaults */
+            }
+            store.setShouldOpenSettings(true, chat.id);
+            store.setShouldOpenWizard(true, chat.id);
           },
         },
       );
     },
-    [connections, createChat],
+    [applyUserStarredChatPreset, connections, createChat],
   );
 
   const showEmptyStateEffects = true;
