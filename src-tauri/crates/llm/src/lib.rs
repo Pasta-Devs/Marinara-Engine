@@ -493,6 +493,56 @@ fn is_sampling_parameter_key(key: &str) -> bool {
     )
 }
 
+fn is_stop_parameter_key(key: &str) -> bool {
+    matches!(key, "stop" | "stopSequences" | "stop_sequences")
+}
+
+fn is_reserved_custom_parameter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "model" | "messages" | "input" | "contents" | "systemInstruction" | "stream" | "tools"
+    )
+}
+
+fn should_apply_custom_parameter(
+    key: &str,
+    strip_sampling: bool,
+    strip_stop: bool,
+    skip_keys: &[&str],
+) -> bool {
+    !(skip_keys.contains(&key)
+        || is_reserved_custom_parameter_key(key)
+        || strip_sampling && is_sampling_parameter_key(key)
+        || strip_stop && is_stop_parameter_key(key))
+}
+
+fn apply_custom_parameters_to_object(
+    body: &mut Value,
+    parameters: &Value,
+    strip_sampling: bool,
+    strip_stop: bool,
+    skip_keys: &[&str],
+) {
+    let Some(entries) = parameters
+        .get("customParameters")
+        .or_else(|| parameters.get("custom_params"))
+        .and_then(Value::as_object)
+    else {
+        return;
+    };
+    let Some(body) = body.as_object_mut() else {
+        return;
+    };
+    for (key, value) in entries {
+        if !should_apply_custom_parameter(key, strip_sampling, strip_stop, skip_keys) {
+            continue;
+        }
+        if !body.contains_key(key) {
+            body.insert(key.clone(), value.clone());
+        }
+    }
+}
+
 fn is_gemini_3_model(model: &str) -> bool {
     let normalized = model.to_ascii_lowercase();
     normalized.starts_with("gemini-3")
@@ -1038,24 +1088,7 @@ fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
         );
         body["tool_choice"] = json!("auto");
     }
-    if let Some(extra) = request
-        .parameters
-        .get("customParameters")
-        .or_else(|| request.parameters.get("custom_params"))
-    {
-        if let Some(entries) = extra.as_object() {
-            for (key, value) in entries {
-                if !should_send_openai_sampling_parameters(request)
-                    && is_sampling_parameter_key(key)
-                {
-                    continue;
-                }
-                if body.get(key).is_none() {
-                    body[key] = value.clone();
-                }
-            }
-        }
-    }
+    apply_custom_parameters_to_object(&mut body, &request.parameters, true, true, &[]);
     body
 }
 
@@ -1428,8 +1461,11 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
     if let Some(seed) = param_i64(parameters, &["seed"]) {
         body["seed"] = json!(seed);
     }
-    if let Some(stop) = stop_sequences(parameters) {
-        body["stop"] = json!(stop);
+    let send_sampling = should_send_openai_sampling_parameters(request);
+    if send_sampling {
+        if let Some(stop) = stop_sequences(parameters) {
+            body["stop"] = json!(stop);
+        }
     }
     if let Some(format) = param_string(parameters, &["responseFormat", "response_format"]) {
         body["response_format"] = json!({ "type": format });
@@ -1458,23 +1494,7 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
             body["service_tier"] = json!(service_tier);
         }
     }
-    if let Some(extra) = parameters
-        .get("customParameters")
-        .or_else(|| parameters.get("custom_params"))
-    {
-        if let Some(entries) = extra.as_object() {
-            for (key, value) in entries {
-                if !should_send_openai_sampling_parameters(request)
-                    && is_sampling_parameter_key(key)
-                {
-                    continue;
-                }
-                if body.get(key).is_none() {
-                    body[key] = value.clone();
-                }
-            }
-        }
-    }
+    apply_custom_parameters_to_object(body, parameters, !send_sampling, !send_sampling, &[]);
     if let Some(openrouter) = parameters
         .get("openrouter")
         .or_else(|| parameters.get("openRouter"))
@@ -2183,9 +2203,18 @@ fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
         body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget_tokens });
         body["max_tokens"] = json!(request_max_tokens(request, 1024) + budget_tokens);
     }
-    if let Some(stop) = stop_sequences(&request.parameters) {
-        body["stop_sequences"] = json!(stop);
+    if !adaptive_only {
+        if let Some(stop) = stop_sequences(&request.parameters) {
+            body["stop_sequences"] = json!(stop);
+        }
     }
+    apply_custom_parameters_to_object(
+        &mut body,
+        &request.parameters,
+        adaptive_only,
+        adaptive_only,
+        &[],
+    );
     body
 }
 
@@ -2518,6 +2547,33 @@ fn google_generation_config(request: &LlmRequest) -> Value {
             generation_config["stopSequences"] = json!(stop);
         }
     }
+    if let Some(entries) = request
+        .parameters
+        .get("customParameters")
+        .or_else(|| request.parameters.get("custom_params"))
+        .and_then(Value::as_object)
+    {
+        if let Some(custom_generation_config) =
+            entries.get("generationConfig").and_then(Value::as_object)
+        {
+            for (key, value) in custom_generation_config {
+                if should_apply_custom_parameter(key, is_gemini_3, is_gemini_3, &[]) {
+                    if let Some(config) = generation_config.as_object_mut() {
+                        if !config.contains_key(key) {
+                            config.insert(key.clone(), value.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    apply_custom_parameters_to_object(
+        &mut generation_config,
+        &request.parameters,
+        is_gemini_3,
+        is_gemini_3,
+        &["generationConfig"],
+    );
     generation_config
 }
 
