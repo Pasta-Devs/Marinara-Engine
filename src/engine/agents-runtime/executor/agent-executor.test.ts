@@ -13,13 +13,12 @@ class CapturingProvider implements BaseLLMProvider {
   maxTokensOverrideValue = null;
   messages: ChatMessage[] = [];
 
+  constructor(private readonly content = JSON.stringify({ editedText: "unchanged", changes: [] })) {}
+
   async chatComplete(messages: ChatMessage[], _options: ChatCompleteOptions): Promise<ChatCompleteResult> {
     this.messages = messages;
     return {
-      content: JSON.stringify({
-        editedText: "unchanged",
-        changes: [],
-      }),
+      content: this.content,
     };
   }
 }
@@ -72,5 +71,15 @@ describe("executeAgent", () => {
     expect(prompt).toContain(`<section class="social-card" data-theme="neon">`);
     expect(prompt).toContain(`<style>.social-card { color: #7dd3fc; }</style>`);
     expect(prompt).toContain(`<p style="font-weight: 700">She is safe now.</p>`);
+  });
+
+  it("repairs inline ellipsis placeholders without dropping following JSON fields", async () => {
+    const provider = new CapturingProvider('{"editedText":"fixed... still literal", ... "changes":[]}');
+
+    const result = await executeAgent(editorConfig, createAgentContext("original"), provider, "test-model");
+
+    expect(result.success).toBe(true);
+    expect(result.error).toBeNull();
+    expect(result.data).toEqual({ editedText: "fixed... still literal", changes: [] });
   });
 });

@@ -2051,7 +2051,6 @@ function removeEllipsesOutsideJsonStrings(str: string): string {
     }
     if (char === "." && str.slice(index, index + 3) === "...") {
       index += 2;
-      while (index + 1 < str.length && str[index + 1] !== "\n" && str[index + 1] !== "\r") index += 1;
       continue;
     }
     result += char;
