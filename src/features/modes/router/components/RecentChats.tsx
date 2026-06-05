@@ -3,6 +3,7 @@ import { MessageSquare, BookOpen, Theater } from "lucide-react";
 import { useRecentChatSummaries, type ChatListItem } from "../../../catalog/chats/index";
 import { CharacterAvatarImage, characterAvatarUrl, useCharacterSummariesByIds } from "../../../catalog/characters/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
+import { normalizeChatCharacterIds } from "../../../../shared/lib/chat-display";
 import { parseAvatarCropJson, type AvatarCropValue } from "../../../../shared/lib/utils";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
@@ -23,7 +24,7 @@ export function RecentChats() {
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
 
   const recentCharacterIds = useMemo(
-    () => Array.from(new Set((recentChats ?? []).flatMap((c) => Array.isArray(c.characterIds) ? c.characterIds : []))),
+    () => Array.from(new Set((recentChats ?? []).flatMap((chat) => normalizeChatCharacterIds(chat.characterIds)))),
     [recentChats],
   );
   const { data: recentCharacters } = useCharacterSummariesByIds(recentCharacterIds, recentCharacterIds.length > 0);
@@ -73,7 +74,7 @@ function RecentChatCard({
 }) {
   const mode = MODE_BADGE[chat.mode] ?? MODE_BADGE.conversation;
 
-  const characterIds = Array.isArray(chat.characterIds) ? chat.characterIds : [];
+  const characterIds = normalizeChatCharacterIds(chat.characterIds);
   const firstAvatar = characterIds.map((id) => charLookup.get(id)).find(Boolean) ?? null;
 
   return (
@@ -107,8 +108,9 @@ function RecentChatAvatar({
   mode: { bg: string; icon: React.ReactNode; label: string };
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const hasAvatarSource = Boolean(avatar?.avatarUrl || avatar?.avatarFilePath || avatar?.avatarFilename);
 
-  useEffect(() => { setImageFailed(false); }, [avatar?.avatarUrl]);
+  useEffect(() => { setImageFailed(false); }, [avatar?.avatarUrl, avatar?.avatarFilePath, avatar?.avatarFilename]);
 
   if (!avatar) {
     return (
@@ -118,7 +120,7 @@ function RecentChatAvatar({
     );
   }
 
-  if (!avatar.avatarUrl || imageFailed) {
+  if (!hasAvatarSource || imageFailed) {
     return (
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--secondary)] text-sm font-bold text-[var(--muted-foreground)]">
         {avatar.name[0]}

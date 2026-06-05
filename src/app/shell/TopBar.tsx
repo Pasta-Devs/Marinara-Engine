@@ -14,7 +14,7 @@ import { cn } from "../../shared/lib/utils";
 export function TopBar({
   professorMariOpen: _professorMariOpen = false,
   onOpenProfessorMari: _onOpenProfessorMari,
-  onGoHome: _onGoHome,
+  onGoHome,
 }: {
   professorMariOpen?: boolean;
   onOpenProfessorMari?: () => void;
@@ -85,7 +85,8 @@ export function TopBar({
     closeAllDetails();
     closeRightPanel();
     setTrackerPanelOpen(false);
-    setSidebarOpen(true);
+    setSidebarOpen(false);
+    onGoHome?.();
   };
 
   if (!activeChatId) return null;

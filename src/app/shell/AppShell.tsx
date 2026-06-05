@@ -165,11 +165,13 @@ function MountOnceWhenOpened({
   children,
   overlay,
   hideOverlayWhenClosed,
+  slideFromBottom,
 }: {
   open: boolean;
   children: React.ReactNode;
   overlay?: boolean;
   hideOverlayWhenClosed?: boolean;
+  slideFromBottom?: boolean;
 }) {
   const [everOpened, setEverOpened] = useState(false);
   useEffect(() => {
@@ -177,10 +179,11 @@ function MountOnceWhenOpened({
   }, [open, everOpened]);
   if (!everOpened) return null;
   if (overlay) {
+    const closedPosition = slideFromBottom ? { opacity: 0, x: 0, y: 30 } : { opacity: 0, x: 30, y: 0 };
     return (
       <motion.div
-        initial={{ opacity: 0, x: 30 }}
-        animate={open ? { opacity: 1, x: 0 } : { opacity: 0, x: 30 }}
+        initial={closedPosition}
+        animate={open ? { opacity: 1, x: 0, y: 0 } : closedPosition}
         transition={{ duration: 0.2 }}
         className={cn(
           "absolute inset-0 flex flex-col overflow-hidden bg-[var(--background)]",
@@ -1084,7 +1087,7 @@ export function AppShell() {
             <MountOnceWhenOpened open={gameAssetsBrowserOpen} overlay>
               <GameAssetsBrowserView />
             </MountOnceWhenOpened>
-            <MountOnceWhenOpened open={professorMariOpen} overlay hideOverlayWhenClosed>
+            <MountOnceWhenOpened open={professorMariOpen} overlay hideOverlayWhenClosed slideFromBottom={isMobile}>
               <ProfessorMariSurface />
             </MountOnceWhenOpened>
             <div

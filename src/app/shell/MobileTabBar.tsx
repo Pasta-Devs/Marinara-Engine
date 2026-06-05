@@ -1,15 +1,9 @@
-import { Home, LayoutGrid, MessageSquare, Plus } from "lucide-react";
+import { LayoutGrid, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { TOOLS_PANELS, type MobileToolsPanel } from "../../shared/components/mobile-shell-actions";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
 import { cn } from "../../shared/lib/utils";
-
-const MODE_OPTIONS = [
-  { mode: "conversation" as const, label: "Conversation", color: "text-cyan-400", border: "border-cyan-500/30", gradient: "from-cyan-500/20 to-cyan-500/5" },
-  { mode: "roleplay" as const, label: "Roleplay", color: "text-pink-400", border: "border-pink-500/30", gradient: "from-pink-500/20 to-pink-500/5" },
-  { mode: "game" as const, label: "Game", color: "text-amber-400", border: "border-amber-500/30", gradient: "from-amber-500/20 to-amber-500/5" },
-];
 
 export function MobileTabBar({
   professorMariOpen,
@@ -20,7 +14,6 @@ export function MobileTabBar({
   onToggleProfessorMari: () => void;
   onGoHome: () => void;
 }) {
-  const [modePicker, setModePicker] = useState(false);
   const [toolsSheet, setToolsSheet] = useState(false);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
@@ -35,17 +28,10 @@ export function MobileTabBar({
   if (activeChatId !== null) return null;
 
   const closeAll = () => {
-    setModePicker(false);
     setToolsSheet(false);
     setSidebarOpen(false);
     closeRightPanel();
     closeAllDetails();
-  };
-
-  const goHome = () => {
-    closeAll();
-    setActiveChatId(null);
-    onGoHome();
   };
 
   const openChats = () => {
@@ -70,30 +56,12 @@ export function MobileTabBar({
     if (!wasThisPanel) openRightPanel(panel);
   };
 
-  const startNewChat = (mode: "conversation" | "roleplay" | "game") => {
-    closeAll();
-    setActiveChatId(null);
-    useChatStore.getState().setPendingNewChatMode(mode);
-    onGoHome();
-    setSidebarOpen(true);
-  };
-
-  const isHome = !professorMariOpen && !sidebarOpen && !rightPanelOpen;
   const isChats = sidebarOpen;
   const isMari = professorMariOpen;
   const isTools = rightPanelOpen && !sidebarOpen;
 
   return (
     <>
-      {/* Scrim for mode picker */}
-      {modePicker && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm md:hidden"
-          style={{ zIndex: 65 }}
-          onClick={closeAll}
-        />
-      )}
-
       {/* Scrim for tools sheet */}
       {toolsSheet && (
         <div
@@ -103,32 +71,10 @@ export function MobileTabBar({
         />
       )}
 
-      {/* Mode picker sheet */}
-      {modePicker && (
-        <div className="fixed left-1/2 w-[min(16rem,calc(100vw-2rem))] -translate-x-1/2 flex flex-col gap-2 md:hidden" style={{ zIndex: 70, bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}>
-          {MODE_OPTIONS.map(({ mode, label, color, border, gradient }) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => startNewChat(mode)}
-              className={cn(
-                "flex w-full items-center gap-3 rounded-2xl border bg-gradient-to-r px-5 py-3.5 text-sm font-bold shadow-lg backdrop-blur-xl transition-transform active:scale-95 bg-[var(--card)]",
-                border,
-                color,
-                gradient,
-              )}
-            >
-              <Plus size="0.9rem" aria-hidden />
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Tools bottom sheet */}
       {toolsSheet && (
         <div
-          className="fixed left-0 right-0 rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl md:hidden"
+          className="fixed left-0 right-0 max-h-[70dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up md:hidden"
           style={{ zIndex: 70, bottom: "calc(3.5rem + env(safe-area-inset-bottom))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         >
           <p className="px-5 pt-6 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
@@ -173,23 +119,7 @@ export function MobileTabBar({
         className="mari-mobile-tab-bar fixed bottom-0 left-0 right-0 flex items-center justify-around overflow-hidden border-t border-[var(--border)]/40 bg-[var(--card)] pb-[env(safe-area-inset-bottom)] md:hidden"
         style={{ zIndex: 80, isolation: "isolate", transform: "translateZ(0)", willChange: "transform" }}
       >
-        <TabButton icon={<Home size="1.15rem" />} label="Home" active={isHome} onClick={goHome} />
         <TabButton icon={<MessageSquare size="1.15rem" />} label="Chats" active={isChats} onClick={openChats} />
-
-        {/* + FAB */}
-        <button
-          type="button"
-          onClick={() => { setToolsSheet(false); setModePicker((v) => !v); }}
-          aria-label="New chat"
-          className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-2xl border transition-all active:scale-90",
-            modePicker
-              ? "border-[var(--primary)]/60 bg-[var(--primary)] text-[var(--primary-foreground)] shadow-lg"
-              : "border-[var(--primary)]/30 bg-[color-mix(in_srgb,var(--primary)_20%,var(--card))] text-[var(--primary)] shadow-md",
-          )}
-        >
-          <Plus size="1.25rem" className={cn("transition-transform duration-200", modePicker && "rotate-45")} />
-        </button>
 
         <TabButton
           icon={
@@ -210,7 +140,6 @@ export function MobileTabBar({
           label="Tools"
           active={isTools || toolsSheet}
           onClick={() => {
-            setModePicker(false);
             if (rightPanelOpen) {
               closeRightPanel();
             } else {

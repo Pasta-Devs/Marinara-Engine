@@ -1270,8 +1270,8 @@ export function ChatRoleplaySurface({
               onClick={() => setToolsSheetOpen(false)}
             />
             <div
-              className="fixed top-0 left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl md:hidden"
-              style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}
+              className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down md:hidden"
+              style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
             >
               <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
                 Panels
@@ -1310,11 +1310,10 @@ export function ChatRoleplaySurface({
           createPortal(
             <div
               ref={moreMenuRef}
-              className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up"
-              style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}
+              className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down"
+              style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
             >
-              <div className="mx-auto mt-2 mb-1 h-1 w-10 rounded-full bg-white/20" />
-              <p className="px-5 pt-3 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+              <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
                 Chat Options
               </p>
 
