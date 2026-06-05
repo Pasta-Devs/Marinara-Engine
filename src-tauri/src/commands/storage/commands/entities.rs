@@ -13,6 +13,11 @@ type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
 type LorebookFolderDeleteAtomicRows<'a> =
     (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
 
+struct StorageWhereIn {
+    field: String,
+    values: HashSet<String>,
+}
+
 fn validate_storage_entity(entity: &str) -> Result<(), AppError> {
     if contracts::collection_contract(entity).is_some() {
         Ok(())
@@ -50,15 +55,67 @@ pub(crate) fn storage_list_inner(
     options: Option<Value>,
 ) -> Result<Value, AppError> {
     validate_storage_entity(&entity)?;
+    let where_in = storage_where_in(options.as_ref())?;
     let filters = options
         .as_ref()
         .and_then(|value| value.get("filters"))
         .and_then(Value::as_object);
     let projection_fields = shared::projection_fields(options.as_ref());
     let empty_filters = filters.is_none_or(|filters| filters.is_empty());
+    if where_in.is_some() && !empty_filters {
+        return Err(AppError::invalid_input(
+            "storage_list whereIn cannot be combined with filters",
+        ));
+    }
     let has_search = shared::has_storage_search(options.as_ref());
-    let mut rows = match (entity.as_str(), filters) {
-        ("messages", Some(filters))
+    let mut rows = match (entity.as_str(), filters, where_in.as_ref()) {
+        (_, _, Some(where_in)) if where_in.values.is_empty() => Vec::new(),
+        (_, _, Some(where_in))
+            if has_search
+                && projection_fields
+                    .as_ref()
+                    .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            let search_projection_fields = shared::search_projection_fields(options.as_ref());
+            let search_projection_field_selections =
+                shared::search_projection_field_selections(options.as_ref());
+            let read_projection_fields = storage_list_projection_fields_for_read(
+                &entity,
+                &search_projection_fields,
+                options.as_ref(),
+            );
+            state.storage.list_projected_where_in(
+                &entity,
+                &where_in.field,
+                &where_in.values,
+                &read_projection_fields,
+                &search_projection_field_selections,
+            )?
+        }
+        (_, _, Some(where_in))
+            if projection_fields
+                .as_ref()
+                .is_some_and(|fields| !fields.is_empty()) =>
+        {
+            let read_projection_fields = storage_list_projection_fields_for_read(
+                &entity,
+                projection_fields.as_deref().unwrap_or(&[]),
+                options.as_ref(),
+            );
+            state.storage.list_projected_where_in(
+                &entity,
+                &where_in.field,
+                &where_in.values,
+                &read_projection_fields,
+                shared::projection_field_selections(options.as_ref()),
+            )?
+        }
+        (_, _, Some(where_in)) => {
+            state
+                .storage
+                .list_where_in(&entity, &where_in.field, &where_in.values)?
+        }
+        ("messages", Some(filters), None)
             if filters.len() == 1 && filters.get("chatId").and_then(Value::as_str).is_some() =>
         {
             let chat_id = filters
@@ -106,7 +163,7 @@ pub(crate) fn storage_list_inner(
                 state.storage.list_messages_for_chat(chat_id)?
             }
         }
-        (_, _)
+        (_, _, None)
             if empty_filters
                 && has_search
                 && projection_fields
@@ -116,26 +173,38 @@ pub(crate) fn storage_list_inner(
             let search_projection_fields = shared::search_projection_fields(options.as_ref());
             let search_projection_field_selections =
                 shared::search_projection_field_selections(options.as_ref());
-            state.storage.list_projected(
+            let read_projection_fields = storage_list_projection_fields_for_read(
                 &entity,
                 &search_projection_fields,
+                options.as_ref(),
+            );
+            state.storage.list_projected(
+                &entity,
+                &read_projection_fields,
                 &search_projection_field_selections,
             )?
         }
-        (_, _)
+        (_, _, None)
             if empty_filters
                 && !has_search
                 && projection_fields
                     .as_ref()
                     .is_some_and(|fields| !fields.is_empty()) =>
         {
-            state.storage.list_projected(
+            let read_projection_fields = storage_list_projection_fields_for_read(
                 &entity,
                 projection_fields.as_deref().unwrap_or(&[]),
+                options.as_ref(),
+            );
+            state.storage.list_projected(
+                &entity,
+                &read_projection_fields,
                 shared::projection_field_selections(options.as_ref()),
             )?
         }
-        (_, Some(filters)) if !filters.is_empty() => state.storage.list_where(&entity, filters)?,
+        (_, Some(filters), None) if !filters.is_empty() => {
+            state.storage.list_where(&entity, filters)?
+        }
         _ => state.storage.list(&entity)?,
     };
     let message_materialization = message_swipes::MessageSwipeMaterialization::for_message_output(
@@ -220,6 +289,44 @@ pub(crate) fn storage_list_inner(
     )))
 }
 
+fn storage_where_in(options: Option<&Value>) -> Result<Option<StorageWhereIn>, AppError> {
+    let Some(value) = options.and_then(|value| value.get("whereIn")) else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let Some(object) = value.as_object() else {
+        return Err(AppError::invalid_input(
+            "storage_list whereIn must be an object",
+        ));
+    };
+    let field = object
+        .get("field")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| AppError::invalid_input("storage_list whereIn.field is required"))?
+        .to_string();
+    let values_array = object
+        .get("values")
+        .and_then(Value::as_array)
+        .ok_or_else(|| AppError::invalid_input("storage_list whereIn.values must be an array"))?;
+    let mut values = HashSet::new();
+    for value in values_array {
+        let Some(value) = value.as_str() else {
+            return Err(AppError::invalid_input(
+                "storage_list whereIn.values must contain only strings",
+            ));
+        };
+        let value = value.trim();
+        if !value.is_empty() {
+            values.insert(value.to_string());
+        }
+    }
+    Ok(Some(StorageWhereIn { field, values }))
+}
+
 #[tauri::command]
 pub async fn lorebook_entries_list_by_lorebook_ids(
     state: State<'_, AppState>,
@@ -276,6 +383,18 @@ fn message_id_projection_only(options: Option<&Value>) -> bool {
         return false;
     };
     fields.len() == 1 && fields.first().and_then(Value::as_str) == Some("id")
+}
+
+fn storage_list_projection_fields_for_read(
+    entity: &str,
+    fields: &[String],
+    options: Option<&Value>,
+) -> Vec<String> {
+    if entity == "messages" {
+        message_projection_fields_for_materialization(fields, options)
+    } else {
+        fields.to_vec()
+    }
 }
 
 fn message_projection_fields_for_materialization(
@@ -2031,6 +2150,187 @@ mod tests {
         let read = storage_get_inner(&state, "characters".to_string(), "char-1".to_string(), None)
             .expect("supported get should succeed");
         assert_eq!(read["id"], "char-1");
+    }
+
+    #[test]
+    fn storage_list_where_in_reads_projected_character_rows() {
+        let state = test_state("where-in-character-projection");
+        state
+            .storage
+            .replace_all(
+                "characters",
+                vec![
+                    json!({
+                        "id": "char-c",
+                        "createdAt": "2026-01-03T00:00:00Z",
+                        "data": {
+                            "name": "Cora",
+                            "description": "not requested",
+                            "extensions": { "fav": false, "nameColor": "#abcdef" }
+                        }
+                    }),
+                    json!({
+                        "id": "char-b",
+                        "createdAt": "2026-01-02T00:00:00Z",
+                        "data": { "name": "Bex", "extensions": { "fav": true } }
+                    }),
+                    json!({
+                        "id": "char-a",
+                        "createdAt": "2026-01-01T00:00:00Z",
+                        "avatarPath": "data:image/png;base64,large-avatar",
+                        "avatarFilePath": "C:\\Marinara\\avatars\\characters\\char-a.png",
+                        "avatarFilename": "char-a.png",
+                        "data": {
+                            "name": "Ari",
+                            "description": "not requested",
+                            "extensions": { "fav": true, "nameColor": "#123456" }
+                        }
+                    }),
+                ],
+            )
+            .expect("characters should seed");
+
+        let result = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "whereIn": {
+                    "field": "id",
+                    "values": ["char-c", "char-a", "char-a"]
+                },
+                "fields": ["id", "data", "avatarPath", "avatarFilePath", "avatarFilename", "createdAt"],
+                "fieldSelections": { "data": ["name", "extensions.fav"] },
+                "orderBy": "id"
+            })),
+        )
+        .expect("whereIn projected list should succeed");
+
+        let rows = result.as_array().expect("storage_list returns an array");
+        let ids: Vec<_> = rows
+            .iter()
+            .filter_map(|row| row.get("id").and_then(Value::as_str))
+            .collect();
+        assert_eq!(ids, vec!["char-a", "char-c"]);
+        assert_eq!(
+            rows[0],
+            json!({
+                "id": "char-a",
+                "data": {
+                    "name": "Ari",
+                    "extensions": { "fav": true }
+                },
+                "avatarFilePath": "C:\\Marinara\\avatars\\characters\\char-a.png",
+                "avatarFilename": "char-a.png",
+                "createdAt": "2026-01-01T00:00:00Z"
+            })
+        );
+        assert_eq!(
+            rows[1],
+            json!({
+                "id": "char-c",
+                "data": {
+                    "name": "Cora",
+                    "extensions": { "fav": false }
+                },
+                "createdAt": "2026-01-03T00:00:00Z"
+            })
+        );
+    }
+
+    #[test]
+    fn storage_list_where_in_rejects_non_string_values() {
+        let state = test_state("where-in-invalid-values");
+
+        let error = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "whereIn": {
+                    "field": "id",
+                    "values": ["char-a", 42]
+                }
+            })),
+        )
+        .expect_err("non-string whereIn values should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("storage_list whereIn.values must contain only strings"));
+    }
+
+    #[test]
+    fn storage_list_where_in_projected_messages_materializes_swipe_summary() {
+        let state = test_state("where-in-message-projection-materialization");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "activeSwipeIndex": 1,
+                    "extra": { "hiddenFromAI": true }
+                })],
+            )
+            .expect("message should seed");
+        state
+            .storage
+            .replace_all(
+                message_swipes::COLLECTION,
+                vec![
+                    json!({
+                        "id": "message-1::swipe::0",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 0,
+                        "content": "first sidecar",
+                        "extra": { "thinking": "first sidecar thought" }
+                    }),
+                    json!({
+                        "id": "message-1::swipe::1",
+                        "chatId": "chat-1",
+                        "messageId": "message-1",
+                        "index": 1,
+                        "content": "active sidecar",
+                        "characterId": "character-1",
+                        "extra": { "thinking": "active sidecar thought" }
+                    }),
+                ],
+            )
+            .expect("sidecar swipes should seed");
+
+        let result = storage_list_inner(
+            &state,
+            "messages".to_string(),
+            Some(json!({
+                "whereIn": {
+                    "field": "id",
+                    "values": ["message-1"]
+                },
+                "fields": ["extra", "swipeCount", "swipePreviews"],
+                "fieldSelections": { "extra": ["hiddenFromAI", "thinking"] }
+            })),
+        )
+        .expect("projected whereIn message list should materialize sidecars");
+
+        assert_eq!(
+            result,
+            json!([
+                {
+                    "extra": {
+                        "hiddenFromAI": true,
+                        "thinking": "active sidecar thought"
+                    },
+                    "swipeCount": 2,
+                    "swipePreviews": [
+                        { "content": "first sidecar" },
+                        { "content": "active sidecar", "characterId": "character-1" }
+                    ]
+                }
+            ])
+        );
     }
 
     #[test]

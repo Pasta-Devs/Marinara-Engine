@@ -39,6 +39,10 @@ export type StorageEntity = (typeof GENERIC_STORAGE_ENTITIES)[number];
 
 export interface StorageListOptions {
   filters?: Record<string, unknown>;
+  whereIn?: {
+    field: string;
+    values: string[];
+  };
   orderBy?: string;
   descending?: boolean;
   limit?: number;
@@ -47,6 +51,8 @@ export interface StorageListOptions {
   fieldSelections?: Record<string, string[]>;
   search?: string;
 }
+
+export type ChatMessageListOptions = Omit<StorageListOptions, "filters" | "whereIn">;
 
 export interface AddChatMessageSwipeOptions {
   extra?: Record<string, unknown>;
@@ -75,7 +81,7 @@ export interface StorageGateway {
   create<T = unknown>(entity: StorageEntity, value: Record<string, unknown>): Promise<T>;
   update<T = unknown>(entity: StorageEntity, id: string, patch: Record<string, unknown>): Promise<T>;
   delete(entity: StorageEntity, id: string): Promise<{ deleted: boolean }>;
-  listChatMessages<T = unknown>(chatId: string, options?: Omit<StorageListOptions, "filters">): Promise<T[]>;
+  listChatMessages<T = unknown>(chatId: string, options?: ChatMessageListOptions): Promise<T[]>;
   createChatMessage<T = unknown>(chatId: string, value: Record<string, unknown>): Promise<T>;
   updateChatMessage<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
   updateChatMessageContentIfUnchanged?<T = unknown>(
