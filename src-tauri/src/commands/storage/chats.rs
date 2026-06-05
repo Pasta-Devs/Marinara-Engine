@@ -1285,11 +1285,6 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
                 &new_chat_id,
                 json!({ "gameState": visible_game_state }),
             )?;
-        } else if !chat_game_state_is_bootstrap(&new_chat) {
-            new_chat =
-                state
-                    .storage
-                    .patch("chats", &new_chat_id, json!({ "gameState": Value::Null }))?;
         } else if let Some(bootstrap_game_state) =
             game_state_snapshots::copy_bootstrap_tracker_snapshot(state, chat_id, &new_chat_id)?
         {
@@ -1298,6 +1293,11 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
                 &new_chat_id,
                 json!({ "gameState": bootstrap_game_state }),
             )?;
+        } else if !chat_game_state_is_bootstrap(&new_chat) {
+            new_chat =
+                state
+                    .storage
+                    .patch("chats", &new_chat_id, json!({ "gameState": Value::Null }))?;
         }
     }
     Ok(new_chat)
@@ -2368,6 +2368,100 @@ mod tests {
                 .all(|message| message.get("content").and_then(Value::as_str)
                     != Some("You enter the future.")),
             "branch should not copy messages after the selected turn"
+        );
+    }
+
+    #[test]
+    fn branch_chat_preserves_bootstrap_game_state_when_no_message_snapshot_is_copied() {
+        let state = test_state("branch-game-bootstrap-tracker-state");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "game-root",
+                    "name": "Game Run",
+                    "mode": "game",
+                    "characterIds": [],
+                    "gameState": {
+                        "messageId": "assistant-2",
+                        "swipeIndex": 0,
+                        "location": "Future path",
+                        "recentEvents": ["future reached"]
+                    },
+                    "metadata": {}
+                }),
+            )
+            .expect("source game chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "greeting-1",
+                    "chatId": "game-root",
+                    "role": "assistant",
+                    "content": "You wake at camp.",
+                    "createdAt": "2026-06-01T09:00:00.000Z"
+                }),
+            )
+            .expect("greeting message should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "assistant-2",
+                    "chatId": "game-root",
+                    "role": "assistant",
+                    "content": "You reach the pass.",
+                    "createdAt": "2026-06-01T10:00:00.000Z"
+                }),
+            )
+            .expect("future assistant message should be created");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "game-root",
+            json!({
+                "messageId": "",
+                "swipeIndex": 0,
+                "location": "Camp",
+                "recentEvents": ["camp established"],
+                "committed": true
+            }),
+        )
+        .expect("bootstrap tracker snapshot should be saved");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "game-root",
+            json!({
+                "messageId": "assistant-2",
+                "swipeIndex": 0,
+                "location": "Future path",
+                "recentEvents": ["future reached"],
+                "committed": true
+            }),
+        )
+        .expect("future tracker snapshot should be saved");
+
+        let branch = branch_chat(
+            &state,
+            "game-root",
+            json!({ "upToMessageId": "greeting-1" }),
+        )
+        .expect("branch should be created");
+
+        assert_eq!(branch["gameState"]["location"], "Camp");
+        assert_eq!(
+            branch["gameState"]["recentEvents"],
+            json!(["camp established"])
+        );
+        let branch_id = branch["id"].as_str().expect("branch id should be a string");
+        assert!(
+            game_state_snapshots::bootstrap_tracker_snapshot(&state, branch_id)
+                .expect("branch bootstrap snapshot lookup should not fail")
+                .is_some(),
+            "branch should copy the bootstrap tracker snapshot"
         );
     }
 
