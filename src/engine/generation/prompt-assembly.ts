@@ -279,20 +279,17 @@ function hasOwnChoice(record: JsonRecord, name: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, name);
 }
 
-function normalizedSelectionValue(
-  value: unknown,
-  block: PromptChoiceBlockRecord,
-  hasSelection: boolean,
-): string | null {
+function normalizedSelectionValue(value: unknown, block: PromptChoiceBlockRecord): string | null {
   const optionValues = promptChoiceOptionValues(block);
   if (optionValues.length === 0) return null;
 
   const validValues = new Set(optionValues);
   const candidates = selectedChoiceCandidates(value);
   const values = candidates.filter((entry, index) => validValues.has(entry) && candidates.indexOf(entry) === index);
+  const explicitEmptySelection = candidates.includes("") || (Array.isArray(value) && value.length === 0);
 
   if (boolish(block.multiSelect ?? block.multi_select, false)) {
-    if (values.length === 0) return "";
+    if (values.length === 0) return explicitEmptySelection ? "" : (optionValues[0] ?? null);
     if (boolish(block.randomPick ?? block.random_pick, false)) {
       return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? null;
     }
@@ -300,7 +297,7 @@ function normalizedSelectionValue(
   }
 
   if (values.length === 0) {
-    if (hasSelection) return "";
+    if (explicitEmptySelection) return "";
     return optionValues[0] ?? null;
   }
 
@@ -319,7 +316,7 @@ function promptChoiceVariables(input: {
     const hasChatChoice = hasOwnChoice(chatChoices, name);
     const hasDefaultChoice = hasOwnChoice(defaultChoices, name);
     const value = hasChatChoice ? chatChoices[name] : hasDefaultChoice ? defaultChoices[name] : undefined;
-    const normalized = normalizedSelectionValue(value, block, hasChatChoice || hasDefaultChoice);
+    const normalized = normalizedSelectionValue(value, block);
     if (normalized !== null) variables[name] = normalized;
   }
   return variables;
@@ -952,7 +949,7 @@ async function loadSelectedPromptPreset(
     const chatChoices = chatPresetId === presetId ? (metadata.presetChoices ?? input.chat.presetChoices) : null;
     const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
     const choiceVariables = promptChoiceVariables({
-      defaultChoices: preset.defaultChoices,
+      defaultChoices: preset.defaultChoices ?? preset.default_choices,
       chatChoices,
       blocksByName,
     });

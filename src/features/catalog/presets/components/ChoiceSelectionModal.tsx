@@ -52,6 +52,34 @@ function legacyField(block: ChoiceBlock, field: string): unknown {
   return (block as unknown as Record<string, unknown>)[field];
 }
 
+function primitiveChoiceOptionValue(value: unknown): string | null {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : null;
+}
+
+function rawChoiceOptions(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string" || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeChoiceOption(value: unknown, index: number): ChoiceOption | null {
+  if (isChoiceOption(value)) return value;
+
+  const rawValue = isRecord(value) ? primitiveChoiceOptionValue(value.value) : primitiveChoiceOptionValue(value);
+  if (rawValue === null) return null;
+
+  return {
+    id: isRecord(value) ? stringField(value.id, `option-${index}-${rawValue}`) : `option-${index}-${rawValue}`,
+    label: isRecord(value) ? stringField(value.label, rawValue) : rawValue,
+    value: rawValue,
+  };
+}
+
 function choiceSelectionCandidates(selection: ChoiceSelections[string] | undefined): string[] {
   if (Array.isArray(selection)) return selection;
   return selection === undefined ? [] : [selection];
@@ -105,7 +133,9 @@ export function ChoiceSelectionModal({
     if (!data?.choiceBlocks) return [];
     return data.choiceBlocks.map((cb) => {
       const rawOptions = legacyField(cb, "options");
-      const options: ChoiceOption[] = Array.isArray(rawOptions) ? rawOptions.filter(isChoiceOption) : [];
+      const options = rawChoiceOptions(rawOptions).flatMap(
+        (option, index) => normalizeChoiceOption(option, index) ?? [],
+      );
       return {
         id: cb.id,
         variableName: stringField(cb.variableName, stringField(legacyField(cb, "variable_name"), "unknown")),
