@@ -153,6 +153,8 @@ type PromptSectionRecord = JsonRecord & {
 
 type PromptChoiceBlockRecord = JsonRecord & {
   variableName?: unknown;
+  options?: unknown;
+  multiSelect?: unknown;
   separator?: unknown;
   randomPick?: unknown;
 };
@@ -181,6 +183,7 @@ interface SelectedPromptPreset {
   sections: PromptSectionRecord[];
   groups: PromptGroupRecord[];
   variables: Record<string, string>;
+  choiceVariableNames: string[];
   parameters: StoredGenerationParameters | null;
   wrapFormat: WrapFormat | null;
 }
@@ -246,36 +249,89 @@ function normalizeWrapFormat(value: unknown): WrapFormat | null {
   return value === "xml" || value === "markdown" || value === "none" ? value : null;
 }
 
-function normalizedSelectionValue(value: unknown, block?: PromptChoiceBlockRecord): string | null {
-  if (Array.isArray(value)) {
-    const values = value
-      .map((entry) =>
-        typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean" ? String(entry) : "",
-      )
-      .filter(Boolean);
-    if (values.length === 0) return null;
-    if (boolish(block?.randomPick, false)) {
-      return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? null;
-    }
-    return values.join(readString(block?.separator, ", "));
-  }
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return null;
+function primitiveChoiceValue(value: unknown): string | null {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : null;
 }
 
-function promptChoiceVariables(
-  rawChoices: unknown,
-  blocksByName: Map<string, PromptChoiceBlockRecord>,
-): Record<string, string> {
-  const choices = parseRecord(rawChoices);
+function selectedChoiceCandidates(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap((entry) => primitiveChoiceValue(entry) ?? []);
+  const single = primitiveChoiceValue(value);
+  return single === null ? [] : [single];
+}
+
+function promptChoiceOptionValues(block: PromptChoiceBlockRecord): string[] {
+  const values: string[] = [];
+  const seen = new Set<string>();
+  for (const option of parseArray(block.options)) {
+    const value = isRecord(option) ? primitiveChoiceValue(option.value) : primitiveChoiceValue(option);
+    if (value === null || seen.has(value)) continue;
+    seen.add(value);
+    values.push(value);
+  }
+  return values;
+}
+
+function choiceBlockVariableName(block: PromptChoiceBlockRecord): string {
+  return readString(block.variableName ?? block.variable_name).trim();
+}
+
+function hasOwnChoice(record: JsonRecord, name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, name);
+}
+
+function normalizedSelectionValue(
+  value: unknown,
+  block: PromptChoiceBlockRecord,
+  hasSelection: boolean,
+): string | null {
+  const optionValues = promptChoiceOptionValues(block);
+  if (optionValues.length === 0) return null;
+
+  const validValues = new Set(optionValues);
+  const candidates = selectedChoiceCandidates(value);
+  const values = candidates.filter((entry, index) => validValues.has(entry) && candidates.indexOf(entry) === index);
+
+  if (boolish(block.multiSelect ?? block.multi_select, false)) {
+    if (values.length === 0) return "";
+    if (boolish(block.randomPick ?? block.random_pick, false)) {
+      return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? null;
+    }
+    return values.join(readString(block.separator, ", "));
+  }
+
+  if (values.length === 0) {
+    if (hasSelection) return "";
+    return optionValues[0] ?? null;
+  }
+
+  return values[0] ?? null;
+}
+
+function promptChoiceVariables(input: {
+  defaultChoices: unknown;
+  chatChoices: unknown;
+  blocksByName: Map<string, PromptChoiceBlockRecord>;
+}): Record<string, string> {
+  const defaultChoices = parseRecord(input.defaultChoices);
+  const chatChoices = parseRecord(input.chatChoices);
   const variables: Record<string, string> = {};
-  for (const [name, value] of Object.entries(choices)) {
-    const normalized = normalizedSelectionValue(value, blocksByName.get(name));
+  for (const [name, block] of input.blocksByName.entries()) {
+    const hasChatChoice = hasOwnChoice(chatChoices, name);
+    const hasDefaultChoice = hasOwnChoice(defaultChoices, name);
+    const value = hasChatChoice ? chatChoices[name] : hasDefaultChoice ? defaultChoices[name] : undefined;
+    const normalized = normalizedSelectionValue(value, block, hasChatChoice || hasDefaultChoice);
     if (normalized !== null) variables[name] = normalized;
   }
   return variables;
+}
+
+function resolvePromptChoiceVariableMacros(macros: MacroContext, variableNames: string[]): void {
+  const uniqueNames = new Set(variableNames);
+  for (const name of uniqueNames) {
+    const value = macros.variables[name];
+    if (value === undefined || !value.includes("{{")) continue;
+    macros.variables[name] = resolveMacros(value, macros, { trimResult: false });
+  }
 }
 
 function chatPromptVariables(chat: JsonRecord): Record<string, string> {
@@ -888,15 +944,18 @@ async function loadSelectedPromptPreset(
     if (!bundle) continue;
     const { preset, sections, groups, choiceBlocks } = bundle;
     const blocksByName = new Map(
-      choiceBlocks
-        .map((block) => [readString(block.variableName).trim(), block] as const)
-        .filter(([name]) => name.length > 0),
+      choiceBlocks.map((block) => [choiceBlockVariableName(block), block] as const).filter(([name]) => name.length > 0),
     );
     const metadata = parseRecord(input.chat.metadata);
     const explicitVariables = chatPromptVariables(input.chat);
     const chatPresetId = readString(input.chat.promptPresetId).trim();
     const chatChoices = chatPresetId === presetId ? (metadata.presetChoices ?? input.chat.presetChoices) : null;
     const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
+    const choiceVariables = promptChoiceVariables({
+      defaultChoices: preset.defaultChoices,
+      chatChoices,
+      blocksByName,
+    });
 
     return {
       id: presetId,
@@ -905,10 +964,10 @@ async function loadSelectedPromptPreset(
       groups,
       variables: {
         ...stringRecord(preset.variableValues),
-        ...promptChoiceVariables(preset.defaultChoices, blocksByName),
-        ...promptChoiceVariables(chatChoices, blocksByName),
+        ...choiceVariables,
         ...explicitVariables,
       },
+      choiceVariableNames: Object.keys(choiceVariables).filter((name) => explicitVariables[name] === undefined),
       parameters: mode === "game" ? null : mergeStoredGenerationParameters(preset.parameters),
       wrapFormat: normalizeWrapFormat(preset.wrapFormat),
     };
@@ -2869,6 +2928,7 @@ export async function assembleGenerationPrompt(
     variables: selectedPreset?.variables,
     request: input.request,
   });
+  if (selectedPreset) resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames);
   await seedPromptVariablesFromGreeting(storage, input, macros);
   const baseLorebookIncludedPositions = lorebookIncludedPositionsForPrompt(selectedPreset, chatMode);
   const scanLorebooksForPositions = (includedPositions: ActiveLorebookIncludedPositions) =>

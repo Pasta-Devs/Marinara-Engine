@@ -76,12 +76,11 @@ export async function previewGenerationPrompt(
     ...chat,
     ...(input.choices
       ? {
+          promptPresetId: request.promptPresetId,
           metadata: {
             ...chatMetadata,
             presetChoices: input.choices,
           },
-          promptVariables: input.choices,
-          variableValues: input.choices,
         }
       : {}),
   };

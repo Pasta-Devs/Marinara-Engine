@@ -52,6 +52,32 @@ function legacyField(block: ChoiceBlock, field: string): unknown {
   return (block as unknown as Record<string, unknown>)[field];
 }
 
+function choiceSelectionCandidates(selection: ChoiceSelections[string] | undefined): string[] {
+  if (Array.isArray(selection)) return selection;
+  return selection === undefined ? [] : [selection];
+}
+
+function sanitizeChoiceSelection(
+  variable: VariableData,
+  selection: ChoiceSelections[string] | undefined,
+): ChoiceSelections[string] | undefined {
+  if (selection === undefined) return undefined;
+  const validValues = new Set(variable.options.map((option) => option.value));
+  const candidates = choiceSelectionCandidates(selection);
+
+  if (variable.multiSelect) {
+    return candidates.filter((value, index) => validValues.has(value) && candidates.indexOf(value) === index);
+  }
+
+  if (selection === "" && variable.options.length === 1) return "";
+
+  return candidates.find((value) => validValues.has(value));
+}
+
+function emptyChoiceSelection(variable: VariableData): ChoiceSelections[string] {
+  return variable.multiSelect ? [] : "";
+}
+
 function ChoiceOptionValue({ value }: { value: string }) {
   if (!value) return null;
   return (
@@ -107,9 +133,9 @@ export function ChoiceSelectionModal({
       const existing = existingChoices[v.variableName];
       const saved = defaultChoices[v.variableName];
       if (existing !== undefined) {
-        initial[v.variableName] = existing;
+        initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? emptyChoiceSelection(v);
       } else if (saved !== undefined) {
-        initial[v.variableName] = saved;
+        initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? emptyChoiceSelection(v);
       } else if (v.multiSelect) {
         initial[v.variableName] = [];
       } else if (v.options.length > 0) {
