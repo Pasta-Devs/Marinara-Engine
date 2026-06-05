@@ -17,7 +17,7 @@ function permissionLabel(permission: string) {
 }
 
 function CoreModulesSettings() {
-  const { data: modules = [], error, isError, isLoading, refetch, isFetching } = useCoreModules();
+  const { data: modules, error, isError, isLoading, refetch, isFetching } = useCoreModules();
   const setEnabled = useSetCoreModuleEnabled();
   const controlsDisabled = setEnabled.isPending || isError;
 
@@ -54,14 +54,20 @@ function CoreModulesSettings() {
       </div>
 
       <div className="flex flex-col gap-2">
-        {isError && (
+        {isLoading && (
+          <p className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-3 text-center text-xs text-[var(--muted-foreground)]">
+            Loading core modules...
+          </p>
+        )}
+
+        {!isLoading && isError && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-snug text-[var(--foreground)]">
             Core modules are registered, but Marinara could not read module settings from app storage.{" "}
             {error instanceof Error ? error.message : "Open this in the Tauri app shell and try again."}
           </div>
         )}
 
-        {modules.map((module) => (
+        {!isLoading && !isError && modules?.map((module) => (
           <article
             key={module.id}
             className={cn(
@@ -175,7 +181,7 @@ function CoreModulesSettings() {
           </article>
         ))}
 
-        {!isLoading && modules.length === 0 && (
+        {!isLoading && !isError && modules?.length === 0 && (
           <p className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-3 text-center text-xs text-[var(--muted-foreground)]">
             No core modules are registered in this build.
           </p>

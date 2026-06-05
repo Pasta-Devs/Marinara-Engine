@@ -972,11 +972,23 @@ async fn import_st_bulk_run_stream(
     tokio::spawn(async move {
         let started = Instant::now();
         request_log("import_st_bulk_run_stream started");
-        let result =
-            imports::import_stream_callback(&state.app, &["st-bulk", "run"], body, |event| {
-                tx.send(Ok(Event::default().data(event.to_string())))
+        let import_state = state.app.clone();
+        let progress_tx = tx.clone();
+        let result = match tokio::task::spawn_blocking(move || {
+            imports::import_stream_callback(&import_state, &["st-bulk", "run"], body, |event| {
+                progress_tx
+                    .send(Ok(Event::default().data(event.to_string())))
                     .map_err(|error| AppError::new("sse_stream_error", error.to_string()))
-            });
+            })
+        })
+        .await
+        {
+            Ok(result) => result,
+            Err(error) => Err(AppError::new(
+                "import_st_bulk_task_error",
+                error.to_string(),
+            )),
+        };
 
         match result {
             Ok(()) => {
