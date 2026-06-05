@@ -1569,7 +1569,7 @@ export function ConversationInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "relative flex items-center gap-1 rounded-2xl border-2 bg-[var(--card)] px-2 py-1.5 transition-all duration-200 sm:gap-2 sm:px-4 sm:py-2.5 dark:bg-black/40",
+          "relative flex flex-wrap items-end gap-1 rounded-2xl border-2 bg-[var(--card)] px-2 py-1.5 transition-all duration-200 sm:flex-nowrap sm:items-center sm:gap-2 sm:px-4 sm:py-2.5 dark:bg-black/40",
           isDragging ? "border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10" : "border-[var(--border)]",
         )}
       >
@@ -1588,7 +1588,7 @@ export function ConversationInput({
         <button
           onClick={() => fileInputRef.current?.click()}
           className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-xl transition-all active:scale-90 sm:h-8 sm:w-8",
+            "order-2 flex h-11 w-11 items-center justify-center rounded-xl transition-all active:scale-90 sm:order-none sm:h-8 sm:w-8",
             attachments.length
               ? "bg-foreground/10 text-foreground/75"
               : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
@@ -1601,7 +1601,7 @@ export function ConversationInput({
         {/* Quick Switchers — desktop: inline, mobile: chevron */}
         <QuickConnectionSwitcher className="hidden sm:flex" />
         <QuickPersonaSwitcher className="hidden sm:flex" />
-        <div className="sm:hidden">
+        <div className="order-2 sm:hidden">
           <QuickSwitcherMobile />
         </div>
 
@@ -1624,11 +1624,11 @@ export function ConversationInput({
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          className="max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30"
+          className="order-1 max-h-[12.5rem] min-w-0 basis-full flex-1 resize-none bg-transparent py-0 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 sm:order-none sm:basis-auto"
         />
 
         {/* Right actions */}
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="order-2 ml-auto flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-0.5 sm:order-none sm:flex-none sm:shrink-0">
           <div className="relative">
             <button
               ref={gifButtonRef}

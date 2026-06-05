@@ -8891,10 +8891,14 @@ export async function generateRoutes(app: FastifyInstance) {
                 const ctData = result.data as Record<string, unknown>;
                 const chars = (ctData.presentCharacters as any[]) ?? [];
                 const snapBeforeUpdate = await gameStateStore.getByMessage(messageId, targetSwipeIndex);
-                const oldChars: any[] = snapBeforeUpdate?.presentCharacters
-                  ? typeof snapBeforeUpdate.presentCharacters === "string"
-                    ? JSON.parse(snapBeforeUpdate.presentCharacters)
-                    : snapBeforeUpdate.presentCharacters
+                const previousCharacterSnapshot =
+                  snapBeforeUpdate ??
+                  baseGameStateSnapshot ??
+                  (allowLatestGameStateFallback ? await gameStateStore.getLatest(input.chatId) : null);
+                const oldChars: any[] = previousCharacterSnapshot?.presentCharacters
+                  ? typeof previousCharacterSnapshot.presentCharacters === "string"
+                    ? JSON.parse(previousCharacterSnapshot.presentCharacters)
+                    : previousCharacterSnapshot.presentCharacters
                   : [];
                 preserveTrackerCharacterUiFields(chars, oldChars);
 

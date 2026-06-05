@@ -29,6 +29,12 @@ import { useAgentConfigs, useCustomAgentRuns, type AgentConfigRow } from "../../
 import { useChat } from "../../hooks/use-chats";
 import { discardPendingGameStatePatch, useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { useUIStore } from "../../stores/ui.store";
+import {
+  getTemperatureColor,
+  getTemperatureGaugeDisplay,
+  getTemperatureKeywordHint,
+  parseTemperatureValue,
+} from "../../features/tracker-panel/lib/world-state-display";
 import type {
   GameState,
   PresentCharacter,
@@ -38,7 +44,7 @@ import type {
   CustomTrackerField,
   Message,
 } from "@marinara-engine/shared";
-import type { HudPosition } from "../../stores/ui.store";
+import type { HudPosition, TrackerTemperatureUnit } from "../../stores/ui.store";
 
 const ACTIONS_DROPDOWN_WIDTH_PX = 288;
 
@@ -142,6 +148,7 @@ export function RoleplayHUD({
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
+  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
   const toggleTrackerPanel = useUIStore((s) => s.toggleTrackerPanel);
 
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
@@ -269,6 +276,7 @@ export function RoleplayHUD({
               time={time ?? ""}
               weather={weather ?? ""}
               temperature={temperature ?? ""}
+              trackerTemperatureUnit={trackerTemperatureUnit}
               onSaveLocation={(v) => patchField("location", v)}
               onSaveDate={(v) => patchField("date", v)}
               onSaveTime={(v) => patchField("time", v)}
@@ -334,6 +342,7 @@ export function RoleplayHUD({
               time={time ?? ""}
               weather={weather ?? ""}
               temperature={temperature ?? ""}
+              trackerTemperatureUnit={trackerTemperatureUnit}
               onSaveLocation={(v) => patchField("location", v)}
               onSaveDate={(v) => patchField("date", v)}
               onSaveTime={(v) => patchField("time", v)}
@@ -1264,6 +1273,7 @@ function CombinedWorldWidget({
   time,
   weather,
   temperature,
+  trackerTemperatureUnit,
   onSaveLocation,
   onSaveDate,
   onSaveTime,
@@ -1278,6 +1288,7 @@ function CombinedWorldWidget({
   time: string;
   weather: string;
   temperature: string;
+  trackerTemperatureUnit: TrackerTemperatureUnit;
   onSaveLocation: (v: string) => void;
   onSaveDate: (v: string) => void;
   onSaveTime: (v: string) => void;
@@ -1291,18 +1302,10 @@ function CombinedWorldWidget({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const weatherEmoji = weather ? getWeatherEmoji(weather) : "🌤️";
   const pinColor = getLocationPinColor(location);
-  const tempNumeric = temperature ? parseTemperature(temperature) : null;
+  const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
+  const tempNumeric = temperature ? parseTemperatureValue(temperature) : null;
   const temp = tempNumeric ?? (temperature ? getTemperatureKeywordHint(temperature) : null);
-  const tempColor =
-    temp !== null
-      ? temp < 0
-        ? "text-blue-400"
-        : temp < 15
-          ? "text-sky-400"
-          : temp < 30
-            ? "text-amber-400"
-            : "text-red-400"
-      : "text-rose-400/50";
+  const tempColor = getTemperatureColor(temperature);
 
   // Dynamic calendar: show day number
   const dateParts = date ? parseDateLabel(date) : { day: null, month: null };
@@ -1313,10 +1316,9 @@ function CombinedWorldWidget({
   const hourAngle = hour >= 0 ? (hour % 12) * 30 + minute * 0.5 : 0;
   const minuteAngle = minute * 6;
 
-  // Thermometer fill fraction (clamp -20..50°C → 0..1)
-  const tempFill = temp !== null ? Math.max(0, Math.min(1, (temp + 20) / 70)) : 0.3;
-  const tempFillColor =
-    temp !== null ? (temp < 0 ? "#60a5fa" : temp < 15 ? "#38bdf8" : temp < 30 ? "#fbbf24" : "#f87171") : "#fb7185";
+  const tempFill =
+    temperatureDisplay.percent == null ? 0.3 : Math.max(0, Math.min(1, temperatureDisplay.percent / 100));
+  const tempFillColor = temperatureDisplay.color;
 
   return (
     <div className="relative">
@@ -1462,7 +1464,7 @@ function CombinedWorldWidget({
         </svg>
         {tempNumeric !== null && (
           <span className={cn("text-[0.5rem] md:text-[0.5625rem] font-bold leading-none shrink-0", tempColor)}>
-            {tempNumeric}°
+            {temperatureDisplay.label}
           </span>
         )}
       </button>
@@ -1565,26 +1567,6 @@ function getWeatherEmoji(weather: string): string {
   if (w.includes("hot") || w.includes("swelter")) return "🥵";
   if (w.includes("cold") || w.includes("freez")) return "🥶";
   return "🌤️";
-}
-
-function parseTemperature(temp: string): number | null {
-  const m = temp.match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const num = parseFloat(m[0]!);
-  if (/°?\s*f/i.test(temp)) return Math.round((num - 32) * (5 / 9));
-  return Math.round(num);
-}
-
-/** Map descriptive temperature words to a numeric-equivalent hint (°C). */
-function getTemperatureKeywordHint(text: string): number | null {
-  const t = text.toLowerCase();
-  if (/\b(freez|frigid|arctic|glacial|sub-?zero|blizzard)/.test(t)) return -10;
-  if (/\b(cold|chill|frost|wintry|icy|bitter|nipp)/.test(t)) return 2;
-  if (/\b(cool|brisk|crisp|refresh)/.test(t)) return 12;
-  if (/\b(mild|pleasant|comfort|temperate|fair)/.test(t)) return 20;
-  if (/\b(warm|balmy|toasty|muggy|humid|stuffy|sultry)/.test(t)) return 28;
-  if (/\b(hot|swelter|blaz|scorch|burn|heat|boil|sear|bak)/.test(t)) return 38;
-  return null;
 }
 
 /** Categorise location text into a colour for the map-pin icon. */

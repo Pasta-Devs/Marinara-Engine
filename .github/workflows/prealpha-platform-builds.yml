@@ -1,0 +1,335 @@
+name: Pre-Alpha Platform Builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      extra_release_notes:
+        description: "Optional operator notes to append to the pre-alpha release body"
+        required: false
+        type: string
+
+concurrency:
+  group: prealpha-platform-builds-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "10.33.2"
+  PREALPHA_CONFIG: src-tauri/tauri.prealpha.conf.json
+  PREALPHA_PRODUCT_NAME: Marinara Engine Pre-Alpha
+  PREALPHA_ANDROID_APPLICATION_ID: com.marinara_engine.prealpha
+  PREALPHA_ANDROID_APP_NAME: Marinara Engine Pre-Alpha
+
+jobs:
+  refactor-only:
+    name: Refactor branch guard
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Allow only refactor branch dispatches
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "refactor" ]; then
+            echo "::error::Pre-alpha platform builds are manual-only and may only run from the refactor branch. Selected branch: ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          echo "Building pre-alpha artifacts from ${GITHUB_REF_NAME}."
+
+  create-prealpha-release:
+    name: Create draft pre-release
+    runs-on: ubuntu-latest
+    needs: refactor-only
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
+      release_url: ${{ steps.create.outputs.release_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute pre-alpha version and tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          short_sha="${GITHUB_SHA::7}"
+          tag_name="prealpha-refactor-v${version}-run${GITHUB_RUN_NUMBER}-attempt${GITHUB_RUN_ATTEMPT}-${short_sha}"
+          release_name="Marinara Engine Pre-Alpha Test Build v${version} #${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          {
+            echo "version=${version}"
+            echo "tag_name=${tag_name}"
+            echo "release_name=${release_name}"
+            echo "short_sha=${short_sha}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Create draft GitHub pre-release with warning notes
+        id: create
+        uses: actions/github-script@v7
+        env:
+          TAG_NAME: ${{ steps.version.outputs.tag_name }}
+          RELEASE_NAME: ${{ steps.version.outputs.release_name }}
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          SHORT_SHA: ${{ steps.version.outputs.short_sha }}
+          EXTRA_RELEASE_NOTES: ${{ inputs.extra_release_notes }}
+        with:
+          script: |
+            const extraNotes = (process.env.EXTRA_RELEASE_NOTES || '').trim();
+            const branch = context.ref.replace('refs/heads/', '');
+            const bodyLines = [
+              '# ⚠️ MARINARA ENGINE PRE-ALPHA TEST BUILD — EXPECT BREAKAGE ⚠️',
+              '',
+              'This is a **manual refactor-branch test build** for team testing. It is marked as a **GitHub pre-release** and forced to **not be the latest release**.',
+              '',
+              '## 🚨 Read before downloading',
+              '',
+              '- **Almost everything may be broken.** Expect crashes, missing behavior, unfinished UI, incomplete migration paths, broken imports/exports, provider/runtime issues, and platform-specific failures.',
+              '- **Use throwaway data only.** Back up existing Marinara data before launching this build. Do not use this for real saves, production stories, or important chats.',
+              '- **Unsigned and unnotarized.** Windows SmartScreen, macOS Gatekeeper, Linux package trust warnings, and Android debug-build warnings are expected.',
+              '- **No stable-update promise.** These artifacts do not publish updater metadata and should not be treated as an official update channel.',
+              '- **Built only from the `refactor` branch.** This workflow does not publish from `main` and does not replace the main branch or stable releases.',
+              '- **iOS is intentionally excluded for now.** iOS needs Apple signing/provisioning/TestFlight planning before CI distribution.',
+              '',
+              '## Included artifacts when the workflow succeeds',
+              '',
+              '- Windows x64 desktop Tauri bundles, unsigned, using the pre-alpha app identity.',
+              '- macOS Intel and Apple Silicon Tauri bundles, unsigned/unnotarized, using the pre-alpha app identity.',
+              '- Linux x64 desktop Tauri bundles, unsigned, using the pre-alpha app identity.',
+              '- Android universal debug APK, debug-signed by Android tooling, using `com.marinara_engine.prealpha` as the test application id.',
+              '',
+              '## Build identity',
+              '',
+              '- App label: **Marinara Engine Pre-Alpha**',
+              '- Desktop Tauri identifier: `com.marinara-engine.prealpha`',
+              '- Android application id: `com.marinara_engine.prealpha`',
+              `- Source branch: \`${branch}\``,
+              `- Source commit: \`${context.sha}\``,
+              `- Version: \`${process.env.APP_VERSION}\``,
+              `- Short SHA: \`${process.env.SHORT_SHA}\``,
+              '',
+            ];
+
+            if (extraNotes) {
+              bodyLines.push('## Operator notes', '', extraNotes, '');
+            }
+
+            bodyLines.push(
+              '## Tester guidance',
+              '',
+              '1. Download only the artifact for your platform from the assets below.',
+              '2. Install/run it only on a machine or profile where data loss is acceptable.',
+              '3. Report issues with platform, artifact name, source commit, and logs/screenshots when possible.',
+            );
+
+            const body = bodyLines.join('\n');
+
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: process.env.TAG_NAME,
+              target_commitish: context.sha,
+              name: process.env.RELEASE_NAME,
+              body,
+              draft: true,
+              prerelease: true,
+              make_latest: 'false',
+            });
+
+            core.setOutput('release_id', String(data.id));
+            core.setOutput('release_url', data.html_url);
+
+  build-desktop:
+    name: Desktop ${{ matrix.asset_slug }}
+    runs-on: ${{ matrix.platform }}
+    needs: create-prealpha-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - asset_slug: windows-x64
+            platform: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+          - asset_slug: linux-x64
+            platform: ubuntu-22.04
+            rust_target: x86_64-unknown-linux-gnu
+          - asset_slug: macos-aarch64
+            platform: macos-latest
+            rust_target: aarch64-apple-darwin
+          - asset_slug: macos-x64
+            platform: macos-latest
+            rust_target: x86_64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Tauri Linux bundle dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            rpm \
+            fakeroot \
+            dpkg-dev
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and upload unsigned pre-alpha desktop bundle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseId: ${{ needs.create-prealpha-release.outputs.release_id }}
+          releaseDraft: true
+          prerelease: true
+          includeUpdaterJson: false
+          updaterJsonPreferNsis: true
+          tauriScript: pnpm tauri
+          assetNamePattern: "Marinara-Engine-PreAlpha-${{ matrix.asset_slug }}_[version]_[arch][setup][ext]"
+          args: "--ci --no-sign --config ${{ env.PREALPHA_CONFIG }} --target ${{ matrix.rust_target }}"
+
+  build-android:
+    name: Android universal debug APK
+    runs-on: ubuntu-22.04
+    needs: create-prealpha-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Setup Java for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Android NDK
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27
+
+      - name: Install Rust stable with Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build pre-alpha Android debug APK
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          MARINARA_ANDROID_APPLICATION_ID: ${{ env.PREALPHA_ANDROID_APPLICATION_ID }}
+          MARINARA_ANDROID_APP_NAME: ${{ env.PREALPHA_ANDROID_APP_NAME }}
+        run: pnpm tauri android build --debug --apk --ci --config "${{ env.PREALPHA_CONFIG }}"
+
+      - name: Collect Android release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          while IFS= read -r -d '' file; do
+            base="$(basename "${file}" | tr ' ' '-' | tr -cd '[:alnum:]._+-')"
+            cp "${file}" "release-assets/Marinara-Engine-PreAlpha-android-universal-debug-${base}"
+          done < <(find src-tauri/gen/android/app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \) -print0)
+
+          echo "Collected assets:"
+          find release-assets -maxdepth 1 -type f -print
+          asset_count="$(find release-assets -maxdepth 1 -type f | wc -l | tr -d ' ')"
+          if [ "${asset_count}" -eq 0 ]; then
+            echo "::error::No Android release assets were produced."
+            exit 1
+          fi
+
+      - name: Upload Android workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prealpha-android-universal-debug-release-assets
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Android assets to draft pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.create-prealpha-release.outputs.tag_name }}
+        run: gh release upload "${TAG_NAME}" release-assets/* --repo "${GITHUB_REPOSITORY}" --clobber
+
+  publish-prealpha-release:
+    name: Publish pre-release as not latest
+    runs-on: ubuntu-latest
+    needs:
+      - create-prealpha-release
+      - build-desktop
+      - build-android
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft pre-release without marking it latest
+        uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ needs.create-prealpha-release.outputs.release_id }}
+        with:
+          script: |
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: Number(process.env.RELEASE_ID),
+              draft: false,
+              prerelease: true,
+              make_latest: 'false',
+            });
+
+      - name: Release URL
+        run: echo "Published ${{ needs.create-prealpha-release.outputs.release_url }}"
