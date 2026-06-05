@@ -780,14 +780,119 @@ fn chat_memory_values(chat: &Value) -> Vec<Value> {
     }
 }
 
-pub(crate) fn list_chat_memories(
+fn chat_memory_values_for_mutation(chat: &Value) -> AppResult<Vec<Value>> {
+    match chat.get("memories") {
+        Some(Value::Array(values)) => Ok(values.clone()),
+        Some(Value::String(raw)) => {
+            let parsed = serde_json::from_str::<Value>(raw).map_err(|_| {
+                AppError::invalid_input("Chat memories are not a valid serialized array")
+            })?;
+            match parsed {
+                Value::Array(values) => Ok(values),
+                _ => Err(AppError::invalid_input(
+                    "Chat memories are not a valid serialized array",
+                )),
+            }
+        }
+        Some(Value::Null) | None => Ok(Vec::new()),
+        _ => Err(AppError::invalid_input("Chat memories must be an array")),
+    }
+}
+
+fn chat_memory_message_ids(memory: &Value) -> HashSet<String> {
+    let mut ids = HashSet::new();
+    if let Some(message_ids) = memory.get("messageIds").and_then(Value::as_array) {
+        for value in message_ids {
+            if let Some(id) = value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                ids.insert(id.to_string());
+            }
+        }
+    }
+    for field in ["firstMessageId", "lastMessageId"] {
+        if let Some(id) = memory
+            .get(field)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            ids.insert(id.to_string());
+        }
+    }
+    ids
+}
+
+fn memory_overlaps_excluded_recent(
+    memory: &Value,
+    recent_ids: &HashSet<String>,
+    recent_start_at: &str,
+) -> bool {
+    if recent_ids.is_empty() {
+        return false;
+    }
+    let chunk_ids = chat_memory_message_ids(memory);
+    if !chunk_ids.is_empty() {
+        return chunk_ids.iter().any(|id| recent_ids.contains(id));
+    }
+
+    memory
+        .get("lastMessageAt")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some_and(|last_message_at| {
+            !recent_start_at.is_empty() && last_message_at >= recent_start_at
+        })
+}
+
+fn exclude_recent_chat_memories(
+    values: Vec<Value>,
+    exclude_recent_message_ids: &[String],
+    exclude_recent_start_at: Option<&str>,
+) -> Vec<Value> {
+    let recent_ids = exclude_recent_message_ids
+        .iter()
+        .map(|id| id.trim())
+        .filter(|id| !id.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>();
+    let recent_start_at = exclude_recent_start_at.unwrap_or("").trim();
+    if recent_ids.is_empty() {
+        return values;
+    }
+    values
+        .into_iter()
+        .filter(|memory| !memory_overlaps_excluded_recent(memory, &recent_ids, recent_start_at))
+        .collect()
+}
+
+#[cfg(test)]
+fn list_chat_memories(
     state: &AppState,
     chat_id: &str,
     limit: Option<usize>,
     order: Option<&str>,
 ) -> AppResult<Value> {
+    list_chat_memories_excluding_recent(state, chat_id, limit, order, &[], None)
+}
+
+pub(crate) fn list_chat_memories_excluding_recent(
+    state: &AppState,
+    chat_id: &str,
+    limit: Option<usize>,
+    order: Option<&str>,
+    exclude_recent_message_ids: &[String],
+    exclude_recent_start_at: Option<&str>,
+) -> AppResult<Value> {
     let chat = get_required(state, "chats", chat_id)?;
-    let mut values = chat_memory_values(&chat);
+    let mut values = exclude_recent_chat_memories(
+        chat_memory_values(&chat),
+        exclude_recent_message_ids,
+        exclude_recent_start_at,
+    );
 
     match order
         .filter(|value| !value.trim().is_empty())
@@ -844,6 +949,19 @@ pub(crate) fn delete_chat_array_item(
         .filter(|item| item.get("id").and_then(Value::as_str) != Some(item_id))
         .collect::<Vec<_>>();
     set_chat_array_field(state, chat_id, field, values)
+}
+
+pub(crate) fn delete_chat_memory(
+    state: &AppState,
+    chat_id: &str,
+    memory_id: &str,
+) -> AppResult<Value> {
+    let chat = get_required(state, "chats", chat_id)?;
+    let values = chat_memory_values_for_mutation(&chat)?
+        .into_iter()
+        .filter(|item| item.get("id").and_then(Value::as_str) != Some(memory_id))
+        .collect::<Vec<_>>();
+    set_chat_array_field(state, chat_id, "memories", values)
 }
 
 pub(crate) async fn refresh_chat_memories(state: &AppState, chat_id: &str) -> AppResult<Value> {
@@ -1521,6 +1639,128 @@ mod tests {
         let recent = list_chat_memories(&state, "chat-1", Some(1), Some("recent"))
             .expect("serialized memories should sort by recency");
         assert_eq!(memory_ids(&recent), vec!["stored-new"]);
+    }
+
+    #[test]
+    fn delete_chat_memory_preserves_serialized_non_target_chunks() {
+        let state = test_state("chat-memory-delete-serialized");
+        let memories = serde_json::to_string(&json!([
+            { "id": "delete-me", "lastMessageAt": "2026-01-01T00:00:00.000Z" },
+            { "id": "keep-me", "lastMessageAt": "2026-01-02T00:00:00.000Z" }
+        ]))
+        .expect("memory fixture should serialize");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Serialized memory delete chat",
+                    "memories": memories
+                }),
+            )
+            .expect("chat should be created");
+
+        let listed = list_chat_memories(&state, "chat-1", None, None)
+            .expect("serialized memories should be visible before deletion");
+        assert_eq!(memory_ids(&listed), vec!["delete-me", "keep-me"]);
+
+        delete_chat_memory(&state, "chat-1", "delete-me")
+            .expect("serialized memory deletion should preserve non-target chunks");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(memory_ids(&chat["memories"]), vec!["keep-me"]);
+    }
+
+    #[test]
+    fn delete_chat_memory_preserves_array_non_target_chunks() {
+        let state = test_state("chat-memory-delete-array");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Array memory delete chat",
+                    "memories": [
+                        { "id": "delete-me", "lastMessageAt": "2026-01-01T00:00:00.000Z" },
+                        { "id": "keep-me", "lastMessageAt": "2026-01-02T00:00:00.000Z" }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+
+        delete_chat_memory(&state, "chat-1", "delete-me")
+            .expect("array memory deletion should preserve non-target chunks");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(memory_ids(&chat["memories"]), vec!["keep-me"]);
+    }
+
+    #[test]
+    fn delete_chat_memory_rejects_malformed_serialized_chunks() {
+        let state = test_state("chat-memory-delete-malformed");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Malformed memory delete chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should be created");
+
+        let error = delete_chat_memory(&state, "chat-1", "delete-me")
+            .expect_err("malformed serialized memory deletion should be rejected");
+        assert_eq!(error.code, "invalid_input");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(chat["memories"], json!("{not valid json"));
+    }
+
+    #[test]
+    fn list_chat_memories_excludes_recent_overlap_before_limit() {
+        let state = test_state("chat-memory-list-filter-before-limit");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Filtered memory chat",
+                    "memories": [
+                        { "id": "recent-legacy-a", "lastMessageAt": "2026-01-10T00:00:00.000Z" },
+                        { "id": "recent-legacy-b", "lastMessageAt": "2026-01-10T00:01:00.000Z" },
+                        { "id": "older-eligible", "lastMessageAt": "2026-01-01T00:00:00.000Z" }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        let exclude_recent_message_ids = vec!["recent-message".to_string()];
+
+        let filtered = list_chat_memories_excluding_recent(
+            &state,
+            "chat-1",
+            Some(1),
+            Some("recent"),
+            &exclude_recent_message_ids,
+            Some("2026-01-10T00:00:00.000Z"),
+        )
+        .expect("recent overlap should filter before limit");
+
+        assert_eq!(memory_ids(&filtered), vec!["older-eligible"]);
     }
 
     #[test]

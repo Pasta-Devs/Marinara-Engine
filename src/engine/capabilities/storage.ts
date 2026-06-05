@@ -62,6 +62,8 @@ export type ChatMemoryListOrder = "stored" | "recent";
 export interface ListChatMemoriesOptions {
   limit?: number;
   order?: ChatMemoryListOrder;
+  excludeRecentMessageIds?: string[];
+  excludeRecentStartAt?: string;
 }
 
 export interface AddChatMessageSwipeOptions {

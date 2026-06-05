@@ -7,6 +7,17 @@ function memoryListArgs(chatId: string | null, options?: ListChatMemoriesOptions
     args.limit = Math.max(0, Math.trunc(options.limit));
   }
   if (options?.order) args.order = options.order;
+  const excludeRecentMessageIds = Array.from(
+    new Set(
+      (options?.excludeRecentMessageIds ?? [])
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter(Boolean),
+    ),
+  );
+  if (excludeRecentMessageIds.length > 0) args.excludeRecentMessageIds = excludeRecentMessageIds;
+  const excludeRecentStartAt =
+    typeof options?.excludeRecentStartAt === "string" ? options.excludeRecentStartAt.trim() : "";
+  if (excludeRecentStartAt) args.excludeRecentStartAt = excludeRecentStartAt;
   return args;
 }
 

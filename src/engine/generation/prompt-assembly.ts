@@ -2,7 +2,7 @@ import type { LorebookEntryTimingState } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
 import type { CharacterData } from "../contracts/types/character";
 import { BUILT_IN_AGENTS } from "../contracts/types/agent";
-import type { StorageGateway } from "../capabilities/storage";
+import type { ListChatMemoriesOptions, StorageGateway } from "../capabilities/storage";
 import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
 import { injectAtDepth } from "../generation-core/lorebooks/prompt-injector";
@@ -1899,10 +1899,6 @@ function memoryRecallReadBehind(chat: JsonRecord): number {
   return Math.max(0, Math.min(MAX_MEMORY_RECALL_READ_BEHIND_MESSAGES, Math.trunc(raw)));
 }
 
-function memoryRecallFetchLimit(chat: JsonRecord): number {
-  return MAX_MEMORY_RECALL_SCORING_CHUNKS + memoryRecallReadBehind(chat);
-}
-
 function memoryRecallEligibleMessages(messages: JsonRecord[]): JsonRecord[] {
   return messages.filter((message) => !hiddenFromAi(message) && !!readString(message.content).trim());
 }
@@ -1914,6 +1910,24 @@ function recentMemoryRecallMessages(messages: JsonRecord[], readBehind: number):
 
 function messageIdSet(messages: JsonRecord[]): Set<string> {
   return new Set(messages.map((message) => readString(message.id).trim()).filter(Boolean));
+}
+
+function memoryRecallReadBehindExclusion(
+  chat: JsonRecord,
+  storedMessages: JsonRecord[],
+): Pick<ListChatMemoriesOptions, "excludeRecentMessageIds" | "excludeRecentStartAt"> {
+  const readBehind = memoryRecallReadBehind(chat);
+  if (readBehind <= 0) return {};
+
+  const recentMessages = recentMemoryRecallMessages(storedMessages, readBehind);
+  const excludeRecentMessageIds = Array.from(messageIdSet(recentMessages));
+  if (excludeRecentMessageIds.length === 0) return {};
+
+  const excludeRecentStartAt = readString(recentMessages[0]?.createdAt).trim();
+  return {
+    excludeRecentMessageIds,
+    ...(excludeRecentStartAt ? { excludeRecentStartAt } : {}),
+  };
 }
 
 function memoryChunkMessageIds(memory: JsonRecord): Set<string> {
@@ -1986,8 +2000,9 @@ async function buildMemoryRecallBlock(
   let memories: JsonRecord[] = [];
   try {
     const rows = await storage.listChatMemories<unknown>(chatId, {
-      limit: memoryRecallFetchLimit(chat),
+      limit: MAX_MEMORY_RECALL_SCORING_CHUNKS,
       order: "recent",
+      ...memoryRecallReadBehindExclusion(chat, storedMessages),
     });
     memories = memoryRecallRows(rows);
   } catch {

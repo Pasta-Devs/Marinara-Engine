@@ -10,12 +10,17 @@ pub fn chat_memories_list(
     chat_id: String,
     limit: Option<u32>,
     order: Option<String>,
+    exclude_recent_message_ids: Option<Vec<String>>,
+    exclude_recent_start_at: Option<String>,
 ) -> Result<Value, AppError> {
-    chats::list_chat_memories(
+    let exclude_recent_message_ids = exclude_recent_message_ids.unwrap_or_default();
+    chats::list_chat_memories_excluding_recent(
         &state,
         &chat_id,
         limit.map(|value| value as usize),
         order.as_deref(),
+        &exclude_recent_message_ids,
+        exclude_recent_start_at.as_deref(),
     )
 }
 
@@ -25,7 +30,7 @@ pub fn chat_memory_delete(
     chat_id: String,
     memory_id: String,
 ) -> Result<Value, AppError> {
-    chats::delete_chat_array_item(&state, &chat_id, "memories", &memory_id)
+    chats::delete_chat_memory(&state, &chat_id, &memory_id)
 }
 
 #[tauri::command]
