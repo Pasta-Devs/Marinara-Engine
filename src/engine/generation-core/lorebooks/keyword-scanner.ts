@@ -5,7 +5,7 @@ import type {
   LorebookMatchingSource,
   LorebookSchedule,
 } from "../../contracts/types/lorebook";
-import { testPrimaryKeys, testSecondaryKeys } from "../../shared/regex/lorebook-keyword-matching";
+import { testPrimaryKeysAsync, testSecondaryKeysAsync } from "../../shared/regex/lorebook-keyword-matching";
 import { vmRegexExecutor } from "./regex-timeout.js";
 
 /** Compute cosine similarity between two vectors. Returns 0 for empty/mismatched vectors. */
@@ -416,11 +416,11 @@ export interface ScanOptions {
  * Main scanning function: given messages and lorebook entries,
  * returns the list of activated entries.
  */
-export function scanForActivatedEntries(
+export async function scanForActivatedEntries(
   messages: ScanMessage[],
   entries: LorebookEntry[],
   options: ScanOptions = {},
-): ActivatedEntry[] {
+): Promise<ActivatedEntry[]> {
   const {
     scanDepth = 0,
     gameState = null,
@@ -506,15 +506,15 @@ export function scanForActivatedEntries(
     };
 
     // Test primary keys
-    const { matched, matchedKeys } = testPrimaryKeys(entry.keys, entryScanText, matchOptions);
+    const { matched, matchedKeys } = await testPrimaryKeysAsync(entry.keys, entryScanText, matchOptions);
     if (!matched) continue;
     const matchedLatestUserMessage =
-      latestUserText.length > 0 && testPrimaryKeys(entry.keys, latestUserText, matchOptions).matched;
+      latestUserText.length > 0 && (await testPrimaryKeysAsync(entry.keys, latestUserText, matchOptions)).matched;
 
     // Test secondary keys only for selective entries. Older imports can carry
     // secondary keys while keeping selective disabled.
     if (entry.selective && entry.secondaryKeys.length > 0) {
-      if (!testSecondaryKeys(entry.secondaryKeys, entryScanText, entry.selectiveLogic, matchOptions)) {
+      if (!(await testSecondaryKeysAsync(entry.secondaryKeys, entryScanText, entry.selectiveLogic, matchOptions))) {
         continue;
       }
     }

@@ -7,6 +7,7 @@ import { isPatternSafe } from "./regex-safety.js";
 
 /** Pluggable executor for compiled regex test calls. Runtime-specific callers can add extra guards. */
 type RegexExecutor = (regex: RegExp, text: string) => boolean;
+type AsyncRegexExecutor = (regex: RegExp, text: string) => boolean | Promise<boolean>;
 
 const defaultRegexExecutor: RegexExecutor = (regex, text) => regex.test(text);
 
@@ -20,7 +21,13 @@ export interface KeywordMatchOptions {
   regexExecutor?: RegexExecutor;
 }
 
-function literalMatch(keyword: string, text: string, options: KeywordMatchOptions): boolean {
+export interface AsyncKeywordMatchOptions extends Omit<KeywordMatchOptions, "regexExecutor"> {
+  regexExecutor?: AsyncRegexExecutor;
+}
+
+type KeywordMatchBaseOptions = Pick<KeywordMatchOptions, "caseSensitive">;
+
+function literalMatch(keyword: string, text: string, options: KeywordMatchBaseOptions): boolean {
   const needle = options.caseSensitive ? keyword : keyword.toLowerCase();
   const haystack = options.caseSensitive ? text : text.toLowerCase();
   return haystack.includes(needle);
@@ -60,6 +67,34 @@ function testKeyword(keyword: string, text: string, options: KeywordMatchOptions
   }
 }
 
+async function testKeywordAsync(keyword: string, text: string, options: AsyncKeywordMatchOptions): Promise<boolean> {
+  if (!keyword) return false;
+
+  try {
+    if (options.useRegex) {
+      if (!isPatternSafe(keyword)) {
+        return literalMatch(keyword, text, options);
+      }
+      const flags = options.caseSensitive ? "g" : "gi";
+      const regex = new RegExp(keyword, flags);
+      const exec = options.regexExecutor ?? defaultRegexExecutor;
+      return await exec(regex, text);
+    }
+
+    if (options.matchWholeWords) {
+      const needle = options.caseSensitive ? keyword : keyword.toLowerCase();
+      const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const flags = options.caseSensitive ? "g" : "gi";
+      const regex = new RegExp(`\\b${escaped}\\b`, flags);
+      return regex.test(text);
+    }
+
+    return literalMatch(keyword, text, options);
+  } catch {
+    return literalMatch(keyword, text, options);
+  }
+}
+
 /** Primary key set: any single key matching counts as a match. */
 export function testPrimaryKeys(
   keys: string[],
@@ -75,6 +110,20 @@ export function testPrimaryKeys(
   return { matched: matchedKeys.length > 0, matchedKeys };
 }
 
+export async function testPrimaryKeysAsync(
+  keys: string[],
+  text: string,
+  options: AsyncKeywordMatchOptions,
+): Promise<{ matched: boolean; matchedKeys: string[] }> {
+  const matchedKeys: string[] = [];
+  for (const key of keys) {
+    if (await testKeywordAsync(key, text, options)) {
+      matchedKeys.push(key);
+    }
+  }
+  return { matched: matchedKeys.length > 0, matchedKeys };
+}
+
 /** Secondary key set with selective logic (and/or/not). Empty list passes. */
 export function testSecondaryKeys(
   secondaryKeys: string[],
@@ -84,15 +133,51 @@ export function testSecondaryKeys(
 ): boolean {
   if (secondaryKeys.length === 0) return true;
 
-  const results = secondaryKeys.map((key) => testKeyword(key, text, options));
+  switch (logic) {
+    case "and":
+      for (const key of secondaryKeys) {
+        if (!testKeyword(key, text, options)) return false;
+      }
+      return true;
+    case "or":
+      for (const key of secondaryKeys) {
+        if (testKeyword(key, text, options)) return true;
+      }
+      return false;
+    case "not":
+      for (const key of secondaryKeys) {
+        if (testKeyword(key, text, options)) return false;
+      }
+      return true;
+    default:
+      return true;
+  }
+}
+
+export async function testSecondaryKeysAsync(
+  secondaryKeys: string[],
+  text: string,
+  logic: SelectiveLogic,
+  options: AsyncKeywordMatchOptions,
+): Promise<boolean> {
+  if (secondaryKeys.length === 0) return true;
 
   switch (logic) {
     case "and":
-      return results.every(Boolean);
+      for (const key of secondaryKeys) {
+        if (!(await testKeywordAsync(key, text, options))) return false;
+      }
+      return true;
     case "or":
-      return results.some(Boolean);
+      for (const key of secondaryKeys) {
+        if (await testKeywordAsync(key, text, options)) return true;
+      }
+      return false;
     case "not":
-      return !results.some(Boolean);
+      for (const key of secondaryKeys) {
+        if (await testKeywordAsync(key, text, options)) return false;
+      }
+      return true;
     default:
       return true;
   }

@@ -165,14 +165,17 @@ function buildKnowledgeRouterQuery(context: AgentContext): string {
   return parts.join("\n\n");
 }
 
-function buildKeywordActivatedRouterEntries(
+async function buildKeywordActivatedRouterEntries(
   entries: LorebookEntry[],
   messages: ScanMessage[],
   options: KnowledgeRouterCandidateOptions["scanOptions"] = {},
-): LorebookEntry[] {
-  return scanForActivatedEntries(messages, entries, { ...options, scanDepth: 0, ignoreTiming: true }).map(
-    (activated) => activated.entry,
-  );
+): Promise<LorebookEntry[]> {
+  const activatedEntries = await scanForActivatedEntries(messages, entries, {
+    ...options,
+    scanDepth: 0,
+    ignoreTiming: true,
+  });
+  return activatedEntries.map((activated) => activated.entry);
 }
 
 function mergeKnowledgeRouterCandidates(
@@ -208,10 +211,14 @@ async function prepareKnowledgeRouterCandidates(
     }));
   const activatedEntries =
     options.activatedEntries ??
-    buildKeywordActivatedRouterEntries(options.keywordScanEntries ?? entries, scanMessages, options.scanOptions);
+    (await buildKeywordActivatedRouterEntries(
+      options.keywordScanEntries ?? entries,
+      scanMessages,
+      options.scanOptions,
+    ));
   const keywordScanEntries =
     options.activatedEntries && options.keywordScanEntries
-      ? buildKeywordActivatedRouterEntries(options.keywordScanEntries, scanMessages, options.scanOptions)
+      ? await buildKeywordActivatedRouterEntries(options.keywordScanEntries, scanMessages, options.scanOptions)
       : [];
   const fallbackCandidates = mergeKnowledgeRouterCandidates(
     [],

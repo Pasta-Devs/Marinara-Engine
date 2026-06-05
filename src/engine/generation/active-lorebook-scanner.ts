@@ -639,7 +639,7 @@ function selectBudgetedLorebookEntries(
   };
 }
 
-function scanActiveLorebookEntrySet(
+async function scanActiveLorebookEntrySet(
   messages: ScanMessage[],
   entries: LorebookEntry[],
   lorebooksById: ReadonlyMap<string, ActiveLorebookBudgetMetadata>,
@@ -648,11 +648,11 @@ function scanActiveLorebookEntrySet(
   chatBudget: number,
   maxEntries: number,
   contentResolver?: LorebookContentResolver,
-): { activatedEntries: ActivatedEntry[]; budgetSkippedEntries: BudgetSkippedLorebookEntry[] } {
+): Promise<{ activatedEntries: ActivatedEntry[]; budgetSkippedEntries: BudgetSkippedLorebookEntry[] }> {
   const state = createLorebookBudgetSelectionState();
   const processedIds = new Set<string>();
   const budgetSkippedEntries: BudgetSkippedLorebookEntry[] = [];
-  let frontier = scanForActivatedEntries(messages, entries, options);
+  let frontier = await scanForActivatedEntries(messages, entries, options);
 
   for (let depth = 0; frontier.length > 0; depth += 1) {
     const candidates = frontier.filter(
@@ -687,7 +687,7 @@ function scanActiveLorebookEntrySet(
     const remaining = entries.filter((entry) => !processedIds.has(entry.id) && !state.selectedIds.has(entry.id));
     if (remaining.length === 0) break;
 
-    frontier = scanForActivatedEntries([{ role: "system", content: recursiveContent }], remaining, options);
+    frontier = await scanForActivatedEntries([{ role: "system", content: recursiveContent }], remaining, options);
   }
 
   return {
@@ -860,7 +860,7 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
       boolish(book.recursiveScanning, false) ? Math.max(maxDepth, resolveLorebookRecursionDepth(book)) : maxDepth,
     1,
   );
-  const scanned = scanActiveLorebookEntrySet(
+  const scanned = await scanActiveLorebookEntrySet(
     messages,
     entriesByBook.flatMap((item) => item.entries),
     lorebooksById,
