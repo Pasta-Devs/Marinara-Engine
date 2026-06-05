@@ -68,8 +68,11 @@ async function previewDefaultPromptId(storage: StorageGateway): Promise<string |
 
 async function promptPresetExists(storage: StorageGateway, presetId: string): Promise<boolean> {
   const full = await storage.promptFull?.<unknown>(presetId).catch(() => null);
-  if (full) return true;
-  return isRecord(await storage.get("prompts", presetId).catch(() => null));
+  if (isRecord(full) && isRecord(full.preset)) return true;
+  const direct = await storage.get("prompts", presetId).catch(() => null);
+  if (isRecord(direct)) return true;
+  const prompts = await storage.list<JsonRecord>("prompts").catch(() => []);
+  return prompts.some((prompt) => readString(prompt.id).trim() === presetId);
 }
 
 async function previewChoicesPromptPresetId(

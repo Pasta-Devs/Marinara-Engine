@@ -279,17 +279,16 @@ function hasOwnChoice(record: JsonRecord, name: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, name);
 }
 
-function normalizedSelectionValue(value: unknown, block: PromptChoiceBlockRecord): string | null {
+function normalizedSelectionValue(value: unknown, block: PromptChoiceBlockRecord, hasSelection: boolean): string | null {
   const optionValues = promptChoiceOptionValues(block);
   if (optionValues.length === 0) return null;
 
   const validValues = new Set(optionValues);
   const candidates = selectedChoiceCandidates(value);
   const values = candidates.filter((entry, index) => validValues.has(entry) && candidates.indexOf(entry) === index);
-  const explicitEmptySelection = candidates.includes("") || (Array.isArray(value) && value.length === 0);
 
   if (boolish(block.multiSelect ?? block.multi_select, false)) {
-    if (values.length === 0) return explicitEmptySelection ? "" : (optionValues[0] ?? null);
+    if (values.length === 0) return hasSelection ? "" : (optionValues[0] ?? null);
     if (boolish(block.randomPick ?? block.random_pick, false)) {
       return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? null;
     }
@@ -297,8 +296,7 @@ function normalizedSelectionValue(value: unknown, block: PromptChoiceBlockRecord
   }
 
   if (values.length === 0) {
-    if (explicitEmptySelection) return "";
-    return optionValues[0] ?? null;
+    return hasSelection ? "" : (optionValues[0] ?? null);
   }
 
   return values[0] ?? null;
@@ -316,7 +314,7 @@ function promptChoiceVariables(input: {
     const hasChatChoice = hasOwnChoice(chatChoices, name);
     const hasDefaultChoice = hasOwnChoice(defaultChoices, name);
     const value = hasChatChoice ? chatChoices[name] : hasDefaultChoice ? defaultChoices[name] : undefined;
-    const normalized = normalizedSelectionValue(value, block);
+    const normalized = normalizedSelectionValue(value, block, hasChatChoice || hasDefaultChoice);
     if (normalized !== null) variables[name] = normalized;
   }
   return variables;
