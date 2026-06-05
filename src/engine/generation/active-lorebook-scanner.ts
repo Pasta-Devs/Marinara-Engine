@@ -673,10 +673,7 @@ async function scanActiveLorebookEntrySet(
     budgetSkippedEntries.push(...selectedBatch.budgetSkippedEntries);
 
     const recursiveContent = selectedBatch.selectedFromCandidates
-      .filter(
-        (selected) =>
-          lorebooksById.get(selected.entry.lorebookId)?.recursiveScanning && !selected.entry.preventRecursion,
-      )
+      .filter((selected) => !selected.entry.preventRecursion)
       .map((selected) => selected.entry.content)
       .join("\n");
 

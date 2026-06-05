@@ -300,7 +300,7 @@ describe("scanActiveLorebooks", () => {
     expect(includedIds).toEqual(["entry-a", "entry-prevent", "entry-b"]);
   });
 
-  it("does not use non-recursive lorebook entries as recursive frontier content", async () => {
+  it("uses selected non-recursive lorebook entries as frontier content when recursion is enabled globally", async () => {
     const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
     const storage = storageWithRows(
       {
@@ -359,7 +359,53 @@ describe("scanActiveLorebooks", () => {
     });
 
     const includedIds = result.processedLore.includedEntries.map((entry) => entry.entry.id);
-    expect(includedIds).toEqual(["entry-a", "entry-b"]);
+    expect(includedIds).toEqual(["entry-a", "entry-b", "entry-c"]);
+  });
+
+  it("does not recursively activate entries when every active lorebook disables recursion", async () => {
+    const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
+    const storage = storageWithRows(
+      {
+        lorebooks: [
+          { id: "book-a", name: "Book A", enabled: true, isGlobal: true, recursiveScanning: false },
+          { id: "book-b", name: "Book B", enabled: true, isGlobal: true, recursiveScanning: false },
+        ],
+        "lorebook-folders": [],
+        "lorebook-entries": [
+          {
+            id: "entry-a",
+            lorebookId: "book-a",
+            name: "Entry A",
+            content: "beta-key",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 10,
+          },
+          {
+            id: "entry-b",
+            lorebookId: "book-b",
+            name: "Entry B",
+            content: "should not activate",
+            keys: ["beta-key"],
+            enabled: true,
+            order: 20,
+          },
+        ],
+      },
+      calls,
+    );
+
+    const result = await scanActiveLorebooks({
+      storage,
+      chat: { id: "chat-1", mode: "roleplay", metadata: {} },
+      characters: [],
+      persona: null,
+      storedMessages: [{ id: "message-1", role: "user", content: "alpha-key" }],
+      embeddingSource: null,
+    });
+
+    const includedIds = result.processedLore.includedEntries.map((entry) => entry.entry.id);
+    expect(includedIds).toEqual(["entry-a"]);
   });
 
   it("does not recursively activate from entries excluded by the chat lorebook budget", async () => {
