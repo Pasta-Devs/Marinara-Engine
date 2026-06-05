@@ -1953,7 +1953,6 @@ async function writeGameLorebookKeeperEntries(data: {
     (entry) => !createdEntryIds.has(entry.id) && keeperEntrySessionNumber(entry) === data.sessionNumber,
   );
   let sessionChat: Chat;
-  let replacementsCommitted = false;
   try {
     for (const entry of createdEntries) {
       await storageApi.update(
@@ -1987,8 +1986,13 @@ async function writeGameLorebookKeeperEntries(data: {
         entryCount: entriesToCreate.length,
       },
     });
-    replacementsCommitted = true;
-    for (const entry of staleEntries) {
+  } catch (error) {
+    await disableCreatedEntries();
+    throw error;
+  }
+
+  for (const entry of staleEntries) {
+    try {
       await storageApi.update(
         "lorebook-entries",
         entry.id,
@@ -2000,11 +2004,14 @@ async function writeGameLorebookKeeperEntries(data: {
           },
         }),
       );
+    } catch (error) {
+      console.warn("[game] Game Lorebook Keeper stale entry disable failed", { entryId: entry.id, error });
     }
-    await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
-  } catch (error) {
-    if (!replacementsCommitted) await disableCreatedEntries();
-    throw error;
+    try {
+      await storageApi.delete("lorebook-entries", entry.id);
+    } catch (error) {
+      console.warn("[game] Game Lorebook Keeper stale entry cleanup failed", { entryId: entry.id, error });
+    }
   }
   return { lorebookId: lorebook.id, entryCount: entriesToCreate.length, sessionChat };
 }
