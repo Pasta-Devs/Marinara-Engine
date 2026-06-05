@@ -43,6 +43,7 @@
     "src/engine/generation/tools-runtime.ts": ["exports"],
     "src/engine/mari/mari-entry.ts": ["types"],
     "src/features/catalog/characters/hooks/use-characters.ts": ["exports"],
+    "src/features/shell/plugins/components/CoreModulesSettings.tsx": ["exports"],
     "src/features/runtime/tracker/components/tracker-data-sidebar.constants.ts": ["duplicates"]
   }
 }

@@ -106,8 +106,6 @@ function updateManualOverrides(
     if (options.manual) {
       if (text) next[field] = text;
       else delete next[field];
-    } else if (text) {
-      delete next[field];
     }
   }
   return Object.keys(next).length ? next : null;
@@ -123,9 +121,7 @@ function preserveManualOverrideFields(
   for (const field of MANUAL_OVERRIDE_FIELDS) {
     if (!hasPatchField(patch, field)) continue;
     const override = readText(manualOverrides[field]);
-    if (override && !readText(patch[field])) {
-      next[field] = override;
-    }
+    if (override) next[field] = override;
   }
   return next;
 }
