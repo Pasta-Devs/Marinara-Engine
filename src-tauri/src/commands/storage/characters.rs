@@ -1,5 +1,6 @@
 use super::media_uploads::{
-    managed_record_file_path, persist_image_file_copy, safe_filename, StoredManagedImage,
+    managed_record_file_path, persist_image_file_copy, remove_copied_file_path, safe_filename,
+    StoredManagedImage,
 };
 use super::shared::*;
 use super::*;
@@ -38,25 +39,48 @@ pub(crate) fn update_character(
     character_id: &str,
     patch: Value,
 ) -> AppResult<Value> {
+    update_character_inner(state, character_id, patch, || {})
+}
+
+fn update_character_inner<F>(
+    state: &AppState,
+    character_id: &str,
+    patch: Value,
+    before_live_patch: F,
+) -> AppResult<Value>
+where
+    F: FnOnce(),
+{
     let normalized = normalize_update_patch("characters", patch)?;
     let mut patch = ensure_object(normalized)?;
     let options = take_version_snapshot_options(&mut patch);
     let existing = get_required(state, "characters", character_id)?;
     merge_partial_character_data(&existing, &mut patch)?;
 
-    if should_create_version_snapshot(&existing, &patch, &options) {
-        create_character_version_snapshot_from_record(
+    let created_snapshot = if should_create_version_snapshot(&existing, &patch, &options) {
+        Some(create_character_version_snapshot_from_record(
             state,
             character_id,
             &existing,
             &options.source,
             &options.reason,
-        )?;
-    }
+        )?)
+    } else {
+        None
+    };
 
-    state
+    before_live_patch();
+
+    match state
         .storage
         .patch("characters", character_id, Value::Object(patch))
+    {
+        Ok(updated) => Ok(updated),
+        Err(error) => {
+            rollback_character_version_snapshot(state, created_snapshot.as_ref());
+            Err(error)
+        }
+    }
 }
 
 pub(crate) fn create_character_version_snapshot_from_record(
@@ -97,14 +121,30 @@ pub(crate) fn create_character_version_snapshot_from_record(
     {
         Ok(created) => Ok(created),
         Err(error) => {
-            if let Some(path) = copied_avatar_path {
-                if let Err(remove_error) = std::fs::remove_file(&path) {
-                    log::warn!(
-                        "could not remove rolled-back character version avatar copy at {path}: {remove_error}"
-                    );
-                }
-            }
+            remove_copied_file_path(
+                copied_avatar_path.as_deref(),
+                "rolled-back character version avatar copy",
+            );
             Err(error)
+        }
+    }
+}
+
+pub(crate) fn rollback_character_version_snapshot(state: &AppState, snapshot: Option<&Value>) {
+    let Some(snapshot) = snapshot else {
+        return;
+    };
+    let Some(snapshot_id) = snapshot.get("id").and_then(Value::as_str) else {
+        log::warn!("could not roll back character version snapshot because it has no id");
+        return;
+    };
+    match state.storage.delete("character-versions", snapshot_id) {
+        Ok(true) => remove_character_version_avatar_file(state, snapshot),
+        Ok(false) => log::warn!(
+            "could not roll back character version snapshot {snapshot_id} because it was already missing"
+        ),
+        Err(error) => {
+            log::warn!("could not roll back character version snapshot {snapshot_id}: {error}");
         }
     }
 }
@@ -217,15 +257,6 @@ fn managed_character_avatar_path(state: &AppState, record: &Value) -> AppResult<
     )
 }
 
-fn remove_copied_avatar_path(path: Option<&str>, context: &str) {
-    let Some(path) = path else {
-        return;
-    };
-    if let Err(error) = fs::remove_file(path) {
-        log::warn!("could not remove {context} at {path}: {error}");
-    }
-}
-
 fn remove_previous_character_avatar_after_restore(
     state: &AppState,
     previous: &Value,
@@ -255,7 +286,7 @@ fn remove_previous_character_avatar_after_restore(
 
 pub(crate) fn remove_character_version_avatar_file(state: &AppState, record: &Value) {
     match character_version_avatar_referenced_elsewhere(state, record) {
-        Ok(true) => return,
+        Ok(true) => (),
         Ok(false) => super::avatars::remove_avatar_file(state, "characters", record),
         Err(error) => log::warn!(
             "skipping character version avatar cleanup because references could not be scanned: {error}"
@@ -316,6 +347,18 @@ pub(crate) fn restore_character_version(
     character_id: &str,
     version_id: &str,
 ) -> AppResult<Value> {
+    restore_character_version_inner(state, character_id, version_id, || {})
+}
+
+fn restore_character_version_inner<F>(
+    state: &AppState,
+    character_id: &str,
+    version_id: &str,
+    before_live_patch: F,
+) -> AppResult<Value>
+where
+    F: FnOnce(),
+{
     let version = get_required(state, "character-versions", version_id)?;
     if version.get("characterId").and_then(Value::as_str) != Some(character_id) {
         return Err(AppError::invalid_input(
@@ -359,28 +402,35 @@ pub(crate) fn restore_character_version(
         skip: false,
     };
     let should_snapshot = should_create_version_snapshot(&existing, &patch, &options);
-    if should_snapshot {
-        if let Err(error) = create_character_version_snapshot_from_record(
+    let created_snapshot = if should_snapshot {
+        match create_character_version_snapshot_from_record(
             state,
             character_id,
             &existing,
             &options.source,
             &options.reason,
         ) {
-            remove_copied_avatar_path(
-                restored_avatar_path.as_deref(),
-                "rolled-back restored character avatar copy",
-            );
-            return Err(error);
+            Ok(snapshot) => Some(snapshot),
+            Err(error) => {
+                remove_copied_file_path(
+                    restored_avatar_path.as_deref(),
+                    "rolled-back restored character avatar copy",
+                );
+                return Err(error);
+            }
         }
-    }
+    } else {
+        None
+    };
+    before_live_patch();
     let updated = match state
         .storage
         .patch("characters", character_id, Value::Object(patch))
     {
         Ok(updated) => updated,
         Err(error) => {
-            remove_copied_avatar_path(
+            rollback_character_version_snapshot(state, created_snapshot.as_ref());
+            remove_copied_file_path(
                 restored_avatar_path.as_deref(),
                 "rolled-back restored character avatar copy",
             );
@@ -810,6 +860,92 @@ mod tests {
             .expect("restore snapshot should exist");
         assert_eq!(restore_snapshot["data"]["name"], "Rina");
         assert_eq!(restore_snapshot["reason"], "Restored 0.9");
+    }
+
+    #[test]
+    fn restore_character_version_rolls_back_snapshot_and_avatar_when_live_patch_fails() {
+        let state = test_state("restore-patch-failure-rollback");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let live_avatar_path = avatar_dir.join("live.png");
+        std::fs::write(&live_avatar_path, TINY_PNG_BYTES).expect("live avatar should write");
+        let version_avatar_path = avatar_dir.join("version.png");
+        std::fs::write(&version_avatar_path, TINY_PNG_BYTES).expect("version avatar should write");
+
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": {
+                        "name": "Rina",
+                        "description": "Current description",
+                        "character_version": "1.0"
+                    },
+                    "comment": "Current title",
+                    "avatar": "http://asset.localhost/live.png",
+                    "avatarPath": "http://asset.localhost/live.png",
+                    "avatarFilePath": live_avatar_path.to_string_lossy().to_string(),
+                    "avatarFilename": "live.png"
+                }),
+            )
+            .expect("character should be created");
+        state
+            .storage
+            .create(
+                "character-versions",
+                json!({
+                    "id": "version-old",
+                    "characterId": "char-1",
+                    "data": {
+                        "name": "Old Rina",
+                        "description": "Old description",
+                        "character_version": "0.9"
+                    },
+                    "comment": "Old title",
+                    "avatar": "http://asset.localhost/version.png",
+                    "avatarPath": "http://asset.localhost/version.png",
+                    "avatarFilePath": version_avatar_path.to_string_lossy().to_string(),
+                    "avatarFilename": "version.png",
+                    "version": "0.9"
+                }),
+            )
+            .expect("version should be created");
+
+        let error = restore_character_version_inner(&state, "char-1", "version-old", || {
+            state
+                .storage
+                .delete("characters", "char-1")
+                .expect("live character should delete before final patch");
+        })
+        .expect_err("restore should fail when the live patch misses");
+
+        assert_eq!(error.code, "not_found");
+        let versions = character_versions(&state);
+        assert_eq!(versions.len(), 1);
+        assert_eq!(versions[0]["id"], "version-old");
+        assert!(
+            live_avatar_path.is_file(),
+            "failed restore must leave the previous live avatar file in place"
+        );
+        assert!(
+            version_avatar_path.is_file(),
+            "failed restore must leave the saved version avatar in place"
+        );
+        let copied_files = std::fs::read_dir(&avatar_dir)
+            .expect("avatar dir should list")
+            .filter_map(Result::ok)
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|name| {
+                name.starts_with("restored-char-1-version")
+                    || name.starts_with("version-char-1-live")
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            copied_files.is_empty(),
+            "failed restore should remove copied rollback files: {copied_files:?}"
+        );
     }
 
     #[test]

@@ -165,6 +165,15 @@ pub(crate) fn remove_managed_record_file(
     }
 }
 
+pub(crate) fn remove_copied_file_path(path: Option<&str>, context: &str) {
+    let Some(path) = path else {
+        return;
+    };
+    if let Err(error) = fs::remove_file(path) {
+        log::warn!("could not remove {context} at {path}: {error}");
+    }
+}
+
 pub(crate) fn managed_record_file_path(
     state: &AppState,
     folder: &str,

@@ -1,5 +1,5 @@
 use super::media_uploads::{
-    decode_image_payload, managed_record_file_path, persist_image_upload,
+    decode_image_payload, managed_record_file_path, persist_image_upload, remove_copied_file_path,
     remove_managed_record_file, safe_filename,
 };
 use super::*;
@@ -17,6 +17,19 @@ pub(crate) fn update_character_avatar(
     id: &str,
     body: Value,
 ) -> AppResult<Value> {
+    update_character_avatar_inner(state, collection, id, body, || {})
+}
+
+fn update_character_avatar_inner<F>(
+    state: &AppState,
+    collection: &str,
+    id: &str,
+    body: Value,
+    before_live_patch: F,
+) -> AppResult<Value>
+where
+    F: FnOnce(),
+{
     let previous = shared::get_required(state, collection, id)?;
     let stored = persist_image_upload(
         state,
@@ -25,18 +38,24 @@ pub(crate) fn update_character_avatar(
         &body,
         "avatar",
     )?;
-    if collection == "characters" {
-        if let Err(error) = super::characters::create_character_version_snapshot_from_record(
+    let created_snapshot = if collection == "characters" {
+        match super::characters::create_character_version_snapshot_from_record(
             state,
             id,
             &previous,
             "manual",
             "Avatar update",
         ) {
-            remove_copied_avatar_path(&stored.absolute_path, "rolled-back avatar upload");
-            return Err(error);
+            Ok(snapshot) => Some(snapshot),
+            Err(error) => {
+                remove_copied_file_path(Some(&stored.absolute_path), "rolled-back avatar upload");
+                return Err(error);
+            }
         }
-    }
+    } else {
+        None
+    };
+    before_live_patch();
     let updated = match state.storage.patch(
         collection,
         id,
@@ -50,18 +69,16 @@ pub(crate) fn update_character_avatar(
     ) {
         Ok(updated) => updated,
         Err(error) => {
-            remove_copied_avatar_path(&stored.absolute_path, "rolled-back avatar upload");
+            super::characters::rollback_character_version_snapshot(
+                state,
+                created_snapshot.as_ref(),
+            );
+            remove_copied_file_path(Some(&stored.absolute_path), "rolled-back avatar upload");
             return Err(error);
         }
     };
     remove_avatar_file_preserving_persona_snapshots(state, collection, &previous);
     Ok(updated)
-}
-
-fn remove_copied_avatar_path(path: &str, context: &str) {
-    if let Err(error) = fs::remove_file(path) {
-        log::warn!("could not remove {context} at {path}: {error}");
-    }
 }
 
 pub(crate) fn remove_character_avatar(state: &AppState, id: &str) -> AppResult<Value> {
@@ -1141,6 +1158,76 @@ mod tests {
         assert_eq!(
             remaining_files, 1,
             "failed snapshot copy should roll back the newly uploaded avatar file"
+        );
+    }
+
+    #[test]
+    fn character_avatar_update_rolls_back_snapshot_when_live_patch_fails() {
+        let state = test_state("character-avatar-patch-failure-rollback");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let old_avatar_path = avatar_dir.join("old.png");
+        let (_, old_avatar_bytes) =
+            decode_image_payload(small_png_data_url(), "avatar").expect("tiny png should decode");
+        std::fs::write(&old_avatar_path, &old_avatar_bytes).expect("old avatar should be written");
+        let old_avatar_path_string = old_avatar_path.to_string_lossy().to_string();
+
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": {
+                        "name": "Rina",
+                        "description": "Original",
+                        "character_version": "1.0"
+                    },
+                    "comment": "Original title",
+                    "avatar": "http://asset.localhost/old.png",
+                    "avatarPath": "http://asset.localhost/old.png",
+                    "avatarFilePath": old_avatar_path_string,
+                    "avatarFilename": "old.png"
+                }),
+            )
+            .expect("character should be created");
+
+        let error = update_character_avatar_inner(
+            &state,
+            "characters",
+            "char-1",
+            json!({ "avatar": small_png_data_url(), "filename": "new.png" }),
+            || {
+                state
+                    .storage
+                    .delete("characters", "char-1")
+                    .expect("live character should delete before final patch");
+            },
+        )
+        .expect_err("avatar update should fail when the live patch misses");
+
+        assert_eq!(error.code, "not_found");
+        assert!(
+            state
+                .storage
+                .list("character-versions")
+                .expect("versions should list")
+                .is_empty(),
+            "failed avatar update must not leave a version row"
+        );
+        assert!(
+            old_avatar_path.is_file(),
+            "failed avatar update must leave the previous avatar file in place"
+        );
+        let remaining_files = std::fs::read_dir(&avatar_dir)
+            .expect("avatar dir should list")
+            .filter_map(Result::ok)
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter(|name| name != "old.png")
+            .collect::<Vec<_>>();
+        assert!(
+            remaining_files.is_empty(),
+            "failed avatar update should remove uploaded and snapshot files: {remaining_files:?}"
         );
     }
 
