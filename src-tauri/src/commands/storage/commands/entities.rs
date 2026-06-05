@@ -390,10 +390,34 @@ fn storage_list_projection_fields_for_read(
     fields: &[String],
     options: Option<&Value>,
 ) -> Vec<String> {
-    if entity == "messages" {
+    let mut projection = if entity == "messages" {
         message_projection_fields_for_materialization(fields, options)
     } else {
         fields.to_vec()
+    };
+    append_storage_list_sort_projection_fields(&mut projection, options);
+    projection
+}
+
+fn append_storage_list_sort_projection_fields(
+    projection: &mut Vec<String>,
+    options: Option<&Value>,
+) {
+    if let Some(order_by) = options
+        .and_then(|value| value.get("orderBy"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if !projection.iter().any(|existing| existing == order_by) {
+            projection.push(order_by.to_string());
+        }
+        return;
+    }
+    for field in ["sortOrder", "order", "createdAt"] {
+        if !projection.iter().any(|existing| existing == field) {
+            projection.push(field.to_string());
+        }
     }
 }
 
@@ -2235,6 +2259,66 @@ mod tests {
                 "createdAt": "2026-01-03T00:00:00Z"
             })
         );
+    }
+
+    #[test]
+    fn storage_list_where_in_projected_rows_sort_by_unrequested_field() {
+        let state = test_state("where-in-character-sort-projection");
+        state
+            .storage
+            .replace_all(
+                "characters",
+                vec![
+                    json!({
+                        "id": "char-c",
+                        "createdAt": "2026-01-03T00:00:00Z",
+                        "data": { "name": "Cora" }
+                    }),
+                    json!({
+                        "id": "char-a",
+                        "createdAt": "2026-01-01T00:00:00Z",
+                        "data": { "name": "Ari" }
+                    }),
+                ],
+            )
+            .expect("characters should seed");
+
+        let explicit_sort = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "whereIn": {
+                    "field": "id",
+                    "values": ["char-c", "char-a"]
+                },
+                "fields": ["id"],
+                "orderBy": "createdAt"
+            })),
+        )
+        .expect("projected whereIn list should sort by unrequested orderBy field");
+
+        assert_eq!(
+            explicit_sort,
+            json!([
+                { "id": "char-a" },
+                { "id": "char-c" }
+            ])
+        );
+
+        let default_sort = storage_list_inner(
+            &state,
+            "characters".to_string(),
+            Some(json!({
+                "whereIn": {
+                    "field": "id",
+                    "values": ["char-c", "char-a"]
+                },
+                "fields": ["id"]
+            })),
+        )
+        .expect("projected whereIn list should sort by unrequested default field");
+
+        assert_eq!(default_sort, explicit_sort);
     }
 
     #[test]

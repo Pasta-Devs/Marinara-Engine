@@ -37,12 +37,7 @@ const GENERIC_STORAGE_ENTITIES = [
 
 export type StorageEntity = (typeof GENERIC_STORAGE_ENTITIES)[number];
 
-export interface StorageListOptions {
-  filters?: Record<string, unknown>;
-  whereIn?: {
-    field: string;
-    values: string[];
-  };
+export interface StorageListBaseOptions {
   orderBy?: string;
   descending?: boolean;
   limit?: number;
@@ -52,7 +47,14 @@ export interface StorageListOptions {
   search?: string;
 }
 
-export type ChatMessageListOptions = Omit<StorageListOptions, "filters" | "whereIn">;
+type StorageListSelector =
+  | { filters?: Record<string, unknown>; whereIn?: never }
+  | { whereIn?: { field: string; values: string[] }; filters?: never }
+  | { filters?: undefined; whereIn?: undefined };
+
+export type StorageListOptions = StorageListBaseOptions & StorageListSelector;
+
+export type ChatMessageListOptions = StorageListBaseOptions;
 
 export interface AddChatMessageSwipeOptions {
   extra?: Record<string, unknown>;
