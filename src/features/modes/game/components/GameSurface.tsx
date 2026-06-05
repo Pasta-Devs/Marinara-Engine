@@ -27,9 +27,8 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import { useTopBarActions } from "../../../../app/shell/TopBarActionsContext";
+import { TOOLS_PANELS, useTopBarActions } from "../../../../shared/components/mobile-shell-actions";
 import { useIsMobile } from "../../../../shared/hooks/use-is-mobile";
-import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { gameApi } from "../api/game-api";
@@ -2194,7 +2193,10 @@ export function GameSurface({
       <>
         <button
           type="button"
-          onClick={() => setMoreSheetOpen((v) => !v)}
+          onClick={() => {
+            setToolsSheetOpen(false);
+            setMoreSheetOpen((v) => !v);
+          }}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
             moreSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
@@ -2205,7 +2207,10 @@ export function GameSurface({
         </button>
         <button
           type="button"
-          onClick={() => setToolsSheetOpen((v) => !v)}
+          onClick={() => {
+            setMoreSheetOpen(false);
+            setToolsSheetOpen((v) => !v);
+          }}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
             toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",

@@ -31,8 +31,7 @@ import {
   Globe,
 } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
-import { useTopBarActions } from "../../../../app/shell/TopBarActionsContext";
-import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
+import { TOOLS_PANELS, useTopBarActions } from "../../../../shared/components/mobile-shell-actions";
 import { getConnectedChatDisplayName } from "../../../../shared/lib/chat-display";
 import { resolveManagedLocalAssetUrl } from "../../../../shared/api/local-file-api";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -869,6 +868,7 @@ export function ChatRoleplaySurface({
           ref={moreMenuBtnRef}
           type="button"
           onClick={() => {
+            setToolsSheetOpen(false);
             setMoreMenuOpen((v) => !v);
           }}
           className={cn(
@@ -881,7 +881,10 @@ export function ChatRoleplaySurface({
         </button>
         <button
           type="button"
-          onClick={() => setToolsSheetOpen((v) => !v)}
+          onClick={() => {
+            setMoreMenuOpen(false);
+            setToolsSheetOpen((v) => !v);
+          }}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
             toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",

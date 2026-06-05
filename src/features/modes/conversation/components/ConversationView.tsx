@@ -44,8 +44,7 @@ import { useUIStore } from "../../../../shared/stores/ui.store";
 import { showConversationLocalNotification } from "../../../../shared/lib/local-notifications";
 import { playNotificationPing } from "../../../../shared/lib/notification-sound";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
-import { useTopBarActions } from "../../../../app/shell/TopBarActionsContext";
-import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
+import { TOOLS_PANELS, useTopBarActions } from "../../../../shared/components/mobile-shell-actions";
 import { usePageActivity } from "../../../../shared/hooks/use-page-activity";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
 import { invalidateCharacterCollectionQueries, characterKeys } from "../../../catalog/characters/index";
@@ -641,7 +640,10 @@ export function ConversationView({
       <>
         <button
           type="button"
-          onClick={() => setMoreMenuOpen((v) => !v)}
+          onClick={() => {
+            setToolsSheetOpen(false);
+            setMoreMenuOpen((v) => !v);
+          }}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
             moreMenuOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
@@ -652,7 +654,10 @@ export function ConversationView({
         </button>
         <button
           type="button"
-          onClick={() => setToolsSheetOpen((v) => !v)}
+          onClick={() => {
+            setMoreMenuOpen(false);
+            setToolsSheetOpen((v) => !v);
+          }}
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
             toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",

@@ -4,7 +4,7 @@
 import { ChatSidebar, type ChatSidebarTab } from "./ChatSidebar";
 import { AppFindOverlay } from "./AppFindOverlay";
 import { TopBar } from "./TopBar";
-import { TopBarActionsProvider } from "./TopBarActionsContext";
+import { TopBarActionsProvider } from "../../shared/components/mobile-shell-actions";
 import { WindowTitleBar } from "./WindowTitleBar";
 import { MobileTabBar } from "./MobileTabBar";
 import { DISCOVERY_APP_EVENT, type DiscoveryAppEventDetail } from "../../features/shell/discovery/discovery-events";

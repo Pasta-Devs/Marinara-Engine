@@ -8,7 +8,7 @@ import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
 import { getConnectedChatDisplayName, normalizeChatCharacterIds } from "../../shared/lib/chat-display";
 import { useCharacterSummariesByIds, CharacterAvatarImage } from "../../features/catalog/characters/index";
-import { useTopBarActions } from "./TopBarActionsContext";
+import { useTopBarActions } from "../../shared/components/mobile-shell-actions";
 import { cn } from "../../shared/lib/utils";
 
 export function TopBar({
@@ -75,7 +75,12 @@ export function TopBar({
     return () => document.removeEventListener("keydown", onKey);
   }, [charPopup]);
 
+  useEffect(() => {
+    setCharPopup(null);
+  }, [activeChatId]);
+
   const backFromChat = () => {
+    setCharPopup(null);
     setActiveChatId(null);
     closeAllDetails();
     closeRightPanel();
