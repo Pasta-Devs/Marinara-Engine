@@ -116,6 +116,8 @@ const PROMPT_FIELDS: &[TypedJsonField] = &[
     object("parameters"),
     object("defaultChoices"),
     array("variableGroups"),
+    boolish("isDefault"),
+    boolish("default"),
 ];
 const PROMPT_SECTION_FIELDS: &[TypedJsonField] = &[nullable_object("markerConfig")];
 const PROMPT_VARIABLE_FIELDS: &[TypedJsonField] = &[array("options")];
