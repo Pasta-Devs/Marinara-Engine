@@ -13,6 +13,7 @@ import {
   getPendingHudWidgetPersistenceSignature,
   useGameModeStore,
 } from "../stores/game-mode.store";
+import { normalizeHudWidgets } from "../lib/hud-widget-normalization";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -502,74 +503,6 @@ export function useUpdateGameWidgets() {
 // ── Queries ──
 
 // ── Sync hook — reads chat metadata and updates game store ──
-
-function isNumericHudWidgetType(type: HudWidget["type"]) {
-  return type === "progress_bar" || type === "gauge" || type === "relationship_meter";
-}
-
-function finiteNumber(value: unknown): number | null {
-  const raw = typeof value === "string" && value.trim() ? Number(value.trim()) : value;
-  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
-}
-
-type LegacyInventoryGridItem = { name: string; slot?: string; quantity?: number };
-
-function positiveInventoryQuantity(value: unknown): number {
-  const quantity = finiteNumber(value) ?? 1;
-  return Math.max(1, Math.floor(quantity));
-}
-
-function legacyInventoryGridItems(value: unknown): LegacyInventoryGridItem[] | null {
-  if (!Array.isArray(value)) return null;
-  const items: LegacyInventoryGridItem[] = [];
-  for (const item of value) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const record = item as Record<string, unknown>;
-    const name = typeof record.name === "string" ? record.name : "";
-    if (!name) continue;
-    const slot = typeof record.slot === "string" ? record.slot : undefined;
-    items.push({
-      name,
-      ...(slot ? { slot } : {}),
-      quantity: positiveInventoryQuantity(record.quantity),
-    });
-  }
-  return items;
-}
-
-function normalizeHudWidgets(widgets: readonly HudWidget[]): HudWidget[] {
-  return widgets.map((w) => {
-    if (isNumericHudWidgetType(w.type)) {
-      const max = Math.max(1, finiteNumber(w.config.max) ?? 100);
-      const value = finiteNumber(w.config.value) ?? finiteNumber(w.config.startingValue) ?? 0;
-      const startingValue = finiteNumber(w.config.startingValue) ?? value;
-
-      if (w.config.max !== max || w.config.value !== value || w.config.startingValue !== startingValue) {
-        return {
-          ...w,
-          config: {
-            ...w.config,
-            max,
-            startingValue,
-            value,
-          },
-        };
-      }
-    }
-
-    const legacyItems = legacyInventoryGridItems((w.config as HudWidget["config"] & { items?: unknown }).items);
-    if (w.type === "inventory_grid" && !w.config.contents && legacyItems) {
-      return {
-        ...w,
-        config: {
-          ...w.config,
-          contents: legacyItems,
-        },
-      };
-    }
-    return w;
-  });
-}
 
 export function useSyncGameState(activeChatId: string, chatMeta: Record<string, unknown>) {
   const prevChatIdRef = useRef<string | null>(null);
