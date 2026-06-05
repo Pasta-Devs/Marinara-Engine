@@ -1,196 +1,132 @@
 // ──────────────────────────────────────────────
 // Layout: Mobile App Top Bar
 // ──────────────────────────────────────────────
-import { Bot, ChevronDown, Menu, Sparkles, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useMemo } from "react";
+import { useChat } from "../../features/catalog/chats/index";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
+import { getConnectedChatDisplayName, normalizeChatCharacterIds } from "../../shared/lib/chat-display";
+import { useCharacterSummariesByIds } from "../../features/catalog/characters/hooks/use-characters";
+import { CharacterAvatarImage } from "../../features/catalog/characters/components/CharacterAvatarImage";
+import { useTopBarActions } from "./TopBarActionsContext";
 import { cn } from "../../shared/lib/utils";
-import { RIGHT_PANEL_BUTTONS } from "./PanelNavButtons";
 
 export function TopBar({
-  professorMariOpen = false,
-  onOpenProfessorMari,
-  onGoHome,
+  professorMariOpen: _professorMariOpen = false,
+  onOpenProfessorMari: _onOpenProfessorMari,
+  onGoHome: _onGoHome,
 }: {
   professorMariOpen?: boolean;
   onOpenProfessorMari?: () => void;
   onGoHome?: () => void;
 }) {
-  const [toolsOpen, setToolsOpen] = useState(false);
   const activeChatId = useChatStore((s) => s.activeChatId);
+  const activeChat = useChatStore((s) => s.activeChat);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
-  const sidebarOpen = useUIStore((s) => s.sidebarOpen);
-  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
-  const rightPanel = useUIStore((s) => s.rightPanel);
-  const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
-  const openRightPanel = useUIStore((s) => s.openRightPanel);
   const closeRightPanel = useUIStore((s) => s.closeRightPanel);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
-  const hasOpenSurface = useUIStore((s) =>
-    Boolean(
-      s.characterDetailId ||
-      s.lorebookDetailId ||
-      s.presetDetailId ||
-      s.connectionDetailId ||
-      s.agentDetailId ||
-      s.toolDetailId ||
-      s.personaDetailId ||
-      s.regexDetailId ||
-      s.characterLibraryOpen ||
-      s.botBrowserOpen ||
-      s.gameAssetsBrowserOpen ||
-      s.rightPanelOpen,
-    ),
-  );
 
-  useEffect(() => {
-    if (!toolsOpen) return;
+  // Load chat directly so TopBar doesn't have to wait for the chat surface to hydrate the store.
+  const { data: queriedChat } = useChat(activeChatId);
+  const chat = activeChat ?? queriedChat ?? null;
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setToolsOpen(false);
-    };
+  const characterIds = useMemo(() => normalizeChatCharacterIds(chat?.characterIds), [chat?.characterIds]);
+  const { data: characters } = useCharacterSummariesByIds(characterIds, characterIds.length > 0);
+  const firstChar = characters?.[0];
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toolsOpen]);
-
-  const openChats = () => {
-    closeRightPanel();
-    setTrackerPanelOpen(false);
-    setSidebarOpen(true);
-    setToolsOpen(false);
-  };
-
-  const goHome = () => {
+  const backFromChat = () => {
     setActiveChatId(null);
     closeAllDetails();
     closeRightPanel();
-    setSidebarOpen(false);
     setTrackerPanelOpen(false);
-    setToolsOpen(false);
-    onGoHome?.();
   };
 
-  const openProfessorMari = () => {
-    setActiveChatId(null);
-    closeAllDetails();
-    closeRightPanel();
-    setSidebarOpen(false);
-    setTrackerPanelOpen(false);
-    setToolsOpen(false);
-    onOpenProfessorMari?.();
-  };
+  if (!activeChatId) return null;
 
-  const isHomeSurface = !professorMariOpen && !activeChatId && !hasOpenSurface;
+  const { rightSlot } = useTopBarActions();
+  const chatName = getConnectedChatDisplayName(chat);
+  const showStatus = chat?.mode === "conversation";
+
+  const extensions = (firstChar?.data?.extensions ?? {}) as Record<string, unknown>;
+  const rawStatus = typeof extensions.conversationStatus === "string" ? extensions.conversationStatus : "";
+  const status: "online" | "idle" | "dnd" | "offline" | undefined = showStatus
+    ? rawStatus === "online" || rawStatus === "idle" || rawStatus === "dnd" || rawStatus === "offline"
+      ? rawStatus
+      : undefined
+    : undefined;
+  const activity = showStatus && typeof extensions.conversationActivity === "string" ? extensions.conversationActivity : "";
+
+  const statusColor =
+    status === "online"
+      ? "bg-green-500"
+      : status === "idle"
+        ? "bg-yellow-500"
+        : status === "dnd"
+          ? "bg-red-500"
+          : status === "offline"
+            ? "bg-gray-400"
+            : "";
 
   return (
     <header
       data-component="TopBar"
-      className="mari-topbar relative z-30 flex h-[3.25rem] flex-shrink-0 items-center gap-2 px-2.5 pb-1 md:hidden"
+      className="mari-topbar relative z-30 flex h-[3.25rem] flex-shrink-0 items-center gap-2 px-2 md:hidden"
     >
       <button
         type="button"
-        onClick={openChats}
-        data-tour="sidebar-toggle"
-        className={cn(
-          "mari-mobile-topbar-button shrink-0",
-          sidebarOpen && "mari-mobile-topbar-button-active text-[var(--primary)]",
-        )}
-        title="Open chats"
-        aria-label="Open chats"
-        aria-pressed={sidebarOpen}
+        onClick={backFromChat}
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:text-[var(--foreground)]"
+        title="Back"
+        aria-label="Back"
       >
-        <Menu size="1.05rem" aria-hidden />
+        <ArrowLeft size="1.15rem" aria-hidden />
       </button>
 
-      <button
-        type="button"
-        onClick={goHome}
-        className="mari-mobile-topbar-title mari-mobile-topbar-home"
-        title="Home"
-        aria-label="Home"
-        aria-current={isHomeSurface ? "page" : undefined}
-      >
-        <span className="mari-mobile-home-mark" aria-hidden>
-          <img src="/favicon.png" alt="" draggable={false} />
-        </span>
-      </button>
+      {firstChar ? (
+        <div className="relative shrink-0">
+          {firstChar.avatarPath ? (
+            <CharacterAvatarImage
+              src={firstChar.avatarPath}
+              avatarFilePath={firstChar.avatarFilePath}
+              avatarFilename={firstChar.avatarFilename}
+              alt={firstChar.data?.name ?? ""}
+              className="h-8 w-8 rounded-xl object-cover ring-1 ring-[var(--border)]/50"
+              thumbnailSize={64}
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-xs font-bold text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/50">
+              {(firstChar.data?.name ?? chatName ?? "?")[0]?.toUpperCase()}
+            </div>
+          )}
+          {status && (
+            <span
+              className={cn(
+                "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-[1.5px] ring-[var(--border)]",
+                statusColor,
+              )}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-xs font-bold text-[var(--muted-foreground)]">
+          {(chatName || "?")[0]?.toUpperCase()}
+        </div>
+      )}
 
-      <button
-        type="button"
-        onClick={openProfessorMari}
-        className={cn(
-          "mari-mobile-topbar-button shrink-0 max-[360px]:hidden",
-          professorMariOpen && "mari-mobile-topbar-button-active text-[var(--primary)]",
-        )}
-        title="Professor Mari"
-        aria-label="Professor Mari"
-        aria-pressed={professorMariOpen}
-      >
-        <img
-          src="/sprites/mari/Mari_profile.png"
-          alt=""
-          className="mari-titlebar-avatar-icon rounded-[0.2rem] object-cover"
-          draggable={false}
-        />
-      </button>
-
-      <div className="relative shrink-0">
-        <button
-          type="button"
-          onClick={() => setToolsOpen((open) => !open)}
-          className={cn("mari-mobile-topbar-tools", toolsOpen && "mari-mobile-topbar-button-active")}
-          title={toolsOpen ? "Close tools" : "Open tools"}
-          aria-label={toolsOpen ? "Close tools" : "Open tools"}
-          aria-expanded={toolsOpen}
-        >
-          {toolsOpen ? <X size="1rem" aria-hidden /> : <Sparkles size="1rem" aria-hidden />}
-          <span className="max-[340px]:hidden">Tools</span>
-          <ChevronDown size="0.75rem" aria-hidden className={cn("transition-transform", toolsOpen && "rotate-180")} />
-        </button>
-
-        {toolsOpen && (
-          <div className="mari-mobile-tools-menu" role="menu" aria-label="Tools and panels">
-            <button
-              type="button"
-              onClick={() => {
-                setSidebarOpen(false);
-                setTrackerPanelOpen(false);
-                openRightPanel("bot-browser");
-                setToolsOpen(false);
-              }}
-              className="mari-mobile-tools-item"
-              role="menuitem"
-            >
-              <Bot size="0.95rem" aria-hidden />
-              Browser
-            </button>
-            {RIGHT_PANEL_BUTTONS.filter(({ panel }) => panel !== "bot-browser").map(({ panel, icon: Icon, label }) => {
-              const isActive = rightPanelOpen && rightPanel === panel;
-              return (
-                <button
-                  key={panel}
-                  type="button"
-                  onClick={() => {
-                    setSidebarOpen(false);
-                    setTrackerPanelOpen(false);
-                    openRightPanel(panel);
-                    setToolsOpen(false);
-                  }}
-                  className={cn("mari-mobile-tools-item", isActive && "mari-mobile-tools-item-active")}
-                  role="menuitem"
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <Icon size="0.95rem" aria-hidden />
-                  <span className="truncate">{label}</span>
-                </button>
-              );
-            })}
-          </div>
+      <div className="min-w-0 flex-1 truncate">
+        <span className="block text-sm font-semibold text-[var(--foreground)] leading-tight">{chatName || "Chat"}</span>
+        {activity && (
+          <span className="block text-[0.65rem] text-[var(--muted-foreground)]/60 leading-tight">{activity}</span>
         )}
       </div>
+
+      {rightSlot && (
+        <div className="flex items-center gap-0.5">
+          {rightSlot}
+        </div>
+      )}
     </header>
   );
 }

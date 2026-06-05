@@ -224,6 +224,7 @@ export const useUIStore = create<UIState>()(
       userActivity: "",
       centerCompact: false,
       rightPanelResizing: false,
+      mobileChatToolsOpen: false,
 
       // Impersonate settings defaults
       impersonatePromptTemplate: "",
@@ -467,6 +468,7 @@ export const useUIStore = create<UIState>()(
       setTextStrokeColor: (v) => set({ textStrokeColor: v }),
       setCenterCompact: (v) => set({ centerCompact: v }),
       setRightPanelResizing: (v) => set({ rightPanelResizing: v }),
+      setMobileChatToolsOpen: (v) => set({ mobileChatToolsOpen: v }),
       setVisualTheme: (v) => set({ visualTheme: v }),
       setConvoGradientField: (scheme, field, value) =>
         set((s) => ({

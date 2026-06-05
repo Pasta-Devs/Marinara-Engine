@@ -4,7 +4,9 @@
 import { ChatSidebar, type ChatSidebarTab } from "./ChatSidebar";
 import { AppFindOverlay } from "./AppFindOverlay";
 import { TopBar } from "./TopBar";
+import { TopBarActionsProvider } from "./TopBarActionsContext";
 import { WindowTitleBar } from "./WindowTitleBar";
+import { MobileTabBar } from "./MobileTabBar";
 import { DISCOVERY_APP_EVENT, type DiscoveryAppEventDetail } from "../../features/shell/discovery/discovery-events";
 import {
   getTrackerPanelWidthForProfile,
@@ -963,6 +965,7 @@ export function AppShell() {
     ) : null;
 
   return (
+    <TopBarActionsProvider>
     <div
       data-component="AppShell"
       className={cn(
@@ -1005,7 +1008,7 @@ export function AppShell() {
         {/* Mobile sidebar backdrop */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -1024,12 +1027,12 @@ export function AppShell() {
             "mari-sidebar flex-shrink-0 overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl",
             sidebarDragWidth == null && "transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
             // Mobile: fixed overlay
-            "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-2xl max-md:pt-[env(safe-area-inset-top)]",
+            "max-md:fixed max-md:top-0 max-md:left-0 max-md:z-[70] max-md:shadow-2xl max-md:pt-[env(safe-area-inset-top)]",
             !sidebarOpen && "max-md:w-0!",
           )}
-          style={{ width: sidebarOpen ? (isMobile ? "100vw" : liveSidebarWidth) : 0 }}
+          style={{ width: sidebarOpen ? (isMobile ? "min(18.75rem, 85vw)" : liveSidebarWidth) : 0, bottom: isMobile && sidebarOpen ? "calc(4.5rem + env(safe-area-inset-bottom))" : 0 }}
         >
-          <div className="h-full" style={{ width: isMobile ? "100vw" : liveSidebarWidth }}>
+          <div className="h-full" style={{ width: isMobile ? "min(18.75rem, 85vw)" : liveSidebarWidth }}>
             <ChatSidebar activeTab={activeChatSidebarTab} onActiveTabChange={setActiveChatSidebarTab} />
           </div>
         </aside>
@@ -1067,7 +1070,10 @@ export function AppShell() {
           data-component="CenterContent"
           aria-label="Main content"
           aria-hidden={activeMobileOverlayPanel ? true : undefined}
-          className="@container mari-main relative flex min-w-0 flex-1 flex-col overflow-hidden"
+          className={cn(
+            "@container mari-main relative flex min-w-0 flex-1 flex-col overflow-hidden",
+            isMobile && !activeChatId && "pb-14 pt-3",
+          )}
         >
           <div className="relative flex flex-1 flex-col overflow-hidden">
             {/* Bot Browser — kept mounted once opened so state persists across close/reopen */}
@@ -1141,10 +1147,10 @@ export function AppShell() {
                 aria-label="Tracker data panel"
                 role="complementary"
                 className={cn(
-                  "mari-tracker-panel fixed! inset-y-0 z-30 overflow-hidden bg-[var(--background)]/65 pt-[env(safe-area-inset-top)] shadow-2xl backdrop-blur-xl",
+                  "mari-tracker-panel fixed! inset-y-0 z-[70] overflow-y-auto bg-[var(--background)]/65 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-xl",
                   trackerPanelSide === "left" ? "left-0" : "right-0",
                 )}
-                style={{ width: mobileTrackerPanelWidth }}
+                style={{ width: mobileTrackerPanelWidth, paddingTop: 'calc(3.25rem + env(safe-area-inset-top))' }}
               >
                 <Suspense fallback={<SidePanelFallback />}>
                   <TrackerDataSidebar fillHeight />
@@ -1154,10 +1160,18 @@ export function AppShell() {
           </AnimatePresence>
         )}
 
+        {/* Mobile tracker panel backdrop */}
+        {isMobile && trackerPanelVisible && (
+          <div
+            className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm md:hidden"
+            onClick={() => setTrackerPanelOpen(false)}
+          />
+        )}
+
         {/* Mobile right panel backdrop */}
         {rightPanelOpen && (
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-[65] bg-black/50 backdrop-blur-sm md:hidden"
             onClick={() => closeRightPanel()}
           />
         )}
@@ -1178,7 +1192,7 @@ export function AppShell() {
                 aria-modal="true"
                 role="dialog"
                 tabIndex={-1}
-                className="mari-right-panel fixed! inset-y-0 right-0 z-50 w-full! shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]"
+                className="mari-right-panel fixed! inset-y-0 right-0 z-[70] w-full! shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]"
               >
                 <Suspense fallback={<SidePanelFallback />}>
                   <RightPanel />
@@ -1246,5 +1260,11 @@ export function AppShell() {
         )}
       </div>
     </div>
+    <MobileTabBar
+      professorMariOpen={professorMariOpen}
+      onToggleProfessorMari={() => setProfessorMariOpen((v) => !v)}
+      onGoHome={() => setProfessorMariOpen(false)}
+    />
+    </TopBarActionsProvider>
   );
 }

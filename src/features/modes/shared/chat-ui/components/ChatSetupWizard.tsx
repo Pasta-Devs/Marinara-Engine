@@ -42,6 +42,7 @@ import { llmApi } from "../../../../../shared/api/llm-api";
 import { storageApi } from "../../../../../shared/api/storage-api";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
+import { normalizeChatCharacterIds } from "../../../../../shared/lib/chat-display";
 import { ChoiceSelectionModal } from "../../../../catalog/presets/index";
 import type { Chat, ChatMode } from "../../../../../engine/contracts/types/chat";
 import type { ChatPreset } from "../../../../../engine/contracts/types/chat-preset";
@@ -463,7 +464,7 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 180);
   const chatCharIds: string[] = useMemo(() => {
-    return chat.characterIds ?? [];
+    return normalizeChatCharacterIds((chat as unknown as { characterIds?: unknown })?.characterIds);
   }, [chat.characterIds]);
   const {
     data: allCharacters,
@@ -1109,7 +1110,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   }, [metadata.chatParameters]);
 
   const chatCharIds: string[] = useMemo(() => {
-    return chat.characterIds ?? [];
+    return normalizeChatCharacterIds((chat as unknown as { characterIds?: unknown })?.characterIds);
   }, [chat.characterIds]);
   const { data: selectedCharacters } = useCharacterSummariesByIds(chatCharIds, chatCharIds.length > 0);
   const characters = useMemo(

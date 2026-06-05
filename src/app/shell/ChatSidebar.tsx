@@ -56,7 +56,7 @@ import { CHAT_MODES } from "../../engine/contracts/constants/chat-modes";
 import type { ChatFolder } from "../../engine/contracts/types/chat";
 import { Modal } from "../../shared/components/ui/Modal";
 import { Reorder, useDragControls } from "framer-motion";
-import { parseChatMetadata } from "../../shared/lib/chat-display";
+import { parseChatMetadata, normalizeChatCharacterIds } from "../../shared/lib/chat-display";
 import { useStartNewChat } from "./useStartNewChat";
 
 type ChatSortOption = "newest" | "oldest" | "name-asc" | "name-desc";
@@ -80,20 +80,7 @@ function toSearchText(value: unknown): string {
   return typeof value === "string" ? value : value == null ? "" : String(value);
 }
 
-function normalizeChatCharacterIds(value: unknown): string[] {
-  const parsed = (() => {
-    if (typeof value !== "string") return value;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value.trim() ? [value] : [];
-    }
-  })();
 
-  return Array.isArray(parsed)
-    ? parsed.filter((id): id is string => typeof id === "string" && id.trim().length > 0).map((id) => id.trim())
-    : [];
-}
 
 const MODE_CONFIG: Record<
   string,

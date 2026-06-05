@@ -777,9 +777,11 @@ async function updateCharacterConversationStatus(
   const character = loadedCharacter ?? (await storage.get<JsonRecord>("characters", characterId));
   if (!character) return;
   const characterData = loadedCharacterData ?? parseJsonObject(character.data);
+  const { status, activity } = getCurrentStatus(schedule);
   const extensions = {
     ...parseJsonObject(characterData.extensions),
-    conversationStatus: getCurrentStatus(schedule).status,
+    conversationStatus: status,
+    conversationActivity: activity,
   };
   await storage.update("characters", characterId, {
     data: {

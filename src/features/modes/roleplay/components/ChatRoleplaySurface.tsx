@@ -19,14 +19,20 @@ import {
   Image,
   Loader2,
   MoreHorizontal,
+  MoreVertical,
+  LayoutGrid,
   PenLine,
   ScrollText,
   Settings2,
   Swords,
   ChevronUp,
   ArrowRightLeft,
+  GitBranch,
+  Globe,
 } from "lucide-react";
 import { cn } from "../../../../shared/lib/utils";
+import { useTopBarActions } from "../../../../app/shell/TopBarActionsContext";
+import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
 import { getConnectedChatDisplayName } from "../../../../shared/lib/chat-display";
 import { resolveManagedLocalAssetUrl } from "../../../../shared/api/local-file-api";
 import { useUIStore } from "../../../../shared/stores/ui.store";
@@ -287,62 +293,105 @@ function RpToolbarButton({
   );
 }
 
-function ToolbarMenu({ children }: { children: ReactNode }) {
+function ToolbarMenu({ children, mobilePortal = true, variant = "inline" }: { children: ReactNode; mobilePortal?: boolean; variant?: "inline" | "fab" }) {
   const [open, setOpen] = useState(false);
   const compact = useUIStore((s) => s.centerCompact);
+  const mobileChatToolsOpen = useUIStore((s) => s.mobileChatToolsOpen);
+  const setMobileChatToolsOpen = useUIStore((s) => s.setMobileChatToolsOpen);
   const btnRef = useRef<HTMLDivElement>(null);
+  const fabRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const isMobileViewport = typeof window !== "undefined" && window.innerWidth < 768;
+
+  // Sync with mobileChatToolsOpen flag — only for the active mobile instance
+  useEffect(() => {
+    if (isMobileViewport && mobilePortal) setOpen(mobileChatToolsOpen);
+  }, [mobileChatToolsOpen, isMobileViewport, mobilePortal]);
+
+  const handleClose = () => {
+    setOpen(false);
+    if (isMobileViewport) setMobileChatToolsOpen(false);
+  };
 
   useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
+    if (!open || !btnRef.current || isMobileViewport) return;
     const rect = btnRef.current.getBoundingClientRect();
     setPos({
       top: rect.bottom + 4,
       right: window.innerWidth - rect.right,
     });
-  }, [open]);
+  }, [open, isMobileViewport]);
 
   useEffect(() => {
     if (!open) return;
     const handle = (e: MouseEvent) => {
       const target = e.target as Node;
       if (target instanceof Element && target.closest("[data-chat-branch-popover]")) return;
-      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      setOpen(false);
+      if (btnRef.current?.contains(target) || fabRef.current?.contains(target) || popRef.current?.contains(target)) return;
+      handleClose();
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const triggerBtn = (
+    <button
+      onClick={() => { if (open) handleClose(); else setOpen(true); }}
+      className={cn(
+        variant === "fab"
+          ? "flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-1.5 text-foreground/60 transition-all hover:bg-[var(--accent)]/30 hover:text-foreground"
+          : "flex w-9 items-center justify-center rounded-xl border bg-[var(--card)] p-1.5 text-foreground/60 backdrop-blur-md transition-all hover:bg-[var(--accent)] hover:text-foreground",
+        variant !== "fab" && "border-foreground/10",
+        open && "bg-[var(--accent)] border-foreground/20 text-foreground",
+      )}
+      title="More options"
+    >
+      <MoreHorizontal size={variant === "fab" ? "1rem" : "0.9375rem"} />
+    </button>
+  );
 
   return (
     <>
       <div className={cn("items-center gap-1.5 max-md:hidden", compact ? "hidden" : "flex")}>{children}</div>
-      <div className={cn("relative shrink-0", compact ? "block" : "block md:hidden")} ref={btnRef}>
-        <button
-          onClick={() => setOpen(!open)}
-          className={cn(
-            "flex w-9 items-center justify-center rounded-xl border bg-[var(--card)] p-1.5 text-foreground/60 backdrop-blur-md transition-all hover:bg-[var(--accent)] hover:text-foreground",
-            "border-foreground/10",
-            open && "bg-[var(--accent)] border-foreground/20 text-foreground",
-          )}
-          title="More options"
-        >
-          <MoreHorizontal size="0.9375rem" />
-        </button>
-        {open &&
-          createPortal(
+      {variant === "fab" ? (
+        <div className="md:hidden" ref={fabRef}>
+          {triggerBtn}
+        </div>
+      ) : (
+        <div className={cn("relative shrink-0 max-md:hidden", compact ? "block" : "block md:hidden")} ref={btnRef}>
+          {triggerBtn}
+        </div>
+      )}
+      {open &&
+        createPortal(
+          isMobileViewport && mobilePortal ? (
+            <>
+              <div
+                className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm"
+                onClick={handleClose}
+              />
+              <div
+                ref={popRef}
+                className="fixed bottom-0 left-0 right-0 z-[9999] flex flex-wrap items-center justify-center gap-2 rounded-t-2xl border-t border-foreground/10 bg-[var(--card)] p-4 shadow-xl backdrop-blur-xl"
+                style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+                onClick={handleClose}
+              >
+                {children}
+              </div>
+            </>
+          ) : (
             <div
               ref={popRef}
               className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-foreground/10 bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
               style={{ top: pos.top, right: pos.right }}
-              onClick={() => setOpen(false)}
+              onClick={handleClose}
             >
               {children}
-            </div>,
-            document.body,
-          )}
-      </div>
+            </div>
+          ),
+          document.body,
+        )}
     </>
   );
 }
@@ -715,6 +764,9 @@ export function ChatRoleplaySurface({
     : undefined;
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
+  const openRightPanel = useUIStore((s) => s.openRightPanel);
+  const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const isConcludedScene = chatMeta.sceneStatus === "concluded";
   const [addonsReady, setAddonsReady] = useState(false);
@@ -747,6 +799,11 @@ export function ChatRoleplaySurface({
       };
   const hideEchoChamberOnMobile =
     sidebarOpen || rightPanelOpen || settingsOpen || filesOpen || galleryOpen || wizardOpen;
+  const { setRightSlot } = useTopBarActions();
+  const [toolsSheetOpen, setToolsSheetOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [transcriptWindowStart, setTranscriptWindowStart] = useState<number | null>(null);
   const previousTailRef = useRef<{ messageId: string | undefined; isStreaming: boolean }>({
     messageId: undefined,
@@ -796,6 +853,58 @@ export function ChatRoleplaySurface({
       return next >= transcriptWindow.latestStartIndex ? null : next;
     });
   };
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (moreMenuBtnRef.current?.contains(target) || moreMenuRef.current?.contains(target)) return;
+      setMoreMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreMenuOpen]);
+
+  useEffect(() => {
+    if (!chat) { setRightSlot(null); return; }
+    setRightSlot(
+      <>
+        <button
+          ref={moreMenuBtnRef}
+          type="button"
+          onClick={() => {
+            setMoreMenuOpen((v) => !v);
+          }}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            moreMenuOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="More options"
+        >
+          <MoreVertical size="1.15rem" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setToolsSheetOpen((v) => !v)}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="Tools"
+        >
+          <LayoutGrid size="1.15rem" />
+        </button>
+      </>,
+    );
+    return () => { setRightSlot(null); };
+  }, [chat, moreMenuOpen, toolsSheetOpen, setRightSlot]);
+
   const overlaySpriteDisplayModes = useMemo(
     () => (expressionAvatarsEnabled ? spriteDisplayModes.filter((mode) => mode !== "expressions") : spriteDisplayModes),
     [expressionAvatarsEnabled, spriteDisplayModes],
@@ -813,7 +922,7 @@ export function ChatRoleplaySurface({
   return (
     <div data-component="ChatArea.Roleplay" className="flex h-full min-h-0 flex-1 basis-0 overflow-clip">
       <div
-        className="rpg-chat-area mari-chat-area mari-card-css relative isolate flex h-full min-h-0 flex-1 basis-0 flex-col overflow-clip"
+        className="rpg-chat-area mari-chat-area mari-card-css relative isolate flex h-full min-h-0 flex-1 basis-0 flex-col overflow-clip min-w-0"
         data-chat-mode="roleplay"
       >
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
@@ -838,8 +947,8 @@ export function ChatRoleplaySurface({
           </Suspense>
         )}
 
-        <div className="relative z-20 flex h-full min-h-0 flex-1 basis-0 overflow-clip">
-          <div className="flex h-full min-h-0 flex-1 basis-0 flex-col overflow-clip">
+        <div className="relative z-20 flex h-full min-h-0 flex-1 basis-0 overflow-clip min-w-0">
+          <div className="flex h-full min-h-0 flex-1 basis-0 flex-col overflow-clip min-w-0">
             <>
               <div
                 data-tracker-panel-anchor="roleplay-hud"
@@ -878,7 +987,7 @@ export function ChatRoleplaySurface({
                     groupId={chat?.groupId ?? null}
                     variant="roleplay"
                   />
-                  <ToolbarMenu>
+                  <ToolbarMenu mobilePortal={false}>
                     <SummaryButton
                       chatId={chat?.id ?? null}
                       summary={metadataString(chatMeta.summary) || null}
@@ -912,13 +1021,13 @@ export function ChatRoleplaySurface({
               <div
                 data-tracker-panel-anchor={centerCompact ? "roleplay-hud" : undefined}
                 className={cn(
-                  "pointer-events-auto relative z-30 w-full flex-col",
+                  "pointer-events-auto relative z-30 w-full flex-col min-w-0",
                   centerCompact ? "flex" : "flex md:hidden",
                 )}
               >
                 {chat && agentsUiEnabled && addonsReady && (
                   <div
-                    className="flex w-full items-center justify-between pb-1 pt-2"
+                    className="flex min-w-0 w-full overflow-x-auto items-center gap-1.5 pb-1 pt-2"
                     style={{
                       paddingLeft: "calc(0.5rem + var(--tracker-panel-hud-clear-left, 0px))",
                       paddingRight: "calc(0.5rem + var(--tracker-panel-hud-clear-right, 0px))",
@@ -940,86 +1049,10 @@ export function ChatRoleplaySurface({
                         injectionSourceMessages={messages}
                       />
                     </Suspense>
-                    <div className="flex items-center gap-1.5">
-                      <ToolbarMenu>
-                        <ChatBranchSelector
-                          activeChatId={activeChatId}
-                          activeChatName={chat?.name}
-                          groupId={chat?.groupId ?? null}
-                          variant="roleplay"
-                          compact
-                        />
-                        <SummaryButton
-                          chatId={chat?.id ?? null}
-                          summary={metadataString(chatMeta.summary) || null}
-                          summaryContextSize={summaryContextSize}
-                          totalMessageCount={totalMessageCount}
-                          onContextSizeChange={onSummaryContextSizeChange}
-                        />
-                        <ActiveWorldInfoButton chatId={chat?.id ?? null} />
-                        <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                        <RpToolbarButton
-                          icon={<FolderOpen size="0.875rem" />}
-                          title="Manage Chat Files"
-                          onClick={onOpenFiles}
-                        />
-                        <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
-                        {chat?.connectedChatId && (
-                          <RpToolbarButton
-                            icon={<ArrowRightLeft size="0.875rem" />}
-                            title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
-                            onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
-                          />
-                        )}
-                        <RpToolbarButton
-                          icon={<Settings2 size="0.875rem" />}
-                          title="Chat Settings"
-                          onClick={onOpenSettings}
-                        />
-                      </ToolbarMenu>
-                    </div>
+
                   </div>
                 )}
-                {chat && !agentsUiEnabled && (
-                  <div className="flex w-full items-center justify-end gap-1.5 px-2 pb-1 pt-2">
-                    <ToolbarMenu>
-                      <ChatBranchSelector
-                        activeChatId={activeChatId}
-                        activeChatName={chat?.name}
-                        groupId={chat?.groupId ?? null}
-                        variant="roleplay"
-                        compact
-                      />
-                      <SummaryButton
-                        chatId={chat?.id ?? null}
-                        summary={metadataString(chatMeta.summary) || null}
-                        summaryContextSize={summaryContextSize}
-                        totalMessageCount={totalMessageCount}
-                        onContextSizeChange={onSummaryContextSizeChange}
-                      />
-                      <ActiveWorldInfoButton chatId={chat?.id ?? null} />
-                      <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                      <RpToolbarButton
-                        icon={<FolderOpen size="0.875rem" />}
-                        title="Manage Chat Files"
-                        onClick={onOpenFiles}
-                      />
-                      <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
-                      {chat?.connectedChatId && (
-                        <RpToolbarButton
-                          icon={<ArrowRightLeft size="0.875rem" />}
-                          title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
-                          onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
-                        />
-                      )}
-                      <RpToolbarButton
-                        icon={<Settings2 size="0.875rem" />}
-                        title="Chat Settings"
-                        onClick={onOpenSettings}
-                      />
-                    </ToolbarMenu>
-                  </div>
-                )}
+
               </div>
             </>
 
@@ -1030,7 +1063,7 @@ export function ChatRoleplaySurface({
             )}
 
             <div
-              className={cn("relative z-10 min-h-0 flex-1 basis-0 overflow-clip", TRACKER_SCROLL_AVOIDANCE_CLASS)}
+              className={cn("relative z-10 min-h-0 flex-1 basis-0 overflow-clip min-w-0", TRACKER_SCROLL_AVOIDANCE_CLASS)}
               style={{
                 paddingLeft: "var(--tracker-chat-scroll-avoid-left)",
                 paddingRight: "var(--tracker-chat-scroll-avoid-right)",
@@ -1175,7 +1208,7 @@ export function ChatRoleplaySurface({
               </div>
             </div>
 
-            <div className={cn("relative z-30 shrink-0", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
+            <div className={cn("relative z-30 shrink-0 min-w-0", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
               <div className={cn("relative", centerCompact ? "px-3" : "px-3 md:px-[12%]")}>
                 {chatMeta.sceneStatus === "active" && (
                   <EndSceneBar
@@ -1235,6 +1268,172 @@ export function ChatRoleplaySurface({
             </div>
           </div>
         </div>
+
+        {/* Tools top sheet */}
+        {toolsSheetOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+              onClick={() => setToolsSheetOpen(false)}
+            />
+            <div
+              className="fixed top-0 left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl md:hidden"
+              style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}
+            >
+              <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+                Panels
+              </p>
+              <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+                {TOOLS_PANELS.map(({ panel, icon: Icon, label, gradient }) => (
+                  <button
+                    key={panel}
+                    type="button"
+                    onClick={() => {
+                      setToolsSheetOpen(false);
+                      setSidebarOpen(false);
+                      closeAllDetails();
+                      openRightPanel(panel);
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)]/50 p-4 text-left transition-all active:scale-95 hover:border-[var(--border)]"
+                  >
+                    <div
+                      className={cn(
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm",
+                        gradient,
+                      )}
+                    >
+                      <Icon size="1rem" />
+                    </div>
+                    <span className="text-sm font-semibold text-[var(--foreground)]">{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* More options top sheet */}
+        {moreMenuOpen &&
+          createPortal(
+            <div
+              ref={moreMenuRef}
+              className="fixed top-[3.25rem] left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up overflow-hidden"
+              style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+            >
+              <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+                Chat Options
+              </p>
+
+              <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+                {/* Branches */}
+                {chat?.groupId && (
+                  <div
+                    className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                      <GitBranch size="1rem" />
+                    </div>
+                    <span className="text-xs font-medium text-[var(--foreground)]">Branches</span>
+                    <div className="absolute inset-0 opacity-0">
+                      <ChatBranchSelector
+                        activeChatId={activeChatId}
+                        activeChatName={chat?.name}
+                        groupId={chat?.groupId ?? null}
+                        variant="roleplay"
+                        compact
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Summary */}
+                <div
+                  className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                    <ScrollText size="1rem" />
+                  </div>
+                  <span className="text-xs font-medium text-[var(--foreground)]">Summary</span>
+                  <div className="absolute inset-0 opacity-0">
+                    <SummaryButton
+                      chatId={chat?.id ?? null}
+                      summary={metadataString(chatMeta.summary) || null}
+                      summaryContextSize={summaryContextSize}
+                      totalMessageCount={totalMessageCount}
+                      onContextSizeChange={onSummaryContextSizeChange}
+                    />
+                  </div>
+                </div>
+
+                {/* World Info */}
+                <div
+                  className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
+                    <Globe size="1rem" />
+                  </div>
+                  <span className="text-xs font-medium text-[var(--foreground)]">World Info</span>
+                  <div className="absolute inset-0 opacity-0">
+                    <ActiveWorldInfoButton chatId={chat?.id ?? null} />
+                  </div>
+                </div>
+
+                {/* Author Notes */}
+                <div
+                  className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
+                    <PenLine size="1rem" />
+                  </div>
+                  <span className="text-xs font-medium text-[var(--foreground)]">Notes</span>
+                  <div className="absolute inset-0 opacity-0">
+                    <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
+                  </div>
+                </div>
+
+                {/* Gallery */}
+                <button
+                  type="button"
+                  onClick={() => { setMoreMenuOpen(false); onOpenGallery(); }}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
+                    <Image size="1rem" />
+                  </div>
+                  <span className="text-xs font-medium text-[var(--foreground)]">Gallery</span>
+                </button>
+
+                {/* Chat Files */}
+                <button
+                  type="button"
+                  onClick={() => { setMoreMenuOpen(false); onOpenFiles(); }}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
+                    <FolderOpen size="1rem" />
+                  </div>
+                  <span className="text-xs font-medium text-[var(--foreground)]">Chat Files</span>
+                </button>
+
+                {/* Settings */}
+                <button
+                  type="button"
+                  onClick={() => { setMoreMenuOpen(false); onOpenSettings(); }}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                    <Settings2 size="1rem" />
+                  </div>
+                  <span className="text-xs font-medium text-[var(--foreground)]">Settings</span>
+                </button>
+              </div>
+            </div>,
+            document.body,
+          )}
 
         {addonsReady && (
           <Suspense fallback={null}>

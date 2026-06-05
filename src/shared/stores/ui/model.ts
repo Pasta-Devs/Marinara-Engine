@@ -515,6 +515,9 @@ export interface UIState {
    * ConnectionsPanel suppress framer-motion Reorder layout animations during resize. */
   rightPanelResizing: boolean;
 
+  /** Transient: mobile-only flag to open the chat toolbar menu (···) from the TopBar */
+  mobileChatToolsOpen: boolean;
+
   // Actions
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -631,6 +634,7 @@ export interface UIState {
   setTextStrokeColor: (v: string) => void;
   setCenterCompact: (v: boolean) => void;
   setRightPanelResizing: (v: boolean) => void;
+  setMobileChatToolsOpen: (v: boolean) => void;
   setVisualTheme: (v: VisualTheme) => void;
   setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   setConvoNotificationSound: (v: boolean) => void;

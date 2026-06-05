@@ -2118,7 +2118,7 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Message bubble */}
             <div
               className={cn(
-                "mari-message-bubble relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
+                "mari-message-bubble relative min-w-0 overflow-hidden rounded-2xl shadow-lg shadow-black/20",
                 isUser
                   ? "rounded-tr-sm text-neutral-100 ring-1 ring-white/10"
                   : "rounded-tl-sm text-white/90 ring-1 ring-white/8",
@@ -2134,7 +2134,7 @@ export const ChatMessage = memo(function ChatMessage({
               }}
             >
               {showRoleplayAvatarPanel ? (
-                <div className={cn("flex min-h-full items-stretch", isUser && "flex-row-reverse")}>
+                <div className={cn("flex min-h-full min-w-0 items-stretch", isUser && "flex-row-reverse")}>
                   <div
                     className={cn(
                       "relative flex min-h-[calc(11rem*var(--roleplay-avatar-scale))] w-[calc(4.75rem*var(--roleplay-avatar-scale))] shrink-0 items-start self-stretch overflow-hidden md:w-[calc(5.25rem*var(--roleplay-avatar-scale))]",

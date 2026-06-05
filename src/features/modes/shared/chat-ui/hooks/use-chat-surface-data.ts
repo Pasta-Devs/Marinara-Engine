@@ -3,13 +3,12 @@ import {
   useChat,
   useChatMessageCount,
   useChatMessages,
-  type Chat,
   type ChatMode,
 } from "../../../../catalog/chats/index";
 import { characterAvatarUrl, useCharacterSummariesByIds } from "../../../../catalog/characters/index";
 import { useActivePersonaSummary, usePersonaSummary } from "../../../../catalog/personas/index";
 import { ApiError } from "../../../../../shared/api/api-errors";
-import { getConnectedChatDisplayName, parseChatMetadata } from "../../../../../shared/lib/chat-display";
+import { getConnectedChatDisplayName, parseChatMetadata, normalizeChatCharacterIds } from "../../../../../shared/lib/chat-display";
 import { parseCharacterDisplayData } from "../../../../../shared/lib/character-display";
 import { parseAvatarCropJson, type AvatarCropValue } from "../../../../../shared/lib/utils";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
@@ -53,20 +52,6 @@ type PersonaRow = {
   dialogueColor?: string;
   boxColor?: string;
 };
-
-function parseChatCharacterIds(chat: Chat | null | undefined): string[] {
-  if (!chat) return [];
-  const raw = chat.characterIds as string[] | string | null | undefined;
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
-    } catch {
-      return [];
-    }
-  }
-  return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : [];
-}
 
 function parseCharacterData(data: unknown): Record<string, unknown> {
   return data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : {};
@@ -260,7 +245,7 @@ export function useChatSurfaceData({
     return map;
   }, [messageOffset, messages]);
 
-  const chatCharIds = useMemo(() => parseChatCharacterIds(chat), [chat]);
+  const chatCharIds = useMemo(() => normalizeChatCharacterIds(chat?.characterIds as unknown), [chat]);
   const neededCharacterIds = useMemo(
     () => normalizeIds([...chatCharIds, ...extractMessageCharacterIds(messages), ...collectGameCharacterIds(chatMeta)]),
     [chatCharIds, chatMeta, messages],

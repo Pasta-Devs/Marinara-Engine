@@ -120,7 +120,7 @@ import { spotifyApi } from "../../../../../shared/api/integration-utility-api";
 import { spriteApi } from "../../../../../shared/api/image-generation-api";
 import { toastExportError, triggerDownloadWithToast } from "../../../../shared/lib/export-feedback";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
-import { getConnectedChatDisplayName } from "../../../../../shared/lib/chat-display";
+import { getConnectedChatDisplayName, normalizeChatCharacterIds } from "../../../../../shared/lib/chat-display";
 import {
   getAgentRunIntervalMeta,
   getCadenceInputValue,
@@ -607,7 +607,10 @@ function ChatSettingsDrawerInner({
   const [showCharPicker, setShowCharPicker] = useState(false);
   const [charSearch, setCharSearch] = useState("");
   const debouncedCharSearch = useDebouncedValue(charSearch, 180);
-  const chatCharIds: string[] = useMemo(() => chat.characterIds ?? [], [chat.characterIds]);
+  const chatCharIds: string[] = useMemo(
+    () => normalizeChatCharacterIds((chat as unknown as { characterIds?: unknown })?.characterIds),
+    [chat.characterIds],
+  );
   const { data: selectedCharacters, isLoading: selectedCharactersLoading } = useCharacterSummariesByIds(
     chatCharIds,
     chatCharIds.length > 0,

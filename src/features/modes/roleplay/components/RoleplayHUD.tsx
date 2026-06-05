@@ -294,7 +294,7 @@ export function RoleplayHUD({
 
       {/* ── Mobile: combined widgets, centered ── */}
       {showMobileTrackerWidgets && (
-        <div className={cn("flex items-center gap-0.5 md:hidden", mobileCompact && "flex-1 justify-center")}>
+        <div className={cn("flex items-center gap-0.5 md:hidden", mobileCompact && "shrink-0")}>
           {enabledAgentTypes.has(TRACKER_SECTION_AGENT_TYPES.world) && (
             <CombinedWorldWidget
               location={location ?? ""}

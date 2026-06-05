@@ -85,7 +85,7 @@ export function PanelNavButtons({ className }: { className?: string }) {
     <nav
       data-tour="panel-buttons"
       aria-label="Panel navigation"
-      className={cn("mari-panel-nav flex shrink-0 items-center gap-0.5", className)}
+      className={cn("mari-panel-nav hidden md:flex shrink-0 items-center gap-0.5", className)}
       onMouseDown={stopTitlebarDrag}
       onDoubleClick={stopTitlebarDrag}
     >

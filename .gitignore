@@ -38,20 +38,11 @@ src-tauri/target/
 src-tauri/.tauri/
 src-tauri/gen/schemas/
 
-# Tauri Android generated build outputs and local signing files.
-# Keep src-tauri/gen/android itself tracked; Tauri/plugin changes can require
-# edits to the Android manifest, Gradle files, and resources.
-src-tauri/gen/android/.gradle/
-src-tauri/gen/android/app/src/main/assets/
-src-tauri/gen/android/**/build/
-src-tauri/gen/android/**/.cxx/
-src-tauri/gen/android/**/.externalNativeBuild/
-src-tauri/gen/android/**/captures/
-src-tauri/gen/android/**/local.properties
-src-tauri/gen/android/**/key.properties
-src-tauri/gen/android/**/keystore.properties
-src-tauri/gen/android/**/*.jks
-src-tauri/gen/android/**/*.keystore
+# Local build scripts and session artifacts
+*.sh
+.pi/
+mobile-rework/
+.claude/
 
 # Editor directories and files
 .vscode/*

@@ -1,7 +1,6 @@
 // ──────────────────────────────────────────────
 // Chat: Conversation View — Discord-style composite
 // ──────────────────────────────────────────────
-import { createPortal } from "react-dom";
 import {
   Suspense,
   lazy,
@@ -11,7 +10,7 @@ import {
   useCallback,
   useMemo,
   useState,
-  type ReactNode,
+
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -21,8 +20,8 @@ import {
   FolderOpen,
   Globe,
   Image as ImageIcon,
-  ArrowRightLeft,
-  MoreHorizontal,
+  MoreVertical,
+  LayoutGrid,
   ScrollText,
 } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
@@ -38,19 +37,23 @@ import {
   scrollTranscriptToBottom,
   TRANSCRIPT_RENDER_WINDOW_STEP,
 } from "../../shared/chat-ui/index";
-import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
+
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
 import { showConversationLocalNotification } from "../../../../shared/lib/local-notifications";
 import { playNotificationPing } from "../../../../shared/lib/notification-sound";
-import { getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
+import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared/lib/utils";
+import { useTopBarActions } from "../../../../app/shell/TopBarActionsContext";
+import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
 import { usePageActivity } from "../../../../shared/hooks/use-page-activity";
-import { invalidateCharacterCollectionQueries } from "../../../catalog/characters/index";
-import { useUpdateChatMetadata } from "../../../catalog/chats/index";
+import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
+import { invalidateCharacterCollectionQueries, characterKeys } from "../../../catalog/characters/index";
+
 import { getConversationStatus } from "../../../../engine/modes/chat/autonomous/autonomous.service";
 import { storageApi } from "../../../../shared/api/storage-api";
 import type { CharacterMap, MessageSelectionToggle, PeekPromptOptions, PersonaInfo } from "../../shared/chat-ui/types";
 import type { Message } from "../../../../engine/contracts/types/chat";
+import { useUpdateChatMetadata } from "../../../catalog/chats/index";
 
 const ConversationAutonomousEffects = lazy(async () => {
   const module = await import("./ConversationAutonomousEffects");
@@ -304,68 +307,6 @@ function splitAssistantContentLines(content: string, charName?: string | null): 
 // from replaying when the user navigates away from a chat and comes back.
 const globalSeenKeys = new Set<string>();
 
-const HEADER_BTN =
-  "flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50";
-const MOBILE_MENU_BTN =
-  "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-[var(--accent)] hover:text-foreground";
-
-function ConversationToolbarMenu({
-  desktopChildren,
-  mobileChildren,
-}: {
-  desktopChildren: ReactNode;
-  mobileChildren: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLDivElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    setPos({
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (target instanceof Element && target.closest("[data-chat-branch-popover]")) return;
-      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  return (
-    <>
-      <div className="hidden items-center gap-1.5 md:flex">{desktopChildren}</div>
-      <div className="relative shrink-0 md:hidden" ref={btnRef}>
-        <button onClick={() => setOpen(!open)} className={HEADER_BTN} title="More options" aria-label="More options">
-          <MoreHorizontal size="0.875rem" />
-        </button>
-        {open &&
-          createPortal(
-            <div
-              ref={popRef}
-              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
-              style={{ top: pos.top, right: pos.right }}
-              onClick={() => setOpen(false)}
-            >
-              {mobileChildren}
-            </div>,
-            document.body,
-          )}
-      </div>
-    </>
-  );
-}
-
 export function ConversationView({
   chatId,
   messages,
@@ -509,13 +450,38 @@ export function ConversationView({
   const isPageActive = usePageActivity();
 
   // ── Periodic status refresh (every 60s) ──
-  // Keeps status dots in sync with the character's schedule regardless of autonomous messaging
+  // Keeps status dots and activity text in sync with the character's schedule
   useEffect(() => {
     if (!chatId || !isPageActive) return;
     const refreshStatus = async () => {
       try {
-        await getConversationStatus(storageApi, chatId);
-        invalidateCharacterCollectionQueries(qc);
+        const statusResult = await getConversationStatus(storageApi, chatId);
+        let changed = false;
+        for (const [characterId, info] of Object.entries(statusResult.statuses)) {
+          const row = await storageApi.get<{ data?: { extensions?: Record<string, unknown> } }>("characters", characterId);
+          if (row?.data) {
+            const extensions = row.data.extensions ?? {};
+            const currentStatus = typeof extensions.conversationStatus === "string" ? extensions.conversationStatus : "";
+            const currentActivity = typeof extensions.conversationActivity === "string" ? extensions.conversationActivity : "";
+            if (currentStatus !== info.status || currentActivity !== info.activity) {
+              await storageApi.update("characters", characterId, {
+                data: {
+                  ...row.data,
+                  extensions: {
+                    ...extensions,
+                    conversationStatus: info.status,
+                    conversationActivity: info.activity,
+                  },
+                },
+              });
+              changed = true;
+            }
+          }
+        }
+        if (changed) {
+          invalidateCharacterCollectionQueries(qc);
+          qc.invalidateQueries({ queryKey: characterKeys.all });
+        }
       } catch {
         /* non-critical */
       }
@@ -530,6 +496,7 @@ export function ConversationView({
   // a CSS variable so custom themes can override the conversation background.
   const convoGradient = useUIStore((s) => s.convoGradient);
   const theme = useUIStore((s) => s.theme);
+
   const gradientStyle = useMemo(() => {
     const g = convoGradient[theme];
     const isDefaultDark = convoGradient.dark.from === "#0a0a0e" && convoGradient.dark.to === "#1c2133";
@@ -540,79 +507,19 @@ export function ConversationView({
     return { background: `linear-gradient(135deg, ${g.from}, ${g.to})` };
   }, [convoGradient, theme]);
   const hasAutonomousMessaging = !!chatMeta.autonomousMessages || !!chatMeta.characterExchanges;
-  const [mobileWorldInfoOpen, setMobileWorldInfoOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [mobileWorldInfoOpen, setMobileWorldInfoOpen] = useState(false);
+  const [toolsSheetOpen, setToolsSheetOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const { setRightSlot } = useTopBarActions();
+  const openRightPanel = useUIStore((s) => s.openRightPanel);
+  const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const updateMeta = useUpdateChatMetadata();
   const summaryContextSize =
     typeof chatMeta.summaryContextSize === "number" && Number.isFinite(chatMeta.summaryContextSize)
       ? chatMeta.summaryContextSize
       : 50;
-  const renderToolbarActions = (compact = false) => (
-    <>
-      <ChatBranchSelector
-        activeChatId={chatId}
-        activeChatName={chatName}
-        groupId={chatGroupId}
-        compact={compact}
-        className={
-          compact ? "bg-transparent text-foreground/80 hover:bg-[var(--accent)] hover:text-foreground" : undefined
-        }
-      />
-      <div className="relative" onClick={(e) => e.stopPropagation()}>
-        <button
-          onClick={() => setSummaryOpen((open) => !open)}
-          className={compact ? MOBILE_MENU_BTN : HEADER_BTN}
-          title="Chat Summary"
-          aria-label="Chat Summary"
-        >
-          <ScrollText size="0.875rem" />
-        </button>
-        {summaryOpen && compact === (typeof window !== "undefined" && window.innerWidth < 768) && (
-          <Suspense fallback={null}>
-            <SummaryPopover
-              chatId={chatId}
-              summary={chatMetaString(chatMeta.summary, "") || null}
-              contextSize={summaryContextSize}
-              totalMessageCount={totalMessageCount}
-              onContextSizeChange={(size) => updateMeta.mutate({ id: chatId, summaryContextSize: size })}
-              onClose={() => setSummaryOpen(false)}
-            />
-          </Suspense>
-        )}
-      </div>
-      {compact ? (
-        <button
-          onClick={() => setMobileWorldInfoOpen(true)}
-          className={MOBILE_MENU_BTN}
-          title="Active World Info"
-          aria-label="Active World Info"
-        >
-          <Globe size="0.875rem" />
-        </button>
-      ) : (
-        <ActiveWorldInfoButton chatId={chatId} buttonClassName={HEADER_BTN} />
-      )}
-      <button onClick={onOpenFiles} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Manage Chat Files">
-        <FolderOpen size="0.875rem" />
-      </button>
-      <button onClick={onOpenGallery} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Gallery">
-        <ImageIcon size="0.875rem" />
-      </button>
-      {onSwitchChat && (
-        <button
-          onClick={onSwitchChat}
-          className={compact ? MOBILE_MENU_BTN : HEADER_BTN}
-          title={connectedChatName ? `Switch to ${connectedChatName}` : "Switch to connected chat"}
-        >
-          <ArrowRightLeft size="0.875rem" />
-        </button>
-      )}
-      <button onClick={onOpenSettings} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Chat Settings">
-        <Settings2 size="0.875rem" />
-      </button>
-    </>
-  );
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const prevScrollHeightRef = useRef(0);
@@ -725,6 +632,36 @@ export function ConversationView({
   useEffect(() => {
     setTranscriptWindowStart(null);
   }, [chatId]);
+
+  useEffect(() => {
+    setRightSlot(
+      <>
+        <button
+          type="button"
+          onClick={() => setMoreMenuOpen((v) => !v)}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            moreMenuOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="More options"
+        >
+          <MoreVertical size="1.15rem" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setToolsSheetOpen((v) => !v)}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="Tools"
+        >
+          <LayoutGrid size="1.15rem" />
+        </button>
+      </>,
+    );
+    return () => { setRightSlot(null); };
+  }, [moreMenuOpen, toolsSheetOpen, setRightSlot]);
 
   // ── Build message list with day separators ──
   // Assistant messages with multiple lines are split into separate visual
@@ -1066,8 +1003,8 @@ export function ConversationView({
     >
       {/* ── Messages scroll area ── */}
       <div ref={scrollRef} className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden">
-        {/* Floating header — character info + action buttons */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2">
+        {/* Desktop floating header */}
+        <div className="sticky top-0 z-10 hidden min-w-0 items-center justify-between px-4 py-2 md:flex">
           {/* Character identity pill */}
           {(() => {
             const chars = chatCharIds.map((id) => characterMap.get(id)).filter(Boolean) as Array<{
@@ -1161,18 +1098,58 @@ export function ConversationView({
             );
           })()}
 
-          <ConversationToolbarMenu
-            desktopChildren={renderToolbarActions()}
-            mobileChildren={renderToolbarActions(true)}
+          {/* Desktop toolbar */}
+          <div className="flex items-center gap-1.5">
+          <ChatBranchSelector
+            activeChatId={chatId}
+            activeChatName={chatName}
+            groupId={chatGroupId}
           />
-          <ActiveWorldInfoModal
-            chatId={chatId}
-            open={mobileWorldInfoOpen}
-            onClose={() => setMobileWorldInfoOpen(false)}
-          />
+          <button
+            onClick={() => setSummaryOpen(true)}
+            className="flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50"
+            title="Chat Summary"
+            aria-label="Chat Summary"
+          >
+            <ScrollText size="0.875rem" />
+          </button>
+          <ActiveWorldInfoButton chatId={chatId} />
+          <button
+            onClick={onOpenGallery}
+            className="flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50"
+            title="Gallery"
+            aria-label="Gallery"
+          >
+            <ImageIcon size="0.875rem" />
+          </button>
+          <button
+            onClick={onOpenFiles}
+            className="flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50"
+            title="Chat Files"
+            aria-label="Chat Files"
+          >
+            <FolderOpen size="0.875rem" />
+          </button>
+          {onSwitchChat && (
+            <button
+              onClick={onSwitchChat}
+              className="flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50"
+              title={connectedChatName ? `Switch to ${connectedChatName}` : "Switch to connected chat"}
+            >
+              <span className="text-[0.7rem] font-medium">{connectedChatName || "Switch"}</span>
+            </button>
+          )}
+          <button
+            onClick={onOpenSettings}
+            className="flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50"
+            title="Chat Settings"
+            aria-label="Chat Settings"
+          >
+            <Settings2 size="0.875rem" />
+          </button>
         </div>
-
-        {/* Load More */}
+      </div>
+      {/* Load More */}
         {(hasNextPage || transcriptWindow.hiddenBeforeCount > 0) && (
           <div className="flex justify-center py-3">
             <button
@@ -1427,6 +1404,143 @@ export function ConversationView({
         }
         onPeekPrompt={onPeekPrompt}
       />
+
+      {/* Tools top sheet */}
+      {toolsSheetOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+            onClick={() => setToolsSheetOpen(false)}
+          />
+          <div
+            className="fixed top-0 left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl md:hidden"
+            style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}
+          >
+            <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+              Panels
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+              {TOOLS_PANELS.map(({ panel, icon: Icon, label, gradient }) => (
+                <button
+                  key={panel}
+                  type="button"
+                  onClick={() => {
+                    setToolsSheetOpen(false);
+                    setSidebarOpen(false);
+                    closeAllDetails();
+                    openRightPanel(panel);
+                  }}
+                  className="flex items-center gap-3 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)]/50 p-4 text-left transition-all active:scale-95 hover:border-[var(--border)]"
+                >
+                  <div
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm",
+                      gradient,
+                    )}
+                  >
+                    <Icon size="1rem" />
+                  </div>
+                  <span className="text-sm font-semibold text-[var(--foreground)]">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* More options top sheet */}
+      {moreMenuOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+            onClick={() => setMoreMenuOpen(false)}
+          />
+          <div
+            className="fixed top-[3.25rem] left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up overflow-hidden md:hidden"
+            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+          >
+            <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+              Chat Options
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+              {chatGroupId && (
+                <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95">
+                  <ChatBranchSelector
+                    activeChatId={chatId}
+                    activeChatName={chatName}
+                    groupId={chatGroupId}
+                    compact
+                  />
+                  <span className="text-xs font-medium text-[var(--foreground)]">Branches</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => { setMoreMenuOpen(false); setSummaryOpen(true); }}
+                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                  <ScrollText size="1rem" />
+                </div>
+                <span className="text-xs font-medium text-[var(--foreground)]">Summary</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMoreMenuOpen(false); setMobileWorldInfoOpen(true); }}
+                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
+                  <Globe size="1rem" />
+                </div>
+                <span className="text-xs font-medium text-[var(--foreground)]">World Info</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMoreMenuOpen(false); onOpenGallery(); }}
+                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
+                  <ImageIcon size="1rem" />
+                </div>
+                <span className="text-xs font-medium text-[var(--foreground)]">Gallery</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMoreMenuOpen(false); onOpenFiles(); }}
+                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
+                  <FolderOpen size="1rem" />
+                </div>
+                <span className="text-xs font-medium text-[var(--foreground)]">Chat Files</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMoreMenuOpen(false); onOpenSettings(); }}
+                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                  <Settings2 size="1rem" />
+                </div>
+                <span className="text-xs font-medium text-[var(--foreground)]">Settings</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+      {summaryOpen && (
+        <Suspense fallback={null}>
+          <SummaryPopover
+            chatId={chatId}
+            summary={chatMetaString(chatMeta.summary, "") || null}
+            contextSize={summaryContextSize}
+            totalMessageCount={totalMessageCount}
+            onContextSizeChange={(size) => updateMeta.mutate({ id: chatId, summaryContextSize: size })}
+            onClose={() => setSummaryOpen(false)}
+          />
+        </Suspense>
+      )}
+      <ActiveWorldInfoModal chatId={chatId} open={mobileWorldInfoOpen} onClose={() => setMobileWorldInfoOpen(false)} />
     </div>
   );
 }

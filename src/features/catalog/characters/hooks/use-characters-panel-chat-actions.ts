@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { chatKeys, useCreateMessage, useUpdateChat } from "../../chats/index";
+import { normalizeChatCharacterIds } from "../../../../shared/lib/chat-display";
 import type { CharacterFirstMessageConfirmation } from "../components/CharacterFirstMessageDialog";
 import { type CharacterRow, type ParsedCharacterRow } from "../lib/characters-panel-model";
 import { useStartChatFromCharacter } from "./use-start-chat-from-character";
@@ -19,7 +20,10 @@ export function useCharactersPanelChatActions() {
   const pendingStartCharacterIdRef = useRef<string | null>(null);
   const [pendingStartCharacterId, setPendingStartCharacterId] = useState<string | null>(null);
 
-  const chatCharacterIds = useMemo(() => activeChat?.characterIds ?? [], [activeChat?.characterIds]);
+  const chatCharacterIds = useMemo(
+    () => normalizeChatCharacterIds((activeChat as unknown as { characterIds?: unknown })?.characterIds),
+    [activeChat?.characterIds],
+  );
   const isConversation = (activeChat as unknown as { mode?: string })?.mode === "conversation";
 
   const loadFullCharacter = useCallback(async (charId: string): Promise<ParsedCharacterRow | null> => {
@@ -38,7 +42,10 @@ export function useCharactersPanelChatActions() {
 
   const isFirstMessageTargetStillCurrent = useCallback((chatId: string, charId: string): boolean => {
     const currentChat = useChatStore.getState().activeChat;
-    return currentChat?.id === chatId && (currentChat.characterIds ?? []).includes(charId);
+    return (
+      currentChat?.id === chatId &&
+      normalizeChatCharacterIds((currentChat as unknown as { characterIds?: unknown })?.characterIds).includes(charId)
+    );
   }, []);
 
   const toggleCharacter = useCallback(
