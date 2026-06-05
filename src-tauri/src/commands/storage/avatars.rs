@@ -69,12 +69,15 @@ where
     ) {
         Ok(updated) => updated,
         Err(error) => {
-            super::characters::rollback_character_version_snapshot(
+            let rollback_error = super::characters::rollback_character_version_snapshot(
                 state,
                 created_snapshot.as_ref(),
-            );
+                "character avatar update",
+                &error,
+            )
+            .err();
             remove_copied_file_path(Some(&stored.absolute_path), "rolled-back avatar upload");
-            return Err(error);
+            return Err(rollback_error.unwrap_or(error));
         }
     };
     remove_avatar_file_preserving_persona_snapshots(state, collection, &previous);

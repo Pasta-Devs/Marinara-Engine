@@ -18,6 +18,11 @@ const VERSIONED_CHARACTER_FIELDS: [&str; 6] = [
     "avatarFilename",
 ];
 
+#[cfg(test)]
+static FORCED_CHARACTER_VERSION_SNAPSHOT_ROLLBACK_FAILURES: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashSet<String>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashSet::new()));
+
 struct CharacterVersionSnapshotOptions {
     source: String,
     reason: String,
@@ -77,7 +82,12 @@ where
     {
         Ok(updated) => Ok(updated),
         Err(error) => {
-            rollback_character_version_snapshot(state, created_snapshot.as_ref());
+            rollback_character_version_snapshot(
+                state,
+                created_snapshot.as_ref(),
+                "character update",
+                &error,
+            )?;
             Err(error)
         }
     }
@@ -130,23 +140,108 @@ pub(crate) fn create_character_version_snapshot_from_record(
     }
 }
 
-pub(crate) fn rollback_character_version_snapshot(state: &AppState, snapshot: Option<&Value>) {
+pub(crate) fn rollback_character_version_snapshot(
+    state: &AppState,
+    snapshot: Option<&Value>,
+    operation: &str,
+    live_error: &AppError,
+) -> AppResult<()> {
     let Some(snapshot) = snapshot else {
-        return;
+        return Ok(());
     };
     let Some(snapshot_id) = snapshot.get("id").and_then(Value::as_str) else {
-        log::warn!("could not roll back character version snapshot because it has no id");
-        return;
+        return Err(character_version_snapshot_rollback_error(
+            "<missing>",
+            operation,
+            live_error,
+            None,
+            "Character version snapshot could not be rolled back because it has no id",
+        ));
     };
-    match state.storage.delete("character-versions", snapshot_id) {
-        Ok(true) => remove_character_version_avatar_file(state, snapshot),
-        Ok(false) => log::warn!(
-            "could not roll back character version snapshot {snapshot_id} because it was already missing"
-        ),
-        Err(error) => {
-            log::warn!("could not roll back character version snapshot {snapshot_id}: {error}");
+    #[cfg(test)]
+    {
+        let forced = FORCED_CHARACTER_VERSION_SNAPSHOT_ROLLBACK_FAILURES
+            .lock()
+            .expect("forced rollback failure set should lock")
+            .remove(snapshot_id);
+        if forced {
+            return Err(character_version_snapshot_rollback_error(
+                snapshot_id,
+                operation,
+                live_error,
+                Some(&AppError::new(
+                    "forced_rollback_error",
+                    "forced character version snapshot rollback failure",
+                )),
+                "Character version snapshot rollback failed after the live character patch failed",
+            ));
         }
     }
+    match state.storage.delete("character-versions", snapshot_id) {
+        Ok(true) => {
+            remove_character_version_avatar_file(state, snapshot);
+            Ok(())
+        }
+        Ok(false) => Err(character_version_snapshot_rollback_error(
+            snapshot_id,
+            operation,
+            live_error,
+            None,
+            "Character version snapshot rollback could not find the newly created snapshot row",
+        )),
+        Err(error) => Err(character_version_snapshot_rollback_error(
+            snapshot_id,
+            operation,
+            live_error,
+            Some(&error),
+            "Character version snapshot rollback failed after the live character patch failed",
+        )),
+    }
+}
+
+fn character_version_snapshot_rollback_error(
+    snapshot_id: &str,
+    operation: &str,
+    live_error: &AppError,
+    rollback_error: Option<&AppError>,
+    message: &str,
+) -> AppError {
+    let mut details = Map::new();
+    details.insert(
+        "snapshotId".to_string(),
+        Value::String(snapshot_id.to_string()),
+    );
+    details.insert(
+        "operation".to_string(),
+        Value::String(operation.to_string()),
+    );
+    details.insert("livePatchError".to_string(), app_error_value(live_error));
+    if let Some(rollback_error) = rollback_error {
+        details.insert("rollbackError".to_string(), app_error_value(rollback_error));
+    }
+    AppError::with_details(
+        "character_version_snapshot_rollback_error",
+        message,
+        Value::Object(details),
+    )
+}
+
+fn app_error_value(error: &AppError) -> Value {
+    let mut value = Map::new();
+    value.insert("code".to_string(), Value::String(error.code.clone()));
+    value.insert("message".to_string(), Value::String(error.message.clone()));
+    if let Some(details) = &error.details {
+        value.insert("details".to_string(), details.clone());
+    }
+    Value::Object(value)
+}
+
+#[cfg(test)]
+fn force_character_version_snapshot_rollback_failure(snapshot_id: &str) {
+    FORCED_CHARACTER_VERSION_SNAPSHOT_ROLLBACK_FAILURES
+        .lock()
+        .expect("forced rollback failure set should lock")
+        .insert(snapshot_id.to_string());
 }
 
 fn insert_version_avatar_fields(
@@ -429,12 +524,18 @@ where
     {
         Ok(updated) => updated,
         Err(error) => {
-            rollback_character_version_snapshot(state, created_snapshot.as_ref());
+            let rollback_error = rollback_character_version_snapshot(
+                state,
+                created_snapshot.as_ref(),
+                "character restore",
+                &error,
+            )
+            .err();
             remove_copied_file_path(
                 restored_avatar_path.as_deref(),
                 "rolled-back restored character avatar copy",
             );
-            return Err(error);
+            return Err(rollback_error.unwrap_or(error));
         }
     };
     remove_previous_character_avatar_after_restore(state, &existing, &updated);
@@ -809,6 +910,100 @@ mod tests {
         .expect("noop character update should succeed");
 
         assert!(character_versions(&state).is_empty());
+    }
+
+    #[test]
+    fn update_character_rolls_back_snapshot_when_live_patch_fails() {
+        let state = test_state("update-patch-failure-rollback");
+        create_character(&state);
+
+        let error = update_character_inner(
+            &state,
+            "char-1",
+            json!({
+                "comment": "Updated title",
+                "versionReason": "Patch failure proof"
+            }),
+            || {
+                state
+                    .storage
+                    .delete("characters", "char-1")
+                    .expect("live character should delete before final patch");
+            },
+        )
+        .expect_err("update should fail when the live patch misses");
+
+        assert_eq!(error.code, "not_found");
+        assert!(
+            character_versions(&state).is_empty(),
+            "failed character update must not leave a version row"
+        );
+    }
+
+    #[test]
+    fn update_character_reports_rollback_error_when_snapshot_delete_fails() {
+        let state = test_state("update-rollback-failure-contract");
+        create_character(&state);
+
+        let error = update_character_inner(
+            &state,
+            "char-1",
+            json!({
+                "comment": "Updated title",
+                "versionReason": "Forced rollback failure proof"
+            }),
+            || {
+                let snapshot_id = character_versions(&state)
+                    .into_iter()
+                    .find(|version| {
+                        version.get("reason").and_then(Value::as_str)
+                            == Some("Forced rollback failure proof")
+                    })
+                    .and_then(|version| {
+                        version
+                            .get("id")
+                            .and_then(Value::as_str)
+                            .map(ToOwned::to_owned)
+                    })
+                    .expect("snapshot should exist before final patch");
+                force_character_version_snapshot_rollback_failure(&snapshot_id);
+                state
+                    .storage
+                    .delete("characters", "char-1")
+                    .expect("live character should delete before final patch");
+            },
+        )
+        .expect_err("update should surface rollback failure");
+
+        assert_eq!(error.code, "character_version_snapshot_rollback_error");
+        let details = error
+            .details
+            .as_ref()
+            .and_then(Value::as_object)
+            .expect("rollback error should include details");
+        assert_eq!(
+            details.get("operation").and_then(Value::as_str),
+            Some("character update")
+        );
+        assert_eq!(
+            details
+                .get("livePatchError")
+                .and_then(|value| value.get("code"))
+                .and_then(Value::as_str),
+            Some("not_found")
+        );
+        assert_eq!(
+            details
+                .get("rollbackError")
+                .and_then(|value| value.get("code"))
+                .and_then(Value::as_str),
+            Some("forced_rollback_error")
+        );
+        assert_eq!(
+            character_versions(&state).len(),
+            1,
+            "forced rollback failure leaves the row visible while surfacing a hard error"
+        );
     }
 
     #[test]
