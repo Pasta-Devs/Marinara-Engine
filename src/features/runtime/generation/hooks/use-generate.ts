@@ -738,8 +738,7 @@ function formatAgentActivityFallback(result: AgentResult): string {
   if (result.agentType === "world-state" || result.type === "game_state_update") return "Updated world state.";
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update")
     return "Updated character tracker.";
-  if (result.agentType === "persona-stats" || result.type === "persona_stats_update")
-    return "Updated persona stats.";
+  if (result.agentType === "persona-stats" || result.type === "persona_stats_update") return "Updated persona stats.";
   if (result.agentType === "custom-tracker" || result.type === "custom_tracker_update")
     return "Updated custom tracker.";
   if (result.type === "background_change" || result.agentType === "background") return "Background checked.";
@@ -1324,6 +1323,18 @@ export async function runGenerationWithUi(
     scheduleStreamReveal();
   };
 
+  const replaceVisibleStreamText = (text: string) => {
+    cancelTypewriterFrame();
+    pendingReveal = "";
+    typewriterActive = false;
+    lastTypewriterPaintAt = 0;
+    typewriterRemainder = 0;
+    visibleStreamText = text;
+    commitVisibleStreamBuffer(true);
+    if (text) useChatStore.getState().setMariPhase(chatId, "thinking");
+    resolveAllRevealWaiters();
+  };
+
   const flushVisibleStreamText = async () => {
     if (controller.signal.aborted) {
       cancelTypewriterFrame();
@@ -1480,6 +1491,13 @@ export async function runGenerationWithUi(
             }
             received += event.data;
             enqueueVisibleStreamText(event.data);
+          }
+          break;
+        case "content_replace":
+          if (!foregroundGenerationReleased && typeof event.data === "string") {
+            received = event.data;
+            receivedAnyContent = receivedAnyContent || event.data.trim().length > 0;
+            replaceVisibleStreamText(event.data);
           }
           break;
         case "message":
@@ -1770,6 +1788,7 @@ export function useGenerate() {
                 format: useUIStore.getState().imagePromptFormat,
               },
               hideAutomatedSummarySourceMessages: useUIStore.getState().summaryPopoverSettings.hideSummarizedMessages,
+              trimIncompleteModelOutput: useUIStore.getState().trimIncompleteModelOutput,
               debugMode: useUIStore.getState().debugMode,
               debugSink: enqueueAgentDebugEntry,
             },

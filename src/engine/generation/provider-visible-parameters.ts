@@ -89,6 +89,14 @@ function isSamplingParameterKey(key: string): boolean {
   ].includes(key);
 }
 
+function isStopParameterKey(key: string): boolean {
+  return ["stop", "stopSequences", "stop_sequences"].includes(key);
+}
+
+function isReservedCustomParameterKey(key: string): boolean {
+  return ["model", "messages", "input", "contents", "systemInstruction", "stream", "tools"].includes(key);
+}
+
 function shouldSendTopK(provider: string): boolean {
   return !["openai", "openrouter", "xai", "mistral", "cohere", "nanogpt"].includes(provider);
 }
@@ -219,11 +227,14 @@ function googleThinkingConfig(model: string, parameters: JsonRecord): Record<str
 function applyCustomParameters(
   body: Record<string, unknown>,
   parameters: JsonRecord,
-  options: { stripSampling: boolean },
+  options: { stripSampling: boolean; stripStop?: boolean; skipKeys?: readonly string[] },
 ): void {
   const custom = parseRecord(parameters.customParameters ?? parameters.custom_params);
+  const skipKeys = new Set(options.skipKeys ?? []);
   for (const [key, value] of Object.entries(custom)) {
+    if (skipKeys.has(key) || isReservedCustomParameterKey(key)) continue;
     if (options.stripSampling && isSamplingParameterKey(key)) continue;
+    if (options.stripStop === true && isStopParameterKey(key)) continue;
     if (body[key] == null) body[key] = value;
   }
 }
@@ -257,8 +268,11 @@ function visibleAnthropicParameters(
     body.thinking = { type: "enabled", budget_tokens: budgetTokens };
     body.max_tokens = requestMaxTokens(connection, parameters) + budgetTokens;
   }
-  const stop = stopSequences(parameters);
-  if (stop) body.stop_sequences = stop;
+  if (!adaptiveOnly) {
+    const stop = stopSequences(parameters);
+    if (stop) body.stop_sequences = stop;
+  }
+  applyCustomParameters(body, parameters, { stripSampling: adaptiveOnly, stripStop: adaptiveOnly });
   return body;
 }
 
@@ -281,9 +295,7 @@ function visibleOpenAiResponsesParameters(
     if (verbosity) text.verbosity = verbosity;
     body.text = text;
   }
-  applyCustomParameters(body, parameters, {
-    stripSampling: !shouldSendOpenAiSamplingParameters(readString(connection.model)),
-  });
+  applyCustomParameters(body, parameters, { stripSampling: true, stripStop: true });
   return body;
 }
 
@@ -317,8 +329,10 @@ function visibleOpenAiCompatibleParameters(
   }
   const seed = parameterInteger(parameters, ["seed"]);
   if (seed !== null) body.seed = seed;
-  const stop = stopSequences(parameters);
-  if (stop) body.stop = stop;
+  if (sendSampling) {
+    const stop = stopSequences(parameters);
+    if (stop) body.stop = stop;
+  }
   const responseFormat = parameterString(parameters, ["responseFormat", "response_format"]);
   if (responseFormat) body.response_format = { type: responseFormat };
 
@@ -339,7 +353,7 @@ function visibleOpenAiCompatibleParameters(
     if (serviceTier === "flex" || serviceTier === "priority") body.service_tier = serviceTier;
   }
 
-  applyCustomParameters(body, parameters, { stripSampling: !sendSampling });
+  applyCustomParameters(body, parameters, { stripSampling: !sendSampling, stripStop: !sendSampling });
   const openrouter = parameters.openrouter ?? parameters.openRouter;
   if (openrouter != null) body.provider = openrouter;
   const toolChoice = parameters.toolChoice ?? parameters.tool_choice;
@@ -366,6 +380,18 @@ function visibleGoogleParameters(connection: JsonRecord, parameters: JsonRecord)
     const stop = stopSequences(parameters);
     if (stop) generationConfig.stopSequences = stop;
   }
+  const custom = parseRecord(parameters.customParameters ?? parameters.custom_params);
+  const customGenerationConfig = parseRecord(custom.generationConfig);
+  for (const [key, value] of Object.entries(customGenerationConfig)) {
+    if (isReservedCustomParameterKey(key)) continue;
+    if (gemini3 && (isSamplingParameterKey(key) || isStopParameterKey(key))) continue;
+    if (generationConfig[key] == null) generationConfig[key] = value;
+  }
+  applyCustomParameters(generationConfig, parameters, {
+    stripSampling: gemini3,
+    stripStop: gemini3,
+    skipKeys: ["generationConfig"],
+  });
   return { generationConfig };
 }
 

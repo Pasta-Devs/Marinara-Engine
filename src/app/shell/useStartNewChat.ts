@@ -3,10 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { CHAT_MODES } from "../../engine/contracts/constants/chat-modes";
 import type { ChatMode } from "../../engine/contracts/types/chat";
 import {
-  chatPresetKeys,
-  findUserStarredChatPreset,
-  listChatPresets,
-  useApplyChatPreset,
+  useApplyUserStarredChatPreset,
 } from "../../features/catalog/chat-presets/index";
 import { useCreateChat } from "../../features/catalog/chats/sidebar";
 import { connectionKeys } from "../../features/catalog/connections/index";
@@ -26,7 +23,7 @@ function hasEmbeddedTauriIpc(): boolean {
 export function useStartNewChat() {
   const queryClient = useQueryClient();
   const createChat = useCreateChat();
-  const applyChatPreset = useApplyChatPreset();
+  const applyUserStarredChatPreset = useApplyUserStarredChatPreset();
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const setPendingNewChatMode = useChatStore((s) => s.setPendingNewChatMode);
   const remoteRuntimeUrl = useUIStore((s) => s.remoteRuntimeUrl);
@@ -85,16 +82,6 @@ export function useStartNewChat() {
         closeAllDetails();
       }
 
-      const presetMode: ChatMode | null = mode === "conversation" || mode === "roleplay" ? mode : null;
-      const presets = presetMode
-        ? await queryClient.fetchQuery({
-            queryKey: chatPresetKeys.list(null),
-            queryFn: () => listChatPresets(null),
-            staleTime: 60_000,
-          })
-        : [];
-      const starred = findUserStarredChatPreset(presets, presetMode);
-
       createChat.mutate(
         {
           name: `New ${CHAT_MODES[mode]?.name ?? mode}`,
@@ -105,12 +92,10 @@ export function useStartNewChat() {
         {
           onSuccess: async (chat) => {
             setActiveChatId(chat.id);
-            if (starred) {
-              try {
-                await applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id });
-              } catch {
-                /* non-fatal: chat still opens with system defaults */
-              }
+            try {
+              await applyUserStarredChatPreset({ mode, chatId: chat.id });
+            } catch {
+              /* non-fatal: chat still opens with system defaults */
             }
             useChatStore.getState().setShouldOpenSettings(true, chat.id);
             useChatStore.getState().setShouldOpenWizard(true, chat.id);
@@ -119,7 +104,7 @@ export function useStartNewChat() {
       );
     },
     [
-      applyChatPreset,
+      applyUserStarredChatPreset,
       closeAllDetails,
       createChat,
       hasAnyDetailOpen,
