@@ -1,5 +1,5 @@
 use super::{
-    avatars, characters, chats, connection_secrets, contracts, game_state_snapshots,
+    avatars, characters, chats, connection_secrets, contracts, game_state_snapshots, integrations,
     lorebook_images, media_uploads, message_swipes, personas, prompts, shared,
 };
 use crate::builtins::is_protected_record;
@@ -34,6 +34,104 @@ fn reject_message_swipe_mutation(entity: &str) -> Result<(), AppError> {
         return Err(AppError::invalid_input(
             "message-swipes is internal sidecar storage; mutate swipes through message commands",
         ));
+    }
+    Ok(())
+}
+
+fn validate_chat_metadata_patch(
+    state: &AppState,
+    chat_id: &str,
+    patch: &mut Value,
+) -> Result<(), AppError> {
+    let mut metadata_patch = match patch.get("metadata") {
+        Some(Value::Object(object)) => Some(object.clone()),
+        Some(_) => return Err(AppError::invalid_input("Chat metadata must be an object")),
+        None => None,
+    };
+    if metadata_patch.is_none() && patch.get("characterIds").is_none() {
+        return Ok(());
+    };
+
+    if let Some(metadata_object) = metadata_patch.as_mut() {
+        if let Some(webhook_url) = metadata_object.get_mut("discordWebhookUrl") {
+            if webhook_url.is_null() {
+                // Null clears the setting.
+            } else if let Some(raw_url) = webhook_url.as_str() {
+                let trimmed_url = raw_url.trim();
+                if !trimmed_url.is_empty()
+                    && !integrations::is_valid_discord_webhook_url(trimmed_url)
+                {
+                    return Err(AppError::invalid_input("Invalid Discord webhook URL"));
+                }
+                if trimmed_url != raw_url {
+                    *webhook_url = Value::String(trimmed_url.to_string());
+                }
+            } else {
+                return Err(AppError::invalid_input(
+                    "Discord webhook URL must be a string",
+                ));
+            }
+        }
+    }
+
+    let chat = state
+        .storage
+        .get("chats", chat_id)?
+        .ok_or_else(|| AppError::not_found(format!("Chat {chat_id} was not found")))?;
+    let active_ids_source = patch
+        .get("characterIds")
+        .or_else(|| chat.get("characterIds"));
+    let active_ids: HashSet<String> = shared::string_array_from_value(active_ids_source)
+        .into_iter()
+        .collect();
+    let mut effective_metadata = shared::json_object_value(chat.get("metadata"))
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    let submitted_inactive = metadata_patch
+        .as_ref()
+        .and_then(|metadata| metadata.get("inactiveCharacterIds"))
+        .cloned();
+    if let Some(metadata_patch) = metadata_patch {
+        for (key, value) in metadata_patch {
+            effective_metadata.insert(key, value);
+        }
+    }
+
+    let inactive_value = submitted_inactive
+        .as_ref()
+        .or_else(|| effective_metadata.get("inactiveCharacterIds"));
+    let Some(inactive_value) = inactive_value else {
+        if patch.get("metadata").is_some() {
+            patch["metadata"] = Value::Object(effective_metadata);
+        }
+        return Ok(());
+    };
+    let Some(inactive_ids) = inactive_value.as_array() else {
+        return Err(AppError::invalid_input(
+            "inactiveCharacterIds must be an array of strings",
+        ));
+    };
+    if inactive_ids.iter().any(|id| !id.is_string()) {
+        return Err(AppError::invalid_input(
+            "inactiveCharacterIds must be an array of strings",
+        ));
+    }
+
+    let mut seen = HashSet::new();
+    let normalized: Vec<Value> = inactive_ids
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty() && active_ids.contains(*id))
+        .filter(|id| seen.insert((*id).to_string()))
+        .map(|id| Value::String(id.to_string()))
+        .collect();
+    let normalized_value = Value::Array(normalized);
+    let inactive_changed =
+        effective_metadata.get("inactiveCharacterIds") != Some(&normalized_value);
+    effective_metadata.insert("inactiveCharacterIds".to_string(), normalized_value);
+    if patch.get("metadata").is_some() || inactive_changed {
+        patch["metadata"] = Value::Object(effective_metadata);
     }
     Ok(())
 }
@@ -643,8 +741,11 @@ pub(crate) fn storage_update_inner(
     }
     validate_chat_folder_for_patch(state, &entity, &id, &patch)?;
     validate_connection_folder_for_patch(state, &entity, &patch)?;
-    let normalized_patch =
+    let mut normalized_patch =
         normalize_chat_for_update(&entity, shared::normalize_update_patch(&entity, patch)?)?;
+    if entity == "chats" {
+        validate_chat_metadata_patch(state, &id, &mut normalized_patch)?;
+    }
     if entity == "lorebook-entries" {
         return update_lorebook_entry_with_character_book_sync(state, &id, normalized_patch);
     }
@@ -2228,6 +2329,131 @@ mod tests {
             .expect("connection should read")
             .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
             .unwrap_or(false)
+    }
+
+    #[test]
+    fn chat_metadata_patch_rejects_invalid_discord_webhook_url() {
+        let state = test_state("chat-metadata-invalid-discord-webhook");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({ "id": "chat-a", "name": "Chat A", "metadata": {} }),
+        )
+        .expect("chat should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "discordWebhookUrl": "not-a-discord-webhook" } }),
+        )
+        .expect_err("invalid Discord webhook metadata should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid Discord webhook URL"));
+    }
+
+    #[test]
+    fn chat_metadata_patch_normalizes_inactive_character_ids() {
+        let state = test_state("chat-metadata-inactive-characters");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": { "theme": "kept" }
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "inactiveCharacterIds": [" char-a ", "missing", "char-a", "char-b"] } }),
+        )
+        .expect("valid inactive character metadata should update");
+
+        assert_eq!(
+            updated["metadata"]["inactiveCharacterIds"],
+            json!(["char-a", "char-b"])
+        );
+        assert_eq!(updated["metadata"]["theme"], json!("kept"));
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "inactiveCharacterIds": ["char-a", 3] } }),
+        )
+        .expect_err("non-string inactive character ids should reject");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn chat_metadata_patch_prunes_stored_inactive_ids_after_character_patch() {
+        let state = test_state("chat-character-patch-prunes-inactive");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": {
+                    "inactiveCharacterIds": ["char-b"],
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "characterIds": ["char-a"] }),
+        )
+        .expect("character-only patch should prune stale inactive ids");
+
+        assert_eq!(updated["characterIds"], json!(["char-a"]));
+        assert_eq!(updated["metadata"]["inactiveCharacterIds"], json!([]));
+        assert_eq!(updated["metadata"]["theme"], json!("kept"));
+    }
+
+    #[test]
+    fn chat_metadata_patch_normalizes_inactive_ids_against_patched_character_ids() {
+        let state = test_state("chat-metadata-inactive-patched-characters");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": {}
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({
+                "characterIds": ["char-c"],
+                "metadata": { "inactiveCharacterIds": ["char-a", "char-c"] }
+            }),
+        )
+        .expect("same patch should use the patched chat membership");
+
+        assert_eq!(updated["characterIds"], json!(["char-c"]));
+        assert_eq!(
+            updated["metadata"]["inactiveCharacterIds"],
+            json!(["char-c"])
+        );
     }
 
     fn seed_linked_character_book(state: &AppState) {

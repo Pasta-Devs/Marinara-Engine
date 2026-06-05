@@ -621,10 +621,25 @@ pub(crate) fn bulk_delete_messages(
     let ids = body
         .get("messageIds")
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| AppError::invalid_input("messageIds must be an array of strings"))?;
+    if ids.iter().any(|id| !id.is_string()) {
+        return Err(AppError::invalid_input(
+            "messageIds must be an array of strings",
+        ));
+    }
     let mut deleted_ids = Vec::new();
-    for id in ids.iter().filter_map(Value::as_str) {
+    let requested_ids: Vec<&str> = ids
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .collect();
+    if requested_ids.is_empty() {
+        return Err(AppError::invalid_input(
+            "Deleting messages requires at least one message",
+        ));
+    }
+    for id in requested_ids {
         // Only delete messages that actually belong to this chat. Without the chatId check a
         // caller could pass message ids from another chat and destroy that chat's messages
         // (and their swipe sidecars) — the pre-scan must gate on parentage, not mere existence.
@@ -2990,6 +3005,26 @@ mod tests {
         assert_eq!(updated["swipeCount"], json!(2));
         assert_eq!(updated["content"], json!("first"));
         assert_eq!(updated["swipes"][1]["content"], json!("second"));
+    }
+
+    #[test]
+    fn bulk_delete_messages_rejects_empty_or_invalid_id_payloads() {
+        let state = test_state("bulk-delete-empty-invalid");
+        state
+            .storage
+            .create("chats", json!({ "id": "chat-1", "name": "Chat" }))
+            .expect("chat should seed");
+
+        for body in [
+            json!({ "messageIds": [] }),
+            json!({ "messageIds": [" ", ""] }),
+            json!({ "messageIds": ["message-1", 3] }),
+            json!({}),
+        ] {
+            let error = bulk_delete_messages(&state, "chat-1", body)
+                .expect_err("invalid bulk delete payload should reject");
+            assert_eq!(error.code, "invalid_input");
+        }
     }
 
     #[test]

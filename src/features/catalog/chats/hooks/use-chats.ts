@@ -578,19 +578,30 @@ export function useDeleteMessage(chatId: string | null) {
   });
 }
 
+function compactMessageIdList(messageIds: string[]): string[] {
+  return Array.from(new Set(messageIds.map((id) => id.trim()).filter(Boolean)));
+}
+
+function requireMessageIdList(messageIds: string[], action: string): string[] {
+  const uniqueIds = compactMessageIdList(messageIds);
+  if (uniqueIds.length === 0) throw new Error(`${action} requires at least one message.`);
+  return uniqueIds;
+}
+
 export function useDeleteMessages(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (messageIds: string[]) => {
       if (!chatId) throw new Error("Chat was not found.");
-      const uniqueIds = Array.from(new Set(messageIds.filter((id) => id.trim().length > 0)));
+      const uniqueIds = requireMessageIdList(messageIds, "Deleting messages");
       const result = await chatCommandApi.bulkDeleteMessages(chatId, uniqueIds);
       assertDeletedMessages(result, uniqueIds.length);
       return result;
     },
     onMutate: (messageIds: string[]) => {
       if (!chatId) return;
-      const uniqueIds = Array.from(new Set(messageIds.filter((id) => id.trim().length > 0)));
+      const uniqueIds = compactMessageIdList(messageIds);
+      if (uniqueIds.length === 0) return;
       const idSet = new Set(uniqueIds);
       void qc.cancelQueries({ queryKey: chatKeys.messages(chatId), exact: true }).catch(() => undefined);
       const previousMessages = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId));
@@ -719,7 +730,7 @@ export function useBulkSetMessagesHiddenFromAI(chatId: string | null) {
   return useMutation({
     mutationFn: async ({ messageIds, hidden }: { messageIds: string[]; hidden: boolean }) => {
       if (!chatId) throw new Error("Chat was not found.");
-      const uniqueIds = Array.from(new Set(messageIds.filter((id) => id.trim().length > 0)));
+      const uniqueIds = requireMessageIdList(messageIds, "Updating hidden message state");
       await Promise.all(
         uniqueIds.map(async (messageId) => {
           const message = await storageApi.get<Message>("messages", messageId);
@@ -731,9 +742,11 @@ export function useBulkSetMessagesHiddenFromAI(chatId: string | null) {
     },
     onMutate: async ({ messageIds, hidden }) => {
       if (!chatId) return;
+      const uniqueIds = compactMessageIdList(messageIds);
+      if (uniqueIds.length === 0) return;
       await qc.cancelQueries({ queryKey: chatKeys.messages(chatId) });
       const previous = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId));
-      const idSet = new Set(messageIds);
+      const idSet = new Set(uniqueIds);
       qc.setQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId), (old) => {
         if (!old?.pages) return old;
         return {

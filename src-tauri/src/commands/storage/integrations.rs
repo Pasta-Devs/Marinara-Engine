@@ -40,3 +40,7 @@ pub(crate) async fn haptic_call(rest: &[&str], body: Value) -> AppResult<Value> 
 pub(crate) async fn discord_webhook_send(body: Value) -> AppResult<Value> {
     discord::discord_webhook_send(body).await
 }
+
+pub(crate) fn is_valid_discord_webhook_url(raw: &str) -> bool {
+    discord::is_valid_discord_webhook_url(raw)
+}
