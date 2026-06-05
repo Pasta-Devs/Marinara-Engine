@@ -36,4 +36,19 @@ describe("normalizeHudWidgets", () => {
       ["legacy-b", "hud_right"],
     ]);
   });
+
+  it("migrates legacy inventory items when contents is malformed", () => {
+    const normalized = normalizeHudWidgets([
+      {
+        ...widget("inventory", "hud_left"),
+        type: "inventory_grid",
+        config: {
+          contents: "not-an-array" as never,
+          items: [{ name: "Torch", quantity: "2" }] as never,
+        },
+      },
+    ]);
+
+    expect(normalized[0]?.config.contents).toEqual([{ name: "Torch", quantity: 2 }]);
+  });
 });
