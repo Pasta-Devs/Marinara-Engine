@@ -1377,7 +1377,7 @@ async fn api_controls_middleware(
         Ok(()) => {
             let mut response = next.run(request).await;
             if let Some(outcome) = &rate_limit {
-                apply_rate_limit_headers(response.headers_mut(), outcome);
+                apply_rate_limit_headers_when_missing(response.headers_mut(), outcome);
             }
             apply_security_headers(response.headers_mut());
             apply_api_no_store_headers(response.headers_mut(), &path);
@@ -1914,6 +1914,12 @@ fn apply_rate_limit_headers(headers: &mut HeaderMap, outcome: &ApiRateLimitOutco
         if let Ok(value) = HeaderValue::from_str(&duration_header_seconds(retry_after)) {
             headers.insert(header::RETRY_AFTER, value);
         }
+    }
+}
+
+fn apply_rate_limit_headers_when_missing(headers: &mut HeaderMap, outcome: &ApiRateLimitOutcome) {
+    if !headers.contains_key("ratelimit-limit") {
+        apply_rate_limit_headers(headers, outcome);
     }
 }
 
@@ -2580,6 +2586,46 @@ mod tests {
             .and_then(|value| value.parse::<u64>().ok())
             .expect("retry-after should be present");
         assert!((1..=60).contains(&retry_after));
+    }
+
+    #[tokio::test]
+    async fn api_invoke_router_preserves_command_specific_rate_limit_headers() {
+        let listener =
+            tokio::net::TcpListener::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0))
+                .await
+                .expect("test server should bind");
+        let addr = listener.local_addr().expect("test server addr should load");
+        let server = tokio::spawn(async move {
+            axum::serve(
+                listener,
+                router(test_state("invoke-router-rate-limit-headers"))
+                    .into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .expect("test server should run");
+        });
+
+        let response = reqwest::Client::new()
+            .post(format!("http://{addr}/api/invoke"))
+            .header(CSRF_HEADER_NAME, CSRF_HEADER_VALUE)
+            .json(&json!({
+                "command": "update_apply",
+                "args": { "input": { "confirm": false } }
+            }))
+            .send()
+            .await
+            .expect("invoke request should complete");
+
+        assert_ne!(response.status(), reqwest::StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(
+            response
+                .headers()
+                .get("ratelimit-limit")
+                .and_then(|value| value.to_str().ok()),
+            Some("5")
+        );
+
+        server.abort();
     }
 
     #[tokio::test]
