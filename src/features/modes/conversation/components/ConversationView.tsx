@@ -516,6 +516,7 @@ export function ConversationView({
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
+  const [charActivityPopup, setCharActivityPopup] = useState<string | null>(null);
   const updateMeta = useUpdateChatMetadata();
   const summaryContextSize =
     typeof chatMeta.summaryContextSize === "number" && Number.isFinite(chatMeta.summaryContextSize)
@@ -1065,40 +1066,52 @@ export function ConversationView({
               );
             }
 
-            // Multiple characters — show stacked avatars + names
+            // Multiple characters — individual clickable avatars showing activity on click
             return (
-              <div
-                className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30 cursor-pointer hover:bg-[var(--card)] transition-colors"
-                onClick={() => setTrackerPanelOpen(true)}
-                title="View schedule"
-              >
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
                 <div
                   className="relative flex-shrink-0"
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
                 >
-                  {chars.slice(0, 3).map((c, i) => (
-                    <div key={i} className="absolute top-0" style={{ left: i * 12 }}>
-                      <div className="relative">
-                        {c.avatarUrl ? (
-                          <span className="relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]">
-                            <img
-                              src={c.avatarUrl}
-                              alt={c.name}
-                              className="h-full w-full object-cover"
-                              style={getAvatarCropStyle(c.avatarCrop)}
-                            />
-                          </span>
-                        ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-[var(--border)]">
-                            {c.name[0]}
+                  {chars.slice(0, 3).map((c, i) => {
+                    const isOpen = charActivityPopup === c.name;
+                    return (
+                      <div key={i} className="absolute top-0" style={{ left: i * 12, zIndex: isOpen ? 10 : 3 - i }}>
+                        <button
+                          type="button"
+                          onClick={() => setCharActivityPopup(isOpen ? null : c.name)}
+                          className="relative block transition-transform active:scale-90"
+                          aria-label={c.name}
+                        >
+                          {c.avatarUrl ? (
+                            <span className="relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]">
+                              <img
+                                src={c.avatarUrl}
+                                alt={c.name}
+                                className="h-full w-full object-cover"
+                                style={getAvatarCropStyle(c.avatarCrop)}
+                              />
+                            </span>
+                          ) : (
+                            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-[var(--border)]">
+                              {c.name[0]}
+                            </div>
+                          )}
+                          <span
+                            className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
+                          />
+                        </button>
+                        {isOpen && (
+                          <div className="absolute left-1/2 top-full mt-1.5 z-50 min-w-[7rem] -translate-x-1/2 rounded-xl border border-[var(--border)]/60 bg-[var(--card)] px-3 py-2 shadow-lg backdrop-blur-xl">
+                            <p className="text-[0.7rem] font-semibold text-[var(--foreground)] leading-tight">{c.name}</p>
+                            {c.conversationActivity && (
+                              <p className="mt-0.5 text-[0.6rem] text-[var(--muted-foreground)]/70 leading-tight">{c.conversationActivity}</p>
+                            )}
                           </div>
                         )}
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
-                        />
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <span className="text-[0.75rem] font-medium text-[var(--foreground)]/90">
                   {chars.length <= 2 ? chars.map((c) => c.name).join(" & ") : `${chars[0]!.name} + ${chars.length - 1}`}

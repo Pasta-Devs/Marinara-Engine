@@ -2,7 +2,7 @@
 // Layout: Mobile App Top Bar
 // ──────────────────────────────────────────────
 import { ArrowLeft } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useChat } from "../../features/catalog/chats/index";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
@@ -59,6 +59,14 @@ export function TopBar({
             ? "bg-gray-400"
             : "";
 
+  const [charPopup, setCharPopup] = useState<number | null>(null);
+
+  const charStatusColor = (ext: Record<string, unknown>) => {
+    if (!showStatus) return "";
+    const s = ext.conversationStatus;
+    return s === "online" ? "bg-green-500" : s === "idle" ? "bg-yellow-500" : s === "dnd" ? "bg-red-500" : s === "offline" ? "bg-gray-400" : "";
+  };
+
   const backFromChat = () => {
     setActiveChatId(null);
     closeAllDetails();
@@ -85,26 +93,48 @@ export function TopBar({
 
       {chat?.mode !== "game" && (
         characters && characters.length > 1 ? (
-          // Multi-char: stacked avatars (up to 3) + overflow badge
+          // Multi-char: stacked avatars with status dots, each clickable to show activity
           <div className="relative flex shrink-0 items-center" style={{ width: `${Math.min(characters.length, 3) * 20 + 8}px`, height: 32 }}>
-            {characters.slice(0, 3).map((c, i) => (
-              <div key={c.id ?? i} className="absolute top-0" style={{ left: i * 20, zIndex: 3 - i }}>
-                {c.avatarPath ? (
-                  <CharacterAvatarImage
-                    src={c.avatarPath}
-                    avatarFilePath={c.avatarFilePath}
-                    avatarFilename={c.avatarFilename}
-                    alt={c.data?.name ?? ""}
-                    className="h-8 w-8 rounded-xl object-cover ring-2 ring-[var(--background)]"
-                    thumbnailSize={64}
-                  />
-                ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-xs font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--background)]">
-                    {(c.data?.name ?? "?")[0]?.toUpperCase()}
-                  </div>
-                )}
-              </div>
-            ))}
+            {characters.slice(0, 3).map((c, i) => {
+              const ext = (c.data?.extensions ?? {}) as Record<string, unknown>;
+              const dotColor = charStatusColor(ext);
+              const cActivity = showStatus && typeof ext.conversationActivity === "string" ? ext.conversationActivity : "";
+              const isOpen = charPopup === i;
+              return (
+                <div key={c.id ?? i} className="absolute top-0" style={{ left: i * 20, zIndex: isOpen ? 10 : 3 - i }}>
+                  <button
+                    type="button"
+                    onClick={() => setCharPopup(isOpen ? null : i)}
+                    className="relative block active:scale-90 transition-transform"
+                    aria-label={c.data?.name ?? "Character"}
+                  >
+                    {c.avatarPath ? (
+                      <CharacterAvatarImage
+                        src={c.avatarPath}
+                        avatarFilePath={c.avatarFilePath}
+                        avatarFilename={c.avatarFilename}
+                        alt={c.data?.name ?? ""}
+                        className="h-8 w-8 rounded-xl object-cover ring-2 ring-[var(--background)]"
+                        thumbnailSize={64}
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-xs font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--background)]">
+                        {(c.data?.name ?? "?")[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    {dotColor && (
+                      <span className={cn("absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-[1.5px] ring-[var(--background)]", dotColor)} />
+                    )}
+                  </button>
+                  {isOpen && (
+                    <div className="absolute left-1/2 top-full mt-1.5 z-50 min-w-[7rem] -translate-x-1/2 rounded-xl border border-[var(--border)]/60 bg-[var(--card)] px-3 py-2 shadow-lg backdrop-blur-xl">
+                      <p className="text-[0.7rem] font-semibold text-[var(--foreground)] leading-tight">{c.data?.name}</p>
+                      {cActivity && <p className="mt-0.5 text-[0.6rem] text-[var(--muted-foreground)]/70 leading-tight">{cActivity}</p>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {characters.length > 3 && (
               <div
                 className="absolute top-0 flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-[0.6rem] font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--background)]"
@@ -148,7 +178,7 @@ export function TopBar({
 
       <div className="min-w-0 flex-1 truncate">
         <span className="block text-sm font-semibold text-[var(--foreground)] leading-tight">{chatName || "Chat"}</span>
-        {activity && (
+        {activity && (!characters || characters.length <= 1) && (
           <span className="block text-[0.65rem] text-[var(--muted-foreground)]/60 leading-tight">{activity}</span>
         )}
       </div>
