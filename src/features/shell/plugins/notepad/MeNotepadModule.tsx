@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -34,6 +35,7 @@ import { MarkdownPreview } from "./components/MarkdownPreview";
 import { hasWindow, isInteractiveTarget, makeId, nowIso } from "./lib/utils";
 import {
   characterName,
+  clearMemoryStateShadow,
   currentCharacterIds,
   ensureActiveTab,
   ensureContextTargets,
@@ -48,6 +50,7 @@ import {
   titleForScope,
   uniqueTabTitle,
   visibleTabs,
+  writeMemoryStateShadow,
 } from "./lib/state";
 import { NotepadTabs } from "./components/NotepadTabs";
 import { NotepadToolbar } from "./components/NotepadToolbar";
@@ -87,6 +90,7 @@ export function MeNotepadModule() {
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [pendingSelection, setPendingSelection] = useState<PendingSelection | null>(null);
   const [status, setStatus] = useState<NotepadStatus>({ message: "", tone: "muted" });
+  const [memoryDirty, setMemoryDirty] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const suppressCollapsedOpenUntilRef = useRef(0);
@@ -95,6 +99,8 @@ export function MeNotepadModule() {
   const memorySaveRevisionRef = useRef(0);
   const memoryReadyRef = useRef(false);
   const latestMemorySnapshotRef = useRef<NotepadMemoryState | null>(null);
+  const memoryDirtyRef = useRef(false);
+  const immediateMemorySaveRef = useRef(false);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -152,8 +158,14 @@ export function MeNotepadModule() {
       .then(async () => {
         if (revision !== memorySaveRevisionRef.current) return;
         await saveMemoryState(snapshot);
+        if (revision !== memorySaveRevisionRef.current) return;
+        clearMemoryStateShadow(revision);
+        memoryDirtyRef.current = false;
+        if (mountedRef.current) setMemoryDirty(false);
       })
       .catch((error) => {
+        memoryDirtyRef.current = true;
+        if (mountedRef.current) setMemoryDirty(true);
         if (!mountedRef.current) return;
         setStatus({
           message: error instanceof Error ? error.message : "Could not sync notes.",
@@ -173,11 +185,26 @@ export function MeNotepadModule() {
     queueMemorySave(snapshot, (memorySaveRevisionRef.current += 1));
   }, [queueMemorySave]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!memoryReady || !hasWindow()) return undefined;
     const revision = (memorySaveRevisionRef.current += 1);
+    const shadowed = writeMemoryStateShadow(memorySnapshot, revision);
+    memoryDirtyRef.current = true;
+    setMemoryDirty(true);
+    if (!shadowed) {
+      setStatus({
+        message: "Notes are unsaved until sync finishes.",
+        tone: "error",
+      });
+    }
     if (memorySaveTimerRef.current !== null) {
       window.clearTimeout(memorySaveTimerRef.current);
+      memorySaveTimerRef.current = null;
+    }
+    if (immediateMemorySaveRef.current) {
+      immediateMemorySaveRef.current = false;
+      queueMemorySave(memorySnapshot, revision);
+      return undefined;
     }
     memorySaveTimerRef.current = window.setTimeout(() => {
       memorySaveTimerRef.current = null;
@@ -191,6 +218,20 @@ export function MeNotepadModule() {
     };
   }, [memoryReady, memorySnapshot, queueMemorySave]);
 
+  const requestImmediateMemorySave = useCallback(() => {
+    immediateMemorySaveRef.current = true;
+  }, []);
+
+  const handleBeforeUnload = useCallback(
+    (event: BeforeUnloadEvent) => {
+      flushMemorySave();
+      if (!memoryDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    },
+    [flushMemorySave],
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     if (!hasWindow()) {
@@ -200,15 +241,15 @@ export function MeNotepadModule() {
       };
     }
 
-    window.addEventListener("beforeunload", flushMemorySave);
+    window.addEventListener("beforeunload", handleBeforeUnload);
     window.addEventListener("pagehide", flushMemorySave);
     return () => {
-      window.removeEventListener("beforeunload", flushMemorySave);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("pagehide", flushMemorySave);
       flushMemorySave();
       mountedRef.current = false;
     };
-  }, [flushMemorySave]);
+  }, [flushMemorySave, handleBeforeUnload]);
 
   useEffect(() => {
     if (!memoryReady) return;
@@ -322,13 +363,14 @@ export function MeNotepadModule() {
         createdAt: timestamp,
         updatedAt: timestamp,
       };
+      requestImmediateMemorySave();
       setState((current) => ({ ...current, open: true, tabs: [...current.tabs, tab], activeTabId: tab.id }));
       setAddMenuOpen(false);
       setActionsMenuOpen(false);
       setPendingDeleteTabId(null);
       showStatus(`${titleForScope(scope, context, characterId, branchMode)} tab created`, "ok");
     },
-    [context, showStatus, state.tabs],
+    [context, requestImmediateMemorySave, showStatus, state.tabs],
   );
 
   const renameActiveTab = useCallback(() => {
@@ -341,6 +383,7 @@ export function MeNotepadModule() {
     if (!renamingTabId) return;
     const title = renameDraft.trim() || "Notes";
     const changed = title !== activeTab?.title;
+    if (changed) requestImmediateMemorySave();
     setState((current) => ({
       ...current,
       tabs: current.tabs.map((tab) => (tab.id === renamingTabId ? { ...tab, title, updatedAt: nowIso() } : tab)),
@@ -348,10 +391,11 @@ export function MeNotepadModule() {
     setRenamingTabId(null);
     setRenameDraft("");
     if (changed) showStatus("Renamed", "ok");
-  }, [activeTab?.title, renameDraft, renamingTabId, showStatus]);
+  }, [activeTab?.title, renameDraft, renamingTabId, requestImmediateMemorySave, showStatus]);
 
   const deleteTab = useCallback(
     (tabId: string) => {
+      requestImmediateMemorySave();
       setState((current) => {
         const nextTabs = current.tabs.filter((tab) => tab.id !== tabId);
         const notes = { ...current.notes };
@@ -365,7 +409,7 @@ export function MeNotepadModule() {
       setPendingDeleteTabId(null);
       showStatus("Tab deleted", "ok");
     },
-    [context, showStatus],
+    [context, requestImmediateMemorySave, showStatus],
   );
 
   const exportBackup = useCallback(() => {
@@ -384,10 +428,11 @@ export function MeNotepadModule() {
 
   const restoreImport = useCallback(() => {
     if (!pendingImportState) return;
+    requestImmediateMemorySave();
     setState((current) => ({ ...current, ...pendingImportState }));
     setPendingImportState(null);
     showStatus("Backup restored", "ok");
-  }, [pendingImportState, showStatus]);
+  }, [pendingImportState, requestImmediateMemorySave, showStatus]);
 
   const handleImportFile = useCallback(
     async (file: File | undefined | null) => {
@@ -468,6 +513,7 @@ export function MeNotepadModule() {
     (targetId: string, position: "before" | "after" = "before") => {
       if (!draggedTabId || draggedTabId === targetId) return;
       let moved = false;
+      requestImmediateMemorySave();
       setState((current) => {
         const dragged = current.tabs.find((tab) => tab.id === draggedTabId);
         const target = current.tabs.find((tab) => tab.id === targetId);
@@ -487,7 +533,7 @@ export function MeNotepadModule() {
       setDropTarget(null);
       if (moved) showStatus("Reordered", "ok");
     },
-    [draggedTabId, showStatus],
+    [draggedTabId, requestImmediateMemorySave, showStatus],
   );
 
   const startLayoutDrag = useCallback(
@@ -645,6 +691,12 @@ export function MeNotepadModule() {
   }, [activeTab?.id]);
 
   if (!activeChatId || !memoryReady) return null;
+
+  const displayedStatus = status.message
+    ? status
+    : memoryDirty
+      ? ({ message: "Saving notes...", tone: "muted" } satisfies NotepadStatus)
+      : null;
 
   const groups: Array<{ scope: NoteScope; tabs: NotepadTab[] }> = [
     { scope: "global", tabs: tabs.filter((tab) => tab.scope === "global") },
@@ -810,21 +862,23 @@ export function MeNotepadModule() {
             />
           )}
 
-          {status.message ? (
-            <div className={cn("me-notes-status", statusToneClass(status.tone))}>
-              <span className="min-w-0 flex-1">{status.message}</span>
-              <button
-                type="button"
-                aria-label="Dismiss status message"
-                title="Dismiss status message"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setStatus({ message: "", tone: "muted" });
-                }}
-                className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[var(--secondary)]/45 transition-colors hover:bg-[var(--secondary)]"
-              >
-                <X size="0.75rem" />
-              </button>
+          {displayedStatus ? (
+            <div className={cn("me-notes-status", statusToneClass(displayedStatus.tone))}>
+              <span className="min-w-0 flex-1">{displayedStatus.message}</span>
+              {status.message ? (
+                <button
+                  type="button"
+                  aria-label="Dismiss status message"
+                  title="Dismiss status message"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setStatus({ message: "", tone: "muted" });
+                  }}
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[var(--secondary)]/45 transition-colors hover:bg-[var(--secondary)]"
+                >
+                  <X size="0.75rem" />
+                </button>
+              ) : null}
             </div>
           ) : null}
 

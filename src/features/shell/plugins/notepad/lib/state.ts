@@ -14,9 +14,10 @@ import {
   type NotepadTab,
   type ScopeResolution,
 } from "../types";
-import { asRecord, makeId, nowIso, readString } from "./utils";
+import { asRecord, hasWindow, makeId, nowIso, readString } from "./utils";
 
 const BACKUP_TYPE = "marinara-plugin-notepad-backup";
+const MEMORY_SHADOW_STORAGE_KEY = "marinara-notepad-memory-shadow-v1";
 
 function isNullableString(value: unknown): boolean {
   return value === null || value === undefined || typeof value === "string";
@@ -82,6 +83,12 @@ function normalizeNotes(value: unknown): Record<string, string> {
   );
 }
 
+function timestampMs(value: unknown): number {
+  if (typeof value !== "string") return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function nextDuplicateTabId(baseId: string, usedIds: Set<string>): string {
   let index = 2;
   let candidate = `${baseId}-${index}`;
@@ -98,14 +105,17 @@ function normalizeUniqueTabs(
   requestedActiveTabId: unknown,
 ): NotepadMemoryState {
   const usedIds = new Set<string>();
+  const reservedIds = new Set(tabs.map((tab) => tab.id));
+  const unavailableIds = new Set(reservedIds);
   const remaps: Array<{ from: string; to: string }> = [];
   const uniqueTabs = tabs.map((tab) => {
     if (!usedIds.has(tab.id)) {
       usedIds.add(tab.id);
       return tab;
     }
-    const nextId = nextDuplicateTabId(tab.id, usedIds);
+    const nextId = nextDuplicateTabId(tab.id, unavailableIds);
     usedIds.add(nextId);
+    unavailableIds.add(nextId);
     remaps.push({ from: tab.id, to: nextId });
     return { ...tab, id: nextId };
   });
@@ -138,13 +148,60 @@ function normalizeMemoryState(value: unknown): NotepadMemoryState {
   return normalizeUniqueTabs(tabs, normalizeNotes(raw.notes), raw.activeTabId);
 }
 
-function memoryState(state: NotepadState): NotepadMemoryState {
+function notepadMemoryStateFromState(state: NotepadState): NotepadMemoryState {
   return {
     version: 1,
     activeTabId: state.activeTabId,
     tabs: state.tabs,
     notes: state.notes,
   };
+}
+
+function readMemoryStateShadow(): { revision: number; updatedAt: string; state: NotepadMemoryState } | null {
+  if (!hasWindow()) return null;
+  try {
+    const raw = asRecord(JSON.parse(window.localStorage.getItem(MEMORY_SHADOW_STORAGE_KEY) || "null"));
+    if (!raw || raw.version !== 1 || typeof raw.updatedAt !== "string" || !isBackupMemoryState(raw.state)) {
+      return null;
+    }
+    const revision = typeof raw.revision === "number" && Number.isFinite(raw.revision) ? raw.revision : 0;
+    return {
+      revision,
+      updatedAt: raw.updatedAt,
+      state: normalizeMemoryState(raw.state),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeMemoryStateShadow(state: NotepadMemoryState, revision: number): boolean {
+  if (!hasWindow()) return true;
+  try {
+    window.localStorage.setItem(
+      MEMORY_SHADOW_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        revision,
+        updatedAt: nowIso(),
+        state,
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearMemoryStateShadow(savedRevision: number): void {
+  if (!hasWindow()) return;
+  const shadow = readMemoryStateShadow();
+  if (shadow && shadow.revision > savedRevision) return;
+  try {
+    window.localStorage.removeItem(MEMORY_SHADOW_STORAGE_KEY);
+  } catch {
+    // A failed cleanup should not hide the successful plugin-memory save.
+  }
 }
 
 export function initialState(): NotepadState {
@@ -156,7 +213,10 @@ export function initialState(): NotepadState {
 
 export async function loadMemoryState(): Promise<NotepadMemoryState> {
   const record = await pluginMemoryApi.get<NotepadMemoryState>(ME_NOTES_MODULE_ID, NOTEPAD_MEMORY_KEY);
-  return normalizeMemoryState(record?.value);
+  const synced = normalizeMemoryState(record?.value);
+  const shadow = readMemoryStateShadow();
+  if (shadow && timestampMs(shadow.updatedAt) >= timestampMs(record?.updatedAt)) return shadow.state;
+  return synced;
 }
 
 export async function saveMemoryState(state: NotepadMemoryState): Promise<void> {
@@ -365,6 +425,6 @@ export function makeBackupPayload(state: NotepadState) {
     exportedAt: nowIso(),
     pluginId: ME_NOTES_MODULE_ID,
     key: NOTEPAD_MEMORY_KEY,
-    data: memoryState(state),
+    data: notepadMemoryStateFromState(state),
   };
 }
