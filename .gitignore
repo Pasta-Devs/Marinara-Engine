@@ -52,3 +52,11 @@ win/installer/*.exe
 # Local docker compose overrides (per-machine dev config)
 docker-compose.override.yml
 docker-compose.override.yaml
+
+# Personal / local dev files — never push
+.pi/
+src-tauri/target/
+
+# macOS metadata
+**/.DS_Store
+**/__MACOSX
