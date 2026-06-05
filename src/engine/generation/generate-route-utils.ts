@@ -253,6 +253,7 @@ function parseStoredGenerationParameters(raw: unknown): StoredGenerationParamete
     "maxContext",
     "frequencyPenalty",
     "presencePenalty",
+    "seed",
   ] as const) {
     const value = source[key];
     if (typeof value === "number" && Number.isFinite(value)) out[key] = value;
@@ -272,6 +273,9 @@ function parseStoredGenerationParameters(raw: unknown): StoredGenerationParamete
   if (typeof source.assistantPrefill === "string") out.assistantPrefill = source.assistantPrefill;
   if (isPlainRecord(source.customParameters)) {
     out.customParameters = source.customParameters;
+  }
+  if (isPlainRecord(source.custom_params)) {
+    out.custom_params = source.custom_params;
   }
   for (const key of [
     "squashSystemMessages",
@@ -295,8 +299,11 @@ export function mergeStoredGenerationParameters(...sources: Array<unknown>): Sto
   for (const source of sources) {
     const parsed = parseStoredGenerationParameters(source);
     if (!parsed) continue;
-    const { customParameters, ...rest } = parsed;
+    const { customParameters, custom_params: customParams, ...rest } = parsed;
     Object.assign(merged, rest);
+    if (customParams) {
+      merged.custom_params = mergeCustomParameters(merged.custom_params, customParams);
+    }
     if (customParameters) {
       merged.customParameters = mergeCustomParameters(merged.customParameters, customParameters);
     }

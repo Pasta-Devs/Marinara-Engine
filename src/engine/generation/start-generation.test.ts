@@ -365,7 +365,7 @@ describe("startGeneration conversation availability delays", () => {
 });
 
 describe("startGeneration context injection compatibility", () => {
-  it("randomizes fixed custom seeds when regenerating conversation swipes", async () => {
+  it("randomizes fixed integer seeds from every supported request location when regenerating conversation swipes", async () => {
     const random = vi.spyOn(Math, "random").mockReturnValue(0.25);
     const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
     const deps = createDeps("idle", {
@@ -388,9 +388,14 @@ describe("startGeneration context injection compatibility", () => {
         message: "Regenerate that.",
         regenerateMessageId: "assistant-1",
         parameters: {
+          seed: 1,
           customParameters: {
             seed: 4_294_967_295,
             repeat_penalty: 1.05,
+          },
+          custom_params: {
+            seed: 42,
+            dry_multiplier: 0.8,
           },
         },
       })) {
@@ -401,14 +406,63 @@ describe("startGeneration context injection compatibility", () => {
     }
 
     expect(capture.streamParameters[0]).toMatchObject({
+      seed: 1_073_741_823,
       customParameters: {
         seed: 1_073_741_823,
         repeat_penalty: 1.05,
       },
+      custom_params: {
+        seed: 1_073_741_823,
+        dry_multiplier: 0.8,
+      },
     });
   });
 
-  it("preserves fixed custom seeds on non-regenerate turns", async () => {
+  it("preserves nested non-integer custom seeds when regenerating conversation swipes", async () => {
+    const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
+    const deps = createDeps("idle", {
+      capture,
+      messages: {
+        "assistant-1": {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          characterId: "char-1",
+          content: "Previous response.",
+          createdAt: "2026-06-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      message: "Regenerate that.",
+      regenerateMessageId: "assistant-1",
+      parameters: {
+        seed: "4294967295",
+        customParameters: {
+          seed: 123.45,
+        },
+        custom_params: {
+          seed: null,
+        },
+      },
+    })) {
+      if (event.type === "done") break;
+    }
+
+    expect(capture.streamParameters[0]).not.toHaveProperty("seed");
+    expect(capture.streamParameters[0]).toMatchObject({
+      customParameters: {
+        seed: 123.45,
+      },
+      custom_params: {
+        seed: null,
+      },
+    });
+  });
+
+  it("preserves fixed integer seeds on non-regenerate turns", async () => {
     const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
     const deps = createDeps("idle", { capture, mode: "roleplay" });
 
@@ -416,8 +470,12 @@ describe("startGeneration context injection compatibility", () => {
       chatId: "chat-1",
       message: "Hi Mira.",
       parameters: {
+        seed: 1,
         customParameters: {
           seed: 4_294_967_295,
+        },
+        custom_params: {
+          seed: 42,
         },
       },
     })) {
@@ -425,8 +483,12 @@ describe("startGeneration context injection compatibility", () => {
     }
 
     expect(capture.streamParameters[0]).toMatchObject({
+      seed: 1,
       customParameters: {
         seed: 4_294_967_295,
+      },
+      custom_params: {
+        seed: 42,
       },
     });
   });
