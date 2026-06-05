@@ -50,21 +50,6 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([bytesToArrayBuffer(base64ToBytes(base64))], { type: mimeType });
 }
 
-export function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("URL binary request returned an invalid file payload."));
-      }
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("URL binary request failed to read the file."));
-    reader.readAsDataURL(blob);
-  });
-}
-
 export const urlBinaryApi = {
   load: async (url: string, fallbackMimeType = "application/octet-stream"): Promise<Blob> => {
     const response = await invokeTauri<unknown>("load_url_binary", {

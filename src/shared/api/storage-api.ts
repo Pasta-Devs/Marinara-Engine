@@ -12,9 +12,10 @@ import {
   resolveGalleryFileUrl,
   type RemoteManagedAssetKind,
 } from "./local-file-api";
+import { blobToDataUrl } from "../lib/url-blob";
 import { invokeTauri } from "./tauri-client";
 import { trackerSnapshotApi, type TrackerSnapshotInput } from "./tracker-snapshot-api";
-import { blobToDataUrl, urlBinaryApi } from "./url-binary-api";
+import { urlBinaryApi } from "./url-binary-api";
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
@@ -247,7 +248,7 @@ async function loadImageUrlAsDataUrl(
     if (mimeType && !mimeType.startsWith("image/")) {
       throw new Error(`${sourceLabel} resolved to ${mimeType}, not an image.`);
     }
-    return blobToDataUrl(blob);
+    return blobToDataUrl(blob, "URL binary request failed to read the file.");
   } catch (error) {
     throw new Error(`Failed to load ${sourceLabel}: ${errorMessage(error)}`);
   }
