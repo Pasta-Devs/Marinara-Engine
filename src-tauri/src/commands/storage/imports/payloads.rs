@@ -1,6 +1,11 @@
 use super::*;
 use std::io::{Cursor, Read};
 
+/// Decompressed-size cap for a .charx `card.json` entry (matches MAX_DATA_JSON_BYTES).
+const MAX_CHARX_CARD_JSON_BYTES: usize = 5 * 1024 * 1024;
+/// Decompressed-size cap for an embedded .charx image/icon asset.
+const MAX_CHARX_ASSET_BYTES: usize = 50 * 1024 * 1024;
+
 fn parse_chara_text(text: &str) -> Option<Value> {
     let trimmed = text.trim();
     parse_json_text(trimmed).ok().or_else(|| {
@@ -84,14 +89,30 @@ fn extract_chara_from_png(bytes: &[u8]) -> AppResult<Value> {
         .ok_or_else(|| AppError::invalid_input("No character data found in PNG. Make sure this is a valid character card with embedded metadata."))
 }
 
-pub(super) fn read_zip_entry(bytes: &[u8], name: &str) -> AppResult<Option<Vec<u8>>> {
+/// Read a single ZIP entry with a hard cap on its decompressed size. Rejects on the
+/// declared uncompressed size before allocating, then streams with `take(limit + 1)`
+/// so a high-compression-ratio (zip-bomb) entry can't exceed the cap even if the
+/// header understates it. Mirrors copy_limited_profile_zip_asset_with_limit in
+/// profile/assets.rs.
+pub(super) fn read_zip_entry_with_limit(
+    bytes: &[u8],
+    name: &str,
+    limit: usize,
+) -> AppResult<Option<Vec<u8>>> {
     let cursor = Cursor::new(bytes);
     let mut zip_reader = zip::ZipArchive::new(cursor)
         .map_err(|error| AppError::invalid_input(format!("Could not read ZIP package: {error}")))?;
     let result = match zip_reader.by_name(name) {
-        Ok(mut file) => {
+        Ok(file) => {
+            if file.size() > limit as u64 {
+                return Err(zip_entry_too_large_error(name, file.size(), limit));
+            }
             let mut contents = Vec::new();
-            file.read_to_end(&mut contents)?;
+            let mut limited = file.take((limit as u64).saturating_add(1));
+            limited.read_to_end(&mut contents)?;
+            if contents.len() > limit {
+                return Err(zip_entry_too_large_error(name, contents.len() as u64, limit));
+            }
             Ok(Some(contents))
         }
         Err(zip::result::ZipError::FileNotFound) => Ok(None),
@@ -100,6 +121,12 @@ pub(super) fn read_zip_entry(bytes: &[u8], name: &str) -> AppResult<Option<Vec<u
         ))),
     };
     result
+}
+
+fn zip_entry_too_large_error(name: &str, size: u64, limit: usize) -> AppError {
+    AppError::invalid_input(format!(
+        "ZIP entry {name} is too large ({size} bytes; limit is {limit} bytes)"
+    ))
 }
 
 pub(super) fn read_zip_entry_names(bytes: &[u8]) -> AppResult<Vec<String>> {
@@ -155,7 +182,7 @@ fn resolve_charx_asset(bytes: &[u8], uri: &str, ext: Option<&str>) -> AppResult<
     let Some(zip_path) = zip_path else {
         return Ok(None);
     };
-    let Some(asset) = read_zip_entry(bytes, zip_path)? else {
+    let Some(asset) = read_zip_entry_with_limit(bytes, zip_path, MAX_CHARX_ASSET_BYTES)? else {
         return Ok(None);
     };
     let mime = ext
@@ -176,7 +203,8 @@ fn resolve_charx_asset(bytes: &[u8], uri: &str, ext: Option<&str>) -> AppResult<
 }
 
 fn extract_charx(bytes: &[u8]) -> AppResult<Value> {
-    let Some(card_bytes) = read_zip_entry(bytes, "card.json")? else {
+    let Some(card_bytes) = read_zip_entry_with_limit(bytes, "card.json", MAX_CHARX_CARD_JSON_BYTES)?
+    else {
         return Err(AppError::invalid_input(
             "Invalid .charx file: missing card.json at root.",
         ));
@@ -211,7 +239,7 @@ fn extract_charx(bytes: &[u8]) -> AppResult<Value> {
             "assets/icon/images/main.webp",
             "assets/icon/images/main.jpg",
         ] {
-            if let Some(asset) = read_zip_entry(bytes, fallback)? {
+            if let Some(asset) = read_zip_entry_with_limit(bytes, fallback, MAX_CHARX_ASSET_BYTES)? {
                 let mime = image_mime_from_path(fallback);
                 avatar = Some(format!(
                     "data:{mime};base64,{}",
@@ -335,4 +363,52 @@ pub(super) fn import_payload(body: Value) -> AppResult<Value> {
         return Ok(payload);
     }
     Ok(body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::CompressionMethod;
+
+    fn zip_with(name: &str, data: &[u8], method: CompressionMethod) -> Vec<u8> {
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer
+            .start_file(name, SimpleFileOptions::default().compression_method(method))
+            .expect("start zip entry");
+        writer.write_all(data).expect("write zip entry");
+        writer.finish().expect("finish zip").into_inner()
+    }
+
+    #[test]
+    fn read_zip_entry_with_limit_rejects_oversized_entry() {
+        // 4 KiB of zeroes compresses to almost nothing but decompresses past the cap.
+        let zip = zip_with("big.bin", &vec![0u8; 4096], CompressionMethod::Deflated);
+        let error = read_zip_entry_with_limit(&zip, "big.bin", 1024)
+            .expect_err("oversized entry must be rejected");
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("too large"));
+    }
+
+    #[test]
+    fn read_zip_entry_with_limit_accepts_within_limit() {
+        let zip = zip_with("note.txt", b"hello world", CompressionMethod::Stored);
+        let result = read_zip_entry_with_limit(&zip, "note.txt", 1024).expect("within-limit read");
+        assert_eq!(result.as_deref(), Some(&b"hello world"[..]));
+    }
+
+    #[test]
+    fn read_zip_entry_reads_full_entry_without_a_cap() {
+        let zip = zip_with("data.json", b"{\"ok\":true}", CompressionMethod::Deflated);
+        let result = read_zip_entry_with_limit(&zip, "data.json", usize::MAX).expect("uncapped read");
+        assert_eq!(result.as_deref(), Some(&b"{\"ok\":true}"[..]));
+    }
+
+    #[test]
+    fn read_zip_entry_with_limit_returns_none_for_missing_entry() {
+        let zip = zip_with("present.txt", b"x", CompressionMethod::Stored);
+        let result = read_zip_entry_with_limit(&zip, "absent.txt", 1024).expect("missing read");
+        assert!(result.is_none());
+    }
 }
