@@ -101,6 +101,12 @@ interface LoadedActivatedLore {
   previousEntryStateOverrides: Map<string, LorebookEntryStateOverride>;
 }
 
+export interface ActiveLorebookIncludedPositions {
+  worldInfoBefore?: boolean;
+  worldInfoAfter?: boolean;
+  depth?: boolean;
+}
+
 export interface ActiveLorebookScannerInput {
   storage: StorageGateway;
   chat: JsonRecord;
@@ -113,6 +119,7 @@ export interface ActiveLorebookScannerInput {
   embeddingSource?: LorebookEmbeddingSource | null;
   ignoreTiming?: boolean;
   contentResolver?: LorebookContentResolver;
+  includedPositions?: ActiveLorebookIncludedPositions;
 }
 
 export interface ActiveLorebookScannerResult {
@@ -518,6 +525,13 @@ export async function loadLorebookEntriesForActivationBatch(
   );
 }
 
+function lorebookEntryIncludedByPosition(entry: LorebookEntry, positions?: ActiveLorebookIncludedPositions): boolean {
+  if (!positions) return true;
+  if (entry.position <= 0) return positions.worldInfoBefore === true;
+  if (entry.position === 1) return positions.worldInfoAfter === true;
+  return positions.depth !== false;
+}
+
 function lorebookBudgetSelectionOrder(a: ActivatedEntry, b: ActivatedEntry): number {
   if (a.entry.constant && !b.entry.constant) return -1;
   if (!a.entry.constant && b.entry.constant) return 1;
@@ -812,9 +826,9 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
     const id = readString(book.id);
     return {
       book,
-      entries: (entriesForActivationByBookId.get(id) ?? []).map((entry) =>
-        entryWithChatState(entry, previousEntryStateOverrides),
-      ),
+      entries: (entriesForActivationByBookId.get(id) ?? [])
+        .map((entry) => entryWithChatState(entry, previousEntryStateOverrides))
+        .filter((entry) => lorebookEntryIncludedByPosition(entry, input.includedPositions)),
     };
   });
   const vectorizedEntryCount = entriesByBook.reduce(
