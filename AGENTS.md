@@ -68,4 +68,3 @@ For code changes, final responses must include behavior changed, primary files/m
 - `skills/marinara-legacy-parity-audit`: Repo-local parityscan workflow for comparing refactor features, contracts, storage, runtime behavior, and product surfaces against legacy Marinara.
 - `skills/marinara-architecture-guard`: Architecture guardrails for placement, import direction, and remote-capable command routing.
 - `skills/marinara-agent-workflow`: Agent workflow references, source maps, handoff formats, and verification discipline.
-

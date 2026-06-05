@@ -1,0 +1,275 @@
+.me-notes-root {
+  position: fixed;
+  right: 1rem;
+  bottom: 4.5rem;
+  z-index: 9998;
+  color: var(--foreground);
+}
+
+.me-notes-collapsed-button {
+  display: inline-flex;
+  min-width: 0;
+  width: 100%;
+  min-height: 2.25rem;
+  cursor: grab;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--card);
+  padding: 0.375rem 0.625rem;
+  box-shadow: 0 1.25rem 2.5rem rgb(0 0 0 / 0.32);
+  font-size: 0.75rem;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.me-notes-collapsed-button:hover {
+  background: var(--secondary);
+}
+
+.me-notes-collapsed-button:active {
+  cursor: grabbing;
+}
+
+.me-notes-panel {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 22.5rem;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  box-shadow: 0 1rem 3rem rgb(0 0 0 / 0.42);
+}
+
+.me-notes-header {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  cursor: grab;
+  align-items: center;
+  gap: 0.375rem;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(118deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--secondary) 54%, var(--card)), var(--card));
+  padding: 0.375rem 0.5rem;
+}
+
+.me-notes-header:active {
+  cursor: grabbing;
+}
+
+.me-notes-header-action,
+.me-notes-primary-action,
+.me-notes-tabs-toggle {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.me-notes-header-action {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--secondary) 35%, transparent);
+  color: var(--muted-foreground);
+}
+
+.me-notes-header-action:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.me-notes-primary-action {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+}
+
+.me-notes-primary-action:hover {
+  opacity: 0.9;
+}
+
+.me-notes-menu-popover {
+  position: absolute;
+  top: 2rem;
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 0.125rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  padding: 0.25rem;
+  box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.28);
+  font-size: 0.75rem;
+}
+
+.me-notes-menu-popover--actions {
+  width: 10rem;
+}
+
+.me-notes-menu-popover--tabs {
+  width: 11rem;
+}
+
+.me-notes-menu-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.me-notes-menu-item:hover {
+  background: var(--secondary);
+}
+
+.me-notes-menu-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.me-notes-menu-item--danger {
+  color: var(--destructive);
+}
+
+.me-notes-tabs-toggle {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+
+.me-notes-tabs-toggle:hover {
+  background: var(--accent);
+}
+
+.me-notes-toolbar-button {
+  display: inline-flex;
+  min-width: 1.45rem;
+  min-height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--secondary) 45%, transparent);
+  padding: 0 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.625rem;
+  font-weight: 900;
+  line-height: 1;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.me-notes-toolbar-button:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.me-notes-toolbar-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.me-notes-resize-handle {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  width: 1rem;
+  height: 1rem;
+  cursor: nwse-resize;
+  opacity: 0.55;
+}
+
+.me-notes-resize-handle:hover {
+  opacity: 0.9;
+}
+
+.me-notes-resize-handle::before {
+  content: "";
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-right: 2px solid var(--muted-foreground);
+  border-bottom: 2px solid var(--muted-foreground);
+}
+
+.me-notes-status {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 1rem;
+  left: 0.75rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--card);
+  padding: 0.5rem 0.625rem;
+  box-shadow: 0 0.75rem 1.5rem rgb(0 0 0 / 0.28);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.me-notes-status--muted {
+  color: var(--muted-foreground);
+}
+
+.me-notes-status--ok {
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  color: var(--primary);
+}
+
+.me-notes-status--error {
+  border-color: color-mix(in srgb, var(--destructive) 40%, transparent);
+  color: var(--destructive);
+}
+
+@media (max-width: 640px) {
+  .me-notes-root {
+    right: 0.75rem;
+    left: 0.75rem;
+  }
+
+  .me-notes-root[data-open="true"] {
+    bottom: 4.25rem;
+  }
+
+  .me-notes-root[data-open="false"] {
+    left: auto;
+  }
+
+  .me-notes-panel {
+    max-height: 68vh;
+    min-height: 0;
+  }
+}
