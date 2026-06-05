@@ -23,10 +23,10 @@
     "originalReproCommand": "pnpm test src/engine/generation/start-generation.test.ts",
     "originalReproEvidence": "Passed: the new regression captures a conversation regenerate stream request and proves customParameters.seed changes from 4294967295 to a fresh seed; the adjacent non-regenerate guard preserves fixed seeds.",
     "targetedCommand": "pnpm test src/engine/generation/start-generation.test.ts",
-    "targetedEvidence": "Passed after upstream/refactor merge: 11 tests in start-generation.test.ts.",
+    "targetedEvidence": "Passed after CodeRabbit follow-up: 11 tests in start-generation.test.ts.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Passed after upstream/refactor merge: line endings, architecture, frontend typecheck, Rust check, docs, discovery, launcher safety, and unused-code check.",
+    "baselineEvidence": "Passed after CodeRabbit follow-up: line endings, architecture, frontend typecheck, Rust check, docs, discovery, launcher safety, and unused-code check.",
     "visualProof": "scratch/bugfix-verification.json"
   },
   "manualBlockers": [],
@@ -52,10 +52,18 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": false,
     "claimBoundariesProven": true,
-    "notes": "Focused request-path proof, proof gate, Bunny local review, and pnpm check passed locally before merge; after upstream/refactor merge, focused start-generation tests, proof gate, and pnpm check passed again. PR CI, Bunny, and CodeRabbit must be rechecked after pushing the merge."
+    "notes": "Focused request-path proof, proof gate, Bunny local review, and pnpm check passed locally before merge; after upstream/refactor merge and CodeRabbit follow-up, focused start-generation tests, proof gate, and pnpm check passed again. PR CI, Bunny, and CodeRabbit must be rechecked after pushing the follow-up."
   },
   "bunny": {
     "status": "local-pass-after-upstream-merge",
     "evidence": "Bunny local review remains pass after upstream/refactor merge: product code merged cleanly, only proof ledger conflicted and was resolved to issue #2243, focused start-generation tests/proof gate/pnpm check passed."
+  },
+  "reviewThreads": {
+    "0": {
+      "finding": "CodeRabbit: test coverage covered defensive seed branches not reachable through startGeneration",
+      "classification": "in-scope",
+      "disposition": "fixed",
+      "reason": "Scoped rerollSeedParameters to the reachable merged chat parameter shape, customParameters.seed, instead of keeping untested top-level/custom_params defensive branches."
+    }
   }
 }

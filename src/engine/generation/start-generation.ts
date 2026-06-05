@@ -3226,16 +3226,11 @@ function rerollSeedParameters(input: StartGenerationInput, parameters: Record<st
     return nextSeed;
   };
 
-  if (isIntegerSeed(parameters.seed)) {
-    nextParameters = { ...nextParameters, seed: freshSeed() };
-  }
-
-  for (const key of ["customParameters", "custom_params"]) {
-    const custom = parseRecord(parameters[key]);
-    if (!isIntegerSeed(custom.seed)) continue;
+  const custom = parseRecord(parameters.customParameters);
+  if (isIntegerSeed(custom.seed)) {
     nextParameters = {
       ...nextParameters,
-      [key]: {
+      customParameters: {
         ...custom,
         seed: freshSeed(),
       },
