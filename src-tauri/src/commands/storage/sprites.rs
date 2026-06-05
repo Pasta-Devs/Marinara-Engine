@@ -519,12 +519,12 @@ pub(crate) fn clean_saved_sprites(
                 "entries": entries
             }))?,
         )?;
+        prune_sprite_cleanup_restore_points(
+            &dir,
+            SPRITE_CLEANUP_RESTORE_POINT_LIMIT,
+            Some(restore_point_id.as_str()),
+        );
     }
-    prune_sprite_cleanup_restore_points(
-        &dir,
-        SPRITE_CLEANUP_RESTORE_POINT_LIMIT,
-        (processed > 0).then_some(restore_point_id.as_str()),
-    );
     Ok(json!({
         "processed": processed,
         "failed": failed,
@@ -2592,6 +2592,19 @@ mod sprite_cleanup_restore_point_tests {
         (root, sprite_dir)
     }
 
+    fn test_state(label: &str) -> (AppState, PathBuf, PathBuf) {
+        let root = env::temp_dir().join(format!(
+            "marinara-sprite-restore-prune-{label}-{}",
+            now_millis()
+        ));
+        let data_dir = root.join("data");
+        let state = AppState::from_data_dir_with_resource_dir(data_dir, Vec::new(), None)
+            .expect("test state should initialize");
+        let sprite_dir = state.data_dir.join("sprites").join("character-1");
+        fs::create_dir_all(&sprite_dir).expect("sprite dir should be created");
+        (state, root, sprite_dir)
+    }
+
     fn seed_restore_point(sprite_dir: &Path, id: &str) -> PathBuf {
         let path = sprite_cleanup_restore_points_dir(sprite_dir).join(id);
         fs::create_dir_all(&path).expect("restore point dir should be created");
@@ -2617,6 +2630,74 @@ mod sprite_cleanup_restore_point_tests {
         assert!(newest.exists());
         assert!(manual.exists());
         assert!(loose_file.exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn clean_saved_sprites_does_not_prune_restore_points_when_nothing_processed() {
+        let (state, root, sprite_dir) = test_state("all-failed");
+        let old_points = (1..=6)
+            .map(|index| seed_restore_point(&sprite_dir, &format!("{}-old", index * 100)))
+            .collect::<Vec<_>>();
+        fs::write(sprite_dir.join("neutral.gif"), b"not cleaned")
+            .expect("unsupported sprite should be written");
+
+        let result =
+            clean_saved_sprites(&state, "character-1", json!({ "engine": "builtin" }), None)
+                .expect("all-failed cleanup should still return partial result");
+
+        assert_eq!(result.get("processed").and_then(Value::as_u64), Some(0));
+        assert!(result.get("restorePointId").is_some_and(Value::is_null));
+        assert_eq!(
+            result.get("failed").and_then(Value::as_array).map(Vec::len),
+            Some(1)
+        );
+        for point in old_points {
+            assert!(point.exists());
+        }
+        assert_eq!(collect_sprite_cleanup_restore_points(&sprite_dir).len(), 6);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn clean_saved_sprites_prunes_after_manifest_backed_restore_point_exists() {
+        let (state, root, sprite_dir) = test_state("success");
+        let old_points = (1..=5)
+            .map(|index| seed_restore_point(&sprite_dir, &format!("{}-old", index * 100)))
+            .collect::<Vec<_>>();
+        let png = encode_png(DynamicImage::ImageRgba8(RgbaImage::from_pixel(
+            2,
+            2,
+            Rgba([255, 255, 255, 255]),
+        )))
+        .expect("sprite png should encode");
+        fs::write(sprite_dir.join("neutral.png"), png).expect("sprite should be written");
+
+        let result = clean_saved_sprites(
+            &state,
+            "character-1",
+            json!({ "engine": "builtin", "expressions": ["neutral"] }),
+            None,
+        )
+        .expect("successful cleanup should return result");
+
+        let restore_point_id = result
+            .get("restorePointId")
+            .and_then(Value::as_str)
+            .expect("successful cleanup should return restore point");
+        let restore_point_dir =
+            sprite_cleanup_restore_points_dir(&sprite_dir).join(restore_point_id);
+        assert!(restore_point_dir.join("manifest.json").exists());
+        assert!(!old_points[0].exists());
+        for point in old_points.iter().skip(1) {
+            assert!(point.exists());
+        }
+        assert_eq!(
+            collect_sprite_cleanup_restore_points(&sprite_dir).len(),
+            SPRITE_CLEANUP_RESTORE_POINT_LIMIT
+        );
 
         let _ = fs::remove_dir_all(root);
     }
