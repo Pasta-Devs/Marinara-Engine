@@ -94,6 +94,13 @@ fn run_chat_id(run: &Value) -> Option<&str> {
         .and_then(Value::as_str)
 }
 
+fn memory_chat_id(memory: &Value) -> Option<&str> {
+    memory
+        .get("chatId")
+        .or_else(|| memory.get("chat_id"))
+        .and_then(Value::as_str)
+}
+
 fn run_agent_config_id(run: &Value) -> Option<&str> {
     run.get("agentConfigId")
         .or_else(|| run.get("agent_config_id"))
@@ -347,13 +354,7 @@ pub(crate) fn clear_agent_runs_and_memory_for_chat(
         }
     }
 
-    let deleted_runs = state
-        .storage
-        .delete_where_matching("agent-runs", |row| run_chat_id(row) == Some(chat_id))?;
-
-    let deleted_memory = state.storage.delete_where_matching("agent-memory", |row| {
-        row.get("chatId").and_then(Value::as_str) == Some(chat_id)
-    })?;
+    let (deleted_runs, deleted_memory) = delete_agent_bookkeeping_rows_for_chat(state, chat_id)?;
 
     let preserved_secret_plot_arc = secret_plot_config_id.is_some() && preserved_arc.is_some();
     if let (Some(config_id), Some(arc)) = (secret_plot_config_id, preserved_arc) {
@@ -365,6 +366,25 @@ pub(crate) fn clear_agent_runs_and_memory_for_chat(
         "deletedMemory": deleted_memory,
         "preservedSecretPlotArc": preserved_secret_plot_arc
     }))
+}
+
+pub(crate) fn delete_agent_bookkeeping_for_chat(state: &AppState, chat_id: &str) -> AppResult<()> {
+    delete_agent_bookkeeping_rows_for_chat(state, chat_id).map(|_| ())
+}
+
+fn delete_agent_bookkeeping_rows_for_chat(
+    state: &AppState,
+    chat_id: &str,
+) -> AppResult<(usize, usize)> {
+    let deleted_runs = state
+        .storage
+        .delete_where_matching("agent-runs", |row| run_chat_id(row) == Some(chat_id))?;
+
+    let deleted_memory = state
+        .storage
+        .delete_where_matching("agent-memory", |row| memory_chat_id(row) == Some(chat_id))?;
+
+    Ok((deleted_runs, deleted_memory))
 }
 
 fn read_agent_memory(

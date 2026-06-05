@@ -1,3 +1,4 @@
+use super::agents;
 use super::game_state_snapshots;
 use super::media_uploads::remove_managed_record_file;
 use super::message_swipes as message_swipe_storage;
@@ -1325,6 +1326,9 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     let delete_id_set = delete_ids.iter().cloned().collect::<HashSet<_>>();
     delete_gallery_for_chats(state, &delete_id_set)?;
     message_swipe_storage::delete_message_rows_for_chats_with_swipes(state, &delete_id_set)?;
+    for delete_id in &delete_ids {
+        agents::delete_agent_bookkeeping_for_chat(state, delete_id)?;
+    }
 
     for delete_id in &delete_ids {
         state.storage.delete("chats", delete_id)?;
@@ -2052,6 +2056,158 @@ mod tests {
         assert!(
             !image_path.exists(),
             "managed gallery file should be removed"
+        );
+    }
+
+    #[test]
+    fn delete_chat_removes_agent_bookkeeping_for_deleted_chat_scope() {
+        let state = test_state("agent-bookkeeping-delete");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "origin-chat",
+                    "name": "Origin",
+                    "metadata": { "activeSceneChatId": "scene-chat" }
+                }),
+            )
+            .expect("origin chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "scene-chat",
+                    "name": "Scene",
+                    "metadata": { "sceneOriginChatId": "origin-chat" }
+                }),
+            )
+            .expect("scene chat should be created");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "other-chat",
+                    "name": "Other"
+                }),
+            )
+            .expect("other chat should be created");
+        state
+            .storage
+            .upsert_with_id(
+                "agents",
+                "secret-plot-agent",
+                json!({
+                    "id": "secret-plot-agent",
+                    "type": "secret-plot-driver",
+                    "name": "Secret Plot Driver",
+                    "settings": {}
+                }),
+            )
+            .expect("secret plot agent should write");
+        for (id, chat_id) in [
+            ("run-origin", "origin-chat"),
+            ("run-scene", "scene-chat"),
+            ("run-other", "other-chat"),
+        ] {
+            state
+                .storage
+                .upsert_with_id(
+                    "agent-runs",
+                    id,
+                    json!({
+                        "id": id,
+                        "agentConfigId": "agent-director",
+                        "chatId": chat_id,
+                        "success": true
+                    }),
+                )
+                .expect("agent run should write");
+        }
+        for (id, chat_id) in [
+            ("memory-origin", "origin-chat"),
+            ("memory-scene", "scene-chat"),
+            ("memory-other", "other-chat"),
+        ] {
+            state
+                .storage
+                .upsert_with_id(
+                    "agent-memory",
+                    id,
+                    json!({
+                        "id": id,
+                        "agentConfigId": "agent-director",
+                        "chatId": chat_id,
+                        "key": "note",
+                        "value": "kept"
+                    }),
+                )
+                .expect("agent memory should write");
+        }
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "memory-origin-arc",
+                json!({
+                    "id": "memory-origin-arc",
+                    "agentConfigId": "secret-plot-agent",
+                    "chatId": "origin-chat",
+                    "key": "overarchingArc",
+                    "value": "delete me too"
+                }),
+            )
+            .expect("secret plot memory should write");
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "memory-scene-legacy",
+                json!({
+                    "id": "memory-scene-legacy",
+                    "agent_config_id": "agent-director",
+                    "chat_id": "scene-chat",
+                    "key": "legacy-note",
+                    "value": "delete legacy row too"
+                }),
+            )
+            .expect("legacy agent memory should write");
+
+        delete_chat_with_messages(&state, "origin-chat").expect("chat delete should succeed");
+
+        let mut remaining_run_ids = state
+            .storage
+            .list("agent-runs")
+            .expect("agent runs should be readable")
+            .iter()
+            .filter_map(|run| run.get("id").and_then(Value::as_str).map(ToOwned::to_owned))
+            .collect::<Vec<_>>();
+        remaining_run_ids.sort();
+        assert_eq!(
+            remaining_run_ids,
+            vec!["run-other"],
+            "agent runs should only remain for chats outside the delete scope"
+        );
+
+        let mut remaining_memory_ids = state
+            .storage
+            .list("agent-memory")
+            .expect("agent memory should be readable")
+            .iter()
+            .filter_map(|memory| {
+                memory
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+            })
+            .collect::<Vec<_>>();
+        remaining_memory_ids.sort();
+        assert_eq!(
+            remaining_memory_ids,
+            vec!["memory-other"],
+            "agent memory should only remain for chats outside the delete scope"
         );
     }
 
