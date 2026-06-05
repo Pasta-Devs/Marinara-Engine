@@ -941,7 +941,7 @@ function journalFromMeta(meta: Record<string, unknown>): Journal {
 function journalFromChat(
   chat: Chat,
   meta: Record<string, unknown> = chatMeta(chat),
-  options: { includeCurrentLocation?: boolean } = {},
+  options: { includeCurrentLocation?: boolean; syncInventory?: boolean } = {},
 ): Journal {
   const gameState = asRecord((chat as { gameState?: unknown }).gameState);
   const playerStats = gameState.playerStats == null ? null : clonePlayerStats(gameState.playerStats);
@@ -950,6 +950,7 @@ function journalFromChat(
     playerStats,
     currentLocation:
       options.includeCurrentLocation === true && typeof gameState.location === "string" ? gameState.location : null,
+    syncInventory: options.syncInventory,
   });
 }
 
@@ -2860,7 +2861,7 @@ export const gameApi = {
     const chat = await getChat(data.chatId);
     const meta = chatMeta(chat);
     const journal = applyJournalEntry(
-      journalFromChat(chat, meta, { includeCurrentLocation: false }),
+      journalFromChat(chat, meta, { includeCurrentLocation: false, syncInventory: false }),
       data.type,
       data.data,
     );

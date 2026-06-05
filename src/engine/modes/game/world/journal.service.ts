@@ -1,5 +1,5 @@
 import type { GameNpc, SessionSummary, GameMap } from "../../../contracts/types/game";
-import type { PlayerStats, QuestProgress } from "../../../contracts/types/game-state";
+import type { InventoryItem, PlayerStats, QuestProgress } from "../../../contracts/types/game-state";
 
 // ── Types ──
 
@@ -249,6 +249,64 @@ function readText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function inventoryNameKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function inventoryQuantity(value: unknown): number {
+  const quantity = typeof value === "number" ? value : Number(value ?? 1);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
+}
+
+function journaledInventoryQuantities(journal: Journal): Map<string, number> {
+  const quantities = new Map<string, number>();
+  for (const entry of journal.inventoryLog) {
+    const key = inventoryNameKey(entry.item);
+    if (!key) continue;
+    const quantity = inventoryQuantity(entry.quantity);
+    const current = quantities.get(key) ?? 0;
+    const nextQuantity =
+      entry.action === "acquired" ? current + quantity : Math.max(0, current - Math.max(1, quantity));
+    quantities.set(key, nextQuantity);
+  }
+  return quantities;
+}
+
+function currentInventoryQuantities(items: readonly InventoryItem[]): Map<string, { name: string; quantity: number }> {
+  const quantities = new Map<string, { name: string; quantity: number }>();
+  for (const item of items) {
+    const name = readText(item.name);
+    const key = inventoryNameKey(name);
+    const quantity = inventoryQuantity(item.quantity);
+    if (!key || quantity <= 0) continue;
+    const current = quantities.get(key);
+    quantities.set(key, { name: current?.name ?? name, quantity: (current?.quantity ?? 0) + quantity });
+  }
+  return quantities;
+}
+
+function syncInventoryEntriesFromPlayerStats(journal: Journal, playerStats: PlayerStats | null | undefined): Journal {
+  if (!playerStats?.inventory?.length) return journal;
+
+  let next = journal;
+  const journaled = journaledInventoryQuantities(journal);
+  for (const [key, item] of currentInventoryQuantities(playerStats.inventory)) {
+    const journaledQuantity = journaled.get(key) ?? 0;
+    if (item.quantity <= journaledQuantity) continue;
+    const addedQuantity = item.quantity - journaledQuantity;
+    next = addInventoryEntry(next, item.name, "acquired", addedQuantity);
+    journaled.set(key, item.quantity);
+  }
+  return next;
+}
+
+export function syncInventoryJournalFromPlayerStats(
+  journal: Journal,
+  playerStats: PlayerStats | null | undefined,
+): Journal {
+  return syncInventoryEntriesFromPlayerStats(journal, playerStats);
+}
+
 function normalizeJournalEntry(
   type: string,
   data: Record<string, unknown>,
@@ -395,6 +453,7 @@ export function syncJournalFromGameState(
     gameNpcs?: GameNpc[] | null;
     playerStats?: PlayerStats | null;
     currentLocation?: string | null;
+    syncInventory?: boolean;
   },
 ): Journal {
   let next = journal;
@@ -414,6 +473,9 @@ export function syncJournalFromGameState(
   }
   for (const quest of options.playerStats?.activeQuests ?? []) {
     next = upsertQuest(next, questJournalData(quest));
+  }
+  if (options.syncInventory !== false) {
+    next = syncInventoryEntriesFromPlayerStats(next, options.playerStats);
   }
   return next;
 }
