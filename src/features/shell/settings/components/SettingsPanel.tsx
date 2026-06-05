@@ -109,6 +109,7 @@ import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploa
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
+import { TrackerCardColorSettings } from "../../../runtime/tracker/shell";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../../../shared/lib/character-import";
 import { ProfileImportSection } from "./ProfileImportSection";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
@@ -1726,6 +1727,8 @@ function AppearanceSettings() {
         trackerTemperatureUnit={trackerTemperatureUnit}
         setTrackerTemperatureUnit={setTrackerTemperatureUnit}
       />
+
+      <TrackerCardColorSettings />
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1.5">

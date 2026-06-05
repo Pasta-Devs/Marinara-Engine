@@ -296,6 +296,25 @@ fn prune_branch_summary_metadata(chat: &mut Value) {
     }
 }
 
+fn initialize_branch_display_name(chat: &mut Value) {
+    let Some(object) = chat.as_object_mut() else {
+        return;
+    };
+    let metadata = object
+        .entry("metadata".to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !metadata.is_object() {
+        *metadata = Value::Object(Map::new());
+    }
+    let Some(metadata) = metadata.as_object_mut() else {
+        return;
+    };
+    metadata.insert(
+        "branchName".to_string(),
+        Value::String("New Branch".to_string()),
+    );
+}
+
 fn object_extra(value: Option<&Value>) -> Option<Value> {
     json_object_value(value)
 }
@@ -622,10 +641,25 @@ pub(crate) fn bulk_delete_messages(
     let ids = body
         .get("messageIds")
         .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+        .ok_or_else(|| AppError::invalid_input("messageIds must be an array of strings"))?;
+    if ids.iter().any(|id| !id.is_string()) {
+        return Err(AppError::invalid_input(
+            "messageIds must be an array of strings",
+        ));
+    }
     let mut deleted_ids = Vec::new();
-    for id in ids.iter().filter_map(Value::as_str) {
+    let requested_ids: Vec<&str> = ids
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .collect();
+    if requested_ids.is_empty() {
+        return Err(AppError::invalid_input(
+            "Deleting messages requires at least one message",
+        ));
+    }
+    for id in requested_ids {
         // Only delete messages that actually belong to this chat. Without the chatId check a
         // caller could pass message ids from another chat and destroy that chat's messages
         // (and their swipe sidecars) — the pre-scan must gate on parentage, not mere existence.
@@ -934,6 +968,134 @@ pub(crate) fn set_chat_array_field(
         .patch("chats", chat_id, json!({ field: values }))
 }
 
+fn chat_connected_note_values(chat: &Value) -> Vec<Value> {
+    match chat.get("notes") {
+        Some(Value::Array(values)) => values.clone(),
+        Some(Value::String(raw)) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .and_then(|parsed| parsed.as_array().cloned())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+fn string_field(value: &Value, field: &str) -> Option<String> {
+    value
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn connected_note_belongs_to_pair(
+    note: &Value,
+    chat_id: &str,
+    partner_ids: &HashSet<String>,
+) -> bool {
+    let note_type = note.get("type").and_then(Value::as_str).unwrap_or("");
+    if note_type != "note" && note_type != "influence" {
+        return false;
+    }
+    let Some(source_chat_id) = string_field(note, "sourceChatId") else {
+        return false;
+    };
+    let Some(target_chat_id) = string_field(note, "targetChatId") else {
+        return false;
+    };
+    (source_chat_id == chat_id && partner_ids.contains(&target_chat_id))
+        || (target_chat_id == chat_id && partner_ids.contains(&source_chat_id))
+}
+
+pub(crate) fn disconnect_connected_chat(state: &AppState, chat_id: &str) -> AppResult<Value> {
+    let chat_id = chat_id.trim();
+    state
+        .storage
+        .update_collections_atomically(vec!["chats"], move |collections| {
+            let chats = collections[0].rows_mut();
+            let requested_chat = chats
+                .iter()
+                .find(|chat| chat.get("id").and_then(Value::as_str) == Some(chat_id))
+                .ok_or_else(|| AppError::not_found(format!("chats/{chat_id} was not found")))?;
+
+            let mut note_partner_ids = HashSet::new();
+            let mut link_partner_ids = HashSet::new();
+            if let Some(connected_chat_id) = string_field(requested_chat, "connectedChatId") {
+                note_partner_ids.insert(connected_chat_id);
+            }
+
+            for chat in chats.iter() {
+                let Some(id) = string_field(chat, "id") else {
+                    continue;
+                };
+                if string_field(chat, "connectedChatId").as_deref() == Some(chat_id) {
+                    note_partner_ids.insert(id.clone());
+                    link_partner_ids.insert(id);
+                }
+            }
+
+            let mut link_clear_chat_ids = link_partner_ids.clone();
+            link_clear_chat_ids.insert(chat_id.to_string());
+            let mut affected_chat_ids = link_clear_chat_ids.iter().cloned().collect::<Vec<_>>();
+            affected_chat_ids.sort();
+            let now = now_iso();
+
+            for chat in chats.iter_mut() {
+                let Some(id) = string_field(chat, "id") else {
+                    continue;
+                };
+                let Some(object) = chat.as_object_mut() else {
+                    return Err(AppError::invalid_input(
+                        "Stored chat record is not an object",
+                    ));
+                };
+                if link_clear_chat_ids.contains(&id) {
+                    object.insert("connectedChatId".to_string(), Value::Null);
+                    object.insert("updatedAt".to_string(), Value::String(now.clone()));
+                }
+            }
+
+            for chat in chats.iter_mut() {
+                let Some(id) = string_field(chat, "id") else {
+                    continue;
+                };
+                let notes = chat_connected_note_values(chat);
+                if notes.is_empty() {
+                    continue;
+                }
+                let before_len = notes.len();
+                let next_notes = notes
+                    .into_iter()
+                    .filter(|note| {
+                        !connected_note_belongs_to_pair(note, chat_id, &note_partner_ids)
+                    })
+                    .collect::<Vec<_>>();
+                if next_notes.len() != before_len {
+                    let Some(object) = chat.as_object_mut() else {
+                        return Err(AppError::invalid_input(
+                            "Stored chat record is not an object",
+                        ));
+                    };
+                    object.insert("notes".to_string(), Value::Array(next_notes));
+                    object.insert("updatedAt".to_string(), Value::String(now.clone()));
+                    if !affected_chat_ids
+                        .iter()
+                        .any(|affected_id| affected_id == &id)
+                    {
+                        affected_chat_ids.push(id);
+                    }
+                }
+            }
+
+            affected_chat_ids.sort();
+            affected_chat_ids.dedup();
+            Ok(json!({
+                "disconnected": true,
+                "chatIds": affected_chat_ids,
+            }))
+        })
+}
+
 pub(crate) fn delete_chat_array_item(
     state: &AppState,
     chat_id: &str,
@@ -1195,12 +1357,10 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
         .clone()
         .unwrap_or_else(|| chat_id.to_string());
     object.insert("id".to_string(), Value::String(new_chat_id.clone()));
-    object.insert(
-        "name".to_string(),
-        Value::String(format!("{base_name} Branch")),
-    );
+    object.insert("name".to_string(), Value::String(base_name));
     object.insert("groupId".to_string(), Value::String(group_id.clone()));
     prune_branch_summary_metadata(&mut chat);
+    initialize_branch_display_name(&mut chat);
     let source_has_tracker_snapshots =
         game_state_snapshots::latest_tracker_snapshot(state, chat_id)?.is_some();
     let mut new_chat = state.storage.create("chats", chat)?;
@@ -1286,11 +1446,6 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
                 &new_chat_id,
                 json!({ "gameState": visible_game_state }),
             )?;
-        } else if !chat_game_state_is_bootstrap(&new_chat) {
-            new_chat =
-                state
-                    .storage
-                    .patch("chats", &new_chat_id, json!({ "gameState": Value::Null }))?;
         } else if let Some(bootstrap_game_state) =
             game_state_snapshots::copy_bootstrap_tracker_snapshot(state, chat_id, &new_chat_id)?
         {
@@ -1299,6 +1454,11 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
                 &new_chat_id,
                 json!({ "gameState": bootstrap_game_state }),
             )?;
+        } else if !chat_game_state_is_bootstrap(&new_chat) {
+            new_chat =
+                state
+                    .storage
+                    .patch("chats", &new_chat_id, json!({ "gameState": Value::Null }))?;
         }
     }
     Ok(new_chat)
@@ -2327,6 +2487,57 @@ mod tests {
     }
 
     #[test]
+    fn branch_chat_preserves_stable_name_and_sets_branch_display_name() {
+        let state = test_state("branch-display-name");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "root-1",
+                    "name": "Stable Chat Name",
+                    "mode": "conversation",
+                    "characterIds": [],
+                    "folderId": "folder-1",
+                    "metadata": {
+                        "tags": ["ongoing"]
+                    }
+                }),
+            )
+            .expect("source chat should be created");
+
+        let branch = branch_chat(&state, "root-1", json!({})).expect("branch should be created");
+
+        assert_eq!(branch["name"], "Stable Chat Name");
+        assert_eq!(branch["metadata"]["branchName"], "New Branch");
+        assert_eq!(branch["metadata"]["tags"], json!(["ongoing"]));
+        assert_eq!(branch["folderId"], "folder-1");
+
+        let source = state
+            .storage
+            .get("chats", "root-1")
+            .expect("source lookup should not fail")
+            .expect("source chat should still exist");
+        assert_eq!(source["name"], "Stable Chat Name");
+        assert_eq!(source["metadata"].get("branchName"), None);
+
+        let mut filters = Map::new();
+        filters.insert("groupId".to_string(), Value::String("root-1".to_string()));
+        let group_members = state
+            .storage
+            .list_where("chats", &filters)
+            .expect("group listing should not fail");
+        let grouped_branch = group_members
+            .iter()
+            .find(|chat| {
+                chat.get("id").and_then(Value::as_str) == branch.get("id").and_then(Value::as_str)
+            })
+            .expect("new branch should be visible in group list");
+        assert_eq!(grouped_branch["name"], "Stable Chat Name");
+        assert_eq!(grouped_branch["metadata"]["branchName"], "New Branch");
+    }
+
+    #[test]
     fn branch_chat_preserves_existing_group_without_repatching_source() {
         let state = test_state("branch-existing-group");
         state
@@ -2524,6 +2735,100 @@ mod tests {
                 .all(|message| message.get("content").and_then(Value::as_str)
                     != Some("You enter the future.")),
             "branch should not copy messages after the selected turn"
+        );
+    }
+
+    #[test]
+    fn branch_chat_preserves_bootstrap_game_state_when_no_message_snapshot_is_copied() {
+        let state = test_state("branch-game-bootstrap-tracker-state");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "game-root",
+                    "name": "Game Run",
+                    "mode": "game",
+                    "characterIds": [],
+                    "gameState": {
+                        "messageId": "assistant-2",
+                        "swipeIndex": 0,
+                        "location": "Future path",
+                        "recentEvents": ["future reached"]
+                    },
+                    "metadata": {}
+                }),
+            )
+            .expect("source game chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "greeting-1",
+                    "chatId": "game-root",
+                    "role": "assistant",
+                    "content": "You wake at camp.",
+                    "createdAt": "2026-06-01T09:00:00.000Z"
+                }),
+            )
+            .expect("greeting message should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "assistant-2",
+                    "chatId": "game-root",
+                    "role": "assistant",
+                    "content": "You reach the pass.",
+                    "createdAt": "2026-06-01T10:00:00.000Z"
+                }),
+            )
+            .expect("future assistant message should be created");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "game-root",
+            json!({
+                "messageId": "",
+                "swipeIndex": 0,
+                "location": "Camp",
+                "recentEvents": ["camp established"],
+                "committed": true
+            }),
+        )
+        .expect("bootstrap tracker snapshot should be saved");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "game-root",
+            json!({
+                "messageId": "assistant-2",
+                "swipeIndex": 0,
+                "location": "Future path",
+                "recentEvents": ["future reached"],
+                "committed": true
+            }),
+        )
+        .expect("future tracker snapshot should be saved");
+
+        let branch = branch_chat(
+            &state,
+            "game-root",
+            json!({ "upToMessageId": "greeting-1" }),
+        )
+        .expect("branch should be created");
+
+        assert_eq!(branch["gameState"]["location"], "Camp");
+        assert_eq!(
+            branch["gameState"]["recentEvents"],
+            json!(["camp established"])
+        );
+        let branch_id = branch["id"].as_str().expect("branch id should be a string");
+        assert!(
+            game_state_snapshots::bootstrap_tracker_snapshot(&state, branch_id)
+                .expect("branch bootstrap snapshot lookup should not fail")
+                .is_some(),
+            "branch should copy the bootstrap tracker snapshot"
         );
     }
 
@@ -3149,6 +3454,26 @@ mod tests {
     }
 
     #[test]
+    fn bulk_delete_messages_rejects_empty_or_invalid_id_payloads() {
+        let state = test_state("bulk-delete-empty-invalid");
+        state
+            .storage
+            .create("chats", json!({ "id": "chat-1", "name": "Chat" }))
+            .expect("chat should seed");
+
+        for body in [
+            json!({ "messageIds": [] }),
+            json!({ "messageIds": [" ", ""] }),
+            json!({ "messageIds": ["message-1", 3] }),
+            json!({}),
+        ] {
+            let error = bulk_delete_messages(&state, "chat-1", body)
+                .expect_err("invalid bulk delete payload should reject");
+            assert_eq!(error.code, "invalid_input");
+        }
+    }
+
+    #[test]
     fn bulk_delete_messages_ignores_ids_from_another_chat() {
         let state = test_state("bulk-delete-foreign-ids");
         for chat_id in ["chat-1", "chat-2"] {
@@ -3488,6 +3813,233 @@ mod tests {
         assert_eq!(result.embedding.len(), MEMORY_EMBEDDING_DIMS);
         assert!(result.connection_id.is_none());
         assert!(result.model.is_none());
+    }
+
+    #[test]
+    fn disconnect_connected_chat_clears_both_sides_and_pair_notes() {
+        let state = test_state("disconnect-connected-notes");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "conversation-1",
+                    "name": "Conversation",
+                    "connectedChatId": "roleplay-1"
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "roleplay-1",
+                    "name": "Roleplay",
+                    "connectedChatId": "conversation-1",
+                    "notes": [
+                        {
+                            "id": "connected-note",
+                            "type": "note",
+                            "content": "Stale durable note",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "roleplay-1"
+                        },
+                        {
+                            "id": "connected-influence",
+                            "type": "influence",
+                            "content": "Stale influence",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "roleplay-1",
+                            "consumed": false
+                        },
+                        {
+                            "id": "ordinary-memory",
+                            "type": "memory",
+                            "content": "Keep memory from this chat",
+                            "sourceChatId": "roleplay-1",
+                            "targetChatId": null
+                        },
+                        {
+                            "id": "unrelated-note",
+                            "type": "note",
+                            "content": "Keep unrelated note",
+                            "sourceChatId": "other-chat",
+                            "targetChatId": "other-target"
+                        },
+                        {
+                            "id": "adjacent-source-note",
+                            "type": "note",
+                            "content": "Keep note from disconnected source to another target",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "other-target"
+                        },
+                        {
+                            "id": "adjacent-target-note",
+                            "type": "influence",
+                            "content": "Keep note from another source to disconnected target",
+                            "sourceChatId": "other-chat",
+                            "targetChatId": "roleplay-1",
+                            "consumed": false
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+
+        let result = disconnect_connected_chat(&state, "conversation-1").unwrap();
+
+        assert_eq!(result["disconnected"], true);
+        assert_eq!(result["chatIds"], json!(["conversation-1", "roleplay-1"]));
+        let conversation = state
+            .storage
+            .get("chats", "conversation-1")
+            .unwrap()
+            .unwrap();
+        let roleplay = state.storage.get("chats", "roleplay-1").unwrap().unwrap();
+        assert!(conversation
+            .get("connectedChatId")
+            .is_some_and(Value::is_null));
+        assert!(roleplay.get("connectedChatId").is_some_and(Value::is_null));
+        let notes = roleplay["notes"].as_array().unwrap();
+        assert_eq!(notes.len(), 4);
+        assert!(notes.iter().all(|note| {
+            let id = note.get("id").and_then(Value::as_str);
+            id != Some("connected-note") && id != Some("connected-influence")
+        }));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("ordinary-memory")));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("unrelated-note")));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("adjacent-source-note")));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("adjacent-target-note")));
+    }
+
+    #[test]
+    fn disconnect_connected_chat_finds_partner_with_reverse_only_link() {
+        let state = test_state("disconnect-reverse-only-link");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({ "id": "conversation-1", "name": "Conversation" }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "game-1",
+                    "name": "Game",
+                    "connectedChatId": "conversation-1",
+                    "notes": [
+                        {
+                            "id": "stale-note",
+                            "type": "note",
+                            "content": "Remove stale note",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "game-1"
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+
+        let result = disconnect_connected_chat(&state, "conversation-1").unwrap();
+
+        assert_eq!(result["chatIds"], json!(["conversation-1", "game-1"]));
+        let game = state.storage.get("chats", "game-1").unwrap().unwrap();
+        assert!(game.get("connectedChatId").is_some_and(Value::is_null));
+        assert!(game["notes"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn disconnect_connected_chat_preserves_forward_partner_live_link() {
+        let state = test_state("disconnect-stale-forward-live-link");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "conversation-1",
+                    "name": "Conversation",
+                    "connectedChatId": "game-1"
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "game-1",
+                    "name": "Game",
+                    "connectedChatId": "scene-2",
+                    "notes": [
+                        {
+                            "id": "stale-forward-note",
+                            "type": "note",
+                            "content": "Remove stale requested-chat note",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "game-1"
+                        },
+                        {
+                            "id": "live-scene-note",
+                            "type": "note",
+                            "content": "Keep live scene note",
+                            "sourceChatId": "scene-2",
+                            "targetChatId": "game-1"
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "scene-2",
+                    "name": "Scene",
+                    "connectedChatId": "game-1"
+                }),
+            )
+            .unwrap();
+
+        let result = disconnect_connected_chat(&state, "conversation-1").unwrap();
+
+        assert_eq!(result["chatIds"], json!(["conversation-1", "game-1"]));
+        let conversation = state
+            .storage
+            .get("chats", "conversation-1")
+            .unwrap()
+            .unwrap();
+        let game = state.storage.get("chats", "game-1").unwrap().unwrap();
+        let scene = state.storage.get("chats", "scene-2").unwrap().unwrap();
+        assert!(conversation
+            .get("connectedChatId")
+            .is_some_and(Value::is_null));
+        assert_eq!(
+            game.get("connectedChatId").and_then(Value::as_str),
+            Some("scene-2")
+        );
+        assert_eq!(
+            scene.get("connectedChatId").and_then(Value::as_str),
+            Some("game-1")
+        );
+        let notes = game["notes"].as_array().unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(
+            notes[0].get("id").and_then(Value::as_str),
+            Some("live-scene-note")
+        );
     }
 
     #[test]

@@ -84,7 +84,7 @@ fn truncate_chars(value: &str, limit: usize) -> String {
     value.chars().take(limit).collect()
 }
 
-fn is_valid_discord_webhook_url(raw: &str) -> bool {
+pub(crate) fn is_valid_discord_webhook_url(raw: &str) -> bool {
     let trimmed = raw.trim();
     let Some(rest) = trimmed
         .strip_prefix("https://discord.com/api/webhooks/")

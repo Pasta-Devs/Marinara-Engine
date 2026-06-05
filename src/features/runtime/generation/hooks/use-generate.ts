@@ -846,23 +846,10 @@ function preserveManualWorldStatePatch(previous: GameState, patch: Record<string
   if (!manualOverrides) return patch;
 
   const nextPatch: Record<string, unknown> = { ...patch };
-  const nextManualOverrides: Record<string, string> = { ...manualOverrides };
-  let manualOverridesChanged = false;
   for (const field of MANUAL_WORLD_STATE_FIELDS) {
     if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
-    const text = readNullableString(patch[field]);
     const override = readNullableString(manualOverrides[field]);
-    if (text) {
-      if (Object.prototype.hasOwnProperty.call(nextManualOverrides, field)) {
-        delete nextManualOverrides[field];
-        manualOverridesChanged = true;
-      }
-    } else if (override) {
-      nextPatch[field] = override;
-    }
-  }
-  if (manualOverridesChanged) {
-    nextPatch.manualOverrides = Object.keys(nextManualOverrides).length ? nextManualOverrides : null;
+    if (override) nextPatch[field] = override;
   }
   return nextPatch;
 }

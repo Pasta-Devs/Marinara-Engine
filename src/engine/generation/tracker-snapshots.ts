@@ -113,24 +113,10 @@ function mergeWorldStatePatchWithManualOverrides(snapshot: GameState, patch: Tra
   if (!manualOverrides) return patch;
 
   const nextPatch: TrackerStatePatch = { ...patch };
-  const nextManualOverrides: Record<string, string> = { ...manualOverrides };
-  let manualOverridesChanged = false;
   for (const field of MANUAL_OVERRIDE_FIELDS) {
     if (!hasManualOverrideField(patch, field)) continue;
-    const text = readNullableString(patch[field]);
     const override = manualOverrideValue(manualOverrides, field);
-    if (text) {
-      if (Object.prototype.hasOwnProperty.call(nextManualOverrides, field)) {
-        delete nextManualOverrides[field];
-        manualOverridesChanged = true;
-      }
-    } else if (override) {
-      nextPatch[field] = override;
-    }
-  }
-
-  if (manualOverridesChanged) {
-    nextPatch.manualOverrides = Object.keys(nextManualOverrides).length ? nextManualOverrides : null;
+    if (override) nextPatch[field] = override;
   }
   return nextPatch;
 }
@@ -516,7 +502,7 @@ export async function persistTrackerSnapshotForTurn(
   const persona = hasCharacterTrackerResult ? await loadPersonaSnapshotForChat(storage, chat).catch(() => null) : null;
   let snapshot = normalizeGameState(existing ?? options.baseSnapshot ?? chat?.gameState, chatId, target, persona);
   if (!existing) {
-    snapshot = { ...snapshot, id: "", committed: false, manualOverrides: null, createdAt: nowIso() };
+    snapshot = { ...snapshot, id: "", committed: false, createdAt: nowIso() };
   }
   let changed = false;
 

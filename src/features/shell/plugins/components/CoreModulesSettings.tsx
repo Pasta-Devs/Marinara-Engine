@@ -16,7 +16,7 @@ function permissionLabel(permission: string) {
   return PERMISSION_LABELS[permission] ?? permission;
 }
 
-export function CoreModulesSettings() {
+function CoreModulesSettings() {
   const { data: modules = [], error, isError, isLoading, refetch, isFetching } = useCoreModules();
   const setEnabled = useSetCoreModuleEnabled();
   const controlsDisabled = setEnabled.isPending || isError;
@@ -184,3 +184,5 @@ export function CoreModulesSettings() {
     </div>
   );
 }
+
+export default CoreModulesSettings;
