@@ -1981,6 +1981,10 @@ async function writeGameLorebookKeeperEntries(data: {
           },
         }),
       );
+      const staleEntry = await storageApi.get<LorebookEntry>("lorebook-entries", entry.id);
+      if (!staleEntry || staleEntry.enabled === true) {
+        throw new Error(`Game Lorebook Keeper stale entry was not confirmed inactive: ${entry.id}`);
+      }
     }
     for (const entry of createdEntries) {
       await storageApi.update(
