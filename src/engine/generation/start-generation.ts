@@ -54,6 +54,7 @@ import {
 } from "./generate-route-utils";
 import {
   deletePreparedManagedImageAttachments,
+  isImageAttachment,
   prepareManagedImageAttachmentBatch,
   resolveImageAttachmentDataUrls,
   type PreparedManagedImageAttachments,
@@ -277,9 +278,7 @@ function assertChatCanGenerate(chat: JsonRecord, input?: { forCharacterId?: unkn
 }
 
 function imageAttachmentNotes(attachments: PromptAttachment[]): string {
-  const names = attachments
-    .filter((attachment) => readString(attachment.type).toLowerCase().startsWith("image/"))
-    .map(getAttachmentFilename);
+  const names = attachments.filter(isImageAttachment).map(getAttachmentFilename);
   if (names.length === 0) return "";
   return names.map((name) => `[Attached image: ${name}]`).join("\n");
 }
@@ -289,20 +288,29 @@ async function prepareUserInput(storage: StorageGateway, input: StartGenerationI
   const attachments = inputAttachments(input);
   const images = await resolveImageAttachmentDataUrls(storage, attachments);
   const preparedAttachments = await prepareManagedImageAttachmentBatch(storage, input.chatId, attachments);
-  const managedAttachments = preparedAttachments.attachments;
-  const mentionedCharacterNames = stringArray(input.mentionedCharacterNames).filter((name) => name.trim().length > 0);
-  const regexed = raw ? await applyRuntimeRegexScripts(storage, "user_input", raw) : "";
-  const withReadableAttachments = appendReadableAttachmentsToContent(regexed, managedAttachments);
-  const imageNotes = imageAttachmentNotes(managedAttachments);
-  return {
-    content: collapseExcessBlankLines(
-      [withReadableAttachments, imageNotes].filter((part) => part.trim().length > 0).join("\n\n"),
-    ),
-    attachments: managedAttachments,
-    preparedAttachments,
-    images,
-    mentionedCharacterNames,
-  };
+  try {
+    const managedAttachments = preparedAttachments.attachments;
+    const mentionedCharacterNames = stringArray(input.mentionedCharacterNames).filter((name) => name.trim().length > 0);
+    const regexed = raw ? await applyRuntimeRegexScripts(storage, "user_input", raw) : "";
+    const withReadableAttachments = appendReadableAttachmentsToContent(regexed, managedAttachments);
+    const imageNotes = imageAttachmentNotes(managedAttachments);
+    return {
+      content: collapseExcessBlankLines(
+        [withReadableAttachments, imageNotes].filter((part) => part.trim().length > 0).join("\n\n"),
+      ),
+      attachments: managedAttachments,
+      preparedAttachments,
+      images,
+      mentionedCharacterNames,
+    };
+  } catch (error) {
+    if (preparedAttachments.createdGalleryIds.length > 0) {
+      await deletePreparedManagedImageAttachments(storage, preparedAttachments).catch((rollbackError) => {
+        console.warn("[generation] Failed to roll back prepared image attachments after input preparation failure", rollbackError);
+      });
+    }
+    throw error;
+  }
 }
 
 async function deletePreparedUserInputAttachmentsSafely(

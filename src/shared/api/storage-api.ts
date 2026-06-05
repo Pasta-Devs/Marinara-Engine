@@ -14,7 +14,7 @@ import {
 } from "./local-file-api";
 import { invokeTauri } from "./tauri-client";
 import { trackerSnapshotApi, type TrackerSnapshotInput } from "./tracker-snapshot-api";
-import { urlBinaryApi } from "./url-binary-api";
+import { blobToDataUrl, urlBinaryApi } from "./url-binary-api";
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
@@ -229,21 +229,6 @@ function inlineImageDataUrl(value: unknown): string {
   return text.toLowerCase().startsWith("data:image/") ? text : "";
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("Image attachment resolver returned an invalid file payload."));
-      }
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("Image attachment resolver failed to read the file."));
-    reader.readAsDataURL(blob);
-  });
-}
-
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -342,12 +327,18 @@ async function resolveImageAttachmentDataUrl(
   }
 
   const directUrl = textField(attachment.url) || textField(attachment.imageUrl);
-  const urlData = await loadImageUrlAsDataUrl(directUrl, "image/png", "image attachment url");
-  if (urlData) return urlData;
+  const errors: string[] = [];
+  if (directUrl) {
+    try {
+      const urlData = await loadImageUrlAsDataUrl(directUrl, "image/png", "image attachment url");
+      if (urlData) return urlData;
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+  }
 
   const filename = textField(attachment.filename);
   const filePath = textField(attachment.filePath);
-  const errors: string[] = [];
   const fileData = await loadResolvedGalleryFileDataUrl(filename, filePath, "image attachment file", errors);
   if (fileData) return fileData;
   if (errors.length) throw new Error(errors.join("; "));

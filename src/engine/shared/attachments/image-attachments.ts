@@ -20,7 +20,7 @@ export interface PreparedManagedImageAttachments {
 
 const IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
 
-function isImageAttachment(attachment: PromptAttachment): boolean {
+export function isImageAttachment(attachment: PromptAttachment): boolean {
   const type = readString(attachment.type).toLowerCase();
   return type === "image" || type.startsWith("image/");
 }
