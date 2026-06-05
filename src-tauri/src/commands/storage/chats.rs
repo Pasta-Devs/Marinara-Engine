@@ -933,6 +933,134 @@ pub(crate) fn set_chat_array_field(
         .patch("chats", chat_id, json!({ field: values }))
 }
 
+fn chat_connected_note_values(chat: &Value) -> Vec<Value> {
+    match chat.get("notes") {
+        Some(Value::Array(values)) => values.clone(),
+        Some(Value::String(raw)) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .and_then(|parsed| parsed.as_array().cloned())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+fn string_field(value: &Value, field: &str) -> Option<String> {
+    value
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn connected_note_belongs_to_pair(
+    note: &Value,
+    chat_id: &str,
+    partner_ids: &HashSet<String>,
+) -> bool {
+    let note_type = note.get("type").and_then(Value::as_str).unwrap_or("");
+    if note_type != "note" && note_type != "influence" {
+        return false;
+    }
+    let Some(source_chat_id) = string_field(note, "sourceChatId") else {
+        return false;
+    };
+    let Some(target_chat_id) = string_field(note, "targetChatId") else {
+        return false;
+    };
+    (source_chat_id == chat_id && partner_ids.contains(&target_chat_id))
+        || (target_chat_id == chat_id && partner_ids.contains(&source_chat_id))
+}
+
+pub(crate) fn disconnect_connected_chat(state: &AppState, chat_id: &str) -> AppResult<Value> {
+    let chat_id = chat_id.trim();
+    state
+        .storage
+        .update_collections_atomically(vec!["chats"], move |collections| {
+            let chats = collections[0].rows_mut();
+            let requested_chat = chats
+                .iter()
+                .find(|chat| chat.get("id").and_then(Value::as_str) == Some(chat_id))
+                .ok_or_else(|| AppError::not_found(format!("chats/{chat_id} was not found")))?;
+
+            let mut note_partner_ids = HashSet::new();
+            let mut link_partner_ids = HashSet::new();
+            if let Some(connected_chat_id) = string_field(requested_chat, "connectedChatId") {
+                note_partner_ids.insert(connected_chat_id);
+            }
+
+            for chat in chats.iter() {
+                let Some(id) = string_field(chat, "id") else {
+                    continue;
+                };
+                if string_field(chat, "connectedChatId").as_deref() == Some(chat_id) {
+                    note_partner_ids.insert(id.clone());
+                    link_partner_ids.insert(id);
+                }
+            }
+
+            let mut link_clear_chat_ids = link_partner_ids.clone();
+            link_clear_chat_ids.insert(chat_id.to_string());
+            let mut affected_chat_ids = link_clear_chat_ids.iter().cloned().collect::<Vec<_>>();
+            affected_chat_ids.sort();
+            let now = now_iso();
+
+            for chat in chats.iter_mut() {
+                let Some(id) = string_field(chat, "id") else {
+                    continue;
+                };
+                let Some(object) = chat.as_object_mut() else {
+                    return Err(AppError::invalid_input(
+                        "Stored chat record is not an object",
+                    ));
+                };
+                if link_clear_chat_ids.contains(&id) {
+                    object.insert("connectedChatId".to_string(), Value::Null);
+                    object.insert("updatedAt".to_string(), Value::String(now.clone()));
+                }
+            }
+
+            for chat in chats.iter_mut() {
+                let Some(id) = string_field(chat, "id") else {
+                    continue;
+                };
+                let notes = chat_connected_note_values(chat);
+                if notes.is_empty() {
+                    continue;
+                }
+                let before_len = notes.len();
+                let next_notes = notes
+                    .into_iter()
+                    .filter(|note| {
+                        !connected_note_belongs_to_pair(note, chat_id, &note_partner_ids)
+                    })
+                    .collect::<Vec<_>>();
+                if next_notes.len() != before_len {
+                    let Some(object) = chat.as_object_mut() else {
+                        return Err(AppError::invalid_input(
+                            "Stored chat record is not an object",
+                        ));
+                    };
+                    object.insert("notes".to_string(), Value::Array(next_notes));
+                    object.insert("updatedAt".to_string(), Value::String(now.clone()));
+                    if !affected_chat_ids
+                        .iter()
+                        .any(|affected_id| affected_id == &id)
+                    {
+                        affected_chat_ids.push(id);
+                    }
+                }
+            }
+
+            affected_chat_ids.sort();
+            affected_chat_ids.dedup();
+            Ok(json!({
+                "disconnected": true,
+                "chatIds": affected_chat_ids,
+            }))
+        })
+}
+
 pub(crate) fn delete_chat_array_item(
     state: &AppState,
     chat_id: &str,
@@ -3332,6 +3460,233 @@ mod tests {
         assert_eq!(result.embedding.len(), MEMORY_EMBEDDING_DIMS);
         assert!(result.connection_id.is_none());
         assert!(result.model.is_none());
+    }
+
+    #[test]
+    fn disconnect_connected_chat_clears_both_sides_and_pair_notes() {
+        let state = test_state("disconnect-connected-notes");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "conversation-1",
+                    "name": "Conversation",
+                    "connectedChatId": "roleplay-1"
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "roleplay-1",
+                    "name": "Roleplay",
+                    "connectedChatId": "conversation-1",
+                    "notes": [
+                        {
+                            "id": "connected-note",
+                            "type": "note",
+                            "content": "Stale durable note",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "roleplay-1"
+                        },
+                        {
+                            "id": "connected-influence",
+                            "type": "influence",
+                            "content": "Stale influence",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "roleplay-1",
+                            "consumed": false
+                        },
+                        {
+                            "id": "ordinary-memory",
+                            "type": "memory",
+                            "content": "Keep memory from this chat",
+                            "sourceChatId": "roleplay-1",
+                            "targetChatId": null
+                        },
+                        {
+                            "id": "unrelated-note",
+                            "type": "note",
+                            "content": "Keep unrelated note",
+                            "sourceChatId": "other-chat",
+                            "targetChatId": "other-target"
+                        },
+                        {
+                            "id": "adjacent-source-note",
+                            "type": "note",
+                            "content": "Keep note from disconnected source to another target",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "other-target"
+                        },
+                        {
+                            "id": "adjacent-target-note",
+                            "type": "influence",
+                            "content": "Keep note from another source to disconnected target",
+                            "sourceChatId": "other-chat",
+                            "targetChatId": "roleplay-1",
+                            "consumed": false
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+
+        let result = disconnect_connected_chat(&state, "conversation-1").unwrap();
+
+        assert_eq!(result["disconnected"], true);
+        assert_eq!(result["chatIds"], json!(["conversation-1", "roleplay-1"]));
+        let conversation = state
+            .storage
+            .get("chats", "conversation-1")
+            .unwrap()
+            .unwrap();
+        let roleplay = state.storage.get("chats", "roleplay-1").unwrap().unwrap();
+        assert!(conversation
+            .get("connectedChatId")
+            .is_some_and(Value::is_null));
+        assert!(roleplay.get("connectedChatId").is_some_and(Value::is_null));
+        let notes = roleplay["notes"].as_array().unwrap();
+        assert_eq!(notes.len(), 4);
+        assert!(notes.iter().all(|note| {
+            let id = note.get("id").and_then(Value::as_str);
+            id != Some("connected-note") && id != Some("connected-influence")
+        }));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("ordinary-memory")));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("unrelated-note")));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("adjacent-source-note")));
+        assert!(notes
+            .iter()
+            .any(|note| note.get("id").and_then(Value::as_str) == Some("adjacent-target-note")));
+    }
+
+    #[test]
+    fn disconnect_connected_chat_finds_partner_with_reverse_only_link() {
+        let state = test_state("disconnect-reverse-only-link");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({ "id": "conversation-1", "name": "Conversation" }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "game-1",
+                    "name": "Game",
+                    "connectedChatId": "conversation-1",
+                    "notes": [
+                        {
+                            "id": "stale-note",
+                            "type": "note",
+                            "content": "Remove stale note",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "game-1"
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+
+        let result = disconnect_connected_chat(&state, "conversation-1").unwrap();
+
+        assert_eq!(result["chatIds"], json!(["conversation-1", "game-1"]));
+        let game = state.storage.get("chats", "game-1").unwrap().unwrap();
+        assert!(game.get("connectedChatId").is_some_and(Value::is_null));
+        assert!(game["notes"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn disconnect_connected_chat_preserves_forward_partner_live_link() {
+        let state = test_state("disconnect-stale-forward-live-link");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "conversation-1",
+                    "name": "Conversation",
+                    "connectedChatId": "game-1"
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "game-1",
+                    "name": "Game",
+                    "connectedChatId": "scene-2",
+                    "notes": [
+                        {
+                            "id": "stale-forward-note",
+                            "type": "note",
+                            "content": "Remove stale requested-chat note",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "game-1"
+                        },
+                        {
+                            "id": "live-scene-note",
+                            "type": "note",
+                            "content": "Keep live scene note",
+                            "sourceChatId": "scene-2",
+                            "targetChatId": "game-1"
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "scene-2",
+                    "name": "Scene",
+                    "connectedChatId": "game-1"
+                }),
+            )
+            .unwrap();
+
+        let result = disconnect_connected_chat(&state, "conversation-1").unwrap();
+
+        assert_eq!(result["chatIds"], json!(["conversation-1", "game-1"]));
+        let conversation = state
+            .storage
+            .get("chats", "conversation-1")
+            .unwrap()
+            .unwrap();
+        let game = state.storage.get("chats", "game-1").unwrap().unwrap();
+        let scene = state.storage.get("chats", "scene-2").unwrap().unwrap();
+        assert!(conversation
+            .get("connectedChatId")
+            .is_some_and(Value::is_null));
+        assert_eq!(
+            game.get("connectedChatId").and_then(Value::as_str),
+            Some("scene-2")
+        );
+        assert_eq!(
+            scene.get("connectedChatId").and_then(Value::as_str),
+            Some("game-1")
+        );
+        let notes = game["notes"].as_array().unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(
+            notes[0].get("id").and_then(Value::as_str),
+            Some("live-scene-note")
+        );
     }
 
     #[test]

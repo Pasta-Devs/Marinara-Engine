@@ -250,8 +250,5 @@ pub fn chat_connect(
 
 #[tauri::command]
 pub fn chat_disconnect(state: State<'_, AppState>, chat_id: String) -> Result<Value, AppError> {
-    state
-        .storage
-        .patch("chats", &chat_id, json!({ "connectedChatId": Value::Null }))?;
-    Ok(json!({ "disconnected": true }))
+    chats::disconnect_connected_chat(&state, &chat_id)
 }

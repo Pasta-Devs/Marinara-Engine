@@ -917,12 +917,7 @@ fn chat_connect(state: &AppState, args: &Map<String, Value>) -> AppResult<Value>
 }
 
 fn chat_disconnect(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
-    state.storage.patch(
-        "chats",
-        required_string(args, "chatId")?,
-        json!({ "connectedChatId": Value::Null }),
-    )?;
-    Ok(json!({ "disconnected": true }))
+    chats::disconnect_connected_chat(state, required_string(args, "chatId")?)
 }
 
 fn storage_list(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
@@ -1393,6 +1388,79 @@ mod tests {
             .filter_map(|memory| memory.get("id").and_then(Value::as_str))
             .collect::<Vec<_>>();
         assert_eq!(memory_ids, vec!["keep-me"]);
+    }
+
+    #[tokio::test]
+    async fn dispatch_chat_disconnect_clears_partner_and_connected_notes() {
+        let state = test_state("chat-disconnect-connected-notes");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "conversation-1",
+                    "name": "Conversation",
+                    "connectedChatId": "game-1"
+                }),
+            )
+            .unwrap();
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "game-1",
+                    "name": "Game",
+                    "connectedChatId": "conversation-1",
+                    "notes": [
+                        {
+                            "id": "stale-influence",
+                            "type": "influence",
+                            "content": "Remove stale influence",
+                            "sourceChatId": "conversation-1",
+                            "targetChatId": "game-1",
+                            "consumed": false
+                        },
+                        {
+                            "id": "other-note",
+                            "type": "note",
+                            "content": "Keep unrelated note",
+                            "sourceChatId": "other-chat",
+                            "targetChatId": "other-target"
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+
+        let result = dispatch(
+            &state,
+            InvokeRequest {
+                command: "chat_disconnect".to_string(),
+                args: Some(json!({ "chatId": "conversation-1" })),
+            },
+        )
+        .await
+        .expect("remote chat disconnect should dispatch");
+
+        assert_eq!(result["disconnected"], true);
+        assert_eq!(result["chatIds"], json!(["conversation-1", "game-1"]));
+        let conversation = state
+            .storage
+            .get("chats", "conversation-1")
+            .unwrap()
+            .unwrap();
+        let game = state.storage.get("chats", "game-1").unwrap().unwrap();
+        assert!(conversation
+            .get("connectedChatId")
+            .is_some_and(Value::is_null));
+        assert!(game.get("connectedChatId").is_some_and(Value::is_null));
+        let notes = game["notes"].as_array().unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(
+            notes[0].get("id").and_then(Value::as_str),
+            Some("other-note")
+        );
     }
 
     #[test]

@@ -1191,9 +1191,13 @@ export function useConnectChat() {
 export function useDisconnectChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (chatId: string) => chatCommandApi.disconnect<{ disconnected: boolean }>(chatId),
-    onSuccess: (_data, chatId) => {
-      qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
+    mutationFn: (chatId: string) => chatCommandApi.disconnect<{ disconnected: boolean; chatIds?: string[] }>(chatId),
+    onSuccess: (data, chatId) => {
+      const chatIds = data.chatIds && data.chatIds.length > 0 ? data.chatIds : [chatId];
+      chatIds.forEach((id) => {
+        qc.invalidateQueries({ queryKey: chatKeys.detail(id) });
+        qc.invalidateQueries({ queryKey: chatKeys.notes(id) });
+      });
       qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
