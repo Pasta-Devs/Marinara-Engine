@@ -364,6 +364,17 @@
     "coverage": "advanced"
   },
   {
+    "id": "core-modules",
+    "title": "Plugins",
+    "category": "Settings",
+    "summary": "Enable or disable bundled core modules without downloading executable plugin packages.",
+    "keywords": ["plugins", "plugin", "core modules", "modules", "optional features", "enable module", "disable module"],
+    "audience": "Users who want opt-in Marinara features that are shipped with the app and can be toggled safely.",
+    "where": "Settings > Plugins.",
+    "actions": [{ "type": "open-settings", "tab": "plugins", "label": "Open Plugins" }],
+    "coverage": "advanced"
+  },
+  {
     "id": "extensions",
     "title": "Extensions",
     "category": "Settings",

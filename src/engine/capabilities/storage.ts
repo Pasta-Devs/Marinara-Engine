@@ -18,6 +18,7 @@ const GENERIC_STORAGE_ENTITIES = [
   "agent-memory",
   "themes",
   "extensions",
+  "plugin-memory",
   "connections",
   "connection-folders",
   "chats",
