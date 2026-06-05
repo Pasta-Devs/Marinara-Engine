@@ -12,6 +12,7 @@ use tauri::State;
 type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
 type LorebookFolderDeleteAtomicRows<'a> =
     (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
+type ChatFolderDeleteAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
 
 struct StorageWhereIn {
     field: String,
@@ -564,6 +565,7 @@ pub(crate) fn storage_create_inner(
 ) -> Result<Value, AppError> {
     validate_storage_entity(&entity)?;
     reject_message_swipe_mutation(&entity)?;
+    validate_chat_folder_for_create(state, &entity, &value)?;
     validate_connection_folder_for_create(state, &entity, &value)?;
     if entity == "messages" {
         return Ok(shared::project_timeline_message(
@@ -572,6 +574,9 @@ pub(crate) fn storage_create_inner(
                 prepare_entity_for_create(state, &entity, value)?,
             )?,
         ));
+    }
+    if entity == "chat-folders" {
+        return create_chat_folder(state, value);
     }
     let should_remove_prepared_gallery_file = gallery_create_persists_inline_image(&entity, &value);
     let prepared = prepare_entity_for_create(state, &entity, value)?;
@@ -633,8 +638,13 @@ pub(crate) fn storage_update_inner(
     if entity == "chat-presets" {
         return patch_chat_preset(state, &id, patch);
     }
+    if entity == "chat-folders" {
+        return patch_chat_folder(state, &id, patch);
+    }
+    validate_chat_folder_for_patch(state, &entity, &id, &patch)?;
     validate_connection_folder_for_patch(state, &entity, &patch)?;
-    let normalized_patch = shared::normalize_update_patch(&entity, patch)?;
+    let normalized_patch =
+        normalize_chat_for_update(&entity, shared::normalize_update_patch(&entity, patch)?)?;
     if entity == "lorebook-entries" {
         return update_lorebook_entry_with_character_book_sync(state, &id, normalized_patch);
     }
@@ -657,10 +667,210 @@ pub(crate) fn prepare_entity_for_create(
     let value = shared::with_entity_defaults(entity, value)?;
     match entity {
         "connections" => connection_secrets::prepare_connection_for_create(state, value),
+        "chats" => normalize_chat_for_create(value),
+        "chat-folders" => chat_folder_defaults_for_create(value),
         "connection-folders" => connection_folder_defaults_for_create(state, value),
         "gallery" | "character-gallery" => gallery_defaults_for_create(state, value),
         _ => Ok(value),
     }
+}
+
+fn normalize_chat_for_create(value: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    normalize_chat_mode_object(&mut object);
+    normalize_chat_folder_id_object(&mut object)?;
+    Ok(Value::Object(object))
+}
+
+fn normalize_chat_for_update(entity: &str, patch: Value) -> Result<Value, AppError> {
+    if entity != "chats" {
+        return Ok(patch);
+    }
+    let mut object = ensure_object(patch)?;
+    normalize_chat_mode_object(&mut object);
+    normalize_chat_folder_id_object(&mut object)?;
+    Ok(Value::Object(object))
+}
+
+fn normalize_chat_mode_object(object: &mut Map<String, Value>) {
+    if let Some(mode) = object
+        .get("mode")
+        .and_then(Value::as_str)
+        .and_then(canonical_chat_mode)
+    {
+        object.insert("mode".to_string(), Value::String(mode.to_string()));
+    }
+}
+
+fn normalize_chat_folder_id_object(object: &mut Map<String, Value>) -> Result<(), AppError> {
+    if !object.contains_key("folderId") {
+        return Ok(());
+    }
+    let normalized = match object.get("folderId") {
+        Some(Value::Null) => Value::Null,
+        Some(Value::String(folder_id)) => {
+            let folder_id = folder_id.trim();
+            if folder_id.is_empty() {
+                return Err(AppError::invalid_input(
+                    "folderId must be a folder id or null",
+                ));
+            }
+            Value::String(folder_id.to_string())
+        }
+        _ => {
+            return Err(AppError::invalid_input(
+                "folderId must be a folder id or null",
+            ));
+        }
+    };
+    object.insert("folderId".to_string(), normalized);
+    Ok(())
+}
+
+fn validated_chat_folder_name(value: &Value) -> Result<String, AppError> {
+    value
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| AppError::invalid_input("Chat folder name is required"))
+}
+
+fn normalize_chat_folder_name_patch(object: &mut Map<String, Value>) -> Result<(), AppError> {
+    if let Some(name) = object.get("name") {
+        let name = validated_chat_folder_name(name)?;
+        object.insert("name".to_string(), Value::String(name));
+    }
+    Ok(())
+}
+
+fn patch_chat_folder(state: &AppState, id: &str, patch: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(shared::normalize_update_patch("chat-folders", patch)?)?;
+    normalize_chat_folder_name_patch(&mut object)?;
+    if let Some(mode_value) = object.get("mode") {
+        let mode = mode_value
+            .as_str()
+            .and_then(canonical_chat_mode)
+            .ok_or_else(|| AppError::invalid_input("Invalid chat folder mode"))?;
+        object.insert("mode".to_string(), Value::String(mode.to_string()));
+        validate_chat_folder_mode_patch(state, id, mode)?;
+    }
+    state
+        .storage
+        .patch("chat-folders", id, Value::Object(object))
+}
+
+fn validate_chat_folder_mode_patch(
+    state: &AppState,
+    folder_id: &str,
+    folder_mode: &str,
+) -> Result<(), AppError> {
+    let mut filters = Map::new();
+    filters.insert("folderId".to_string(), Value::String(folder_id.to_string()));
+    for chat in state.storage.list_where("chats", &filters)? {
+        let chat_id = chat
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("<unknown>");
+        let chat_mode = chat_mode_for_value(&chat).map_err(|_| {
+            AppError::invalid_input(format!(
+                "Chat folder {folder_id} contains chat {chat_id} with invalid mode"
+            ))
+        })?;
+        if chat_mode != folder_mode {
+            return Err(AppError::invalid_input(format!(
+                "Chat folder {folder_id} contains {chat_mode} chat {chat_id}, not {folder_mode} chat"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn create_chat_folder(state: &AppState, value: Value) -> Result<Value, AppError> {
+    let prepared = prepare_entity_for_create(state, "chat-folders", value)?;
+    state
+        .storage
+        .update_collections_atomically(vec!["chat-folders"], move |collections| {
+            let [folders] = collections else {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Chat folder create expected chat-folder collection",
+                ));
+            };
+            if folders.collection() != "chat-folders" {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Chat folder create received unexpected collection",
+                ));
+            }
+            create_chat_folder_in_rows(folders.rows_mut(), prepared)
+        })
+}
+
+fn create_chat_folder_in_rows(rows: &mut Vec<Value>, value: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    let id = object
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(new_id);
+    if rows
+        .iter()
+        .any(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+    {
+        return Err(AppError::invalid_input(format!(
+            "chat-folders/{id} already exists"
+        )));
+    }
+
+    let now = now_iso();
+    object.insert("id".to_string(), Value::String(id));
+    object
+        .entry("createdAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object
+        .entry("updatedAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object.insert("sortOrder".to_string(), json!(0));
+    object.insert("order".to_string(), json!(0));
+
+    for folder in rows.iter_mut() {
+        let Some(folder) = folder.as_object_mut() else {
+            return Err(AppError::invalid_input("Stored record is not an object"));
+        };
+        let next_order = folder
+            .get("sortOrder")
+            .or_else(|| folder.get("order"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            + 1;
+        folder.insert("sortOrder".to_string(), json!(next_order));
+        folder.insert("order".to_string(), json!(next_order));
+        folder.insert("updatedAt".to_string(), Value::String(now.clone()));
+    }
+
+    let record = Value::Object(object);
+    rows.push(record.clone());
+    Ok(record)
+}
+
+fn chat_folder_defaults_for_create(value: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    let name = validated_chat_folder_name(object.get("name").unwrap_or(&Value::Null))?;
+    object.insert("name".to_string(), Value::String(name));
+
+    let mode = object
+        .get("mode")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .and_then(canonical_chat_mode)
+        .ok_or_else(|| AppError::invalid_input("Invalid chat folder mode"))?
+        .to_string();
+    object.insert("mode".to_string(), Value::String(mode));
+    object.insert("sortOrder".to_string(), json!(0));
+    object.insert("order".to_string(), json!(0));
+    Ok(Value::Object(object))
 }
 
 fn gallery_defaults_for_create(state: &AppState, value: Value) -> Result<Value, AppError> {
@@ -786,6 +996,121 @@ fn validate_connection_folder_id(
     Ok(())
 }
 
+pub(crate) fn validate_chat_folder_for_create(
+    state: &AppState,
+    entity: &str,
+    value: &Value,
+) -> Result<(), AppError> {
+    if entity != "chats" {
+        return Ok(());
+    }
+    let Some(folder_id) = parse_chat_folder_id(value.get("folderId"))? else {
+        return Ok(());
+    };
+    validate_chat_folder_assignment(state, &folder_id, chat_mode_for_value(value)?)
+}
+
+pub(crate) fn validate_chat_folder_for_patch(
+    state: &AppState,
+    entity: &str,
+    id: &str,
+    patch: &Value,
+) -> Result<(), AppError> {
+    if entity != "chats" {
+        return Ok(());
+    }
+    let Some(patch_object) = patch.as_object() else {
+        return Err(AppError::invalid_input("Patch must be an object"));
+    };
+    if !patch_object.contains_key("folderId") && !patch_object.contains_key("mode") {
+        return Ok(());
+    }
+
+    let existing = state
+        .storage
+        .get("chats", id)?
+        .ok_or_else(|| AppError::not_found(format!("chats/{id} was not found")))?;
+    let folder_id = if patch_object.contains_key("folderId") {
+        patch.get("folderId")
+    } else {
+        existing.get("folderId")
+    };
+    let Some(folder_id) = parse_chat_folder_id(folder_id)? else {
+        return Ok(());
+    };
+    let mode = if patch_object.contains_key("mode") {
+        chat_mode_for_value(patch)?
+    } else {
+        chat_mode_for_value(&existing)?
+    };
+    validate_chat_folder_assignment(state, &folder_id, mode)
+}
+
+fn validate_chat_folder_assignment(
+    state: &AppState,
+    folder_id: &str,
+    chat_mode: &str,
+) -> Result<(), AppError> {
+    let folder = state
+        .storage
+        .get("chat-folders", folder_id)?
+        .ok_or_else(|| {
+            AppError::invalid_input(format!("Chat folder {folder_id} does not exist"))
+        })?;
+    let folder_mode = folder
+        .get("mode")
+        .and_then(Value::as_str)
+        .and_then(canonical_chat_mode)
+        .ok_or_else(|| {
+            AppError::invalid_input(format!("Chat folder {folder_id} has invalid mode"))
+        })?;
+    if folder_mode != chat_mode {
+        return Err(AppError::invalid_input(format!(
+            "Chat folder {folder_id} is for {folder_mode} chats, not {chat_mode} chats"
+        )));
+    }
+    Ok(())
+}
+
+fn parse_chat_folder_id(folder_id: Option<&Value>) -> Result<Option<String>, AppError> {
+    let Some(folder_id) = folder_id else {
+        return Ok(None);
+    };
+    if folder_id.is_null() {
+        return Ok(None);
+    }
+    let Some(folder_id) = folder_id
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Err(AppError::invalid_input(
+            "folderId must be a folder id or null",
+        ));
+    };
+    Ok(Some(folder_id.to_string()))
+}
+
+fn chat_mode_for_value(value: &Value) -> Result<&'static str, AppError> {
+    let Some(mode) = value
+        .get("mode")
+        .and_then(Value::as_str)
+        .and_then(canonical_chat_mode)
+    else {
+        return Err(AppError::invalid_input("Chat mode is required"));
+    };
+    Ok(mode)
+}
+
+fn canonical_chat_mode(mode: &str) -> Option<&'static str> {
+    match mode.trim() {
+        "conversation" => Some("conversation"),
+        "roleplay" | "visual_novel" => Some("roleplay"),
+        "game" => Some("game"),
+        _ => None,
+    }
+}
+
 fn connection_default_agent_scope(connection: &Value) -> Option<&'static str> {
     let provider = connection.get("provider").and_then(Value::as_str)?.trim();
     Some(if provider == "image_generation" {
@@ -892,6 +1217,10 @@ pub(crate) fn delete_entity(
         let deleted = delete_lorebook_folder_with_entry_reparent_sync(state, id)?;
         return Ok(json!({ "deleted": deleted }));
     }
+    if entity == "chat-folders" {
+        let deleted = delete_chat_folder_with_chat_unfile(state, id)?;
+        return Ok(json!({ "deleted": deleted }));
+    }
     let existing = owned_record_for_delete(state, entity, id)?;
     let message_chat_id = if entity == "messages" {
         existing
@@ -936,6 +1265,7 @@ fn apply_delete_cleanup(
                     activate_default_chat_preset_if_needed(state, record)?;
                 }
             }
+            contracts::DeleteCleanup::ClearChatFolder => unfile_chats_in_folder(state, id)?,
             contracts::DeleteCleanup::ClearConnectionFolder => {
                 unfile_connections_in_folder(state, id)?
             }
@@ -1048,16 +1378,28 @@ pub(crate) fn connection_move_inner(
 }
 
 fn unfile_connections_in_folder(state: &AppState, folder_id: &str) -> Result<(), AppError> {
+    unfile_records_in_folder(state, "connections", folder_id)
+}
+
+fn unfile_chats_in_folder(state: &AppState, folder_id: &str) -> Result<(), AppError> {
+    unfile_records_in_folder(state, "chats", folder_id)
+}
+
+fn unfile_records_in_folder(
+    state: &AppState,
+    collection: &str,
+    folder_id: &str,
+) -> Result<(), AppError> {
     let mut filters = Map::new();
     filters.insert("folderId".to_string(), Value::String(folder_id.to_string()));
-    let rows = state.storage.list_where("connections", &filters)?;
+    let rows = state.storage.list_where(collection, &filters)?;
     let patches = rows
         .into_iter()
         .filter_map(|row| row.get("id").and_then(Value::as_str).map(str::to_string))
         .map(|id| (id, json!({ "folderId": Value::Null })))
         .collect::<Vec<_>>();
     if !patches.is_empty() {
-        state.storage.patch_many("connections", patches)?;
+        state.storage.patch_many(collection, patches)?;
     }
     Ok(())
 }
@@ -1254,6 +1596,61 @@ fn delete_lorebook_folder_with_entry_reparent_sync(
             Ok(true)
         },
     )
+}
+
+fn delete_chat_folder_with_chat_unfile(
+    state: &AppState,
+    folder_id: &str,
+) -> Result<bool, AppError> {
+    state
+        .storage
+        .update_collections_atomically(vec!["chat-folders", "chats"], move |collections| {
+            delete_chat_folder_in_rows(collections, folder_id)
+        })
+}
+
+fn delete_chat_folder_in_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+    folder_id: &str,
+) -> Result<bool, AppError> {
+    let (folder_rows, chat_rows) = chat_folder_delete_atomic_rows(collections)?;
+    let before = folder_rows.len();
+    folder_rows.retain(|row| row.get("id").and_then(Value::as_str) != Some(folder_id));
+    let deleted = folder_rows.len() != before;
+    if !deleted {
+        return Ok(false);
+    }
+
+    let now = now_iso();
+    for chat in chat_rows.iter_mut() {
+        if chat.get("folderId").and_then(Value::as_str) != Some(folder_id) {
+            continue;
+        }
+        let Some(object) = chat.as_object_mut() else {
+            return Err(AppError::invalid_input("Stored record is not an object"));
+        };
+        object.insert("folderId".to_string(), Value::Null);
+        object.insert("updatedAt".to_string(), Value::String(now.clone()));
+    }
+    Ok(true)
+}
+
+fn chat_folder_delete_atomic_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+) -> Result<ChatFolderDeleteAtomicRows<'_>, AppError> {
+    let [folders, chats] = collections else {
+        return Err(AppError::new(
+            "storage_error",
+            "Chat folder delete expected folder and chat collections",
+        ));
+    };
+    match (folders.collection(), chats.collection()) {
+        ("chat-folders", "chats") => Ok((folders.rows_mut(), chats.rows_mut())),
+        _ => Err(AppError::new(
+            "storage_error",
+            "Chat folder delete received unexpected collections",
+        )),
+    }
 }
 
 fn lorebook_entry_atomic_rows(
@@ -4331,6 +4728,732 @@ mod tests {
         let error =
             connection_move_inner(&state, "connection-a", Some("missing-folder".to_string()))
                 .expect_err("missing folders should be rejected");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn creating_chat_folder_defaults_and_shifts_existing_folders() {
+        let state = test_state("chat-folder-create-defaults");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old",
+                "mode": "conversation"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "  New folder  ",
+                "mode": "roleplay"
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["name"], "New folder");
+        assert_eq!(created["color"], "");
+        assert_eq!(created["collapsed"], false);
+        assert_eq!(created["sortOrder"], 0);
+        assert_eq!(created["order"], 0);
+        assert!(created.get("createdAt").is_some());
+        assert!(created.get("updatedAt").is_some());
+
+        let shifted = state
+            .storage
+            .get("chat-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(shifted["sortOrder"], 1);
+        assert_eq!(shifted["order"], 1);
+    }
+
+    #[test]
+    fn creating_chat_folder_rejects_invalid_name_and_mode() {
+        let state = test_state("chat-folder-create-invalid");
+        let blank_name = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "name": "  ", "mode": "conversation" }),
+        )
+        .expect_err("blank names should be rejected");
+        assert_eq!(blank_name.code, "invalid_input");
+
+        let invalid_mode = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "name": "Folder", "mode": "unknown" }),
+        )
+        .expect_err("invalid modes should be rejected");
+        assert_eq!(invalid_mode.code, "invalid_input");
+    }
+
+    #[test]
+    fn creating_chat_folder_canonicalizes_legacy_mode_alias() {
+        let state = test_state("chat-folder-create-alias");
+        let created = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "visual_novel" }),
+        )
+        .expect("legacy mode alias should be accepted");
+
+        assert_eq!(created["mode"], "roleplay");
+        let stored = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should persist");
+        assert_eq!(stored["mode"], "roleplay");
+    }
+
+    #[test]
+    fn duplicate_chat_folder_create_leaves_existing_order_unchanged() {
+        let state = test_state("chat-folder-duplicate-keeps-order");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let error = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Duplicate", "mode": "conversation" }),
+        )
+        .expect_err("duplicate folder ids should be rejected");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(folder["sortOrder"], 0);
+        assert_eq!(folder["order"], 0);
+    }
+
+    #[test]
+    fn deleting_chat_folder_unfiles_child_chats() {
+        let state = test_state("chat-folder-delete");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-delete", "name": "Delete", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-keep", "name": "Keep", "mode": "conversation" }),
+        )
+        .expect("negative-control folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-reparent",
+                "title": "Reparent",
+                "mode": "conversation",
+                "folderId": "folder-delete"
+            }),
+        )
+        .expect("chat should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-keep",
+                "title": "Keep",
+                "mode": "conversation",
+                "folderId": "folder-keep"
+            }),
+        )
+        .expect("negative-control chat should be created");
+
+        delete_entity(&state, "chat-folders", "folder-delete", false)
+            .expect("folder delete should succeed");
+
+        let reparented = state
+            .storage
+            .get("chats", "chat-reparent")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(reparented.get("folderId").is_none_or(Value::is_null));
+        let kept = state
+            .storage
+            .get("chats", "chat-keep")
+            .expect("negative-control chat should read")
+            .expect("negative-control chat should remain");
+        assert_eq!(kept["folderId"], "folder-keep");
+    }
+
+    #[test]
+    fn chat_folder_mode_patch_rejects_incompatible_filed_chats() {
+        let state = test_state("chat-folder-mode-patch-incompatible");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "folder-a"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "mode": "game" }),
+        )
+        .expect_err("incompatible filed chats should block folder mode changes");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(folder["mode"], "conversation");
+    }
+
+    #[test]
+    fn chat_folder_mode_patch_canonicalizes_alias_and_rejects_invalid_mode() {
+        let state = test_state("chat-folder-mode-patch-alias-invalid");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let updated = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "mode": "visual_novel" }),
+        )
+        .expect("legacy folder mode alias should be canonicalized");
+        assert_eq!(updated["mode"], "roleplay");
+
+        let error = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "mode": "unknown" }),
+        )
+        .expect_err("invalid folder modes should reject before storage writes");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(folder["mode"], "roleplay");
+    }
+
+    #[test]
+    fn chat_folder_name_patch_trims_and_rejects_blank_names() {
+        let state = test_state("chat-folder-name-patch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let updated = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "name": "  Folder B  " }),
+        )
+        .expect("folder name patch should trim");
+        assert_eq!(updated["name"], "Folder B");
+
+        let error = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "name": "   " }),
+        )
+        .expect_err("blank folder name patch should reject");
+        assert_eq!(error.code, "invalid_input");
+
+        let stored = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(stored["name"], "Folder B");
+    }
+
+    #[test]
+    fn filed_chat_alias_mode_create_and_patch_persist_canonical_mode() {
+        let state = test_state("chat-folder-filed-chat-mode-alias");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "roleplay-folder", "name": "Roleplay", "mode": "roleplay" }),
+        )
+        .expect("folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "visual_novel",
+                "folderId": "roleplay-folder"
+            }),
+        )
+        .expect("filed chat using legacy mode alias should be accepted");
+        assert_eq!(created["mode"], "roleplay");
+
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-b",
+                "title": "Chat B",
+                "mode": "roleplay",
+                "folderId": "roleplay-folder"
+            }),
+        )
+        .expect("second filed chat should be created");
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-b".to_string(),
+            json!({ "mode": "visual_novel" }),
+        )
+        .expect("filed chat mode alias patch should be accepted");
+        assert_eq!(updated["mode"], "roleplay");
+
+        let stored = state
+            .storage
+            .get("chats", "chat-b")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert_eq!(stored["mode"], "roleplay");
+    }
+
+    #[test]
+    fn chat_folder_id_create_and_patch_persist_trimmed_reference() {
+        let state = test_state("chat-folder-id-trim");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-b", "name": "Folder B", "mode": "conversation" }),
+        )
+        .expect("second folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": " folder-a "
+            }),
+        )
+        .expect("padded folderId create should be accepted and normalized");
+        assert_eq!(created["folderId"], "folder-a");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "folderId": " folder-b " }),
+        )
+        .expect("padded folderId patch should be accepted and normalized");
+        assert_eq!(updated["folderId"], "folder-b");
+
+        delete_entity(&state, "chat-folders", "folder-b", false)
+            .expect("folder delete should succeed");
+        let chat = state
+            .storage
+            .get("chats", "chat-a")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(chat.get("folderId").is_none_or(Value::is_null));
+    }
+
+    #[test]
+    fn unfiling_legacy_no_mode_chat_does_not_require_mode() {
+        let state = test_state("chat-folder-clear-legacy-no-mode");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        state
+            .storage
+            .replace_all(
+                "chats",
+                vec![json!({
+                    "id": "legacy-chat",
+                    "title": "Legacy Chat",
+                    "folderId": "folder-a"
+                })],
+            )
+            .expect("legacy chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "legacy-chat".to_string(),
+            json!({ "folderId": Value::Null }),
+        )
+        .expect("clearing folderId should not require mode");
+        assert!(updated.get("folderId").is_none_or(Value::is_null));
+
+        let stored = state
+            .storage
+            .get("chats", "legacy-chat")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(stored.get("folderId").is_none_or(Value::is_null));
+    }
+
+    #[test]
+    fn filing_legacy_no_mode_chat_still_requires_mode() {
+        let state = test_state("chat-folder-assign-legacy-no-mode");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        state
+            .storage
+            .replace_all(
+                "chats",
+                vec![json!({
+                    "id": "legacy-chat",
+                    "title": "Legacy Chat"
+                })],
+            )
+            .expect("legacy chat should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "legacy-chat".to_string(),
+            json!({ "folderId": "folder-a" }),
+        )
+        .expect_err("assigning a folder should require provable mode compatibility");
+        assert_eq!(error.code, "invalid_input");
+
+        let stored = state
+            .storage
+            .get("chats", "legacy-chat")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(stored.get("folderId").is_none());
+    }
+
+    #[test]
+    fn chat_folder_delete_atomic_failure_leaves_folder_and_child_references() {
+        let state = test_state("chat-folder-delete-atomic-failure");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "folder-a"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = state
+            .storage
+            .update_collections_atomically(vec!["chat-folders", "chats"], |collections| {
+                let (folder_rows, chat_rows) = chat_folder_delete_atomic_rows(collections)?;
+                folder_rows.retain(|row| row.get("id").and_then(Value::as_str) != Some("folder-a"));
+                if chat_rows
+                    .iter()
+                    .any(|row| row.get("folderId").and_then(Value::as_str) == Some("folder-a"))
+                {
+                    return Err(AppError::invalid_input("injected child cleanup failure"));
+                }
+                Ok(true)
+            })
+            .expect_err("atomic update failure should roll back both collections");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain after rollback");
+        assert_eq!(folder["id"], "folder-a");
+        let chat = state
+            .storage
+            .get("chats", "chat-a")
+            .expect("chat should read")
+            .expect("chat should remain after rollback");
+        assert_eq!(chat["folderId"], "folder-a");
+    }
+
+    #[test]
+    fn moving_chat_rejects_missing_folder() {
+        let state = test_state("chat-folder-missing");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "folderId": "missing-folder" }),
+        )
+        .expect_err("missing folders should be rejected");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn creating_chat_rejects_folder_from_another_mode() {
+        let state = test_state("chat-folder-create-mode-mismatch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "roleplay-folder", "name": "Roleplay", "mode": "roleplay" }),
+        )
+        .expect("folder should be created");
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "roleplay-folder"
+            }),
+        )
+        .expect_err("folder mode mismatch should reject create");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn creating_folderless_chat_does_not_require_mode_for_folder_validation() {
+        let state = test_state("chat-folder-create-folderless-no-mode");
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A"
+            }),
+        )
+        .expect("folderless chat create should not fail in folder validation");
+
+        assert_eq!(created["id"], "chat-a");
+    }
+
+    #[test]
+    fn creating_filed_chat_still_requires_mode() {
+        let state = test_state("chat-folder-create-filed-no-mode");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "conversation-folder", "name": "Conversation", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "folderId": "conversation-folder"
+            }),
+        )
+        .expect_err("filed chat create should require mode compatibility");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn moving_chat_rejects_folder_from_another_mode() {
+        let state = test_state("chat-folder-move-mode-mismatch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "conversation-folder", "name": "Conversation", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "game-chat",
+                "title": "Game Chat",
+                "mode": "game"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "game-chat".to_string(),
+            json!({ "folderId": "conversation-folder" }),
+        )
+        .expect_err("folder-only patch should use persisted chat mode");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn moving_chat_accepts_compatible_folder() {
+        let state = test_state("chat-folder-move-compatible");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "game-folder", "name": "Game", "mode": "game" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "game-chat",
+                "title": "Game Chat",
+                "mode": "game"
+            }),
+        )
+        .expect("chat should be created");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "game-chat".to_string(),
+            json!({ "folderId": "game-folder" }),
+        )
+        .expect("compatible folder assignment should succeed");
+        assert_eq!(updated["folderId"], "game-folder");
+    }
+
+    #[test]
+    fn updating_chat_mode_and_folder_validates_post_patch_pair() {
+        let state = test_state("chat-folder-mode-folder-patch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "game-folder", "name": "Game", "mode": "game" }),
+        )
+        .expect("game folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-compatible",
+                "title": "Compatible",
+                "mode": "conversation"
+            }),
+        )
+        .expect("compatible chat should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-incompatible",
+                "title": "Incompatible",
+                "mode": "conversation"
+            }),
+        )
+        .expect("incompatible chat should be created");
+
+        let compatible = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-compatible".to_string(),
+            json!({ "mode": "game", "folderId": "game-folder" }),
+        )
+        .expect("post-patch mode and folder should be compatible");
+        assert_eq!(compatible["mode"], "game");
+        assert_eq!(compatible["folderId"], "game-folder");
+
+        let incompatible = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-incompatible".to_string(),
+            json!({ "mode": "roleplay", "folderId": "game-folder" }),
+        )
+        .expect_err("post-patch mode and folder mismatch should reject");
+        assert_eq!(incompatible.code, "invalid_input");
+    }
+
+    #[test]
+    fn changing_chat_mode_rejects_existing_incompatible_folder() {
+        let state = test_state("chat-folder-mode-change-filed");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "conversation-folder", "name": "Conversation", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "conversation-folder"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "mode": "game" }),
+        )
+        .expect_err("mode-only patch should validate existing folder");
         assert_eq!(error.code, "invalid_input");
     }
 
