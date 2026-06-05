@@ -596,6 +596,7 @@ function selectBudgetedLorebookEntries(
     if (state.selectedIds.has(candidate.entry.id)) continue;
     if (maxEntries > 0 && state.selected.length >= maxEntries) break;
 
+    const restoreVariables = contentResolver?.snapshotVariables?.();
     const resolvedCandidate = activatedEntryWithResolvedContent(candidate, contentResolver);
     const entryTokens = estimateLorebookTokens(resolvedCandidate.entry.content);
     const lorebookMeta = lorebooksById.get(resolvedCandidate.entry.lorebookId);
@@ -608,6 +609,7 @@ function selectBudgetedLorebookEntries(
       state.chatBudgetExhausted || (chatBudget > 0 && state.totalTokens + entryTokens > chatBudget);
 
     if (exceedsLorebookBudget || exceedsChatBudget) {
+      restoreVariables?.();
       if (exceedsLorebookBudget) state.exhaustedLorebookIds.add(resolvedCandidate.entry.lorebookId);
       if (exceedsChatBudget) state.chatBudgetExhausted = true;
       budgetSkippedEntries.push({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StorageGateway } from "../capabilities/storage";
 import { LIMITS } from "../contracts/constants/defaults";
+import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
 import { scanActiveLorebooks } from "./active-lorebook-scanner";
 
 type RowMap = Record<string, Array<Record<string, unknown>>>;
@@ -463,6 +464,93 @@ describe("scanActiveLorebooks", () => {
 
     expect(result.processedLore.includedEntries).toEqual([]);
     expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-budget-skipped-frontier"]);
+  });
+
+  it("rolls back macro variable mutations from budget-skipped entries", async () => {
+    const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
+    const macros: MacroContext = {
+      char: "Ari",
+      user: "User",
+      characters: ["Ari"],
+      variables: { flag: "prior" },
+    };
+    const storage = storageWithRows(
+      {
+        lorebooks: [
+          { id: "book-a", name: "Budgeted Book", enabled: true, isGlobal: true, tokenBudget: 1 },
+          { id: "book-b", name: "Kept Book", enabled: true, isGlobal: true, tokenBudget: 0 },
+        ],
+        "lorebook-folders": [],
+        "lorebook-entries": [
+          {
+            id: "entry-budget-skipped-setvar",
+            lorebookId: "book-a",
+            name: "Budget skipped setvar",
+            content: "{{setvar::flag::leaked}}This entry is too large for the lorebook budget.",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 0,
+          },
+          {
+            id: "entry-kept-getvar",
+            lorebookId: "book-b",
+            name: "Kept getvar before selected setvar",
+            content: "flag={{getvar::flag}}",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 10,
+          },
+          {
+            id: "entry-kept-setvar",
+            lorebookId: "book-b",
+            name: "Kept setvar",
+            content: "{{setvar::flag::selected}}selected",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 20,
+          },
+          {
+            id: "entry-later-getvar",
+            lorebookId: "book-b",
+            name: "Later getvar",
+            content: "flag={{getvar::flag}}",
+            keys: ["alpha-key"],
+            enabled: true,
+            order: 30,
+          },
+        ],
+      },
+      calls,
+    );
+
+    const result = await scanActiveLorebooks({
+      storage,
+      chat: { id: "chat-1", mode: "roleplay", metadata: {} },
+      characters: [],
+      persona: null,
+      storedMessages: [{ id: "message-1", role: "user", content: "alpha-key" }],
+      embeddingSource: null,
+      contentResolver: {
+        resolve: (content) => resolveMacros(content, macros),
+        snapshotVariables: () => {
+          const before = { ...macros.variables };
+          return () => {
+            for (const name of Object.keys(macros.variables)) {
+              if (before[name] === undefined) delete macros.variables[name];
+            }
+            Object.assign(macros.variables, before);
+          };
+        },
+      },
+    });
+
+    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-budget-skipped-setvar"]);
+    expect(result.processedLore.includedEntries.map((entry) => entry.entry.content)).toEqual([
+      "flag=prior",
+      "selected",
+      "flag=selected",
+    ]);
+    expect(macros.variables.flag).toBe("selected");
   });
 
   it("keeps lower-priority entries skipped after the chat lorebook budget is exhausted", async () => {

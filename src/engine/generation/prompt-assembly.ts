@@ -2998,6 +2998,16 @@ function chatHistoryDepthInjectionBounds(
   return { minIndex, anchorIndex: lastHistoryIndex + 1 };
 }
 
+function snapshotMacroVariables(macros: MacroContext): () => void {
+  const before = { ...macros.variables };
+  return () => {
+    for (const name of Object.keys(macros.variables)) {
+      if (before[name] === undefined) delete macros.variables[name];
+    }
+    Object.assign(macros.variables, before);
+  };
+}
+
 export async function assembleGenerationPrompt(
   storage: StorageGateway,
   rawInput: PromptAssemblyInput,
@@ -3053,6 +3063,7 @@ export async function assembleGenerationPrompt(
       includedPositions,
       contentResolver: {
         resolve: (content) => cleanPromptText(resolveMacros(content, macros)),
+        snapshotVariables: () => snapshotMacroVariables(macros),
       },
     });
   let loreScan = await scanLorebooksForPositions(baseLorebookIncludedPositions);

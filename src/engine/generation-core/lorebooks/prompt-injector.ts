@@ -126,6 +126,7 @@ export interface BudgetSkippedActivatedEntry {
 
 export interface LorebookContentResolver {
   resolve(content: string): string;
+  snapshotVariables?(): () => void;
 }
 
 function withResolvedContent(entry: ActivatedEntry, resolver?: LorebookContentResolver): ActivatedEntry {
