@@ -1953,8 +1953,8 @@ async function writeGameLorebookKeeperEntries(data: {
     (entry) => !createdEntryIds.has(entry.id) && keeperEntrySessionNumber(entry) === data.sessionNumber,
   );
   let sessionChat: Chat;
+  let replacementsCommitted = false;
   try {
-    await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
     for (const entry of createdEntries) {
       await storageApi.update(
         "lorebook-entries",
@@ -1987,8 +1987,23 @@ async function writeGameLorebookKeeperEntries(data: {
         entryCount: entriesToCreate.length,
       },
     });
+    replacementsCommitted = true;
+    for (const entry of staleEntries) {
+      await storageApi.update(
+        "lorebook-entries",
+        entry.id,
+        updateLorebookEntrySchema.parse({
+          enabled: false,
+          dynamicState: {
+            ...asRecord(entry.dynamicState),
+            gameLorebookKeeperSupersededAt: nowIso(),
+          },
+        }),
+      );
+    }
+    await Promise.all(staleEntries.map((entry) => storageApi.delete("lorebook-entries", entry.id)));
   } catch (error) {
-    await disableCreatedEntries();
+    if (!replacementsCommitted) await disableCreatedEntries();
     throw error;
   }
   return { lorebookId: lorebook.id, entryCount: entriesToCreate.length, sessionChat };
