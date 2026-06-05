@@ -101,6 +101,13 @@ fn memory_chat_id(memory: &Value) -> Option<&str> {
         .and_then(Value::as_str)
 }
 
+fn memory_agent_config_id(memory: &Value) -> Option<&str> {
+    memory
+        .get("agentConfigId")
+        .or_else(|| memory.get("agent_config_id"))
+        .and_then(Value::as_str)
+}
+
 fn run_agent_config_id(run: &Value) -> Option<&str> {
     run.get("agentConfigId")
         .or_else(|| run.get("agent_config_id"))
@@ -392,14 +399,8 @@ fn read_agent_memory(
     agent_config_id: &str,
     chat_id: &str,
 ) -> AppResult<Map<String, Value>> {
-    let mut filters = Map::new();
-    filters.insert(
-        "agentConfigId".to_string(),
-        Value::String(agent_config_id.to_string()),
-    );
-    filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
     let mut memory = Map::new();
-    for row in state.storage.list_where("agent-memory", &filters)? {
+    for row in agent_memory_rows_for_chat_config(state, agent_config_id, chat_id)? {
         let Some(key) = row.get("key").and_then(Value::as_str) else {
             continue;
         };
@@ -413,6 +414,22 @@ fn read_agent_memory(
     Ok(memory)
 }
 
+fn agent_memory_rows_for_chat_config(
+    state: &AppState,
+    agent_config_id: &str,
+    chat_id: &str,
+) -> AppResult<Vec<Value>> {
+    Ok(state
+        .storage
+        .list("agent-memory")?
+        .into_iter()
+        .filter(|row| {
+            memory_agent_config_id(row) == Some(agent_config_id)
+                && memory_chat_id(row) == Some(chat_id)
+        })
+        .collect())
+}
+
 fn set_agent_memory_value(
     state: &AppState,
     agent_config_id: &str,
@@ -420,21 +437,19 @@ fn set_agent_memory_value(
     key: &str,
     value: Value,
 ) -> AppResult<()> {
-    let mut filters = Map::new();
-    filters.insert(
-        "agentConfigId".to_string(),
-        Value::String(agent_config_id.to_string()),
-    );
-    filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
-    filters.insert("key".to_string(), Value::String(key.to_string()));
     let stored_value = match value {
         Value::String(raw) => Value::String(raw),
         other => Value::String(serde_json::to_string(&other)?),
     };
     if let Some(existing) = state
         .storage
-        .list_where("agent-memory", &filters)?
+        .list("agent-memory")?
         .into_iter()
+        .filter(|row| {
+            memory_agent_config_id(row) == Some(agent_config_id)
+                && memory_chat_id(row) == Some(chat_id)
+                && row.get("key").and_then(Value::as_str) == Some(key)
+        })
         .next()
     {
         let id = existing
@@ -459,13 +474,7 @@ fn set_agent_memory_value(
 }
 
 fn clear_agent_memory(state: &AppState, agent_config_id: &str, chat_id: &str) -> AppResult<()> {
-    let mut filters = Map::new();
-    filters.insert(
-        "agentConfigId".to_string(),
-        Value::String(agent_config_id.to_string()),
-    );
-    filters.insert("chatId".to_string(), Value::String(chat_id.to_string()));
-    for row in state.storage.list_where("agent-memory", &filters)? {
+    for row in agent_memory_rows_for_chat_config(state, agent_config_id, chat_id)? {
         if let Some(id) = row.get("id").and_then(Value::as_str) {
             state.storage.delete("agent-memory", id)?;
         }
@@ -529,6 +538,113 @@ mod tests {
                 }),
             )
             .expect("message should write");
+    }
+
+    #[test]
+    fn clear_agent_bookkeeping_preserves_legacy_secret_plot_arc() {
+        let state = test_state("legacy-secret-plot-arc");
+        state
+            .storage
+            .upsert_with_id(
+                "agents",
+                "secret-plot-agent",
+                json!({
+                    "id": "secret-plot-agent",
+                    "type": "secret-plot-driver",
+                    "name": "Secret Plot Driver",
+                    "settings": {}
+                }),
+            )
+            .expect("secret plot agent should write");
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "legacy-secret-arc",
+                json!({
+                    "id": "legacy-secret-arc",
+                    "agent_config_id": "secret-plot-agent",
+                    "chat_id": "chat-1",
+                    "key": "overarchingArc",
+                    "value": "legacy arc"
+                }),
+            )
+            .expect("legacy secret plot memory should write");
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "legacy-director-note",
+                json!({
+                    "id": "legacy-director-note",
+                    "agent_config_id": "agent-director",
+                    "chat_id": "chat-1",
+                    "key": "note",
+                    "value": "delete me"
+                }),
+            )
+            .expect("legacy ordinary memory should write");
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "legacy-other-chat-note",
+                json!({
+                    "id": "legacy-other-chat-note",
+                    "agent_config_id": "agent-director",
+                    "chat_id": "other-chat",
+                    "key": "note",
+                    "value": "keep me"
+                }),
+            )
+            .expect("legacy other chat memory should write");
+
+        let result = clear_agent_runs_and_memory_for_chat(&state, "chat-1")
+            .expect("agent bookkeeping clear should succeed");
+
+        assert_eq!(result["deletedMemory"], json!(2));
+        assert_eq!(result["preservedSecretPlotArc"], json!(true));
+        assert!(
+            state
+                .storage
+                .get("agent-memory", "legacy-secret-arc")
+                .expect("legacy secret arc lookup should succeed")
+                .is_none(),
+            "legacy secret plot row should be replaced by the preserved current row"
+        );
+        assert!(
+            state
+                .storage
+                .get("agent-memory", "legacy-director-note")
+                .expect("legacy ordinary row lookup should succeed")
+                .is_none(),
+            "ordinary legacy memory for the cleared chat should be removed"
+        );
+        assert!(
+            state
+                .storage
+                .get("agent-memory", "legacy-other-chat-note")
+                .expect("legacy other chat row lookup should succeed")
+                .is_some(),
+            "legacy memory for other chats should stay"
+        );
+
+        let rows = state
+            .storage
+            .list("agent-memory")
+            .expect("agent memory should be readable");
+        let restored_arc = rows
+            .iter()
+            .find(|row| {
+                row.get("chatId").and_then(Value::as_str) == Some("chat-1")
+                    && row.get("agentConfigId").and_then(Value::as_str) == Some("secret-plot-agent")
+                    && row.get("key").and_then(Value::as_str) == Some("overarchingArc")
+            })
+            .expect("secret plot arc should be restored in current shape");
+        assert_eq!(
+            restored_arc.get("value").and_then(Value::as_str),
+            Some("legacy arc")
+        );
     }
 
     #[test]

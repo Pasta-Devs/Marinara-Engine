@@ -1,2 +1,2 @@
 export * from "./components/CoreModuleRuntimeProvider";
-export * from "./components/CoreModulesSettings";
+export { CoreModulesSettings } from "./components/CoreModulesSettings";
