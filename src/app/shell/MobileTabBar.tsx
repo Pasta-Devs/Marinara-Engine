@@ -83,8 +83,9 @@ export function MobileTabBar({
   const startNewChat = (mode: "conversation" | "roleplay" | "game") => {
     closeAll();
     setActiveChatId(null);
-    onGoHome();
     useChatStore.getState().setPendingNewChatMode(mode);
+    onGoHome();
+    setSidebarOpen(true);
   };
 
   const isHome = !professorMariOpen && !sidebarOpen && !rightPanelOpen;

@@ -14,6 +14,7 @@ import { useChat } from "../../../../catalog/chats/index";
 import { agentApi } from "../../../../../shared/api/agent-api";
 import { storageApi } from "../../../../../shared/api/storage-api";
 import { cn } from "../../../../../shared/lib/utils";
+import { useIsMobile } from "../../../../../shared/hooks/use-is-mobile";
 import { normalizeEchoMessages, readEchoRecord, readEchoText } from "../lib/echo-chamber-messages";
 
 const MESSAGE_INTERVAL_MS = 30_000; // 30 s between reveals
@@ -45,7 +46,8 @@ interface EchoChamberPanelProps {
 
 /** Tiny 4-square grid icon; the active corner is highlighted. */
 function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChange: (c: EchoChamberSide) => void }) {
-  if (typeof window !== "undefined" && window.innerWidth < 768) return null;
+  const isMobile = useIsMobile();
+  if (isMobile) return null;
   return (
     <div className="grid grid-cols-2 gap-px">
       {CORNERS.map((c) => (
@@ -202,12 +204,12 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
 
   // ── Compute position style relative to the chat area container ──
   const [posStyle, setPosStyle] = useState<Record<string, number | undefined>>({});
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!echoChamberOpen) return;
     // On mobile, position below the HUD bar.
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
+    if (isMobile) {
       const findVisibleHud = (): HTMLElement | null => {
         const els = document.querySelectorAll<HTMLElement>(".rpg-hud");
         for (const el of els) {
@@ -249,7 +251,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       ...(leftOffset !== undefined && { left: leftOffset }),
       ...(rightOffset !== undefined && { right: rightOffset }),
     });
-  }, [echoChamberOpen, echoChamberSide]);
+  }, [echoChamberOpen, echoChamberSide, isMobile]);
 
   if (!echoChamberOpen || !echoEnabled || echoDismissedForChat || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages

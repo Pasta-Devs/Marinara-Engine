@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { cn, generateClientId } from "../../../../../shared/lib/utils";
+import { useIsMobile } from "../../../../../shared/hooks/use-is-mobile";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
 import {
   appendChatSummaryEntryToMetadata,
@@ -438,7 +439,7 @@ export function SummaryPopover({
   );
 
   const isGenerating = generateSummary.isPending;
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobile = useIsMobile();
 
   const content = (
     <div

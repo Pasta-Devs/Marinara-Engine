@@ -575,6 +575,10 @@ input[type="range"].mari-spotify-volume-slider::-moz-range-thumb {
   background: oklch(0.96 0.006 145);
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 html,
 body,
 #root {
