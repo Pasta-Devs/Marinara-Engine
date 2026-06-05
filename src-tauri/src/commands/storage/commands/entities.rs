@@ -1391,6 +1391,7 @@ fn delete_cleanup_needs_existing_record(cleanup: &contracts::DeleteCleanup) -> b
 fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
     match entity {
         "characters" => avatars::remove_avatar_file(state, entity, record),
+        "character-versions" => characters::remove_character_version_avatar_file(state, record),
         "personas" => {
             avatars::remove_avatar_file_preserving_persona_snapshots(state, entity, record)
         }
@@ -2850,6 +2851,83 @@ mod tests {
         assert!(
             !image_path.exists(),
             "managed gallery file should be removed"
+        );
+    }
+
+    #[test]
+    fn deleting_character_version_removes_owned_avatar_copy() {
+        assert!(cleanup_registered(
+            "character-versions",
+            contracts::DeleteCleanup::RemoveOwnedMedia
+        ));
+        let state = test_state("character-version-delete-managed-avatar");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let avatar_path = avatar_dir.join("version.png");
+        std::fs::write(&avatar_path, b"managed").expect("version avatar should be written");
+        state
+            .storage
+            .create(
+                "character-versions",
+                json!({
+                    "id": "version-1",
+                    "characterId": "char-1",
+                    "avatarPath": "http://asset.localhost/version.png",
+                    "avatarFilePath": avatar_path.to_string_lossy().to_string(),
+                    "avatarFilename": "version.png"
+                }),
+            )
+            .expect("version row should be created");
+
+        delete_entity(&state, "character-versions", "version-1", false)
+            .expect("version delete should succeed");
+
+        assert!(
+            !avatar_path.exists(),
+            "deleted version should remove its owned avatar copy"
+        );
+    }
+
+    #[test]
+    fn deleting_character_version_preserves_avatar_still_used_by_character() {
+        let state = test_state("character-version-delete-live-avatar");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let avatar_path = avatar_dir.join("shared.png");
+        std::fs::write(&avatar_path, b"managed").expect("shared avatar should be written");
+        let avatar_path_string = avatar_path.to_string_lossy().to_string();
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "avatarPath": "http://asset.localhost/shared.png",
+                    "avatarFilePath": avatar_path_string,
+                    "avatarFilename": "shared.png"
+                }),
+            )
+            .expect("character row should be created");
+        state
+            .storage
+            .create(
+                "character-versions",
+                json!({
+                    "id": "version-1",
+                    "characterId": "char-1",
+                    "avatarPath": "http://asset.localhost/shared.png",
+                    "avatarFilePath": avatar_path.to_string_lossy().to_string(),
+                    "avatarFilename": "shared.png"
+                }),
+            )
+            .expect("version row should be created");
+
+        delete_entity(&state, "character-versions", "version-1", false)
+            .expect("version delete should succeed");
+
+        assert!(
+            avatar_path.exists(),
+            "version delete must not remove an avatar still used by the live character"
         );
     }
 

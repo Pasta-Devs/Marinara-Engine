@@ -26,16 +26,18 @@ pub(crate) fn update_character_avatar(
         "avatar",
     )?;
     if collection == "characters" {
-        let snapshot_record = character_avatar_snapshot_record(state, collection, &previous);
-        super::characters::create_character_version_snapshot_from_record(
+        if let Err(error) = super::characters::create_character_version_snapshot_from_record(
             state,
             id,
-            &snapshot_record,
+            &previous,
             "manual",
             "Avatar update",
-        )?;
+        ) {
+            remove_copied_avatar_path(&stored.absolute_path, "rolled-back avatar upload");
+            return Err(error);
+        }
     }
-    let updated = state.storage.patch(
+    let updated = match state.storage.patch(
         collection,
         id,
         json!({
@@ -45,9 +47,21 @@ pub(crate) fn update_character_avatar(
             "avatarFilename": stored.filename,
             "avatarUpdatedAt": now_iso()
         }),
-    )?;
+    ) {
+        Ok(updated) => updated,
+        Err(error) => {
+            remove_copied_avatar_path(&stored.absolute_path, "rolled-back avatar upload");
+            return Err(error);
+        }
+    };
     remove_avatar_file_preserving_persona_snapshots(state, collection, &previous);
     Ok(updated)
+}
+
+fn remove_copied_avatar_path(path: &str, context: &str) {
+    if let Err(error) = fs::remove_file(path) {
+        log::warn!("could not remove {context} at {path}: {error}");
+    }
 }
 
 pub(crate) fn remove_character_avatar(state: &AppState, id: &str) -> AppResult<Value> {
@@ -57,11 +71,10 @@ pub(crate) fn remove_character_avatar(state: &AppState, id: &str) -> AppResult<V
         return Ok(previous);
     }
 
-    let snapshot_record = character_avatar_snapshot_record(state, "characters", &previous);
     super::characters::create_character_version_snapshot_from_record(
         state,
         id,
-        &snapshot_record,
+        &previous,
         "manual",
         "Avatar removal",
     )?;
@@ -109,73 +122,6 @@ fn character_data_without_avatar_crop(record: &Value) -> AppResult<Option<Value>
         Ok(Some(data))
     } else {
         Ok(None)
-    }
-}
-
-fn character_avatar_snapshot_record(state: &AppState, collection: &str, record: &Value) -> Value {
-    let mut snapshot = record.clone();
-    if let Some(object) = snapshot.as_object_mut() {
-        if let Some(data_url) = managed_avatar_data_url(state, collection, record) {
-            object.insert("avatar".to_string(), Value::String(data_url.clone()));
-            object.insert("avatarPath".to_string(), Value::String(data_url));
-            object.insert("avatarFilePath".to_string(), Value::Null);
-            object.insert("avatarFilename".to_string(), Value::Null);
-        }
-    }
-    snapshot
-}
-
-fn managed_avatar_data_url(state: &AppState, collection: &str, record: &Value) -> Option<String> {
-    let path = managed_record_file_path(
-        state,
-        &format!("avatars/{}", safe_filename(collection)),
-        record,
-        "avatarFilePath",
-        "avatarFilename",
-    )
-    .ok()
-    .flatten()?;
-    avatar_data_url_from_path(
-        &path.to_string_lossy(),
-        record
-            .get("avatarFilename")
-            .and_then(Value::as_str)
-            .or_else(|| path.file_name().and_then(|value| value.to_str())),
-    )
-    .ok()
-}
-
-fn avatar_data_url_from_path(path: &str, filename: Option<&str>) -> AppResult<String> {
-    let path = Path::new(path);
-    let bytes = fs::read(path).map_err(|error| {
-        AppError::new(
-            "avatar_file_read_error",
-            format!("Avatar file could not be read: {error}"),
-        )
-    })?;
-    let mime =
-        avatar_mime_type(filename.or_else(|| path.file_name().and_then(|value| value.to_str())));
-    Ok(format!(
-        "data:{mime};base64,{}",
-        general_purpose::STANDARD.encode(bytes)
-    ))
-}
-
-fn avatar_mime_type(filename: Option<&str>) -> &'static str {
-    let Some(filename) = filename else {
-        return "image/png";
-    };
-    match filename
-        .rsplit_once('.')
-        .map(|(_, ext)| ext.to_ascii_lowercase())
-        .as_deref()
-    {
-        Some("jpg" | "jpeg") => "image/jpeg",
-        Some("webp") => "image/webp",
-        Some("gif") => "image/gif",
-        Some("avif") => "image/avif",
-        Some("svg") => "image/svg+xml",
-        _ => "image/png",
     }
 }
 
@@ -659,15 +605,6 @@ mod tests {
     }
 
     #[test]
-    fn avatar_data_url_from_path_reports_missing_file() {
-        let missing = std::env::temp_dir().join("marinara-missing-avatar.png");
-        let error = avatar_data_url_from_path(&missing.to_string_lossy(), Some("missing.png"))
-            .expect_err("missing avatar file should fail instead of falling back");
-
-        assert_eq!(error.code, "avatar_file_read_error");
-    }
-
-    #[test]
     fn character_avatar_upload_stores_managed_asset_url() {
         let state = test_state("character-avatar-upload-managed");
         state
@@ -999,12 +936,14 @@ mod tests {
     }
 
     #[test]
-    fn character_avatar_update_snapshot_does_not_restore_deleted_file_metadata() {
+    fn character_avatar_update_snapshot_copies_previous_managed_avatar() {
         let state = test_state("character-avatar-version");
         let avatar_dir = state.data_dir.join("avatars").join("characters");
         std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
         let old_avatar_path = avatar_dir.join("old.png");
-        std::fs::write(&old_avatar_path, b"old").expect("old avatar should be written");
+        let (_, old_avatar_bytes) =
+            decode_image_payload(small_png_data_url(), "avatar").expect("tiny png should decode");
+        std::fs::write(&old_avatar_path, &old_avatar_bytes).expect("old avatar should be written");
         let old_avatar_path = old_avatar_path.to_string_lossy().to_string();
 
         state
@@ -1040,9 +979,33 @@ mod tests {
             .list("character-versions")
             .expect("versions should list");
         assert_eq!(versions.len(), 1);
-        assert_eq!(versions[0]["avatarPath"], "data:image/png;base64,b2xk");
-        assert_eq!(versions[0]["avatarFilePath"], Value::Null);
-        assert_eq!(versions[0]["avatarFilename"], Value::Null);
+        let version_avatar_url = versions[0]["avatarPath"]
+            .as_str()
+            .expect("version avatar URL should be stored");
+        assert!(
+            !version_avatar_url.starts_with("data:image/"),
+            "version snapshots should not store inline avatar data"
+        );
+        assert!(
+            version_avatar_url.starts_with("asset://localhost")
+                || version_avatar_url.starts_with("http://asset.localhost"),
+            "version snapshots should store a managed asset URL"
+        );
+        let version_avatar_path = versions[0]["avatarFilePath"]
+            .as_str()
+            .expect("version avatar file path should be stored");
+        assert_ne!(
+            version_avatar_path, old_avatar_path,
+            "version snapshot should own a copied avatar file"
+        );
+        assert!(
+            !Path::new(&old_avatar_path).exists(),
+            "replaced character avatar file should still be cleaned up"
+        );
+        assert_eq!(
+            std::fs::read(version_avatar_path).expect("version avatar copy should exist"),
+            old_avatar_bytes
+        );
 
         let version_id = versions[0]
             .get("id")
@@ -1052,13 +1015,48 @@ mod tests {
             super::super::characters::restore_character_version(&state, "char-1", version_id)
                 .expect("version should restore");
 
-        assert_eq!(restored["avatarPath"], "data:image/png;base64,b2xk");
-        assert_eq!(restored["avatarFilePath"], Value::Null);
-        assert_eq!(restored["avatarFilename"], Value::Null);
+        let restored_avatar_path = restored["avatarFilePath"]
+            .as_str()
+            .expect("restored live avatar file path should be stored");
+        assert_ne!(
+            restored_avatar_path, version_avatar_path,
+            "restoring a version should copy the version avatar into a live-owned file"
+        );
+        assert_eq!(
+            std::fs::read(restored_avatar_path).expect("restored live avatar copy should exist"),
+            old_avatar_bytes
+        );
+        assert!(
+            restored["avatarFilename"]
+                .as_str()
+                .is_some_and(|value| value.starts_with("restored-char-1-")),
+            "restored live avatar should have a distinct live-owned filename"
+        );
+        assert!(
+            Path::new(version_avatar_path).is_file(),
+            "version avatar copy should remain available after restore"
+        );
+
+        update_character_avatar(
+            &state,
+            "characters",
+            "char-1",
+            json!({ "avatar": small_png_data_url(), "filename": "latest.png" }),
+        )
+        .expect("replacing restored avatar should update");
+
+        assert!(
+            !Path::new(restored_avatar_path).exists(),
+            "replacing the restored live avatar should clean up only the live-owned copy"
+        );
+        assert!(
+            Path::new(version_avatar_path).is_file(),
+            "replacing the restored live avatar must not delete the saved version avatar copy"
+        );
     }
 
     #[test]
-    fn character_avatar_snapshot_preserves_metadata_when_inline_read_fails() {
+    fn character_avatar_snapshot_preserves_metadata_when_managed_copy_is_missing() {
         let state = test_state("character-avatar-version-missing-file");
         let missing_path = state
             .data_dir
@@ -1076,11 +1074,74 @@ mod tests {
             "avatarFilename": "missing.png"
         });
 
-        let snapshot = character_avatar_snapshot_record(&state, "characters", &record);
+        let snapshot = super::super::characters::create_character_version_snapshot_from_record(
+            &state,
+            "char-1",
+            &record,
+            "manual",
+            "Avatar update",
+        )
+        .expect("version snapshot should still be created");
 
         assert_eq!(snapshot["avatarPath"], "http://asset.localhost/missing.png");
         assert_eq!(snapshot["avatarFilePath"], record["avatarFilePath"]);
         assert_eq!(snapshot["avatarFilename"], "missing.png");
+    }
+
+    #[test]
+    fn character_avatar_update_fails_before_cleanup_when_snapshot_copy_is_invalid() {
+        let state = test_state("character-avatar-version-invalid-file");
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let corrupt_avatar_path = avatar_dir.join("corrupt.png");
+        std::fs::write(&corrupt_avatar_path, b"not an image").expect("corrupt avatar should write");
+        let corrupt_avatar_path = corrupt_avatar_path.to_string_lossy().to_string();
+
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": { "name": "Rina" },
+                    "avatar": "http://asset.localhost/corrupt.png",
+                    "avatarPath": "http://asset.localhost/corrupt.png",
+                    "avatarFilePath": corrupt_avatar_path,
+                    "avatarFilename": "corrupt.png"
+                }),
+            )
+            .expect("character should be created");
+
+        let error = update_character_avatar(
+            &state,
+            "characters",
+            "char-1",
+            json!({ "avatar": small_png_data_url(), "filename": "new.png" }),
+        )
+        .expect_err("invalid previous avatar should fail snapshot creation");
+
+        assert_eq!(error.code, "character_version_avatar_copy_error");
+        assert!(
+            Path::new(&corrupt_avatar_path).is_file(),
+            "failed snapshot copy must leave the previous avatar file in place"
+        );
+        assert!(
+            state
+                .storage
+                .list("character-versions")
+                .expect("versions should list")
+                .is_empty(),
+            "failed snapshot copy must not create a broken version row"
+        );
+        let remaining_files = std::fs::read_dir(&avatar_dir)
+            .expect("avatar dir should list")
+            .filter_map(Result::ok)
+            .filter(|entry| entry.path().is_file())
+            .count();
+        assert_eq!(
+            remaining_files, 1,
+            "failed snapshot copy should roll back the newly uploaded avatar file"
+        );
     }
 
     #[test]
