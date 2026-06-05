@@ -25,14 +25,18 @@ function scheduleFor(status: "idle" | "dnd" | "offline"): WeekSchedule {
 
 function createStore(
   status: "idle" | "dnd" | "offline",
-  options: { secondStatus?: "idle" | "dnd" | "offline"; messages?: Record<string, Record<string, unknown>> } = {},
+  options: {
+    secondStatus?: "idle" | "dnd" | "offline";
+    messages?: Record<string, Record<string, unknown>>;
+    mode?: string;
+  } = {},
 ): Store {
   const characterIds = options.secondStatus ? ["char-1", "char-2"] : ["char-1"];
   return {
     chats: {
       "chat-1": {
         id: "chat-1",
-        mode: "conversation",
+        mode: options.mode ?? "conversation",
         connectionId: "conn-1",
         characterIds,
         metadata: {
@@ -212,14 +216,19 @@ function createDeps(
   options: {
     secondStatus?: "idle" | "dnd" | "offline";
     messages?: Record<string, Record<string, unknown>>;
-    capture?: { extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }> };
+    mode?: string;
+    capture?: {
+      extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }>;
+      streamParameters?: Record<string, unknown>[];
+    };
   } = {},
 ) {
   const llm: LlmGateway = {
     async complete() {
       return "";
     },
-    async *stream() {
+    async *stream(request) {
+      options.capture?.streamParameters?.push(request.parameters ?? {});
       yield { type: "token" as const, text: "Hello." };
     },
     async listModels() {
@@ -356,6 +365,72 @@ describe("startGeneration conversation availability delays", () => {
 });
 
 describe("startGeneration context injection compatibility", () => {
+  it("randomizes fixed custom seeds when regenerating conversation swipes", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.25);
+    const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
+    const deps = createDeps("idle", {
+      capture,
+      messages: {
+        "assistant-1": {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          characterId: "char-1",
+          content: "Previous response.",
+          createdAt: "2026-06-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    try {
+      for await (const event of startGeneration(deps, {
+        chatId: "chat-1",
+        message: "Regenerate that.",
+        regenerateMessageId: "assistant-1",
+        parameters: {
+          customParameters: {
+            seed: 4_294_967_295,
+            repeat_penalty: 1.05,
+          },
+        },
+      })) {
+        if (event.type === "done") break;
+      }
+    } finally {
+      random.mockRestore();
+    }
+
+    expect(capture.streamParameters[0]).toMatchObject({
+      customParameters: {
+        seed: 1_073_741_823,
+        repeat_penalty: 1.05,
+      },
+    });
+  });
+
+  it("preserves fixed custom seeds on non-regenerate turns", async () => {
+    const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
+    const deps = createDeps("idle", { capture, mode: "roleplay" });
+
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      message: "Hi Mira.",
+      parameters: {
+        customParameters: {
+          seed: 4_294_967_295,
+        },
+      },
+    })) {
+      if (event.type === "done") break;
+    }
+
+    expect(capture.streamParameters[0]).toMatchObject({
+      customParameters: {
+        seed: 4_294_967_295,
+      },
+    });
+  });
+
   it("keeps legacy bare-string context injections when merging regenerated agent injections", async () => {
     const capture: { extraPatches: Array<{ messageId: string; patch: Record<string, unknown> }> } = {
       extraPatches: [],

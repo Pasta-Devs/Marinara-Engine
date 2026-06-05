@@ -1,102 +1,57 @@
 {
   "schemaVersion": 1,
   "issue": {
-    "number": 2170,
-    "title": "[Issue]: Bare-string context injections are silently dropped by the engine normalizer (legacy-format migration lost)",
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2170"
+    "number": 2243,
+    "title": "Seed does not appear to be changed on rerolls in conversation mode",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2243"
   },
   "pr": {
-    "number": 2246,
-    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2246",
-    "base": "refactor",
-    "draft": true
+    "number": null,
+    "url": null
   },
-  "coreClaim": "Legacy bare-string context injections are preserved as prose-guardian injections in engine generation normalization.",
-  "preflight": {
-    "noAssociatedPr": true,
-    "issueAssigned": true,
-    "evidence": "gh PR search for issue 2170 returned no matches; keyword search found only older adjacent agent PRs; local branch/worktree search found no 2170 branch; issue assigned to @me."
-  },
-  "dependencies": {
-    "installedFromLockfile": true,
-    "evidence": "pnpm install --frozen-lockfile completed in the issue worktree and did not change dependency declarations."
-  },
+  "coreClaim": "Conversation rerolls send a fresh LLM seed instead of reusing a fixed custom seed from the merged generation parameters.",
   "reproduction": {
     "attempted": true,
     "reproducedBeforeFix": true,
-    "method": "Vitest regression test for regenerate merge over legacy string contextInjections.",
-    "evidence": [
-      "scratch/issue-2170-before.json: failing test shows only the new secret-plot row remains and the legacy prose-guardian row is missing."
-    ]
+    "method": "Request-path proof from startGeneration regeneration parameters.",
+    "evidence": "Before reroll seed normalization, a regenerate turn reused the same fixed customParameters.seed carried in merged LLM parameters."
   },
   "verification": {
     "originalReproPassed": true,
+    "originalReproCommand": "pnpm test src/engine/generation/start-generation.test.ts",
+    "originalReproEvidence": "Passed: 10 tests. The new regression captures a conversation regenerate stream request and proves customParameters.seed changes from 4294967295 to a fresh seed; the adjacent non-regenerate guard preserves fixed seeds.",
+    "targetedCommand": "pnpm test src/engine/generation/start-generation.test.ts",
+    "targetedEvidence": "Passed: 10 tests in start-generation.test.ts.",
     "baselinePassed": true,
     "baselineCommand": "pnpm check",
-    "baselineEvidence": "Passed after resolving upstream/refactor conflicts: line endings, architecture, frontend/typecheck, Rust cargo check, docs, discovery metadata, launcher safety, and unused-code checks.",
-    "focusedProof": [
-      "Before fix, the focused Vitest test failed because the regenerate patch dropped the legacy prose-guardian row.",
-      "After fix, the focused Vitest test passed and preserved legacy string plus current object rows while appending the new override.",
-      "After review follow-up, the focused Vitest suite passed with a direct target lookup fallback row.",
-      "After upstream/refactor conflict resolution, start-generation.test.ts passed with issue-2170 tests and upstream agent-injection-review tests combined."
-    ],
-    "edgeCases": [
-      "Existing object-shaped injection remains preserved while merging a new override.",
-      "Blank legacy string entries are skipped instead of becoming empty prose-guardian injections.",
-      "Regenerate merge falls back to direct target lookup when the loaded history list does not contain the target message extra."
-    ],
-    "visualProof": "Non-UI logic proof captured as raw Vitest JSON output in scratch/issue-2170-before.json, scratch/issue-2170-after.json, scratch/issue-2170-after-review.json, and scratch/issue-2170-after-conflict-resolution.json."
+    "baselineEvidence": "Passed: line endings, architecture, frontend typecheck, Rust check, docs, discovery, launcher safety, and unused-code check.",
+    "visualProof": "scratch/bugfix-verification.json"
   },
   "manualBlockers": [],
-  "riskClaimMatrix": {
-    "coreClaim": "Legacy bare-string context injections are preserved as prose-guardian injections in engine generation normalization.",
-    "riskType": "legacy-format compatibility regression",
-    "entrypoints": [
-      "startGeneration regenerate path merging existing message extra.contextInjections"
-    ],
-    "currentPathsOrFormats": [
-      "object entries with agentType/text"
-    ],
-    "legacyPathsOrFormats": [
-      "bare string entries meaning prose-guardian text"
-    ],
-    "positiveRowsTested": [
-      "legacy bare string plus new object override merge",
-      "existing object-shaped injection plus new object override merge",
-      "legacy bare string merge when the regenerated target extra is recovered by direct lookup fallback"
-    ],
-    "negativeRowsTested": [
-      "blank legacy string entry is skipped"
-    ],
-    "groundTruthFacts": [
-      {
-        "fact": "Legacy bare string context injection entries map to prose-guardian injections.",
-        "sourceType": "derived",
-        "evidence": "Issue #2170 regression notes cite main packages/server/src/routes/generate/agent-normalizers.ts mapping string entries to prose-guardian objects."
-      },
-      {
-        "fact": "The refactor UI display normalizer still treats string entries as prose-guardian injections.",
-        "sourceType": "measured",
-        "evidence": "src/features/modes/roleplay/components/ContextInjectionPanel.tsx normalizes string entries to { agentType: 'prose-guardian', text }."
-      }
-    ],
-    "userActionCopy": [],
-    "manualBlockers": []
+  "notes": [],
+  "preflight": {
+    "assignedToSelf": true,
+    "noAssociatedPr": true,
+    "evidence": "gh PR search for #2243 and reroll/seed keywords found only older adjacent reroll PRs; local branch/worktree search found no issue-2243 branch or worktree; issue assigned to @me."
   },
-  "notes": [
-    "UI/browser proof is not applicable because the bug is pure engine normalization logic.",
-    "Resolved upstream/refactor merge conflict by keeping issue-2170 verification in the singleton tracked ledger; upstream issue-2184 proof belongs to PR #2247.",
-    "Conflict-resolution focused checks passed: start-generation.test.ts and active-lorebook-scanner.test.ts."
+  "dependencies": {
+    "installedFromLockfile": true,
+    "evidence": "pnpm install --frozen-lockfile completed in the clean issue worktree and did not change dependency declarations."
+  },
+  "edgeCases": [
+    "Regenerate path replaces a fixed customParameters.seed and preserves sibling custom parameters.",
+    "Non-regenerate path preserves fixed customParameters.seed for users who intentionally want deterministic first-pass generations.",
+    "Claude subscription runtime metadata is still appended after seed normalization."
   ],
   "finalDoneGate": {
     "didFixBug": true,
     "hasProfessionalVisualProof": true,
-    "prWouldBeAccepted": false,
+    "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Focused repro passed after the fix, review follow-up, and upstream/refactor conflict resolution. Proof gate and pnpm check passed locally after conflict resolution. PR acceptance remains pending push, CI, Bunny, and CodeRabbit."
+    "notes": "Focused request-path proof, typecheck, proof gate, and pnpm check passed locally. PR remains pending commit, push, draft creation, CI, Bunny after push, and CodeRabbit."
   },
   "bunny": {
-    "status": "local-pass-after-conflict-resolution",
-    "evidence": "Conflict resolution kept issue-2170 engine/test proof plus upstream refactor changes, git diff --check passed, focused start-generation and active-lorebook scanner tests passed, proof gate passed, and pnpm check passed locally."
+    "status": "local-pass",
+    "evidence": "Bunny local review passed: scoped diff, issue symptom matched, request-path proof covers the core claim, non-regenerate fixed-seed guard covers adjacent path, git diff --check/proof gate/targeted Vitest/pnpm check passed."
   }
 }
