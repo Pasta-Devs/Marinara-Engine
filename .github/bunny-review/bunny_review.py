@@ -46,6 +46,7 @@ class Finding:
     title: str
     body: str
     fix_hint: str
+    repair_contract: dict | None = None
 
 
 def _safe_path(rel: str) -> pathlib.Path:
@@ -574,8 +575,8 @@ def skeptical_review_pass(client, skill, triage_content, stats):
         "fallback behavior that diverges from validation, rollback paths, partial writes, "
         "contract drift, and tests that prove only the happy path. Report only concrete "
         "actionable findings that cite added or changed diff lines. If there are no "
-        "findings from this specialist lens, return the same JSON schema with an empty "
-        "findings array and mention the skeptical audit in what_i_checked."
+        "findings from this specialist lens, return the same JSON schema with empty "
+        "findings and nitpicks arrays and mention the skeptical audit in what_i_checked."
     )
     messages = [
         {"role": "system", "content": skill},
@@ -591,10 +592,11 @@ def judge_review_pass(client, skill, triage_content, broad_review, skeptical_rev
         "Merge these two independent review passes into the final Bunny Review JSON. "
         "Deduplicate overlapping findings, keep the clearest title/body/fix_hint, normalize "
         "severity, and reject weak or speculative findings. Preserve concrete findings even "
-        "if only one pass found them. Preserve up to 2 concrete nitpicks when they are "
+        "if only one pass found them, and include a repair_contract for every defect finding. "
+        "Preserve up to 2 concrete nitpicks in the separate nitpicks array when they are "
         "actionable changed-line polish; non-blocking does not mean weak. Every final "
-        "finding must be actionable and cite an added or changed diff line. Combine useful "
-        "change_summary, pre_merge_checks, "
+        "finding and nitpick must be actionable and cite an added or changed diff line. Combine useful "
+        "change_summary, nitpicks, pre_merge_checks, "
         "open_questions, and what_i_checked entries without repeating yourself. Reply only "
         "with FINAL_REVIEW followed by the final JSON object."
         f"\n\n# Broad Review JSON\n{json.dumps(broad_review, indent=2, sort_keys=True)}"
@@ -707,26 +709,55 @@ def touched_lines(base):
     return by_path
 
 
-def validate_findings(review_obj, base):
+def normalize_repair_contract(value):
+    if not isinstance(value, dict):
+        return None
+    allowed_keys = (
+        "invariant",
+        "related_failure_paths",
+        "adjacent_traps",
+        "acceptable_fix_shapes",
+        "expected_proof",
+    )
+    contract = {}
+    for key in allowed_keys:
+        raw = value.get(key)
+        if isinstance(raw, list):
+            items = [str(item).strip() for item in raw if str(item).strip()]
+            if items:
+                contract[key] = items[:5]
+        elif isinstance(raw, str) and raw.strip():
+            contract[key] = raw.strip()
+    return contract or None
+
+
+def normalize_review_item(item, *, default_severity):
+    return Finding(
+        severity=str(item.get("severity", default_severity)).lower(),
+        path=str(item.get("path", "")).strip(),
+        line=item.get("line"),
+        title=str(item.get("title", "")).strip(),
+        body=str(item.get("body", "")).strip(),
+        fix_hint=str(item.get("fix_hint", "")).strip(),
+        repair_contract=normalize_repair_contract(item.get("repair_contract")),
+    )
+
+
+def validate_review_items(review_obj, base):
     allowed = touched_lines(base)
-    valid = []
+    findings = []
+    nitpicks = []
     invalid = []
-    severities = {"blocking", "high", "medium", "low", "nitpick"}
+    severities = {"blocking", "high", "medium", "low"}
     for item in review_obj.get("findings", []):
         try:
-            finding = Finding(
-                severity=str(item.get("severity", "medium")).lower(),
-                path=str(item.get("path", "")).strip(),
-                line=item.get("line"),
-                title=str(item.get("title", "")).strip(),
-                body=str(item.get("body", "")).strip(),
-                fix_hint=str(item.get("fix_hint", "")).strip(),
-            )
+            finding = normalize_review_item(item, default_severity="medium")
         except Exception as exc:
             invalid.append(f"Malformed finding skipped: {exc}")
             continue
+        target = nitpicks if finding.severity == "nitpick" else findings
         if finding.severity not in severities:
-            finding.severity = "medium"
+            finding.severity = "nitpick" if target is nitpicks else "medium"
         if not finding.path or finding.path not in allowed:
             invalid.append(
                 f"{finding.severity} '{finding.title or '<untitled>'}' at "
@@ -748,10 +779,41 @@ def validate_findings(review_obj, base):
         if not finding.title or not finding.body:
             invalid.append(f"{finding.path}:{finding.line}: missing title/body")
             continue
-        valid.append(finding)
-    severity_rank = {"blocking": 0, "high": 1, "medium": 2, "low": 3, "nitpick": 4}
-    valid.sort(key=lambda finding: severity_rank.get(finding.severity, 2))
-    return valid, invalid
+        target.append(finding)
+
+    for item in review_obj.get("nitpicks", [])[:2]:
+        try:
+            nitpick = normalize_review_item(item, default_severity="nitpick")
+            nitpick.severity = "nitpick"
+        except Exception as exc:
+            invalid.append(f"Malformed nitpick skipped: {exc}")
+            continue
+        if not nitpick.path or nitpick.path not in allowed:
+            invalid.append(
+                f"nitpick '{nitpick.title or '<untitled>'}' at "
+                f"{nitpick.path or '<missing path>'}: not in changed files"
+            )
+            continue
+        if not isinstance(nitpick.line, int):
+            invalid.append(
+                f"nitpick '{nitpick.title or '<untitled>'}' at "
+                f"{nitpick.path}: missing integer line"
+            )
+            continue
+        if nitpick.line not in allowed.get(nitpick.path, set()):
+            invalid.append(
+                f"nitpick '{nitpick.title or '<untitled>'}' at "
+                f"{nitpick.path}:{nitpick.line}: line is not an added/changed diff line"
+            )
+            continue
+        if not nitpick.title or not nitpick.body:
+            invalid.append(f"{nitpick.path}:{nitpick.line}: missing nitpick title/body")
+            continue
+        nitpicks.append(nitpick)
+
+    severity_rank = {"blocking": 0, "high": 1, "medium": 2, "low": 3}
+    findings.sort(key=lambda finding: severity_rank.get(finding.severity, 2))
+    return findings, nitpicks[:2], invalid
 
 
 def render_finding_body(finding):
@@ -764,6 +826,9 @@ def render_finding_body(finding):
         "",
         blockquote(finding.body),
     ]
+    contract = render_repair_contract(finding)
+    if contract:
+        parts.extend(["", contract])
     if finding.fix_hint:
         parts.extend([""] + alert_block("TIP", [f"**Suggested fix:** {finding.fix_hint}"]))
     parts.extend(["", render_agent_prompt_details([finding], "🤖 Repair prompt for agents")])
@@ -820,6 +885,41 @@ def alert_block(kind, lines):
     return body
 
 
+def compact_list(value):
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    return []
+
+
+def render_repair_contract(finding):
+    contract = finding.repair_contract or {}
+    if not contract or finding.severity == "nitpick":
+        return ""
+    labels = [
+        ("invariant", "Invariant"),
+        ("related_failure_paths", "Related failure paths"),
+        ("adjacent_traps", "Adjacent traps"),
+        ("acceptable_fix_shapes", "Acceptable fix shapes"),
+        ("expected_proof", "Expected proof"),
+    ]
+    lines = ["<details>", "<summary>Repair contract</summary>", ""]
+    for key, label in labels:
+        values = compact_list(contract.get(key))
+        if not values:
+            continue
+        if len(values) == 1:
+            lines.append(f"- **{label}:** {values[0]}")
+            continue
+        lines.append(f"- **{label}:**")
+        lines.extend(f"  - {item}" for item in values[:5])
+    if len(lines) <= 3:
+        return ""
+    lines.extend(["", "</details>"])
+    return "\n".join(lines)
+
+
 def severity_meta(severity):
     return {
         "blocking": {"icon": "🚫", "label": "BLOCKING", "rank": 0},
@@ -845,6 +945,34 @@ def status_badge(meta):
     return f"<strong>{meta['icon']}&nbsp;{meta['label']}</strong>"
 
 
+def control_type(item):
+    explicit = str(item.get("type") or item.get("kind") or "").strip()
+    allowed = {
+        "Proof Gap",
+        "Review Limitation",
+        "CI Timing",
+        "Non-blocking Coverage",
+    }
+    if explicit in allowed:
+        return explicit
+    combined = " ".join(
+        str(item.get(key, "")) for key in ("name", "status", "detail")
+    ).lower()
+    if "ci" in combined or "check" in combined or "pending" in combined:
+        return "CI Timing"
+    if "proof" in combined or "test" in combined or "coverage" in combined:
+        if "missing" in combined or "gap" in combined or "lacks" in combined:
+            return "Proof Gap"
+        return "Non-blocking Coverage"
+    if "truncated" in combined or "context" in combined or "packet" in combined:
+        return "Review Limitation"
+    return "Review Limitation"
+
+
+def warn_is_proof_gap(item):
+    return status_meta(item.get("status"))["label"] in {"WARN", "WARNING", "PENDING", "UNKNOWN"} and control_type(item) == "Proof Gap"
+
+
 def finding_summary(findings):
     if not findings:
         return "No actionable defects isolated."
@@ -868,6 +996,101 @@ def has_failed_review_check(pre_merge):
         and status_meta(item.get("status"))["label"] == "FAIL"
         for item in pre_merge
     )
+
+
+def has_incomplete_review_check(pre_merge):
+    names = {"review failed", "review skipped"}
+    return any(str(item.get("name", "")).strip().lower() in names for item in pre_merge)
+
+
+def merge_signal(review_obj, findings, nitpicks, pre_merge):
+    state = str(review_obj.get("review_state") or "").lower()
+    if state == "no_new_diff_reviewed":
+        return {
+            "label": "NO NEW DIFF REVIEWED",
+            "title": "No New Diff Reviewed",
+            "admonition": "NOTE",
+            "detail": "Bunny already reviewed this head; this run did not inspect new changes.",
+        }
+    review_incomplete = has_incomplete_review_check(pre_merge)
+    if review_incomplete:
+        return {
+            "label": "REVIEW INCOMPLETE",
+            "title": "Review Incomplete",
+            "admonition": "CAUTION",
+            "detail": "Bunny Review did not complete, so no model findings are available.",
+        }
+    has_blocking = any(
+        severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
+        for finding in findings
+    )
+    has_failed_check = any(
+        status_meta(item.get("status"))["label"] == "FAIL" for item in pre_merge
+    )
+    if has_blocking or has_failed_check:
+        return {
+            "label": "DO NOT MERGE",
+            "title": "Do Not Merge",
+            "admonition": "CAUTION",
+            "detail": "Repair blocking/high findings or failed controls before merge.",
+        }
+    if findings or any(warn_is_proof_gap(item) for item in pre_merge):
+        return {
+            "label": "ACTION NEEDED",
+            "title": "Action Needed",
+            "admonition": "WARNING",
+            "detail": "Actionable findings or proof gaps remain for this head.",
+        }
+    has_notes = nitpicks or any(
+        status_meta(item.get("status"))["label"] in {"WARN", "WARNING", "PENDING", "UNKNOWN"}
+        for item in pre_merge
+    )
+    if has_notes:
+        return {
+            "label": "READY WITH NOTES",
+            "title": "Ready With Notes",
+            "admonition": "WARNING",
+            "detail": "No actionable defects were isolated, but non-blocking notes remain.",
+        }
+    return {
+        "label": "READY",
+        "title": "Ready",
+        "admonition": "TIP",
+        "detail": "No actionable findings were isolated for this head. Expected CI controls were observed passing.",
+    }
+
+
+def render_merge_signal(review_obj, findings, nitpicks, pre_merge, head_sha):
+    signal = merge_signal(review_obj, findings, nitpicks, pre_merge)
+    controls = control_summary(pre_merge)
+    mode = review_obj.get("mode") or "unknown"
+    body = [
+        f"## Bunny Merge Signal: {signal['title']}",
+        "",
+        f"> [!{signal['admonition']}]",
+        f"> **{signal['label']}**",
+        f"> {signal['detail']}",
+        "",
+        "| Findings | Nitpicks | Controls | Reviewed Head | Mode |",
+        "| ---: | ---: | --- | --- | --- |",
+        f"| {len(findings)} | {len(nitpicks)} | {md_cell(controls)} | `{short_ref(head_sha)}` | `{md_cell(mode)}` |",
+    ]
+    return "\n".join(body)
+
+
+def control_summary(pre_merge):
+    if not pre_merge:
+        return "none"
+    counts = {}
+    for item in pre_merge:
+        label = status_meta(item.get("status"))["label"].lower()
+        counts[label] = counts.get(label, 0) + 1
+    ordered = []
+    for label in ("fail", "warn", "warning", "pending", "unknown", "pass"):
+        count = counts.get(label)
+        if count:
+            ordered.append(f"{count} {label}")
+    return ", ".join(ordered) or f"{len(pre_merge)} control(s)"
 
 
 def review_callout(findings, pre_merge):
@@ -944,6 +1167,18 @@ def agent_prompt_for_finding(finding):
     ]
     if finding.fix_hint:
         lines.append(f"Suggested repair: {finding.fix_hint}")
+    if finding.repair_contract and finding.severity != "nitpick":
+        lines.append("Repair contract:")
+        for key, label in (
+            ("invariant", "Invariant"),
+            ("related_failure_paths", "Related failure paths"),
+            ("adjacent_traps", "Adjacent traps"),
+            ("acceptable_fix_shapes", "Acceptable fix shapes"),
+            ("expected_proof", "Expected proof"),
+        ):
+            values = compact_list(finding.repair_contract.get(key))
+            if values:
+                lines.append(f"- {label}: " + "; ".join(values[:5]))
     lines.extend(
         [
             "Validate the fix with the narrowest relevant check.",
@@ -1033,6 +1268,7 @@ def ci_status_to_pre_merge_checks(ci_status):
             {
                 "name": "CI Status",
                 "status": "fail",
+                "type": "CI Timing",
                 "detail": "One or more expected CI controls failed or were cancelled; the specimen is not fit for merge.",
             }
         ]
@@ -1041,6 +1277,7 @@ def ci_status_to_pre_merge_checks(ci_status):
             {
                 "name": "CI Status",
                 "status": "warn",
+                "type": "CI Timing",
                 "detail": "Expected CI controls were missing or incomplete when Bunny posted; verify the control path before merge.",
             }
         ]
@@ -1048,12 +1285,13 @@ def ci_status_to_pre_merge_checks(ci_status):
         {
             "name": "CI Status",
             "status": "pass",
+            "type": "CI Timing",
             "detail": "Expected CI controls completed without a reported failure.",
         }
     ]
 
 
-def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_sha):
+def render_walkthrough(review_obj, findings, nitpicks, invalid_findings, ci_status, head_sha):
     summary = review_obj.get("change_summary") or []
     questions = review_obj.get("open_questions") or []
     checked = review_obj.get("what_i_checked") or []
@@ -1065,7 +1303,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         pre_merge = ci_status_to_pre_merge_checks(normalized_ci_status) + pre_merge
     state_marker = (
         f"<!-- bunny-review:last-reviewed-sha={head_sha} -->"
-        if head_sha and not has_failed_review_check(pre_merge)
+        if head_sha and not has_incomplete_review_check(pre_merge)
         else "<!-- bunny-review:last-reviewed-sha=unrecorded -->"
     )
     body = [
@@ -1073,7 +1311,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
         state_marker,
         "## 🐰 Bunny Review",
         "",
-        review_callout(findings, pre_merge),
+        render_merge_signal(review_obj, findings, nitpicks, pre_merge, head_sha),
         "",
         render_review_metadata(review_obj, head_sha),
         "",
@@ -1107,6 +1345,22 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
             )
         else:
             body.extend(["", "> [!TIP]", "> No actionable defects isolated."])
+    body.extend(["", "### 🧹 Nitpicks"])
+    if nitpicks:
+        body.extend(
+            [
+                "| Location | Nitpick |",
+                "| --- | --- |",
+            ]
+        )
+        for nitpick in nitpicks:
+            body.append(
+                "| "
+                f"`{md_cell(nitpick.path)}:{nitpick.line}` | "
+                f"{md_cell(nitpick.title)} |"
+            )
+    else:
+        body.append("- None recorded.")
     agent_prompt = render_agent_prompt_details(
         findings, "🤖 Repair prompt for isolated Bunny findings"
     )
@@ -1117,8 +1371,8 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
             [
                 "",
                 "### ✅ Control Checks",
-                "| Status | Check | Detail |",
-                "| :---: | --- | --- |",
+                "| Status | Type | Check | Detail |",
+                "| :---: | --- | --- | --- |",
             ]
         )
         for item in pre_merge[:8]:
@@ -1129,6 +1383,7 @@ def render_walkthrough(review_obj, findings, invalid_findings, ci_status, head_s
             body.append(
                 "| "
                 f"{status_badge(meta)} | "
+                f"{md_cell(control_type(item))} | "
                 f"{md_cell(name)} | "
                 f"{md_cell(detail)} |"
             )
@@ -1155,6 +1410,7 @@ def merge_review_objects(reviews):
     merged = {
         "change_summary": [],
         "findings": [],
+        "nitpicks": [],
         "pre_merge_checks": [],
         "open_questions": [],
         "what_i_checked": [],
@@ -1166,29 +1422,56 @@ def merge_review_objects(reviews):
                 if item not in merged[key]:
                     merged[key].append(item)
         for check in review.get("pre_merge_checks", []):
-            key = (check.get("name"), check.get("status"), check.get("detail"))
+            key = (check.get("name"), check.get("status"), check.get("type"), check.get("detail"))
             if key not in {
-                (item.get("name"), item.get("status"), item.get("detail"))
+                (item.get("name"), item.get("status"), item.get("type"), item.get("detail"))
                 for item in merged["pre_merge_checks"]
             }:
                 merged["pre_merge_checks"].append(check)
-        for finding in review.get("findings", []):
-            key = (
-                finding.get("path"),
-                finding.get("line"),
-                finding.get("title"),
-            )
-            if key in seen_findings:
-                continue
-            seen_findings.add(key)
-            merged["findings"].append(finding)
+        for key_name in ("findings", "nitpicks"):
+            for finding in review.get(key_name, []):
+                key = (
+                    finding.get("path"),
+                    finding.get("line"),
+                    finding.get("title"),
+                )
+                if key in seen_findings:
+                    continue
+                seen_findings.add(key)
+                merged[key_name].append(finding)
+    merged["nitpicks"] = merged["nitpicks"][:2]
     return merged
+
+
+def prior_review_contracts_context(pr_num, limit=12_000):
+    if not pr_num:
+        return "No prior Bunny review context available."
+    comment = latest_walkthrough_comment(pr_num)
+    if not comment:
+        return "No prior Bunny walkthrough comment found."
+    body = comment.get("body", "")
+    if not body:
+        return "Prior Bunny walkthrough comment was empty."
+    useful_lines = []
+    keep = False
+    for line in body.splitlines():
+        if line.startswith("### 🔎") or line.startswith("### 🧹") or "Repair contract" in line:
+            keep = True
+        elif line.startswith("### ") and keep:
+            keep = False
+        if keep or "bunny-review:finding=" in line or "Invariant" in line or "Expected proof" in line:
+            useful_lines.append(line)
+    compact = "\n".join(useful_lines).strip()
+    if not compact:
+        compact = body[:limit]
+    return truncate(compact, limit)
 
 
 def write_skipped_review(title, body, *, status="unknown", metadata=None):
     review_obj = {
         "change_summary": [body],
         "findings": [],
+        "nitpicks": [],
         "pre_merge_checks": [{"name": title, "status": status, "detail": body}],
         "open_questions": [],
         "what_i_checked": ["No model pass ran; the specimen remained unexamined."],
@@ -1340,7 +1623,8 @@ def parse_command_mode():
 
 
 def produce_review(args):
-    if not os.environ.get("OPENAI_API_KEY"):
+    pr_num = os.environ.get("PR_NUM", "")
+    if not pr_num and not os.environ.get("OPENAI_API_KEY"):
         write_skipped_review(
             "Review Skipped",
             "The reviewer could not run because `OPENAI_API_KEY` is absent from this workflow run. Repository-secret withholding leaves the specimen unexamined.",
@@ -1348,13 +1632,44 @@ def produce_review(args):
         print("Bunny telemetry: skipped=missing_openai_api_key", flush=True)
         return
 
-    pr_num = os.environ.get("PR_NUM", "")
     requested_mode = args.mode or parse_command_mode()
     base, base_ref, head_sha, effective_mode = resolve_review_base(pr_num, requested_mode)
     ensure_local_head(head_sha, pr_num)
     patch_command_status_running(pr_num, head_sha, effective_mode)
     ci_status = os.environ.get("CI_STATUS", "")
     files = changed_files(base)
+    if not files and effective_mode == "incremental":
+        write_skipped_review(
+            "No New Diff Reviewed",
+            "Bunny already reviewed this head; this run did not inspect new changes.",
+            status="pass",
+            metadata={
+                "head_sha": head_sha,
+                "head_commit_message": commit_subject(head_sha),
+                "review_base": base,
+                "base_ref": base_ref,
+                "mode": effective_mode,
+                "review_state": "no_new_diff_reviewed",
+            },
+        )
+        print("Bunny telemetry: skipped=no_new_diff_reviewed", flush=True)
+        return
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        write_skipped_review(
+            "Review Skipped",
+            "The reviewer could not run because `OPENAI_API_KEY` is absent from this workflow run. Repository-secret withholding leaves the specimen unexamined.",
+            metadata={
+                "head_sha": head_sha,
+                "head_commit_message": commit_subject(head_sha),
+                "review_base": base,
+                "base_ref": base_ref,
+                "mode": effective_mode,
+            },
+        )
+        print("Bunny telemetry: skipped=missing_openai_api_key", flush=True)
+        return
+
     chunks = chunk_changed_files(base, files)
     use_chunked_review = len(chunks) > 1
 
@@ -1363,12 +1678,15 @@ def produce_review(args):
         base_url=os.environ.get("LLM_BASE_URL"),
     )
     skill = bunny_prompt_path().read_text("utf-8")
+    prior_contract_context = prior_review_contracts_context(pr_num)
 
     def triage_for_packet(review_packet, focus_note):
         triage = (
             f"Review this PR. The review base is '{base}' from target branch '{base_ref}', "
             f"head is '{head_sha}', and mode is '{effective_mode}'. {focus_note} "
             "Use the provided review packet as the complete inspection context. "
+            "If prior Bunny contracts are included, first judge whether the current diff satisfies "
+            "or leaves those contracts incomplete before issuing adjacent related findings. "
             "You have one chance to request focused extra context before the final review. "
             "If the packet is enough, reply with FINAL_REVIEW followed by a JSON object in the skill's schema. "
             "If more context is necessary to validate a concrete potential finding, reply only with "
@@ -1380,6 +1698,7 @@ def produce_review(args):
             "and architecture. Findings must point to changed diff lines. "
             "If the packet is truncated or missing context for a potential issue, mention that "
             "limitation in what_i_checked rather than inventing certainty."
+            f"\n\n# Prior Bunny Repair Contracts\n{prior_contract_context}"
             f"\n\n# Review Packet\n{review_packet}"
         )
         return triage
@@ -1476,10 +1795,10 @@ def render_review(args):
         pr_num = os.environ.get("PR_NUM", "")
         requested_mode = args.mode or parse_command_mode()
         base, _, _, _ = resolve_review_base(pr_num, requested_mode)
-    findings, invalid = validate_findings(review_obj, base)
+    findings, nitpicks, invalid = validate_review_items(review_obj, base)
     ci_status = read_ci_status()
     head_sha = review_obj.get("head_sha") or os.environ.get("BUNNY_HEAD_SHA", "")
-    walkthrough = render_walkthrough(review_obj, findings, invalid, ci_status, head_sha)
+    walkthrough = render_walkthrough(review_obj, findings, nitpicks, invalid, ci_status, head_sha)
     pathlib.Path("review.md").write_text(walkthrough, "utf-8")
     inline = [
         {
@@ -1488,7 +1807,7 @@ def render_review(args):
             "side": "RIGHT",
             "body": render_finding_body(f),
         }
-        for f in findings
+        for f in [*findings, *nitpicks]
     ]
     pathlib.Path("inline-comments.json").write_text(
         json.dumps(inline, indent=2, sort_keys=True) + "\n", "utf-8"

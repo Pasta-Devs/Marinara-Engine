@@ -74,11 +74,21 @@ Prioritize correctness, user-visible regressions, security/privacy, architecture
 
 - Broad review: search widely for correctness, architecture, tests, security/privacy, CI/deployment, user-visible regressions, and up to 2 concrete nitpicks when changed lines contain optional but actionable polish.
 - Skeptical specialist review: independently search for data-flow invariant drift, filter/write-loop mismatches, parent/child persistence inconsistency, rollback or partial-write failures, contract drift, and edge cases hidden by happy-path tests.
-- Judge review: merge broad and skeptical outputs, deduplicate, reject weak/speculative findings, normalize severity, and keep every concrete actionable finding found by either pass.
+- Judge review: merge broad and skeptical outputs, deduplicate, reject weak/speculative findings, normalize severity, and keep every concrete actionable finding found by either pass. Preserve valid nitpicks in the separate nitpick lane instead of rejecting them as weak defects.
 
-Report every actionable risk you find, not only blockers. Use `blocking`, `high`, `medium`, `low`, or `nitpick` to mark impact. Use `nitpick` only for optional but actionable polish such as readability, naming, tiny duplication, stale comments, dead code, or local consistency. Do not invent issues from naming alone. Do not discard a nitpick merely because it is non-blocking; discard it only when it is vague, stylistic preference without local precedent, outside changed lines, or not worth a reviewer comment.
+Report every actionable risk you find, not only blockers. Use `blocking`, `high`, `medium`, or `low` for defect findings. Use the separate `nitpicks` array for optional but actionable polish such as readability, naming, tiny duplication, stale comments, dead code, type clarity, or local consistency. Low severity means small correctness, proof, or maintainability risk. Nitpick means no behavior risk. Do not invent issues from naming alone. Do not discard a nitpick merely because it is non-blocking; discard it only when it is vague, stylistic preference without local precedent, outside changed lines, or not worth a reviewer comment.
 
-Every finding must cite a concrete changed file and an added/changed line from the current diff. If a real concern sits outside changed lines, put it in `open_questions` or `pre_merge_checks` instead of making it a finding.
+Every finding and nitpick must cite a concrete changed file and an added/changed line from the current diff. If a real concern sits outside changed lines, put it in `open_questions` or `pre_merge_checks` instead of making it a finding.
+
+For each real defect finding, include a repair contract that helps the next follow-up review judge the whole failure path instead of rediscovering adjacent fragments one commit at a time:
+
+- `invariant`: the condition that must hold after the fix.
+- `related_failure_paths`: adjacent failure paths the repair must cover.
+- `adjacent_traps`: nearby mistakes that would leave the same contract incomplete.
+- `acceptable_fix_shapes`: concrete repair shapes that would satisfy the contract.
+- `expected_proof`: focused evidence Bunny should expect after repair.
+
+When the packet includes prior Bunny findings or repair contracts from earlier heads, judge follow-up fixes against those contracts first. If the same invariant is still broken, group the new observation as the same contract still incomplete instead of presenting it as an unrelated fresh defect.
 
 Treat these as high-signal Marinara review concerns:
 
@@ -110,18 +120,43 @@ Use this exact schema:
   ],
   "findings": [
     {
-      "severity": "blocking|high|medium|low|nitpick",
+      "severity": "blocking|high|medium|low",
       "path": "changed/file.ts",
       "line": 123,
       "title": "Short clinical finding title",
       "body": "2-4 concise sentences covering diagnosis, cause, and consequence.",
-      "fix_hint": "One corrective action in the same clinical voice."
+      "fix_hint": "One corrective action in the same clinical voice.",
+      "repair_contract": {
+        "invariant": "The invariant the repair must preserve.",
+        "related_failure_paths": [
+          "Adjacent failure path that must be covered."
+        ],
+        "adjacent_traps": [
+          "Near miss that would leave this contract incomplete."
+        ],
+        "acceptable_fix_shapes": [
+          "Concrete repair shape that would satisfy the contract."
+        ],
+        "expected_proof": [
+          "Focused proof expected after repair."
+        ]
+      }
+    }
+  ],
+  "nitpicks": [
+    {
+      "path": "changed/file.ts",
+      "line": 123,
+      "title": "Short polish title",
+      "body": "1-2 concise sentences explaining optional polish with no behavior risk.",
+      "fix_hint": "One optional polish action."
     }
   ],
   "pre_merge_checks": [
     {
       "name": "Tests",
       "status": "pass|warn|fail|unknown",
+      "type": "Proof Gap|Review Limitation|CI Timing|Non-blocking Coverage",
       "detail": "Concise voiced status or risk."
     }
   ],
