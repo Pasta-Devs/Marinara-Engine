@@ -441,7 +441,7 @@ fn set_agent_memory_value(
         Value::String(raw) => Value::String(raw),
         other => Value::String(serde_json::to_string(&other)?),
     };
-    if let Some(existing) = state
+    let matching_rows = state
         .storage
         .list("agent-memory")?
         .into_iter()
@@ -450,15 +450,39 @@ fn set_agent_memory_value(
                 && memory_chat_id(row) == Some(chat_id)
                 && row.get("key").and_then(Value::as_str) == Some(key)
         })
-        .next()
-    {
+        .collect::<Vec<_>>();
+    if !matching_rows.is_empty() {
+        let existing = matching_rows
+            .iter()
+            .find(|row| {
+                row.get("agentConfigId").and_then(Value::as_str) == Some(agent_config_id)
+                    && row.get("chatId").and_then(Value::as_str) == Some(chat_id)
+            })
+            .or_else(|| matching_rows.first())
+            .expect("matching rows should not be empty");
         let id = existing
             .get("id")
             .and_then(Value::as_str)
+            .map(ToOwned::to_owned)
             .ok_or_else(|| AppError::invalid_input("Agent memory row is missing id"))?;
-        state
-            .storage
-            .patch("agent-memory", id, json!({ "value": stored_value }))?;
+        state.storage.patch(
+            "agent-memory",
+            &id,
+            json!({
+                "agentConfigId": agent_config_id,
+                "chatId": chat_id,
+                "key": key,
+                "value": stored_value
+            }),
+        )?;
+        for duplicate in matching_rows {
+            let Some(duplicate_id) = duplicate.get("id").and_then(Value::as_str) else {
+                continue;
+            };
+            if duplicate_id != id {
+                state.storage.delete("agent-memory", duplicate_id)?;
+            }
+        }
     } else {
         state.storage.create(
             "agent-memory",
@@ -645,6 +669,123 @@ mod tests {
             restored_arc.get("value").and_then(Value::as_str),
             Some("legacy arc")
         );
+    }
+
+    #[test]
+    fn set_agent_memory_value_normalizes_legacy_only_row() {
+        let state = test_state("legacy-memory-write");
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "legacy-note",
+                json!({
+                    "id": "legacy-note",
+                    "agent_config_id": "agent-director",
+                    "chat_id": "chat-1",
+                    "key": "note",
+                    "value": "old"
+                }),
+            )
+            .expect("legacy memory should write");
+
+        set_agent_memory_value(&state, "agent-director", "chat-1", "note", json!("updated"))
+            .expect("memory write should succeed");
+
+        let row = state
+            .storage
+            .get("agent-memory", "legacy-note")
+            .expect("memory lookup should succeed")
+            .expect("legacy row should be normalized in place");
+        assert_eq!(
+            row.get("agentConfigId").and_then(Value::as_str),
+            Some("agent-director")
+        );
+        assert_eq!(row.get("chatId").and_then(Value::as_str), Some("chat-1"));
+        assert_eq!(row.get("key").and_then(Value::as_str), Some("note"));
+        assert_eq!(row.get("value").and_then(Value::as_str), Some("updated"));
+
+        let mut filters = Map::new();
+        filters.insert(
+            "agentConfigId".to_string(),
+            Value::String("agent-director".to_string()),
+        );
+        filters.insert("chatId".to_string(), Value::String("chat-1".to_string()));
+        filters.insert("key".to_string(), Value::String("note".to_string()));
+        let current_rows = state
+            .storage
+            .list_where("agent-memory", &filters)
+            .expect("current-shape memory should be queryable");
+        assert_eq!(current_rows.len(), 1);
+        assert_eq!(
+            current_rows[0].get("value").and_then(Value::as_str),
+            Some("updated")
+        );
+    }
+
+    #[test]
+    fn set_agent_memory_value_prefers_current_row_over_legacy_duplicate() {
+        let state = test_state("mixed-memory-write");
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "legacy-note",
+                json!({
+                    "id": "legacy-note",
+                    "agent_config_id": "agent-director",
+                    "chat_id": "chat-1",
+                    "key": "note",
+                    "value": "legacy stale"
+                }),
+            )
+            .expect("legacy memory should write");
+        state
+            .storage
+            .upsert_with_id(
+                "agent-memory",
+                "current-note",
+                json!({
+                    "id": "current-note",
+                    "agentConfigId": "agent-director",
+                    "chatId": "chat-1",
+                    "key": "note",
+                    "value": "current old"
+                }),
+            )
+            .expect("current memory should write");
+
+        set_agent_memory_value(
+            &state,
+            "agent-director",
+            "chat-1",
+            "note",
+            json!("current updated"),
+        )
+        .expect("memory write should succeed");
+
+        assert!(
+            state
+                .storage
+                .get("agent-memory", "legacy-note")
+                .expect("legacy memory lookup should succeed")
+                .is_none(),
+            "legacy duplicate should be removed after current row wins"
+        );
+        let row = state
+            .storage
+            .get("agent-memory", "current-note")
+            .expect("current memory lookup should succeed")
+            .expect("current row should remain");
+        assert_eq!(
+            row.get("value").and_then(Value::as_str),
+            Some("current updated")
+        );
+        assert_eq!(
+            row.get("agentConfigId").and_then(Value::as_str),
+            Some("agent-director")
+        );
+        assert_eq!(row.get("chatId").and_then(Value::as_str), Some("chat-1"));
     }
 
     #[test]
