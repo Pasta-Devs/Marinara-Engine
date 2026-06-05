@@ -39,6 +39,7 @@ const DEFAULT_API_RATE_LIMIT: u32 = 600;
 const INVOKE_PRE_EXTRACTION_API_RATE_LIMIT: u32 = DEFAULT_API_RATE_LIMIT * 10;
 const DEFAULT_API_RATE_WINDOW: Duration = Duration::from_secs(60);
 const RATE_LIMIT_SWEEP_INTERVAL: Duration = Duration::from_secs(60);
+const HEALTH_WRITABLE_PROBE_TTL: Duration = Duration::from_secs(5);
 const DEFAULT_CORS_ORIGINS: [&str; 7] = [
     "http://localhost:1420",
     "http://127.0.0.1:1420",
@@ -106,6 +107,19 @@ struct ProfileExportQuery {
     format: Option<String>,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct HealthQuery {
+    probe: Option<String>,
+}
+
+impl HealthQuery {
+    fn requests_writable_probe(&self) -> bool {
+        self.probe
+            .as_deref()
+            .is_some_and(|value| value.is_empty() || enabled_env_flag(value))
+    }
+}
+
 pub async fn serve(state: AppState, addr: SocketAddr) -> Result<(), std::io::Error> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(
@@ -171,9 +185,17 @@ pub fn router(state: AppState) -> Router {
         })
 }
 
-async fn health(State(state): State<HttpState>) -> Json<Value> {
-    let writable = probe_data_dir_writable(&state.app.data_dir.join("data")).await;
-    Json(json!({ "ok": true, "runtime": "marinara-server", "writable": writable }))
+async fn health(State(state): State<HttpState>, Query(query): Query<HealthQuery>) -> Json<Value> {
+    if query.requests_writable_probe() {
+        let writable = state
+            .controls
+            .health_probe_cache
+            .data_dir_writable(&state.app.data_dir.join("data"), Instant::now())
+            .await;
+        return Json(json!({ "ok": true, "runtime": "marinara-server", "writable": writable }));
+    }
+
+    Json(json!({ "ok": true, "runtime": "marinara-server" }))
 }
 
 fn health_probe_filename() -> String {
@@ -195,6 +217,55 @@ async fn probe_data_dir_writable(data_dir: &FsPath) -> bool {
     }
 
     tokio::fs::remove_file(&path).await.is_ok()
+}
+
+#[derive(Debug, Clone)]
+struct HealthProbeCache {
+    state: Arc<Mutex<Option<HealthProbeCacheEntry>>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct HealthProbeCacheEntry {
+    writable: bool,
+    checked_at: Instant,
+}
+
+impl Default for HealthProbeCache {
+    fn default() -> Self {
+        Self {
+            state: Arc::new(Mutex::new(None)),
+        }
+    }
+}
+
+impl HealthProbeCache {
+    async fn data_dir_writable(&self, data_dir: &FsPath, now: Instant) -> bool {
+        if let Some(writable) = self.cached_writable(now) {
+            return writable;
+        }
+
+        let writable = probe_data_dir_writable(data_dir).await;
+        let mut state = self
+            .state
+            .lock()
+            .expect("health probe cache should not be poisoned");
+        *state = Some(HealthProbeCacheEntry {
+            writable,
+            checked_at: now,
+        });
+        writable
+    }
+
+    fn cached_writable(&self, now: Instant) -> Option<bool> {
+        let state = self
+            .state
+            .lock()
+            .expect("health probe cache should not be poisoned");
+        let entry = state.as_ref()?;
+        now.checked_duration_since(entry.checked_at)
+            .filter(|elapsed| *elapsed < HEALTH_WRITABLE_PROBE_TTL)
+            .map(|_| entry.writable)
+    }
 }
 
 async fn managed_asset(
@@ -1262,6 +1333,7 @@ fn is_storage_unavailable_io_error(error: &AppError) -> bool {
 struct HttpControls {
     security: SecurityConfig,
     rate_limiter: ApiRateLimiter,
+    health_probe_cache: HealthProbeCache,
 }
 
 impl HttpControls {
@@ -1269,6 +1341,7 @@ impl HttpControls {
         Self {
             security,
             rate_limiter: ApiRateLimiter::default(),
+            health_probe_cache: HealthProbeCache::default(),
         }
     }
 }
@@ -1396,6 +1469,10 @@ async fn api_controls_middleware(
 
 impl ApiRateLimiter {
     fn check(&self, ip: IpAddr, path: &str, now: Instant) -> Option<ApiRateLimitOutcome> {
+        if path == "/health" {
+            return Some(self.check_rule(ip, health_rate_limit_rule(), now));
+        }
+
         if !path.starts_with("/api/") {
             return None;
         }
@@ -1544,6 +1621,14 @@ fn rate_limit_rule_for_invoke_command(command: &str) -> ApiRateLimitRule {
 fn default_api_rate_limit_rule() -> ApiRateLimitRule {
     ApiRateLimitRule {
         key: "default",
+        limit: DEFAULT_API_RATE_LIMIT,
+        window: DEFAULT_API_RATE_WINDOW,
+    }
+}
+
+fn health_rate_limit_rule() -> ApiRateLimitRule {
+    ApiRateLimitRule {
+        key: "health",
         limit: DEFAULT_API_RATE_LIMIT,
         window: DEFAULT_API_RATE_WINDOW,
     }
@@ -2440,7 +2525,7 @@ mod tests {
     }
 
     #[test]
-    fn api_rate_limiter_uses_default_bucket_and_skips_non_api_paths() {
+    fn api_rate_limiter_uses_default_bucket_health_bucket_and_skips_other_non_api_paths() {
         let limiter = ApiRateLimiter::default();
         let ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 11));
         let now = Instant::now();
@@ -2451,7 +2536,13 @@ mod tests {
         assert_eq!(api.limit, DEFAULT_API_RATE_LIMIT);
         assert!(api.is_allowed());
 
-        assert!(limiter.check(ip, "/health", now).is_none());
+        let health = limiter
+            .check(ip, "/health", now)
+            .expect("health path should be rate limited");
+        assert_eq!(health.limit, DEFAULT_API_RATE_LIMIT);
+        assert!(health.is_allowed());
+
+        assert!(limiter.check(ip, "/assets/upload", now).is_none());
     }
 
     #[test]
@@ -2582,6 +2673,88 @@ mod tests {
         assert!((1..=60).contains(&retry_after));
     }
 
+    #[test]
+    fn health_query_probe_flag_only_accepts_enabled_values() {
+        assert!(!HealthQuery::default().requests_writable_probe());
+        assert!(HealthQuery {
+            probe: Some(String::new())
+        }
+        .requests_writable_probe());
+        assert!(HealthQuery {
+            probe: Some("1".to_string())
+        }
+        .requests_writable_probe());
+        assert!(HealthQuery {
+            probe: Some("true".to_string())
+        }
+        .requests_writable_probe());
+        assert!(!HealthQuery {
+            probe: Some("0".to_string())
+        }
+        .requests_writable_probe());
+        assert!(!HealthQuery {
+            probe: Some("false".to_string())
+        }
+        .requests_writable_probe());
+    }
+
+    #[tokio::test]
+    async fn health_liveness_skips_writable_probe_by_default() {
+        let app = test_state("health-liveness-default");
+        let data_dir = app.data_dir.clone();
+        let data_path = data_dir.join("data");
+        std::fs::remove_dir_all(&data_path).expect("data dir should be removable for health test");
+        let state = HttpState {
+            app,
+            controls: HttpControls::new(test_security()),
+        };
+
+        let Json(payload) = health(State(state), Query(HealthQuery::default())).await;
+
+        assert_eq!(payload.get("ok").and_then(Value::as_bool), Some(true));
+        assert_eq!(
+            payload.get("runtime").and_then(Value::as_str),
+            Some("marinara-server")
+        );
+        assert!(payload.get("writable").is_none());
+        assert!(!data_path.exists());
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[tokio::test]
+    async fn health_writable_probe_is_opt_in_and_cached() {
+        let app = test_state("health-probe-cache-route");
+        let data_dir = app.data_dir.clone();
+        let data_path = data_dir.join("data");
+        let state = HttpState {
+            app,
+            controls: HttpControls::new(test_security()),
+        };
+
+        let Json(first) = health(
+            State(state.clone()),
+            Query(HealthQuery {
+                probe: Some("1".to_string()),
+            }),
+        )
+        .await;
+        assert_eq!(first.get("writable").and_then(Value::as_bool), Some(true));
+
+        std::fs::remove_dir_all(&data_path)
+            .expect("data dir should be removable after first probe");
+        let Json(second) = health(
+            State(state),
+            Query(HealthQuery {
+                probe: Some("true".to_string()),
+            }),
+        )
+        .await;
+
+        assert_eq!(second.get("writable").and_then(Value::as_bool), Some(true));
+        assert!(!data_path.exists());
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
     #[tokio::test]
     async fn health_probe_reports_writable_storage_and_cleans_up() {
         let root =
@@ -2597,6 +2770,36 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&root).expect("health test directory should be removed");
+    }
+
+    #[tokio::test]
+    async fn health_probe_cache_reuses_recent_probe_and_expires() {
+        let root =
+            std::env::temp_dir().join(format!("marinara-health-cache-{}", health_probe_filename()));
+        let cache = HealthProbeCache::default();
+        let now = Instant::now();
+
+        assert!(cache.data_dir_writable(&root, now).await);
+        std::fs::remove_dir_all(&root).expect("probe-created data dir should be removable");
+
+        assert!(
+            cache
+                .data_dir_writable(&root, now + Duration::from_secs(1))
+                .await
+        );
+        assert!(!root.exists());
+
+        assert!(
+            cache
+                .data_dir_writable(
+                    &root,
+                    now + HEALTH_WRITABLE_PROBE_TTL + Duration::from_secs(1)
+                )
+                .await
+        );
+        assert!(root.exists());
+
+        std::fs::remove_dir_all(&root).expect("health cache test directory should be removed");
     }
 
     #[test]
