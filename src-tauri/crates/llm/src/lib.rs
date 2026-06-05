@@ -365,10 +365,51 @@ fn should_use_openai_responses(request: &LlmRequest) -> bool {
         || model.contains("codex")
 }
 
-fn reasoning_effort(parameters: &Value) -> Option<String> {
-    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
+fn openai_model_id(model: &str) -> String {
+    model
+        .to_ascii_lowercase()
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .to_string()
+}
+
+fn gpt5_minor_version(model: &str) -> Option<u32> {
+    let model = openai_model_id(model);
+    let tail = model.strip_prefix("gpt-5.")?;
+    let digits = tail
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    if digits.is_empty() {
+        return None;
+    }
+    digits.parse::<u32>().ok()
+}
+
+fn supports_openai_xhigh_reasoning_model(model: &str) -> bool {
+    let model = openai_model_id(model);
+    if model == "gpt-5-pro" || model.starts_with("gpt-5-pro-") {
+        return false;
+    }
+    if model == "gpt-5.1-codex-max" || model.starts_with("gpt-5.1-codex-max-") {
+        return true;
+    }
+    gpt5_minor_version(&model)
+        .map(|minor| minor >= 2)
+        .unwrap_or(false)
+}
+
+fn openai_reasoning_effort(request: &LlmRequest) -> Option<String> {
+    let effort = param_string(
+        &request.parameters,
+        &["reasoningEffort", "reasoning_effort"],
+    )?;
     match effort.as_str() {
         "low" | "medium" | "high" => Some(effort),
+        "maximum" | "xhigh" if supports_openai_xhigh_reasoning_model(&request.connection.model) => {
+            Some("xhigh".to_string())
+        }
         "maximum" | "xhigh" => Some("high".to_string()),
         _ => None,
     }
@@ -969,7 +1010,7 @@ fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
         "stream": stream,
         "max_output_tokens": request_max_tokens(request, 1024),
     });
-    if let Some(effort) = reasoning_effort(&request.parameters) {
+    if let Some(effort) = openai_reasoning_effort(request) {
         body["reasoning"] = json!({ "effort": effort, "summary": "auto" });
     }
     if let Some(format) = param_string(&request.parameters, &["responseFormat", "response_format"])
@@ -1395,7 +1436,7 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
     }
     if request.connection.provider == "openrouter" {
         if is_openrouter_claude_reasoning_model(request) {
-            if let Some(effort) = reasoning_effort(parameters) {
+            if let Some(effort) = openai_reasoning_effort(request) {
                 body["reasoning"] = json!({ "effort": effort });
             }
         }
@@ -3035,6 +3076,104 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert!(!message.contains(":\\"));
         assert!(!message.contains("/Users/"));
         assert!(!message.contains("/home/"));
+    }
+
+    #[test]
+    fn openai_responses_body_preserves_xhigh_for_supported_models() {
+        let request = request_for(
+            "openai",
+            "gpt-5.2",
+            json!({
+                "reasoningEffort": "xhigh",
+                "responseFormat": "json_object",
+                "verbosity": "high",
+                "customParameters": {
+                    "metadata": { "surface": "preset-proof" }
+                }
+            }),
+        );
+        let body = build_openai_responses_body(&request, false);
+
+        assert_eq!(
+            body["reasoning"],
+            json!({ "effort": "xhigh", "summary": "auto" })
+        );
+        assert_eq!(
+            body["text"],
+            json!({ "format": { "type": "json_object" }, "verbosity": "high" })
+        );
+        assert_eq!(body["metadata"], json!({ "surface": "preset-proof" }));
+    }
+
+    #[test]
+    fn openai_responses_body_resolves_maximum_to_supported_xhigh() {
+        let request = request_for(
+            "openai",
+            "gpt-5.2-codex",
+            json!({ "reasoningEffort": "maximum" }),
+        );
+        let body = build_openai_responses_body(&request, false);
+
+        assert_eq!(body["reasoning"]["effort"], json!("xhigh"));
+    }
+
+    #[test]
+    fn openai_responses_body_preserves_xhigh_aliases_for_gpt51_codex_max() {
+        let xhigh_request = request_for(
+            "openai",
+            "gpt-5.1-codex-max",
+            json!({ "reasoningEffort": "xhigh" }),
+        );
+        let maximum_request = request_for(
+            "openai",
+            "gpt-5.1-codex-max",
+            json!({ "reasoningEffort": "maximum" }),
+        );
+
+        assert_eq!(
+            build_openai_responses_body(&xhigh_request, false)["reasoning"]["effort"],
+            json!("xhigh")
+        );
+        assert_eq!(
+            build_openai_responses_body(&maximum_request, false)["reasoning"]["effort"],
+            json!("xhigh")
+        );
+    }
+
+    #[test]
+    fn openai_responses_body_downgrades_xhigh_for_unsupported_models() {
+        let xhigh_request = request_for(
+            "openai",
+            "gpt-5.1",
+            json!({ "reasoningEffort": "xhigh" }),
+        );
+        let maximum_request = request_for(
+            "openai",
+            "gpt-5-pro",
+            json!({ "reasoningEffort": "maximum" }),
+        );
+
+        assert_eq!(
+            build_openai_responses_body(&xhigh_request, false)["reasoning"]["effort"],
+            json!("high")
+        );
+        assert_eq!(
+            build_openai_responses_body(&maximum_request, false)["reasoning"]["effort"],
+            json!("high")
+        );
+    }
+
+    #[test]
+    fn openrouter_claude_reasoning_still_downgrades_xhigh_to_high() {
+        let request = request_for(
+            "openrouter",
+            "anthropic/claude-3.7-sonnet",
+            json!({ "reasoningEffort": "xhigh" }),
+        );
+        let mut body = json!({});
+        apply_openai_parameters(&mut body, &request);
+
+        assert_eq!(body["reasoning"], json!({ "effort": "high" }));
     }
 
     #[test]

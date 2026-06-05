@@ -107,11 +107,29 @@ function shouldUseOpenAiResponses(provider: string, model: string): boolean {
   );
 }
 
-function openAiReasoningEffort(parameters: JsonRecord): string | null {
+function openAiModelId(model: string): string {
+  return model.toLowerCase().split("/").pop() ?? "";
+}
+
+function gpt5MinorVersion(model: string): number | null {
+  const match = /^gpt-5\.(\d+)/.exec(openAiModelId(model));
+  if (!match) return null;
+  return Number(match[1]);
+}
+
+function supportsOpenAiXhighReasoningModel(model: string): boolean {
+  const id = openAiModelId(model);
+  if (id === "gpt-5-pro" || id.startsWith("gpt-5-pro-")) return false;
+  if (id === "gpt-5.1-codex-max" || id.startsWith("gpt-5.1-codex-max-")) return true;
+  const minor = gpt5MinorVersion(id);
+  return minor !== null && minor >= 2;
+}
+
+function openAiReasoningEffort(model: string, parameters: JsonRecord): string | null {
   const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"]);
   if (!effort) return null;
   if (["low", "medium", "high"].includes(effort)) return effort;
-  if (effort === "maximum" || effort === "xhigh") return "high";
+  if (effort === "maximum" || effort === "xhigh") return supportsOpenAiXhighReasoningModel(model) ? "xhigh" : "high";
   return null;
 }
 
@@ -253,7 +271,7 @@ function visibleOpenAiResponsesParameters(
     stream: options.stream === true,
     max_output_tokens: requestMaxTokens(connection, parameters),
   };
-  const effort = openAiReasoningEffort(parameters);
+  const effort = openAiReasoningEffort(readString(connection.model), parameters);
   if (effort) body.reasoning = { effort, summary: "auto" };
   const responseFormat = parameterString(parameters, ["responseFormat", "response_format"]);
   const verbosity = parameterString(parameters, ["verbosity"]);
@@ -306,7 +324,7 @@ function visibleOpenAiCompatibleParameters(
 
   if (provider === "openrouter") {
     if (isOpenrouterClaudeReasoningModel(provider, model)) {
-      const effort = openAiReasoningEffort(parameters);
+      const effort = openAiReasoningEffort(model, parameters);
       if (effort) body.reasoning = { effort };
     }
     const openrouterProvider = readString(connection.openrouterProvider ?? connection.openrouter_provider).trim();
