@@ -13,25 +13,7 @@ pub(crate) async fn discord_webhook_send(body: Value) -> AppResult<Value> {
         return Err(AppError::invalid_input("Invalid Discord webhook URL"));
     }
 
-    let content = required_string(&body, "content")?.trim();
-    let mut payload = Map::new();
-    payload.insert(
-        "content".to_string(),
-        Value::String(truncate_for_discord(content, DISCORD_CONTENT_LIMIT)),
-    );
-
-    if let Some(username) = optional_trimmed_string(&body, "username") {
-        payload.insert(
-            "username".to_string(),
-            Value::String(truncate_chars(&username, DISCORD_USERNAME_LIMIT)),
-        );
-    }
-    if let Some(avatar_url) = optional_trimmed_string(&body, "avatarUrl") {
-        if !is_allowed_outbound_url(&avatar_url, false) {
-            return Err(AppError::invalid_input("Invalid Discord avatar URL"));
-        }
-        payload.insert("avatar_url".to_string(), Value::String(avatar_url));
-    }
+    let payload = build_discord_payload(&body)?;
 
     let response = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
@@ -59,6 +41,37 @@ pub(crate) async fn discord_webhook_send(body: Value) -> AppResult<Value> {
     }
 
     Ok(json!({ "success": true }))
+}
+
+/// Build the Discord webhook JSON payload from a mirror request.
+///
+/// `allowed_mentions` is always set to `{ "parse": [] }` so mention syntax in the
+/// mirrored content (which is model/card output) can never resolve real @everyone /
+/// @here / role / user pings on the target server.
+fn build_discord_payload(body: &Value) -> AppResult<Map<String, Value>> {
+    let content = required_string(body, "content")?.trim();
+    let mut payload = Map::new();
+    payload.insert(
+        "content".to_string(),
+        Value::String(truncate_for_discord(content, DISCORD_CONTENT_LIMIT)),
+    );
+
+    if let Some(username) = optional_trimmed_string(body, "username") {
+        payload.insert(
+            "username".to_string(),
+            Value::String(truncate_chars(&username, DISCORD_USERNAME_LIMIT)),
+        );
+    }
+    if let Some(avatar_url) = optional_trimmed_string(body, "avatarUrl") {
+        if !is_allowed_outbound_url(&avatar_url, false) {
+            return Err(AppError::invalid_input("Invalid Discord avatar URL"));
+        }
+        payload.insert("avatar_url".to_string(), Value::String(avatar_url));
+    }
+
+    payload.insert("allowed_mentions".to_string(), json!({ "parse": [] }));
+
+    Ok(payload)
 }
 
 fn optional_trimmed_string(body: &Value, key: &str) -> Option<String> {
@@ -135,5 +148,32 @@ mod tests {
         let truncated = truncate_for_discord(&value, DISCORD_CONTENT_LIMIT);
         assert_eq!(truncated.chars().count(), DISCORD_CONTENT_LIMIT);
         assert!(truncated.ends_with("..."));
+    }
+
+    #[test]
+    fn payload_always_suppresses_mentions() {
+        let payload = build_discord_payload(&json!({ "content": "hey @everyone @here <@&123>" }))
+            .expect("payload should build");
+        let parse = payload
+            .get("allowed_mentions")
+            .and_then(|value| value.get("parse"))
+            .and_then(Value::as_array)
+            .expect("allowed_mentions.parse must be present");
+        assert!(parse.is_empty(), "no mention types may be parsed");
+        // Suppression is via allowed_mentions, not by mangling the visible text.
+        assert_eq!(
+            payload.get("content").and_then(Value::as_str),
+            Some("hey @everyone @here <@&123>")
+        );
+    }
+
+    #[test]
+    fn payload_rejects_reserved_avatar_url() {
+        let error = build_discord_payload(&json!({
+            "content": "hi",
+            "avatarUrl": "http://169.254.169.254/latest/meta-data/"
+        }))
+        .expect_err("reserved avatar URL must be rejected");
+        assert_eq!(error.code, "invalid_input");
     }
 }
