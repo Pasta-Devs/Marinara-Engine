@@ -8619,10 +8619,11 @@ export function GameSurface({
                       onClick={() => setMoreSheetOpen(false)}
                     />
                     <div
-                      className="pointer-events-auto fixed top-[3.25rem] left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl overflow-hidden md:hidden"
-                      style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+                      className="pointer-events-auto fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up md:hidden"
+                      style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}
                     >
-                      <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+                      <div className="mx-auto mt-2 mb-1 h-1 w-10 rounded-full bg-white/20" />
+                      <p className="px-5 pt-3 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
                         Game Actions
                       </p>
                       <div className="flex flex-col pb-3">

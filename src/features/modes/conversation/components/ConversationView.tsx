@@ -1479,9 +1479,10 @@ export function ConversationView({
             onClick={() => setMoreMenuOpen(false)}
           />
           <div
-            className="fixed top-[3.25rem] left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up overflow-hidden md:hidden"
-            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+            className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up md:hidden"
+            style={{ bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}
           >
+            <div className="mx-auto mt-2 mb-1 h-1 w-10 rounded-full bg-white/20" />
             <div className="flex flex-col pb-3">
               {chatGroupId && (
                 <div

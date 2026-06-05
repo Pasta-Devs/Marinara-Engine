@@ -119,10 +119,10 @@ export function ModeHomeSurface({ discoverySurface = null }: { discoverySurface?
           </div>
 
           <div
-            className={cn("grid w-full grid-cols-3 gap-2 px-3 sm:flex sm:w-auto sm:justify-center sm:gap-3 sm:px-0", showEmptyStateEffects && "stagger-children")}
+            className={cn("grid w-full grid-cols-1 gap-2 px-3 sm:flex sm:w-auto sm:justify-center sm:gap-3 sm:px-0", showEmptyStateEffects && "stagger-children")}
           >
             <QuickStartCard
-              icon={<MessageSquare size="1.125rem" />}
+              icon={<MessageSquare size="1.1rem" />}
               label="Conversation"
               bg="linear-gradient(135deg, #4de5dd, #3ab8b1)"
               shadowColor="rgba(77,229,221,0.15)"
@@ -289,7 +289,8 @@ function QuickStartCard({
       title={tooltip}
       aria-label={`${comingSoon && !onClick ? "Show status for" : "Start"} ${label} chat`}
       className={cn(
-        "group card-3d-tilt btn-scanlines relative flex w-full sm:w-28 flex-col items-center justify-center gap-1.5 sm:gap-2 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] p-2.5 sm:p-4 text-center transition-all",
+        "group card-3d-tilt btn-scanlines relative flex w-full flex-row items-center gap-3.5 rounded-xl border-2 border-[var(--border)] bg-[var(--card)] px-4 py-3 text-left transition-all",
+        "sm:w-28 sm:flex-col sm:items-center sm:justify-center sm:gap-2 sm:p-4 sm:text-center",
         "cursor-pointer hover:-translate-y-1 hover:border-[var(--primary)]/40 hover:shadow-lg",
       )}
       style={shadowColor ? { ["--tw-shadow-color" as string]: shadowColor } : undefined}
@@ -300,12 +301,12 @@ function QuickStartCard({
         </span>
       )}
       <div
-        className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl text-white shadow-sm transition-transform group-hover:scale-110"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm transition-transform group-hover:scale-110"
         style={{ background: bg }}
       >
         {icon}
       </div>
-      <span className="text-[0.625rem] sm:text-xs font-medium text-[var(--muted-foreground)]">{label}</span>
+      <span className="text-sm font-semibold text-[var(--foreground)] sm:text-xs sm:font-medium sm:text-[var(--muted-foreground)]">{label}</span>
     </button>
   );
 }
