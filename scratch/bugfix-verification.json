@@ -6,8 +6,10 @@
     "url": "https://github.com/Pasta-Devs/Marinara-Engine/issues/2243"
   },
   "pr": {
-    "number": null,
-    "url": null
+    "number": "2256",
+    "url": "https://github.com/Pasta-Devs/Marinara-Engine/pull/2256",
+    "base": "refactor",
+    "draft": true
   },
   "coreClaim": "Conversation rerolls send a fresh LLM seed instead of reusing a fixed custom seed from the merged generation parameters.",
   "reproduction": {
@@ -48,7 +50,7 @@
     "hasProfessionalVisualProof": true,
     "prWouldBeAccepted": true,
     "claimBoundariesProven": true,
-    "notes": "Focused request-path proof, typecheck, proof gate, and pnpm check passed locally. PR remains pending commit, push, draft creation, CI, Bunny after push, and CodeRabbit."
+    "notes": "Focused request-path proof, typecheck, proof gate, Bunny local review, and pnpm check passed locally. Draft PR opened; CI, Bunny after push, and CodeRabbit health are pending."
   },
   "bunny": {
     "status": "local-pass",
