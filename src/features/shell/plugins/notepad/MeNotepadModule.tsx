@@ -93,6 +93,9 @@ export function MeNotepadModule() {
   const memorySaveTimerRef = useRef<number | null>(null);
   const memorySaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const memorySaveRevisionRef = useRef(0);
+  const memoryReadyRef = useRef(false);
+  const latestMemorySnapshotRef = useRef<NotepadMemoryState | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,6 +143,35 @@ export function MeNotepadModule() {
     }),
     [state.activeTabId, state.notes, state.tabs],
   );
+  latestMemorySnapshotRef.current = memorySnapshot;
+  memoryReadyRef.current = memoryReady;
+
+  const queueMemorySave = useCallback((snapshot: NotepadMemoryState, revision: number) => {
+    memorySaveQueueRef.current = memorySaveQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (revision !== memorySaveRevisionRef.current) return;
+        await saveMemoryState(snapshot);
+      })
+      .catch((error) => {
+        if (!mountedRef.current) return;
+        setStatus({
+          message: error instanceof Error ? error.message : "Could not sync notes.",
+          tone: "error",
+        });
+      });
+  }, []);
+
+  const flushMemorySave = useCallback(() => {
+    if (!memoryReadyRef.current) return;
+    const snapshot = latestMemorySnapshotRef.current;
+    if (!snapshot) return;
+    if (memorySaveTimerRef.current !== null && hasWindow()) {
+      window.clearTimeout(memorySaveTimerRef.current);
+      memorySaveTimerRef.current = null;
+    }
+    queueMemorySave(snapshot, (memorySaveRevisionRef.current += 1));
+  }, [queueMemorySave]);
 
   useEffect(() => {
     if (!memoryReady || !hasWindow()) return undefined;
@@ -149,18 +181,7 @@ export function MeNotepadModule() {
     }
     memorySaveTimerRef.current = window.setTimeout(() => {
       memorySaveTimerRef.current = null;
-      memorySaveQueueRef.current = memorySaveQueueRef.current
-        .catch(() => undefined)
-        .then(async () => {
-          if (revision !== memorySaveRevisionRef.current) return;
-          await saveMemoryState(memorySnapshot);
-        })
-        .catch((error) => {
-          setStatus({
-            message: error instanceof Error ? error.message : "Could not sync notes.",
-            tone: "error",
-          });
-        });
+      queueMemorySave(memorySnapshot, revision);
     }, 350);
     return () => {
       if (memorySaveTimerRef.current !== null) {
@@ -168,7 +189,26 @@ export function MeNotepadModule() {
         memorySaveTimerRef.current = null;
       }
     };
-  }, [memoryReady, memorySnapshot]);
+  }, [memoryReady, memorySnapshot, queueMemorySave]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    if (!hasWindow()) {
+      return () => {
+        flushMemorySave();
+        mountedRef.current = false;
+      };
+    }
+
+    window.addEventListener("beforeunload", flushMemorySave);
+    window.addEventListener("pagehide", flushMemorySave);
+    return () => {
+      window.removeEventListener("beforeunload", flushMemorySave);
+      window.removeEventListener("pagehide", flushMemorySave);
+      flushMemorySave();
+      mountedRef.current = false;
+    };
+  }, [flushMemorySave]);
 
   useEffect(() => {
     if (!memoryReady) return;

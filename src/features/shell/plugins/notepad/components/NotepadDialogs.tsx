@@ -80,11 +80,19 @@ export function RestoreBackupDialog({
 }) {
   return (
     <div className="absolute inset-0 z-20 grid place-items-center bg-[var(--background)]/70 p-3">
-      <div className="w-full max-w-72 rounded-lg border border-[var(--primary)]/35 bg-[var(--card)] p-3 shadow-xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="me-notes-restore-title"
+        aria-describedby="me-notes-restore-message"
+        className="w-full max-w-72 rounded-lg border border-[var(--primary)]/35 bg-[var(--card)] p-3 shadow-xl"
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="text-[0.6875rem] font-black uppercase text-[var(--primary)]">Restore backup</div>
-            <h3 className="mt-1 text-sm font-semibold text-[var(--foreground)]">Replace current notes?</h3>
+            <h3 id="me-notes-restore-title" className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+              Replace current notes?
+            </h3>
           </div>
           <button
             type="button"
@@ -96,7 +104,7 @@ export function RestoreBackupDialog({
             <X size="0.875rem" />
           </button>
         </div>
-        <p className="mt-2 text-xs leading-snug text-[var(--muted-foreground)]">
+        <p id="me-notes-restore-message" className="mt-2 text-xs leading-snug text-[var(--muted-foreground)]">
           This restores {pendingState.tabs.length} tab{pendingState.tabs.length === 1 ? "" : "s"} and replaces current
           synced notes data.
         </p>

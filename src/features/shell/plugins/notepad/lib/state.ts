@@ -82,16 +82,60 @@ function normalizeNotes(value: unknown): Record<string, string> {
   );
 }
 
-function normalizeMemoryState(value: unknown): NotepadMemoryState {
-  const raw = asRecord(value) ?? {};
-  const tabs = (Array.isArray(raw.tabs) && raw.tabs.length > 0 ? raw.tabs : [DEFAULT_TAB]).map(normalizeTab);
-  const activeTabId = tabs.some((tab) => tab.id === raw.activeTabId) ? String(raw.activeTabId) : (tabs[0]?.id ?? null);
+function nextDuplicateTabId(baseId: string, usedIds: Set<string>): string {
+  let index = 2;
+  let candidate = `${baseId}-${index}`;
+  while (usedIds.has(candidate)) {
+    index += 1;
+    candidate = `${baseId}-${index}`;
+  }
+  return candidate;
+}
+
+function normalizeUniqueTabs(
+  tabs: NotepadTab[],
+  notes: Record<string, string>,
+  requestedActiveTabId: unknown,
+): NotepadMemoryState {
+  const usedIds = new Set<string>();
+  const remaps: Array<{ from: string; to: string }> = [];
+  const uniqueTabs = tabs.map((tab) => {
+    if (!usedIds.has(tab.id)) {
+      usedIds.add(tab.id);
+      return tab;
+    }
+    const nextId = nextDuplicateTabId(tab.id, usedIds);
+    usedIds.add(nextId);
+    remaps.push({ from: tab.id, to: nextId });
+    return { ...tab, id: nextId };
+  });
+
+  const nextNotes = { ...notes };
+  for (const remap of remaps) {
+    const prefix = `${remap.from}::`;
+    for (const [key, note] of Object.entries(notes)) {
+      if (!key.startsWith(prefix)) continue;
+      nextNotes[`${remap.to}::${key.slice(prefix.length)}`] = note;
+    }
+  }
+
+  const activeTabId =
+    typeof requestedActiveTabId === "string" && uniqueTabs.some((tab) => tab.id === requestedActiveTabId)
+      ? requestedActiveTabId
+      : (uniqueTabs[0]?.id ?? null);
+
   return {
     version: 1,
     activeTabId,
-    tabs,
-    notes: normalizeNotes(raw.notes),
+    tabs: uniqueTabs,
+    notes: nextNotes,
   };
+}
+
+function normalizeMemoryState(value: unknown): NotepadMemoryState {
+  const raw = asRecord(value) ?? {};
+  const tabs = (Array.isArray(raw.tabs) && raw.tabs.length > 0 ? raw.tabs : [DEFAULT_TAB]).map(normalizeTab);
+  return normalizeUniqueTabs(tabs, normalizeNotes(raw.notes), raw.activeTabId);
 }
 
 function memoryState(state: NotepadState): NotepadMemoryState {
