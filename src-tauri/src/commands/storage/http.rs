@@ -31,7 +31,11 @@ pub(crate) async fn http_json(url: &str) -> AppResult<Value> {
 }
 
 pub(crate) async fn http_binary(url: &str, fallback_mime: &str) -> AppResult<Value> {
-    if !is_allowed_outbound_url(url, true) {
+    // Enforce the internal-host/IMDS guard: http_binary fetches content-supplied URLs
+    // (avatar/background/image references from imported cards and lorebooks), so local and
+    // reserved hosts must be blocked. Managed local assets are resolved by
+    // load_local_asset_binary (asset://localhost) before this is ever reached.
+    if !is_allowed_outbound_url(url, false) {
         return Err(AppError::invalid_input(format!(
             "Outbound URL is not allowed: {url}"
         )));
@@ -186,4 +190,28 @@ pub(crate) async fn gifs_search(route: &ParsedPath) -> AppResult<Value> {
     Ok(
         json!({ "results": results, "next": if next_offset < total { next_offset.to_string() } else { String::new() } }),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn http_binary_blocks_local_and_reserved_hosts() {
+        // The internal-host guard runs before any network request, so these all fail fast.
+        for url in [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://localhost:3000/secret",
+            "http://127.0.0.1/",
+            "http://10.0.0.5/",
+            "http://192.168.1.1/",
+            "http://[::1]/",
+        ] {
+            let error = http_binary(url, "image/png")
+                .await
+                .expect_err("local/reserved host must be rejected");
+            assert_eq!(error.code, "invalid_input", "url {url} should be blocked");
+            assert!(error.message.contains("Outbound URL is not allowed"));
+        }
+    }
 }
