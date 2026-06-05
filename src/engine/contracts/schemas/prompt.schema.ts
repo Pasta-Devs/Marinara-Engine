@@ -118,16 +118,36 @@ export const updatePromptGroupSchema = z.object({
 
 // ── Presets ──
 
-export const createPromptPresetSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().default(""),
-  variableGroups: z.array(promptVariableGroupSchema).default([]),
-  variableValues: z.record(z.string()).default({}),
-  parameters: generationParametersSchema.default({}),
-  wrapFormat: wrapFormatSchema.default("xml"),
-  isDefault: z.boolean().default(false),
-  author: z.string().default(""),
-});
+function validatePromptPresetDefaultFlags(
+  value: { isDefault?: boolean; default?: boolean },
+  ctx: z.RefinementCtx,
+) {
+  if (value.isDefault !== undefined && value.default !== undefined && value.isDefault !== value.default) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["default"],
+      message: "default must match isDefault when both flags are provided.",
+    });
+  }
+}
+
+export const createPromptPresetSchema = z
+  .object({
+    name: z.string().min(1).max(200),
+    description: z.string().default(""),
+    variableGroups: z.array(promptVariableGroupSchema).default([]),
+    variableValues: z.record(z.string()).default({}),
+    parameters: generationParametersSchema.default({}),
+    wrapFormat: wrapFormatSchema.default("xml"),
+    isDefault: z.boolean().optional(),
+    default: z.boolean().optional(),
+    author: z.string().default(""),
+  })
+  .superRefine(validatePromptPresetDefaultFlags)
+  .transform(({ default: legacyDefault, ...value }) => ({
+    ...value,
+    isDefault: value.isDefault ?? legacyDefault ?? false,
+  }));
 
 export const updatePromptPresetSchema = z
   .object({
@@ -145,15 +165,7 @@ export const updatePromptPresetSchema = z
     author: z.string().optional(),
     defaultChoices: z.record(z.union([z.string(), z.array(z.string())])).optional(),
   })
-  .superRefine((value, ctx) => {
-    if (value.isDefault !== undefined && value.default !== undefined && value.isDefault !== value.default) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["default"],
-        message: "default must match isDefault when both flags are provided.",
-      });
-    }
-  })
+  .superRefine(validatePromptPresetDefaultFlags)
   .transform(({ default: legacyDefault, ...value }) => ({
     ...value,
     ...(value.isDefault === undefined && legacyDefault !== undefined ? { isDefault: legacyDefault } : {}),

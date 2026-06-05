@@ -463,6 +463,66 @@ fn generic_marinara_preset_import_rolls_back_outer_records_on_section_failure() 
 }
 
 #[test]
+fn marinara_preset_import_normalizes_default_alias() {
+    let state = test_state("preset-default-alias");
+    let imported = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_preset",
+            "version": 1,
+            "data": {
+                "preset": {
+                    "id": "old-preset",
+                    "name": "Default Alias Preset",
+                    "default": "true"
+                }
+            }
+        }),
+    )
+    .expect("preset default alias should import");
+    let preset_id = test_string(&imported, "id");
+
+    let preset = state
+        .storage
+        .get("prompts", preset_id)
+        .expect("preset should be readable")
+        .expect("preset should exist");
+    assert_eq!(preset["isDefault"], json!(true));
+    assert!(preset.get("default").is_none());
+}
+
+#[test]
+fn marinara_preset_import_rejects_conflicting_default_flags() {
+    let state = test_state("preset-default-conflict");
+    let error = import_marinara_envelope(
+        &state,
+        json!({
+            "type": "marinara_preset",
+            "version": 1,
+            "data": {
+                "preset": {
+                    "id": "old-preset",
+                    "name": "Conflicting Default Preset",
+                    "isDefault": false,
+                    "default": true
+                }
+            }
+        }),
+    )
+    .expect_err("conflicting preset default flags should reject");
+
+    assert_eq!(error.code, "invalid_input");
+    assert!(error.message.contains("default must match isDefault"));
+    assert!(state
+        .storage
+        .list("prompts")
+        .expect("prompts should be readable")
+        .iter()
+        .all(|prompt| prompt.get("name").and_then(Value::as_str)
+            != Some("Conflicting Default Preset")));
+}
+
+#[test]
 fn marinara_lorebook_import_remaps_nested_folders_and_entry_folders() {
     let state = test_state("lorebook-folders");
     let imported = import_marinara_envelope(

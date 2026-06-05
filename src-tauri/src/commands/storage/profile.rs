@@ -2088,6 +2088,96 @@ mod tests {
     }
 
     #[test]
+    fn profile_import_prompts_normalizes_default_alias() {
+        let state = test_state("profile-prompt-default-alias");
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "prompts".to_string(),
+            json!([{
+                "id": "profile-preset",
+                "name": "Profile Default Alias Preset",
+                "default": "true"
+            }]),
+        );
+
+        import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect("profile import should normalize prompt default aliases");
+
+        let preset = state
+            .storage
+            .get("prompts", "profile-preset")
+            .expect("prompt preset should be readable")
+            .expect("prompt preset should import");
+        assert_eq!(preset["isDefault"], json!(true));
+        assert!(preset.get("default").is_none());
+    }
+
+    #[test]
+    fn profile_import_prompts_rejects_conflicting_default_flags_without_wiping() {
+        let state = test_state("profile-prompt-default-conflict");
+        state
+            .storage
+            .create(
+                "prompts",
+                json!({
+                    "id": "existing-preset",
+                    "name": "Existing Preset"
+                }),
+            )
+            .expect("existing prompt preset should write");
+        let mut collections = complete_empty_profile_collections();
+        collections.insert(
+            "prompts".to_string(),
+            json!([{
+                "id": "conflicting-preset",
+                "name": "Conflicting Profile Preset",
+                "isDefault": false,
+                "default": true
+            }]),
+        );
+
+        let error = import_profile(
+            &state,
+            json!({
+                "type": "marinara_profile",
+                "version": 1,
+                "data": {
+                    "collections": collections,
+                    "assets": []
+                }
+            }),
+        )
+        .expect_err("conflicting prompt default flags should reject profile import");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(
+            error.message.contains("default") && error.message.contains("isDefault"),
+            "unexpected error message: {}",
+            error.message
+        );
+        assert!(state
+            .storage
+            .get("prompts", "existing-preset")
+            .expect("existing prompt preset should be readable")
+            .is_some());
+        assert!(state
+            .storage
+            .get("prompts", "conflicting-preset")
+            .expect("conflicting prompt preset lookup should not fail")
+            .is_none());
+    }
+
+    #[test]
     fn profile_import_collections_normalizes_prompt_overrides() {
         let state = test_state("prompt-overrides-normalize");
         let mut collections = Map::new();

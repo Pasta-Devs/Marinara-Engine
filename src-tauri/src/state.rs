@@ -18,6 +18,7 @@ use crate::storage_commands::{
     shared::{
         agent_run_config_info_from_rows, compact_message_legacy_prompt_snapshots,
         normalize_agent_run_row_fields, normalize_typed_json_fields,
+        repair_typed_json_fields_for_startup,
     },
 };
 
@@ -218,7 +219,7 @@ fn migrate_collection_json_fields(storage: &FileStorage, collection: &str) -> Ap
                 if collection == "game-state-snapshots" {
                     repair_snapshot_persona_stats_for_startup(object);
                 }
-                normalize_typed_json_fields(collection, object)?;
+                repair_typed_json_fields_for_startup(collection, object)?;
             }
         }
         changed = changed || row != before;
@@ -1063,6 +1064,42 @@ mod tests {
         for row in rows {
             assert!(row["personaStats"].is_null());
         }
+    }
+
+    #[test]
+    fn app_state_startup_repairs_legacy_prompt_default_conflicts() {
+        let root = temp_root("legacy-prompt-default-conflict");
+        let storage = FileStorage::new(root.0.join("data")).expect("storage should initialize");
+        storage
+            .replace_all(
+                "prompts",
+                vec![json!({
+                    "id": "legacy-default-preset",
+                    "name": "Legacy Default Preset",
+                    "sectionOrder": "[]",
+                    "groupOrder": "[]",
+                    "variableOrder": "[]",
+                    "variableGroups": "[]",
+                    "variableValues": "{}",
+                    "parameters": "{}",
+                    "defaultChoices": "{}",
+                    "isDefault": false,
+                    "default": true
+                })],
+            )
+            .expect("legacy prompt should be seeded");
+        persist_fixture_storage(&storage);
+
+        let state = AppState::from_data_dir(&root.0, Vec::new()).expect("state should initialize");
+        let prompt = state
+            .storage
+            .get("prompts", "legacy-default-preset")
+            .expect("prompt should be readable")
+            .expect("prompt should remain");
+
+        assert_eq!(prompt["isDefault"], json!(true));
+        assert!(prompt.get("default").is_none());
+        assert!(prompt["parameters"].is_object());
     }
 
     #[test]

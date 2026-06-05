@@ -49,6 +49,7 @@ fn st_prompt_name(raw: &Value, file_name: Option<&str>) -> String {
 
 fn st_reasoning_effort(value: Option<&Value>) -> Value {
     match value.and_then(Value::as_str) {
+        Some("auto") => Value::Null,
         Some("low" | "medium" | "high" | "xhigh" | "maximum") => {
             value.cloned().unwrap_or(Value::Null)
         }
@@ -264,42 +265,47 @@ pub(super) fn import_st_preset_payload(
     let mut created_section_ids = Vec::new();
 
     let result = (|| -> AppResult<Value> {
-        let preset = state.storage.create(
-            "prompts",
-            with_entity_defaults(
-                "prompts",
-                json!({
-                    "name": format!("Imported: {}", st_prompt_name(&raw, file_name)),
-                    "description": "Imported from SillyTavern",
-                    "variableGroups": st_variable_groups(&prompts),
-                    "variableValues": {},
-                    "defaultChoices": {},
-                    "wrapFormat": "xml",
-                    "sectionOrder": [],
-                    "groupOrder": [],
-                    "parameters": {
-                        "temperature": clamp_number(raw.get("temperature").and_then(Value::as_f64), 1.0, 0.0, 2.0),
-                        "topP": normalize_top_p(raw.get("top_p").and_then(Value::as_f64)),
-                        "topK": top_k,
-                        "minP": clamp_number(raw.get("min_p").and_then(Value::as_f64), 0.0, 0.0, 1.0),
-                        "maxTokens": max_tokens,
-                        "maxContext": max_context,
-                        "frequencyPenalty": clamp_number(raw.get("frequency_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
-                        "presencePenalty": clamp_number(raw.get("presence_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
-                        "reasoningEffort": st_reasoning_effort(raw.get("reasoning_effort")),
-                        "verbosity": Value::Null,
-                        "assistantPrefill": "",
-                        "customParameters": {},
-                        "squashSystemMessages": raw.get("squash_system_messages").and_then(Value::as_bool).unwrap_or(true),
-                        "showThoughts": raw.get("show_thoughts").and_then(Value::as_bool).unwrap_or(true),
-                        "useMaxContext": false,
-                        "stopSequences": [],
-                        "strictRoleFormatting": true,
-                        "singleUserMessage": false
-                    }
-                }),
-            )?,
-        )?;
+        let mut preset_body = json!({
+            "name": format!("Imported: {}", st_prompt_name(&raw, file_name)),
+            "description": "Imported from SillyTavern",
+            "variableGroups": st_variable_groups(&prompts),
+            "variableValues": {},
+            "defaultChoices": {},
+            "wrapFormat": "xml",
+            "sectionOrder": [],
+            "groupOrder": [],
+            "parameters": {
+                "temperature": clamp_number(raw.get("temperature").and_then(Value::as_f64), 1.0, 0.0, 2.0),
+                "topP": normalize_top_p(raw.get("top_p").and_then(Value::as_f64)),
+                "topK": top_k,
+                "minP": clamp_number(raw.get("min_p").and_then(Value::as_f64), 0.0, 0.0, 1.0),
+                "maxTokens": max_tokens,
+                "maxContext": max_context,
+                "frequencyPenalty": clamp_number(raw.get("frequency_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
+                "presencePenalty": clamp_number(raw.get("presence_penalty").and_then(Value::as_f64), 0.0, -2.0, 2.0),
+                "reasoningEffort": st_reasoning_effort(raw.get("reasoning_effort")),
+                "verbosity": Value::Null,
+                "assistantPrefill": "",
+                "customParameters": {},
+                "squashSystemMessages": raw.get("squash_system_messages").and_then(Value::as_bool).unwrap_or(true),
+                "showThoughts": raw.get("show_thoughts").and_then(Value::as_bool).unwrap_or(true),
+                "useMaxContext": false,
+                "stopSequences": [],
+                "strictRoleFormatting": true,
+                "singleUserMessage": false
+            }
+        });
+        if let Some(object) = preset_body.as_object_mut() {
+            if let Some(value) = raw.get("isDefault") {
+                object.insert("isDefault".to_string(), value.clone());
+            }
+            if let Some(value) = raw.get("default") {
+                object.insert("default".to_string(), value.clone());
+            }
+        }
+        let preset = state
+            .storage
+            .create("prompts", with_entity_defaults("prompts", preset_body)?)?;
         let preset_id = created_record_id(&preset, "preset")?;
         created_preset_id = Some(preset_id.clone());
 

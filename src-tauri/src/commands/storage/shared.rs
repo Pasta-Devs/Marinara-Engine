@@ -643,6 +643,29 @@ pub(crate) fn normalize_typed_json_fields(
     collection: &str,
     object: &mut Map<String, Value>,
 ) -> AppResult<()> {
+    normalize_typed_json_fields_with_prompt_default_mode(
+        collection,
+        object,
+        PromptDefaultAliasMode::RejectConflicts,
+    )
+}
+
+pub(crate) fn repair_typed_json_fields_for_startup(
+    collection: &str,
+    object: &mut Map<String, Value>,
+) -> AppResult<()> {
+    normalize_typed_json_fields_with_prompt_default_mode(
+        collection,
+        object,
+        PromptDefaultAliasMode::RepairLegacyConflicts,
+    )
+}
+
+fn normalize_typed_json_fields_with_prompt_default_mode(
+    collection: &str,
+    object: &mut Map<String, Value>,
+    prompt_default_mode: PromptDefaultAliasMode,
+) -> AppResult<()> {
     if collection == "characters" {
         if let Some(data) = object.get("data") {
             object.insert(
@@ -665,6 +688,9 @@ pub(crate) fn normalize_typed_json_fields(
                 TypedJsonKind::Boolish => normalize_boolish_fields(object, &[field.name]),
             }
         }
+    }
+    if collection == "prompts" {
+        normalize_prompt_default_alias(object, prompt_default_mode)?;
     }
     if collection == "messages" {
         normalize_message_text_fields(object);
@@ -735,6 +761,42 @@ fn normalize_boolish_fields(object: &mut Map<String, Value>, fields: &[&str]) {
         };
         *value = Value::Bool(normalized);
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PromptDefaultAliasMode {
+    RejectConflicts,
+    RepairLegacyConflicts,
+}
+
+fn normalize_prompt_default_alias(
+    object: &mut Map<String, Value>,
+    mode: PromptDefaultAliasMode,
+) -> AppResult<()> {
+    let is_default = object.get("isDefault").and_then(Value::as_bool);
+    let legacy_default = object.get("default").and_then(Value::as_bool);
+    if let (Some(is_default), Some(legacy_default)) = (is_default, legacy_default) {
+        if is_default != legacy_default {
+            if mode == PromptDefaultAliasMode::RepairLegacyConflicts {
+                object.insert(
+                    "isDefault".to_string(),
+                    Value::Bool(is_default || legacy_default),
+                );
+                object.remove("default");
+                return Ok(());
+            }
+            return Err(AppError::invalid_input(
+                "Prompt preset default must match isDefault when both flags are provided.",
+            ));
+        }
+    }
+    if is_default.is_none() {
+        if let Some(legacy_default) = legacy_default {
+            object.insert("isDefault".to_string(), Value::Bool(legacy_default));
+        }
+    }
+    object.remove("default");
+    Ok(())
 }
 
 fn normalize_nullable_json_object_fields(
@@ -909,6 +971,9 @@ fn apply_create_default_field(
 
 pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<Value> {
     let mut object = ensure_object(body)?;
+    if collection == "prompts" {
+        normalize_typed_json_fields(collection, &mut object)?;
+    }
     if let Some(contract) = contracts::collection_contract(collection) {
         for field in contract.create_default_fields {
             apply_create_default_field(collection, field, &mut object)?;
@@ -1907,6 +1972,37 @@ mod tests {
         assert_eq!(row["default"], json!(false));
         assert_eq!(row["isActive"], json!(true));
         assert_eq!(row["active"], json!(true));
+    }
+
+    #[test]
+    fn prompt_defaults_normalize_legacy_default_alias() {
+        let row = with_entity_defaults(
+            "prompts",
+            json!({
+                "name": "Imported Preset",
+                "default": "yes"
+            }),
+        )
+        .expect("prompt defaults should normalize the default alias");
+
+        assert_eq!(row["isDefault"], json!(true));
+        assert!(row.get("default").is_none());
+    }
+
+    #[test]
+    fn prompt_defaults_reject_conflicting_default_flags() {
+        let error = with_entity_defaults(
+            "prompts",
+            json!({
+                "name": "Conflicting Preset",
+                "isDefault": false,
+                "default": true
+            }),
+        )
+        .expect_err("conflicting prompt default flags should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("default must match isDefault"));
     }
 
     #[test]
