@@ -36,6 +36,12 @@ import { useAgentStore } from "../../../../shared/stores/agent.store";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { useGameStatePatcher } from "../../../runtime/world-state/index";
 import type { GameStatePatchField, GameStatePatchValue } from "../../../runtime/world-state/types";
+import {
+  deletePreparedManagedImageAttachments,
+  prepareManagedImageAttachmentBatch,
+  type PreparedManagedImageAttachments,
+  type PromptAttachment,
+} from "../../../../shared/api/message-attachment-api";
 import { makeManualTrackerRowId } from "../../../../engine/shared/game-state/tracker-row-ids";
 import {
   useSyncGameState,
@@ -63,6 +69,7 @@ import {
   gameKeys,
   patchChatMetadata,
 } from "../hooks/use-game";
+import { normalizeHudWidgets } from "../lib/hud-widget-normalization";
 import {
   chatKeys,
   useBranchChat,
@@ -72,7 +79,7 @@ import {
   useUpdateChatMetadata,
   useUpdateMessage,
 } from "../../../catalog/chats/index";
-import { galleryKeys } from "../../../catalog/gallery/query-keys";
+import { galleryKeys, invalidateGalleryImagesForManagedAttachments } from "../../../catalog/gallery/index";
 import { useConnections } from "../../../catalog/connections/index";
 import { useGameGeneration } from "../hooks/use-game-generation";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -4849,23 +4856,55 @@ export function GameSurface({
     useSpotifyGameMusic,
   ]);
 
-  const sendMessage = useCallback(
-    (message: string, attachments?: Array<{ type: string; data: string }>) => {
-      if ((chatMeta.gameSessionStatus as string) === "concluded") return;
+  const prepareGameTurnSubmission = useCallback(
+    async (
+      message: string,
+      attachments?: PromptAttachment[],
+    ): Promise<{ message: string; preparedAttachments: PreparedManagedImageAttachments | null } | null> => {
+      if (!activeChatId || (chatMeta.gameSessionStatus as string) === "concluded") return null;
       const trimmedMessage = message.trim();
       const hasAttachments = !!attachments?.length;
-      if (!trimmedMessage && !hasAttachments) return;
+      if (!trimmedMessage && !hasAttachments) return null;
+      try {
+        return {
+          message: trimmedMessage,
+          preparedAttachments: hasAttachments
+            ? await prepareManagedImageAttachmentBatch(activeChatId, attachments ?? [])
+            : null,
+        };
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to prepare image attachments.");
+        return null;
+      }
+    },
+    [activeChatId, chatMeta.gameSessionStatus],
+  );
+
+  const queuePreparedGameTurn = useCallback(
+    (submission: { message: string; preparedAttachments: PreparedManagedImageAttachments | null }): boolean => {
+      const managedAttachments = submission.preparedAttachments?.attachments ?? [];
+      invalidateGalleryImagesForManagedAttachments(queryClient, activeChatId, managedAttachments);
       void generateGameTurn({
         chatId: activeChatId,
         connectionId: null,
         kind: "turn",
-        userMessage: formatTextQuotes(trimmedMessage, quoteFormat),
-        ...(hasAttachments ? { attachments } : {}),
+        userMessage: formatTextQuotes(submission.message, quoteFormat),
+        ...(managedAttachments.length ? { attachments: managedAttachments } : {}),
       }).catch(() => {
         // Generation UI already shows the recoverable error state.
       });
+      return true;
     },
-    [activeChatId, chatMeta.gameSessionStatus, generateGameTurn, quoteFormat],
+    [activeChatId, generateGameTurn, queryClient, quoteFormat],
+  );
+
+  const sendMessage = useCallback(
+    async (message: string, attachments?: PromptAttachment[]): Promise<boolean> => {
+      const submission = await prepareGameTurnSubmission(message, attachments);
+      if (!submission) return false;
+      return queuePreparedGameTurn(submission);
+    },
+    [prepareGameTurnSubmission, queuePreparedGameTurn],
   );
 
   // Game mutations
@@ -7185,15 +7224,34 @@ export function GameSurface({
   const handleSendGameTurn = useCallback(
     async (
       message: string,
-      attachments?: Array<{ type: string; data: string }>,
+      attachments?: PromptAttachment[],
       options?: { commitPendingMove?: boolean },
     ) => {
       if (!sessionInteractive) return false;
       audioManager.unlock();
-      // Commit a pending interrupt: persist the truncated GM message before generating
-      // so the server-side prompt build doesn't see segments the player never read. We
-      // await so the PATCH (and the optional risky-mode system message) land before
-      // /generate reads from the DB.
+      const shouldCommitPendingMove = !!(options?.commitPendingMove && pendingMapMove);
+      const clearCommittedPendingMapMove = () => {
+        if (shouldCommitPendingMove) setPendingMapMove(null);
+      };
+      const isPartyDirectTurn = getGameDirectAddressMode(message) === "party" && !attachments?.length;
+      if (isPartyDirectTurn && (partyTurnInFlightRef.current || partyTurn.isPending)) {
+        return false;
+      }
+      const preparedTurn = isPartyDirectTurn ? null : await prepareGameTurnSubmission(message, attachments);
+      if (!isPartyDirectTurn && !preparedTurn) return false;
+      const cleanupPreparedTurn = async () => {
+        if (!preparedTurn?.preparedAttachments?.createdGalleryIds.length) return;
+        await deletePreparedManagedImageAttachments(preparedTurn.preparedAttachments).catch(() => undefined);
+        invalidateGalleryImagesForManagedAttachments(
+          queryClient,
+          activeChatId,
+          preparedTurn.preparedAttachments.attachments,
+        );
+      };
+
+      // Commit a pending interrupt after the turn is known queueable: persist the
+      // truncated GM message before generation so the server-side prompt build
+      // does not see segments the player never read.
       const activeInterrupt = pendingInterrupt && pendingInterrupt.chatId === activeChatId ? pendingInterrupt : null;
       const interruptedCommandKey = activeInterrupt?.messageId
         ? interactiveCommandKey(activeChatId, activeInterrupt.messageId)
@@ -7208,6 +7266,7 @@ export function GameSurface({
             content: activeInterrupt.truncatedContent,
           });
         } catch {
+          await cleanupPreparedTurn();
           if (interruptedCommandKey) interruptedInteractiveCommandKeysRef.current.delete(interruptedCommandKey);
           toast.error("Failed to commit the interrupt. Please try again.");
           return false;
@@ -7224,6 +7283,7 @@ export function GameSurface({
               "[Interrupt] The player attempts to interrupt the Game Master mid-action. Their following turn cuts in before the GM's planned events could occur. Treat their interjection as an in-fiction interruption — the situation may resist them, and the attempt can fail depending on context. If the player includes a dice roll, let the result determine whether the interruption succeeds or how it lands.",
           });
         } catch {
+          await cleanupPreparedTurn();
           if (interruptedCommandKey) interruptedInteractiveCommandKeysRef.current.delete(interruptedCommandKey);
           toast.error("Failed to mark the risky interrupt. Please try again.");
           return false;
@@ -7233,19 +7293,11 @@ export function GameSurface({
         clearPendingInteractiveCommands();
       }
       setPendingInterrupt(null);
-      const shouldCommitPendingMove = !!(options?.commitPendingMove && pendingMapMove);
-      const clearCommittedPendingMapMove = () => {
-        if (shouldCommitPendingMove) setPendingMapMove(null);
-      };
       if (shouldCommitPendingMove && pendingMapMove) {
         moveOnMap.mutate({ chatId: activeChatId, position: pendingMapMove.position, mapId: activeMapId });
       }
       setActiveChoices(null);
-      if (getGameDirectAddressMode(message) === "party" && !attachments?.length) {
-        if (partyTurnInFlightRef.current || partyTurn.isPending) {
-          clearCommittedPendingMapMove();
-          return false;
-        }
+      if (isPartyDirectTurn) {
         const formattedMessage = formatTextQuotes(message, quoteFormat);
         const playerAction = stripGameDirectAddressPrefix(formattedMessage);
         const requestId = partyTurnRequestIdRef.current + 1;
@@ -7282,9 +7334,10 @@ export function GameSurface({
         }
         return true;
       }
-      sendMessage(message, attachments);
-      clearCommittedPendingMapMove();
-      return true;
+      if (!preparedTurn) return false;
+      const sent = queuePreparedGameTurn(preparedTurn);
+      if (sent) clearCommittedPendingMapMove();
+      return sent;
     },
     [
       activeChatId,
@@ -7298,7 +7351,9 @@ export function GameSurface({
       partyTurn,
       quoteFormat,
       latestNarrationText,
-      sendMessage,
+      prepareGameTurnSubmission,
+      queryClient,
+      queuePreparedGameTurn,
       sessionInteractive,
       updateMessage,
     ],
@@ -7824,7 +7879,7 @@ export function GameSurface({
     gameSceneIllustrationAllowed,
   ]);
 
-  const normalizedWidgets = hudWidgets;
+  const normalizedWidgets = useMemo(() => normalizeHudWidgets(hudWidgets), [hudWidgets]);
 
   const handleStartGameRequest = useCallback(() => {
     if (startGame.isPending || startGameRequested || startGameGuardRef.current) return;

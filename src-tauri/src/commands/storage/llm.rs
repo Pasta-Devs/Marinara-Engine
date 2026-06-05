@@ -749,6 +749,9 @@ fn build_horde_url(base: &str, target_path: &str) -> String {
 fn provider_model_catalog(provider: &str) -> Vec<Value> {
     let ids: &[&str] = match provider {
         "openai_chatgpt" => &[
+            "chat-latest",
+            "gpt-5.3",
+            "gpt-5.3-chat-latest",
             "gpt-5.2",
             "gpt-5.1",
             "gpt-5",
@@ -764,7 +767,9 @@ fn provider_model_catalog(provider: &str) -> Vec<Value> {
             "claude-opus-4-7",
             "claude-opus-4-6",
             "claude-sonnet-4-6",
+            "claude-haiku-4-5",
             "claude-opus-4-5",
+            "claude-sonnet-4-5",
             "claude-3-5-sonnet-latest",
             "claude-3-5-haiku-latest",
             "claude-3-opus-latest",
@@ -778,14 +783,64 @@ fn provider_model_catalog(provider: &str) -> Vec<Value> {
             "claude-opus-4-7[1m]",
             "claude-opus-4-6",
         ],
-        "google" | "google_vertex" => &["gemini-1.5-pro", "gemini-1.5-flash", "text-embedding-004"],
+        "google" | "google_vertex" => &[
+            "gemini-3.5-flash",
+            "gemini-3.1-pro-preview",
+            "gemini-3.1-pro-preview-customtools",
+            "gemini-3.1-flash-lite",
+            "gemini-3-flash-preview",
+            "gemini-2.5-pro",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "text-embedding-004",
+        ],
         "openrouter" => &[
             "openai/gpt-4o-mini",
             "anthropic/claude-3.5-sonnet",
             "google/gemini-flash-1.5",
         ],
+        "mistral" => &[
+            "mistral-medium-3-5",
+            "mistral-medium-latest",
+            "mistral-small-latest",
+            "mistral-small-2603",
+            "mistral-large-latest",
+            "mistral-large-2512",
+            "mistral-medium-2508",
+            "ministral-14b-2512",
+            "ministral-8b-2512",
+            "ministral-3b-2512",
+            "magistral-medium-latest",
+            "magistral-medium-2509",
+            "magistral-small-latest",
+            "magistral-small-2509",
+            "codestral-latest",
+            "codestral-2508",
+            "devstral-2512",
+        ],
+        "cohere" => &[
+            "command-a-plus-05-2026",
+            "command-a-03-2025",
+            "command-a-reasoning-08-2025",
+            "command-a-vision-07-2025",
+            "command-a-translate-08-2025",
+            "command-r7b-12-2024",
+            "command-r-08-2024",
+            "command-r-plus-08-2024",
+            "tiny-aya-global",
+            "tiny-aya-earth",
+            "tiny-aya-fire",
+            "tiny-aya-water",
+            "c4ai-aya-expanse-32b",
+            "c4ai-aya-vision-32b",
+        ],
         "ollama" => &["llama3.1", "mistral", "nomic-embed-text"],
-        "xai" => &["grok-2-latest", "grok-2-mini-latest"],
+        "xai" => &[
+            "grok-4.3",
+            "grok-build-0.1",
+            "grok-4-1-fast",
+            "grok-4.20-multi-agent",
+        ],
         _ => &[
             "gpt-4o",
             "gpt-4o-mini",
@@ -1264,6 +1319,14 @@ fn model_endpoint(provider: &str, base: &str, connection: &Value) -> String {
             let base = base.trim_end_matches("/publishers/google/models");
             format!("{base}/publishers/google/models")
         }
+        "cohere" if base.ends_with("/compatibility/v1") => {
+            format!("{}/v1/models", base.trim_end_matches("/compatibility/v1"))
+        }
+        "cohere" if base.ends_with("/v2") => {
+            format!("{}/v1/models", base.trim_end_matches("/v2"))
+        }
+        "cohere" if base.ends_with("/v1") => format!("{base}/models"),
+        "cohere" => format!("{base}/v1/models"),
         _ => format!("{base}/models"),
     }
 }
@@ -1317,7 +1380,7 @@ fn provider_default_base_url(provider: &str) -> &'static str {
         "nanogpt" => "https://nano-gpt.com/api/v1",
         "ollama" => "http://127.0.0.1:11434",
         "mistral" => "https://api.mistral.ai/v1",
-        "cohere" => "https://api.cohere.ai/v2",
+        "cohere" => "https://api.cohere.com/v2",
         "togetherai" => "https://api.together.xyz/v1",
         _ => "https://api.openai.com/v1",
     }

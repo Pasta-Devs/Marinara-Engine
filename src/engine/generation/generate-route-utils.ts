@@ -1,17 +1,11 @@
 import { generationParametersSchema } from "../contracts/schemas/prompt.schema";
 import type { GenerationParameters } from "../contracts/types/prompt";
+import { getAttachmentFilename, type PromptAttachment } from "../shared/attachments/image-attachments";
 import { parseRecord, readNonNegativeInteger, readString } from "./runtime-records";
 
 export type StoredGenerationParameters = Partial<GenerationParameters>;
-export type PromptAttachment = {
-  type?: string | null;
-  url?: string | null;
-  data?: string | null;
-  filename?: string | null;
-  name?: string | null;
-  prompt?: string | null;
-  galleryId?: string | null;
-};
+export type { PromptAttachment };
+export { getAttachmentFilename };
 
 const TEXT_ATTACHMENT_CHAR_LIMIT = 60_000;
 const IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
@@ -107,11 +101,6 @@ export function resolveRegenerationGameStateFallbackMessageIds(
     }
   }
   return Array.from(targets.values());
-}
-
-export function getAttachmentFilename(attachment: PromptAttachment): string {
-  const rawName = attachment.filename ?? attachment.name;
-  return typeof rawName === "string" && rawName.trim() ? rawName.trim() : "attachment";
 }
 
 export function extractImageAttachmentDataUrls(attachments: PromptAttachment[] | undefined): string[] {
@@ -260,14 +249,17 @@ function parseStoredGenerationParameters(raw: unknown): StoredGenerationParamete
   }
   if (
     source.reasoningEffort === null ||
-    ["low", "medium", "high", "xhigh", "maximum"].includes(String(source.reasoningEffort))
+    ["none", "minimal", "low", "medium", "high", "xhigh", "maximum"].includes(String(source.reasoningEffort))
   ) {
     out.reasoningEffort = source.reasoningEffort as StoredGenerationParameters["reasoningEffort"];
   }
   if (source.verbosity === null || ["low", "medium", "high"].includes(String(source.verbosity))) {
     out.verbosity = source.verbosity as StoredGenerationParameters["verbosity"];
   }
-  if (source.serviceTier === null || ["flex", "priority"].includes(String(source.serviceTier))) {
+  if (
+    source.serviceTier === null ||
+    ["auto", "default", "flex", "scale", "priority", "standard_only"].includes(String(source.serviceTier))
+  ) {
     out.serviceTier = source.serviceTier as StoredGenerationParameters["serviceTier"];
   }
   if (typeof source.assistantPrefill === "string") out.assistantPrefill = source.assistantPrefill;

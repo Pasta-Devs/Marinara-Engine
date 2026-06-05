@@ -1,4 +1,4 @@
-import type { StorageListOptions } from "../../../../engine/capabilities/storage";
+import type { ChatMessageListOptions } from "../../../../engine/capabilities/storage";
 import type { Message } from "../../../../engine/contracts/types/chat";
 
 const CHAT_MESSAGE_TIMELINE_FIELDS = [
@@ -42,7 +42,7 @@ const CHAT_MESSAGE_TIMELINE_EXTRA_FIELDS = [
   "translation",
 ];
 
-type TimelineMessageOptions = Omit<StorageListOptions, "filters">;
+type TimelineMessageOptions = ChatMessageListOptions;
 
 function parseRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {

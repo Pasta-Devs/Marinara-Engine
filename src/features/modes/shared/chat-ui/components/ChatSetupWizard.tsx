@@ -52,6 +52,8 @@ import {
   getEditableGenerationParameters,
   parseEditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
+  serviceTierOptionsForProvider,
+  type GenerationServiceTier,
   type EditableGenerationParameters,
 } from "../../../../../shared/components/ui/GenerationParametersEditor";
 
@@ -398,13 +400,13 @@ function SetupGenerationParametersPanel({
   value,
   onEnabledChange,
   onChange,
-  showOpenRouterServiceTier,
+  serviceTierOptions,
 }: {
   enabled: boolean;
   value: EditableGenerationParameters;
   onEnabledChange: (enabled: boolean) => void;
   onChange: (next: EditableGenerationParameters) => void;
-  showOpenRouterServiceTier: boolean;
+  serviceTierOptions?: readonly GenerationServiceTier[];
 }) {
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
@@ -430,11 +432,7 @@ function SetupGenerationParametersPanel({
       </button>
       {enabled && (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <GenerationParametersFields
-            value={value}
-            onChange={onChange}
-            showOpenRouterServiceTier={showOpenRouterServiceTier}
-          />
+          <GenerationParametersFields value={value} onChange={onChange} serviceTierOptions={serviceTierOptions} />
         </div>
       )}
     </div>
@@ -767,7 +765,7 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
                 value={generationParameters}
                 onEnabledChange={setCustomizeParameters}
                 onChange={setGenerationParameters}
-                showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
+                serviceTierOptions={serviceTierOptionsForProvider(selectedConnection?.provider)}
               />
             </div>
 
@@ -1366,7 +1364,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
           value={generationParameters}
           onEnabledChange={setCustomizeParameters}
           onChange={setGenerationParameters}
-          showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
+          serviceTierOptions={serviceTierOptionsForProvider(selectedConnection?.provider)}
         />
       </div>
     );

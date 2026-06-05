@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Chat Preset hooks
 // ──────────────────────────────────────────────
+import { useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { chatPresetKeys } from "../query-keys";
 import {
@@ -18,8 +19,6 @@ import {
   type ChatPreset,
   type ChatPresetSettings,
 } from "../../../../engine/contracts/types/chat-preset";
-
-export { chatPresetKeys } from "../query-keys";
 
 const EXCLUDED_METADATA_KEYS = new Set<string>(CHAT_PRESET_EXCLUDED_METADATA_KEYS);
 const CHAT_PRESET_METADATA_DEFAULTS: Record<string, unknown> = {
@@ -71,7 +70,7 @@ function normalizeChatPresetFlags<T extends RawChatPreset>(preset: T): T & ChatP
   };
 }
 
-export async function listChatPresets(mode?: ChatMode | null): Promise<ChatPreset[]> {
+async function listChatPresets(mode?: ChatMode | null): Promise<ChatPreset[]> {
   const presets = (await storageApi.list<RawChatPreset>("chat-presets")).map(normalizeChatPresetFlags);
   return mode ? presets.filter((preset) => preset.mode === mode) : presets;
 }
@@ -272,4 +271,25 @@ export function useApplyChatPreset() {
       qc.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
+}
+
+export function useApplyUserStarredChatPreset() {
+  const queryClient = useQueryClient();
+  const { mutateAsync: applyChatPreset } = useApplyChatPreset();
+
+  return useCallback(
+    async ({ mode, chatId }: { mode: ChatMode; chatId: string }): Promise<ChatPreset | null> => {
+      const presets = await queryClient.fetchQuery({
+        queryKey: chatPresetKeys.list(null),
+        queryFn: () => listChatPresets(null),
+        staleTime: 60_000,
+      });
+      const starred = findUserStarredChatPreset(presets, mode);
+      if (!starred) return null;
+
+      await applyChatPreset({ presetId: starred.id, chatId });
+      return starred;
+    },
+    [applyChatPreset, queryClient],
+  );
 }

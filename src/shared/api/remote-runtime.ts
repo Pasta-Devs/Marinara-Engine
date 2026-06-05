@@ -367,7 +367,7 @@ export async function checkRemoteRuntimeHealth(
   }
 
   try {
-    const response = await fetch(`${target.baseUrl}/health`, remoteFetchInit({
+    const response = await fetch(`${target.baseUrl}/health?probe=1`, remoteFetchInit({
       method: "GET",
       headers: remoteHeaders(target, { accept: "application/json" }),
       signal: options.signal,

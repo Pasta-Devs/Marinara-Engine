@@ -2,7 +2,7 @@ import type { LorebookEntryTimingState } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
 import type { CharacterData } from "../contracts/types/character";
 import { BUILT_IN_AGENTS } from "../contracts/types/agent";
-import type { StorageGateway } from "../capabilities/storage";
+import type { ListChatMemoriesOptions, StorageGateway } from "../capabilities/storage";
 import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
 import { injectAtDepth } from "../generation-core/lorebooks/prompt-injector";
@@ -153,6 +153,8 @@ type PromptSectionRecord = JsonRecord & {
 
 type PromptChoiceBlockRecord = JsonRecord & {
   variableName?: unknown;
+  options?: unknown;
+  multiSelect?: unknown;
   separator?: unknown;
   randomPick?: unknown;
 };
@@ -181,6 +183,7 @@ interface SelectedPromptPreset {
   sections: PromptSectionRecord[];
   groups: PromptGroupRecord[];
   variables: Record<string, string>;
+  choiceVariableNames: string[];
   parameters: StoredGenerationParameters | null;
   wrapFormat: WrapFormat | null;
 }
@@ -246,36 +249,84 @@ function normalizeWrapFormat(value: unknown): WrapFormat | null {
   return value === "xml" || value === "markdown" || value === "none" ? value : null;
 }
 
-function normalizedSelectionValue(value: unknown, block?: PromptChoiceBlockRecord): string | null {
-  if (Array.isArray(value)) {
-    const values = value
-      .map((entry) =>
-        typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean" ? String(entry) : "",
-      )
-      .filter(Boolean);
-    if (values.length === 0) return null;
-    if (boolish(block?.randomPick, false)) {
-      return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? null;
-    }
-    return values.join(readString(block?.separator, ", "));
-  }
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return null;
+function primitiveChoiceValue(value: unknown): string | null {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : null;
 }
 
-function promptChoiceVariables(
-  rawChoices: unknown,
-  blocksByName: Map<string, PromptChoiceBlockRecord>,
-): Record<string, string> {
-  const choices = parseRecord(rawChoices);
+function selectedChoiceCandidates(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap((entry) => primitiveChoiceValue(entry) ?? []);
+  const single = primitiveChoiceValue(value);
+  return single === null ? [] : [single];
+}
+
+function promptChoiceOptionValues(block: PromptChoiceBlockRecord): string[] {
+  const values: string[] = [];
+  const seen = new Set<string>();
+  for (const option of parseArray(block.options)) {
+    const value = isRecord(option) ? primitiveChoiceValue(option.value) : primitiveChoiceValue(option);
+    if (value === null || seen.has(value)) continue;
+    seen.add(value);
+    values.push(value);
+  }
+  return values;
+}
+
+function choiceBlockVariableName(block: PromptChoiceBlockRecord): string {
+  return readString(block.variableName ?? block.variable_name).trim();
+}
+
+function hasOwnChoice(record: JsonRecord, name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, name);
+}
+
+function normalizedSelectionValue(value: unknown, block: PromptChoiceBlockRecord, hasSelection: boolean): string | null {
+  const optionValues = promptChoiceOptionValues(block);
+  if (optionValues.length === 0) return null;
+
+  const validValues = new Set(optionValues);
+  const candidates = selectedChoiceCandidates(value);
+  const values = candidates.filter((entry, index) => validValues.has(entry) && candidates.indexOf(entry) === index);
+
+  if (boolish(block.multiSelect ?? block.multi_select, false)) {
+    if (values.length === 0) return hasSelection ? "" : (optionValues[0] ?? null);
+    if (boolish(block.randomPick ?? block.random_pick, false)) {
+      return values[Math.floor(Math.random() * values.length)] ?? values[0] ?? null;
+    }
+    return values.join(readString(block.separator, ", "));
+  }
+
+  if (values.length === 0) {
+    return hasSelection ? "" : (optionValues[0] ?? null);
+  }
+
+  return values[0] ?? null;
+}
+
+function promptChoiceVariables(input: {
+  defaultChoices: unknown;
+  chatChoices: unknown;
+  blocksByName: Map<string, PromptChoiceBlockRecord>;
+}): Record<string, string> {
+  const defaultChoices = parseRecord(input.defaultChoices);
+  const chatChoices = parseRecord(input.chatChoices);
   const variables: Record<string, string> = {};
-  for (const [name, value] of Object.entries(choices)) {
-    const normalized = normalizedSelectionValue(value, blocksByName.get(name));
+  for (const [name, block] of input.blocksByName.entries()) {
+    const hasChatChoice = hasOwnChoice(chatChoices, name);
+    const hasDefaultChoice = hasOwnChoice(defaultChoices, name);
+    const value = hasChatChoice ? chatChoices[name] : hasDefaultChoice ? defaultChoices[name] : undefined;
+    const normalized = normalizedSelectionValue(value, block, hasChatChoice || hasDefaultChoice);
     if (normalized !== null) variables[name] = normalized;
   }
   return variables;
+}
+
+function resolvePromptChoiceVariableMacros(macros: MacroContext, variableNames: string[]): void {
+  const uniqueNames = new Set(variableNames);
+  for (const name of uniqueNames) {
+    const value = macros.variables[name];
+    if (value === undefined || !value.includes("{{")) continue;
+    macros.variables[name] = resolveMacros(value, macros, { trimResult: false });
+  }
 }
 
 function chatPromptVariables(chat: JsonRecord): Record<string, string> {
@@ -888,15 +939,18 @@ async function loadSelectedPromptPreset(
     if (!bundle) continue;
     const { preset, sections, groups, choiceBlocks } = bundle;
     const blocksByName = new Map(
-      choiceBlocks
-        .map((block) => [readString(block.variableName).trim(), block] as const)
-        .filter(([name]) => name.length > 0),
+      choiceBlocks.map((block) => [choiceBlockVariableName(block), block] as const).filter(([name]) => name.length > 0),
     );
     const metadata = parseRecord(input.chat.metadata);
     const explicitVariables = chatPromptVariables(input.chat);
     const chatPresetId = readString(input.chat.promptPresetId).trim();
     const chatChoices = chatPresetId === presetId ? (metadata.presetChoices ?? input.chat.presetChoices) : null;
     const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
+    const choiceVariables = promptChoiceVariables({
+      defaultChoices: preset.defaultChoices ?? preset.default_choices,
+      chatChoices,
+      blocksByName,
+    });
 
     return {
       id: presetId,
@@ -905,10 +959,10 @@ async function loadSelectedPromptPreset(
       groups,
       variables: {
         ...stringRecord(preset.variableValues),
-        ...promptChoiceVariables(preset.defaultChoices, blocksByName),
-        ...promptChoiceVariables(chatChoices, blocksByName),
+        ...choiceVariables,
         ...explicitVariables,
       },
+      choiceVariableNames: Object.keys(choiceVariables).filter((name) => explicitVariables[name] === undefined),
       parameters: mode === "game" ? null : mergeStoredGenerationParameters(preset.parameters),
       wrapFormat: normalizeWrapFormat(preset.wrapFormat),
     };
@@ -1677,9 +1731,58 @@ const MAX_MEMORY_RECALL_BUDGET_TOKENS = 2048;
 const MAX_RECALLED_MEMORY_TOKENS = 384;
 const MIN_RECALLED_MEMORY_TOKENS = 96;
 const MEMORY_RECALL_CONTEXT_SHARE = 0.15;
+const MEMORY_RECALL_SIMILARITY_THRESHOLD = 0.25;
+const MAX_MEMORY_RECALL_SCORING_CHUNKS = 500;
+const MIN_MEMORY_RECALL_MULTI_TOKEN_STRONG_LEXICAL_TOKENS = 2;
+const MIN_MEMORY_RECALL_STRONG_LEXICAL_COVERAGE = 0.75;
 const DEFAULT_MEMORY_RECALL_READ_BEHIND_MESSAGES = 1;
 const MAX_MEMORY_RECALL_READ_BEHIND_MESSAGES = 100;
 const RECALL_TRUNCATION_MARKER = "\n...[recalled memory truncated]...\n";
+const MEMORY_RECALL_QUERY_STOPWORDS = new Set([
+  "about",
+  "and",
+  "are",
+  "been",
+  "but",
+  "did",
+  "does",
+  "find",
+  "for",
+  "from",
+  "had",
+  "has",
+  "have",
+  "her",
+  "him",
+  "his",
+  "how",
+  "its",
+  "know",
+  "our",
+  "recall",
+  "remember",
+  "she",
+  "show",
+  "tell",
+  "that",
+  "the",
+  "their",
+  "them",
+  "then",
+  "there",
+  "they",
+  "this",
+  "was",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+  "you",
+  "your",
+]);
 
 function estimateTextTokens(text: string): number {
   const trimmed = text.trim();
@@ -1698,6 +1801,31 @@ function lexicalMemoryEmbedding(text: string): number[] {
   }
   const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
   return magnitude > 0 ? vector.map((value) => value / magnitude) : vector;
+}
+
+function memoryRecallTokenSet(text: string): Set<string> {
+  return new Set(text.toLowerCase().match(/[a-z0-9]{2,}/g) ?? []);
+}
+
+function memoryRecallQueryTokens(text: string): string[] {
+  return Array.from(memoryRecallTokenSet(text)).filter((token) => !MEMORY_RECALL_QUERY_STOPWORDS.has(token));
+}
+
+function memoryRecallLexicalOverlap(queryTokens: string[], contentTokens: Set<string>): number {
+  return queryTokens.reduce((score, token) => score + (contentTokens.has(token) ? 1 : 0), 0);
+}
+
+function hasStrongMemoryRecallLexicalMatch(queryTokenCount: number, lexicalScore: number): boolean {
+  if (queryTokenCount === 1) return lexicalScore >= 1;
+  if (queryTokenCount < MIN_MEMORY_RECALL_MULTI_TOKEN_STRONG_LEXICAL_TOKENS) return false;
+  if (lexicalScore < MIN_MEMORY_RECALL_MULTI_TOKEN_STRONG_LEXICAL_TOKENS) return false;
+  return lexicalScore / queryTokenCount >= MIN_MEMORY_RECALL_STRONG_LEXICAL_COVERAGE;
+}
+
+function passesMemoryRecallRelevanceFloor(similarity: number, queryTokenCount: number, lexicalScore: number): boolean {
+  return (
+    similarity >= MEMORY_RECALL_SIMILARITY_THRESHOLD || hasStrongMemoryRecallLexicalMatch(queryTokenCount, lexicalScore)
+  );
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -1784,6 +1912,24 @@ function messageIdSet(messages: JsonRecord[]): Set<string> {
   return new Set(messages.map((message) => readString(message.id).trim()).filter(Boolean));
 }
 
+function memoryRecallReadBehindExclusion(
+  chat: JsonRecord,
+  storedMessages: JsonRecord[],
+): Pick<ListChatMemoriesOptions, "excludeRecentMessageIds" | "excludeRecentStartAt"> {
+  const readBehind = memoryRecallReadBehind(chat);
+  if (readBehind <= 0) return {};
+
+  const recentMessages = recentMemoryRecallMessages(storedMessages, readBehind);
+  const excludeRecentMessageIds = Array.from(messageIdSet(recentMessages));
+  if (excludeRecentMessageIds.length === 0) return {};
+
+  const excludeRecentStartAt = readString(recentMessages[0]?.createdAt).trim();
+  return {
+    excludeRecentMessageIds,
+    ...(excludeRecentStartAt ? { excludeRecentStartAt } : {}),
+  };
+}
+
 function memoryChunkMessageIds(memory: JsonRecord): Set<string> {
   const ids = new Set<string>();
   for (const value of Array.isArray(memory.messageIds) ? memory.messageIds : []) {
@@ -1821,6 +1967,25 @@ function memoriesAfterReadBehind(chat: JsonRecord, storedMessages: JsonRecord[],
   return memories.filter((memory) => !memoryOverlapsRecentMessages(memory, recentIds, recentStartAt));
 }
 
+function memoryRecallRecencyKey(memory: JsonRecord): string {
+  return (
+    readString(memory.lastMessageAt).trim() ||
+    readString(memory.createdAt).trim() ||
+    readString(memory.firstMessageAt).trim()
+  );
+}
+
+function recentMemoryRecallScoringSet(memories: JsonRecord[]): JsonRecord[] {
+  if (memories.length <= MAX_MEMORY_RECALL_SCORING_CHUNKS) return memories;
+  return [...memories]
+    .sort((a, b) => memoryRecallRecencyKey(b).localeCompare(memoryRecallRecencyKey(a)))
+    .slice(0, MAX_MEMORY_RECALL_SCORING_CHUNKS);
+}
+
+function memoryRecallRows(value: unknown): JsonRecord[] {
+  return parseArray(value).filter(isRecord);
+}
+
 async function buildMemoryRecallBlock(
   storage: StorageGateway,
   chat: JsonRecord,
@@ -1834,12 +1999,16 @@ async function buildMemoryRecallBlock(
   if (!chatId) return null;
   let memories: JsonRecord[] = [];
   try {
-    const rows = await storage.listChatMemories<unknown>(chatId);
-    memories = Array.isArray(rows) ? rows.filter(isRecord) : [];
+    const rows = await storage.listChatMemories<unknown>(chatId, {
+      limit: MAX_MEMORY_RECALL_SCORING_CHUNKS,
+      order: "recent",
+      ...memoryRecallReadBehindExclusion(chat, storedMessages),
+    });
+    memories = memoryRecallRows(rows);
   } catch {
-    memories = Array.isArray(chat.memories) ? chat.memories.filter(isRecord) : [];
+    memories = memoryRecallRows(chat.memories);
   }
-  memories = memoriesAfterReadBehind(chat, storedMessages, memories);
+  memories = recentMemoryRecallScoringSet(memoriesAfterReadBehind(chat, storedMessages, memories));
   if (memories.length === 0) return null;
 
   let semanticQueryVector: number[] | null = null;
@@ -1851,7 +2020,7 @@ async function buildMemoryRecallBlock(
     semanticQueryVector = null;
   }
   const queryVector = lexicalMemoryEmbedding(latestUserInput);
-  const queryTokens = new Set(latestUserInput.toLowerCase().match(/[a-z0-9]{2,}/g) ?? []);
+  const queryTokens = memoryRecallQueryTokens(latestUserInput);
   const recalled = memories
     .map((memory) => {
       const content = readString(memory.content).trim();
@@ -1859,15 +2028,14 @@ async function buildMemoryRecallBlock(
       const providerVector = semanticQueryVector ? memoryVector(memory, semanticQueryVector.length) : null;
       const vector = providerVector ?? memoryVector(memory, MEMORY_EMBEDDING_DIMS) ?? lexicalMemoryEmbedding(content);
       const baseQueryVector = providerVector && semanticQueryVector ? semanticQueryVector : queryVector;
-      const haystack = content.toLowerCase();
-      const lexicalScore = Array.from(queryTokens).reduce(
-        (score, token) => score + (haystack.includes(token) ? 1 : 0),
-        0,
-      );
+      const lexicalScore = memoryRecallLexicalOverlap(queryTokens, memoryRecallTokenSet(content));
       const similarity = cosineSimilarity(baseQueryVector, vector) + Math.min(0.2, lexicalScore * 0.025);
-      return { content, similarity };
+      return { content, similarity, lexicalScore };
     })
-    .filter((memory): memory is { content: string; similarity: number } => !!memory && memory.similarity > 0)
+    .filter(
+      (memory): memory is { content: string; similarity: number; lexicalScore: number } =>
+        !!memory && passesMemoryRecallRelevanceFloor(memory.similarity, queryTokens.length, memory.lexicalScore),
+    )
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 8);
   if (recalled.length === 0) return null;
@@ -2869,6 +3037,7 @@ export async function assembleGenerationPrompt(
     variables: selectedPreset?.variables,
     request: input.request,
   });
+  if (selectedPreset) resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames);
   await seedPromptVariablesFromGreeting(storage, input, macros);
   const baseLorebookIncludedPositions = lorebookIncludedPositionsForPrompt(selectedPreset, chatMode);
   const scanLorebooksForPositions = (includedPositions: ActiveLorebookIncludedPositions) =>

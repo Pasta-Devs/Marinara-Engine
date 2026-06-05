@@ -9,6 +9,8 @@ mod haptic;
 mod spotify;
 #[path = "integrations/spotify_callback.rs"]
 mod spotify_callback;
+#[path = "integrations/spotify_query.rs"]
+mod spotify_query;
 #[path = "integrations/tts.rs"]
 mod tts;
 

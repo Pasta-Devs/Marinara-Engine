@@ -22,6 +22,7 @@ import { cn } from "../../../../shared/lib/utils";
 import { TEMPERATURE_UNITS } from "../../../../shared/lib/temperature-units";
 import { QUOTE_FORMATS } from "../../../../shared/lib/dialogue-quotes";
 import { useExtensions, useCreateExtension, useDeleteExtension, useUpdateExtension } from "../hooks/use-extensions";
+import { CoreModulesSettings } from "../../plugins/shell";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
 import { openExternalUrl } from "../../../../shared/api/external-link-api";
@@ -108,6 +109,7 @@ import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploa
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
+import { TrackerCardColorSettings } from "../../../runtime/tracker/shell";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../../../shared/lib/character-import";
 import { ProfileImportSection } from "./ProfileImportSection";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
@@ -132,6 +134,7 @@ const TABS = [
   { id: "general", label: "General" },
   { id: "appearance", label: "Appearance" },
   { id: "themes", label: "Themes" },
+  { id: "plugins", label: "Plugins" },
   { id: "extensions", label: "Extensions" },
   { id: "import", label: "Import" },
   { id: "advanced", label: "Advanced" },
@@ -141,6 +144,7 @@ const SETTINGS_COMPONENTS: Record<(typeof TABS)[number]["id"], React.FC> = {
   general: React.memo(GeneralSettings),
   appearance: React.memo(AppearanceSettings),
   themes: React.memo(ThemesSettings),
+  plugins: React.memo(CoreModulesSettings),
   extensions: React.memo(ExtensionsSettings),
   import: React.memo(ImportSettings),
   advanced: React.memo(AdvancedSettings),
@@ -1723,6 +1727,8 @@ function AppearanceSettings() {
         trackerTemperatureUnit={trackerTemperatureUnit}
         setTrackerTemperatureUnit={setTrackerTemperatureUnit}
       />
+
+      <TrackerCardColorSettings />
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1.5">

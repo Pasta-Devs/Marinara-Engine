@@ -70,6 +70,9 @@ export function ActiveWorldInfoButton({
   title = "Active World Info",
 }: ActiveWorldInfoButtonProps) {
   const [open, setOpen] = useState(false);
+  // Mirrors legacy: the closed toolbar button runs the active-world-info
+  // inspector so it can show whether lore matched or was budget-skipped before
+  // the user opens the panel, including constant entries in fresh chats.
   const { data, isLoading } = useActiveLorebookEntries(chatId, true, { includeTestScanTrigger: true });
   const ref = useRef<HTMLDivElement>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;

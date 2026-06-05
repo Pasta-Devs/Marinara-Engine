@@ -59,8 +59,8 @@ function entry(
 }
 
 describe("processActivatedEntries", () => {
-  it("keeps latest user-message primary-key matches ahead of older context matches", () => {
-    const activated = scanForActivatedEntries(
+  it("keeps latest user-message primary-key matches ahead of older context matches", async () => {
+    const activated = await scanForActivatedEntries(
       [
         { role: "user", content: "Earlier chat mentioned old-key." },
         { role: "assistant", content: "Acknowledged." },

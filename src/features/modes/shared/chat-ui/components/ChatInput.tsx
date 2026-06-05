@@ -20,10 +20,16 @@ import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../../shared/stores/ui.store";
+import {
+  deletePreparedManagedImageAttachments,
+  prepareManagedImageAttachmentBatch,
+  type PreparedManagedImageAttachments,
+} from "../../../../../shared/api/message-attachment-api";
 import { useGenerate } from "../../../../runtime/generation/index";
 import { readScopedRegexMode, useApplyRegex } from "../../../../catalog/agents/regex-application";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../../../catalog/chats/index";
 import { characterKeys } from "../../../../catalog/characters/index";
+import { invalidateGalleryImagesForChat, invalidateGalleryImagesForManagedAttachments } from "../../../../catalog/gallery/index";
 import { personaKeys } from "../../../../catalog/personas/index";
 import type { Message } from "../../../../../engine/contracts/types/chat";
 import { buildGuidedGenerationInstructionMessage } from "../../../../../engine/shared/text/generation-guide";
@@ -612,47 +618,112 @@ export const ChatInput = memo(function ChatInput({
 
     message = resolveInputMacros(message);
 
+    const submittingChatId = activeChatId;
+    const submittedDraft = raw;
+    const submittedHeight = textareaRef.current?.style.height ?? "auto";
+    const submittedAttachments = attachments;
+    const submittedCompletions = completions;
+    const pendingAttachments = submittedAttachments.map((a) => ({
+      type: a.type,
+      data: a.data,
+      filename: a.name,
+      name: a.name,
+    }));
+    const restoreSubmittedInput = () => {
+      const activeChatIdAfterFailure = useChatStore.getState().activeChatId;
+      const currentValue = textareaRef.current?.value ?? "";
+      const canRestoreVisibleDraft = activeChatIdAfterFailure === submittingChatId && currentValue.length === 0;
+      if (canRestoreVisibleDraft && textareaRef.current) {
+        textareaRef.current.value = submittedDraft;
+        textareaRef.current.style.height = submittedHeight;
+        syncInputState(submittedDraft);
+        setCompletions(submittedCompletions);
+      }
+      if (submittedAttachments.length > 0) {
+        if (activeChatIdAfterFailure === submittingChatId) {
+          updateAttachments((current) => (current.length === 0 ? submittedAttachments : current));
+        } else {
+          pendingAttachmentDraftsRef.current.set(submittingChatId, submittedAttachments);
+        }
+      }
+      if (submittedDraft && (canRestoreVisibleDraft || activeChatIdAfterFailure !== submittingChatId)) {
+        setInputDraft(submittingChatId, submittedDraft);
+      }
+    };
+
     if (textareaRef.current) {
       textareaRef.current.value = "";
       textareaRef.current.style.height = "auto";
     }
     syncInputState("");
     setCompletions([]);
-    const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
     replaceAttachments([]);
     clearInputDraft(activeChatId);
 
     // Manual mode: only create the user message, no auto-generation
     if (groupResponseOrder === "manual") {
+      let createdMessageId: string | null = null;
+      let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
       try {
+        preparedManagedAttachments = pendingAttachments.length
+          ? await prepareManagedImageAttachmentBatch(activeChatId, pendingAttachments)
+          : null;
+        const managedAttachments = preparedManagedAttachments?.attachments ?? [];
         const created = await createMessage.mutateAsync({
           role: "user",
           content: message,
           characterId: null,
         });
-        if (pendingAttachments.length) {
+        createdMessageId = created.id;
+        if (managedAttachments.length) {
           await updateMessageExtra.mutateAsync({
             messageId: created.id,
-            extra: { attachments: pendingAttachments },
+            extra: { attachments: managedAttachments },
           });
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
         }
       } catch (error) {
+        let rollbackFailed = false;
+        if (preparedManagedAttachments?.createdGalleryIds.length) {
+          try {
+            await deletePreparedManagedImageAttachments(preparedManagedAttachments);
+          } catch {
+            rollbackFailed = true;
+          }
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, preparedManagedAttachments.attachments);
+        }
+        if (createdMessageId) {
+          try {
+            await deleteMessage.mutateAsync(createdMessageId);
+          } catch {
+            rollbackFailed = true;
+          }
+        }
+        if (!rollbackFailed) restoreSubmittedInput();
         const msg = error instanceof Error ? error.message : "Failed to send message";
-        toast.error(msg);
+        toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
       }
       return;
     }
 
+    let userMessageAccepted = false;
     try {
-      await generate({
-        chatId: activeChatId,
+      const generated = await generate({
+        chatId: submittingChatId,
         connectionId: null,
         userMessage: message,
         ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
+        onUserMessageAccepted: () => {
+          userMessageAccepted = true;
+        },
       });
+      if (generated === false && !userMessageAccepted) restoreSubmittedInput();
     } catch (error) {
       if (isAbortError(error)) return;
+      if (!userMessageAccepted) restoreSubmittedInput();
       console.error("Send failed:", error);
+    } finally {
+      if (pendingAttachments.length) invalidateGalleryImagesForChat(qc, submittingChatId);
     }
   }, [
     activeChatId,
@@ -667,6 +738,7 @@ export const ChatInput = memo(function ChatInput({
     mode,
     groupResponseOrder,
     createMessage,
+    deleteMessage,
     updateMessageExtra,
     syncInputState,
     replaceAttachments,
@@ -812,6 +884,7 @@ export const ChatInput = memo(function ChatInput({
     clearInputDraft(submittingChatId);
 
     let createdMessageId: string | null = null;
+    let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
     try {
       const created = await createMessage.mutateAsync({
         role: "user",
@@ -819,14 +892,27 @@ export const ChatInput = memo(function ChatInput({
         characterId: null,
       });
       createdMessageId = created.id;
-      if (pendingAttachments.length) {
+      preparedManagedAttachments = pendingAttachments.length
+        ? await prepareManagedImageAttachmentBatch(submittingChatId, pendingAttachments)
+        : null;
+      const managedAttachments = preparedManagedAttachments?.attachments ?? [];
+      if (managedAttachments.length) {
         await updateMessageExtra.mutateAsync({
           messageId: created.id,
-          extra: { attachments: pendingAttachments },
+          extra: { attachments: managedAttachments },
         });
+        invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, managedAttachments);
       }
     } catch (error) {
       let rollbackFailed = false;
+      if (preparedManagedAttachments?.createdGalleryIds.length) {
+        try {
+          await deletePreparedManagedImageAttachments(preparedManagedAttachments);
+        } catch {
+          rollbackFailed = true;
+        }
+        invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, preparedManagedAttachments.attachments);
+      }
       if (createdMessageId) {
         try {
           await deleteMessage.mutateAsync(createdMessageId);
@@ -854,7 +940,7 @@ export const ChatInput = memo(function ChatInput({
         setInputDraft(submittingChatId, submittedDraft);
       }
       const msg = error instanceof Error ? error.message : "Failed to post message";
-      toast.error(rollbackFailed ? `${msg}; the partial message may need to be removed before retrying.` : msg);
+      toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
     }
   }, [
     activeChatId,

@@ -73,6 +73,7 @@ export type GenerateArgs = GenerationReplayInput & {
   chatId: string;
   connectionId?: string | null;
   message?: string;
+  onUserMessageAccepted?: () => void;
   [key: string]: unknown;
 };
 
@@ -737,8 +738,7 @@ function formatAgentActivityFallback(result: AgentResult): string {
   if (result.agentType === "world-state" || result.type === "game_state_update") return "Updated world state.";
   if (result.agentType === "character-tracker" || result.type === "character_tracker_update")
     return "Updated character tracker.";
-  if (result.agentType === "persona-stats" || result.type === "persona_stats_update")
-    return "Updated persona stats.";
+  if (result.agentType === "persona-stats" || result.type === "persona_stats_update") return "Updated persona stats.";
   if (result.agentType === "custom-tracker" || result.type === "custom_tracker_update")
     return "Updated custom tracker.";
   if (result.type === "background_change" || result.agentType === "background") return "Background checked.";
@@ -1165,6 +1165,7 @@ export async function runGenerationWithUi(
   options: { beforeStart?: (args: GenerateArgs, signal: AbortSignal) => Promise<void> } = {},
 ): Promise<boolean> {
   const chatId = args.chatId;
+  const { onUserMessageAccepted, ...streamArgs } = args;
   const regenerateMessageId = readString(args.regenerateMessageId).trim() || null;
   const requestedCharacterId = readString(args.forCharacterId).trim() || null;
   await assertChatCanGenerate(queryClient, chatId);
@@ -1322,6 +1323,18 @@ export async function runGenerationWithUi(
     scheduleStreamReveal();
   };
 
+  const replaceVisibleStreamText = (text: string) => {
+    cancelTypewriterFrame();
+    pendingReveal = "";
+    typewriterActive = false;
+    lastTypewriterPaintAt = 0;
+    typewriterRemainder = 0;
+    visibleStreamText = text;
+    commitVisibleStreamBuffer(true);
+    if (text) useChatStore.getState().setMariPhase(chatId, "thinking");
+    resolveAllRevealWaiters();
+  };
+
   const flushVisibleStreamText = async () => {
     if (controller.signal.aborted) {
       cancelTypewriterFrame();
@@ -1445,9 +1458,9 @@ export async function runGenerationWithUi(
 
   try {
     insertOptimisticUserMessage(queryClient, args);
-    await options.beforeStart?.(args, controller.signal);
+    await options.beforeStart?.(streamArgs, controller.signal);
     if (controller.signal.aborted) throw new DOMException("The operation was aborted.", "AbortError");
-    for await (const event of streamFactory(args, controller.signal)) {
+    for await (const event of streamFactory(streamArgs, controller.signal)) {
       if (!foregroundGenerationReleased && !ownsChatController()) break;
       switch (event.type) {
         case "phase":
@@ -1480,12 +1493,20 @@ export async function runGenerationWithUi(
             enqueueVisibleStreamText(event.data);
           }
           break;
+        case "content_replace":
+          if (!foregroundGenerationReleased && typeof event.data === "string") {
+            received = event.data;
+            receivedAnyContent = receivedAnyContent || event.data.trim().length > 0;
+            replaceVisibleStreamText(event.data);
+          }
+          break;
         case "message":
         case "user_message":
           if (event.data && typeof event.data === "object") {
             if (event.type === "user_message") await flushLiveGenerationBuffers();
             upsertCachedMessage(queryClient, chatId, event.data);
             scheduleChatQueryRefresh(queryClient, chatId);
+            if (event.type === "user_message") onUserMessageAccepted?.();
             if (event.type !== "user_message") releaseForegroundGenerationUi();
             drainAgentResultEffects();
           }
@@ -1767,6 +1788,7 @@ export function useGenerate() {
                 format: useUIStore.getState().imagePromptFormat,
               },
               hideAutomatedSummarySourceMessages: useUIStore.getState().summaryPopoverSettings.hideSummarizedMessages,
+              trimIncompleteModelOutput: useUIStore.getState().trimIncompleteModelOutput,
               debugMode: useUIStore.getState().debugMode,
               debugSink: enqueueAgentDebugEntry,
             },

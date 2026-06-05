@@ -12,6 +12,7 @@ import { useChatStore } from "../../../../shared/stores/chat.store";
 import { translateDraftText } from "../../../../shared/lib/draft-translation";
 import { MAX_FILE_SIZES } from "../../../../engine/contracts/constants/defaults";
 import type { DiceRollResult } from "../../../../engine/contracts/types/game";
+import type { PromptAttachment } from "../../../../shared/api/message-attachment-api";
 import {
   CHAT_INPUT_ICON_BUTTON_ACTIVE_CLASS,
   CHAT_INPUT_ICON_BUTTON_CLASS,
@@ -31,9 +32,9 @@ type AddressMode = "scene" | "party" | "gm";
 interface GameInputProps {
   onSend: (
     message: string,
-    attachments?: Array<{ type: string; data: string }>,
+    attachments?: PromptAttachment[],
     options?: { commitPendingMove?: boolean },
-  ) => void;
+  ) => boolean | Promise<boolean>;
   onRollDice: (notation: string) => Promise<DiceRollResult | null>;
   /** When true, allow "Talk to Party" in the address selector. */
   hasPartyMembers?: boolean;
@@ -211,8 +212,11 @@ export function GameInput({
     }
 
     const pendingAttachments =
-      attachments.length > 0 ? attachments.map((a) => ({ type: a.type, data: a.data })) : undefined;
+      attachments.length > 0
+        ? attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }))
+        : undefined;
 
+    let clearQueuedDiceOnSend = false;
     if (queuedDice) {
       setRollingQueuedDice(true);
       let diceResult: DiceRollResult | null = null;
@@ -224,7 +228,7 @@ export function GameInput({
       if (!diceResult) return;
       const diceTag = formatDiceResultTag(diceResult);
       body = body ? `${body}\n${diceTag}` : diceTag;
-      setQueuedDice(null);
+      clearQueuedDiceOnSend = true;
     }
 
     if (addressMode === "party") {
@@ -233,11 +237,13 @@ export function GameInput({
       body = body ? `[To the GM] ${body}` : "[To the GM]";
     }
 
-    onSend(body, pendingAttachments, { commitPendingMove });
+    const sent = await onSend(body, pendingAttachments, { commitPendingMove });
+    if (!sent) return;
 
     setText("");
     clearDraft();
     setAttachments([]);
+    if (clearQueuedDiceOnSend) setQueuedDice(null);
     if (inputRef.current) inputRef.current.style.height = "auto";
     inputRef.current?.focus();
   };

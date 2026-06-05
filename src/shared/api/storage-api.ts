@@ -1,14 +1,23 @@
 import type {
   AddChatMessageSwipeOptions,
+  ListChatMemoriesOptions,
+  StorageImageAttachmentReference,
   StorageEntity,
   StorageGateway,
   StorageListOptions,
 } from "../../engine/capabilities/storage";
 import { collapseExcessBlankLines } from "../../engine/shared/text/newlines";
 import { ApiError } from "./api-errors";
-import { invalidateRemoteManagedAssetObjectUrlsAfter, type RemoteManagedAssetKind } from "./local-file-api";
+import {
+  invalidateRemoteManagedAssetObjectUrlsAfter,
+  resolveGalleryFileUrl,
+  type RemoteManagedAssetKind,
+} from "./local-file-api";
+import { blobToDataUrl } from "../lib/url-blob";
+import { chatCommandApi } from "./chat-command-api";
 import { invokeTauri } from "./tauri-client";
 import { trackerSnapshotApi, type TrackerSnapshotInput } from "./tracker-snapshot-api";
+import { urlBinaryApi } from "./url-binary-api";
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
@@ -20,10 +29,6 @@ function asRecord(value: unknown): Record<string, unknown> {
     }
   }
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function asArray<T = unknown>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
 }
 
 function parseStoredJson(value: unknown): unknown {
@@ -214,6 +219,131 @@ async function patchChatSummariesField<T>(chatId: string, patch: Record<string, 
   return storageApi.update<T>("chats", chatId, { metadata });
 }
 
+function textField(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function inlineImageDataUrl(value: unknown): string {
+  const text = textField(value);
+  return text.toLowerCase().startsWith("data:image/") ? text : "";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function loadImageUrlAsDataUrl(
+  url: string,
+  fallbackMimeType = "image/png",
+  sourceLabel = "image attachment",
+): Promise<string | null> {
+  if (!url) return null;
+  const inline = inlineImageDataUrl(url);
+  if (inline) return inline;
+  try {
+    const blob = await urlBinaryApi.load(url, fallbackMimeType);
+    const mimeType = textField(blob.type).toLowerCase();
+    if (mimeType && !mimeType.startsWith("image/")) {
+      throw new Error(`${sourceLabel} resolved to ${mimeType}, not an image.`);
+    }
+    return blobToDataUrl(blob, "URL binary request failed to read the file.");
+  } catch (error) {
+    throw new Error(`Failed to load ${sourceLabel}: ${errorMessage(error)}`);
+  }
+}
+
+async function loadResolvedGalleryFileDataUrl(
+  filename: string,
+  filePath: string,
+  sourceLabel: string,
+  errors: string[],
+): Promise<string | null> {
+  if (!filename && !filePath) return null;
+  let resolvedUrl: string | null = null;
+  try {
+    resolvedUrl = await resolveGalleryFileUrl(filename, filePath);
+  } catch (error) {
+    errors.push(`failed to resolve ${sourceLabel}: ${errorMessage(error)}`);
+    return null;
+  }
+  if (!resolvedUrl) {
+    errors.push(`could not resolve ${sourceLabel}`);
+    return null;
+  }
+  try {
+    return await loadImageUrlAsDataUrl(resolvedUrl, "image/png", sourceLabel);
+  } catch (error) {
+    errors.push(errorMessage(error));
+    return null;
+  }
+}
+
+async function galleryImageDataUrl(gallery: unknown, galleryId: string): Promise<string | null> {
+  if (!gallery || typeof gallery !== "object" || Array.isArray(gallery)) return null;
+  const record = gallery as Record<string, unknown>;
+  const errors: string[] = [];
+  const url = textField(record.url);
+  if (url) {
+    try {
+      const urlData = await loadImageUrlAsDataUrl(url, "image/png", `gallery image ${galleryId} url`);
+      if (urlData) return urlData;
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+  }
+  const fileData = await loadResolvedGalleryFileDataUrl(
+    textField(record.filename),
+    textField(record.filePath),
+    `gallery image ${galleryId} file`,
+    errors,
+  );
+  if (fileData) return fileData;
+  if (errors.length) throw new Error(errors.join("; "));
+  return null;
+}
+
+async function resolveImageAttachmentDataUrl(
+  attachment: StorageImageAttachmentReference,
+): Promise<string | null> {
+  const inline =
+    inlineImageDataUrl(attachment.data) ||
+    inlineImageDataUrl(attachment.url) ||
+    inlineImageDataUrl(attachment.imageUrl);
+  if (inline) return inline;
+
+  const galleryId = textField(attachment.galleryId);
+  if (galleryId) {
+    let gallery: Record<string, unknown> | null = null;
+    try {
+      gallery = await storageApi.get<Record<string, unknown>>("gallery", galleryId);
+    } catch (error) {
+      throw new Error(`Failed to load image attachment gallery ${galleryId}: ${errorMessage(error)}`);
+    }
+    if (!gallery) throw new Error(`Image attachment gallery ${galleryId} was not found.`);
+    const galleryData = await galleryImageDataUrl(gallery, galleryId);
+    if (galleryData) return galleryData;
+    throw new Error(`Image attachment gallery ${galleryId} does not contain a readable image.`);
+  }
+
+  const directUrl = textField(attachment.url) || textField(attachment.imageUrl);
+  const errors: string[] = [];
+  if (directUrl) {
+    try {
+      const urlData = await loadImageUrlAsDataUrl(directUrl, "image/png", "image attachment url");
+      if (urlData) return urlData;
+    } catch (error) {
+      errors.push(errorMessage(error));
+    }
+  }
+
+  const filename = textField(attachment.filename);
+  const filePath = textField(attachment.filePath);
+  const fileData = await loadResolvedGalleryFileDataUrl(filename, filePath, "image attachment file", errors);
+  if (fileData) return fileData;
+  if (errors.length) throw new Error(errors.join("; "));
+  return null;
+}
+
 export const storageApi: StorageGateway = {
   list: async (entity: StorageEntity, options?: StorageListOptions) =>
     normalizeStorageReadResult(
@@ -289,6 +419,7 @@ export const storageApi: StorageGateway = {
       extra: { ...asRecord(message.extra), ...patch },
     });
   },
+  resolveImageAttachmentDataUrl,
   addChatMessageSwipe: (chatId, messageId, content, options) =>
     invokeTauri("chat_message_add_swipe", {
       chatId,
@@ -299,10 +430,8 @@ export const storageApi: StorageGateway = {
     invokeTauri("chat_evict_prompt_snapshots", { chatId, keepLast }) as Promise<{ evicted: number }>,
   patchChatMetadata: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
   patchChatSummaries: (chatId, patch) => patchChatSummariesField(chatId, patch),
-  listChatMemories: async (chatId) => {
-    const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
-    return asArray(chat?.memories);
-  },
+  listChatMemories: <T = unknown>(chatId: string, options?: ListChatMemoriesOptions) =>
+    chatCommandApi.memoriesList<T[]>(chatId, options),
   refreshChatMemories: (chatId) => invokeTauri("chat_memories_refresh", { chatId }),
   getWorldState: async (chatId) => {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);

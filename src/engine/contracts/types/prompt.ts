@@ -171,11 +171,11 @@ export interface GenerationParameters {
   frequencyPenalty: number;
   presencePenalty: number;
   /** For reasoning models */
-  reasoningEffort: "low" | "medium" | "high" | "xhigh" | "maximum" | null;
+  reasoningEffort: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "maximum" | null;
   /** Output verbosity for models that support it (GPT-5+) */
   verbosity: "low" | "medium" | "high" | null;
-  /** Optional OpenRouter service tier. */
-  serviceTier: "flex" | "priority" | null;
+  /** Optional provider processing tier. */
+  serviceTier: "auto" | "default" | "flex" | "scale" | "priority" | "standard_only" | null;
   /** Optional assistant-role prefill appended after the final user message. */
   assistantPrefill: string;
   /** Optional deterministic seed for providers that expose seeded generation. */

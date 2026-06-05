@@ -34,8 +34,7 @@ import {
   GenerationReplayDetailsModal,
   hasGenerationReplayDetails,
   isImageMessageAttachment,
-  messageAttachmentImageAlt,
-  messageAttachmentImageSource,
+  MessageAttachmentImagePreview,
   messageAttachmentsFromExtra,
   readStoredThinking,
   ResolvedAvatarImage,
@@ -953,25 +952,18 @@ export const ConversationMessage = memo(function ConversationMessage({
         {!isHiddenCollapsed && attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
           <div className="ml-14 mt-1.5 flex flex-col items-start gap-2">
             {attachments.map((att, i) => {
-              const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
-              return imageSource ? (
-                <div key={i} className="group/att relative inline-block">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImageLightbox({ url: imageSource, prompt: att.prompt });
-                    }}
-                    className="block cursor-zoom-in rounded-lg text-left"
-                    title="Open image"
-                  >
-                    <img
-                      src={imageSource}
-                      alt={messageAttachmentImageAlt(att)}
-                      className="max-h-80 max-w-full rounded-lg"
-                      loading="lazy"
-                    />
-                  </button>
+              return isImageMessageAttachment(att) ? (
+                <MessageAttachmentImagePreview
+                  key={i}
+                  attachment={att}
+                  className="group/att relative inline-block"
+                  buttonClassName="block cursor-zoom-in rounded-lg text-left"
+                  imageClassName="max-h-80 max-w-full rounded-lg"
+                  onOpen={(imageSource, event) => {
+                    event.stopPropagation();
+                    setImageLightbox({ url: imageSource, prompt: att.prompt });
+                  }}
+                >
                   <button
                     onClick={() => handleRemoveAttachment(i)}
                     title="Remove from message"
@@ -979,7 +971,7 @@ export const ConversationMessage = memo(function ConversationMessage({
                   >
                     <X size="0.875rem" />
                   </button>
-                </div>
+                </MessageAttachmentImagePreview>
               ) : null;
             })}
           </div>
@@ -1310,25 +1302,18 @@ export const ConversationMessage = memo(function ConversationMessage({
         {!isHiddenCollapsed && attachments.length > 0 && !IMAGE_URL_RE.test(renderedContent.trim()) && (
           <div className="mt-1.5 flex flex-col items-center gap-2">
             {attachments.map((att, i) => {
-              const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
-              return imageSource ? (
-                <div key={i} className="group/att relative inline-block">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setImageLightbox({ url: imageSource, prompt: att.prompt });
-                    }}
-                    className="block cursor-zoom-in rounded-lg text-left"
-                    title="Open image"
-                  >
-                    <img
-                      src={imageSource}
-                      alt={messageAttachmentImageAlt(att)}
-                      className="max-h-80 max-w-full rounded-lg"
-                      loading="lazy"
-                    />
-                  </button>
+              return isImageMessageAttachment(att) ? (
+                <MessageAttachmentImagePreview
+                  key={i}
+                  attachment={att}
+                  className="group/att relative inline-block"
+                  buttonClassName="block cursor-zoom-in rounded-lg text-left"
+                  imageClassName="max-h-80 max-w-full rounded-lg"
+                  onOpen={(imageSource, event) => {
+                    event.stopPropagation();
+                    setImageLightbox({ url: imageSource, prompt: att.prompt });
+                  }}
+                >
                   <button
                     onClick={() => handleRemoveAttachment(i)}
                     title="Remove from message"
@@ -1336,7 +1321,7 @@ export const ConversationMessage = memo(function ConversationMessage({
                   >
                     <X size="0.875rem" />
                   </button>
-                </div>
+                </MessageAttachmentImagePreview>
               ) : null;
             })}
           </div>

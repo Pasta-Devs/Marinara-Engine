@@ -11,7 +11,6 @@ import {
   updateGroupSchema,
 } from "../../../../engine/contracts/schemas/character.schema";
 import { characterApi } from "../../../../shared/api/character-api";
-import { ApiError } from "../../../../shared/api/api-errors";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { storageCommandsApi } from "../../../../shared/api/storage-commands-api";
 import { galleryApi } from "../../../../shared/api/image-generation-api";
@@ -112,7 +111,6 @@ const CHARACTER_SUMMARY_OPTIONS = {
     ],
   },
 };
-const CHARACTER_SUMMARY_BY_ID_CONCURRENCY = 8;
 const EMPTY_CHARACTER_SUMMARIES: CharacterSummary[] = [];
 
 const CHARACTER_PANEL_SUMMARY_OPTIONS = {
@@ -168,29 +166,15 @@ async function getCharacter(id: string): Promise<unknown> {
 }
 
 async function listCharacterSummariesByIds(ids: string[]): Promise<CharacterSummary[]> {
-  const results = new Array<CharacterSummary | null>(ids.length).fill(null);
-  let nextIndex = 0;
-  const workerCount = Math.min(CHARACTER_SUMMARY_BY_ID_CONCURRENCY, ids.length);
-  await Promise.all(
-    Array.from({ length: workerCount }, async () => {
-      while (nextIndex < ids.length) {
-        const index = nextIndex;
-        nextIndex += 1;
-        try {
-          results[index] = normalizeCharacterAvatarFields(
-            await storageApi.get<CharacterSummary>("characters", ids[index]!, CHARACTER_SUMMARY_OPTIONS),
-          );
-        } catch (error) {
-          if (error instanceof ApiError && error.status === 404) {
-            results[index] = null;
-            continue;
-          }
-          throw error;
-        }
-      }
-    }),
-  );
-  return results.filter(isPresent);
+  if (ids.length === 0) return EMPTY_CHARACTER_SUMMARIES;
+  const characters = (
+    await storageApi.list<CharacterSummary>("characters", {
+      ...CHARACTER_SUMMARY_OPTIONS,
+      whereIn: { field: "id", values: ids },
+    })
+  ).map(normalizeCharacterAvatarFields);
+  const byId = new Map(characters.map((character) => [character.id, character]));
+  return ids.map((id) => byId.get(id)).filter(isPresent);
 }
 
 // ── Characters ──

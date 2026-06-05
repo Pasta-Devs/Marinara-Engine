@@ -3,6 +3,7 @@ use super::super::images::percent_encode_component;
 use super::super::shared::*;
 use super::super::*;
 use super::spotify_callback::start_callback_listener;
+use super::spotify_query::parse_query;
 use sha2::{Digest, Sha256};
 use std::sync::{Mutex, OnceLock};
 
@@ -3058,45 +3059,6 @@ fn form_urlencoded(params: &[(&str, &str)]) -> String {
         })
         .collect::<Vec<_>>()
         .join("&")
-}
-
-fn parse_query(query: &str) -> HashMap<String, String> {
-    query
-        .split('&')
-        .filter_map(|pair| {
-            let (key, value) = pair.split_once('=')?;
-            Some((key.to_string(), percent_decode_component(value)))
-        })
-        .collect()
-}
-
-fn percent_decode_component(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut output = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        match bytes[index] {
-            b'+' => {
-                output.push(b' ');
-                index += 1;
-            }
-            b'%' if index + 2 < bytes.len() => {
-                let hex = &value[index + 1..index + 3];
-                if let Ok(byte) = u8::from_str_radix(hex, 16) {
-                    output.push(byte);
-                    index += 3;
-                } else {
-                    output.push(bytes[index]);
-                    index += 1;
-                }
-            }
-            byte => {
-                output.push(byte);
-                index += 1;
-            }
-        }
-    }
-    String::from_utf8_lossy(&output).to_string()
 }
 
 #[cfg(test)]

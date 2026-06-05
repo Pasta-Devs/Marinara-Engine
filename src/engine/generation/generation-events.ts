@@ -2,6 +2,7 @@ export type GenerationEvent =
   | { type: "phase"; data: string }
   | { type: "thinking"; data: string }
   | { type: "token"; data: string }
+  | { type: "content_replace"; data: string }
   | { type: "tool_call"; data: { id?: string; name: string; arguments: string } }
   | { type: "tool_result"; data: { toolCallId?: string; name: string; result: string; success: boolean } }
   | { type: "typing"; data: { characters: string[] } }

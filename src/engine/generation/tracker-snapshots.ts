@@ -49,6 +49,16 @@ export interface TrackerSnapshotMessageRebase {
   swipeCount?: unknown;
 }
 
+export interface TrackerSnapshotSavedContext {
+  chatId: string;
+  target: TrackerSnapshotTurnTarget;
+  chat: Record<string, unknown> | null;
+  snapshot: GameState;
+  results: AgentResult[];
+}
+
+export type TrackerSnapshotSavedHook = (context: TrackerSnapshotSavedContext) => Promise<void> | void;
+
 type TrackerStatePatch = Partial<
   Pick<
     GameState,
@@ -489,7 +499,11 @@ export async function persistTrackerSnapshotForTurn(
   chatId: string,
   target: TrackerSnapshotTurnTarget | null,
   results: AgentResult[],
-  options: { baseSnapshot?: GameState | null; sourceText?: string | null } = {},
+  options: {
+    baseSnapshot?: GameState | null;
+    sourceText?: string | null;
+    onSavedSnapshot?: TrackerSnapshotSavedHook;
+  } = {},
 ): Promise<GameState | null> {
   if (!target || !target.messageId || results.length === 0) return null;
   const existing = await getTrackerSnapshotForTarget(storage, chatId, target);
@@ -497,10 +511,8 @@ export async function persistTrackerSnapshotForTurn(
     (result) => result.agentType === "character-tracker" || result.type === "character_tracker_update",
   );
   const needsChatBaseline = !existing && !options.baseSnapshot;
-  const chat =
-    needsChatBaseline || hasCharacterTrackerResult
-      ? parseRecord(await storage.get("chats", chatId).catch(() => null))
-      : null;
+  const needsChat = needsChatBaseline || hasCharacterTrackerResult || !!options.onSavedSnapshot;
+  const chat = needsChat ? parseRecord(await storage.get("chats", chatId).catch(() => null)) : null;
   const persona = hasCharacterTrackerResult ? await loadPersonaSnapshotForChat(storage, chat).catch(() => null) : null;
   let snapshot = normalizeGameState(existing ?? options.baseSnapshot ?? chat?.gameState, chatId, target, persona);
   if (!existing) {
@@ -521,5 +533,8 @@ export async function persistTrackerSnapshotForTurn(
   const saved = await storage.saveTrackerSnapshot<GameState>(chatId, snapshot as unknown as Record<string, unknown>);
   const savedState = normalizeGameState(saved, chatId, target);
   await storage.update("chats", chatId, { gameState: savedState as unknown as Record<string, unknown> });
+  if (options.onSavedSnapshot) {
+    await options.onSavedSnapshot({ chatId, target, chat, snapshot: savedState, results });
+  }
   return savedState;
 }

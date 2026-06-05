@@ -100,6 +100,7 @@ pub async fn complete_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
                     tool_calls: Vec::new(),
                 })
         }
+        "cohere" => complete_cohere_rich(request).await,
         _ => complete_openai_compatible_rich(request).await,
     }
 }
@@ -117,6 +118,8 @@ pub async fn stream_events(
         stream_google(request, &mut emit).await?;
     } else if request.connection.provider == "anthropic" {
         stream_anthropic(request, &mut emit).await?;
+    } else if request.connection.provider == "cohere" {
+        stream_cohere(request, &mut emit).await?;
     } else if request.connection.provider != "claude_subscription" {
         stream_openai_compatible(request, &mut emit).await?;
     } else {
@@ -228,11 +231,33 @@ fn base_url(provider: &str, configured: &str) -> String {
                 .to_string()
         }
         "mistral" => "https://api.mistral.ai/v1".to_string(),
-        "cohere" => "https://api.cohere.ai/compatibility/v1".to_string(),
+        "cohere" => "https://api.cohere.com/v2".to_string(),
         "openrouter" => "https://openrouter.ai/api/v1".to_string(),
         "nanogpt" => "https://nano-gpt.com/api/v1".to_string(),
         "xai" => "https://api.x.ai/v1".to_string(),
         _ => "https://api.openai.com/v1".to_string(),
+    }
+}
+
+fn cohere_base_url(configured: &str) -> String {
+    let base = base_url("cohere", configured);
+    if base.ends_with("/compatibility/v1") {
+        return format!("{}/v2", base.trim_end_matches("/compatibility/v1"));
+    }
+    if base.ends_with("/v1") && base.contains("api.cohere.") {
+        return format!("{}/v2", base.trim_end_matches("/v1"));
+    }
+    base
+}
+
+fn cohere_chat_endpoint(configured: &str) -> String {
+    let base = cohere_base_url(configured).trim_end_matches('/').to_string();
+    if base.ends_with("/v2/chat") {
+        base
+    } else if base.ends_with("/v2") {
+        format!("{base}/chat")
+    } else {
+        format!("{base}/v2/chat")
     }
 }
 
@@ -278,6 +303,13 @@ fn param_boolish(parameters: &Value, keys: &[&str], fallback: bool) -> Option<bo
             }
             _ => Some(fallback),
         }
+    })
+}
+
+fn param_i64_array(parameters: &Value, keys: &[&str]) -> Option<Vec<i64>> {
+    keys.iter().find_map(|key| {
+        let values = parameters.get(*key)?.as_array()?;
+        values.iter().map(Value::as_i64).collect()
     })
 }
 
@@ -365,13 +397,194 @@ fn should_use_openai_responses(request: &LlmRequest) -> bool {
         || model.contains("codex")
 }
 
-fn reasoning_effort(parameters: &Value) -> Option<String> {
-    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
+fn openai_model_id(model: &str) -> String {
+    model
+        .to_ascii_lowercase()
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .to_string()
+}
+
+fn gpt5_minor_version(model: &str) -> Option<u32> {
+    let model = openai_model_id(model);
+    let tail = model.strip_prefix("gpt-5.")?;
+    let digits = tail
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect::<String>();
+    if digits.is_empty() {
+        return None;
+    }
+    digits.parse::<u32>().ok()
+}
+
+fn is_openai_legacy_gpt5_pro_model(model: &str) -> bool {
+    let model = openai_model_id(model);
+    model == "gpt-5-pro" || model.starts_with("gpt-5-pro-")
+}
+
+fn is_openai_versioned_gpt5_pro_model(model: &str) -> bool {
+    let model = openai_model_id(model);
+    let Some(tail) = model.strip_prefix("gpt-5.") else {
+        return false;
+    };
+    let digit_count = tail.chars().take_while(|ch| ch.is_ascii_digit()).count();
+    if digit_count == 0 {
+        return false;
+    }
+    let rest = &tail[digit_count..];
+    rest == "-pro" || rest.starts_with("-pro-")
+}
+
+fn supports_openai_none_reasoning_model(model: &str) -> bool {
+    let model_id = openai_model_id(model);
+    if model_id.contains("codex")
+        || is_openai_legacy_gpt5_pro_model(&model_id)
+        || is_openai_versioned_gpt5_pro_model(&model_id)
+    {
+        return false;
+    }
+    gpt5_minor_version(model)
+        .map(|minor| minor >= 1)
+        .unwrap_or(false)
+}
+
+fn supports_openai_minimal_reasoning_model(model: &str) -> bool {
+    let model = openai_model_id(model);
+    !model.contains("codex")
+        && !is_openai_legacy_gpt5_pro_model(&model)
+        && !is_openai_versioned_gpt5_pro_model(&model)
+        && (model == "gpt-5" || model.starts_with("gpt-5-"))
+}
+
+fn supports_openai_xhigh_reasoning_model(model: &str) -> bool {
+    let model = openai_model_id(model);
+    if model == "gpt-5-pro" || model.starts_with("gpt-5-pro-") {
+        return false;
+    }
+    if model == "gpt-5.1-codex-max" || model.starts_with("gpt-5.1-codex-max-") {
+        return true;
+    }
+    gpt5_minor_version(&model)
+        .map(|minor| minor >= 2)
+        .unwrap_or(false)
+}
+
+fn openai_reasoning_effort(request: &LlmRequest) -> Option<String> {
+    let effort = param_string(
+        &request.parameters,
+        &["reasoningEffort", "reasoning_effort"],
+    )?
+    .to_ascii_lowercase();
+    if is_openai_legacy_gpt5_pro_model(&request.connection.model) {
+        return Some("high".to_string());
+    }
+    if is_openai_versioned_gpt5_pro_model(&request.connection.model) {
+        return Some(
+            match effort.as_str() {
+                "maximum" | "xhigh" => "xhigh",
+                "high" => "high",
+                _ => "medium",
+            }
+            .to_string(),
+        );
+    }
     match effort.as_str() {
+        "none" if supports_openai_none_reasoning_model(&request.connection.model) => {
+            Some("none".to_string())
+        }
+        "minimal" if supports_openai_minimal_reasoning_model(&request.connection.model) => {
+            Some("minimal".to_string())
+        }
         "low" | "medium" | "high" => Some(effort),
+        "maximum" | "xhigh" if supports_openai_xhigh_reasoning_model(&request.connection.model) => {
+            Some("xhigh".to_string())
+        }
         "maximum" | "xhigh" => Some("high".to_string()),
         _ => None,
     }
+}
+
+fn supports_mistral_adjustable_reasoning(model: &str) -> bool {
+    let model = model.to_ascii_lowercase();
+    matches!(
+        model.as_str(),
+        "mistral-small-latest" | "mistral-small-2603" | "mistral-medium-3-5"
+    )
+}
+
+fn mistral_reasoning_effort(request: &LlmRequest) -> Option<&'static str> {
+    if !supports_mistral_adjustable_reasoning(&request.connection.model) {
+        return None;
+    }
+    if let Some(effort) = param_string(
+        &request.parameters,
+        &["reasoningEffort", "reasoning_effort"],
+    )
+    .map(|value| value.to_ascii_lowercase())
+    {
+        return match effort.as_str() {
+            "none" | "minimal" | "low" => Some("none"),
+            "high" | "maximum" | "xhigh" => Some("high"),
+            _ => None,
+        };
+    }
+    param_boolish(&request.parameters, &["showThoughts", "show_thoughts"], false)
+        .map(|show| if show { "high" } else { "none" })
+}
+
+fn supports_cohere_thinking(model: &str) -> bool {
+    let model = model.to_ascii_lowercase();
+    model.contains("command-a-reasoning") || model.contains("command-a-plus")
+}
+
+fn cohere_thinking_config(request: &LlmRequest) -> Option<Value> {
+    if let Some(thinking) = request
+        .parameters
+        .get("thinking")
+        .filter(|value| value.as_object().is_some_and(|object| !object.is_empty()))
+    {
+        return Some(thinking.clone());
+    }
+    if !supports_cohere_thinking(&request.connection.model) {
+        return None;
+    }
+
+    let effort = param_string(
+        &request.parameters,
+        &["reasoningEffort", "reasoning_effort"],
+    )
+    .map(|value| value.to_ascii_lowercase());
+    if matches!(effort.as_deref(), Some("none" | "minimal" | "low")) {
+        return Some(json!({ "type": "disabled" }));
+    }
+
+    let budget = param_i64(&request.parameters, &["thinkingBudget", "thinking_budget"])
+        .filter(|value| *value > 0);
+    let show_thoughts = param_boolish(&request.parameters, &["showThoughts", "show_thoughts"], true);
+    if let Some(budget) = budget {
+        let mut thinking = json!({ "token_budget": budget });
+        if show_thoughts.unwrap_or(true)
+            || matches!(
+                effort.as_deref(),
+                Some("medium" | "high" | "maximum" | "xhigh")
+            )
+        {
+            thinking["type"] = json!("enabled");
+        }
+        return Some(thinking);
+    }
+    if let Some(show) = show_thoughts {
+        return Some(json!({ "type": if show { "enabled" } else { "disabled" } }));
+    }
+    if matches!(
+        effort.as_deref(),
+        Some("medium" | "high" | "maximum" | "xhigh")
+    ) {
+        return Some(json!({ "type": "enabled" }));
+    }
+    None
 }
 
 fn model_contains(request: &LlmRequest, needle: &str) -> bool {
@@ -380,18 +593,6 @@ fn model_contains(request: &LlmRequest, needle: &str) -> bool {
         .model
         .to_ascii_lowercase()
         .contains(needle)
-}
-
-fn is_openrouter_claude_reasoning_model(request: &LlmRequest) -> bool {
-    if request.connection.provider != "openrouter" {
-        return false;
-    }
-    let model = request.connection.model.to_ascii_lowercase();
-    model.contains("claude-3.7")
-        || model.contains("claude-3-7")
-        || model.contains("claude-opus-4")
-        || model.contains("claude-sonnet-4")
-        || model.contains("claude-haiku-4")
 }
 
 fn claude_version_parts(model: &str, family: &str) -> Option<(u32, u32)> {
@@ -425,12 +626,18 @@ fn is_claude_opus_adaptive_only_model(model: &str) -> bool {
     claude_version_at_least(model, "opus", 4, 7)
 }
 
+fn is_anthropic_sampling_restricted_model(model: &str) -> bool {
+    claude_version_at_least(model, "opus", 4, 7)
+        || claude_version_at_least(model, "sonnet", 4, 6)
+        || claude_version_at_least(model, "haiku", 4, 5)
+}
+
 fn supports_anthropic_adaptive_thinking(model: &str) -> bool {
     claude_version_at_least(model, "opus", 4, 6) || claude_version_at_least(model, "sonnet", 4, 6)
 }
 
 fn should_send_openai_sampling_parameters(request: &LlmRequest) -> bool {
-    !is_claude_opus_adaptive_only_model(&request.connection.model)
+    !is_anthropic_sampling_restricted_model(&request.connection.model)
 }
 
 fn should_send_temperature(request: &LlmRequest) -> bool {
@@ -452,11 +659,321 @@ fn is_sampling_parameter_key(key: &str) -> bool {
     )
 }
 
+fn is_stop_parameter_key(key: &str) -> bool {
+    matches!(key, "stop" | "stopSequences" | "stop_sequences")
+}
+
+fn is_reserved_custom_parameter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "model" | "messages" | "input" | "contents" | "systemInstruction" | "stream" | "tools"
+    )
+}
+
+const OPENAI_RESPONSES_UNSUPPORTED_CUSTOM_PARAMETER_KEYS: &[&str] = &[
+    "top_k",
+    "topK",
+    "frequency_penalty",
+    "frequencyPenalty",
+    "presence_penalty",
+    "presencePenalty",
+    "stop",
+    "stopSequences",
+    "stop_sequences",
+];
+
+fn is_mistral_unsupported_custom_parameter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "seed"
+            | "top_k"
+            | "topK"
+            | "safePrompt"
+            | "randomSeed"
+            | "promptCacheKey"
+            | "promptMode"
+            | "parallelToolCalls"
+            | "reasoningEffort"
+            | "responseFormat"
+            | "service_tier"
+            | "serviceTier"
+    )
+}
+
+fn is_cohere_unsupported_body_parameter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "maxTokens"
+            | "maxOutputTokens"
+            | "max_output_tokens"
+            | "topP"
+            | "top_p"
+            | "topK"
+            | "top_k"
+            | "stop"
+            | "stopSequences"
+            | "frequencyPenalty"
+            | "presencePenalty"
+            | "responseFormat"
+            | "safetyMode"
+            | "toolChoice"
+            | "strictTools"
+            | "reasoningEffort"
+            | "reasoning_effort"
+            | "showThoughts"
+            | "show_thoughts"
+            | "thinkingBudget"
+            | "thinking_budget"
+            | "random_seed"
+            | "randomSeed"
+            | "safe_prompt"
+            | "safePrompt"
+            | "prompt_cache_key"
+            | "promptCacheKey"
+            | "prompt_mode"
+            | "promptMode"
+            | "parallel_tool_calls"
+            | "parallelToolCalls"
+            | "service_tier"
+            | "serviceTier"
+            | "prediction"
+    )
+}
+
+fn scrub_cohere_parameter_body(body: &mut Value, has_tools: bool) {
+    let Some(body) = body.as_object_mut() else {
+        return;
+    };
+    body.retain(|key, _| !is_cohere_unsupported_body_parameter_key(key));
+    if has_tools {
+        body.remove("response_format");
+        body.remove("safety_mode");
+    } else {
+        body.remove("tool_choice");
+        body.remove("strict_tools");
+    }
+}
+
+fn xai_model_id(model: &str) -> String {
+    model
+        .trim()
+        .trim_start_matches("xai/")
+        .to_ascii_lowercase()
+}
+
+fn is_xai_grok_43_model(model: &str) -> bool {
+    let id = xai_model_id(model);
+    id == "latest" || id == "grok-4.3" || id.starts_with("grok-4.3-")
+}
+
+fn is_xai_multi_agent_model(model: &str) -> bool {
+    xai_model_id(model).starts_with("grok-4.20-multi-agent")
+}
+
+fn is_xai_automatic_reasoning_model(model: &str) -> bool {
+    let id = xai_model_id(model);
+    if is_xai_grok_43_model(model) || is_xai_multi_agent_model(model) {
+        return true;
+    }
+    if id.starts_with("grok-build") {
+        return false;
+    }
+    id.starts_with("grok-4") && !id.contains("image")
+}
+
+fn xai_reasoning_effort(request: &LlmRequest) -> Option<&'static str> {
+    if !is_xai_grok_43_model(&request.connection.model) {
+        return None;
+    }
+    let effort = param_string(&request.parameters, &["reasoningEffort", "reasoning_effort"])?
+        .to_ascii_lowercase();
+    match effort.as_str() {
+        "none" => Some("none"),
+        "minimal" => Some("low"),
+        "low" => Some("low"),
+        "medium" => Some("medium"),
+        "high" | "maximum" | "xhigh" => Some("high"),
+        _ => None,
+    }
+}
+
+fn xai_reasoning_config(request: &LlmRequest) -> Option<Value> {
+    if !is_xai_multi_agent_model(&request.connection.model) {
+        return None;
+    }
+    if let Some(reasoning) = request
+        .parameters
+        .get("reasoning")
+        .filter(|value| value.as_object().is_some())
+    {
+        return Some(reasoning.clone());
+    }
+    let effort = param_string(&request.parameters, &["reasoningEffort", "reasoning_effort"])?
+        .to_ascii_lowercase();
+    match effort.as_str() {
+        "low" | "minimal" => Some(json!({ "effort": "low" })),
+        "medium" => Some(json!({ "effort": "medium" })),
+        "high" => Some(json!({ "effort": "high" })),
+        "xhigh" | "maximum" => Some(json!({ "effort": "xhigh" })),
+        _ => None,
+    }
+}
+
+fn xai_reasoning_active(request: &LlmRequest) -> bool {
+    match xai_reasoning_effort(request) {
+        Some("none") => false,
+        Some(_) => true,
+        None => is_xai_automatic_reasoning_model(&request.connection.model),
+    }
+}
+
+fn is_xai_grok_420_or_newer_model(model: &str) -> bool {
+    let id = xai_model_id(model);
+    id.starts_with("grok-4.20") || id.starts_with("grok-4.3")
+}
+
+fn is_xai_unsupported_custom_parameter_key(
+    key: &str,
+    model: &str,
+    reasoning_active: bool,
+) -> bool {
+    if matches!(
+        key,
+        "top_k"
+            | "topK"
+            | "reasoningEffort"
+            | "reasoning_effort"
+            | "serviceTier"
+            | "service_tier"
+            | "parallelToolCalls"
+            | "parallel_tool_calls"
+    ) {
+        return true;
+    }
+    if reasoning_active
+        && matches!(
+            key,
+            "frequencyPenalty"
+                | "frequency_penalty"
+                | "presencePenalty"
+                | "presence_penalty"
+                | "stop"
+                | "stopSequences"
+                | "stop_sequences"
+        )
+    {
+        return true;
+    }
+    is_xai_grok_420_or_newer_model(model)
+        && matches!(key, "logprobs" | "topLogprobs" | "top_logprobs")
+}
+
+fn apply_xai_custom_parameters_to_object(
+    body: &mut Value,
+    parameters: &Value,
+    strip_sampling: bool,
+    strip_stop: bool,
+    model: &str,
+    reasoning_active: bool,
+) {
+    let Some(entries) = parameters
+        .get("customParameters")
+        .or_else(|| parameters.get("custom_params"))
+        .and_then(Value::as_object)
+    else {
+        return;
+    };
+    let Some(body) = body.as_object_mut() else {
+        return;
+    };
+    for (key, value) in entries {
+        if !should_apply_custom_parameter(key, strip_sampling, strip_stop, &[])
+            || is_xai_unsupported_custom_parameter_key(key, model, reasoning_active)
+        {
+            continue;
+        }
+        if !body.contains_key(key) {
+            body.insert(key.clone(), value.clone());
+        }
+    }
+}
+
+fn is_openai_service_tier(value: &str) -> bool {
+    matches!(value, "auto" | "default" | "flex" | "scale" | "priority")
+}
+
+fn is_openrouter_service_tier(value: &str) -> bool {
+    matches!(value, "flex" | "priority")
+}
+
+fn is_xai_service_tier(value: &str) -> bool {
+    matches!(value, "default" | "priority")
+}
+
+fn is_anthropic_service_tier(value: &str) -> bool {
+    matches!(value, "auto" | "standard_only")
+}
+
+fn is_cohere_safety_mode(value: &str) -> bool {
+    matches!(value, "CONTEXTUAL" | "STRICT" | "OFF")
+}
+
+fn cohere_tool_choice(value: &str) -> Option<&'static str> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "required" | "any" => Some("REQUIRED"),
+        "none" => Some("NONE"),
+        _ => None,
+    }
+}
+
+fn should_apply_custom_parameter(
+    key: &str,
+    strip_sampling: bool,
+    strip_stop: bool,
+    skip_keys: &[&str],
+) -> bool {
+    !(skip_keys.contains(&key)
+        || is_reserved_custom_parameter_key(key)
+        || strip_sampling && is_sampling_parameter_key(key)
+        || strip_stop && is_stop_parameter_key(key))
+}
+
+fn apply_custom_parameters_to_object(
+    body: &mut Value,
+    parameters: &Value,
+    strip_sampling: bool,
+    strip_stop: bool,
+    skip_keys: &[&str],
+) {
+    let Some(entries) = parameters
+        .get("customParameters")
+        .or_else(|| parameters.get("custom_params"))
+        .and_then(Value::as_object)
+    else {
+        return;
+    };
+    let Some(body) = body.as_object_mut() else {
+        return;
+    };
+    for (key, value) in entries {
+        if !should_apply_custom_parameter(key, strip_sampling, strip_stop, skip_keys) {
+            continue;
+        }
+        if !body.contains_key(key) {
+            body.insert(key.clone(), value.clone());
+        }
+    }
+}
+
 fn is_gemini_3_model(model: &str) -> bool {
     let normalized = model.to_ascii_lowercase();
     normalized.starts_with("gemini-3")
         || normalized.starts_with("google/gemini-3")
         || normalized.contains("/gemini-3")
+}
+
+fn is_gemini_3_pro_model(model: &str) -> bool {
+    is_gemini_3_model(model) && model.to_ascii_lowercase().contains("-pro")
 }
 
 fn is_gemini_25_model(model: &str) -> bool {
@@ -466,9 +983,16 @@ fn is_gemini_25_model(model: &str) -> bool {
         || normalized.contains("/gemini-2.5")
 }
 
-fn google_thinking_level(parameters: &Value) -> Option<&'static str> {
-    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
+fn is_gemini_25_pro_model(model: &str) -> bool {
+    is_gemini_25_model(model) && model.to_ascii_lowercase().contains("-pro")
+}
+
+fn google_thinking_level(model: &str, parameters: &Value) -> Option<&'static str> {
+    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?
+        .to_ascii_lowercase();
     match effort.as_str() {
+        "none" | "minimal" if is_gemini_3_pro_model(model) => Some("low"),
+        "none" | "minimal" => Some("minimal"),
         "low" => Some("low"),
         "medium" => Some("medium"),
         "high" | "maximum" | "xhigh" => Some("high"),
@@ -476,24 +1000,93 @@ fn google_thinking_level(parameters: &Value) -> Option<&'static str> {
     }
 }
 
+fn google_thinking_budget(model: &str, parameters: &Value) -> Option<i64> {
+    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?
+        .to_ascii_lowercase();
+    let pro = is_gemini_25_pro_model(model);
+    match effort.as_str() {
+        "none" | "minimal" if pro => Some(128),
+        "none" | "minimal" => Some(0),
+        "low" => Some(1024),
+        "medium" => Some(8192),
+        "high" | "maximum" | "xhigh" if pro => Some(32768),
+        "high" | "maximum" | "xhigh" => Some(24576),
+        _ => None,
+    }
+}
+
 fn google_thinking_config(model: &str, parameters: &Value) -> Option<Value> {
     if is_gemini_3_model(model) {
-        return google_thinking_level(parameters)
+        return google_thinking_level(model, parameters)
             .map(|level| json!({ "thinkingLevel": level, "includeThoughts": true }));
     }
 
     if is_gemini_25_model(model) {
-        let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
-        let budget = match effort.as_str() {
-            "low" => 1024,
-            "medium" => 8192,
-            "high" | "maximum" | "xhigh" => 24576,
-            _ => return None,
-        };
+        let budget = google_thinking_budget(model, parameters)?;
         return Some(json!({ "thinkingBudget": budget, "includeThoughts": true }));
     }
 
     None
+}
+
+fn is_google_gemini_3_unsupported_generation_config_key(key: &str) -> bool {
+    matches!(
+        key,
+        "temperature" | "topP" | "top_p" | "topK" | "top_k" | "candidateCount" | "candidate_count"
+    )
+}
+
+fn is_google_generation_config_custom_parameter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "stopSequences"
+            | "stop_sequences"
+            | "responseMimeType"
+            | "response_mime_type"
+            | "responseModalities"
+            | "response_modalities"
+            | "thinkingConfig"
+            | "thinking_config"
+            | "modelConfig"
+            | "model_config"
+            | "temperature"
+            | "topP"
+            | "top_p"
+            | "topK"
+            | "top_k"
+            | "candidateCount"
+            | "candidate_count"
+            | "maxOutputTokens"
+            | "max_output_tokens"
+            | "responseLogprobs"
+            | "response_logprobs"
+            | "logprobs"
+            | "presencePenalty"
+            | "presence_penalty"
+            | "frequencyPenalty"
+            | "frequency_penalty"
+            | "seed"
+            | "responseSchema"
+            | "response_schema"
+            | "responseJsonSchema"
+            | "response_json_schema"
+            | "routingConfig"
+            | "routing_config"
+            | "audioTimestamp"
+            | "audio_timestamp"
+            | "mediaResolution"
+            | "media_resolution"
+            | "speechConfig"
+            | "speech_config"
+            | "enableAffectiveDialog"
+            | "enable_affective_dialog"
+            | "enableEnhancedCivicAnswers"
+            | "enable_enhanced_civic_answers"
+            | "imageConfig"
+            | "image_config"
+            | "responseFormat"
+            | "response_format"
+    )
 }
 
 fn anthropic_thinking_effort(model: &str, parameters: &Value) -> Option<&'static str> {
@@ -535,10 +1128,132 @@ fn should_use_anthropic_adaptive_thinking(
 }
 
 fn should_send_top_k(request: &LlmRequest) -> bool {
-    !matches!(
-        request.connection.provider.as_str(),
-        "openai" | "openrouter" | "xai" | "mistral" | "cohere" | "nanogpt"
+    if request.connection.provider == "openrouter" {
+        return !is_openrouter_openai_model(&request.connection.model);
+    }
+    !matches!(request.connection.provider.as_str(), "openai" | "xai" | "mistral" | "cohere")
+}
+
+fn is_openrouter_openai_model(model: &str) -> bool {
+    let normalized = model
+        .trim()
+        .trim_start_matches('~')
+        .to_ascii_lowercase();
+    if normalized.starts_with("openai/") {
+        return true;
+    }
+    if normalized.contains('/') {
+        return false;
+    }
+    normalized.starts_with("gpt-")
+        || normalized.starts_with("o1")
+        || normalized.starts_with("o3")
+        || normalized.starts_with("o4")
+        || normalized.starts_with("codex")
+}
+
+fn openrouter_reasoning_effort(parameters: &Value) -> Option<&'static str> {
+    let effort =
+        param_string(parameters, &["reasoningEffort", "reasoning_effort"])?.to_ascii_lowercase();
+    match effort.as_str() {
+        "none" => Some("none"),
+        "minimal" => Some("minimal"),
+        "low" => Some("low"),
+        "medium" => Some("medium"),
+        "high" => Some("high"),
+        "xhigh" | "maximum" => Some("xhigh"),
+        _ => None,
+    }
+}
+
+fn openrouter_reasoning_config(parameters: &Value) -> Option<Value> {
+    if let Some(reasoning) = parameters
+        .get("reasoning")
+        .filter(|value| value.as_object().is_some())
+    {
+        return Some(reasoning.clone());
+    }
+    if parameters
+        .get("customParameters")
+        .or_else(|| parameters.get("custom_params"))
+        .and_then(|value| value.get("reasoning"))
+        .and_then(Value::as_object)
+        .is_some()
+    {
+        return None;
+    }
+    if let Some(budget) = param_i64(
+        parameters,
+        &[
+            "thinkingBudget",
+            "thinking_budget",
+            "reasoningMaxTokens",
+            "reasoning_max_tokens",
+        ],
     )
+    .filter(|value| *value > 0)
+    {
+        return Some(json!({ "max_tokens": budget }));
+    }
+    openrouter_reasoning_effort(parameters).map(|effort| json!({ "effort": effort }))
+}
+
+fn is_openrouter_verbosity(value: &str) -> bool {
+    matches!(value, "low" | "medium" | "high" | "xhigh" | "max")
+}
+
+fn nanogpt_reasoning_effort(parameters: &Value) -> Option<&'static str> {
+    let effort =
+        param_string(parameters, &["reasoningEffort", "reasoning_effort"])?.to_ascii_lowercase();
+    match effort.as_str() {
+        "none" => Some("none"),
+        "minimal" => Some("minimal"),
+        "low" => Some("low"),
+        "medium" => Some("medium"),
+        "high" => Some("high"),
+        "xhigh" | "maximum" => Some("xhigh"),
+        _ => None,
+    }
+}
+
+fn nanogpt_prompt_caching_config(parameters: &Value) -> Option<Value> {
+    let prompt_caching = parameters
+        .get("promptCaching")
+        .or_else(|| parameters.get("prompt_caching"))?;
+    if prompt_caching.as_object().is_some() {
+        return Some(prompt_caching.clone());
+    }
+    param_boolish(parameters, &["promptCaching", "prompt_caching"], false)
+        .map(|enabled| json!({ "enabled": enabled }))
+}
+
+fn nanogpt_reasoning_config(parameters: &Value) -> Option<Value> {
+    if let Some(reasoning) = parameters
+        .get("reasoning")
+        .filter(|value| value.as_object().is_some())
+    {
+        return Some(reasoning.clone());
+    }
+    if parameters
+        .get("customParameters")
+        .or_else(|| parameters.get("custom_params"))
+        .and_then(|value| value.get("reasoning"))
+        .and_then(Value::as_object)
+        .is_some()
+    {
+        return None;
+    }
+
+    let mut reasoning = serde_json::Map::new();
+    if let Some(show_thoughts) = param_boolish(parameters, &["showThoughts", "show_thoughts"], false)
+    {
+        reasoning.insert("exclude".to_string(), json!(!show_thoughts));
+    }
+    if reasoning.is_empty() {
+        None
+    } else {
+        Some(Value::Object(reasoning))
+    }
 }
 
 fn provider_error_text(details: &Value) -> Option<String> {
@@ -781,6 +1496,208 @@ async fn apply_chatgpt_auth_headers(
     Ok(req)
 }
 
+fn cohere_message(message: &LlmMessage) -> Value {
+    let mut object = serde_json::Map::new();
+    object.insert("role".to_string(), json!(message.role));
+    if message.images.is_empty() {
+        object.insert("content".to_string(), json!(message.content));
+    } else {
+        let mut content = Vec::new();
+        if !message.content.is_empty() {
+            content.push(json!({ "type": "text", "text": message.content }));
+        }
+        for image in &message.images {
+            content.push(json!({ "type": "image_url", "image_url": { "url": image } }));
+        }
+        object.insert("content".to_string(), Value::Array(content));
+    }
+    if let Some(tool_call_id) = message
+        .tool_call_id
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+    {
+        object.insert("tool_call_id".to_string(), json!(tool_call_id));
+    }
+    if let Some(tool_calls) = message.tool_calls.as_ref() {
+        object.insert("tool_calls".to_string(), tool_calls.clone());
+    }
+    Value::Object(object)
+}
+
+fn cohere_response_format(parameters: &Value) -> Option<Value> {
+    let value = parameters
+        .get("response_format")
+        .or_else(|| parameters.get("responseFormat"))?;
+    if let Some(format) = value
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Some(json!({ "type": format }));
+    }
+    value.as_object().map(|_| value.clone())
+}
+
+fn apply_cohere_parameters(body: &mut Value, request: &LlmRequest) {
+    let parameters = &request.parameters;
+    if let Some(temp) = temperature(parameters) {
+        body["temperature"] = json!(temp);
+    }
+    if let Some(top_p) = param_f64(parameters, &["topP", "top_p", "p"]) {
+        body["p"] = json!(top_p);
+    }
+    if let Some(top_k) = param_i64(parameters, &["topK", "top_k", "k"]).filter(|value| *value >= 0)
+    {
+        body["k"] = json!(top_k);
+    }
+    if let Some(frequency_penalty) =
+        param_f64(parameters, &["frequencyPenalty", "frequency_penalty"])
+    {
+        body["frequency_penalty"] = json!(frequency_penalty);
+    }
+    if let Some(presence_penalty) =
+        param_f64(parameters, &["presencePenalty", "presence_penalty"])
+    {
+        body["presence_penalty"] = json!(presence_penalty);
+    }
+    if let Some(seed) = param_i64(parameters, &["seed"]) {
+        body["seed"] = json!(seed);
+    }
+    if let Some(stop) = stop_sequences(parameters) {
+        body["stop_sequences"] = json!(stop);
+    }
+    if request.tools.is_empty() {
+        if let Some(response_format) = cohere_response_format(parameters) {
+            body["response_format"] = response_format;
+        }
+    }
+    if request.tools.is_empty() {
+        if let Some(safety_mode) = param_string(parameters, &["safetyMode", "safety_mode"])
+            .map(|value| value.to_ascii_uppercase())
+            .filter(|value| is_cohere_safety_mode(value))
+        {
+            body["safety_mode"] = json!(safety_mode);
+        }
+    }
+    if let Some(logprobs) = param_boolish(parameters, &["logprobs", "logProbs"], false) {
+        body["logprobs"] = json!(logprobs);
+    }
+    if !request.tools.is_empty() {
+        if let Some(tool_choice) = param_string(parameters, &["toolChoice", "tool_choice"])
+            .and_then(|value| cohere_tool_choice(&value))
+        {
+            body["tool_choice"] = json!(tool_choice);
+        }
+    }
+    if let Some(priority) =
+        param_i64(parameters, &["priority"]).filter(|value| (0..=999).contains(value))
+    {
+        body["priority"] = json!(priority);
+    }
+    if !request.tools.is_empty() {
+        if let Some(strict_tools) = param_boolish(parameters, &["strictTools", "strict_tools"], false) {
+            body["strict_tools"] = json!(strict_tools);
+        }
+    }
+    if let Some(thinking) = cohere_thinking_config(request) {
+        body["thinking"] = thinking;
+    }
+    apply_custom_parameters_to_object(body, parameters, false, false, &[]);
+    scrub_cohere_parameter_body(body, !request.tools.is_empty());
+}
+
+fn build_cohere_body(request: &LlmRequest, stream: bool) -> Value {
+    let messages: Vec<Value> = request_messages(request)
+        .iter()
+        .map(cohere_message)
+        .collect();
+    let mut body = json!({
+        "model": request.connection.model,
+        "messages": messages,
+        "stream": stream,
+        "max_tokens": request_max_tokens(request, 1024),
+    });
+    if !request.tools.is_empty() {
+        body["tools"] = Value::Array(
+            request
+                .tools
+                .iter()
+                .map(|tool| json!({ "type": "function", "function": tool }))
+                .collect(),
+        );
+    }
+    apply_cohere_parameters(&mut body, request);
+    body
+}
+
+async fn complete_cohere_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
+    let url = cohere_chat_endpoint(&request.connection.base_url);
+    ensure_url_allowed(&url)?;
+    let body = build_cohere_body(&request, false);
+    log_prompt_connection_request("cohere.v2.chat", &url, &request, &body);
+    let client = reqwest::Client::new();
+    let mut req = client.post(url).json(&body);
+    if !request.connection.api_key.trim().is_empty() {
+        req = req.bearer_auth(request.connection.api_key.trim());
+    }
+    let response = req.send().await.map_err(|error| {
+        AppError::new("llm_network_error", provider_transport_error_message(error))
+    })?;
+    parse_cohere_response_rich(response).await
+}
+
+async fn stream_cohere(
+    request: LlmRequest,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    let url = cohere_chat_endpoint(&request.connection.base_url);
+    ensure_url_allowed(&url)?;
+    let body = build_cohere_body(&request, true);
+    log_prompt_connection_request("cohere.v2.chat.stream", &url, &request, &body);
+    let client = reqwest::Client::new();
+    let mut req = client.post(url).json(&body);
+    if !request.connection.api_key.trim().is_empty() {
+        req = req.bearer_auth(request.connection.api_key.trim());
+    }
+    let response = req.send().await.map_err(|error| {
+        AppError::new("llm_network_error", provider_transport_error_message(error))
+    })?;
+    let status = response.status();
+    if !status.is_success() {
+        let error_body = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
+        return Err(provider_http_error(status, error_body));
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut tool_calls = OpenAiToolCallAccumulator::default();
+    let mut completed = false;
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|error| {
+            AppError::new("llm_stream_error", provider_transport_error_message(error))
+        })?;
+        buffer.push_str(&String::from_utf8_lossy(&chunk));
+        while let Some(block) = take_sse_block(&mut buffer) {
+            if process_cohere_sse_block(&block, emit, &mut tool_calls)?
+                == SseBlockStatus::Complete
+            {
+                completed = true;
+                break;
+            }
+        }
+        if completed {
+            break;
+        }
+    }
+    if !completed && !buffer.trim().is_empty() {
+        process_cohere_sse_block(&buffer, emit, &mut tool_calls)?;
+    }
+    for tool_call in tool_calls.into_tool_calls() {
+        emit(json!({ "type": "tool_call", "data": tool_call }))?;
+    }
+    Ok(())
+}
+
 async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
     if should_use_openai_responses(&request) {
         return complete_openai_responses_rich(request).await;
@@ -969,8 +1886,19 @@ fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
         "stream": stream,
         "max_output_tokens": request_max_tokens(request, 1024),
     });
-    if let Some(effort) = reasoning_effort(&request.parameters) {
+    if let Some(effort) = openai_reasoning_effort(request) {
         body["reasoning"] = json!({ "effort": effort, "summary": "auto" });
+    }
+    if let Some(temperature) = param_f64(&request.parameters, &["temperature"]) {
+        body["temperature"] = json!(temperature);
+    }
+    if let Some(top_p) = param_f64(&request.parameters, &["topP", "top_p"]) {
+        body["top_p"] = json!(top_p);
+    }
+    if let Some(service_tier) = param_string(&request.parameters, &["serviceTier", "service_tier"])
+        .filter(|value| is_openai_service_tier(value))
+    {
+        body["service_tier"] = json!(service_tier);
     }
     if let Some(format) = param_string(&request.parameters, &["responseFormat", "response_format"])
     {
@@ -997,24 +1925,13 @@ fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
         );
         body["tool_choice"] = json!("auto");
     }
-    if let Some(extra) = request
-        .parameters
-        .get("customParameters")
-        .or_else(|| request.parameters.get("custom_params"))
-    {
-        if let Some(entries) = extra.as_object() {
-            for (key, value) in entries {
-                if !should_send_openai_sampling_parameters(request)
-                    && is_sampling_parameter_key(key)
-                {
-                    continue;
-                }
-                if body.get(key).is_none() {
-                    body[key] = value.clone();
-                }
-            }
-        }
-    }
+    apply_custom_parameters_to_object(
+        &mut body,
+        &request.parameters,
+        false,
+        false,
+        OPENAI_RESPONSES_UNSUPPORTED_CUSTOM_PARAMETER_KEYS,
+    );
     body
 }
 
@@ -1273,6 +2190,164 @@ impl OpenAiToolCallAccumulator {
     }
 }
 
+fn emit_openai_content_delta(
+    content: &Value,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    match content {
+        Value::String(text) if !text.is_empty() => {
+            emit(json!({ "type": "token", "text": text, "data": text }))?;
+        }
+        Value::Array(parts) => {
+            for part in parts {
+                emit_openai_content_delta(part, emit)?;
+            }
+        }
+        Value::Object(_) if content.get("type").and_then(Value::as_str) == Some("thinking") => {
+            let thinking = content
+                .get("thinking")
+                .map(content_text)
+                .filter(|text| !text.trim().is_empty())
+                .or_else(|| {
+                    content
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                })
+                .unwrap_or_default();
+            if !thinking.is_empty() {
+                emit(json!({ "type": "thinking", "text": thinking, "data": thinking }))?;
+            }
+        }
+        Value::Object(_) => {
+            if let Some(text) = content_part_text(content).filter(|text| !text.is_empty()) {
+                emit(json!({ "type": "token", "text": text, "data": text }))?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn cohere_delta_text(value: &Value) -> Option<String> {
+    value
+        .pointer("/delta/message/content/text")
+        .or_else(|| value.pointer("/delta/message/content/thinking"))
+        .or_else(|| value.pointer("/delta/message/content"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+fn cohere_event_thinking_text(value: &Value) -> Option<String> {
+    value
+        .pointer("/delta/message/content/thinking")
+        .or_else(|| value.pointer("/delta/message/thinking"))
+        .or_else(|| value.pointer("/delta/message/content/text"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+fn cohere_tool_call_delta(value: &Value) -> Option<Value> {
+    let index = value.get("index").and_then(Value::as_u64).unwrap_or(0);
+    let tool_call = value
+        .pointer("/delta/message/tool_calls")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .or_else(|| value.pointer("/delta/message/tool_calls"))?;
+    let id = tool_call
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string);
+    let function = tool_call.get("function").unwrap_or(tool_call);
+    let name = function
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .map(str::to_string);
+    let arguments = function
+        .get("arguments")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let mut call = json!({
+        "index": index,
+        "type": "function",
+        "function": {
+            "arguments": arguments,
+        }
+    });
+    if let Some(id) = id {
+        call["id"] = json!(id);
+    }
+    if let Some(name) = name {
+        call["function"]["name"] = json!(name);
+    }
+    Some(json!({ "tool_calls": [call] }))
+}
+
+fn process_cohere_sse_block(
+    block: &str,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+    tool_calls: &mut OpenAiToolCallAccumulator,
+) -> AppResult<SseBlockStatus> {
+    let payload = block
+        .lines()
+        .filter_map(|line| line.trim_start().strip_prefix("data:"))
+        .map(str::trim)
+        .collect::<Vec<_>>()
+        .join("\n");
+    if payload.is_empty() {
+        return Ok(SseBlockStatus::Continue);
+    }
+    let value: Value = serde_json::from_str(&payload)
+        .map_err(|error| AppError::new("llm_stream_parse_error", error.to_string()))?;
+    let event_type = value.get("type").and_then(Value::as_str).unwrap_or("");
+    match event_type {
+        "content-delta" => {
+            if value
+                .pointer("/delta/message/content/type")
+                .and_then(Value::as_str)
+                == Some("thinking")
+            {
+                if let Some(thinking) =
+                    cohere_event_thinking_text(&value).filter(|text| !text.is_empty())
+                {
+                    emit(json!({ "type": "thinking", "text": thinking, "data": thinking }))?;
+                }
+            } else if let Some(text) = cohere_delta_text(&value).filter(|text| !text.is_empty()) {
+                emit(json!({ "type": "token", "text": text, "data": text }))?;
+            }
+        }
+        "tool-plan-delta" => {
+            if let Some(plan) = value
+                .pointer("/delta/message/tool_plan")
+                .and_then(Value::as_str)
+                .filter(|text| !text.is_empty())
+            {
+                emit(json!({ "type": "thinking", "text": plan, "data": plan }))?;
+            }
+        }
+        "tool-call-start" | "tool-call-delta" => {
+            if let Some(delta) = cohere_tool_call_delta(&value) {
+                tool_calls.ingest_delta(&delta);
+            }
+        }
+        "message-end" => {
+            if let Some(usage) = value
+                .pointer("/delta/usage")
+                .or_else(|| value.get("usage"))
+                .filter(|usage| !usage.is_null())
+            {
+                emit(json!({ "type": "usage", "data": usage }))?;
+            }
+            return Ok(SseBlockStatus::Complete);
+        }
+        _ => {}
+    }
+    Ok(SseBlockStatus::Continue)
+}
+
 fn process_openai_sse_block(
     block: &str,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
@@ -1308,10 +2383,8 @@ fn process_openai_sse_block(
                 }
             }
         }
-        if let Some(content) = delta.get("content").and_then(Value::as_str) {
-            if !content.is_empty() {
-                emit(json!({ "type": "token", "text": content, "data": content }))?;
-            }
+        if let Some(content) = delta.get("content") {
+            emit_openai_content_delta(content, emit)?;
         }
         if choice
             .get("finish_reason")
@@ -1362,6 +2435,7 @@ fn openai_message(message: &LlmMessage) -> Value {
 
 fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
     let parameters = &request.parameters;
+    let xai_reasoning_active = request.connection.provider == "xai" && xai_reasoning_active(request);
     if should_send_openai_sampling_parameters(request) {
         if let Some(top_p) = param_f64(parameters, &["topP", "top_p"]) {
             body["top_p"] = json!(top_p);
@@ -1375,29 +2449,89 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         }
         if let Some(frequency_penalty) =
             param_f64(parameters, &["frequencyPenalty", "frequency_penalty"])
+                .filter(|_| !xai_reasoning_active)
         {
             body["frequency_penalty"] = json!(frequency_penalty);
         }
         if let Some(presence_penalty) =
             param_f64(parameters, &["presencePenalty", "presence_penalty"])
+                .filter(|_| !xai_reasoning_active)
         {
             body["presence_penalty"] = json!(presence_penalty);
         }
+        if request.connection.provider == "openrouter" || request.connection.provider == "nanogpt" {
+            if let Some(min_p) =
+                param_f64(parameters, &["minP", "min_p"]).filter(|value| (0.0..=1.0).contains(value))
+            {
+                body["min_p"] = json!(min_p);
+            }
+            if let Some(top_a) =
+                param_f64(parameters, &["topA", "top_a"]).filter(|value| (0.0..=1.0).contains(value))
+            {
+                body["top_a"] = json!(top_a);
+            }
+            if let Some(repetition_penalty) = param_f64(
+                parameters,
+                &["repetitionPenalty", "repetition_penalty"],
+            )
+            .filter(|value| (0.0..=2.0).contains(value))
+            {
+                body["repetition_penalty"] = json!(repetition_penalty);
+            }
+            if request.connection.provider == "nanogpt" {
+                if let Some(tfs) =
+                    param_f64(parameters, &["tfs"]).filter(|value| (0.0..=1.0).contains(value))
+                {
+                    body["tfs"] = json!(tfs);
+                }
+                if let Some(eta_cutoff) = param_f64(parameters, &["etaCutoff", "eta_cutoff"]) {
+                    body["eta_cutoff"] = json!(eta_cutoff);
+                }
+                if let Some(epsilon_cutoff) =
+                    param_f64(parameters, &["epsilonCutoff", "epsilon_cutoff"])
+                {
+                    body["epsilon_cutoff"] = json!(epsilon_cutoff);
+                }
+                if let Some(typical_p) = param_f64(parameters, &["typicalP", "typical_p"])
+                    .filter(|value| (0.0..=1.0).contains(value))
+                {
+                    body["typical_p"] = json!(typical_p);
+                }
+                if let Some(mirostat_mode) = param_i64(parameters, &["mirostatMode", "mirostat_mode"])
+                    .filter(|value| (0..=2).contains(value))
+                {
+                    body["mirostat_mode"] = json!(mirostat_mode);
+                }
+                if let Some(mirostat_tau) = param_f64(parameters, &["mirostatTau", "mirostat_tau"])
+                {
+                    body["mirostat_tau"] = json!(mirostat_tau);
+                }
+                if let Some(mirostat_eta) = param_f64(parameters, &["mirostatEta", "mirostat_eta"])
+                {
+                    body["mirostat_eta"] = json!(mirostat_eta);
+                }
+            }
+        }
     }
     if let Some(seed) = param_i64(parameters, &["seed"]) {
-        body["seed"] = json!(seed);
+        if request.connection.provider == "mistral" {
+            body["random_seed"] = json!(seed);
+        } else {
+            body["seed"] = json!(seed);
+        }
     }
-    if let Some(stop) = stop_sequences(parameters) {
-        body["stop"] = json!(stop);
+    let send_sampling = should_send_openai_sampling_parameters(request);
+    if send_sampling {
+        if let Some(stop) = stop_sequences(parameters).filter(|_| !xai_reasoning_active) {
+            body["stop"] = json!(stop);
+        }
     }
     if let Some(format) = param_string(parameters, &["responseFormat", "response_format"]) {
         body["response_format"] = json!({ "type": format });
     }
     if request.connection.provider == "openrouter" {
-        if is_openrouter_claude_reasoning_model(request) {
-            if let Some(effort) = reasoning_effort(parameters) {
-                body["reasoning"] = json!({ "effort": effort });
-            }
+        if let Some(reasoning) = openrouter_reasoning_config(parameters) {
+            body["reasoning"] = reasoning;
         }
         if let Some(openrouter_provider) = request
             .connection
@@ -1412,26 +2546,186 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
             body["cache_control"] = json!({ "type": "ephemeral" });
         }
         if let Some(service_tier) = param_string(parameters, &["serviceTier", "service_tier"])
-            .filter(|value| value == "flex" || value == "priority")
+            .filter(|value| is_openrouter_service_tier(value))
         {
             body["service_tier"] = json!(service_tier);
         }
-    }
-    if let Some(extra) = parameters
-        .get("customParameters")
-        .or_else(|| parameters.get("custom_params"))
-    {
-        if let Some(entries) = extra.as_object() {
-            for (key, value) in entries {
-                if !should_send_openai_sampling_parameters(request)
-                    && is_sampling_parameter_key(key)
-                {
-                    continue;
-                }
-                if body.get(key).is_none() {
-                    body[key] = value.clone();
-                }
+        if let Some(verbosity) =
+            param_string(parameters, &["verbosity"]).filter(|value| is_openrouter_verbosity(value))
+        {
+            body["verbosity"] = json!(verbosity);
+        }
+        if !request.tools.is_empty() {
+            if let Some(parallel_tool_calls) = param_boolish(
+                parameters,
+                &["parallelToolCalls", "parallel_tool_calls"],
+                true,
+            ) {
+                body["parallel_tool_calls"] = json!(parallel_tool_calls);
             }
+        }
+    } else if request.connection.provider == "xai" {
+        if let Some(effort) = xai_reasoning_effort(request) {
+            body["reasoning_effort"] = json!(effort);
+        }
+        if let Some(reasoning) = xai_reasoning_config(request) {
+            body["reasoning"] = reasoning;
+        }
+        if let Some(service_tier) = param_string(parameters, &["serviceTier", "service_tier"])
+            .filter(|value| is_xai_service_tier(value))
+        {
+            body["service_tier"] = json!(service_tier);
+        }
+        if !request.tools.is_empty() {
+            if let Some(parallel_tool_calls) = param_boolish(
+                parameters,
+                &["parallelToolCalls", "parallel_tool_calls"],
+                true,
+            ) {
+                body["parallel_tool_calls"] = json!(parallel_tool_calls);
+            }
+        }
+    } else if request.connection.provider == "nanogpt" {
+        if let Some(effort) = nanogpt_reasoning_effort(parameters) {
+            body["reasoning_effort"] = json!(effort);
+        }
+        if let Some(reasoning) = nanogpt_reasoning_config(parameters) {
+            body["reasoning"] = reasoning;
+        }
+        if let Some(prompt_caching) = nanogpt_prompt_caching_config(parameters) {
+            body["prompt_caching"] = prompt_caching;
+        }
+        if let Some(caching) =
+            param_boolish(parameters, &["caching"], false).or(request.connection.enable_caching.then_some(true))
+        {
+            body["caching"] = json!(caching);
+        }
+        if let Some(sticky_provider) =
+            param_boolish(parameters, &["stickyProvider", "stickyprovider"], true)
+        {
+            body["stickyProvider"] = json!(sticky_provider);
+        }
+        if let Some(provider) = parameters
+            .get("nanoGptProvider")
+            .or_else(|| parameters.get("nano_gpt_provider"))
+            .or_else(|| parameters.get("provider"))
+            .filter(|value| !value.is_null())
+        {
+            body["provider"] = provider.clone();
+        }
+        if let Some(billing_mode) = param_string(parameters, &["billingMode", "billing_mode"]) {
+            body["billing_mode"] = json!(billing_mode);
+        }
+        if let Some(min_tokens) =
+            param_i64(parameters, &["minTokens", "min_tokens"]).filter(|value| *value >= 0)
+        {
+            body["min_tokens"] = json!(min_tokens);
+        }
+        if let Some(include_stop) = param_boolish(
+            parameters,
+            &["includeStopStrInOutput", "include_stop_str_in_output"],
+            false,
+        ) {
+            body["include_stop_str_in_output"] = json!(include_stop);
+        }
+        if let Some(ignore_eos) = param_boolish(parameters, &["ignoreEos", "ignore_eos"], false) {
+            body["ignore_eos"] = json!(ignore_eos);
+        }
+        if let Some(no_repeat_ngram_size) = param_i64(
+            parameters,
+            &["noRepeatNgramSize", "no_repeat_ngram_size"],
+        )
+        .filter(|value| *value >= 0)
+        {
+            body["no_repeat_ngram_size"] = json!(no_repeat_ngram_size);
+        }
+        if let Some(stop_token_ids) = param_i64_array(parameters, &["stopTokenIds", "stop_token_ids"])
+        {
+            body["stop_token_ids"] = json!(stop_token_ids);
+        }
+        if let Some(custom_token_bans) =
+            param_i64_array(parameters, &["customTokenBans", "custom_token_bans"])
+        {
+            body["custom_token_bans"] = json!(custom_token_bans);
+        }
+        if let Some(logit_bias) = parameters
+            .get("logitBias")
+            .or_else(|| parameters.get("logit_bias"))
+            .filter(|value| value.as_object().is_some())
+        {
+            body["logit_bias"] = logit_bias.clone();
+        }
+        if let Some(logprobs) = parameters.get("logprobs").filter(|value| !value.is_null()) {
+            body["logprobs"] = logprobs.clone();
+        }
+        if let Some(prompt_logprobs) =
+            param_boolish(parameters, &["promptLogprobs", "prompt_logprobs"], false)
+        {
+            body["prompt_logprobs"] = json!(prompt_logprobs);
+        }
+        if let Some(reasoning_delta_field) =
+            param_string(parameters, &["reasoningDeltaField", "reasoning_delta_field"])
+                .filter(|value| value == "reasoning_content")
+        {
+            body["reasoning_delta_field"] = json!(reasoning_delta_field);
+        }
+        if let Some(reasoning_content_compat) = param_boolish(
+            parameters,
+            &["reasoningContentCompat", "reasoning_content_compat"],
+            false,
+        ) {
+            body["reasoning_content_compat"] = json!(reasoning_content_compat);
+        }
+    } else if request.connection.provider == "openai" {
+        if let Some(service_tier) = param_string(parameters, &["serviceTier", "service_tier"])
+            .filter(|value| is_openai_service_tier(value))
+        {
+            body["service_tier"] = json!(service_tier);
+        }
+    } else if request.connection.provider == "mistral" {
+        if let Some(effort) = mistral_reasoning_effort(request) {
+            body["reasoning_effort"] = json!(effort);
+        }
+        if let Some(safe_prompt) = param_boolish(parameters, &["safePrompt", "safe_prompt"], false)
+        {
+            body["safe_prompt"] = json!(safe_prompt);
+        }
+        if let Some(prompt_cache_key) =
+            param_string(parameters, &["promptCacheKey", "prompt_cache_key"])
+        {
+            body["prompt_cache_key"] = json!(prompt_cache_key);
+        }
+        if let Some(prompt_mode) =
+            param_string(parameters, &["promptMode", "prompt_mode"]).filter(|value| value == "reasoning")
+        {
+            body["prompt_mode"] = json!(prompt_mode);
+        }
+        if let Some(parallel_tool_calls) = param_boolish(
+            parameters,
+            &["parallelToolCalls", "parallel_tool_calls"],
+            true,
+        ) {
+            body["parallel_tool_calls"] = json!(parallel_tool_calls);
+        }
+        if let Some(prediction) = parameters.get("prediction").filter(|value| !value.is_null()) {
+            body["prediction"] = prediction.clone();
+        }
+    }
+    if request.connection.provider == "xai" {
+        apply_xai_custom_parameters_to_object(
+            body,
+            parameters,
+            !send_sampling,
+            !send_sampling,
+            &request.connection.model,
+            xai_reasoning_active,
+        );
+    } else {
+        apply_custom_parameters_to_object(body, parameters, !send_sampling, !send_sampling, &[]);
+    }
+    if request.connection.provider == "mistral" {
+        if let Some(body) = body.as_object_mut() {
+            body.retain(|key, _| !is_mistral_unsupported_custom_parameter_key(key));
         }
     }
     if let Some(openrouter) = parameters
@@ -2115,19 +3409,27 @@ fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
     if !system.is_empty() {
         body["system"] = json!(system.join("\n\n"));
     }
-    let adaptive_only = is_claude_opus_adaptive_only_model(&request.connection.model);
+    let sampling_restricted = is_anthropic_sampling_restricted_model(&request.connection.model);
     let thinking_effort = anthropic_thinking_effort(&request.connection.model, &request.parameters);
     let adaptive_thinking = should_use_anthropic_adaptive_thinking(
         &request.connection.model,
         &request.parameters,
         thinking_effort,
     );
-    if !adaptive_only && !adaptive_thinking {
+    let send_temperature_and_top_k = !sampling_restricted && !adaptive_thinking;
+    if send_temperature_and_top_k {
         if let Some(temp) = temperature(&request.parameters) {
             body["temperature"] = json!(temp);
         }
     }
-    if !adaptive_only {
+    if !sampling_restricted {
+        if let Some(top_p) = param_f64(&request.parameters, &["topP", "top_p"]) {
+            if !adaptive_thinking || top_p >= 0.95 {
+                body["top_p"] = json!(top_p);
+            }
+        }
+    }
+    if send_temperature_and_top_k {
         if let Some(top_k) = param_i64(&request.parameters, &["topK", "top_k"]) {
             body["top_k"] = json!(top_k);
         }
@@ -2142,9 +3444,21 @@ fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
         body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget_tokens });
         body["max_tokens"] = json!(request_max_tokens(request, 1024) + budget_tokens);
     }
+    if let Some(service_tier) = param_string(&request.parameters, &["serviceTier", "service_tier"])
+        .filter(|value| is_anthropic_service_tier(value))
+    {
+        body["service_tier"] = json!(service_tier);
+    }
     if let Some(stop) = stop_sequences(&request.parameters) {
         body["stop_sequences"] = json!(stop);
     }
+    apply_custom_parameters_to_object(
+        &mut body,
+        &request.parameters,
+        sampling_restricted || adaptive_thinking,
+        false,
+        &[],
+    );
     body
 }
 
@@ -2467,17 +3781,91 @@ fn google_generation_config(request: &LlmRequest) -> Value {
             generation_config["topK"] = json!(top_k);
         }
     }
+    if let Some(frequency_penalty) =
+        param_f64(&request.parameters, &["frequencyPenalty", "frequency_penalty"])
+    {
+        generation_config["frequencyPenalty"] = json!(frequency_penalty);
+    }
+    if let Some(presence_penalty) =
+        param_f64(&request.parameters, &["presencePenalty", "presence_penalty"])
+    {
+        generation_config["presencePenalty"] = json!(presence_penalty);
+    }
     if let Some(thinking_config) =
         google_thinking_config(&request.connection.model, &request.parameters)
     {
         generation_config["thinkingConfig"] = thinking_config;
     }
-    if !is_gemini_3 {
-        if let Some(stop) = stop_sequences(&request.parameters) {
-            generation_config["stopSequences"] = json!(stop);
+    if let Some(stop) = stop_sequences(&request.parameters) {
+        generation_config["stopSequences"] = json!(stop);
+    }
+    if let Some(entries) = request
+        .parameters
+        .get("customParameters")
+        .or_else(|| request.parameters.get("custom_params"))
+        .and_then(Value::as_object)
+    {
+        if let Some(custom_generation_config) =
+            entries.get("generationConfig").and_then(Value::as_object)
+        {
+            for (key, value) in custom_generation_config {
+                if should_apply_custom_parameter(key, false, false, &[])
+                    && !(is_gemini_3 && is_google_gemini_3_unsupported_generation_config_key(key))
+                {
+                    if let Some(config) = generation_config.as_object_mut() {
+                        if !config.contains_key(key) {
+                            config.insert(key.clone(), value.clone());
+                        }
+                    }
+                }
+            }
+        }
+        for (key, value) in entries {
+            if key == "generationConfig"
+                || !is_google_generation_config_custom_parameter_key(key)
+                || !should_apply_custom_parameter(key, false, false, &[])
+                || is_gemini_3 && is_google_gemini_3_unsupported_generation_config_key(key)
+            {
+                continue;
+            }
+            if let Some(config) = generation_config.as_object_mut() {
+                if !config.contains_key(key) {
+                    config.insert(key.clone(), value.clone());
+                }
+            }
+        }
+    }
+    if is_gemini_3 {
+        if let Some(config) = generation_config.as_object_mut() {
+            config.retain(|key, _| !is_google_gemini_3_unsupported_generation_config_key(key));
         }
     }
     generation_config
+}
+
+fn apply_google_custom_parameters_to_body(body: &mut Value, request: &LlmRequest) {
+    let Some(entries) = request
+        .parameters
+        .get("customParameters")
+        .or_else(|| request.parameters.get("custom_params"))
+        .and_then(Value::as_object)
+    else {
+        return;
+    };
+    let Some(body) = body.as_object_mut() else {
+        return;
+    };
+    for (key, value) in entries {
+        if key == "generationConfig"
+            || is_google_generation_config_custom_parameter_key(key)
+            || !should_apply_custom_parameter(key, false, false, &[])
+        {
+            continue;
+        }
+        if !body.contains_key(key) {
+            body.insert(key.clone(), value.clone());
+        }
+    }
 }
 
 fn google_generate_body(request: &LlmRequest) -> Value {
@@ -2488,6 +3876,7 @@ fn google_generate_body(request: &LlmRequest) -> Value {
     if let Some(system_instruction) = google_system_instruction(request) {
         body["systemInstruction"] = system_instruction;
     }
+    apply_google_custom_parameters_to_body(&mut body, request);
     body
 }
 
@@ -2718,22 +4107,54 @@ where
     })
 }
 
+fn content_part_text(value: &Value) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        return Some(text.to_string());
+    }
+    if value.get("type").and_then(Value::as_str) == Some("thinking") {
+        return None;
+    }
+    value
+        .get("text")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("content").and_then(Value::as_str))
+        .map(str::to_string)
+}
+
 fn content_text(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
         Value::Array(parts) => parts
             .iter()
-            .filter_map(|part| {
-                if let Some(text) = part.as_str() {
-                    return Some(text.to_string());
-                }
-                part.get("text")
-                    .and_then(Value::as_str)
-                    .or_else(|| part.get("content").and_then(Value::as_str))
-                    .map(str::to_string)
-            })
+            .filter_map(content_part_text)
             .collect::<Vec<_>>()
             .join(""),
+        Value::Object(_) => content_part_text(value).unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+fn content_thinking_text(value: &Value) -> String {
+    match value {
+        Value::Array(parts) => parts
+            .iter()
+            .map(content_thinking_text)
+            .filter(|text| !text.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join(""),
+        Value::Object(_) if value.get("type").and_then(Value::as_str) == Some("thinking") => {
+            value
+                .get("thinking")
+                .map(content_text)
+                .filter(|text| !text.trim().is_empty())
+                .or_else(|| {
+                    value
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                })
+                .unwrap_or_default()
+        }
         _ => String::new(),
     }
 }
@@ -2751,6 +4172,13 @@ fn assistant_message_text(message: &Value) -> String {
 }
 
 fn response_reasoning_text(choice: &Value, message: &Value) -> String {
+    if let Some(content_reasoning) = message
+        .get("content")
+        .map(content_thinking_text)
+        .filter(|text| !text.trim().is_empty())
+    {
+        return content_reasoning;
+    }
     [
         message.get("reasoning"),
         message.get("reasoning_content"),
@@ -2763,6 +4191,46 @@ fn response_reasoning_text(choice: &Value, message: &Value) -> String {
     .map(content_text)
     .find(|text| !text.trim().is_empty())
     .unwrap_or_default()
+}
+
+async fn parse_cohere_response_rich(response: reqwest::Response) -> AppResult<LlmCompletion> {
+    let (status, json) = read_json_response(response).await?;
+    if !status.is_success() {
+        return Err(provider_http_error(status, json));
+    }
+    let message = json.get("message").unwrap_or(&json);
+    let content = assistant_message_text(message);
+    let tool_calls = message
+        .get("tool_calls")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(normalize_tool_call)
+        .collect::<Vec<_>>();
+    if content.trim().is_empty() && tool_calls.is_empty() {
+        let reasoning = message
+            .get("content")
+            .map(content_thinking_text)
+            .filter(|text| !text.trim().is_empty())
+            .unwrap_or_default();
+        if !reasoning.trim().is_empty() {
+            return Err(AppError::with_details(
+                "llm_response_error",
+                "Provider returned reasoning but no final assistant text. Increase Max Output Tokens or lower Reasoning Effort in this connection's generation controls.",
+                redact_sensitive_json(json),
+            ));
+        }
+        return Err(AppError::with_details(
+            "llm_response_error",
+            "Provider response did not contain assistant text or tool calls",
+            redact_sensitive_json(json),
+        ));
+    }
+    Ok(LlmCompletion {
+        content,
+        tool_calls,
+    })
 }
 
 async fn parse_json_response_rich(response: reqwest::Response) -> AppResult<LlmCompletion> {
@@ -3038,6 +4506,104 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
     }
 
     #[test]
+    fn openai_responses_body_preserves_xhigh_for_supported_models() {
+        let request = request_for(
+            "openai",
+            "gpt-5.2",
+            json!({
+                "reasoningEffort": "xhigh",
+                "responseFormat": "json_object",
+                "verbosity": "high",
+                "customParameters": {
+                    "metadata": { "surface": "preset-proof" }
+                }
+            }),
+        );
+        let body = build_openai_responses_body(&request, false);
+
+        assert_eq!(
+            body["reasoning"],
+            json!({ "effort": "xhigh", "summary": "auto" })
+        );
+        assert_eq!(
+            body["text"],
+            json!({ "format": { "type": "json_object" }, "verbosity": "high" })
+        );
+        assert_eq!(body["metadata"], json!({ "surface": "preset-proof" }));
+    }
+
+    #[test]
+    fn openai_responses_body_resolves_maximum_to_supported_xhigh() {
+        let request = request_for(
+            "openai",
+            "gpt-5.2-codex",
+            json!({ "reasoningEffort": "maximum" }),
+        );
+        let body = build_openai_responses_body(&request, false);
+
+        assert_eq!(body["reasoning"]["effort"], json!("xhigh"));
+    }
+
+    #[test]
+    fn openai_responses_body_preserves_xhigh_aliases_for_gpt51_codex_max() {
+        let xhigh_request = request_for(
+            "openai",
+            "gpt-5.1-codex-max",
+            json!({ "reasoningEffort": "xhigh" }),
+        );
+        let maximum_request = request_for(
+            "openai",
+            "gpt-5.1-codex-max",
+            json!({ "reasoningEffort": "maximum" }),
+        );
+
+        assert_eq!(
+            build_openai_responses_body(&xhigh_request, false)["reasoning"]["effort"],
+            json!("xhigh")
+        );
+        assert_eq!(
+            build_openai_responses_body(&maximum_request, false)["reasoning"]["effort"],
+            json!("xhigh")
+        );
+    }
+
+    #[test]
+    fn openai_responses_body_downgrades_xhigh_for_unsupported_models() {
+        let xhigh_request = request_for(
+            "openai",
+            "gpt-5.1",
+            json!({ "reasoningEffort": "xhigh" }),
+        );
+        let maximum_request = request_for(
+            "openai",
+            "gpt-5-pro",
+            json!({ "reasoningEffort": "maximum" }),
+        );
+
+        assert_eq!(
+            build_openai_responses_body(&xhigh_request, false)["reasoning"]["effort"],
+            json!("high")
+        );
+        assert_eq!(
+            build_openai_responses_body(&maximum_request, false)["reasoning"]["effort"],
+            json!("high")
+        );
+    }
+
+    #[test]
+    fn openrouter_reasoning_uses_unified_xhigh_effort() {
+        let request = request_for(
+            "openrouter",
+            "anthropic/claude-3.7-sonnet",
+            json!({ "reasoningEffort": "xhigh" }),
+        );
+        let mut body = json!({});
+        apply_openai_parameters(&mut body, &request);
+
+        assert_eq!(body["reasoning"], json!({ "effort": "xhigh" }));
+    }
+
+    #[test]
     fn ensure_url_allowed_redacts_query_secret() {
         let error = ensure_url_allowed("ftp://example.test/models?key=sk-test-secret")
             .expect_err("disallowed URL should fail");
@@ -3145,6 +4711,18 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
                 .expect("Gemini 3 reasoning effort should create thinking config");
         assert_eq!(config["thinkingLevel"], json!("medium"));
         assert_eq!(config["includeThoughts"], json!(true));
+
+        let flash_config =
+            google_thinking_config("gemini-3.5-flash", &json!({ "reasoningEffort": "minimal" }))
+                .expect("Gemini 3.5 Flash minimal effort should create thinking config");
+        assert_eq!(flash_config["thinkingLevel"], json!("minimal"));
+
+        let pro_config = google_thinking_config(
+            "gemini-3.1-pro-preview",
+            &json!({ "reasoningEffort": "minimal" }),
+        )
+        .expect("Gemini 3.1 Pro should clamp minimal effort to a supported level");
+        assert_eq!(pro_config["thinkingLevel"], json!("low"));
     }
 
     #[test]
@@ -3164,7 +4742,22 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
                 "temperature": 0.8,
                 "topP": 0.9,
                 "topK": 40,
-                "stop": ["</END>"]
+                "frequencyPenalty": 0.2,
+                "presencePenalty": 0.3,
+                "stop": ["</END>"],
+                "customParameters": {
+                    "generationConfig": {
+                        "candidateCount": 2,
+                        "topP": 0.4,
+                        "responseMimeType": "application/json"
+                    },
+                    "safetySettings": [
+                        {
+                            "category": "HARM_CATEGORY_HARASSMENT",
+                            "threshold": "BLOCK_ONLY_HIGH"
+                        }
+                    ]
+                }
             }),
         );
         let body = google_generate_body(&request);
@@ -3176,7 +4769,15 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert!(config.get("temperature").is_none());
         assert!(config.get("topP").is_none());
         assert!(config.get("topK").is_none());
-        assert!(config.get("stopSequences").is_none());
+        assert!(config.get("candidateCount").is_none());
+        assert_eq!(config["frequencyPenalty"], json!(0.2));
+        assert_eq!(config["presencePenalty"], json!(0.3));
+        assert_eq!(config["stopSequences"], json!(["</END>"]));
+        assert_eq!(config["responseMimeType"], json!("application/json"));
+        assert_eq!(
+            body["safetySettings"][0]["category"],
+            json!("HARM_CATEGORY_HARASSMENT")
+        );
     }
 
     #[test]

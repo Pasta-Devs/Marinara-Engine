@@ -82,12 +82,11 @@ import { SwipeJumpControl } from "./SwipeJumpControl";
 import { readStoredThinking } from "../lib/message-thinking";
 import {
   isImageMessageAttachment,
-  messageAttachmentImageAlt,
-  messageAttachmentImageSource,
   messageAttachmentsFromExtra,
 } from "../lib/message-attachments";
 import { resolvePromptSnapshotFromExtra } from "../lib/prompt-snapshot";
 import { ResolvedAvatarImage } from "./ResolvedAvatarImage";
+import { MessageAttachmentImagePreview } from "./MessageAttachmentImagePreview";
 import { resolveAvatarFileUrl } from "../../../../../shared/api/local-file-api";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
@@ -2239,24 +2238,15 @@ export const ChatMessage = memo(function ChatMessage({
             {!editing && attachments.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
               <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
                 {attachments.map((att, i) => {
-                  const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
-                  return imageSource ? (
-                    <div key={i} className="group/att relative inline-block">
-                      <button
-                        type="button"
-                        onClick={() => openImageLightbox(imageSource, att.prompt)}
-                        className="block"
-                        title="Open image"
-                        aria-label={`Open ${messageAttachmentImageAlt(att)}`}
-                      >
-                        <img
-                          src={imageSource}
-                          alt={messageAttachmentImageAlt(att)}
-                          className="max-h-80 max-w-full rounded-lg"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      </button>
+                  return isImageMessageAttachment(att) ? (
+                    <MessageAttachmentImagePreview
+                      key={i}
+                      attachment={att}
+                      className="group/att relative inline-block"
+                      buttonClassName="block"
+                      imageClassName="max-h-80 max-w-full rounded-lg"
+                      onOpen={(imageSource) => openImageLightbox(imageSource, att.prompt)}
+                    >
                       <button
                         type="button"
                         onClick={() => handleRemoveAttachment(i)}
@@ -2266,7 +2256,7 @@ export const ChatMessage = memo(function ChatMessage({
                       >
                         <X size="0.875rem" />
                       </button>
-                    </div>
+                    </MessageAttachmentImagePreview>
                   ) : null;
                 })}
               </div>
@@ -2699,24 +2689,15 @@ export const ChatMessage = memo(function ChatMessage({
           {!editing && attachments.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
             <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
               {attachments.map((att, i) => {
-                const imageSource = isImageMessageAttachment(att) ? messageAttachmentImageSource(att) : null;
-                return imageSource ? (
-                  <div key={i} className="group/att relative inline-block">
-                    <button
-                      type="button"
-                      onClick={() => openImageLightbox(imageSource, att.prompt)}
-                      className="block"
-                      title="Open image"
-                      aria-label={`Open ${messageAttachmentImageAlt(att)}`}
-                    >
-                      <img
-                        src={imageSource}
-                        alt={messageAttachmentImageAlt(att)}
-                        className="max-h-80 max-w-full rounded-lg"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </button>
+                return isImageMessageAttachment(att) ? (
+                  <MessageAttachmentImagePreview
+                    key={i}
+                    attachment={att}
+                    className="group/att relative inline-block"
+                    buttonClassName="block"
+                    imageClassName="max-h-80 max-w-full rounded-lg"
+                    onOpen={(imageSource) => openImageLightbox(imageSource, att.prompt)}
+                  >
                     <button
                       type="button"
                       onClick={() => handleRemoveAttachment(i)}
@@ -2726,7 +2707,7 @@ export const ChatMessage = memo(function ChatMessage({
                     >
                       <X size="0.875rem" />
                     </button>
-                  </div>
+                  </MessageAttachmentImagePreview>
                 ) : null;
               })}
             </div>

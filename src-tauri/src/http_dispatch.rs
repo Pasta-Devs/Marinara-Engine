@@ -89,6 +89,24 @@ fn required_string_vec(args: &Map<String, Value>, key: &str) -> AppResult<Vec<St
         .collect()
 }
 
+fn optional_string_vec(args: &Map<String, Value>, key: &str) -> AppResult<Vec<String>> {
+    let Some(value) = args.get(key) else {
+        return Ok(Vec::new());
+    };
+    let Some(values) = value.as_array() else {
+        return Err(AppError::invalid_input(format!("{key} must be an array")));
+    };
+    values
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .map(ToOwned::to_owned)
+                .ok_or_else(|| AppError::invalid_input(format!("{key} must contain strings")))
+        })
+        .collect()
+}
+
 pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Value> {
     let command = request.command.as_str();
     let args = args_object(request.args)?;
@@ -541,12 +559,20 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "tracker_snapshot_get" => tracker_snapshot_get(state, &args).await,
         "tracker_snapshot_save" => tracker_snapshot_save(state, &args).await,
         "chat_memories_list" => {
-            chats::chat_array_field(state, required_string(&args, "chatId")?, "memories")
+            let exclude_recent_message_ids = optional_string_vec(&args, "excludeRecentMessageIds")?;
+            let exclude_recent_start_at = optional_string(&args, "excludeRecentStartAt");
+            chats::list_chat_memories_excluding_recent(
+                state,
+                required_string(&args, "chatId")?,
+                optional_u32_strict(&args, "limit")?.map(|value| value as usize),
+                optional_string(&args, "order").as_deref(),
+                &exclude_recent_message_ids,
+                exclude_recent_start_at.as_deref(),
+            )
         }
-        "chat_memory_delete" => chats::delete_chat_array_item(
+        "chat_memory_delete" => chats::delete_chat_memory(
             state,
             required_string(&args, "chatId")?,
-            "memories",
             required_string(&args, "memoryId")?,
         ),
         "chat_memories_clear" => chats::set_chat_array_field(
@@ -1294,6 +1320,79 @@ mod tests {
             .join("collections")
             .join("typo-collection.json")
             .exists());
+    }
+
+    #[tokio::test]
+    async fn dispatch_chat_memories_list_rejects_malformed_limit() {
+        let state = test_state("chat-memories-malformed-limit");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": []
+                }),
+            )
+            .expect("chat should be created");
+
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "chat_memories_list".to_string(),
+                args: Some(json!({ "chatId": "chat-1", "limit": "500" })),
+            },
+        )
+        .await
+        .expect_err("remote memory listing should reject malformed limits");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("limit"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_chat_memory_delete_preserves_serialized_non_target_chunks() {
+        let state = test_state("chat-memory-delete-serialized");
+        let memories = serde_json::to_string(&json!([
+            { "id": "delete-me", "lastMessageAt": "2026-01-01T00:00:00.000Z" },
+            { "id": "keep-me", "lastMessageAt": "2026-01-02T00:00:00.000Z" }
+        ]))
+        .expect("memory fixture should serialize");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Serialized memory chat",
+                    "memories": memories
+                }),
+            )
+            .expect("chat should be created");
+
+        dispatch(
+            &state,
+            InvokeRequest {
+                command: "chat_memory_delete".to_string(),
+                args: Some(json!({ "chatId": "chat-1", "memoryId": "delete-me" })),
+            },
+        )
+        .await
+        .expect("remote memory delete should dispatch");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should normalize to an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ids, vec!["keep-me"]);
     }
 
     #[test]

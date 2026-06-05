@@ -60,6 +60,18 @@ fn collection_ids(state: &AppState, collection: &str) -> Vec<String> {
     ids
 }
 
+fn created_prompt_from_import_result(state: &AppState, result: &Value) -> Value {
+    let preset_id = result
+        .get("presetId")
+        .and_then(Value::as_str)
+        .expect("import result should include a preset id");
+    state
+        .storage
+        .get("prompts", preset_id)
+        .expect("prompt preset should be readable")
+        .expect("prompt preset should exist")
+}
+
 #[test]
 fn normalizes_sillytavern_selective_logic_numbers() {
     let entry = normalize_lorebook_entry(
@@ -178,6 +190,103 @@ fn import_st_character_batch_rejects_wrong_route_lorebook_json() {
 }
 
 #[test]
+fn import_st_character_maps_risuai_camel_case_fields() {
+    let app_root = temp_path("risuai-camel-case-fields");
+    let state =
+        AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
+
+    let result = import_st_character(
+        &state,
+        json!({
+            "type": "character",
+            "data": {
+                "name": "Risu Hero",
+                "description": "Shared field survives",
+                "firstMessage": "Risu greeting",
+                "exampleMessage": "<START>\n{{char}}: Risu example",
+                "systemPrompt": "Risu system prompt",
+                "creatorNotes": "Risu creator notes",
+                "alternateGreetings": ["Alt one", "Alt two"]
+            }
+        }),
+    )
+    .expect("RisuAI character should import");
+
+    let data = result
+        .pointer("/character/data")
+        .and_then(Value::as_object)
+        .expect("imported character should include normalized data");
+    assert_eq!(
+        data.get("first_mes").and_then(Value::as_str),
+        Some("Risu greeting")
+    );
+    assert_eq!(
+        data.get("mes_example").and_then(Value::as_str),
+        Some("<START>\n{{char}}: Risu example")
+    );
+    assert_eq!(
+        data.get("system_prompt").and_then(Value::as_str),
+        Some("Risu system prompt")
+    );
+    assert_eq!(
+        data.get("creator_notes").and_then(Value::as_str),
+        Some("Risu creator notes")
+    );
+    assert_eq!(
+        data.get("alternate_greetings"),
+        Some(&json!(["Alt one", "Alt two"]))
+    );
+
+    let canonical_result = import_st_character(
+        &state,
+        json!({
+            "spec": "chara_card_v2",
+            "data": {
+                "name": "Canonical Hero",
+                "first_mes": "Canonical greeting",
+                "firstMessage": "Alias greeting",
+                "mes_example": "Canonical example",
+                "exampleMessage": "Alias example",
+                "system_prompt": "Canonical system",
+                "systemPrompt": "Alias system",
+                "creator_notes": "Canonical notes",
+                "creatorNotes": "Alias notes",
+                "alternate_greetings": ["Canonical alt"],
+                "alternateGreetings": ["Alias alt"]
+            }
+        }),
+    )
+    .expect("canonical character should import");
+
+    let canonical_data = canonical_result
+        .pointer("/character/data")
+        .and_then(Value::as_object)
+        .expect("canonical import should include normalized data");
+    assert_eq!(
+        canonical_data.get("first_mes").and_then(Value::as_str),
+        Some("Canonical greeting")
+    );
+    assert_eq!(
+        canonical_data.get("mes_example").and_then(Value::as_str),
+        Some("Canonical example")
+    );
+    assert_eq!(
+        canonical_data.get("system_prompt").and_then(Value::as_str),
+        Some("Canonical system")
+    );
+    assert_eq!(
+        canonical_data.get("creator_notes").and_then(Value::as_str),
+        Some("Canonical notes")
+    );
+    assert_eq!(
+        canonical_data.get("alternate_greetings"),
+        Some(&json!(["Canonical alt"]))
+    );
+
+    let _ = fs::remove_dir_all(app_root);
+}
+
+#[test]
 fn create_lorebook_rolls_back_parent_when_entry_write_fails() {
     let app_root = temp_path("lorebook-rollback");
     let state =
@@ -284,6 +393,78 @@ fn import_st_character_materializes_mixed_case_inline_avatar() {
         Path::new(avatar_file_path).exists(),
         "managed avatar file should exist"
     );
+
+    let _ = fs::remove_dir_all(app_root);
+}
+
+#[test]
+fn import_st_preset_keeps_reasoning_effort_auto_unset_and_keeps_fallbacks() {
+    for (label, raw_effort, expected_effort) in [
+        ("auto", "auto", Value::Null),
+        ("xhigh", "xhigh", json!("xhigh")),
+        ("unknown", "surprise", Value::Null),
+    ] {
+        let app_root = temp_path(&format!("st-preset-reasoning-{label}"));
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+        let result = import_call(
+            &state,
+            &["st-preset"],
+            json!({
+                "name": format!("Reasoning {label}"),
+                "reasoning_effort": raw_effort,
+                "prompts": []
+            }),
+        )
+        .expect("ST preset import should succeed");
+
+        let preset = created_prompt_from_import_result(&state, &result);
+        assert_eq!(preset["parameters"]["reasoningEffort"], expected_effort);
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+}
+
+#[test]
+fn import_st_preset_normalizes_default_alias_and_rejects_conflict() {
+    let app_root = temp_path("st-preset-default-alias");
+    let state =
+        AppState::from_data_dir(&app_root, Vec::new()).expect("test app state should initialize");
+    let result = import_call(
+        &state,
+        &["st-preset"],
+        json!({
+            "name": "Default Alias Preset",
+            "default": "true",
+            "prompts": []
+        }),
+    )
+    .expect("ST preset default alias should import");
+
+    let preset = created_prompt_from_import_result(&state, &result);
+    assert_eq!(preset["isDefault"], json!(true));
+    assert!(preset.get("default").is_none());
+
+    let error = import_call(
+        &state,
+        &["st-preset"],
+        json!({
+            "name": "Conflicting Default Alias Preset",
+            "isDefault": false,
+            "default": true,
+            "prompts": []
+        }),
+    )
+    .expect_err("conflicting ST preset default flags should reject");
+    assert_eq!(error.code, "invalid_input");
+    assert!(error.message.contains("default must match isDefault"));
+    assert!(state
+        .storage
+        .list("prompts")
+        .expect("prompts should be readable")
+        .iter()
+        .all(|prompt| prompt.get("name").and_then(Value::as_str)
+            != Some("Imported: Conflicting Default Alias Preset")));
 
     let _ = fs::remove_dir_all(app_root);
 }

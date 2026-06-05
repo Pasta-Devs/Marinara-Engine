@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { AlertTriangle, BookOpen, Loader2, MessageCircle, Plug, Settings, X } from "lucide-react";
 import { useCreateChat } from "../../../../catalog/chats/index";
-import { findUserStarredChatPreset, useApplyChatPreset, useChatPresets } from "../../../../catalog/chat-presets/index";
+import { useApplyUserStarredChatPreset } from "../../../../catalog/chat-presets/index";
 import { useConnections } from "../../../../catalog/connections/index";
 import { checkRemoteRuntimeHealth, type RemoteRuntimeHealthCheck } from "../../../../../shared/api/remote-runtime";
 import { filterLanguageGenerationConnections } from "../../../../../shared/lib/connection-filters";
@@ -46,8 +46,7 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
   const remoteRuntimeReady = !shouldCheckRemoteRuntime || remoteRuntimeHealth?.status === "ok";
   const { data: connections, isLoading, isError, error } = useConnections(remoteRuntimeReady);
   const createChat = useCreateChat();
-  const { data: chatPresetsData } = useChatPresets(undefined, remoteRuntimeReady);
-  const applyChatPreset = useApplyChatPreset();
+  const applyUserStarredChatPreset = useApplyUserStarredChatPreset();
 
   useEffect(() => {
     if (!shouldCheckRemoteRuntime) {
@@ -92,9 +91,6 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
   const handleCreate = () => {
     if (!connectionId) return;
     const label = MODE_META[mode].label;
-    const presets = chatPresetsData ?? [];
-    const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
-    const starred = findUserStarredChatPreset(presets, presetMode);
     createChat.mutate(
       {
         name: `New ${label}`,
@@ -107,12 +103,10 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
           const store = useChatStore.getState();
           store.setPendingNewChatMode(null);
           store.setActiveChatId(chat.id);
-          if (starred) {
-            try {
-              await applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id });
-            } catch {
-              /* non-fatal - chat still opens with system defaults */
-            }
+          try {
+            await applyUserStarredChatPreset({ mode, chatId: chat.id });
+          } catch {
+            /* non-fatal - chat still opens with system defaults */
           }
           store.setShouldOpenSettings(true, chat.id);
           store.setShouldOpenWizard(true, chat.id);

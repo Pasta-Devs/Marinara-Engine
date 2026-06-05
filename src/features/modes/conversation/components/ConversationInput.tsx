@@ -25,6 +25,11 @@ import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useUIStore } from "../../../../shared/stores/ui.store";
+import {
+  deletePreparedManagedImageAttachments,
+  prepareManagedImageAttachmentBatch,
+  type PreparedManagedImageAttachments,
+} from "../../../../shared/api/message-attachment-api";
 import { useGenerate } from "../../../runtime/generation/index";
 import { readScopedRegexMode, useApplyRegex } from "../../../catalog/agents/regex-application";
 import {
@@ -35,6 +40,7 @@ import {
   chatKeys,
 } from "../../../catalog/chats/index";
 import { characterKeys } from "../../../catalog/characters/index";
+import { invalidateGalleryImagesForChat, invalidateGalleryImagesForManagedAttachments } from "../../../catalog/gallery/index";
 import {
   personaKeys,
   useActivePersonaSummary,
@@ -599,30 +605,60 @@ export function ConversationInput({
       }
       // Final pass: resolve macros introduced by translation while {{input}} still points to raw.
       message = resolveInputMacros(message);
-      if (textareaRef.current) {
-        textareaRef.current.value = "";
-        textareaRef.current.style.height = "auto";
-      }
-      clearInputDraft(activeChatId);
-      syncInputState("");
       const currentAttachments = attachments.map((a) => ({
         type: a.type,
         data: a.data,
         filename: a.name,
         name: a.name,
       }));
-      replaceAttachments([]);
-      const created = await createMessage.mutateAsync({
-        role: "user",
-        content: message,
-        characterId: null,
-      });
-      if (currentAttachments.length) {
-        await updateMessageExtra.mutateAsync({
-          messageId: created.id,
-          extra: { attachments: currentAttachments },
+      let createdMessageId: string | null = null;
+      let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
+      try {
+        const created = await createMessage.mutateAsync({
+          role: "user",
+          content: message,
+          characterId: null,
         });
+        createdMessageId = created.id;
+        preparedManagedAttachments = currentAttachments.length
+          ? await prepareManagedImageAttachmentBatch(activeChatId, currentAttachments)
+          : null;
+        const managedAttachments = preparedManagedAttachments?.attachments ?? [];
+        if (managedAttachments.length) {
+          await updateMessageExtra.mutateAsync({
+            messageId: created.id,
+            extra: { attachments: managedAttachments },
+          });
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedAttachments);
+        }
+      } catch (error) {
+        let rollbackFailed = false;
+        if (preparedManagedAttachments?.createdGalleryIds.length) {
+          try {
+            await deletePreparedManagedImageAttachments(preparedManagedAttachments);
+          } catch {
+            rollbackFailed = true;
+          }
+          invalidateGalleryImagesForManagedAttachments(qc, activeChatId, preparedManagedAttachments.attachments);
+        }
+        if (createdMessageId) {
+          try {
+            await deleteMessage.mutateAsync(createdMessageId);
+          } catch {
+            rollbackFailed = true;
+          }
+        }
+        const msg = error instanceof Error ? error.message : "Failed to send message";
+        toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
+        return;
       }
+      if (textareaRef.current) {
+        textareaRef.current.value = "";
+        textareaRef.current.style.height = "auto";
+      }
+      clearInputDraft(activeChatId);
+      syncInputState("");
+      replaceAttachments([]);
       return;
     }
 
@@ -712,37 +748,103 @@ export function ConversationInput({
     // Final pass: resolve macros introduced by translation while {{input}} still points to raw.
     message = resolveInputMacros(message);
 
+    const submittingChatId = activeChatId;
+    const submittedDraft = raw;
+    const submittedHeight = textareaRef.current?.style.height ?? "auto";
+    const submittedAttachments = attachments;
+    const submittedCompletions = completions;
+    const submittedMentionQuery = _mentionQuery;
+    const submittedMentionCompletions = mentionCompletions;
+    const pendingAttachments = submittedAttachments.map((a) => ({
+      type: a.type,
+      data: a.data,
+      filename: a.name,
+      name: a.name,
+    }));
+    const restoreSubmittedDraft = () => {
+      const activeChatIdAfterFailure = useChatStore.getState().activeChatId;
+      const currentValue = textareaRef.current?.value ?? "";
+      const canRestoreVisibleDraft = activeChatIdAfterFailure === submittingChatId && currentValue.length === 0;
+      if (canRestoreVisibleDraft && textareaRef.current) {
+        textareaRef.current.value = submittedDraft;
+        textareaRef.current.style.height = submittedHeight;
+        syncInputState(submittedDraft);
+        setCompletions(submittedCompletions);
+        setMentionQuery(submittedMentionQuery);
+        setMentionCompletions(submittedMentionCompletions);
+      }
+      if (submittedAttachments.length > 0) {
+        if (activeChatIdAfterFailure === submittingChatId) {
+          updateAttachments((current) => (current.length === 0 ? submittedAttachments : current));
+        } else {
+          pendingAttachmentDraftsRef.current.set(submittingChatId, submittedAttachments);
+        }
+      }
+      if (submittedDraft && (canRestoreVisibleDraft || activeChatIdAfterFailure !== submittingChatId)) {
+        setInputDraft(submittingChatId, submittedDraft);
+      }
+    };
+
     if (textareaRef.current) {
       textareaRef.current.value = "";
       textareaRef.current.style.height = "auto";
     }
-    clearInputDraft(activeChatId);
+    clearInputDraft(submittingChatId);
     syncInputState("");
 
-    const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
     replaceAttachments([]);
 
     // Extract @mentions from the raw message (before regex transforms)
     const mentioned = extractMentions(raw);
 
     if (groupResponseOrder === "manual" && mentioned.length === 0) {
-      const created = await createMessage.mutateAsync({
-        role: "user",
-        content: message,
-        characterId: null,
-      });
-      if (pendingAttachments.length) {
-        await updateMessageExtra.mutateAsync({
-          messageId: created.id,
-          extra: { attachments: pendingAttachments },
+      let createdMessageId: string | null = null;
+      let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
+      try {
+        preparedManagedAttachments = pendingAttachments.length
+          ? await prepareManagedImageAttachmentBatch(submittingChatId, pendingAttachments)
+          : null;
+        const managedAttachments = preparedManagedAttachments?.attachments ?? [];
+        const created = await createMessage.mutateAsync({
+          role: "user",
+          content: message,
+          characterId: null,
         });
+        createdMessageId = created.id;
+        if (managedAttachments.length) {
+          await updateMessageExtra.mutateAsync({
+            messageId: created.id,
+            extra: { attachments: managedAttachments },
+          });
+          invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, managedAttachments);
+        }
+      } catch (error) {
+        let rollbackFailed = false;
+        if (preparedManagedAttachments?.createdGalleryIds.length) {
+          try {
+            await deletePreparedManagedImageAttachments(preparedManagedAttachments);
+          } catch {
+            rollbackFailed = true;
+          }
+          invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, preparedManagedAttachments.attachments);
+        }
+        if (createdMessageId) {
+          try {
+            await deleteMessage.mutateAsync(createdMessageId);
+          } catch {
+            rollbackFailed = true;
+          }
+        }
+        if (!rollbackFailed) restoreSubmittedDraft();
+        const msg = error instanceof Error ? error.message : "Failed to send message";
+        toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
       }
       return;
     }
 
     try {
       await generate({
-        chatId: activeChatId,
+        chatId: submittingChatId,
         connectionId: null,
         userMessage: message,
         ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
@@ -750,6 +852,8 @@ export function ConversationInput({
       });
     } catch {
       // useGenerate owns provider-failure UI feedback; aborts are an expected Stop generating path.
+    } finally {
+      if (pendingAttachments.length) invalidateGalleryImagesForChat(qc, submittingChatId);
     }
   }, [
     activeChatId,
@@ -762,6 +866,7 @@ export function ConversationInput({
     extractMentions,
     clearInputDraft,
     createMessage,
+    deleteMessage,
     updateMessageExtra,
     characterNames,
     latestAssistantMessage,
@@ -938,6 +1043,7 @@ export function ConversationInput({
     setMentionCompletions([]);
 
     let createdMessageId: string | null = null;
+    let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
     try {
       const created = await createMessage.mutateAsync({
         role: "user",
@@ -945,14 +1051,27 @@ export function ConversationInput({
         characterId: null,
       });
       createdMessageId = created.id;
-      if (pendingAttachments.length) {
+      preparedManagedAttachments = pendingAttachments.length
+        ? await prepareManagedImageAttachmentBatch(submittingChatId, pendingAttachments)
+        : null;
+      const managedAttachments = preparedManagedAttachments?.attachments ?? [];
+      if (managedAttachments.length) {
         await updateMessageExtra.mutateAsync({
           messageId: created.id,
-          extra: { attachments: pendingAttachments },
+          extra: { attachments: managedAttachments },
         });
+        invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, managedAttachments);
       }
     } catch (error) {
       let rollbackFailed = false;
+      if (preparedManagedAttachments?.createdGalleryIds.length) {
+        try {
+          await deletePreparedManagedImageAttachments(preparedManagedAttachments);
+        } catch {
+          rollbackFailed = true;
+        }
+        invalidateGalleryImagesForManagedAttachments(qc, submittingChatId, preparedManagedAttachments.attachments);
+      }
       if (createdMessageId) {
         try {
           await deleteMessage.mutateAsync(createdMessageId);
@@ -982,7 +1101,7 @@ export function ConversationInput({
         setInputDraft(submittingChatId, submittedDraft);
       }
       const msg = error instanceof Error ? error.message : "Failed to post message";
-      toast.error(rollbackFailed ? `${msg}; the partial message may need to be removed before retrying.` : msg);
+      toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
     }
   }, [
     activeChatId,
@@ -1261,34 +1380,81 @@ export function ConversationInput({
       if (!activeChatId) return;
 
       // Fetch the GIF and convert to PNG so all providers can handle it
-      let gifAttachments: Array<{ type: string; data: string }> | undefined;
+      let gifAttachments: Array<{ type: string; data: string; filename: string; name: string }> | undefined;
       try {
         const blob = await loadUrlBlob(gifUrl);
         const attachment = await prepareImageAttachment(blob, "gif");
-        gifAttachments = [{ type: attachment.type, data: attachment.data }];
+        gifAttachments = [
+          { type: attachment.type, data: attachment.data, filename: attachment.name, name: attachment.name },
+        ];
       } catch {
         // If fetch fails (CORS etc.), send without attachment — still shows as image in chat
       }
 
+      const saveGifMessage = async () => {
+        let createdMessageId: string | null = null;
+        let preparedManagedAttachments: PreparedManagedImageAttachments | null = null;
+        try {
+          const created = await createMessage.mutateAsync({ role: "user", content: gifUrl, characterId: null });
+          createdMessageId = created.id;
+          preparedManagedAttachments = gifAttachments
+            ? await prepareManagedImageAttachmentBatch(activeChatId, gifAttachments)
+            : null;
+          const managedGifAttachments = preparedManagedAttachments?.attachments ?? [];
+          if (managedGifAttachments.length) {
+            await updateMessageExtra.mutateAsync({
+              messageId: created.id,
+              extra: { attachments: managedGifAttachments },
+            });
+            invalidateGalleryImagesForManagedAttachments(qc, activeChatId, managedGifAttachments);
+          }
+        } catch (error) {
+          if (preparedManagedAttachments?.createdGalleryIds.length) {
+            await deletePreparedManagedImageAttachments(preparedManagedAttachments).catch(() => undefined);
+            invalidateGalleryImagesForManagedAttachments(qc, activeChatId, preparedManagedAttachments.attachments);
+          }
+          if (createdMessageId) {
+            await deleteMessage.mutateAsync(createdMessageId).catch(() => undefined);
+          }
+          toast.error(error instanceof Error ? error.message : "Failed to send GIF.");
+        }
+      };
+
       // If already streaming for this chat, just save the message
       if (isStreaming) {
-        createMessage.mutate({ role: "user", content: gifUrl, characterId: null });
+        await saveGifMessage();
         return;
       }
 
       if (groupResponseOrder === "manual" && characterNames.length > 1) {
-        createMessage.mutate({ role: "user", content: gifUrl, characterId: null });
+        await saveGifMessage();
         return;
       }
 
-      await generate({
-        chatId: activeChatId,
-        connectionId: null,
-        userMessage: gifUrl,
-        ...(gifAttachments ? { attachments: gifAttachments } : {}),
-      });
+      try {
+        await generate({
+          chatId: activeChatId,
+          connectionId: null,
+          userMessage: gifUrl,
+          ...(gifAttachments?.length ? { attachments: gifAttachments } : {}),
+        });
+      } catch {
+        // useGenerate owns provider-failure UI feedback; aborts are an expected Stop generating path.
+      } finally {
+        if (gifAttachments?.length) invalidateGalleryImagesForChat(qc, activeChatId);
+      }
     },
-    [activeChatId, isStreaming, groupResponseOrder, characterNames.length, generate, createMessage],
+    [
+      activeChatId,
+      isStreaming,
+      groupResponseOrder,
+      characterNames.length,
+      generate,
+      createMessage,
+      deleteMessage,
+      updateMessageExtra,
+      qc,
+    ],
   );
 
   const handleCharacterResponse = useCallback(

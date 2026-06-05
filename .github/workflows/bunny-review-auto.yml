@@ -7,6 +7,7 @@ on:
 permissions:
   actions: write
   contents: read
+  issues: read
   pull-requests: read
 
 concurrency:
@@ -26,9 +27,38 @@ jobs:
           PR_NUM: ${{ github.event.pull_request.number }}
           REQUESTED_BY: ${{ github.event.sender.login }}
           TARGET_REF: refactor
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_IS_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PREVIOUS_BASE_REF: ${{ github.event.changes.base.ref.from }}
         run: |
           # This pull_request_target workflow is intentionally a dispatcher only.
           # It must not checkout, install, or execute code from the pull request.
+          if [ "$PR_IS_DRAFT" = "true" ] || [ "$EVENT_ACTION" = "converted_to_draft" ]; then
+            echo "Skipping Bunny auto dispatch for draft pull request state."
+            exit 0
+          fi
+
+          if [ "$EVENT_ACTION" = "edited" ] && [ -z "$PREVIOUS_BASE_REF" ]; then
+            echo "Skipping Bunny auto dispatch for pull request metadata edit."
+            exit 0
+          fi
+
+          if [ "$EVENT_ACTION" = "edited" ] && [ -n "$PREVIOUS_BASE_REF" ]; then
+            echo "Base ref changed from $PREVIOUS_BASE_REF to $PR_BASE_REF; dispatching Bunny review for the new diff base."
+          else
+            LAST_REVIEWED_SHA="$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments?per_page=100" \
+              --paginate \
+              --jq '.[] | select(.body | contains("<!-- bunny-review:walkthrough -->")) | .body' \
+              | sed -n 's/.*<!-- bunny-review:last-reviewed-sha=\([0-9a-f]\{40\}\) -->.*/\1/p' \
+              | tail -n 1)"
+            if [ -n "$LAST_REVIEWED_SHA" ] && [ "$LAST_REVIEWED_SHA" = "$PR_HEAD_SHA" ]; then
+              echo "Skipping Bunny auto dispatch because head $PR_HEAD_SHA was already reviewed."
+              exit 0
+            fi
+          fi
+
           gh workflow run bunny-review.yml \
             --repo "${{ github.repository }}" \
             --ref "$TARGET_REF" \

@@ -1,4 +1,4 @@
-const GENERIC_STORAGE_ENTITIES = [
+const _GENERIC_STORAGE_ENTITIES = [
   "characters",
   "character-groups",
   "character-versions",
@@ -18,6 +18,7 @@ const GENERIC_STORAGE_ENTITIES = [
   "agent-memory",
   "themes",
   "extensions",
+  "plugin-memory",
   "connections",
   "connection-folders",
   "chats",
@@ -35,10 +36,9 @@ const GENERIC_STORAGE_ENTITIES = [
   "game-checkpoints",
 ] as const;
 
-export type StorageEntity = (typeof GENERIC_STORAGE_ENTITIES)[number];
+export type StorageEntity = (typeof _GENERIC_STORAGE_ENTITIES)[number];
 
-export interface StorageListOptions {
-  filters?: Record<string, unknown>;
+export interface StorageListBaseOptions {
   orderBy?: string;
   descending?: boolean;
   limit?: number;
@@ -48,10 +48,39 @@ export interface StorageListOptions {
   search?: string;
 }
 
+type StorageListSelector =
+  | { filters?: Record<string, unknown>; whereIn?: never }
+  | { whereIn?: { field: string; values: string[] }; filters?: never }
+  | { filters?: undefined; whereIn?: undefined };
+
+export type StorageListOptions = StorageListBaseOptions & StorageListSelector;
+
+export type ChatMessageListOptions = StorageListBaseOptions;
+
+export type ChatMemoryListOrder = "stored" | "recent";
+
+export interface ListChatMemoriesOptions {
+  limit?: number;
+  order?: ChatMemoryListOrder;
+  excludeRecentMessageIds?: string[];
+  excludeRecentStartAt?: string;
+}
+
 export interface AddChatMessageSwipeOptions {
   extra?: Record<string, unknown>;
   activate?: boolean;
   characterId?: string | null;
+}
+
+export interface StorageImageAttachmentReference {
+  type?: string | null;
+  url?: string | null;
+  data?: string | null;
+  imageUrl?: string | null;
+  filename?: string | null;
+  name?: string | null;
+  filePath?: string | null;
+  galleryId?: string | null;
 }
 
 export interface StorageGateway {
@@ -64,7 +93,7 @@ export interface StorageGateway {
   create<T = unknown>(entity: StorageEntity, value: Record<string, unknown>): Promise<T>;
   update<T = unknown>(entity: StorageEntity, id: string, patch: Record<string, unknown>): Promise<T>;
   delete(entity: StorageEntity, id: string): Promise<{ deleted: boolean }>;
-  listChatMessages<T = unknown>(chatId: string, options?: Omit<StorageListOptions, "filters">): Promise<T[]>;
+  listChatMessages<T = unknown>(chatId: string, options?: ChatMessageListOptions): Promise<T[]>;
   createChatMessage<T = unknown>(chatId: string, value: Record<string, unknown>): Promise<T>;
   updateChatMessage<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
   updateChatMessageContentIfUnchanged?<T = unknown>(
@@ -75,6 +104,7 @@ export interface StorageGateway {
   ): Promise<{ updated: boolean; message?: T }>;
   deleteChatMessage(messageId: string): Promise<{ deleted: boolean }>;
   patchChatMessageExtra<T = unknown>(messageId: string, patch: Record<string, unknown>): Promise<T>;
+  resolveImageAttachmentDataUrl?(attachment: StorageImageAttachmentReference): Promise<string | null>;
   /**
    * Evict saved generation prompt snapshots from older assistant messages,
    * keeping only the most recent `keepLast` (default 2, matching v1.6.1). Bounds
@@ -90,7 +120,7 @@ export interface StorageGateway {
   ): Promise<T>;
   patchChatMetadata<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
   patchChatSummaries<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
-  listChatMemories<T = unknown>(chatId: string): Promise<T[]>;
+  listChatMemories<T = unknown>(chatId: string, options?: ListChatMemoriesOptions): Promise<T[]>;
   refreshChatMemories?<T = unknown>(chatId: string): Promise<T>;
   getWorldState<T = unknown>(chatId: string): Promise<T | null>;
   saveTrackerSnapshot<T = unknown>(chatId: string, snapshot: Record<string, unknown>): Promise<T>;

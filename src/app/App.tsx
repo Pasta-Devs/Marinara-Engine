@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import { AppShell } from "./shell/AppShell";
 import { ModalRenderer } from "./shell/ModalRenderer";
 import { CustomThemeInjector } from "./providers/CustomThemeInjector";
+import { CoreModuleRuntimeProvider } from "../features/shell/plugins/shell";
 import { AppDialogRenderer } from "../shared/components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "../shared/components/ui/ChibiProfessorMariEasterEgg";
 import { fontsApi } from "../shared/api/settings-assets-api";
@@ -123,6 +124,7 @@ export function App() {
 
   return (
     <>
+      <CoreModuleRuntimeProvider />
       <CustomThemeInjector />
       <AppShell />
       <ModalRenderer />

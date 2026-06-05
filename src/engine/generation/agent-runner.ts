@@ -3,7 +3,6 @@ import {
   BUILT_IN_AGENT_IDS,
   BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS,
   DEFAULT_AGENT_TOOLS,
-  getDefaultBuiltInAgentSettings,
   type AgentContext,
   type AgentResult,
 } from "../contracts/types/agent";
@@ -46,6 +45,13 @@ import {
 import { resolveGameLorebookScopeExclusions } from "../generation-core/lorebooks/game-lorebook-scope";
 import { resolveLorebookKeeperTarget } from "../generation-core/lorebooks/lorebook-keeper-target";
 import { applyAllSegmentEdits } from "../modes/game/state/segment-edits";
+import {
+  BUILT_IN_AGENT_TYPES,
+  buildBuiltInAgentFallback,
+  builtInAgentType,
+  canonicalAgentActiveIdSet,
+  isBuiltInAgent,
+} from "./built-in-agent-fallback";
 import { llmParameters } from "./context";
 import { loadAgentMemory, secretPlotStateFromMemory } from "./agent-memory-runtime";
 import {
@@ -129,7 +135,6 @@ interface ResolvedAgentsResult {
   staticInjections: AgentInjection[];
 }
 
-const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const DIRECTOR_AGENT_TYPE = "director";
 const ILLUSTRATOR_AGENT_TYPE = "illustrator";
 const CARD_EVOLUTION_AUDITOR_AGENT_TYPE = "card-evolution-auditor";
@@ -477,7 +482,7 @@ function chatHasActiveAgents(input: GenerationAgentRuntimeInput): boolean {
 }
 
 function chatActiveAgentIds(input: GenerationAgentRuntimeInput): Set<string> {
-  return stringSet(chatMetadata(input).activeAgentIds);
+  return canonicalAgentActiveIdSet(chatMetadata(input).activeAgentIds);
 }
 
 function chatActiveLorebookIds(input: GenerationAgentRuntimeInput): Set<string> {
@@ -741,40 +746,6 @@ function activationScanMessages(input: GenerationAgentRuntimeInput): ActivationS
   return promptVisibleStoredMessages(input)
     .filter((message) => !hiddenFromAi(message))
     .map((message) => ({ content: readString(message.content) }));
-}
-
-function isBuiltInAgent(agent: JsonRecord): boolean {
-  const type = readString(agent.type || agent.agentType).trim();
-  return BUILT_IN_AGENT_TYPES.has(type);
-}
-
-function builtInAgentType(agent: JsonRecord): string {
-  return readString(agent.type || agent.agentType).trim();
-}
-
-function builtInAgentMeta(type: string) {
-  return BUILT_IN_AGENTS.find((agent) => agent.id === type) ?? null;
-}
-
-function builtInAgentFallback(type: string): JsonRecord | null {
-  const meta = builtInAgentMeta(type);
-  if (!meta) return null;
-  if (!meta.enabledByDefault) return null;
-  const settings = {
-    ...getDefaultBuiltInAgentSettings(type),
-    enabledTools: DEFAULT_AGENT_TOOLS[type] ?? [],
-  };
-  return {
-    id: `builtin:${type}`,
-    type,
-    name: meta.name,
-    description: meta.description,
-    enabled: true,
-    phase: meta.phase,
-    connectionId: null,
-    promptTemplate: "",
-    settings,
-  };
 }
 
 function positiveInteger(value: unknown, fallback: number, max: number): number {
@@ -1057,7 +1028,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
     .filter((type) => !resolvedBuiltInTypes.has(type))
     .filter((type) => !configuredBuiltInTypes.has(type))
     .filter((type) => requestedAgentTypes || type !== "lorebook-keeper")
-    .map(builtInAgentFallback)
+    .map((type) => buildBuiltInAgentFallback(type, { allowDisabled: true }))
     .filter((agent): agent is JsonRecord => !!agent);
   rows.push(...fallbackRows);
   let customTools: Map<string, CustomToolRecord> | null = null;

@@ -3,14 +3,17 @@ import type { StorageGateway } from "../capabilities/storage";
 import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { llmParameters, loadChatMessages, requireRecord, resolveGenerationConnection } from "./context";
 import { assembleGenerationPrompt } from "./prompt-assembly";
+import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import { generationInfoFromVisibleParameters, providerVisibleLlmParameters } from "./provider-visible-parameters";
-import { parseRecord, readNumber, readString } from "./runtime-records";
+import { boolish, isRecord, parseRecord, readNumber, readString, type JsonRecord } from "./runtime-records";
+
+type PromptPreviewChoices = Record<string, string | string[]>;
 
 export interface PromptPreviewInput {
   chatId: string;
   connectionId?: string | null;
   presetId?: string | null;
-  choices?: Record<string, string> | null;
+  choices?: PromptPreviewChoices | null;
   forCharacterId?: string | null;
   parameters?: Record<string, unknown> | null;
   beforeMessageId?: string | null;
@@ -53,6 +56,49 @@ function promptPreviewMessageLoadOptions(
   return { limit: Math.max(40, Math.min(340, historyLimit + 20)) };
 }
 
+async function previewDefaultPromptId(storage: StorageGateway): Promise<string | null> {
+  const prompts = await storage.list<JsonRecord>("prompts").catch(() => []);
+  return (
+    prompts
+      .find((prompt) => boolish(prompt.isDefault ?? prompt.default, false))
+      ?.id?.toString()
+      .trim() || null
+  );
+}
+
+async function promptPresetExists(storage: StorageGateway, presetId: string): Promise<boolean> {
+  const full = await storage.promptFull?.<unknown>(presetId).catch(() => null);
+  if (isRecord(full) && isRecord(full.preset)) return true;
+  const direct = await storage.get("prompts", presetId).catch(() => null);
+  if (isRecord(direct)) return true;
+  const prompts = await storage.list<JsonRecord>("prompts").catch(() => []);
+  return prompts.some((prompt) => readString(prompt.id).trim() === presetId);
+}
+
+async function previewChoicesPromptPresetId(
+  storage: StorageGateway,
+  chat: JsonRecord,
+  connection: JsonRecord,
+  request: { promptPresetId?: string | null },
+): Promise<string | null> {
+  const mode = readString(chat.mode || chat.chatMode, "conversation");
+  const defaultPromptId = await previewDefaultPromptId(storage);
+  const candidates = buildGenerationPromptPresetCandidates({
+    chatMode: mode,
+    chatPromptPresetId: chat.promptPresetId,
+    connectionPromptPresetId: connection.promptPresetId,
+    requestPromptPresetId: request.promptPresetId,
+  }).map((candidate) => ({ id: candidate.id }));
+  if (mode !== "conversation" && defaultPromptId && !candidates.some((candidate) => candidate.id === defaultPromptId)) {
+    candidates.push({ id: defaultPromptId });
+  }
+
+  for (const candidate of candidates) {
+    if (await promptPresetExists(storage, candidate.id)) return candidate.id;
+  }
+  return null;
+}
+
 export async function previewGenerationPrompt(
   storage: StorageGateway,
   input: PromptPreviewInput,
@@ -72,16 +118,18 @@ export async function previewGenerationPrompt(
     parameters: input.parameters ?? null,
   };
   const chatMetadata = parseRecord(chat.metadata);
+  const choicesPromptPresetId = input.choices
+    ? await previewChoicesPromptPresetId(storage, chat, connection, request)
+    : null;
   const previewChat = {
     ...chat,
     ...(input.choices
       ? {
+          promptPresetId: choicesPromptPresetId,
           metadata: {
             ...chatMetadata,
             presetChoices: input.choices,
           },
-          promptVariables: input.choices,
-          variableValues: input.choices,
         }
       : {}),
   };

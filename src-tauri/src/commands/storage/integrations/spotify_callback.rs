@@ -1,5 +1,6 @@
 use super::super::*;
 use super::spotify::exchange;
+use super::spotify_query::parse_query;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -94,45 +95,6 @@ async fn handle_callback_request(state: &AppState, request: &str) -> Result<(), 
         .await
         .map(|_| ())
         .map_err(|error| error.message)
-}
-
-fn parse_query(query: &str) -> HashMap<String, String> {
-    query
-        .split('&')
-        .filter_map(|pair| {
-            let (key, value) = pair.split_once('=')?;
-            Some((key.to_string(), percent_decode_component(value)))
-        })
-        .collect()
-}
-
-fn percent_decode_component(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut output = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        match bytes[index] {
-            b'+' => {
-                output.push(b' ');
-                index += 1;
-            }
-            b'%' if index + 2 < bytes.len() => {
-                let hex = &value[index + 1..index + 3];
-                if let Ok(byte) = u8::from_str_radix(hex, 16) {
-                    output.push(byte);
-                    index += 3;
-                } else {
-                    output.push(bytes[index]);
-                    index += 1;
-                }
-            }
-            byte => {
-                output.push(byte);
-                index += 1;
-            }
-        }
-    }
-    String::from_utf8_lossy(&output).to_string()
 }
 
 fn html_escape(value: &str) -> String {

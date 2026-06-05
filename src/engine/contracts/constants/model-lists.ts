@@ -19,28 +19,37 @@ const OPENAI_MODELS: KnownModel[] = [
   // GPT-5.5
   { id: "gpt-5.5", name: "gpt-5.5", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.5-2026-04-23", name: "gpt-5.5-2026-04-23", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-5.5-pro", name: "gpt-5.5-pro", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-5.5-pro-2026-04-23", name: "gpt-5.5-pro-2026-04-23", context: 1050000, maxOutput: 128000 },
   // GPT-5.4
   { id: "gpt-5.4", name: "gpt-5.4", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.4-2026-03-05", name: "gpt-5.4-2026-03-05", context: 1050000, maxOutput: 128000 },
   // GPT-5.4 Pro (Responses API only)
   { id: "gpt-5.4-pro", name: "gpt-5.4-pro", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.4-pro-2026-03-05", name: "gpt-5.4-pro-2026-03-05", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-5.4-mini", name: "gpt-5.4-mini", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.4-mini-2026-03-17", name: "gpt-5.4-mini-2026-03-17", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.4-nano", name: "gpt-5.4-nano", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.4-nano-2026-03-17", name: "gpt-5.4-nano-2026-03-17", context: 400000, maxOutput: 128000 },
   // GPT-5.2
   { id: "gpt-5.2", name: "gpt-5.2", context: 1000000, maxOutput: 32768 },
   { id: "gpt-5.2-2025-12-11", name: "gpt-5.2-2025-12-11", context: 1000000, maxOutput: 32768 },
+  { id: "gpt-5.2-pro", name: "gpt-5.2-pro", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.2-pro-2025-12-11", name: "gpt-5.2-pro-2025-12-11", context: 400000, maxOutput: 128000 },
   { id: "gpt-5.2-chat-latest", name: "gpt-5.2-chat-latest", context: 1000000, maxOutput: 32768 },
   // GPT-5.1
   { id: "gpt-5.1", name: "gpt-5.1", context: 1000000, maxOutput: 32768 },
   { id: "gpt-5.1-2025-11-13", name: "gpt-5.1-2025-11-13", context: 1000000, maxOutput: 32768 },
   { id: "gpt-5.1-chat-latest", name: "gpt-5.1-chat-latest", context: 1000000, maxOutput: 32768 },
   // GPT-5
-  { id: "gpt-5", name: "gpt-5", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-2025-08-07", name: "gpt-5-2025-08-07", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-chat-latest", name: "gpt-5-chat-latest", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-mini", name: "gpt-5-mini", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-mini-2025-08-07", name: "gpt-5-mini-2025-08-07", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-nano", name: "gpt-5-nano", context: 1000000, maxOutput: 16384 },
-  { id: "gpt-5-nano-2025-08-07", name: "gpt-5-nano-2025-08-07", context: 1000000, maxOutput: 16384 },
+  { id: "gpt-5", name: "gpt-5", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-2025-08-07", name: "gpt-5-2025-08-07", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-chat-latest", name: "gpt-5-chat-latest", context: 128000, maxOutput: 16384 },
+  { id: "gpt-5-mini", name: "gpt-5-mini", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-mini-2025-08-07", name: "gpt-5-mini-2025-08-07", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-nano", name: "gpt-5-nano", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-nano-2025-08-07", name: "gpt-5-nano-2025-08-07", context: 400000, maxOutput: 128000 },
+  { id: "chat-latest", name: "chat-latest", context: 400000, maxOutput: 128000 },
   // GPT-4o
   { id: "gpt-4o", name: "gpt-4o", context: 128000, maxOutput: 16384 },
   { id: "gpt-4o-2024-11-20", name: "gpt-4o-2024-11-20", context: 128000, maxOutput: 16384 },
@@ -105,14 +114,14 @@ const OPENAI_MODELS: KnownModel[] = [
 const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-opus-4-8", name: "claude-opus-4-8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "claude-opus-4-7", context: 1000000, maxOutput: 128000 },
-  { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 32000 },
-  { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6", context: 1000000, maxOutput: 32000 },
+  { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 128000 },
+  { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6", context: 1000000, maxOutput: 64000 },
   { id: "claude-opus-4-5", name: "claude-opus-4-5", context: 1000000, maxOutput: 32000 },
   { id: "claude-opus-4-5-20251101", name: "claude-opus-4-5-20251101", context: 1000000, maxOutput: 32000 },
   { id: "claude-sonnet-4-5", name: "claude-sonnet-4-5", context: 1000000, maxOutput: 16000 },
   { id: "claude-sonnet-4-5-20250929", name: "claude-sonnet-4-5-20250929", context: 1000000, maxOutput: 16000 },
-  { id: "claude-haiku-4-5", name: "claude-haiku-4-5", context: 200000, maxOutput: 8192 },
-  { id: "claude-haiku-4-5-20251001", name: "claude-haiku-4-5-20251001", context: 200000, maxOutput: 8192 },
+  { id: "claude-haiku-4-5", name: "claude-haiku-4-5", context: 200000, maxOutput: 64000 },
+  { id: "claude-haiku-4-5-20251001", name: "claude-haiku-4-5-20251001", context: 200000, maxOutput: 64000 },
   { id: "claude-opus-4-1", name: "claude-opus-4-1", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-1-20250805", name: "claude-opus-4-1-20250805", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-0", name: "claude-opus-4-0", context: 200000, maxOutput: 32000 },
@@ -148,9 +157,12 @@ const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
 
 // ── OpenAI (ChatGPT login via local Codex auth) ──
 const OPENAI_CHATGPT_MODELS: KnownModel[] = [
-  { id: "gpt-5.2", name: "GPT-5.2", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5.1", name: "GPT-5.1", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5", name: "GPT-5", context: 1000000, maxOutput: 32768 },
+  { id: "chat-latest", name: "Chat Latest", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.3", name: "GPT-5.3", context: 128000, maxOutput: 16384 },
+  { id: "gpt-5.3-chat-latest", name: "GPT-5.3 Chat Latest", context: 128000, maxOutput: 16384 },
+  { id: "gpt-5.2", name: "GPT-5.2", context: 128000, maxOutput: 16384 },
+  { id: "gpt-5.1", name: "GPT-5.1", context: 128000, maxOutput: 16384 },
+  { id: "gpt-5", name: "GPT-5", context: 128000, maxOutput: 16384 },
   { id: "gpt-5.3-codex", name: "GPT-5.3 Codex", context: 400000, maxOutput: 128000 },
   { id: "gpt-5.2-codex", name: "GPT-5.2 Codex", context: 400000, maxOutput: 128000 },
   { id: "gpt-5.1-codex", name: "GPT-5.1 Codex", context: 400000, maxOutput: 128000 },
@@ -166,10 +178,17 @@ const GOOGLE_MODELS: KnownModel[] = [
   { id: "gemini-3.5-flash", name: "gemini-3.5-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.1
   { id: "gemini-3.1-pro-preview", name: "gemini-3.1-pro-preview", context: 1000000, maxOutput: 65536 },
-  { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 65535, maxOutput: 8192 },
+  {
+    id: "gemini-3.1-pro-preview-customtools",
+    name: "gemini-3.1-pro-preview-customtools",
+    context: 1000000,
+    maxOutput: 65536,
+  },
+  { id: "gemini-3.1-flash-lite", name: "gemini-3.1-flash-lite", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 128000, maxOutput: 32768 },
   // Gemini 3.0
   { id: "gemini-3-pro-preview", name: "gemini-3-pro-preview", context: 1000000, maxOutput: 65536 },
-  { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65535, maxOutput: 8192 },
+  { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65536, maxOutput: 32768 },
   { id: "gemini-3-flash-preview", name: "gemini-3-flash-preview", context: 1000000, maxOutput: 65536 },
   // Gemini 2.5
   { id: "gemini-2.5-pro", name: "gemini-2.5-pro", context: 1000000, maxOutput: 65536 },
@@ -263,32 +282,45 @@ const GOOGLE_MODELS: KnownModel[] = [
   { id: "gemini-robotics-er-1.5-preview", name: "gemini-robotics-er-1.5-preview", context: 1000000, maxOutput: 8192 },
 ];
 
-// ── MistralAI (loaded dynamically from API in SillyTavern — no static list) ──
+// ── MistralAI (loaded dynamically from API when available) ──
 
-const MISTRAL_MODELS: KnownModel[] = [];
+const MISTRAL_MODELS: KnownModel[] = [
+  { id: "mistral-medium-3-5", name: "mistral-medium-3-5", context: 256000, maxOutput: 8192 },
+  { id: "mistral-medium-latest", name: "mistral-medium-latest", context: 256000, maxOutput: 8192 },
+  { id: "mistral-small-latest", name: "mistral-small-latest", context: 256000, maxOutput: 8192 },
+  { id: "mistral-small-2603", name: "mistral-small-2603", context: 256000, maxOutput: 8192 },
+  { id: "mistral-large-latest", name: "mistral-large-latest", context: 256000, maxOutput: 8192 },
+  { id: "mistral-large-2512", name: "mistral-large-2512", context: 256000, maxOutput: 8192 },
+  { id: "mistral-medium-2508", name: "mistral-medium-2508", context: 256000, maxOutput: 8192 },
+  { id: "ministral-14b-2512", name: "ministral-14b-2512", context: 256000, maxOutput: 8192 },
+  { id: "ministral-8b-2512", name: "ministral-8b-2512", context: 256000, maxOutput: 8192 },
+  { id: "ministral-3b-2512", name: "ministral-3b-2512", context: 256000, maxOutput: 8192 },
+  { id: "magistral-medium-latest", name: "magistral-medium-latest", context: 128000, maxOutput: 8192 },
+  { id: "magistral-medium-2509", name: "magistral-medium-2509", context: 128000, maxOutput: 8192 },
+  { id: "magistral-small-latest", name: "magistral-small-latest", context: 128000, maxOutput: 8192 },
+  { id: "magistral-small-2509", name: "magistral-small-2509", context: 128000, maxOutput: 8192 },
+  { id: "codestral-latest", name: "codestral-latest", context: 128000, maxOutput: 8192 },
+  { id: "codestral-2508", name: "codestral-2508", context: 128000, maxOutput: 8192 },
+  { id: "devstral-2512", name: "devstral-2512", context: 256000, maxOutput: 8192 },
+];
 
-// ── Cohere (from #model_cohere_select) ──
+// ── Cohere (loaded dynamically from API when available) ──
 
 const COHERE_MODELS: KnownModel[] = [
-  // Stable
-  { id: "c4ai-aya-23-8b", name: "c4ai-aya-23-8b", context: 8192, maxOutput: 4096 },
-  { id: "c4ai-aya-23", name: "c4ai-aya-23", context: 8192, maxOutput: 4096 },
-  { id: "c4ai-aya-expanse-8b", name: "c4ai-aya-expanse-8b", context: 8192, maxOutput: 4096 },
-  { id: "c4ai-aya-expanse-32b", name: "c4ai-aya-expanse-32b", context: 128000, maxOutput: 4096 },
-  { id: "c4ai-aya-vision-8b", name: "c4ai-aya-vision-8b", context: 8192, maxOutput: 4096 },
-  { id: "c4ai-aya-vision-32b", name: "c4ai-aya-vision-32b", context: 128000, maxOutput: 4096 },
-  { id: "command-light", name: "command-light", context: 4096, maxOutput: 4096 },
-  { id: "command", name: "command", context: 4096, maxOutput: 4096 },
-  { id: "command-r", name: "command-r", context: 128000, maxOutput: 4096 },
-  { id: "command-r-plus", name: "command-r-plus", context: 128000, maxOutput: 4096 },
+  { id: "command-a-plus-05-2026", name: "command-a-plus-05-2026", context: 128000, maxOutput: 64000 },
+  { id: "command-a-03-2025", name: "command-a-03-2025", context: 256000, maxOutput: 8192 },
+  { id: "command-a-reasoning-08-2025", name: "command-a-reasoning-08-2025", context: 256000, maxOutput: 32000 },
+  { id: "command-a-vision-07-2025", name: "command-a-vision-07-2025", context: 128000, maxOutput: 8192 },
+  { id: "command-a-translate-08-2025", name: "command-a-translate-08-2025", context: 8192, maxOutput: 8192 },
+  { id: "command-r7b-12-2024", name: "command-r7b-12-2024", context: 128000, maxOutput: 4096 },
   { id: "command-r-08-2024", name: "command-r-08-2024", context: 128000, maxOutput: 4096 },
   { id: "command-r-plus-08-2024", name: "command-r-plus-08-2024", context: 128000, maxOutput: 4096 },
-  { id: "command-r7b-12-2024", name: "command-r7b-12-2024", context: 128000, maxOutput: 4096 },
-  { id: "command-a-03-2025", name: "command-a-03-2025", context: 256000, maxOutput: 8192 },
-  { id: "command-a-vision-07-2025", name: "command-a-vision-07-2025", context: 256000, maxOutput: 8192 },
-  // Nightly
-  { id: "command-light-nightly", name: "command-light-nightly", context: 4096, maxOutput: 4096 },
-  { id: "command-nightly", name: "command-nightly", context: 128000, maxOutput: 4096 },
+  { id: "tiny-aya-global", name: "tiny-aya-global", context: 8192, maxOutput: 8192 },
+  { id: "tiny-aya-earth", name: "tiny-aya-earth", context: 8192, maxOutput: 8192 },
+  { id: "tiny-aya-fire", name: "tiny-aya-fire", context: 8192, maxOutput: 8192 },
+  { id: "tiny-aya-water", name: "tiny-aya-water", context: 8192, maxOutput: 8192 },
+  { id: "c4ai-aya-expanse-32b", name: "c4ai-aya-expanse-32b", context: 128000, maxOutput: 4096 },
+  { id: "c4ai-aya-vision-32b", name: "c4ai-aya-vision-32b", context: 16000, maxOutput: 4096 },
 ];
 
 // ── OpenRouter (loaded dynamically from API in SillyTavern — no static list) ──
@@ -300,6 +332,8 @@ const OPENROUTER_MODELS: KnownModel[] = [];
 const XAI_MODELS: KnownModel[] = [
   // Official xAI docs recommend Grok 4.3 for standard chat API usage.
   { id: "grok-4.3", name: "Grok 4.3", context: 1000000, maxOutput: 0 },
+  // Fast coding model for agentic coding workflows.
+  { id: "grok-build-0.1", name: "Grok Build 0.1", context: 256000, maxOutput: 0 },
   // Reasoning docs mention this model as auto-reasoning without configurable effort.
   { id: "grok-4-1-fast", name: "Grok 4.1 Fast", context: 2000000, maxOutput: 0 },
   // Multi-agent research model; uses Responses API and reasoning.effort for 4 vs 16 agents.

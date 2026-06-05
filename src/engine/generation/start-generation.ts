@@ -1,9 +1,4 @@
-import {
-  BUILT_IN_AGENTS,
-  BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS,
-  type AgentContext,
-  type AgentResult,
-} from "../contracts/types/agent";
+import { BUILT_IN_AGENTS, BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS, type AgentResult } from "../contracts/types/agent";
 import type { GenerationPromptSnapshot, GenerationPromptSnapshotMessage } from "../contracts/types/chat";
 import type { GameState } from "../contracts/types/game-state";
 import type { EventGateway } from "../capabilities/events";
@@ -11,7 +6,7 @@ import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway, LlmMessage } from "../capabilities/llm";
 import type { AddChatMessageSwipeOptions, StorageGateway } from "../capabilities/storage";
 import type { SpriteOwnerType, VisualAssetGateway } from "../capabilities/visual-assets";
-import { buildProseGuardianAvoidanceGuide, type GenerationGuideSource } from "../shared/text/generation-guide";
+import { buildProseGuardianAvoidanceGuide } from "../shared/text/generation-guide";
 import { chatSummaryFingerprintMatches, fingerprintChatSummary } from "../shared/text/chat-summary-fingerprint";
 import { collapseExcessBlankLines } from "../shared/text/newlines";
 import { buildImpersonateInstruction } from "../modes/chat/commands/impersonate-prompt";
@@ -24,6 +19,7 @@ import {
 } from "./active-characters";
 import { persistSecretPlotAgentMemory, type SecretPlotRerollMode } from "./agent-memory-runtime";
 import { createGenerationAgentRuntime } from "./agent-runner";
+import { buildBuiltInAgentFallback, canonicalAgentActiveIdSet } from "./built-in-agent-fallback";
 import { consumePendingConnectedInfluences, persistConnectedCommandTags } from "./connected-commands";
 import { fitMessagesToContextWindow } from "./context-window";
 import type { LLMToolCall } from "../generation-core/llm/base-provider";
@@ -44,7 +40,6 @@ import {
 } from "./context";
 import {
   appendReadableAttachmentsToContent,
-  extractImageAttachmentDataUrls,
   getAttachmentFilename,
   resolveRegenerationGameStateAnchor,
   resolveRegenerationGameStateFallbackMessageIds,
@@ -52,6 +47,13 @@ import {
   shouldPreferLatestVisibleGameState,
   type PromptAttachment,
 } from "./generate-route-utils";
+import {
+  deletePreparedManagedImageAttachments,
+  isImageAttachment,
+  prepareManagedImageAttachmentBatch,
+  resolveImageAttachmentDataUrls,
+  type PreparedManagedImageAttachments,
+} from "../shared/attachments/image-attachments";
 import type { GenerationEvent } from "./generation-events";
 import {
   applyGenerationReplayToRegenerateInput,
@@ -64,6 +66,11 @@ import { assembleGenerationPrompt, chatSummaryForGeneration } from "./prompt-ass
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
 import { generationInfoFromVisibleParameters, providerVisibleLlmParameters } from "./provider-visible-parameters";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
+import {
+  normalizeStartGenerationInput,
+  type AgentInjectionOverride,
+  type StartGenerationInput,
+} from "./start-generation-input";
 import {
   validateSpriteExpressionEntries,
   type AvailableSpriteCharacter,
@@ -88,43 +95,10 @@ import {
   resolveVisibleGameStateFallbackMessageIds,
   selectTrackerSnapshotForGeneration,
   trackerSnapshotTargetFromMessage,
+  type TrackerSnapshotSavedHook,
 } from "./tracker-snapshots";
 
-export interface StartGenerationInput extends JsonRecord {
-  chatId: string;
-  connectionId?: string | null;
-  message?: string;
-  userMessage?: string | null;
-  messages?: Array<{ role: "system" | "user" | "assistant"; content: string }>;
-  parameters?: Record<string, unknown>;
-  promptPresetId?: string | null;
-  generationGuide?: string | null;
-  generationGuideSource?: GenerationGuideSource | null;
-  regenerateMessageId?: string | null;
-  impersonate?: boolean;
-  impersonateBlockAgents?: boolean;
-  impersonatePresetId?: string | null;
-  impersonateConnectionId?: string | null;
-  impersonatePromptTemplate?: string | null;
-  forCharacterId?: string | null;
-  mentionedCharacterNames?: string[];
-  attachments?: PromptAttachment[];
-  /**
-   * IANA timezone resolved on the client (e.g. via
-   * `Intl.DateTimeFormat().resolvedOptions().timeZone`). When set, prompt-time
-   * macros like {{date}} and {{time}} resolve in this zone instead of UTC.
-   * A persisted per-chat `metadata.promptTimeZone` takes precedence.
-   */
-  userTimeZone?: string;
-  imagePromptSettings?: {
-    includeAppearances?: boolean;
-    format?: "descriptive" | "tags";
-  };
-  debugMode?: boolean;
-  debugSink?: AgentContext["debugSink"];
-  hideAutomatedSummarySourceMessages?: boolean;
-  agentInjectionOverrides?: AgentInjectionOverride[];
-}
+export type { StartGenerationInput } from "./start-generation-input";
 
 export interface GenerationEngineDeps {
   storage: StorageGateway;
@@ -132,6 +106,7 @@ export interface GenerationEngineDeps {
   integrations: IntegrationGateway;
   visuals?: VisualAssetGateway;
   events?: EventGateway;
+  onTrackerSnapshotSaved?: TrackerSnapshotSavedHook;
 }
 
 export interface RetryAgentsInput extends JsonRecord {
@@ -146,14 +121,9 @@ export interface RetryAgentsInput extends JsonRecord {
 interface PreparedUserInput {
   content: string;
   attachments: PromptAttachment[];
+  preparedAttachments: PreparedManagedImageAttachments;
   images: string[];
   mentionedCharacterNames: string[];
-}
-
-interface AgentInjectionOverride {
-  agentType: string;
-  agentName?: string;
-  text: string;
 }
 
 interface CyoaChoice {
@@ -271,9 +241,7 @@ function assertChatCanGenerate(chat: JsonRecord, input?: { forCharacterId?: unkn
 }
 
 function imageAttachmentNotes(attachments: PromptAttachment[]): string {
-  const names = attachments
-    .filter((attachment) => readString(attachment.type).toLowerCase().startsWith("image/"))
-    .map(getAttachmentFilename);
+  const names = attachments.filter(isImageAttachment).map(getAttachmentFilename);
   if (names.length === 0) return "";
   return names.map((name) => `[Attached image: ${name}]`).join("\n");
 }
@@ -281,19 +249,47 @@ function imageAttachmentNotes(attachments: PromptAttachment[]): string {
 async function prepareUserInput(storage: StorageGateway, input: StartGenerationInput): Promise<PreparedUserInput> {
   const raw = inputUserMessage(input).trim();
   const attachments = inputAttachments(input);
-  const images = extractImageAttachmentDataUrls(attachments);
-  const mentionedCharacterNames = stringArray(input.mentionedCharacterNames).filter((name) => name.trim().length > 0);
-  const regexed = raw ? await applyRuntimeRegexScripts(storage, "user_input", raw) : "";
-  const withReadableAttachments = appendReadableAttachmentsToContent(regexed, attachments);
-  const imageNotes = imageAttachmentNotes(attachments);
-  return {
-    content: collapseExcessBlankLines(
-      [withReadableAttachments, imageNotes].filter((part) => part.trim().length > 0).join("\n\n"),
-    ),
-    attachments,
-    images,
-    mentionedCharacterNames,
-  };
+  const images = await resolveImageAttachmentDataUrls(storage, attachments);
+  const preparedAttachments = await prepareManagedImageAttachmentBatch(storage, input.chatId, attachments);
+  try {
+    const managedAttachments = preparedAttachments.attachments;
+    const mentionedCharacterNames = stringArray(input.mentionedCharacterNames).filter((name) => name.trim().length > 0);
+    const regexed = raw ? await applyRuntimeRegexScripts(storage, "user_input", raw) : "";
+    const withReadableAttachments = appendReadableAttachmentsToContent(regexed, managedAttachments);
+    const imageNotes = imageAttachmentNotes(managedAttachments);
+    return {
+      content: collapseExcessBlankLines(
+        [withReadableAttachments, imageNotes].filter((part) => part.trim().length > 0).join("\n\n"),
+      ),
+      attachments: managedAttachments,
+      preparedAttachments,
+      images,
+      mentionedCharacterNames,
+    };
+  } catch (error) {
+    if (preparedAttachments.createdGalleryIds.length > 0) {
+      await deletePreparedManagedImageAttachments(storage, preparedAttachments).catch((rollbackError) => {
+        console.warn(
+          "[generation] Failed to roll back prepared image attachments after input preparation failure",
+          rollbackError,
+        );
+      });
+    }
+    throw error;
+  }
+}
+
+async function deletePreparedUserInputAttachmentsSafely(
+  storage: StorageGateway,
+  prepared: PreparedUserInput,
+  reason: string,
+): Promise<void> {
+  if (prepared.preparedAttachments.createdGalleryIds.length === 0) return;
+  try {
+    await deletePreparedManagedImageAttachments(storage, prepared.preparedAttachments);
+  } catch (error) {
+    console.warn(`[generation] Failed to roll back prepared image attachments after ${reason}`, error);
+  }
 }
 
 function shouldSaveUserMessage(
@@ -302,7 +298,11 @@ function shouldSaveUserMessage(
   internalOptions: InternalStartGenerationOptions = {},
 ): boolean {
   if (internalOptions.skipUserMessageSave === true) return false;
-  return !!prepared.content.trim() && input.impersonate !== true && !readString(input.regenerateMessageId).trim();
+  return (
+    (!!prepared.content.trim() || prepared.attachments.length > 0) &&
+    input.impersonate !== true &&
+    !readString(input.regenerateMessageId).trim()
+  );
 }
 
 async function saveUserMessage(
@@ -1674,11 +1674,16 @@ async function persistTrackerSnapshotSafely(
   results: AgentResult[],
   baseSnapshot?: GameState | null,
   sourceText?: string | null,
+  onSavedSnapshot?: TrackerSnapshotSavedHook,
 ): Promise<void> {
   const target = trackerSnapshotTargetFromMessage(targetMessage);
   if (!target) return;
   try {
-    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot, sourceText });
+    await persistTrackerSnapshotForTurn(storage, chatId, target, results, {
+      baseSnapshot,
+      sourceText,
+      onSavedSnapshot,
+    });
   } catch (error) {
     console.warn("[generation] tracker snapshot persist failed", error);
   }
@@ -1863,6 +1868,37 @@ function assertVisibleGeneratedContent(content: string, attachments?: JsonRecord
   throw new Error(
     "Generation produced no visible assistant response. Your message was kept; retry or adjust the provider.",
   );
+}
+
+const COMPLETE_OUTPUT_END_RE = /[.!?…。！？]["'”’)\]}»›]*$/;
+const COMPLETE_SENTENCE_RE = /[.!?…。！？](?:["'”’)\]}»›]+)?(?=\s|$)/g;
+
+function trimIncompleteModelEnding(content: string): string {
+  const trailingWhitespace = content.match(/\s*$/)?.[0] ?? "";
+  const body = content.trimEnd();
+  if (!body || COMPLETE_OUTPUT_END_RE.test(body)) return content;
+
+  let lastCompleteEnd = -1;
+  for (const match of body.matchAll(COMPLETE_SENTENCE_RE)) {
+    lastCompleteEnd = (match.index ?? 0) + match[0].length;
+  }
+  if (lastCompleteEnd <= 0) return content;
+
+  const tail = body.slice(lastCompleteEnd).trim();
+  if (!tail) return content;
+
+  const tailWithoutCommands = tail
+    .replace(/\[[^\]]+\]/g, "")
+    .replace(/<\/?[a-z][^>]*>/gi, "")
+    .trim();
+  if (!tailWithoutCommands) return content;
+
+  return body.slice(0, lastCompleteEnd).trimEnd() + trailingWhitespace;
+}
+
+function finalAssistantContent(input: StartGenerationInput, content: string): string {
+  if (input.trimIncompleteModelOutput !== true || input.impersonate === true) return content;
+  return trimIncompleteModelEnding(content);
 }
 
 function normalizeCyoaChoices(value: unknown): CyoaChoice[] {
@@ -2298,11 +2334,7 @@ function lorebookKeeperRunInterval(agent: JsonRecord | null): number {
 }
 
 function chatActiveAgentIds(chat: JsonRecord): Set<string> {
-  return new Set(
-    stringArray(parseRecord(chat.metadata).activeAgentIds)
-      .map((id) => id.trim())
-      .filter(Boolean),
-  );
+  return canonicalAgentActiveIdSet(parseRecord(chat.metadata).activeAgentIds);
 }
 
 function chatHasLorebookKeeperEnabled(chat: JsonRecord, agent: JsonRecord): boolean {
@@ -2317,7 +2349,13 @@ function chatHasLorebookKeeperEnabled(chat: JsonRecord, agent: JsonRecord): bool
 
 async function lorebookKeeperAgent(storage: StorageGateway, chat: JsonRecord): Promise<JsonRecord | null> {
   const agents = await storage.list<JsonRecord>("agents").catch(() => []);
-  return agents.find((agent) => chatHasLorebookKeeperEnabled(chat, agent)) ?? null;
+  const persisted = agents.find((agent) => chatHasLorebookKeeperEnabled(chat, agent)) ?? null;
+  if (persisted) return persisted;
+  const activeAgentIds = chatActiveAgentIds(chat);
+  if (activeAgentIds.has(LOREBOOK_KEEPER_AGENT_TYPE)) {
+    return buildBuiltInAgentFallback(LOREBOOK_KEEPER_AGENT_TYPE, { allowDisabled: true });
+  }
+  return null;
 }
 
 async function successfulLorebookKeeperMessageIds(storage: StorageGateway, chatId: string): Promise<Set<string>> {
@@ -2505,7 +2543,15 @@ async function runGenerationAgentsForTarget(args: {
     runtime.availableSprites,
   );
   if (target) {
-    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline, mainResponse);
+    await persistTrackerSnapshotSafely(
+      deps.storage,
+      chatId,
+      target,
+      finalResults,
+      retryBaseline,
+      mainResponse,
+      deps.onTrackerSnapshotSaved,
+    );
   }
   await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults, {
     rerollMode: secretPlotRerollMode(input),
@@ -2629,29 +2675,40 @@ export async function* startGeneration(
   input: StartGenerationInput,
   signal?: AbortSignal,
 ): AsyncGenerator<GenerationEvent> {
+  const internalOptions = internalStartGenerationOptions.get(input) ?? {};
+  input = normalizeStartGenerationInput(input);
   const chatId = readString(input.chatId).trim();
   if (!chatId) throw new Error("chatId is required");
   throwIfAborted(signal);
   const chat = requireRecord(await deps.storage.get("chats", chatId), "Chat");
   throwIfAborted(signal);
-  const internalOptions = internalStartGenerationOptions.get(input) ?? {};
   input = await inputWithStoredGenerationReplay(deps.storage, chat, chatId, input);
   throwIfAborted(signal);
   assertChatCanGenerate(chat, input);
 
   yield { type: "phase", data: "Saving message..." };
   const preparedUserInput = await prepareUserInput(deps.storage, input);
-  throwIfAborted(signal);
-  const savesUserMessage = shouldSaveUserMessage(input, preparedUserInput, internalOptions);
-  const messageLoadOptions = generationMessageLoadOptions(chat, input);
+  let savesUserMessage = false;
+  let savedUserMessage: unknown | null = null;
   let storedMessages: JsonRecord[] | null = null;
-  if (savesUserMessage) {
-    storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
+  const messageLoadOptions = generationMessageLoadOptions(chat, input);
+  try {
     throwIfAborted(signal);
-    await commitVisibleTrackerSnapshotSafely(deps.storage, chatId, storedMessages);
-    throwIfAborted(signal);
+    savesUserMessage = shouldSaveUserMessage(input, preparedUserInput, internalOptions);
+    if (!savesUserMessage) {
+      await deletePreparedUserInputAttachmentsSafely(deps.storage, preparedUserInput, "non-persisted generation setup");
+    }
+    if (savesUserMessage) {
+      storedMessages = await loadChatMessages(deps.storage, chatId, messageLoadOptions);
+      throwIfAborted(signal);
+      await commitVisibleTrackerSnapshotSafely(deps.storage, chatId, storedMessages);
+      throwIfAborted(signal);
+    }
+    savedUserMessage = await saveUserMessage(deps.storage, chat, input, preparedUserInput, internalOptions);
+  } catch (error) {
+    await deletePreparedUserInputAttachmentsSafely(deps.storage, preparedUserInput, "failed user message save");
+    throw error;
   }
-  const savedUserMessage = await saveUserMessage(deps.storage, chat, input, preparedUserInput, internalOptions);
   throwIfAborted(signal);
   if (savedUserMessage) yield { type: "user_message", data: savedGenerationEventData(savedUserMessage) };
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
@@ -2918,6 +2975,10 @@ export async function* startGeneration(
     );
     throwIfAborted(signal);
     for (const event of connected.events) yield event;
+    const displayContent = finalAssistantContent(input, connected.displayContent);
+    if (displayContent !== connected.displayContent) {
+      yield { type: "content_replace", data: displayContent };
+    }
     const saved = connected.suppressAssistantMessage
       ? null
       : await saveAssistantMessage({
@@ -2925,7 +2986,7 @@ export async function* startGeneration(
           chat,
           input,
           connection,
-          content: connected.displayContent,
+          content: displayContent,
           thinking: streamedThinking,
           agentResults: preSaveAgentResults,
           noteCount: connected.createdNotes.length + connected.executedCommands.length,
@@ -2953,7 +3014,7 @@ export async function* startGeneration(
         chat,
         input,
         saved,
-        content: connected.displayContent,
+        content: displayContent,
         characters: assembly.characters,
       });
     }
@@ -3018,6 +3079,7 @@ export async function* startGeneration(
         allAgentResults,
         generationTrackerBaseline,
         readString(parseRecord(latestSaved).content),
+        deps.onTrackerSnapshotSaved,
       );
     }
     throwIfAborted(signal);
@@ -3116,6 +3178,10 @@ export async function* startGeneration(
   );
   throwIfAborted(signal);
   for (const event of connected.events) yield event;
+  const displayContentDirect = finalAssistantContent(input, connected.displayContent);
+  if (displayContentDirect !== connected.displayContent) {
+    yield { type: "content_replace", data: displayContentDirect };
+  }
   const saved = connected.suppressAssistantMessage
     ? null
     : await saveAssistantMessage({
@@ -3123,7 +3189,7 @@ export async function* startGeneration(
         chat,
         input,
         connection,
-        content: connected.displayContent,
+        content: displayContentDirect,
         thinking: streamedThinkingDirect,
         agentResults: [],
         noteCount: connected.createdNotes.length + connected.executedCommands.length,
@@ -3148,7 +3214,7 @@ export async function* startGeneration(
       chat,
       input,
       saved,
-      content: connected.displayContent,
+      content: displayContentDirect,
       characters: assembly.characters,
     });
   }
@@ -3347,8 +3413,11 @@ async function* streamMainGenerationLoop(args: {
       ? fitMessagesToContextWindow(previewMessages, parameters)
       : null;
     const requestParameters = runtimeLlmParameters(connection, input, chat, parameters);
-    const visibleRequestParameters = providerVisibleLlmParameters(connection, requestParameters, { stream: true });
     const requestTools = mainTools?.toolDefs;
+    const visibleRequestParameters = providerVisibleLlmParameters(connection, requestParameters, {
+      stream: true,
+      hasTools: Boolean(requestTools?.length),
+    });
     promptSnapshot = {
       messages: requestMessages.map(clonePromptMessage),
       ...(requestPreviewMessages?.length ? { previewMessages: requestPreviewMessages.map(clonePromptMessage) } : {}),

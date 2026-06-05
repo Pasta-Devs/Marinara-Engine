@@ -77,7 +77,7 @@ describe("remote runtime cache policy", () => {
     await checkRemoteRuntimeHealth("http://runtime.example");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://runtime.example/health",
+      "http://runtime.example/health?probe=1",
       expect.objectContaining({ cache: "no-store", method: "GET" }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
