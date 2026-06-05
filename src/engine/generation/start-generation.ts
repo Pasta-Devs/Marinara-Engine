@@ -2586,10 +2586,10 @@ async function runLorebookKeeperBackfill(
     storedMessages?: JsonRecord[];
     signal?: AbortSignal;
   },
-): Promise<AgentResult[]> {
+): Promise<{ results: AgentResult[]; events: GenerationEvent[] }> {
   const chatId = readString(input.chatId).trim();
   const agent = await lorebookKeeperAgent(deps.storage, args.chat);
-  if (!agent) return [];
+  if (!agent) return { results: [], events: [] };
 
   const storedMessages =
     args.storedMessages ??
@@ -2606,6 +2606,7 @@ async function runLorebookKeeperBackfill(
   });
   const agentTypes = new Set([LOREBOOK_KEEPER_AGENT_TYPE]);
   const allResults: AgentResult[] = [];
+  const allEvents: GenerationEvent[] = [];
 
   for (const target of targets) {
     const targetMessages = await loadMessagesForGenerationTarget({
@@ -2619,23 +2620,21 @@ async function runLorebookKeeperBackfill(
       targetMessages.find((message) => readString(message.id).trim() === readString(target.message.id).trim()) ??
       target.message;
     if (!readString(hydratedTarget.content).trim()) continue;
-    allResults.push(
-      ...(
-        await runGenerationAgentsForTarget({
-          deps,
-          input,
-          chat: args.chat,
-          connection: args.connection,
-          storedMessages: targetMessages,
-          target: hydratedTarget,
-          agentTypes,
-          signal: args.signal,
-        })
-      ).results,
-    );
+    const run = await runGenerationAgentsForTarget({
+      deps,
+      input,
+      chat: args.chat,
+      connection: args.connection,
+      storedMessages: targetMessages,
+      target: hydratedTarget,
+      agentTypes,
+      signal: args.signal,
+    });
+    allResults.push(...run.results);
+    allEvents.push(...run.events);
   }
 
-  return allResults;
+  return { results: allResults, events: allEvents };
 }
 
 export async function retryGenerationAgents(
@@ -2652,10 +2651,7 @@ export async function retryGenerationAgents(
   assertChatCanGenerate(chat);
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   if (isLorebookKeeperBackfill(input)) {
-    return {
-      results: await runLorebookKeeperBackfill(deps, input, { chat, connection, signal }),
-      events: [],
-    };
+    return runLorebookKeeperBackfill(deps, input, { chat, connection, signal });
   }
   const targetMessageId = readString(input.options?.forMessageId).trim();
   const storedMessages = await loadMessagesForGenerationTarget({
@@ -3090,7 +3086,7 @@ export async function* startGeneration(
     await persistAgentResults(deps.storage, chatId, messageId(latestSaved), allAgentResults);
     throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
-      const autoLorebookResults = await runLorebookKeeperBackfill(
+      const autoLorebookBackfill = await runLorebookKeeperBackfill(
         deps,
         {
           chatId,
@@ -3100,7 +3096,10 @@ export async function* startGeneration(
         },
         { chat, connection, signal },
       );
-      for (const result of autoLorebookResults) {
+      for (const event of autoLorebookBackfill.events) {
+        yield event;
+      }
+      for (const result of autoLorebookBackfill.results) {
         yield { type: "agent_result", data: result };
       }
     }
@@ -3226,7 +3225,7 @@ export async function* startGeneration(
   }
   throwIfAborted(signal);
   if (saved && input.impersonate !== true) {
-    const autoLorebookResults = await runLorebookKeeperBackfill(
+    const autoLorebookBackfill = await runLorebookKeeperBackfill(
       deps,
       {
         chatId,
@@ -3236,7 +3235,10 @@ export async function* startGeneration(
       },
       { chat, connection, signal },
     );
-    for (const result of autoLorebookResults) {
+    for (const event of autoLorebookBackfill.events) {
+      yield event;
+    }
+    for (const result of autoLorebookBackfill.results) {
       yield { type: "agent_result", data: result };
     }
   }
