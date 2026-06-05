@@ -95,6 +95,7 @@ import {
   resolveVisibleGameStateFallbackMessageIds,
   selectTrackerSnapshotForGeneration,
   trackerSnapshotTargetFromMessage,
+  type TrackerSnapshotSavedHook,
 } from "./tracker-snapshots";
 
 export type { StartGenerationInput } from "./start-generation-input";
@@ -105,6 +106,7 @@ export interface GenerationEngineDeps {
   integrations: IntegrationGateway;
   visuals?: VisualAssetGateway;
   events?: EventGateway;
+  onTrackerSnapshotSaved?: TrackerSnapshotSavedHook;
 }
 
 export interface RetryAgentsInput extends JsonRecord {
@@ -1671,11 +1673,16 @@ async function persistTrackerSnapshotSafely(
   results: AgentResult[],
   baseSnapshot?: GameState | null,
   sourceText?: string | null,
+  onSavedSnapshot?: TrackerSnapshotSavedHook,
 ): Promise<void> {
   const target = trackerSnapshotTargetFromMessage(targetMessage);
   if (!target) return;
   try {
-    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot, sourceText });
+    await persistTrackerSnapshotForTurn(storage, chatId, target, results, {
+      baseSnapshot,
+      sourceText,
+      onSavedSnapshot,
+    });
   } catch (error) {
     console.warn("[generation] tracker snapshot persist failed", error);
   }
@@ -2535,7 +2542,15 @@ async function runGenerationAgentsForTarget(args: {
     runtime.availableSprites,
   );
   if (target) {
-    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline, mainResponse);
+    await persistTrackerSnapshotSafely(
+      deps.storage,
+      chatId,
+      target,
+      finalResults,
+      retryBaseline,
+      mainResponse,
+      deps.onTrackerSnapshotSaved,
+    );
   }
   await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults, {
     rerollMode: secretPlotRerollMode(input),
@@ -3063,6 +3078,7 @@ export async function* startGeneration(
         allAgentResults,
         generationTrackerBaseline,
         readString(parseRecord(latestSaved).content),
+        deps.onTrackerSnapshotSaved,
       );
     }
     throwIfAborted(signal);

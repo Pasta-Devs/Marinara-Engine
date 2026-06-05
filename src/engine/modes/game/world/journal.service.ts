@@ -258,22 +258,29 @@ function inventoryQuantity(value: unknown): number {
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 0;
 }
 
-function journaledInventoryQuantities(journal: Journal): Map<string, number> {
-  const quantities = new Map<string, number>();
+interface InventoryQuantity {
+  name: string;
+  quantity: number;
+}
+
+function journaledInventoryQuantities(journal: Journal): Map<string, InventoryQuantity> {
+  const quantities = new Map<string, InventoryQuantity>();
   for (const entry of journal.inventoryLog) {
     const key = inventoryNameKey(entry.item);
     if (!key) continue;
+    const name = readText(entry.item);
     const quantity = inventoryQuantity(entry.quantity);
-    const current = quantities.get(key) ?? 0;
+    const current = quantities.get(key);
+    const currentQuantity = current?.quantity ?? 0;
     const nextQuantity =
-      entry.action === "acquired" ? current + quantity : Math.max(0, current - Math.max(1, quantity));
-    quantities.set(key, nextQuantity);
+      entry.action === "acquired" ? currentQuantity + quantity : Math.max(0, currentQuantity - quantity);
+    quantities.set(key, { name: current?.name ?? name, quantity: nextQuantity });
   }
   return quantities;
 }
 
-function currentInventoryQuantities(items: readonly InventoryItem[]): Map<string, { name: string; quantity: number }> {
-  const quantities = new Map<string, { name: string; quantity: number }>();
+function currentInventoryQuantities(items: readonly InventoryItem[]): Map<string, InventoryQuantity> {
+  const quantities = new Map<string, InventoryQuantity>();
   for (const item of items) {
     const name = readText(item.name);
     const key = inventoryNameKey(name);
@@ -286,16 +293,26 @@ function currentInventoryQuantities(items: readonly InventoryItem[]): Map<string
 }
 
 function syncInventoryEntriesFromPlayerStats(journal: Journal, playerStats: PlayerStats | null | undefined): Journal {
-  if (!playerStats?.inventory?.length) return journal;
+  if (!playerStats) return journal;
 
   let next = journal;
   const journaled = journaledInventoryQuantities(journal);
-  for (const [key, item] of currentInventoryQuantities(playerStats.inventory)) {
-    const journaledQuantity = journaled.get(key) ?? 0;
-    if (item.quantity <= journaledQuantity) continue;
-    const addedQuantity = item.quantity - journaledQuantity;
-    next = addInventoryEntry(next, item.name, "acquired", addedQuantity);
-    journaled.set(key, item.quantity);
+  const current = currentInventoryQuantities(playerStats.inventory);
+  const keys = new Set([...journaled.keys(), ...current.keys()]);
+  for (const key of keys) {
+    const currentItem = current.get(key);
+    const journaledItem = journaled.get(key);
+    const currentQuantity = currentItem?.quantity ?? 0;
+    const journaledQuantity = journaledItem?.quantity ?? 0;
+    if (currentQuantity > journaledQuantity) {
+      const addedQuantity = currentQuantity - journaledQuantity;
+      next = addInventoryEntry(next, currentItem?.name ?? journaledItem?.name ?? key, "acquired", addedQuantity);
+      journaled.set(key, { name: currentItem?.name ?? journaledItem?.name ?? key, quantity: currentQuantity });
+    } else if (currentQuantity < journaledQuantity) {
+      const removedQuantity = journaledQuantity - currentQuantity;
+      next = addInventoryEntry(next, journaledItem?.name ?? currentItem?.name ?? key, "removed", removedQuantity);
+      journaled.set(key, { name: journaledItem?.name ?? currentItem?.name ?? key, quantity: currentQuantity });
+    }
   }
   return next;
 }

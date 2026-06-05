@@ -7,7 +7,6 @@ import type {
   InventoryItem,
   PresentCharacter,
 } from "../contracts/types/game-state";
-import { createJournal, syncInventoryJournalFromPlayerStats, type Journal } from "../modes/game/world/journal.service";
 import { preserveTrackerCharacterUiFields } from "./generate-route-utils";
 import { boolish, isRecord, nowIso, parseRecord, readNonNegativeInteger, readString } from "./runtime-records";
 import { worldStatePatchFromAgentData } from "./world-state-agent-result";
@@ -50,6 +49,16 @@ export interface TrackerSnapshotMessageRebase {
   swipeCount?: unknown;
 }
 
+export interface TrackerSnapshotSavedContext {
+  chatId: string;
+  target: TrackerSnapshotTurnTarget;
+  chat: Record<string, unknown> | null;
+  snapshot: GameState;
+  results: AgentResult[];
+}
+
+export type TrackerSnapshotSavedHook = (context: TrackerSnapshotSavedContext) => Promise<void> | void;
+
 type TrackerStatePatch = Partial<
   Pick<
     GameState,
@@ -67,39 +76,6 @@ type TrackerStatePatch = Partial<
 >;
 const MANUAL_OVERRIDE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
 type ManualOverrideField = (typeof MANUAL_OVERRIDE_FIELDS)[number];
-
-function isPersonaStatsResult(result: AgentResult): boolean {
-  return result.agentType === "persona-stats" || result.type === "persona_stats_update";
-}
-
-function journalFromMetadata(metadata: unknown): Journal {
-  const raw = parseRecord(parseRecord(metadata).gameJournal);
-  const empty = createJournal();
-  return {
-    entries: Array.isArray(raw.entries) ? (raw.entries as Journal["entries"]) : empty.entries,
-    quests: Array.isArray(raw.quests) ? (raw.quests as Journal["quests"]) : empty.quests,
-    locations: Array.isArray(raw.locations) ? (raw.locations as Journal["locations"]) : empty.locations,
-    npcLog: Array.isArray(raw.npcLog) ? (raw.npcLog as Journal["npcLog"]) : empty.npcLog,
-    inventoryLog: Array.isArray(raw.inventoryLog) ? (raw.inventoryLog as Journal["inventoryLog"]) : empty.inventoryLog,
-  };
-}
-
-function isGameChat(chat: Record<string, unknown> | null): boolean {
-  return readString(chat?.mode || chat?.chatMode).trim() === "game";
-}
-
-async function persistGameInventoryJournalFromSnapshot(
-  storage: StorageGateway,
-  chatId: string,
-  chat: Record<string, unknown> | null,
-  snapshot: GameState,
-): Promise<void> {
-  if (!isGameChat(chat) || !snapshot.playerStats?.inventory.length) return;
-  const journal = journalFromMetadata(parseRecord(chat?.metadata));
-  const synced = syncInventoryJournalFromPlayerStats(journal, snapshot.playerStats);
-  if (synced === journal) return;
-  await storage.patchChatMetadata(chatId, { gameJournal: synced });
-}
 
 function readNullableString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -523,16 +499,19 @@ export async function persistTrackerSnapshotForTurn(
   chatId: string,
   target: TrackerSnapshotTurnTarget | null,
   results: AgentResult[],
-  options: { baseSnapshot?: GameState | null; sourceText?: string | null } = {},
+  options: {
+    baseSnapshot?: GameState | null;
+    sourceText?: string | null;
+    onSavedSnapshot?: TrackerSnapshotSavedHook;
+  } = {},
 ): Promise<GameState | null> {
   if (!target || !target.messageId || results.length === 0) return null;
   const existing = await getTrackerSnapshotForTarget(storage, chatId, target);
   const hasCharacterTrackerResult = results.some(
     (result) => result.agentType === "character-tracker" || result.type === "character_tracker_update",
   );
-  const hasPersonaStatsResult = results.some(isPersonaStatsResult);
   const needsChatBaseline = !existing && !options.baseSnapshot;
-  const needsChat = needsChatBaseline || hasCharacterTrackerResult || hasPersonaStatsResult;
+  const needsChat = needsChatBaseline || hasCharacterTrackerResult || !!options.onSavedSnapshot;
   const chat = needsChat ? parseRecord(await storage.get("chats", chatId).catch(() => null)) : null;
   const persona = hasCharacterTrackerResult ? await loadPersonaSnapshotForChat(storage, chat).catch(() => null) : null;
   let snapshot = normalizeGameState(existing ?? options.baseSnapshot ?? chat?.gameState, chatId, target, persona);
@@ -554,8 +533,8 @@ export async function persistTrackerSnapshotForTurn(
   const saved = await storage.saveTrackerSnapshot<GameState>(chatId, snapshot as unknown as Record<string, unknown>);
   const savedState = normalizeGameState(saved, chatId, target);
   await storage.update("chats", chatId, { gameState: savedState as unknown as Record<string, unknown> });
-  if (hasPersonaStatsResult) {
-    await persistGameInventoryJournalFromSnapshot(storage, chatId, chat, savedState);
+  if (options.onSavedSnapshot) {
+    await options.onSavedSnapshot({ chatId, target, chat, snapshot: savedState, results });
   }
   return savedState;
 }
