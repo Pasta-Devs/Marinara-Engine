@@ -43,7 +43,7 @@ fn validate_chat_metadata_patch(
     chat_id: &str,
     patch: &mut Value,
 ) -> Result<(), AppError> {
-    let mut metadata_patch = match patch.get("metadata") {
+    let metadata_patch = match patch.get("metadata") {
         Some(Value::Object(object)) => Some(object.clone()),
         Some(_) => return Err(AppError::invalid_input("Chat metadata must be an object")),
         None => None,
@@ -52,28 +52,6 @@ fn validate_chat_metadata_patch(
         return Ok(());
     };
 
-    if let Some(metadata_object) = metadata_patch.as_mut() {
-        if let Some(webhook_url) = metadata_object.get_mut("discordWebhookUrl") {
-            if webhook_url.is_null() {
-                // Null clears the setting.
-            } else if let Some(raw_url) = webhook_url.as_str() {
-                let trimmed_url = raw_url.trim();
-                if !trimmed_url.is_empty()
-                    && !integrations::is_valid_discord_webhook_url(trimmed_url)
-                {
-                    return Err(AppError::invalid_input("Invalid Discord webhook URL"));
-                }
-                if trimmed_url != raw_url {
-                    *webhook_url = Value::String(trimmed_url.to_string());
-                }
-            } else {
-                return Err(AppError::invalid_input(
-                    "Discord webhook URL must be a string",
-                ));
-            }
-        }
-    }
-
     let chat = state
         .storage
         .get("chats", chat_id)?
@@ -81,29 +59,71 @@ fn validate_chat_metadata_patch(
     let active_ids_source = patch
         .get("characterIds")
         .or_else(|| chat.get("characterIds"));
-    let active_ids: HashSet<String> = shared::string_array_from_value(active_ids_source)
-        .into_iter()
-        .collect();
+    let active_ids = chat_active_character_ids(active_ids_source);
     let mut effective_metadata = shared::json_object_value(chat.get("metadata"))
         .and_then(|value| value.as_object().cloned())
         .unwrap_or_default();
-    let submitted_inactive = metadata_patch
-        .as_ref()
-        .and_then(|metadata| metadata.get("inactiveCharacterIds"))
-        .cloned();
     if let Some(metadata_patch) = metadata_patch {
         for (key, value) in metadata_patch {
             effective_metadata.insert(key, value);
         }
     }
+    let previous_metadata = effective_metadata.clone();
+    normalize_chat_metadata_object(&mut effective_metadata, &active_ids)?;
 
-    let inactive_value = submitted_inactive
-        .as_ref()
-        .or_else(|| effective_metadata.get("inactiveCharacterIds"));
-    let Some(inactive_value) = inactive_value else {
-        if patch.get("metadata").is_some() {
-            patch["metadata"] = Value::Object(effective_metadata);
+    if patch.get("metadata").is_some() || effective_metadata != previous_metadata {
+        patch["metadata"] = Value::Object(effective_metadata);
+    }
+    Ok(())
+}
+
+fn chat_active_character_ids(value: Option<&Value>) -> HashSet<String> {
+    shared::string_array_from_value(value).into_iter().collect()
+}
+
+fn normalize_chat_metadata_object(
+    metadata: &mut Map<String, Value>,
+    active_ids: &HashSet<String>,
+) -> Result<(), AppError> {
+    normalize_discord_webhook_metadata(metadata)?;
+    normalize_inactive_character_metadata(metadata, active_ids)?;
+    Ok(())
+}
+
+fn normalize_discord_webhook_metadata(metadata: &mut Map<String, Value>) -> Result<(), AppError> {
+    let Some(webhook_url) = metadata.get("discordWebhookUrl") else {
+        return Ok(());
+    };
+    let normalized = if webhook_url.is_null() {
+        None
+    } else if let Some(raw_url) = webhook_url.as_str() {
+        let trimmed_url = raw_url.trim();
+        if trimmed_url.is_empty() {
+            None
+        } else {
+            if !integrations::is_valid_discord_webhook_url(trimmed_url) {
+                return Err(AppError::invalid_input("Invalid Discord webhook URL"));
+            }
+            Some(Value::String(trimmed_url.to_string()))
         }
+    } else {
+        return Err(AppError::invalid_input(
+            "Discord webhook URL must be a string",
+        ));
+    };
+    if let Some(value) = normalized {
+        metadata.insert("discordWebhookUrl".to_string(), value);
+    } else {
+        metadata.remove("discordWebhookUrl");
+    }
+    Ok(())
+}
+
+fn normalize_inactive_character_metadata(
+    metadata: &mut Map<String, Value>,
+    active_ids: &HashSet<String>,
+) -> Result<(), AppError> {
+    let Some(inactive_value) = metadata.get("inactiveCharacterIds") else {
         return Ok(());
     };
     let Some(inactive_ids) = inactive_value.as_array() else {
@@ -126,13 +146,7 @@ fn validate_chat_metadata_patch(
         .filter(|id| seen.insert((*id).to_string()))
         .map(|id| Value::String(id.to_string()))
         .collect();
-    let normalized_value = Value::Array(normalized);
-    let inactive_changed =
-        effective_metadata.get("inactiveCharacterIds") != Some(&normalized_value);
-    effective_metadata.insert("inactiveCharacterIds".to_string(), normalized_value);
-    if patch.get("metadata").is_some() || inactive_changed {
-        patch["metadata"] = Value::Object(effective_metadata);
-    }
+    metadata.insert("inactiveCharacterIds".to_string(), Value::Array(normalized));
     Ok(())
 }
 
@@ -780,6 +794,7 @@ fn normalize_chat_for_create(value: Value) -> Result<Value, AppError> {
     let mut object = ensure_object(value)?;
     normalize_chat_mode_object(&mut object);
     normalize_chat_folder_id_object(&mut object)?;
+    normalize_chat_metadata_for_create(&mut object)?;
     Ok(Value::Object(object))
 }
 
@@ -791,6 +806,17 @@ fn normalize_chat_for_update(entity: &str, patch: Value) -> Result<Value, AppErr
     normalize_chat_mode_object(&mut object);
     normalize_chat_folder_id_object(&mut object)?;
     Ok(Value::Object(object))
+}
+
+fn normalize_chat_metadata_for_create(object: &mut Map<String, Value>) -> Result<(), AppError> {
+    let active_ids = chat_active_character_ids(object.get("characterIds"));
+    let Some(metadata) = object.get_mut("metadata") else {
+        return Ok(());
+    };
+    let Some(metadata) = metadata.as_object_mut() else {
+        return Err(AppError::invalid_input("Chat metadata must be an object"));
+    };
+    normalize_chat_metadata_object(metadata, &active_ids)
 }
 
 fn normalize_chat_mode_object(object: &mut Map<String, Value>) {
@@ -2351,6 +2377,191 @@ mod tests {
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("Invalid Discord webhook URL"));
+    }
+
+    #[test]
+    fn chat_metadata_create_rejects_invalid_discord_webhook_url() {
+        let state = test_state("chat-metadata-create-invalid-webhook");
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "metadata": { "discordWebhookUrl": "not-a-discord-webhook" }
+            }),
+        )
+        .expect_err("invalid Discord webhook metadata should reject on create");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid Discord webhook URL"));
+        assert!(
+            state
+                .storage
+                .get("chats", "chat-a")
+                .expect("chat lookup should succeed")
+                .is_none(),
+            "invalid chat metadata should not persist"
+        );
+    }
+
+    #[test]
+    fn chat_metadata_create_normalizes_discord_webhook_url() {
+        let state = test_state("chat-metadata-create-normalize-webhook");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "metadata": {
+                    "discordWebhookUrl": "  https://discord.com/api/webhooks/123456789/token_AB-12  ",
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("valid Discord webhook metadata should create");
+
+        assert_eq!(
+            created["metadata"]["discordWebhookUrl"],
+            json!("https://discord.com/api/webhooks/123456789/token_AB-12")
+        );
+        assert_eq!(created["metadata"]["theme"], json!("kept"));
+
+        let cleared = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-b",
+                "name": "Chat B",
+                "metadata": {
+                    "discordWebhookUrl": null,
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("null Discord webhook metadata should clear on create");
+        assert!(!cleared["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+
+        let blank = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-c",
+                "name": "Chat C",
+                "metadata": { "discordWebhookUrl": "   " }
+            }),
+        )
+        .expect("blank Discord webhook metadata should clear on create");
+        assert!(!blank["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+    }
+
+    #[test]
+    fn chat_metadata_patch_clears_discord_webhook_url() {
+        let state = test_state("chat-metadata-patch-clear-webhook");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "metadata": {
+                    "discordWebhookUrl": "https://discord.com/api/webhooks/123456789/token_AB-12",
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "discordWebhookUrl": null } }),
+        )
+        .expect("null Discord webhook metadata should clear");
+
+        assert!(!updated["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+        assert_eq!(updated["metadata"]["theme"], json!("kept"));
+
+        let restored = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({
+                "metadata": {
+                    "discordWebhookUrl": " https://discordapp.com/api/webhooks/123456789/token_AB-12 "
+                }
+            }),
+        )
+        .expect("valid Discord webhook metadata should update");
+        assert_eq!(
+            restored["metadata"]["discordWebhookUrl"],
+            json!("https://discordapp.com/api/webhooks/123456789/token_AB-12")
+        );
+
+        let cleared = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "discordWebhookUrl": "  " } }),
+        )
+        .expect("blank Discord webhook metadata should clear");
+        assert!(!cleared["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+    }
+
+    #[test]
+    fn chat_metadata_create_normalizes_inactive_character_ids() {
+        let state = test_state("chat-metadata-create-inactive-characters");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": {
+                    "theme": "kept",
+                    "inactiveCharacterIds": [" char-a ", "missing", "char-a", "char-b"]
+                }
+            }),
+        )
+        .expect("valid inactive character metadata should create");
+
+        assert_eq!(
+            created["metadata"]["inactiveCharacterIds"],
+            json!(["char-a", "char-b"])
+        );
+        assert_eq!(created["metadata"]["theme"], json!("kept"));
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-b",
+                "name": "Chat B",
+                "characterIds": ["char-a"],
+                "metadata": { "inactiveCharacterIds": ["char-a", 3] }
+            }),
+        )
+        .expect_err("non-string inactive character ids should reject on create");
+
+        assert_eq!(error.code, "invalid_input");
     }
 
     #[test]

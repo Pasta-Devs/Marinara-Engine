@@ -219,16 +219,26 @@ function normalizeChatMetadataPatch(
   current: Record<string, unknown>,
   patch: Record<string, unknown>,
 ): Record<string, unknown> {
-  const metadata = { ...current, ...patch };
+  const metadata = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "discordWebhookUrl" || key === "inactiveCharacterIds") continue;
+    metadata[key] = value;
+  }
   if (Object.prototype.hasOwnProperty.call(patch, "discordWebhookUrl")) {
     const value = patch.discordWebhookUrl;
-    if (value !== undefined && value !== null) {
+    if (value === undefined || value === null) {
+      delete metadata.discordWebhookUrl;
+    } else {
       if (typeof value !== "string") throw new ApiError("Discord webhook URL must be a string", 400);
       const trimmed = value.trim();
       if (trimmed && !DISCORD_WEBHOOK_URL_PATTERN.test(trimmed)) {
         throw new ApiError("Invalid Discord webhook URL", 400);
       }
-      metadata.discordWebhookUrl = trimmed || undefined;
+      if (trimmed) {
+        metadata.discordWebhookUrl = trimmed;
+      } else {
+        delete metadata.discordWebhookUrl;
+      }
     }
   }
   if (Object.prototype.hasOwnProperty.call(patch, "inactiveCharacterIds")) {
