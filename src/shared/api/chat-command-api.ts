@@ -2,15 +2,12 @@ import type { ListChatMemoriesOptions } from "../../engine/capabilities/storage"
 import { invokeTauri } from "./tauri-client";
 
 function memoryListArgs(chatId: string | null, options?: ListChatMemoriesOptions): Record<string, unknown> {
-  const limit =
-    typeof options?.limit === "number" && Number.isFinite(options.limit)
-      ? Math.max(0, Math.trunc(options.limit))
-      : null;
-  return {
-    chatId,
-    limit,
-    order: options?.order ?? null,
-  };
+  const args: Record<string, unknown> = { chatId };
+  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+    args.limit = Math.max(0, Math.trunc(options.limit));
+  }
+  if (options?.order) args.order = options.order;
+  return args;
 }
 
 export interface ChatGroupDeleteResult {

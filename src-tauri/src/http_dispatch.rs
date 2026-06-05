@@ -543,7 +543,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "chat_memories_list" => chats::list_chat_memories(
             state,
             required_string(&args, "chatId")?,
-            optional_u32(&args, "limit").map(|value| value as usize),
+            optional_u32_strict(&args, "limit")?.map(|value| value as usize),
             optional_string(&args, "order").as_deref(),
         ),
         "chat_memory_delete" => chats::delete_chat_array_item(
@@ -1297,6 +1297,35 @@ mod tests {
             .join("collections")
             .join("typo-collection.json")
             .exists());
+    }
+
+    #[tokio::test]
+    async fn dispatch_chat_memories_list_rejects_malformed_limit() {
+        let state = test_state("chat-memories-malformed-limit");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": []
+                }),
+            )
+            .expect("chat should be created");
+
+        let error = dispatch(
+            &state,
+            InvokeRequest {
+                command: "chat_memories_list".to_string(),
+                args: Some(json!({ "chatId": "chat-1", "limit": "500" })),
+            },
+        )
+        .await
+        .expect_err("remote memory listing should reject malformed limits");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("limit"));
     }
 
     #[test]

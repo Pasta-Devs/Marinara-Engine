@@ -1733,7 +1733,7 @@ const MIN_RECALLED_MEMORY_TOKENS = 96;
 const MEMORY_RECALL_CONTEXT_SHARE = 0.15;
 const MEMORY_RECALL_SIMILARITY_THRESHOLD = 0.25;
 const MAX_MEMORY_RECALL_SCORING_CHUNKS = 500;
-const MIN_MEMORY_RECALL_STRONG_LEXICAL_TOKENS = 2;
+const MIN_MEMORY_RECALL_MULTI_TOKEN_STRONG_LEXICAL_TOKENS = 2;
 const MIN_MEMORY_RECALL_STRONG_LEXICAL_COVERAGE = 0.75;
 const DEFAULT_MEMORY_RECALL_READ_BEHIND_MESSAGES = 1;
 const MAX_MEMORY_RECALL_READ_BEHIND_MESSAGES = 100;
@@ -1816,8 +1816,9 @@ function memoryRecallLexicalOverlap(queryTokens: string[], contentTokens: Set<st
 }
 
 function hasStrongMemoryRecallLexicalMatch(queryTokenCount: number, lexicalScore: number): boolean {
-  if (queryTokenCount < MIN_MEMORY_RECALL_STRONG_LEXICAL_TOKENS) return false;
-  if (lexicalScore < MIN_MEMORY_RECALL_STRONG_LEXICAL_TOKENS) return false;
+  if (queryTokenCount === 1) return lexicalScore >= 1;
+  if (queryTokenCount < MIN_MEMORY_RECALL_MULTI_TOKEN_STRONG_LEXICAL_TOKENS) return false;
+  if (lexicalScore < MIN_MEMORY_RECALL_MULTI_TOKEN_STRONG_LEXICAL_TOKENS) return false;
   return lexicalScore / queryTokenCount >= MIN_MEMORY_RECALL_STRONG_LEXICAL_COVERAGE;
 }
 
@@ -1898,6 +1899,10 @@ function memoryRecallReadBehind(chat: JsonRecord): number {
   return Math.max(0, Math.min(MAX_MEMORY_RECALL_READ_BEHIND_MESSAGES, Math.trunc(raw)));
 }
 
+function memoryRecallFetchLimit(chat: JsonRecord): number {
+  return MAX_MEMORY_RECALL_SCORING_CHUNKS + memoryRecallReadBehind(chat);
+}
+
 function memoryRecallEligibleMessages(messages: JsonRecord[]): JsonRecord[] {
   return messages.filter((message) => !hiddenFromAi(message) && !!readString(message.content).trim());
 }
@@ -1963,6 +1968,10 @@ function recentMemoryRecallScoringSet(memories: JsonRecord[]): JsonRecord[] {
     .slice(0, MAX_MEMORY_RECALL_SCORING_CHUNKS);
 }
 
+function memoryRecallRows(value: unknown): JsonRecord[] {
+  return parseArray(value).filter(isRecord);
+}
+
 async function buildMemoryRecallBlock(
   storage: StorageGateway,
   chat: JsonRecord,
@@ -1977,12 +1986,12 @@ async function buildMemoryRecallBlock(
   let memories: JsonRecord[] = [];
   try {
     const rows = await storage.listChatMemories<unknown>(chatId, {
-      limit: MAX_MEMORY_RECALL_SCORING_CHUNKS,
+      limit: memoryRecallFetchLimit(chat),
       order: "recent",
     });
-    memories = Array.isArray(rows) ? rows.filter(isRecord) : [];
+    memories = memoryRecallRows(rows);
   } catch {
-    memories = Array.isArray(chat.memories) ? chat.memories.filter(isRecord) : [];
+    memories = memoryRecallRows(chat.memories);
   }
   memories = recentMemoryRecallScoringSet(memoriesAfterReadBehind(chat, storedMessages, memories));
   if (memories.length === 0) return null;

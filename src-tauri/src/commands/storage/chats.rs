@@ -769,6 +769,17 @@ fn chat_memory_recency_key(memory: &Value) -> &str {
         .unwrap_or("")
 }
 
+fn chat_memory_values(chat: &Value) -> Vec<Value> {
+    match chat.get("memories") {
+        Some(Value::Array(values)) => values.clone(),
+        Some(Value::String(raw)) => serde_json::from_str::<Value>(raw)
+            .ok()
+            .and_then(|parsed| parsed.as_array().cloned())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 pub(crate) fn list_chat_memories(
     state: &AppState,
     chat_id: &str,
@@ -776,11 +787,7 @@ pub(crate) fn list_chat_memories(
     order: Option<&str>,
 ) -> AppResult<Value> {
     let chat = get_required(state, "chats", chat_id)?;
-    let mut values = chat
-        .get("memories")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
+    let mut values = chat_memory_values(&chat);
 
     match order
         .filter(|value| !value.trim().is_empty())
@@ -1485,6 +1492,35 @@ mod tests {
                     .map(ToOwned::to_owned)
             })
             .collect()
+    }
+
+    #[test]
+    fn list_chat_memories_accepts_string_serialized_chunks() {
+        let state = test_state("chat-memory-list-string");
+        let memories = serde_json::to_string(&json!([
+            { "id": "stored-old", "lastMessageAt": "2026-01-01T00:00:00.000Z" },
+            { "id": "stored-new", "lastMessageAt": "2026-01-02T00:00:00.000Z" }
+        ]))
+        .expect("memory fixture should serialize");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Serialized memory chat",
+                    "memories": memories
+                }),
+            )
+            .expect("chat should be created");
+
+        let stored = list_chat_memories(&state, "chat-1", None, None)
+            .expect("serialized memories should list in stored order");
+        assert_eq!(memory_ids(&stored), vec!["stored-old", "stored-new"]);
+
+        let recent = list_chat_memories(&state, "chat-1", Some(1), Some("recent"))
+            .expect("serialized memories should sort by recency");
+        assert_eq!(memory_ids(&recent), vec!["stored-new"]);
     }
 
     #[test]
