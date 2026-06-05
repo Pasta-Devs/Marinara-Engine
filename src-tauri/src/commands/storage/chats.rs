@@ -295,6 +295,25 @@ fn prune_branch_summary_metadata(chat: &mut Value) {
     }
 }
 
+fn initialize_branch_display_name(chat: &mut Value) {
+    let Some(object) = chat.as_object_mut() else {
+        return;
+    };
+    let metadata = object
+        .entry("metadata".to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    if !metadata.is_object() {
+        *metadata = Value::Object(Map::new());
+    }
+    let Some(metadata) = metadata.as_object_mut() else {
+        return;
+    };
+    metadata.insert(
+        "branchName".to_string(),
+        Value::String("New Branch".to_string()),
+    );
+}
+
 fn object_extra(value: Option<&Value>) -> Option<Value> {
     json_object_value(value)
 }
@@ -1194,12 +1213,10 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
         .clone()
         .unwrap_or_else(|| chat_id.to_string());
     object.insert("id".to_string(), Value::String(new_chat_id.clone()));
-    object.insert(
-        "name".to_string(),
-        Value::String(format!("{base_name} Branch")),
-    );
+    object.insert("name".to_string(), Value::String(base_name));
     object.insert("groupId".to_string(), Value::String(group_id.clone()));
     prune_branch_summary_metadata(&mut chat);
+    initialize_branch_display_name(&mut chat);
     let source_has_tracker_snapshots =
         game_state_snapshots::latest_tracker_snapshot(state, chat_id)?.is_some();
     let mut new_chat = state.storage.create("chats", chat)?;
@@ -2168,6 +2185,57 @@ mod tests {
             .list_where("chats", &filters)
             .expect("group listing should not fail");
         assert_eq!(group_members.len(), 2);
+    }
+
+    #[test]
+    fn branch_chat_preserves_stable_name_and_sets_branch_display_name() {
+        let state = test_state("branch-display-name");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "root-1",
+                    "name": "Stable Chat Name",
+                    "mode": "conversation",
+                    "characterIds": [],
+                    "folderId": "folder-1",
+                    "metadata": {
+                        "tags": ["ongoing"]
+                    }
+                }),
+            )
+            .expect("source chat should be created");
+
+        let branch = branch_chat(&state, "root-1", json!({})).expect("branch should be created");
+
+        assert_eq!(branch["name"], "Stable Chat Name");
+        assert_eq!(branch["metadata"]["branchName"], "New Branch");
+        assert_eq!(branch["metadata"]["tags"], json!(["ongoing"]));
+        assert_eq!(branch["folderId"], "folder-1");
+
+        let source = state
+            .storage
+            .get("chats", "root-1")
+            .expect("source lookup should not fail")
+            .expect("source chat should still exist");
+        assert_eq!(source["name"], "Stable Chat Name");
+        assert_eq!(source["metadata"].get("branchName"), None);
+
+        let mut filters = Map::new();
+        filters.insert("groupId".to_string(), Value::String("root-1".to_string()));
+        let group_members = state
+            .storage
+            .list_where("chats", &filters)
+            .expect("group listing should not fail");
+        let grouped_branch = group_members
+            .iter()
+            .find(|chat| {
+                chat.get("id").and_then(Value::as_str) == branch.get("id").and_then(Value::as_str)
+            })
+            .expect("new branch should be visible in group list");
+        assert_eq!(grouped_branch["name"], "Stable Chat Name");
+        assert_eq!(grouped_branch["metadata"]["branchName"], "New Branch");
     }
 
     #[test]
