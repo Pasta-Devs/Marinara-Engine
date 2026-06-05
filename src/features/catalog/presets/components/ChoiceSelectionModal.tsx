@@ -52,6 +52,15 @@ function legacyField(block: ChoiceBlock, field: string): unknown {
   return (block as unknown as Record<string, unknown>)[field];
 }
 
+function ChoiceOptionValue({ value }: { value: string }) {
+  if (!value) return null;
+  return (
+    <p className="mt-0.5 whitespace-pre-wrap break-words text-[0.625rem] leading-snug text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
+      {value}
+    </p>
+  );
+}
+
 export function ChoiceSelectionModal({
   open,
   onClose,
@@ -230,12 +239,7 @@ export function ChoiceSelectionModal({
                             <span className={cn("text-xs font-medium", isSelected && "text-purple-400")}>
                               {opt.label}
                             </span>
-                            {opt.value && (
-                              <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                                {opt.value.slice(0, 150)}
-                                {opt.value.length > 150 ? "…" : ""}
-                              </p>
-                            )}
+                            <ChoiceOptionValue value={opt.value} />
                           </div>
                         </button>
                       );
@@ -260,12 +264,7 @@ export function ChoiceSelectionModal({
                           >
                             <div className="min-w-0 flex-1">
                               <span className={cn("text-xs font-medium", isOn && "text-purple-400")}>{opt.label}</span>
-                              {opt.value && (
-                                <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                                  {opt.value.slice(0, 150)}
-                                  {opt.value.length > 150 ? "…" : ""}
-                                </p>
-                              )}
+                              <ChoiceOptionValue value={opt.value} />
                             </div>
                             <div
                               className={cn(
@@ -304,12 +303,7 @@ export function ChoiceSelectionModal({
                               <span className={cn("text-xs font-medium", isSelected && "text-purple-400")}>
                                 {opt.label}
                               </span>
-                              {opt.value && (
-                                <p className="mt-0.5 line-clamp-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                                  {opt.value.slice(0, 150)}
-                                  {opt.value.length > 150 ? "…" : ""}
-                                </p>
-                              )}
+                              <ChoiceOptionValue value={opt.value} />
                             </div>
                           </button>
                         );
