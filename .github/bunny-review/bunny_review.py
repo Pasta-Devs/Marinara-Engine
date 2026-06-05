@@ -1178,6 +1178,55 @@ CONTRACT_LABELS = (
 CONTRACT_LABEL_TO_KEY = {label.lower(): key for key, label in CONTRACT_LABELS}
 
 
+def code_block_text(text):
+    return str(text or "").replace("```", "'''").strip()
+
+
+def agent_prompt_for_finding(finding):
+    lines = [
+        f"Task: verify and repair `{finding.path}` around line {finding.line}.",
+        f"Finding: {finding.title}",
+        f"Severity: {finding.severity}",
+    ]
+    if finding.fix_hint:
+        lines.append(f"Suggested repair: {finding.fix_hint}")
+    if finding.repair_contract and finding.severity != "nitpick":
+        lines.append("Repair contract:")
+        for key, label in CONTRACT_LABELS:
+            values = compact_state_values(finding.repair_contract.get(key))
+            if values:
+                lines.append(f"- {label}: " + "; ".join(values))
+    lines.extend(
+        [
+            "Validate the fix with the narrowest relevant check.",
+            "If the finding is stale, leave the code unchanged and record why.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def render_agent_prompt_details(findings, summary):
+    if not findings:
+        return ""
+    prompt = code_block_text(
+        "\n\n".join(agent_prompt_for_finding(finding) for finding in findings)
+    )
+    if not prompt:
+        return ""
+    return "\n".join(
+        [
+            "<details>",
+            f"<summary>{summary}</summary>",
+            "",
+            "```text",
+            prompt,
+            "```",
+            "",
+            "</details>",
+        ]
+    )
+
+
 def compact_contract_for_state(contract):
     if not isinstance(contract, dict):
         return None
@@ -1471,6 +1520,11 @@ def render_walkthrough(
             )
     else:
         body.append("- None recorded.")
+    agent_prompt = render_agent_prompt_details(
+        findings, "🤖 Copy prompt for isolated Bunny findings"
+    )
+    if agent_prompt:
+        body.extend(["", agent_prompt])
     if pre_merge:
         body.extend(
             [
@@ -2031,7 +2085,7 @@ def findings_for_inline_comments(findings):
     return [
         finding
         for finding in findings
-        if severity_meta(finding.severity)["rank"] <= severity_meta("high")["rank"]
+        if severity_meta(finding.severity)["rank"] <= severity_meta("medium")["rank"]
     ]
 
 
