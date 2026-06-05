@@ -1584,10 +1584,8 @@ fn emit_openai_content_delta(
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
     match content {
-        Value::String(text) => {
-            if !text.is_empty() {
-                emit(json!({ "type": "token", "text": text, "data": text }))?;
-            }
+        Value::String(text) if !text.is_empty() => {
+            emit(json!({ "type": "token", "text": text, "data": text }))?;
         }
         Value::Array(parts) => {
             for part in parts {
