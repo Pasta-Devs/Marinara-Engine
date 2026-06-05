@@ -159,7 +159,7 @@ function applyEntryCountCap(activatedEntries: ActivatedEntry[], maxEntries: numb
  * Apply token-budget ordering while preserving the
  * entries that were dropped so callers can surface budget diagnostics.
  */
-export function applyTokenBudgetWithSkipped(
+function applyTokenBudgetWithSkipped(
   activatedEntries: ActivatedEntry[],
   tokenBudget: number,
   resolver?: LorebookContentResolver,
