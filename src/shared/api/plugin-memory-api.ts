@@ -25,10 +25,18 @@ function validatePluginId(pluginId: string): string {
 
 function validateMemoryKey(key: string): string {
   const trimmed = key.trim();
-  if (!trimmed || trimmed.length > MAX_PLUGIN_MEMORY_KEY_LENGTH || /[\u0000-\u001f\u007f]/.test(trimmed)) {
+  if (!trimmed || trimmed.length > MAX_PLUGIN_MEMORY_KEY_LENGTH || hasControlCharacters(trimmed)) {
     throw new Error("Plugin memory key must be a short printable string.");
   }
   return trimmed;
+}
+
+function hasControlCharacters(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
 }
 
 function memoryRecordId(pluginId: string, key: string): string {
