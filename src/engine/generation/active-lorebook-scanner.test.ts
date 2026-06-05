@@ -93,6 +93,72 @@ describe("scanActiveLorebooks", () => {
     expect(result.entriesForTiming.map((entry) => entry.id)).toEqual(["entry-a", "entry-c"]);
   });
 
+  it("keeps keyword-matched activation-condition entries active when plain chats have no game state", async () => {
+    const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
+    const storage = storageWithRows(
+      {
+        lorebooks: [{ id: "book-a", name: "Book A", enabled: true, isGlobal: true }],
+        "lorebook-folders": [],
+        "lorebook-entries": [
+          {
+            id: "entry-conditional",
+            lorebookId: "book-a",
+            name: "Conditional entry",
+            content: "plain chat lore",
+            keys: ["moon-gate"],
+            enabled: true,
+            activationConditions: [{ field: "location", operator: "equals", value: "Moon Base" }],
+          },
+        ],
+      },
+      calls,
+    );
+
+    const result = await scanActiveLorebooks({
+      storage,
+      chat: { id: "chat-1", mode: "roleplay", metadata: {} },
+      characters: [],
+      persona: null,
+      storedMessages: [{ id: "message-1", role: "user", content: "moon-gate" }],
+      embeddingSource: null,
+    });
+
+    expect(result.processedLore.includedEntries.map((entry) => entry.entry.id)).toEqual(["entry-conditional"]);
+  });
+
+  it("still enforces activation-condition field values when game state is present", async () => {
+    const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
+    const storage = storageWithRows(
+      {
+        lorebooks: [{ id: "book-a", name: "Book A", enabled: true, isGlobal: true }],
+        "lorebook-folders": [],
+        "lorebook-entries": [
+          {
+            id: "entry-conditional",
+            lorebookId: "book-a",
+            name: "Conditional entry",
+            content: "game lore",
+            keys: ["moon-gate"],
+            enabled: true,
+            activationConditions: [{ field: "location", operator: "equals", value: "Moon Base" }],
+          },
+        ],
+      },
+      calls,
+    );
+
+    const result = await scanActiveLorebooks({
+      storage,
+      chat: { id: "chat-1", mode: "game", metadata: {}, gameState: { location: "Forest" } },
+      characters: [],
+      persona: null,
+      storedMessages: [{ id: "message-1", role: "user", content: "moon-gate" }],
+      embeddingSource: null,
+    });
+
+    expect(result.processedLore.includedEntries.map((entry) => entry.entry.id)).toEqual([]);
+  });
+
   it("caps injected entries using lorebook budget priority", async () => {
     const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
     const makeEntry = (
