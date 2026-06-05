@@ -88,6 +88,66 @@ fn normalizes_sillytavern_selective_logic_numbers() {
 }
 
 #[test]
+fn detects_entry_tag_from_content_signals() {
+    let entry = normalize_lorebook_entry(
+        "book-1",
+        &json!({
+            "comment": "Riverwood",
+            "content": "A bustling town with a tavern and an inn beside the forest.",
+            "key": ["village"]
+        }),
+        0,
+    );
+
+    assert_eq!(entry["tag"], "location");
+}
+
+#[test]
+fn leaves_entry_tag_empty_when_no_signal_matches() {
+    let entry = normalize_lorebook_entry(
+        "book-1",
+        &json!({
+            "content": "Hello there, friend.",
+            "key": []
+        }),
+        0,
+    );
+
+    assert_eq!(entry["tag"], "");
+}
+
+#[test]
+fn detects_lorebook_category_from_entries() {
+    let (lorebook, _entries) = normalize_lorebook(
+        &json!({
+            "name": "Tavern Folk",
+            "entries": [{
+                "content": "The shopkeeper and the innkeeper greet the merchant.",
+                "key": ["guard"]
+            }]
+        }),
+        "Imported",
+        None,
+    );
+
+    assert_eq!(lorebook["category"], "npc");
+}
+
+#[test]
+fn defaults_lorebook_category_to_world_without_signals() {
+    let (lorebook, _entries) = normalize_lorebook(
+        &json!({
+            "name": "Notes",
+            "entries": [{ "content": "Hello there, friend." }]
+        }),
+        "Imported",
+        None,
+    );
+
+    assert_eq!(lorebook["category"], "world");
+}
+
+#[test]
 fn normalizes_imported_lorebook_entry_after_raw_field_merge() {
     let entry = normalize_imported_lorebook_entry(
         "book-1",
