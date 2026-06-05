@@ -49,6 +49,15 @@ fn embedded_avatar() -> String {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==".to_string()
 }
 
+fn uploaded_json(name: &str, payload: Value) -> Value {
+    let bytes = serde_json::to_vec(&payload).expect("fixture payload should serialize");
+    json!({
+        "name": name,
+        "type": "application/json",
+        "base64": general_purpose::STANDARD.encode(bytes),
+    })
+}
+
 fn assert_managed_character_avatar(character: &Value) {
     let avatar_path = test_string(character, "avatarPath");
     assert!(
@@ -103,6 +112,190 @@ fn generic_marinara_import_directs_profile_exports_to_profile_import() {
     assert_eq!(error.code, "invalid_input");
     assert!(error.message.contains("Import Profile"));
     assert!(!error.message.contains("Unknown Marinara import type"));
+}
+
+#[test]
+fn marinara_file_import_recovers_native_chat_bulk_json() {
+    let state = test_state("native-chat-bulk");
+    let imported = import_marinara_file(
+        &state,
+        json!({
+            "file": uploaded_json("marinara-chats.json", json!({
+                "format": "marinara-chat-bulk",
+                "version": 1,
+                "chats": [{
+                    "chat": {
+                        "id": "old-chat",
+                        "name": "Recovered Branch",
+                        "mode": "roleplay",
+                        "characterIds": ["char-1"],
+                        "groupId": "group-1",
+                        "personaId": "persona-1",
+                        "promptPresetId": "preset-1",
+                        "connectionId": "connection-1",
+                        "folderId": "missing-folder",
+                        "metadata": { "branchName": "Alt Route" }
+                    },
+                    "messages": [{
+                        "id": "old-message",
+                        "chatId": "old-chat",
+                        "role": "assistant",
+                        "characterId": "char-1",
+                        "content": "Recovered line",
+                        "createdAt": "2026-06-05T01:02:03Z",
+                        "extra": { "displayText": null, "isGenerated": true, "tokenCount": null, "generationInfo": null }
+                    }]
+                }]
+            }))
+        }),
+    )
+    .expect("native chat bulk JSON should import through Marinara file import");
+
+    assert_eq!(imported["success"], true);
+    assert_eq!(imported["count"], 1);
+    assert_eq!(imported["messagesImported"], 1);
+
+    let chats = state.storage.list("chats").expect("chats should list");
+    assert_eq!(chats.len(), 1);
+    let chat = &chats[0];
+    assert_ne!(test_string(chat, "id"), "old-chat");
+    assert_eq!(test_string(chat, "name"), "Recovered Branch");
+    assert_eq!(test_string(chat, "mode"), "roleplay");
+    assert_ne!(test_string(chat, "groupId"), "group-1");
+    assert!(!test_string(chat, "groupId").is_empty());
+    assert_eq!(test_string(chat, "personaId"), "persona-1");
+    assert_eq!(test_string(chat, "promptPresetId"), "preset-1");
+    assert_eq!(test_string(chat, "connectionId"), "connection-1");
+    assert!(chat.get("folderId").is_none_or(Value::is_null));
+    assert_eq!(chat["metadata"]["branchName"], "Alt Route");
+
+    let messages = state
+        .storage
+        .list("messages")
+        .expect("messages should list");
+    assert_eq!(messages.len(), 1);
+    assert_ne!(test_string(&messages[0], "id"), "old-message");
+    assert_eq!(messages[0]["chatId"], chat["id"]);
+    assert_eq!(messages[0]["content"], "Recovered line");
+    assert_eq!(
+        test_string(&messages[0], "createdAt"),
+        "2026-06-05T01:02:03Z"
+    );
+}
+
+#[test]
+fn marinara_chat_bulk_import_remaps_groups_without_local_collision() {
+    let state = test_state("native-chat-bulk-groups");
+    state
+        .storage
+        .create(
+            "chats",
+            json!({
+                "id": "local-chat",
+                "name": "Local Branch",
+                "mode": "roleplay",
+                "groupId": "shared-old-group"
+            }),
+        )
+        .expect("local chat should seed");
+
+    let imported = import_marinara_file(
+        &state,
+        json!({
+            "file": uploaded_json("marinara-chats.json", json!({
+                "format": "marinara-chat-bulk",
+                "version": 1,
+                "chats": [
+                    {
+                        "chat": {
+                            "id": "old-chat-a",
+                            "name": "Imported A",
+                            "mode": "roleplay",
+                            "groupId": "shared-old-group",
+                            "metadata": { "branchName": "Imported A" }
+                        },
+                        "messages": [{
+                            "id": "old-message-a",
+                            "chatId": "old-chat-a",
+                            "role": "user",
+                            "characterId": null,
+                            "content": "A",
+                            "extra": { "displayText": null, "isGenerated": false, "tokenCount": null, "generationInfo": null }
+                        }]
+                    },
+                    {
+                        "chat": {
+                            "id": "old-chat-b",
+                            "name": "Imported B",
+                            "mode": "roleplay",
+                            "groupId": "shared-old-group",
+                            "metadata": { "branchName": "Imported B" }
+                        },
+                        "messages": [{
+                            "id": "old-message-b",
+                            "chatId": "old-chat-b",
+                            "role": "assistant",
+                            "characterId": null,
+                            "content": "B",
+                            "extra": { "displayText": null, "isGenerated": true, "tokenCount": null, "generationInfo": null }
+                        }]
+                    }
+                ]
+            }))
+        }),
+    )
+    .expect("native chat bulk JSON should import");
+
+    assert_eq!(imported["count"], 2);
+    let chats = state.storage.list("chats").expect("chats should list");
+    let local = record_with_field(&chats, "id", "local-chat");
+    assert_eq!(test_string(local, "groupId"), "shared-old-group");
+    let imported_a = record_with_field(&chats, "name", "Imported A");
+    let imported_b = record_with_field(&chats, "name", "Imported B");
+    let imported_group = test_string(imported_a, "groupId");
+    assert_eq!(imported_group, test_string(imported_b, "groupId"));
+    assert_ne!(imported_group, "shared-old-group");
+    assert_ne!(test_string(imported_a, "id"), "old-chat-a");
+    assert_ne!(test_string(imported_b, "id"), "old-chat-b");
+
+    let messages = state
+        .storage
+        .list("messages")
+        .expect("messages should list");
+    let message_a = messages
+        .iter()
+        .find(|message| message.get("content").and_then(Value::as_str) == Some("A"))
+        .expect("message A should import");
+    let message_b = messages
+        .iter()
+        .find(|message| message.get("content").and_then(Value::as_str) == Some("B"))
+        .expect("message B should import");
+    assert_eq!(message_a["chatId"], imported_a["id"]);
+    assert_eq!(message_b["chatId"], imported_b["id"]);
+}
+
+#[test]
+fn marinara_file_import_does_not_treat_other_json_as_chat_bulk() {
+    let state = test_state("native-chat-bulk-negative");
+    let error = import_marinara_file(
+        &state,
+        json!({
+            "file": uploaded_json("not-chat-bulk.json", json!({
+                "format": "not-chat-bulk",
+                "version": 1,
+                "chats": []
+            }))
+        }),
+    )
+    .expect_err("unmatched JSON should keep the existing file import rejection");
+
+    assert_eq!(error.code, "invalid_input");
+    assert!(error.message.contains("zip signature"));
+    assert!(state
+        .storage
+        .list("chats")
+        .expect("chats should list")
+        .is_empty());
 }
 
 #[test]

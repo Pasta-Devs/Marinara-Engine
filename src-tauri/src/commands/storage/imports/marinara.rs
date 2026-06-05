@@ -2,12 +2,15 @@ use super::*;
 
 #[path = "marinara_assets.rs"]
 mod marinara_assets;
+#[path = "marinara_chat_bulk.rs"]
+mod marinara_chat_bulk;
 #[path = "marinara_helpers.rs"]
 mod marinara_helpers;
 #[path = "marinara_rollback.rs"]
 mod marinara_rollback;
 
 use marinara_assets::*;
+use marinara_chat_bulk::*;
 use marinara_helpers::*;
 use marinara_rollback::*;
 
@@ -19,6 +22,13 @@ pub(super) fn import_marinara_file(state: &AppState, body: Value) -> AppResult<V
         body.get("file")
             .ok_or_else(|| AppError::invalid_input("file is required"))?,
     )?;
+    if let Ok(text) = std::str::from_utf8(&uploaded.bytes) {
+        if let Ok(payload) = parse_json_text(text) {
+            if payload.get("format").and_then(Value::as_str) == Some("marinara-chat-bulk") {
+                return import_marinara_chat_bulk(state, payload);
+            }
+        }
+    }
     if uploaded.bytes.len() < 4 || uploaded.bytes[0] != 0x50 || uploaded.bytes[1] != 0x4b {
         return Err(AppError::invalid_input(
             "Not a .marinara file (zip signature missing)",

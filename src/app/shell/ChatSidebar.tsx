@@ -1238,7 +1238,7 @@ export function ChatSidebar({
               {batchExportMenuOpen && (
                 <div className="absolute bottom-full left-0 z-20 mb-2 w-40 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 shadow-xl">
                   {[
-                    ["jsonl", "JSONL ZIP"],
+                    ["jsonl", "Transcript JSONL ZIP"],
                     ["text", "Text ZIP"],
                     ["native", "Native JSON"],
                   ].map(([format, label]) => (

@@ -1069,7 +1069,7 @@ export function useExportChat() {
       ]);
       const filename = chatExportFilename(chat, format);
       if (format === "text") {
-        downloadTextFile(formatChatText(messages), filename, "text/plain;charset=utf-8");
+        downloadTextFile(formatChatText(chat, messages), filename, "text/plain;charset=utf-8");
       } else {
         downloadTextFile(formatChatJsonl(messages), filename, "application/x-ndjson;charset=utf-8");
       }
