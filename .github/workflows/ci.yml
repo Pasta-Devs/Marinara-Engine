@@ -43,7 +43,7 @@ jobs:
           else
             pnpm check:discovery
           fi
-      - name: Unused code check
+      - name: Unused code report
         run: pnpm check:unused
 
   rust:

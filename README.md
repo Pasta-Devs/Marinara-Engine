@@ -180,6 +180,9 @@ The combined check is:
 pnpm check
 ```
 
+It includes a warning-only unused-code report, so dead files or exports still
+show up without failing the command.
+
 ## Current Status
 
 This branch is focused on the refactored desktop/runtime architecture. Public-facing installation pages, release notes, final screenshots, and license metadata should be added back when they are accurate for the new codebase.

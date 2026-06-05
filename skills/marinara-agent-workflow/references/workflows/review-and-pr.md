@@ -19,7 +19,7 @@ Before push or PR creation:
 3. Confirm the branch name, commit subject or label, trailers, and PR title or body do not self-name AI/tool/provider authorship. Rename or reword explicit authorship phrases before pushing or opening the PR. Do not reject bare product/domain words in legitimate feature names, file paths, data fields, or app output.
 4. Confirm only intentional files will ship.
 5. Verify evidence exists for the PR claim.
-6. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes the unused-code check, so do not wait for CI to discover dead files or exports.
+6. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes a warning-only unused-code report; review those findings because they no longer fail local checks or CI.
    If it cannot run, record the exact blocker and why the PR is still being handed off.
 7. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
 8. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.

@@ -455,6 +455,16 @@ function readGenerationReplay(value: unknown): GenerationReplay | null {
   return isRecord(replay) ? (replay as GenerationReplay) : null;
 }
 
+function showAgentWarningToast(rawData: unknown, shownKeys: Set<string>): void {
+  const data = parseMaybeRecord(rawData);
+  const message = readString(data.message).trim();
+  if (!message) return;
+  const key = `${readString(data.code).trim()}\0${message}`;
+  if (shownKeys.has(key)) return;
+  shownKeys.add(key);
+  toast.warning(message, { duration: 10_000 });
+}
+
 const editableCharacterCardFieldSet = new Set<string>(EDITABLE_CHARACTER_CARD_FIELDS);
 
 function parseCardFieldUpdate(raw: unknown): CharacterCardFieldUpdate | null {
@@ -1412,6 +1422,7 @@ export async function runGenerationWithUi(
   let groupTurnActive = false;
   let groupTurnIndex = -1;
   let groupTurnTotal = 0;
+  const shownAgentWarningKeys = new Set<string>();
 
   const releaseForegroundGenerationUi = () => {
     if (foregroundGenerationReleased) return;
@@ -1567,6 +1578,10 @@ export async function runGenerationWithUi(
         case "agent_result":
           queueAgentResultEffect(event.data);
           break;
+        case "agent_warning": {
+          showAgentWarningToast(event.data, shownAgentWarningKeys);
+          break;
+        }
         case "tool_call": {
           const name = toolEventName(event.data);
           useChatStore.getState().setGenerationPhase(name ? `Running tool: ${name}...` : "Running tool...");
@@ -1834,6 +1849,7 @@ export function useGenerate() {
           },
         );
         const failedRetries: AgentFailure[] = [];
+        const shownAgentWarningKeys = new Set<string>();
         for (const rawResult of results) {
           const result = parseAgentResult(rawResult);
           if (!result || result.success) continue;
@@ -1849,7 +1865,9 @@ export function useGenerate() {
           toast.error(formatAgentFailuresToast(failedRetries), { duration: 10_000 });
         }
         for (const event of events) {
-          if (event.type === "illustration") {
+          if (event.type === "agent_warning") {
+            showAgentWarningToast(event.data, shownAgentWarningKeys);
+          } else if (event.type === "illustration") {
             toast("Illustration generated.");
             // The chat-query refresh is fired unconditionally after this loop;
             // here we only need the illustration-specific gallery invalidate.

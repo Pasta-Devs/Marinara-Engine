@@ -28,7 +28,7 @@ Run checks that match the change:
 - Rust commands/capabilities/provider transport/hostable runtime: `cargo check --manifest-path src-tauri/Cargo.toml`
 - Docs/skills/agent guidance: `pnpm check:docs`
 - Architecture/import rules: `pnpm check:architecture`
-- PR boundary/ready-for-review: `pnpm check` (includes the unused-code check)
+- PR boundary/ready-for-review: `pnpm check` (includes a warning-only unused-code report)
 
 Ordinary local bugfixes should run the focused proof and matching lane check.
 Do not turn every "fix the bug" request into full `pnpm check`; run full
