@@ -1,6 +1,6 @@
 use super::{
     avatars, characters, chats, connection_secrets, contracts, game_state_snapshots, integrations,
-    lorebook_images, media_uploads, message_swipes, personas, prompts, shared,
+    lorebook_images, media_uploads, message_swipes, personas, prompts, shared, sprites,
 };
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
@@ -2057,10 +2057,18 @@ fn delete_cleanup_needs_existing_record(cleanup: &contracts::DeleteCleanup) -> b
 
 fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
     match entity {
-        "characters" => avatars::remove_avatar_file(state, entity, record),
+        "characters" => {
+            avatars::remove_avatar_file(state, entity, record);
+            if let Some(id) = record.get("id").and_then(Value::as_str) {
+                sprites::remove_owned_sprite_dir(state, sprites::SpriteOwnerKind::Character, id);
+            }
+        }
         "character-versions" => characters::remove_character_version_avatar_file(state, record),
         "personas" => {
-            avatars::remove_avatar_file_preserving_persona_snapshots(state, entity, record)
+            avatars::remove_avatar_file_preserving_persona_snapshots(state, entity, record);
+            if let Some(id) = record.get("id").and_then(Value::as_str) {
+                sprites::remove_owned_sprite_dir(state, sprites::SpriteOwnerKind::Persona, id);
+            }
         }
         "lorebooks" => lorebook_images::remove_lorebook_image_file(state, record),
         "gallery" | "character-gallery" => remove_gallery_file(state, record),
@@ -4103,6 +4111,44 @@ mod tests {
         assert!(
             !avatar_path.exists(),
             "deleted version should remove its owned avatar copy"
+        );
+    }
+
+    #[test]
+    fn deleting_character_removes_its_sprite_directory() {
+        let state = test_state("character-delete-sprites");
+        let sprite_dir = state.data_dir.join("sprites").join("char-1");
+        std::fs::create_dir_all(&sprite_dir).expect("sprite dir should be created");
+        std::fs::write(sprite_dir.join("neutral.png"), b"sprite").expect("sprite should be written");
+        state
+            .storage
+            .create("characters", json!({ "id": "char-1" }))
+            .expect("character row should be created");
+
+        delete_entity(&state, "characters", "char-1", false).expect("character delete should succeed");
+
+        assert!(
+            !sprite_dir.exists(),
+            "deleted character should remove its sprite directory"
+        );
+    }
+
+    #[test]
+    fn deleting_persona_removes_its_sprite_directory() {
+        let state = test_state("persona-delete-sprites");
+        let sprite_dir = state.data_dir.join("sprites").join("personas").join("persona-1");
+        std::fs::create_dir_all(&sprite_dir).expect("persona sprite dir should be created");
+        std::fs::write(sprite_dir.join("happy.png"), b"sprite").expect("sprite should be written");
+        state
+            .storage
+            .create("personas", json!({ "id": "persona-1" }))
+            .expect("persona row should be created");
+
+        delete_entity(&state, "personas", "persona-1", false).expect("persona delete should succeed");
+
+        assert!(
+            !sprite_dir.exists(),
+            "deleted persona should remove its sprite directory"
         );
     }
 
