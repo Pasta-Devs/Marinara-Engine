@@ -1147,10 +1147,10 @@ export function AppShell() {
                 aria-label="Tracker data panel"
                 role="complementary"
                 className={cn(
-                  "mari-tracker-panel fixed! inset-y-0 z-[70] overflow-y-auto bg-[var(--background)]/65 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-xl",
+                  "mari-tracker-panel fixed! top-0 z-[70] overflow-y-auto bg-[var(--background)]/65 shadow-2xl backdrop-blur-xl",
                   trackerPanelSide === "left" ? "left-0" : "right-0",
                 )}
-                style={{ width: mobileTrackerPanelWidth, paddingTop: 'calc(3.25rem + env(safe-area-inset-top))' }}
+                style={{ width: mobileTrackerPanelWidth, paddingTop: 'calc(3.25rem + env(safe-area-inset-top))', bottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
               >
                 <Suspense fallback={<SidePanelFallback />}>
                   <TrackerDataSidebar fillHeight />
@@ -1192,7 +1192,8 @@ export function AppShell() {
                 aria-modal="true"
                 role="dialog"
                 tabIndex={-1}
-                className="mari-right-panel fixed! inset-y-0 right-0 z-[70] w-full! shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]"
+                className="mari-right-panel fixed! top-0 right-0 z-[70] w-full! shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]"
+                style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
               >
                 <Suspense fallback={<SidePanelFallback />}>
                   <RightPanel />

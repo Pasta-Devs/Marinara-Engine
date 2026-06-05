@@ -515,6 +515,7 @@ export function ConversationView({
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const updateMeta = useUpdateChatMetadata();
   const summaryContextSize =
     typeof chatMeta.summaryContextSize === "number" && Number.isFinite(chatMeta.summaryContextSize)
@@ -1030,7 +1031,11 @@ export function ConversationView({
             if (chars.length === 1) {
               const c = chars[0]!;
               return (
-                <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
+                <div
+                  className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30 cursor-pointer hover:bg-[var(--card)] transition-colors"
+                  onClick={() => setTrackerPanelOpen(true)}
+                  title="View schedule"
+                >
                   <div className="relative flex-shrink-0">
                     {c.avatarUrl ? (
                       <span className="relative block h-5 w-5 overflow-hidden rounded-full">
@@ -1062,7 +1067,11 @@ export function ConversationView({
 
             // Multiple characters — show stacked avatars + names
             return (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
+              <div
+                className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30 cursor-pointer hover:bg-[var(--card)] transition-colors"
+                onClick={() => setTrackerPanelOpen(true)}
+                title="View schedule"
+              >
                 <div
                   className="relative flex-shrink-0"
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}

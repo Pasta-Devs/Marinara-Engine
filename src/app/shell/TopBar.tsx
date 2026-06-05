@@ -84,7 +84,37 @@ export function TopBar({
       </button>
 
       {chat?.mode !== "game" && (
-        firstChar ? (
+        characters && characters.length > 1 ? (
+          // Multi-char: stacked avatars (up to 3) + overflow badge
+          <div className="relative flex shrink-0 items-center" style={{ width: `${Math.min(characters.length, 3) * 20 + 8}px`, height: 32 }}>
+            {characters.slice(0, 3).map((c, i) => (
+              <div key={c.id ?? i} className="absolute top-0" style={{ left: i * 20, zIndex: 3 - i }}>
+                {c.avatarPath ? (
+                  <CharacterAvatarImage
+                    src={c.avatarPath}
+                    avatarFilePath={c.avatarFilePath}
+                    avatarFilename={c.avatarFilename}
+                    alt={c.data?.name ?? ""}
+                    className="h-8 w-8 rounded-xl object-cover ring-2 ring-[var(--background)]"
+                    thumbnailSize={64}
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-xs font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--background)]">
+                    {(c.data?.name ?? "?")[0]?.toUpperCase()}
+                  </div>
+                )}
+              </div>
+            ))}
+            {characters.length > 3 && (
+              <div
+                className="absolute top-0 flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--accent)] text-[0.6rem] font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--background)]"
+                style={{ left: 3 * 20, zIndex: 0 }}
+              >
+                +{characters.length - 3}
+              </div>
+            )}
+          </div>
+        ) : firstChar ? (
           <div className="relative shrink-0">
             {firstChar.avatarPath ? (
               <CharacterAvatarImage

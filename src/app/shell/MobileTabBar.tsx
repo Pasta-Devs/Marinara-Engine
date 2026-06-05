@@ -131,7 +131,7 @@ export function MobileTabBar({
 
       {/* Mode picker sheet */}
       {modePicker && (
-        <div className="fixed bottom-[4.5rem] left-1/2 w-[min(16rem,calc(100vw-2rem))] -translate-x-1/2 flex flex-col gap-2 md:hidden" style={{ zIndex: 70 }}>
+        <div className="fixed left-1/2 w-[min(16rem,calc(100vw-2rem))] -translate-x-1/2 flex flex-col gap-2 md:hidden" style={{ zIndex: 70, bottom: "calc(3.5rem + env(safe-area-inset-bottom))" }}>
           {MODE_OPTIONS.map(({ mode, label, color, border, gradient }) => (
             <button
               key={mode}
@@ -154,8 +154,8 @@ export function MobileTabBar({
       {/* Tools bottom sheet */}
       {toolsSheet && (
         <div
-          className="fixed bottom-[4.5rem] left-0 right-0 rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl md:hidden"
-          style={{ zIndex: 70, paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
+          className="fixed left-0 right-0 rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl md:hidden"
+          style={{ zIndex: 70, bottom: "calc(3.5rem + env(safe-area-inset-bottom))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         >
           <p className="px-5 pt-6 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
             Panels
