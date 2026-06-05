@@ -5,26 +5,27 @@ import type {
   CoreModuleView,
 } from "../../../../engine/contracts/types/core-module";
 
-export const CORE_MODULE_PLACEHOLDER_ID = "core-module-placeholder";
+export const ME_NOTES_MODULE_ID = "me-notes";
 
 const CORE_MODULES: readonly CoreModuleManifest[] = [
   {
-    id: CORE_MODULE_PLACEHOLDER_ID,
-    name: "Core Module Placeholder",
-    slug: "core-module-placeholder",
-    description: "Adds a tiny toggleable badge so the core module runtime can be verified.",
+    id: ME_NOTES_MODULE_ID,
+    name: "ME Notes",
+    slug: "me-notes",
+    description:
+      "Adds a compact movable chat notepad with global, character, chat, and branch-wide note tabs.",
     version: "1.0.0",
     source: "core",
-    main: "core-modules/placeholder",
-    permissions: ["ui:settings", "ui:overlay"],
+    main: "core-modules/me-notes",
+    permissions: ["ui:messages", "ui:settings", "ui:overlay", "storage:plugin-memory"],
     defaultEnabled: false,
-    runtime: "Placeholder badge",
+    runtime: "Floating chat notepad",
   },
 ] as const;
 
 const CORE_MODULE_STYLES: Record<string, string> = {};
 const CORE_MODULE_SURFACES: Record<string, number> = {
-  [CORE_MODULE_PLACEHOLDER_ID]: 1,
+  [ME_NOTES_MODULE_ID]: 1,
 };
 
 function isModuleEnabled(module: CoreModuleManifest, settings: CoreModuleSettings): boolean {

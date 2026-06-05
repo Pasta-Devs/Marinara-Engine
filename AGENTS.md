@@ -50,7 +50,7 @@ For code changes, final responses must include behavior changed, primary files/m
 - `src/app`: React bootstrap, shell layout, app providers, startup effects, top bars, sidebars, and panel composition.
 - `src/features/shell/mari`: Professor Mari's standalone assistant UI surface.
 - `src/features/shell/discovery`: In-app Discover guide, feature metadata registry, search/filter helpers, and discoverability action routing.
-- `src/features/shell/plugins`: Bundled opt-in core module registry, settings UI, React Query hooks, runtime contribution mounting, and placeholder module surface.
+- `src/features/shell/plugins`: Bundled opt-in core module registry, settings UI, React Query hooks, runtime contribution mounting, and the ME Notes chat notepad module.
 - `src/engine/mari`: TypeScript request/response contract for the Professor Mari entrypoint.
 - `src-tauri/src/commands/storage/mari.rs`: Privileged Professor Mari agent execution, tool definitions, codebase search/read/edit access, and extension/custom-agent creation.
 - `src/shared/api/mari-api.ts`: Focused frontend runtime wrapper for the Professor Mari command.
@@ -68,3 +68,4 @@ For code changes, final responses must include behavior changed, primary files/m
 - `skills/marinara-legacy-parity-audit`: Repo-local parityscan workflow for comparing refactor features, contracts, storage, runtime behavior, and product surfaces against legacy Marinara.
 - `skills/marinara-architecture-guard`: Architecture guardrails for placement, import direction, and remote-capable command routing.
 - `skills/marinara-agent-workflow`: Agent workflow references, source maps, handoff formats, and verification discipline.
+
