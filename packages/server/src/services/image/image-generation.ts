@@ -1787,23 +1787,80 @@ function numberedComfyReferencePlaceholder(
   return `%${baseName}_${String(index + 1).padStart(2, "0")}%`;
 }
 
+/**
+ * Helper: Extract outputs from ComfyUI history entry, handling both response formats.
+ * Legacy format: {prompt_id: {outputs: {...}}}
+ * Prompt-array format: {prompt_id: [status, id, {nodes}]}
+ */
+function extractComfyUiHistoryEntry(
+  entry: unknown,
+  promptId: string,
+): Record<string, ComfyUiNodeOutput> | undefined {
+  if (!entry) return undefined;
+
+  if (typeof entry === "object" && !Array.isArray(entry)) {
+    const obj = entry as Record<string, unknown>;
+    if (obj.outputs && typeof obj.outputs === "object") {
+      return obj.outputs as Record<string, ComfyUiNodeOutput>;
+    }
+  }
+
+  if (Array.isArray(entry) && entry.length >= 3) {
+    const thirdElement = entry[2];
+    if (typeof thirdElement === "object" && thirdElement !== null) {
+      return thirdElement as Record<string, ComfyUiNodeOutput>;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Helper: Scan node map for output files (images or gifs).
+ * Returns array of {nodeId, outputKey, files} for detected output candidates.
+ */
+function getComfyUiOutputCandidates(
+  nodeMap: Record<string, ComfyUiNodeOutput>,
+): Array<{nodeId: string; outputKey: string; files: Array<{filename: string; subfolder?: string; type?: string}>}> {
+  const candidates: Array<{nodeId: string; outputKey: string; files: Array<{filename: string; subfolder?: string; type?: string}>}> = [];
+
+  for (const [nodeId, nodeOutput] of Object.entries(nodeMap)) {
+    for (const outputKey of COMFYUI_OUTPUT_FILE_KEYS) {
+      const outputFiles = nodeOutput[outputKey];
+      if (Array.isArray(outputFiles) && outputFiles.length > 0) {
+        candidates.push({nodeId, outputKey, files: outputFiles});
+      }
+    }
+  }
+
+  return candidates;
+}
+
 async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promise<ImageGenResult> {
+  logger.info("[ComfyUI] Starting generation");
+
   const base = baseUrl.replace(/\/+$/, "");
   const defaults = resolveComfyUiDefaults(request);
   const seed = resolveSeed(request.imageDefaults);
   const prompt = mergePromptPrefix(defaults.promptPrefix, request.prompt || "");
   const negativePrompt = mergeNegativePrompt(defaults.negativePromptPrefix, request.negativePrompt);
 
+  logger.debug("[ComfyUI] Request params: dimensions=%sx%s seed=%s sampler=%s", 
+    request.width || 512, request.height || 768, seed, defaults.sampler);
+
   // Parse custom workflow or use default
   let workflow: Record<string, unknown>;
   if (request.comfyWorkflow) {
     try {
       workflow = JSON.parse(request.comfyWorkflow) as Record<string, unknown>;
-    } catch {
+      logger.debug("[ComfyUI] Parsed custom workflow");
+    } catch (err) {
+      logger.error(err, "[ComfyUI] Invalid workflow JSON");
       throw new Error("Invalid ComfyUI workflow JSON");
     }
   } else {
     workflow = buildDefaultComfyUiWorkflow(defaults);
+    logger.debug("[ComfyUI] Using default workflow template");
   }
 
   const replacements: Record<string, string | number> = {
@@ -1826,7 +1883,17 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
     replacements["%model%"] = request.model;
   }
   const workflowJson = JSON.stringify(workflow);
+  let placeholderCount = 0;
+  for (const key of Object.keys(replacements)) {
+    if (workflowJson.includes(key)) {
+      placeholderCount++;
+    }
+  }
+  logger.debug("[ComfyUI] Workflow has %d active placeholders", placeholderCount);
+
   const references = collectComfyReferenceImages(request, defaults);
+  logger.debug("[ComfyUI] Reference images: count=%d", references.length);
+
   for (let i = 0; i < references.length; i++) {
     const reference = references[i]!;
     const imagePlaceholder = numberedComfyReferencePlaceholder("reference_image", i);
@@ -1844,6 +1911,7 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
   const resolvedWorkflow = replaceComfyUiPlaceholders(workflow, replacements);
 
   // Queue the workflow
+  logger.info("[ComfyUI] Queueing workflow");
   const queueResp = await localImageBackendFetch(`${base}/prompt`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1853,53 +1921,74 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
 
   if (!queueResp.ok) {
     const errText = await queueResp.text().catch(() => "Unknown error");
+    logger.error("[ComfyUI] Queue failed: %d %s", queueResp.status, sanitizeErrorText(errText));
     throw new Error(`ComfyUI queue failed (${queueResp.status}): ${sanitizeErrorText(errText)}`);
   }
 
   const { prompt_id } = (await queueResp.json()) as { prompt_id: string };
+  logger.info("[ComfyUI] Workflow queued: prompt_id=%s", prompt_id);
 
   // Poll for completion. Default is 5 minutes to match shared image request timeout.
+  logger.info("[ComfyUI] Starting poll for completion (timeout=%ds)", COMFYUI_GEN_TIMEOUT_SECONDS);
   for (let i = 0; i < COMFYUI_GEN_TIMEOUT_SECONDS; i++) {
     await new Promise((r) => setTimeout(r, 1000));
+
+    if (i % 10 === 0) {
+      logger.debug("[ComfyUI] Polling... elapsed=%ds", i);
+    }
 
     const historyResp = await localImageBackendFetch(`${base}/history/${prompt_id}`, {
       signal: AbortSignal.timeout(IMAGE_GEN_TIMEOUT),
     });
     if (!historyResp.ok) continue;
 
-    const history = (await historyResp.json()) as Record<string, { outputs?: Record<string, ComfyUiNodeOutput> }>;
+    const history = (await historyResp.json()) as Record<string, unknown>;
 
     const entry = history[prompt_id];
-    if (!entry?.outputs) continue;
+    const outputs = extractComfyUiHistoryEntry(entry, prompt_id);
+    if (!outputs) continue;
+
+    logger.debug("[ComfyUI] Found history entry with outputs");
+
+    // Get output candidates
+    const candidates = getComfyUiOutputCandidates(outputs);
+    if (candidates.length === 0) {
+      logger.debug("[ComfyUI] History entry has no output files yet");
+      continue;
+    }
+
+    logger.debug("[ComfyUI] Found %d output candidate nodes: %s", 
+      candidates.length, candidates.map(c => c.nodeId).join(","));
 
     // Video Helper Suite's Video Combine reports animated WebP files as "gifs".
-    for (const outputKey of COMFYUI_OUTPUT_FILE_KEYS) {
-      for (const nodeOutput of Object.values(entry.outputs)) {
-        const outputFiles = nodeOutput[outputKey];
-        if (outputFiles && outputFiles.length > 0) {
-          const img = outputFiles[0]!;
-          const params = new URLSearchParams({
-            filename: img.filename,
-            subfolder: img.subfolder || "",
-            type: img.type || "output",
-          });
+    for (const candidate of candidates) {
+      for (const img of candidate.files) {
+        const params = new URLSearchParams({
+          filename: img.filename,
+          subfolder: img.subfolder || "",
+          type: img.type || "output",
+        });
 
-          const imgResp = await localImageBackendFetch(`${base}/view?${params}`, {
-            signal: AbortSignal.timeout(IMAGE_GEN_TIMEOUT),
-          });
-          if (!imgResp.ok) {
-            throw new Error(`ComfyUI image fetch failed (${imgResp.status})`);
-          }
-
-          const arrayBuffer = await imgResp.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString("base64");
-          const { mimeType, ext } = imageResultMetadata(img.filename, imgResp.headers.get("content-type"), base64);
-          return { base64, mimeType, ext };
+        logger.info("[ComfyUI] Downloading generated image: %s", img.filename);
+        const imgResp = await localImageBackendFetch(`${base}/view?${params}`, {
+          signal: AbortSignal.timeout(IMAGE_GEN_TIMEOUT),
+        });
+        if (!imgResp.ok) {
+          logger.error("[ComfyUI] Image fetch failed: %d", imgResp.status);
+          throw new Error(`ComfyUI image fetch failed (${imgResp.status})`);
         }
+
+        const arrayBuffer = await imgResp.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString("base64");
+        const { mimeType, ext } = imageResultMetadata(img.filename, imgResp.headers.get("content-type"), base64);
+        
+        logger.info("[ComfyUI] Generation complete (elapsed=%ds)", i);
+        return { base64, mimeType, ext };
       }
     }
   }
 
+  logger.error("[ComfyUI] Generation timed out after %d seconds", COMFYUI_GEN_TIMEOUT_SECONDS);
   throw new Error(`ComfyUI generation timed out after ${COMFYUI_GEN_TIMEOUT_SECONDS} seconds`);
 }
 
