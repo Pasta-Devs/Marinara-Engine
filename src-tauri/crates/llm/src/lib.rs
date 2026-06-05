@@ -474,6 +474,34 @@ fn openai_reasoning_effort(request: &LlmRequest) -> Option<String> {
     }
 }
 
+fn supports_mistral_adjustable_reasoning(model: &str) -> bool {
+    let model = model.to_ascii_lowercase();
+    matches!(
+        model.as_str(),
+        "mistral-small-latest" | "mistral-small-2603" | "mistral-medium-3-5"
+    )
+}
+
+fn mistral_reasoning_effort(request: &LlmRequest) -> Option<&'static str> {
+    if !supports_mistral_adjustable_reasoning(&request.connection.model) {
+        return None;
+    }
+    if let Some(effort) = param_string(
+        &request.parameters,
+        &["reasoningEffort", "reasoning_effort"],
+    )
+    .map(|value| value.to_ascii_lowercase())
+    {
+        return match effort.as_str() {
+            "none" | "minimal" | "low" => Some("none"),
+            "high" | "maximum" | "xhigh" => Some("high"),
+            _ => None,
+        };
+    }
+    param_boolish(&request.parameters, &["showThoughts", "show_thoughts"], false)
+        .map(|show| if show { "high" } else { "none" })
+}
+
 fn model_contains(request: &LlmRequest, needle: &str) -> bool {
     request
         .connection
@@ -525,12 +553,18 @@ fn is_claude_opus_adaptive_only_model(model: &str) -> bool {
     claude_version_at_least(model, "opus", 4, 7)
 }
 
+fn is_anthropic_sampling_restricted_model(model: &str) -> bool {
+    claude_version_at_least(model, "opus", 4, 7)
+        || claude_version_at_least(model, "sonnet", 4, 6)
+        || claude_version_at_least(model, "haiku", 4, 5)
+}
+
 fn supports_anthropic_adaptive_thinking(model: &str) -> bool {
     claude_version_at_least(model, "opus", 4, 6) || claude_version_at_least(model, "sonnet", 4, 6)
 }
 
 fn should_send_openai_sampling_parameters(request: &LlmRequest) -> bool {
-    !is_claude_opus_adaptive_only_model(&request.connection.model)
+    !is_anthropic_sampling_restricted_model(&request.connection.model)
 }
 
 fn should_send_temperature(request: &LlmRequest) -> bool {
@@ -575,12 +609,34 @@ const OPENAI_RESPONSES_UNSUPPORTED_CUSTOM_PARAMETER_KEYS: &[&str] = &[
     "stop_sequences",
 ];
 
+fn is_mistral_unsupported_custom_parameter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "seed"
+            | "top_k"
+            | "topK"
+            | "safePrompt"
+            | "randomSeed"
+            | "promptCacheKey"
+            | "promptMode"
+            | "parallelToolCalls"
+            | "reasoningEffort"
+            | "responseFormat"
+            | "service_tier"
+            | "serviceTier"
+    )
+}
+
 fn is_openai_service_tier(value: &str) -> bool {
     matches!(value, "auto" | "default" | "flex" | "scale" | "priority")
 }
 
 fn is_openrouter_service_tier(value: &str) -> bool {
     matches!(value, "flex" | "priority")
+}
+
+fn is_anthropic_service_tier(value: &str) -> bool {
+    matches!(value, "auto" | "standard_only")
 }
 
 fn should_apply_custom_parameter(
@@ -629,6 +685,10 @@ fn is_gemini_3_model(model: &str) -> bool {
         || normalized.contains("/gemini-3")
 }
 
+fn is_gemini_3_pro_model(model: &str) -> bool {
+    is_gemini_3_model(model) && model.to_ascii_lowercase().contains("-pro")
+}
+
 fn is_gemini_25_model(model: &str) -> bool {
     let normalized = model.to_ascii_lowercase();
     normalized.starts_with("gemini-2.5")
@@ -636,9 +696,16 @@ fn is_gemini_25_model(model: &str) -> bool {
         || normalized.contains("/gemini-2.5")
 }
 
-fn google_thinking_level(parameters: &Value) -> Option<&'static str> {
-    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
+fn is_gemini_25_pro_model(model: &str) -> bool {
+    is_gemini_25_model(model) && model.to_ascii_lowercase().contains("-pro")
+}
+
+fn google_thinking_level(model: &str, parameters: &Value) -> Option<&'static str> {
+    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?
+        .to_ascii_lowercase();
     match effort.as_str() {
+        "none" | "minimal" if is_gemini_3_pro_model(model) => Some("low"),
+        "none" | "minimal" => Some("minimal"),
         "low" => Some("low"),
         "medium" => Some("medium"),
         "high" | "maximum" | "xhigh" => Some("high"),
@@ -646,24 +713,93 @@ fn google_thinking_level(parameters: &Value) -> Option<&'static str> {
     }
 }
 
+fn google_thinking_budget(model: &str, parameters: &Value) -> Option<i64> {
+    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?
+        .to_ascii_lowercase();
+    let pro = is_gemini_25_pro_model(model);
+    match effort.as_str() {
+        "none" | "minimal" if pro => Some(128),
+        "none" | "minimal" => Some(0),
+        "low" => Some(1024),
+        "medium" => Some(8192),
+        "high" | "maximum" | "xhigh" if pro => Some(32768),
+        "high" | "maximum" | "xhigh" => Some(24576),
+        _ => None,
+    }
+}
+
 fn google_thinking_config(model: &str, parameters: &Value) -> Option<Value> {
     if is_gemini_3_model(model) {
-        return google_thinking_level(parameters)
+        return google_thinking_level(model, parameters)
             .map(|level| json!({ "thinkingLevel": level, "includeThoughts": true }));
     }
 
     if is_gemini_25_model(model) {
-        let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?;
-        let budget = match effort.as_str() {
-            "low" => 1024,
-            "medium" => 8192,
-            "high" | "maximum" | "xhigh" => 24576,
-            _ => return None,
-        };
+        let budget = google_thinking_budget(model, parameters)?;
         return Some(json!({ "thinkingBudget": budget, "includeThoughts": true }));
     }
 
     None
+}
+
+fn is_google_gemini_3_unsupported_generation_config_key(key: &str) -> bool {
+    matches!(
+        key,
+        "temperature" | "topP" | "top_p" | "topK" | "top_k" | "candidateCount" | "candidate_count"
+    )
+}
+
+fn is_google_generation_config_custom_parameter_key(key: &str) -> bool {
+    matches!(
+        key,
+        "stopSequences"
+            | "stop_sequences"
+            | "responseMimeType"
+            | "response_mime_type"
+            | "responseModalities"
+            | "response_modalities"
+            | "thinkingConfig"
+            | "thinking_config"
+            | "modelConfig"
+            | "model_config"
+            | "temperature"
+            | "topP"
+            | "top_p"
+            | "topK"
+            | "top_k"
+            | "candidateCount"
+            | "candidate_count"
+            | "maxOutputTokens"
+            | "max_output_tokens"
+            | "responseLogprobs"
+            | "response_logprobs"
+            | "logprobs"
+            | "presencePenalty"
+            | "presence_penalty"
+            | "frequencyPenalty"
+            | "frequency_penalty"
+            | "seed"
+            | "responseSchema"
+            | "response_schema"
+            | "responseJsonSchema"
+            | "response_json_schema"
+            | "routingConfig"
+            | "routing_config"
+            | "audioTimestamp"
+            | "audio_timestamp"
+            | "mediaResolution"
+            | "media_resolution"
+            | "speechConfig"
+            | "speech_config"
+            | "enableAffectiveDialog"
+            | "enable_affective_dialog"
+            | "enableEnhancedCivicAnswers"
+            | "enable_enhanced_civic_answers"
+            | "imageConfig"
+            | "image_config"
+            | "responseFormat"
+            | "response_format"
+    )
 }
 
 fn anthropic_thinking_effort(model: &str, parameters: &Value) -> Option<&'static str> {
@@ -1443,6 +1579,47 @@ impl OpenAiToolCallAccumulator {
     }
 }
 
+fn emit_openai_content_delta(
+    content: &Value,
+    emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+) -> AppResult<()> {
+    match content {
+        Value::String(text) => {
+            if !text.is_empty() {
+                emit(json!({ "type": "token", "text": text, "data": text }))?;
+            }
+        }
+        Value::Array(parts) => {
+            for part in parts {
+                emit_openai_content_delta(part, emit)?;
+            }
+        }
+        Value::Object(_) if content.get("type").and_then(Value::as_str) == Some("thinking") => {
+            let thinking = content
+                .get("thinking")
+                .map(content_text)
+                .filter(|text| !text.trim().is_empty())
+                .or_else(|| {
+                    content
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                })
+                .unwrap_or_default();
+            if !thinking.is_empty() {
+                emit(json!({ "type": "thinking", "text": thinking, "data": thinking }))?;
+            }
+        }
+        Value::Object(_) => {
+            if let Some(text) = content_part_text(content).filter(|text| !text.is_empty()) {
+                emit(json!({ "type": "token", "text": text, "data": text }))?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 fn process_openai_sse_block(
     block: &str,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
@@ -1478,10 +1655,8 @@ fn process_openai_sse_block(
                 }
             }
         }
-        if let Some(content) = delta.get("content").and_then(Value::as_str) {
-            if !content.is_empty() {
-                emit(json!({ "type": "token", "text": content, "data": content }))?;
-            }
+        if let Some(content) = delta.get("content") {
+            emit_openai_content_delta(content, emit)?;
         }
         if choice
             .get("finish_reason")
@@ -1555,7 +1730,11 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         }
     }
     if let Some(seed) = param_i64(parameters, &["seed"]) {
-        body["seed"] = json!(seed);
+        if request.connection.provider == "mistral" {
+            body["random_seed"] = json!(seed);
+        } else {
+            body["seed"] = json!(seed);
+        }
     }
     let send_sampling = should_send_openai_sampling_parameters(request);
     if send_sampling {
@@ -1595,8 +1774,41 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         {
             body["service_tier"] = json!(service_tier);
         }
+    } else if request.connection.provider == "mistral" {
+        if let Some(effort) = mistral_reasoning_effort(request) {
+            body["reasoning_effort"] = json!(effort);
+        }
+        if let Some(safe_prompt) = param_boolish(parameters, &["safePrompt", "safe_prompt"], false)
+        {
+            body["safe_prompt"] = json!(safe_prompt);
+        }
+        if let Some(prompt_cache_key) =
+            param_string(parameters, &["promptCacheKey", "prompt_cache_key"])
+        {
+            body["prompt_cache_key"] = json!(prompt_cache_key);
+        }
+        if let Some(prompt_mode) =
+            param_string(parameters, &["promptMode", "prompt_mode"]).filter(|value| value == "reasoning")
+        {
+            body["prompt_mode"] = json!(prompt_mode);
+        }
+        if let Some(parallel_tool_calls) = param_boolish(
+            parameters,
+            &["parallelToolCalls", "parallel_tool_calls"],
+            true,
+        ) {
+            body["parallel_tool_calls"] = json!(parallel_tool_calls);
+        }
+        if let Some(prediction) = parameters.get("prediction").filter(|value| !value.is_null()) {
+            body["prediction"] = prediction.clone();
+        }
     }
     apply_custom_parameters_to_object(body, parameters, !send_sampling, !send_sampling, &[]);
+    if request.connection.provider == "mistral" {
+        if let Some(body) = body.as_object_mut() {
+            body.retain(|key, _| !is_mistral_unsupported_custom_parameter_key(key));
+        }
+    }
     if let Some(openrouter) = parameters
         .get("openrouter")
         .or_else(|| parameters.get("openRouter"))
@@ -2278,19 +2490,27 @@ fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
     if !system.is_empty() {
         body["system"] = json!(system.join("\n\n"));
     }
-    let adaptive_only = is_claude_opus_adaptive_only_model(&request.connection.model);
+    let sampling_restricted = is_anthropic_sampling_restricted_model(&request.connection.model);
     let thinking_effort = anthropic_thinking_effort(&request.connection.model, &request.parameters);
     let adaptive_thinking = should_use_anthropic_adaptive_thinking(
         &request.connection.model,
         &request.parameters,
         thinking_effort,
     );
-    if !adaptive_only && !adaptive_thinking {
+    let send_temperature_and_top_k = !sampling_restricted && !adaptive_thinking;
+    if send_temperature_and_top_k {
         if let Some(temp) = temperature(&request.parameters) {
             body["temperature"] = json!(temp);
         }
     }
-    if !adaptive_only {
+    if !sampling_restricted {
+        if let Some(top_p) = param_f64(&request.parameters, &["topP", "top_p"]) {
+            if !adaptive_thinking || top_p >= 0.95 {
+                body["top_p"] = json!(top_p);
+            }
+        }
+    }
+    if send_temperature_and_top_k {
         if let Some(top_k) = param_i64(&request.parameters, &["topK", "top_k"]) {
             body["top_k"] = json!(top_k);
         }
@@ -2305,16 +2525,19 @@ fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
         body["thinking"] = json!({ "type": "enabled", "budget_tokens": budget_tokens });
         body["max_tokens"] = json!(request_max_tokens(request, 1024) + budget_tokens);
     }
-    if !adaptive_only {
-        if let Some(stop) = stop_sequences(&request.parameters) {
-            body["stop_sequences"] = json!(stop);
-        }
+    if let Some(service_tier) = param_string(&request.parameters, &["serviceTier", "service_tier"])
+        .filter(|value| is_anthropic_service_tier(value))
+    {
+        body["service_tier"] = json!(service_tier);
+    }
+    if let Some(stop) = stop_sequences(&request.parameters) {
+        body["stop_sequences"] = json!(stop);
     }
     apply_custom_parameters_to_object(
         &mut body,
         &request.parameters,
-        adaptive_only,
-        adaptive_only,
+        sampling_restricted || adaptive_thinking,
+        false,
         &[],
     );
     body
@@ -2639,15 +2862,23 @@ fn google_generation_config(request: &LlmRequest) -> Value {
             generation_config["topK"] = json!(top_k);
         }
     }
+    if let Some(frequency_penalty) =
+        param_f64(&request.parameters, &["frequencyPenalty", "frequency_penalty"])
+    {
+        generation_config["frequencyPenalty"] = json!(frequency_penalty);
+    }
+    if let Some(presence_penalty) =
+        param_f64(&request.parameters, &["presencePenalty", "presence_penalty"])
+    {
+        generation_config["presencePenalty"] = json!(presence_penalty);
+    }
     if let Some(thinking_config) =
         google_thinking_config(&request.connection.model, &request.parameters)
     {
         generation_config["thinkingConfig"] = thinking_config;
     }
-    if !is_gemini_3 {
-        if let Some(stop) = stop_sequences(&request.parameters) {
-            generation_config["stopSequences"] = json!(stop);
-        }
+    if let Some(stop) = stop_sequences(&request.parameters) {
+        generation_config["stopSequences"] = json!(stop);
     }
     if let Some(entries) = request
         .parameters
@@ -2659,7 +2890,9 @@ fn google_generation_config(request: &LlmRequest) -> Value {
             entries.get("generationConfig").and_then(Value::as_object)
         {
             for (key, value) in custom_generation_config {
-                if should_apply_custom_parameter(key, is_gemini_3, is_gemini_3, &[]) {
+                if should_apply_custom_parameter(key, false, false, &[])
+                    && !(is_gemini_3 && is_google_gemini_3_unsupported_generation_config_key(key))
+                {
                     if let Some(config) = generation_config.as_object_mut() {
                         if !config.contains_key(key) {
                             config.insert(key.clone(), value.clone());
@@ -2668,15 +2901,52 @@ fn google_generation_config(request: &LlmRequest) -> Value {
                 }
             }
         }
+        for (key, value) in entries {
+            if key == "generationConfig"
+                || !is_google_generation_config_custom_parameter_key(key)
+                || !should_apply_custom_parameter(key, false, false, &[])
+                || is_gemini_3 && is_google_gemini_3_unsupported_generation_config_key(key)
+            {
+                continue;
+            }
+            if let Some(config) = generation_config.as_object_mut() {
+                if !config.contains_key(key) {
+                    config.insert(key.clone(), value.clone());
+                }
+            }
+        }
     }
-    apply_custom_parameters_to_object(
-        &mut generation_config,
-        &request.parameters,
-        is_gemini_3,
-        is_gemini_3,
-        &["generationConfig"],
-    );
+    if is_gemini_3 {
+        if let Some(config) = generation_config.as_object_mut() {
+            config.retain(|key, _| !is_google_gemini_3_unsupported_generation_config_key(key));
+        }
+    }
     generation_config
+}
+
+fn apply_google_custom_parameters_to_body(body: &mut Value, request: &LlmRequest) {
+    let Some(entries) = request
+        .parameters
+        .get("customParameters")
+        .or_else(|| request.parameters.get("custom_params"))
+        .and_then(Value::as_object)
+    else {
+        return;
+    };
+    let Some(body) = body.as_object_mut() else {
+        return;
+    };
+    for (key, value) in entries {
+        if key == "generationConfig"
+            || is_google_generation_config_custom_parameter_key(key)
+            || !should_apply_custom_parameter(key, false, false, &[])
+        {
+            continue;
+        }
+        if !body.contains_key(key) {
+            body.insert(key.clone(), value.clone());
+        }
+    }
 }
 
 fn google_generate_body(request: &LlmRequest) -> Value {
@@ -2687,6 +2957,7 @@ fn google_generate_body(request: &LlmRequest) -> Value {
     if let Some(system_instruction) = google_system_instruction(request) {
         body["systemInstruction"] = system_instruction;
     }
+    apply_google_custom_parameters_to_body(&mut body, request);
     body
 }
 
@@ -2917,22 +3188,54 @@ where
     })
 }
 
+fn content_part_text(value: &Value) -> Option<String> {
+    if let Some(text) = value.as_str() {
+        return Some(text.to_string());
+    }
+    if value.get("type").and_then(Value::as_str) == Some("thinking") {
+        return None;
+    }
+    value
+        .get("text")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("content").and_then(Value::as_str))
+        .map(str::to_string)
+}
+
 fn content_text(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
         Value::Array(parts) => parts
             .iter()
-            .filter_map(|part| {
-                if let Some(text) = part.as_str() {
-                    return Some(text.to_string());
-                }
-                part.get("text")
-                    .and_then(Value::as_str)
-                    .or_else(|| part.get("content").and_then(Value::as_str))
-                    .map(str::to_string)
-            })
+            .filter_map(content_part_text)
             .collect::<Vec<_>>()
             .join(""),
+        Value::Object(_) => content_part_text(value).unwrap_or_default(),
+        _ => String::new(),
+    }
+}
+
+fn content_thinking_text(value: &Value) -> String {
+    match value {
+        Value::Array(parts) => parts
+            .iter()
+            .map(content_thinking_text)
+            .filter(|text| !text.trim().is_empty())
+            .collect::<Vec<_>>()
+            .join(""),
+        Value::Object(_) if value.get("type").and_then(Value::as_str) == Some("thinking") => {
+            value
+                .get("thinking")
+                .map(content_text)
+                .filter(|text| !text.trim().is_empty())
+                .or_else(|| {
+                    value
+                        .get("text")
+                        .and_then(Value::as_str)
+                        .map(str::to_string)
+                })
+                .unwrap_or_default()
+        }
         _ => String::new(),
     }
 }
@@ -2950,6 +3253,13 @@ fn assistant_message_text(message: &Value) -> String {
 }
 
 fn response_reasoning_text(choice: &Value, message: &Value) -> String {
+    if let Some(content_reasoning) = message
+        .get("content")
+        .map(content_thinking_text)
+        .filter(|text| !text.trim().is_empty())
+    {
+        return content_reasoning;
+    }
     [
         message.get("reasoning"),
         message.get("reasoning_content"),
@@ -3442,6 +3752,18 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
                 .expect("Gemini 3 reasoning effort should create thinking config");
         assert_eq!(config["thinkingLevel"], json!("medium"));
         assert_eq!(config["includeThoughts"], json!(true));
+
+        let flash_config =
+            google_thinking_config("gemini-3.5-flash", &json!({ "reasoningEffort": "minimal" }))
+                .expect("Gemini 3.5 Flash minimal effort should create thinking config");
+        assert_eq!(flash_config["thinkingLevel"], json!("minimal"));
+
+        let pro_config = google_thinking_config(
+            "gemini-3.1-pro-preview",
+            &json!({ "reasoningEffort": "minimal" }),
+        )
+        .expect("Gemini 3.1 Pro should clamp minimal effort to a supported level");
+        assert_eq!(pro_config["thinkingLevel"], json!("low"));
     }
 
     #[test]
@@ -3461,7 +3783,22 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
                 "temperature": 0.8,
                 "topP": 0.9,
                 "topK": 40,
-                "stop": ["</END>"]
+                "frequencyPenalty": 0.2,
+                "presencePenalty": 0.3,
+                "stop": ["</END>"],
+                "customParameters": {
+                    "generationConfig": {
+                        "candidateCount": 2,
+                        "topP": 0.4,
+                        "responseMimeType": "application/json"
+                    },
+                    "safetySettings": [
+                        {
+                            "category": "HARM_CATEGORY_HARASSMENT",
+                            "threshold": "BLOCK_ONLY_HIGH"
+                        }
+                    ]
+                }
             }),
         );
         let body = google_generate_body(&request);
@@ -3473,7 +3810,15 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert!(config.get("temperature").is_none());
         assert!(config.get("topP").is_none());
         assert!(config.get("topK").is_none());
-        assert!(config.get("stopSequences").is_none());
+        assert!(config.get("candidateCount").is_none());
+        assert_eq!(config["frequencyPenalty"], json!(0.2));
+        assert_eq!(config["presencePenalty"], json!(0.3));
+        assert_eq!(config["stopSequences"], json!(["</END>"]));
+        assert_eq!(config["responseMimeType"], json!("application/json"));
+        assert_eq!(
+            body["safetySettings"][0]["category"],
+            json!("HARM_CATEGORY_HARASSMENT")
+        );
     }
 
     #[test]

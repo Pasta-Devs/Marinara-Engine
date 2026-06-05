@@ -114,14 +114,14 @@ const OPENAI_MODELS: KnownModel[] = [
 const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-opus-4-8", name: "claude-opus-4-8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "claude-opus-4-7", context: 1000000, maxOutput: 128000 },
-  { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 32000 },
-  { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6", context: 1000000, maxOutput: 32000 },
+  { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 128000 },
+  { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6", context: 1000000, maxOutput: 64000 },
   { id: "claude-opus-4-5", name: "claude-opus-4-5", context: 1000000, maxOutput: 32000 },
   { id: "claude-opus-4-5-20251101", name: "claude-opus-4-5-20251101", context: 1000000, maxOutput: 32000 },
   { id: "claude-sonnet-4-5", name: "claude-sonnet-4-5", context: 1000000, maxOutput: 16000 },
   { id: "claude-sonnet-4-5-20250929", name: "claude-sonnet-4-5-20250929", context: 1000000, maxOutput: 16000 },
-  { id: "claude-haiku-4-5", name: "claude-haiku-4-5", context: 200000, maxOutput: 8192 },
-  { id: "claude-haiku-4-5-20251001", name: "claude-haiku-4-5-20251001", context: 200000, maxOutput: 8192 },
+  { id: "claude-haiku-4-5", name: "claude-haiku-4-5", context: 200000, maxOutput: 64000 },
+  { id: "claude-haiku-4-5-20251001", name: "claude-haiku-4-5-20251001", context: 200000, maxOutput: 64000 },
   { id: "claude-opus-4-1", name: "claude-opus-4-1", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-1-20250805", name: "claude-opus-4-1-20250805", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-0", name: "claude-opus-4-0", context: 200000, maxOutput: 32000 },
@@ -178,10 +178,17 @@ const GOOGLE_MODELS: KnownModel[] = [
   { id: "gemini-3.5-flash", name: "gemini-3.5-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.1
   { id: "gemini-3.1-pro-preview", name: "gemini-3.1-pro-preview", context: 1000000, maxOutput: 65536 },
-  { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 65535, maxOutput: 8192 },
+  {
+    id: "gemini-3.1-pro-preview-customtools",
+    name: "gemini-3.1-pro-preview-customtools",
+    context: 1000000,
+    maxOutput: 65536,
+  },
+  { id: "gemini-3.1-flash-lite", name: "gemini-3.1-flash-lite", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 128000, maxOutput: 32768 },
   // Gemini 3.0
   { id: "gemini-3-pro-preview", name: "gemini-3-pro-preview", context: 1000000, maxOutput: 65536 },
-  { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65535, maxOutput: 8192 },
+  { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65536, maxOutput: 32768 },
   { id: "gemini-3-flash-preview", name: "gemini-3-flash-preview", context: 1000000, maxOutput: 65536 },
   // Gemini 2.5
   { id: "gemini-2.5-pro", name: "gemini-2.5-pro", context: 1000000, maxOutput: 65536 },
@@ -275,9 +282,27 @@ const GOOGLE_MODELS: KnownModel[] = [
   { id: "gemini-robotics-er-1.5-preview", name: "gemini-robotics-er-1.5-preview", context: 1000000, maxOutput: 8192 },
 ];
 
-// ── MistralAI (loaded dynamically from API in SillyTavern — no static list) ──
+// ── MistralAI (loaded dynamically from API when available) ──
 
-const MISTRAL_MODELS: KnownModel[] = [];
+const MISTRAL_MODELS: KnownModel[] = [
+  { id: "mistral-medium-3-5", name: "mistral-medium-3-5", context: 256000, maxOutput: 8192 },
+  { id: "mistral-medium-latest", name: "mistral-medium-latest", context: 256000, maxOutput: 8192 },
+  { id: "mistral-small-latest", name: "mistral-small-latest", context: 256000, maxOutput: 8192 },
+  { id: "mistral-small-2603", name: "mistral-small-2603", context: 256000, maxOutput: 8192 },
+  { id: "mistral-large-latest", name: "mistral-large-latest", context: 256000, maxOutput: 8192 },
+  { id: "mistral-large-2512", name: "mistral-large-2512", context: 256000, maxOutput: 8192 },
+  { id: "mistral-medium-2508", name: "mistral-medium-2508", context: 256000, maxOutput: 8192 },
+  { id: "ministral-14b-2512", name: "ministral-14b-2512", context: 256000, maxOutput: 8192 },
+  { id: "ministral-8b-2512", name: "ministral-8b-2512", context: 256000, maxOutput: 8192 },
+  { id: "ministral-3b-2512", name: "ministral-3b-2512", context: 256000, maxOutput: 8192 },
+  { id: "magistral-medium-latest", name: "magistral-medium-latest", context: 128000, maxOutput: 8192 },
+  { id: "magistral-medium-2509", name: "magistral-medium-2509", context: 128000, maxOutput: 8192 },
+  { id: "magistral-small-latest", name: "magistral-small-latest", context: 128000, maxOutput: 8192 },
+  { id: "magistral-small-2509", name: "magistral-small-2509", context: 128000, maxOutput: 8192 },
+  { id: "codestral-latest", name: "codestral-latest", context: 128000, maxOutput: 8192 },
+  { id: "codestral-2508", name: "codestral-2508", context: 128000, maxOutput: 8192 },
+  { id: "devstral-2512", name: "devstral-2512", context: 256000, maxOutput: 8192 },
+];
 
 // ── Cohere (from #model_cohere_select) ──
 

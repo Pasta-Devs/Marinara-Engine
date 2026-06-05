@@ -22,7 +22,21 @@ export type EditableGenerationParameterOverrides = Partial<EditableGenerationPar
 
 const REASONING_LEVELS = [null, "none", "minimal", "low", "medium", "high", "xhigh", "maximum"] as const;
 const VERBOSITY_LEVELS = [null, "low", "medium", "high"] as const;
-const SERVICE_TIERS = [null, "auto", "default", "flex", "scale", "priority"] as const;
+export type GenerationServiceTier = EditableGenerationParameters["serviceTier"];
+const OPENAI_SERVICE_TIER_OPTIONS = [
+  null,
+  "auto",
+  "default",
+  "flex",
+  "scale",
+  "priority",
+] as const satisfies readonly GenerationServiceTier[];
+const OPENROUTER_SERVICE_TIER_OPTIONS = [null, "flex", "priority"] as const satisfies readonly GenerationServiceTier[];
+const ANTHROPIC_SERVICE_TIER_OPTIONS = [
+  null,
+  "auto",
+  "standard_only",
+] as const satisfies readonly GenerationServiceTier[];
 const MAX_GENERATION_OUTPUT_TOKENS = 128000;
 export const EDITABLE_GENERATION_PARAMETER_KEYS = [
   "temperature",
@@ -117,7 +131,8 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
     source.serviceTier === "default" ||
     source.serviceTier === "flex" ||
     source.serviceTier === "scale" ||
-    source.serviceTier === "priority"
+    source.serviceTier === "priority" ||
+    source.serviceTier === "standard_only"
   ) {
     next.serviceTier = source.serviceTier;
   }
@@ -165,9 +180,19 @@ function reasoningEffortLabel(level: (typeof REASONING_LEVELS)[number]): string 
   return level.charAt(0).toUpperCase() + level.slice(1);
 }
 
-function serviceTierLabel(tier: (typeof SERVICE_TIERS)[number]): string {
+function serviceTierLabel(tier: GenerationServiceTier): string {
   if (!tier) return "Unset";
-  return tier.charAt(0).toUpperCase() + tier.slice(1);
+  return tier
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function serviceTierOptionsForProvider(provider: unknown): readonly GenerationServiceTier[] | undefined {
+  if (provider === "openai") return OPENAI_SERVICE_TIER_OPTIONS;
+  if (provider === "openrouter") return OPENROUTER_SERVICE_TIER_OPTIONS;
+  if (provider === "anthropic") return ANTHROPIC_SERVICE_TIER_OPTIONS;
+  return undefined;
 }
 
 export function getEditableGenerationParameters(
@@ -227,11 +252,11 @@ export function getEditableGenerationParameterOverrides(
 export function GenerationParametersFields({
   value,
   onChange,
-  showServiceTier = false,
+  serviceTierOptions,
 }: {
   value: EditableGenerationParameters;
   onChange: (next: EditableGenerationParameters) => void;
-  showServiceTier?: boolean;
+  serviceTierOptions?: readonly GenerationServiceTier[];
 }) {
   const set = <K extends keyof EditableGenerationParameters>(key: K, nextValue: EditableGenerationParameters[K]) => {
     onChange({ ...value, [key]: nextValue });
@@ -318,7 +343,7 @@ export function GenerationParametersFields({
           value={value.customParameters}
           onChange={(nextValue) => set("customParameters", nextValue)}
         />
-        {showServiceTier && (
+        {serviceTierOptions && serviceTierOptions.length > 0 && (
           <div>
             <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
               Service Tier
@@ -328,7 +353,7 @@ export function GenerationParametersFields({
               />
             </span>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {SERVICE_TIERS.map((tier) => (
+              {serviceTierOptions.map((tier) => (
                 <button
                   key={tier ?? "unset"}
                   type="button"

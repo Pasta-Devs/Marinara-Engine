@@ -53,6 +53,7 @@ import {
   ROLEPLAY_PARAMETER_DEFAULTS,
   getEditableGenerationParameters,
   parseEditableGenerationParameters,
+  serviceTierOptionsForProvider,
   type EditableGenerationParameters,
 } from "../../../../shared/components/ui/GenerationParametersEditor";
 import {
@@ -1653,7 +1654,7 @@ export function ConnectionEditor() {
                       setLocalDefaultParameters(next);
                       markDirty();
                     }}
-                    showServiceTier={localProvider === "openai" || localProvider === "openrouter"}
+                    serviceTierOptions={serviceTierOptionsForProvider(localProvider)}
                   />
                 </div>
               ) : (

@@ -67,12 +67,20 @@ function isClaudeOpusAdaptiveOnlyModel(model: string): boolean {
   return claudeVersionAtLeast(model, "opus", 4, 7);
 }
 
+function isAnthropicSamplingRestrictedModel(model: string): boolean {
+  return (
+    claudeVersionAtLeast(model, "opus", 4, 7) ||
+    claudeVersionAtLeast(model, "sonnet", 4, 6) ||
+    claudeVersionAtLeast(model, "haiku", 4, 5)
+  );
+}
+
 function supportsAnthropicAdaptiveThinking(model: string): boolean {
   return claudeVersionAtLeast(model, "opus", 4, 6) || claudeVersionAtLeast(model, "sonnet", 4, 6);
 }
 
 function shouldSendOpenAiSamplingParameters(model: string): boolean {
-  return !isClaudeOpusAdaptiveOnlyModel(model);
+  return !isAnthropicSamplingRestrictedModel(model);
 }
 
 function isSamplingParameterKey(key: string): boolean {
@@ -108,6 +116,23 @@ function isOpenAiResponsesUnsupportedCustomParameterKey(key: string): boolean {
     "stop",
     "stopSequences",
     "stop_sequences",
+  ].includes(key);
+}
+
+function isMistralUnsupportedCustomParameterKey(key: string): boolean {
+  return [
+    "seed",
+    "top_k",
+    "topK",
+    "safePrompt",
+    "randomSeed",
+    "promptCacheKey",
+    "promptMode",
+    "parallelToolCalls",
+    "reasoningEffort",
+    "responseFormat",
+    "service_tier",
+    "serviceTier",
   ].includes(key);
 }
 
@@ -189,8 +214,25 @@ function openAiReasoningEffort(model: string, parameters: JsonRecord): string | 
   return null;
 }
 
+function supportsMistralAdjustableReasoning(model: string): boolean {
+  const normalized = model.toLowerCase();
+  return (
+    normalized === "mistral-small-latest" || normalized === "mistral-small-2603" || normalized === "mistral-medium-3-5"
+  );
+}
+
+function mistralReasoningEffort(model: string, parameters: JsonRecord): string | null {
+  if (!supportsMistralAdjustableReasoning(model)) return null;
+  const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"])?.toLowerCase();
+  if (effort === "none" || effort === "minimal" || effort === "low") return "none";
+  if (effort === "high" || effort === "maximum" || effort === "xhigh") return "high";
+  const showThoughts = parameters.showThoughts ?? parameters.show_thoughts;
+  if (showThoughts != null) return boolish(showThoughts, false) ? "high" : "none";
+  return null;
+}
+
 function anthropicThinkingEffort(model: string, parameters: JsonRecord): string | null {
-  const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"]);
+  const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"])?.toLowerCase();
   if (!effort) return null;
   if (["low", "medium", "high"].includes(effort)) return effort;
   if (effort === "xhigh") return isClaudeOpusAdaptiveOnlyModel(model) ? "xhigh" : "high";
@@ -232,6 +274,11 @@ function isGemini3Model(model: string): boolean {
   );
 }
 
+function isGemini3ProModel(model: string): boolean {
+  const normalized = model.toLowerCase();
+  return isGemini3Model(normalized) && normalized.includes("-pro");
+}
+
 function isGemini25Model(model: string): boolean {
   const normalized = model.toLowerCase();
   return (
@@ -241,35 +288,99 @@ function isGemini25Model(model: string): boolean {
   );
 }
 
-function googleThinkingLevel(parameters: JsonRecord): string | null {
-  const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"]);
+function isGemini25ProModel(model: string): boolean {
+  const normalized = model.toLowerCase();
+  return isGemini25Model(normalized) && normalized.includes("-pro");
+}
+
+function googleThinkingLevel(model: string, parameters: JsonRecord): string | null {
+  const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"])?.toLowerCase();
   if (!effort) return null;
+  if (["none", "minimal"].includes(effort)) return isGemini3ProModel(model) ? "low" : "minimal";
   if (["low", "medium"].includes(effort)) return effort;
   if (["high", "maximum", "xhigh"].includes(effort)) return "high";
   return null;
 }
 
+function googleThinkingBudget(model: string, parameters: JsonRecord): number | null {
+  const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"])?.toLowerCase();
+  if (!effort) return null;
+  const pro = isGemini25ProModel(model);
+  if (effort === "none" || effort === "minimal") return pro ? 128 : 0;
+  if (effort === "low") return 1024;
+  if (effort === "medium") return 8192;
+  if (["high", "maximum", "xhigh"].includes(effort)) return pro ? 32768 : 24576;
+  return null;
+}
+
 function googleThinkingConfig(model: string, parameters: JsonRecord): Record<string, unknown> | null {
   if (isGemini3Model(model)) {
-    const level = googleThinkingLevel(parameters);
+    const level = googleThinkingLevel(model, parameters);
     return level ? { thinkingLevel: level, includeThoughts: true } : null;
   }
 
   if (isGemini25Model(model)) {
-    const effort = parameterString(parameters, ["reasoningEffort", "reasoning_effort"]);
-    if (!effort) return null;
-    const budget =
-      effort === "low"
-        ? 1024
-        : effort === "medium"
-          ? 8192
-          : ["high", "maximum", "xhigh"].includes(effort)
-            ? 24576
-            : null;
-    return budget ? { thinkingBudget: budget, includeThoughts: true } : null;
+    const budget = googleThinkingBudget(model, parameters);
+    return budget !== null ? { thinkingBudget: budget, includeThoughts: true } : null;
   }
 
   return null;
+}
+
+function isGoogleGemini3UnsupportedGenerationConfigKey(key: string): boolean {
+  return ["temperature", "topP", "top_p", "topK", "top_k", "candidateCount", "candidate_count"].includes(key);
+}
+
+function isGoogleGenerationConfigCustomParameterKey(key: string): boolean {
+  return [
+    "stopSequences",
+    "stop_sequences",
+    "responseMimeType",
+    "response_mime_type",
+    "responseModalities",
+    "response_modalities",
+    "thinkingConfig",
+    "thinking_config",
+    "modelConfig",
+    "model_config",
+    "temperature",
+    "topP",
+    "top_p",
+    "topK",
+    "top_k",
+    "candidateCount",
+    "candidate_count",
+    "maxOutputTokens",
+    "max_output_tokens",
+    "responseLogprobs",
+    "response_logprobs",
+    "logprobs",
+    "presencePenalty",
+    "presence_penalty",
+    "frequencyPenalty",
+    "frequency_penalty",
+    "seed",
+    "responseSchema",
+    "response_schema",
+    "responseJsonSchema",
+    "response_json_schema",
+    "routingConfig",
+    "routing_config",
+    "audioTimestamp",
+    "audio_timestamp",
+    "mediaResolution",
+    "media_resolution",
+    "speechConfig",
+    "speech_config",
+    "enableAffectiveDialog",
+    "enable_affective_dialog",
+    "enableEnhancedCivicAnswers",
+    "enable_enhanced_civic_answers",
+    "imageConfig",
+    "image_config",
+    "responseFormat",
+    "response_format",
+  ].includes(key);
 }
 
 function applyCustomParameters(
@@ -298,18 +409,21 @@ function visibleAnthropicParameters(
   options: { stream?: boolean },
 ): Record<string, unknown> {
   const model = readString(connection.model);
-  const adaptiveOnly = isClaudeOpusAdaptiveOnlyModel(model);
+  const samplingRestricted = isAnthropicSamplingRestrictedModel(model);
   const effort = anthropicThinkingEffort(model, parameters);
   const adaptiveThinking = shouldUseAnthropicAdaptiveThinking(model, parameters, effort);
+  const sendTemperatureAndTopK = !samplingRestricted && !adaptiveThinking;
   const body: Record<string, unknown> = {
     max_tokens: requestMaxTokens(connection, parameters),
   };
   if (options.stream) body.stream = true;
-  if (!adaptiveOnly && !adaptiveThinking) {
+  if (sendTemperatureAndTopK) {
     const temperature = parameterNumber(parameters, ["temperature"]);
     if (temperature !== null) body.temperature = temperature;
   }
-  if (!adaptiveOnly) {
+  const topP = parameterNumber(parameters, ["topP", "top_p"]);
+  if (!samplingRestricted && topP !== null && (!adaptiveThinking || topP >= 0.95)) body.top_p = topP;
+  if (sendTemperatureAndTopK) {
     const topK = parameterInteger(parameters, ["topK", "top_k"]);
     if (topK !== null) body.top_k = topK;
   }
@@ -321,11 +435,14 @@ function visibleAnthropicParameters(
     body.thinking = { type: "enabled", budget_tokens: budgetTokens };
     body.max_tokens = requestMaxTokens(connection, parameters) + budgetTokens;
   }
-  if (!adaptiveOnly) {
-    const stop = stopSequences(parameters);
-    if (stop) body.stop_sequences = stop;
-  }
-  applyCustomParameters(body, parameters, { stripSampling: adaptiveOnly, stripStop: adaptiveOnly });
+  const serviceTier = parameterString(parameters, ["serviceTier", "service_tier"]);
+  if (serviceTier && isAnthropicServiceTier(serviceTier)) body.service_tier = serviceTier;
+  const stop = stopSequences(parameters);
+  if (stop) body.stop_sequences = stop;
+  applyCustomParameters(body, parameters, {
+    stripSampling: samplingRestricted || adaptiveThinking,
+    stripStop: false,
+  });
   return body;
 }
 
@@ -370,6 +487,10 @@ function isOpenRouterServiceTier(value: string): boolean {
   return ["flex", "priority"].includes(value);
 }
 
+function isAnthropicServiceTier(value: string): boolean {
+  return ["auto", "standard_only"].includes(value);
+}
+
 function visibleOpenAiCompatibleParameters(
   connection: JsonRecord,
   parameters: JsonRecord,
@@ -399,7 +520,13 @@ function visibleOpenAiCompatibleParameters(
     if (presencePenalty !== null) body.presence_penalty = presencePenalty;
   }
   const seed = parameterInteger(parameters, ["seed"]);
-  if (seed !== null) body.seed = seed;
+  if (seed !== null) {
+    if (provider === "mistral") {
+      body.random_seed = seed;
+    } else {
+      body.seed = seed;
+    }
+  }
   if (sendSampling) {
     const stop = stopSequences(parameters);
     if (stop) body.stop = stop;
@@ -425,9 +552,26 @@ function visibleOpenAiCompatibleParameters(
   } else if (provider === "openai") {
     const serviceTier = parameterString(parameters, ["serviceTier", "service_tier"]);
     if (serviceTier && isOpenAiServiceTier(serviceTier)) body.service_tier = serviceTier;
+  } else if (provider === "mistral") {
+    const effort = mistralReasoningEffort(model, parameters);
+    if (effort) body.reasoning_effort = effort;
+    const safePrompt = parameters.safePrompt ?? parameters.safe_prompt;
+    if (safePrompt != null) body.safe_prompt = boolish(safePrompt, false);
+    const promptCacheKey = parameterString(parameters, ["promptCacheKey", "prompt_cache_key"]);
+    if (promptCacheKey) body.prompt_cache_key = promptCacheKey;
+    const promptMode = parameterString(parameters, ["promptMode", "prompt_mode"]);
+    if (promptMode === "reasoning") body.prompt_mode = promptMode;
+    const parallelToolCalls = parameters.parallelToolCalls ?? parameters.parallel_tool_calls;
+    if (parallelToolCalls != null) body.parallel_tool_calls = boolish(parallelToolCalls, true);
+    const prediction = parameters.prediction;
+    if (prediction != null) body.prediction = prediction;
   }
 
-  applyCustomParameters(body, parameters, { stripSampling: !sendSampling, stripStop: !sendSampling });
+  applyCustomParameters(body, parameters, {
+    stripSampling: !sendSampling,
+    stripStop: !sendSampling,
+    skipKey: provider === "mistral" ? isMistralUnsupportedCustomParameterKey : undefined,
+  });
   const openrouter = parameters.openrouter ?? parameters.openRouter;
   if (openrouter != null) body.provider = openrouter;
   const toolChoice = parameters.toolChoice ?? parameters.tool_choice;
@@ -438,6 +582,7 @@ function visibleOpenAiCompatibleParameters(
 function visibleGoogleParameters(connection: JsonRecord, parameters: JsonRecord): Record<string, unknown> {
   const model = readString(connection.model);
   const gemini3 = isGemini3Model(model);
+  const body: Record<string, unknown> = {};
   const generationConfig: Record<string, unknown> = {
     maxOutputTokens: requestMaxTokens(connection, parameters),
   };
@@ -448,25 +593,32 @@ function visibleGoogleParameters(connection: JsonRecord, parameters: JsonRecord)
     const topK = parameterInteger(parameters, ["topK", "top_k"]);
     if (topK !== null && topK > 0) generationConfig.topK = topK;
   }
+  const frequencyPenalty = parameterNumber(parameters, ["frequencyPenalty", "frequency_penalty"]);
+  if (frequencyPenalty !== null) generationConfig.frequencyPenalty = frequencyPenalty;
+  const presencePenalty = parameterNumber(parameters, ["presencePenalty", "presence_penalty"]);
+  if (presencePenalty !== null) generationConfig.presencePenalty = presencePenalty;
   const thinkingConfig = googleThinkingConfig(model, parameters);
   if (thinkingConfig) generationConfig.thinkingConfig = thinkingConfig;
-  if (!gemini3) {
-    const stop = stopSequences(parameters);
-    if (stop) generationConfig.stopSequences = stop;
-  }
+  const stop = stopSequences(parameters);
+  if (stop) generationConfig.stopSequences = stop;
   const custom = parseRecord(parameters.customParameters ?? parameters.custom_params);
   const customGenerationConfig = parseRecord(custom.generationConfig);
   for (const [key, value] of Object.entries(customGenerationConfig)) {
     if (isReservedCustomParameterKey(key)) continue;
-    if (gemini3 && (isSamplingParameterKey(key) || isStopParameterKey(key))) continue;
+    if (gemini3 && isGoogleGemini3UnsupportedGenerationConfigKey(key)) continue;
     if (generationConfig[key] == null) generationConfig[key] = value;
   }
-  applyCustomParameters(generationConfig, parameters, {
-    stripSampling: gemini3,
-    stripStop: gemini3,
-    skipKeys: ["generationConfig"],
-  });
-  return { generationConfig };
+  for (const [key, value] of Object.entries(custom)) {
+    if (key === "generationConfig" || isReservedCustomParameterKey(key)) continue;
+    if (isGoogleGenerationConfigCustomParameterKey(key)) {
+      if (gemini3 && isGoogleGemini3UnsupportedGenerationConfigKey(key)) continue;
+      if (generationConfig[key] == null) generationConfig[key] = value;
+      continue;
+    }
+    if (body[key] == null) body[key] = value;
+  }
+  body.generationConfig = generationConfig;
+  return body;
 }
 
 export function providerVisibleLlmParameters(

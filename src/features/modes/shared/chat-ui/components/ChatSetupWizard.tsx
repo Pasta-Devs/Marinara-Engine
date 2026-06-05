@@ -52,6 +52,8 @@ import {
   getEditableGenerationParameters,
   parseEditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
+  serviceTierOptionsForProvider,
+  type GenerationServiceTier,
   type EditableGenerationParameters,
 } from "../../../../../shared/components/ui/GenerationParametersEditor";
 
@@ -398,13 +400,13 @@ function SetupGenerationParametersPanel({
   value,
   onEnabledChange,
   onChange,
-  showServiceTier,
+  serviceTierOptions,
 }: {
   enabled: boolean;
   value: EditableGenerationParameters;
   onEnabledChange: (enabled: boolean) => void;
   onChange: (next: EditableGenerationParameters) => void;
-  showServiceTier: boolean;
+  serviceTierOptions?: readonly GenerationServiceTier[];
 }) {
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
@@ -430,7 +432,7 @@ function SetupGenerationParametersPanel({
       </button>
       {enabled && (
         <div className="mt-3 border-t border-[var(--border)] pt-3">
-          <GenerationParametersFields value={value} onChange={onChange} showServiceTier={showServiceTier} />
+          <GenerationParametersFields value={value} onChange={onChange} serviceTierOptions={serviceTierOptions} />
         </div>
       )}
     </div>
@@ -763,9 +765,7 @@ function ConversationQuickSetup({ chat, onFinish, onCancel }: ChatSetupWizardPro
                 value={generationParameters}
                 onEnabledChange={setCustomizeParameters}
                 onChange={setGenerationParameters}
-                showServiceTier={
-                  selectedConnection?.provider === "openai" || selectedConnection?.provider === "openrouter"
-                }
+                serviceTierOptions={serviceTierOptionsForProvider(selectedConnection?.provider)}
               />
             </div>
 
@@ -1364,7 +1364,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
           value={generationParameters}
           onEnabledChange={setCustomizeParameters}
           onChange={setGenerationParameters}
-          showServiceTier={selectedConnection?.provider === "openai" || selectedConnection?.provider === "openrouter"}
+          serviceTierOptions={serviceTierOptionsForProvider(selectedConnection?.provider)}
         />
       </div>
     );

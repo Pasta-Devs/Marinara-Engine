@@ -257,7 +257,7 @@ function parseStoredGenerationParameters(raw: unknown): StoredGenerationParamete
   }
   if (
     source.serviceTier === null ||
-    ["auto", "default", "flex", "scale", "priority"].includes(String(source.serviceTier))
+    ["auto", "default", "flex", "scale", "priority", "standard_only"].includes(String(source.serviceTier))
   ) {
     out.serviceTier = source.serviceTier as StoredGenerationParameters["serviceTier"];
   }

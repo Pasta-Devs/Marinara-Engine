@@ -68,6 +68,7 @@ import {
   getEditableGenerationParameters,
   getEditableGenerationParameterOverrides,
   parseGenerationParameterRecord,
+  serviceTierOptionsForProvider,
   type EditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
 } from "../../../../../shared/components/ui/GenerationParametersEditor";
@@ -6752,7 +6753,7 @@ function AdvancedParametersSection({
               <GenerationParametersFields
                 value={effectiveParams}
                 onChange={setParameters}
-                showServiceTier={conn?.provider === "openai" || conn?.provider === "openrouter"}
+                serviceTierOptions={serviceTierOptionsForProvider(conn?.provider)}
               />
               {/* Save as Default for Connection */}
               {connectionId && connectionId !== "random" && (

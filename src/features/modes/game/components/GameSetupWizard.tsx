@@ -29,6 +29,7 @@ import {
   GenerationParametersFields,
   getEditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
+  serviceTierOptionsForProvider,
   type EditableGenerationParameters,
 } from "../../../../shared/components/ui/GenerationParametersEditor";
 import { useConnections } from "../../../catalog/connections/index";
@@ -1313,9 +1314,7 @@ export function GameSetupWizard({ error, onComplete, onCancel, isLoading }: Game
                     <GenerationParametersFields
                       value={generationParameters}
                       onChange={setGenerationParameters}
-                      showServiceTier={
-                        selectedGmConnection?.provider === "openai" || selectedGmConnection?.provider === "openrouter"
-                      }
+                      serviceTierOptions={serviceTierOptionsForProvider(selectedGmConnection?.provider)}
                     />
                   </div>
                 )}
