@@ -1952,8 +1952,36 @@ async function writeGameLorebookKeeperEntries(data: {
   const staleEntries = existingEntries.filter(
     (entry) => !createdEntryIds.has(entry.id) && keeperEntrySessionNumber(entry) === data.sessionNumber,
   );
+  const restoreStaleEntries = () =>
+    Promise.all(
+      staleEntries.map((entry) =>
+        storageApi
+          .update(
+            "lorebook-entries",
+            entry.id,
+            updateLorebookEntrySchema.parse({
+              enabled: entry.enabled,
+              dynamicState: asRecord(entry.dynamicState),
+            }),
+          )
+          .catch(() => null),
+      ),
+    );
   let sessionChat: Chat;
   try {
+    for (const entry of staleEntries) {
+      await storageApi.update(
+        "lorebook-entries",
+        entry.id,
+        updateLorebookEntrySchema.parse({
+          enabled: false,
+          dynamicState: {
+            ...asRecord(entry.dynamicState),
+            gameLorebookKeeperSupersededAt: nowIso(),
+          },
+        }),
+      );
+    }
     for (const entry of createdEntries) {
       await storageApi.update(
         "lorebook-entries",
@@ -1987,26 +2015,12 @@ async function writeGameLorebookKeeperEntries(data: {
       },
     });
   } catch (error) {
+    await restoreStaleEntries();
     await disableCreatedEntries();
     throw error;
   }
 
   for (const entry of staleEntries) {
-    try {
-      await storageApi.update(
-        "lorebook-entries",
-        entry.id,
-        updateLorebookEntrySchema.parse({
-          enabled: false,
-          dynamicState: {
-            ...asRecord(entry.dynamicState),
-            gameLorebookKeeperSupersededAt: nowIso(),
-          },
-        }),
-      );
-    } catch (error) {
-      console.warn("[game] Game Lorebook Keeper stale entry disable failed", { entryId: entry.id, error });
-    }
     try {
       await storageApi.delete("lorebook-entries", entry.id);
     } catch (error) {
