@@ -182,13 +182,16 @@ pub(crate) fn rollback_character_version_snapshot(
             remove_character_version_avatar_file(state, snapshot);
             Ok(())
         }
-        Ok(false) => Err(character_version_snapshot_rollback_error(
-            snapshot_id,
-            operation,
-            live_error,
-            None,
-            "Character version snapshot rollback could not find the newly created snapshot row",
-        )),
+        Ok(false) => {
+            remove_character_version_avatar_file(state, snapshot);
+            Err(character_version_snapshot_rollback_error(
+                snapshot_id,
+                operation,
+                live_error,
+                None,
+                "Character version snapshot rollback could not find the newly created snapshot row",
+            ))
+        }
         Err(error) => Err(character_version_snapshot_rollback_error(
             snapshot_id,
             operation,
@@ -237,7 +240,7 @@ fn app_error_value(error: &AppError) -> Value {
 }
 
 #[cfg(test)]
-fn force_character_version_snapshot_rollback_failure(snapshot_id: &str) {
+pub(crate) fn force_character_version_snapshot_rollback_failure(snapshot_id: &str) {
     FORCED_CHARACTER_VERSION_SNAPSHOT_ROLLBACK_FAILURES
         .lock()
         .expect("forced rollback failure set should lock")
@@ -758,6 +761,37 @@ mod tests {
             .expect("character should be created");
     }
 
+    fn create_character_with_managed_avatar(state: &AppState, filename: &str) -> PathBuf {
+        let avatar_dir = state.data_dir.join("avatars").join("characters");
+        std::fs::create_dir_all(&avatar_dir).expect("avatar dir should be created");
+        let avatar_path = avatar_dir.join(filename);
+        std::fs::write(&avatar_path, TINY_PNG_BYTES).expect("avatar should be written");
+        let avatar_path_string = avatar_path.to_string_lossy().to_string();
+
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "char-1",
+                    "data": {
+                        "name": "Rina",
+                        "description": "Original description",
+                        "tags": ["ice"],
+                        "character_version": "1.0"
+                    },
+                    "comment": "Original title",
+                    "avatar": format!("http://asset.localhost/{filename}"),
+                    "avatarPath": format!("http://asset.localhost/{filename}"),
+                    "avatarFilePath": avatar_path_string,
+                    "avatarFilename": filename
+                }),
+            )
+            .expect("character should be created");
+
+        avatar_path
+    }
+
     fn character_versions(state: &AppState) -> Vec<Value> {
         state
             .storage
@@ -943,7 +977,8 @@ mod tests {
     #[test]
     fn update_character_reports_rollback_error_when_snapshot_delete_fails() {
         let state = test_state("update-rollback-failure-contract");
-        create_character(&state);
+        let live_avatar_path = create_character_with_managed_avatar(&state, "old.png");
+        let snapshot_avatar_path = std::cell::RefCell::new(None::<String>);
 
         let error = update_character_inner(
             &state,
@@ -966,6 +1001,20 @@ mod tests {
                             .map(ToOwned::to_owned)
                     })
                     .expect("snapshot should exist before final patch");
+                let snapshot_avatar = character_versions(&state)
+                    .into_iter()
+                    .find(|version| {
+                        version.get("reason").and_then(Value::as_str)
+                            == Some("Forced rollback failure proof")
+                    })
+                    .and_then(|version| {
+                        version
+                            .get("avatarFilePath")
+                            .and_then(Value::as_str)
+                            .map(ToOwned::to_owned)
+                    })
+                    .expect("snapshot should capture an avatar copy");
+                *snapshot_avatar_path.borrow_mut() = Some(snapshot_avatar);
                 force_character_version_snapshot_rollback_failure(&snapshot_id);
                 state
                     .storage
@@ -1003,6 +1052,97 @@ mod tests {
             character_versions(&state).len(),
             1,
             "forced rollback failure leaves the row visible while surfacing a hard error"
+        );
+        let snapshot_avatar_path = snapshot_avatar_path
+            .into_inner()
+            .expect("snapshot avatar path should be captured");
+        assert!(
+            PathBuf::from(&snapshot_avatar_path).is_file(),
+            "forced rollback failure keeps the snapshot avatar because the row still references it"
+        );
+        assert!(
+            live_avatar_path.is_file(),
+            "failed update must leave the previous live avatar file in place"
+        );
+    }
+
+    #[test]
+    fn update_character_cleans_snapshot_avatar_when_snapshot_row_is_already_missing() {
+        let state = test_state("update-missing-row-rollback-avatar-cleanup");
+        let live_avatar_path = create_character_with_managed_avatar(&state, "old.png");
+        let snapshot_avatar_path = std::cell::RefCell::new(None::<String>);
+
+        let error = update_character_inner(
+            &state,
+            "char-1",
+            json!({
+                "comment": "Updated title",
+                "versionReason": "Missing rollback row proof"
+            }),
+            || {
+                let snapshot = character_versions(&state)
+                    .into_iter()
+                    .find(|version| {
+                        version.get("reason").and_then(Value::as_str)
+                            == Some("Missing rollback row proof")
+                    })
+                    .expect("snapshot should exist before final patch");
+                let snapshot_id = snapshot
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .expect("snapshot should have id")
+                    .to_string();
+                *snapshot_avatar_path.borrow_mut() = snapshot
+                    .get("avatarFilePath")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned);
+                state
+                    .storage
+                    .delete("character-versions", &snapshot_id)
+                    .expect("snapshot row should delete before rollback");
+                state
+                    .storage
+                    .delete("characters", "char-1")
+                    .expect("live character should delete before final patch");
+            },
+        )
+        .expect_err("update should surface missing-row rollback failure");
+
+        assert_eq!(error.code, "character_version_snapshot_rollback_error");
+        let details = error
+            .details
+            .as_ref()
+            .and_then(Value::as_object)
+            .expect("rollback error should include details");
+        assert_eq!(
+            details.get("operation").and_then(Value::as_str),
+            Some("character update")
+        );
+        assert_eq!(
+            details
+                .get("livePatchError")
+                .and_then(|value| value.get("code"))
+                .and_then(Value::as_str),
+            Some("not_found")
+        );
+        assert!(
+            details.get("rollbackError").is_none(),
+            "missing-row rollback has no secondary delete error"
+        );
+        assert!(
+            character_versions(&state).is_empty(),
+            "missing-row rollback should leave no version rows"
+        );
+        let snapshot_avatar_path = snapshot_avatar_path
+            .into_inner()
+            .expect("snapshot avatar path should be captured");
+        assert!(
+            !PathBuf::from(&snapshot_avatar_path).exists(),
+            "missing-row rollback should remove the orphaned snapshot avatar"
+        );
+        assert!(
+            live_avatar_path.is_file(),
+            "failed update must leave the previous live avatar file in place"
         );
     }
 
