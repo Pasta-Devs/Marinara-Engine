@@ -4567,6 +4567,32 @@ mod tests {
     }
 
     #[test]
+    fn flush_persists_pending_debounced_writes_to_disk() {
+        // The on-quit RunEvent handler calls storage.flush() to drain writes that are
+        // still sitting in the debounce window (#2319). Verify flush() actually lands a
+        // pending (dirty, not-yet-written) collection on disk and clears the dirty flag.
+        let root = temp_storage_root("flush-persists-pending");
+        let storage = FileStorage::new(&root).unwrap();
+        storage
+            .cache_collection("characters", &[json!({ "id": "pending" })], true)
+            .unwrap();
+        assert!(storage.dirty_collection_count() > 0, "write should be pending");
+
+        storage.flush().unwrap();
+
+        assert_eq!(
+            storage.dirty_collection_count(),
+            0,
+            "flush should clear the dirty collections"
+        );
+        // A fresh instance reads from disk, proving the pending write was persisted.
+        let reopened = FileStorage::new(&root).unwrap();
+        assert_eq!(reopened.list("characters").unwrap()[0]["id"], "pending");
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn list_projected_caches_clean_projection_shapes_until_file_changes() {
         let root = temp_storage_root("list-projected-caches-clean-shapes");
         let storage = FileStorage::new(&root).unwrap();
