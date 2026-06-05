@@ -699,7 +699,7 @@ export const ChatInput = memo(function ChatInput({
             rollbackFailed = true;
           }
         }
-        restoreSubmittedInput();
+        if (!rollbackFailed) restoreSubmittedInput();
         const msg = error instanceof Error ? error.message : "Failed to send message";
         toast.error(rollbackFailed ? `${msg}; partial saved data may need to be removed before retrying.` : msg);
       }
@@ -708,7 +708,7 @@ export const ChatInput = memo(function ChatInput({
 
     let userMessageAccepted = false;
     try {
-      await generate({
+      const generated = await generate({
         chatId: submittingChatId,
         connectionId: null,
         userMessage: message,
@@ -717,6 +717,7 @@ export const ChatInput = memo(function ChatInput({
           userMessageAccepted = true;
         },
       });
+      if (generated === false && !userMessageAccepted) restoreSubmittedInput();
     } catch (error) {
       if (isAbortError(error)) return;
       if (!userMessageAccepted) restoreSubmittedInput();
