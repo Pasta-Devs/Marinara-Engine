@@ -2557,7 +2557,7 @@ async function runGenerationAgentsForTarget(args: {
   });
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
 
-  const events: GenerationEvent[] = [];
+  const events: GenerationEvent[] = runtime.agentWarnings.map((warning) => ({ type: "agent_warning", data: warning }));
   const hasIllustrationRequest = finalResults.some((result) => illustratorPromptData(result) !== null);
   if (target && hasIllustrationRequest) {
     const illustration = await generateIllustrationAttachments({
@@ -2861,6 +2861,9 @@ export async function* startGeneration(
         )
       : null;
     throwIfAborted(signal);
+    for (const warning of runtime?.agentWarnings ?? []) {
+      yield { type: "agent_warning", data: warning };
+    }
     for (const result of agentEvents) {
       yield { type: "agent_result", data: result };
     }

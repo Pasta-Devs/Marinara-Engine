@@ -116,10 +116,20 @@ export interface GenerationAgentRuntimeInput {
 export interface GenerationAgentRuntime {
   preInjections: AgentInjection[];
   preResults: AgentResult[];
+  agentWarnings: AgentConnectionWarning[];
   agentData: Record<string, string>;
   availableSprites: AvailableSpriteCharacter[];
   runParallel(): Promise<AgentResult[]>;
   runPost(mainResponse: string): Promise<AgentResult[]>;
+}
+
+export interface AgentConnectionWarning {
+  code: "default_agent_connection_active";
+  severity: "warning";
+  message: string;
+  agentNames: string[];
+  connectionName: string;
+  model: string;
 }
 
 interface AgentDeps {
@@ -133,6 +143,7 @@ interface ResolvedAgentsResult {
   agents: ResolvedAgent[];
   skippedResults: AgentResult[];
   staticInjections: AgentInjection[];
+  agentWarnings: AgentConnectionWarning[];
 }
 
 const DIRECTOR_AGENT_TYPE = "director";
@@ -234,6 +245,51 @@ function uniqueStrings(values: string[]): string[] {
     result.push(text);
   }
   return result;
+}
+
+function formatAgentNameList(agentNames: string[]): string {
+  if (agentNames.length === 0) return "Agent";
+  if (agentNames.length === 1) return agentNames[0]!;
+  return `${agentNames.slice(0, -1).join(", ")} and ${agentNames.at(-1)}`;
+}
+
+function buildDefaultAgentConnectionWarning(args: {
+  agentNames: string[];
+  connectionName: string;
+  model: string;
+}): AgentConnectionWarning {
+  const normalizedNames = args.agentNames.length > 0 ? args.agentNames : ["Agent"];
+  const agentList = formatAgentNameList(normalizedNames);
+  const noun = normalizedNames.length === 1 ? "agent is" : "agents are";
+
+  return {
+    code: "default_agent_connection_active",
+    severity: "warning",
+    agentNames: normalizedNames,
+    connectionName: args.connectionName,
+    model: args.model,
+    message: `${agentList} ${noun} using the default agent connection "${args.connectionName}" (${args.model}). If this is a paid API model, agent calls may bill that provider.`,
+  };
+}
+
+function recordDefaultAgentConnectionWarning(
+  warnings: Map<string, AgentConnectionWarning>,
+  agentName: string,
+  connection: JsonRecord,
+  model: string,
+): void {
+  const connectionName = readString(connection.name).trim() || "Default agent connection";
+  const key = `${connectionName}\0${model}`;
+  const existing = warnings.get(key);
+  const agentNames = uniqueStrings([...(existing?.agentNames ?? []), agentName]);
+  warnings.set(
+    key,
+    buildDefaultAgentConnectionWarning({
+      agentNames,
+      connectionName,
+      model,
+    }),
+  );
 }
 
 function isFullBodySpriteExpression(expression: string): boolean {
@@ -996,7 +1052,7 @@ async function resolveLorebookKeeperRuntimeTarget(
 }
 
 async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput): Promise<ResolvedAgentsResult> {
-  if (!chatHasActiveAgents(input)) return { agents: [], skippedResults: [], staticInjections: [] };
+  if (!chatHasActiveAgents(input)) return { agents: [], skippedResults: [], staticInjections: [], agentWarnings: [] };
   const scopedAgentIds = chatActiveAgentIds(input);
   const activationMessages = activationScanMessages(input);
   const requestedAgentTypes = input.agentTypes ?? null;
@@ -1035,6 +1091,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
   const resolved: ResolvedAgent[] = [];
   const skippedResults: AgentResult[] = [];
   const staticInjections: AgentInjection[] = [];
+  const defaultConnectionWarnings = new Map<string, AgentConnectionWarning>();
   let defaultAgentConnection: JsonRecord | null | undefined;
   for (const agent of rows) {
     const type = readString(agent.type || agent.agentType) || "agent";
@@ -1072,6 +1129,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
     const fallbackConnection = defaultAgentConnection ?? input.connection;
     const fallbackConnectionId = readString(fallbackConnection.id).trim() || null;
     const connectionId = requestedConnectionId || fallbackConnectionId;
+    const usesDefaultAgentConnection = !requestedConnectionId && !!defaultAgentConnection;
     let connection: JsonRecord;
     if (requestedConnectionId) {
       const loadedConnection = await loadConnection(deps.storage, requestedConnectionId);
@@ -1085,12 +1143,16 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
     }
     const model = readString(agent.model).trim() || readString(connection.model).trim();
     if (!model) continue;
+    const name = readString(agent.name) || readString(agent.type) || "Agent";
+    if (usesDefaultAgentConnection) {
+      recordDefaultAgentConnectionWarning(defaultConnectionWarnings, name, connection, model);
+    }
     const parameters = llmParameters(connection, {}, input.chat);
     customTools ??= await loadCustomTools(deps.storage);
     resolved.push({
       id: readString(agent.id) || readString(agent.type) || "agent",
       type,
-      name: readString(agent.name) || readString(agent.type) || "Agent",
+      name,
       phase: normalizePhase(agent),
       promptTemplate: readString(agent.promptTemplate),
       connectionId,
@@ -1101,7 +1163,7 @@ async function resolveAgents(deps: AgentDeps, input: GenerationAgentRuntimeInput
       toolContext: buildAgentToolContext(deps, input, agent, settings, customTools),
     });
   }
-  return { agents: resolved, skippedResults, staticInjections };
+  return { agents: resolved, skippedResults, staticInjections, agentWarnings: [...defaultConnectionWarnings.values()] };
 }
 
 type SpotifyDjSourceType = "liked" | "playlist" | "artist" | "any";
@@ -1554,7 +1616,7 @@ export async function createGenerationAgentRuntime(
   input: GenerationAgentRuntimeInput,
   onResult?: (result: AgentResult) => void,
 ): Promise<GenerationAgentRuntime> {
-  const { agents, skippedResults, staticInjections } = await resolveAgents(deps, input);
+  const { agents, skippedResults, staticInjections, agentWarnings } = await resolveAgents(deps, input);
   const preResults: AgentResult[] = [...skippedResults];
   const overrideInjections = normalizedAgentInjectionOverrides(input.agentInjectionOverrides);
   const initialInjections = mergeAgentInjections(staticInjections, overrideInjections);
@@ -1566,6 +1628,7 @@ export async function createGenerationAgentRuntime(
     return {
       preInjections: initialInjections,
       preResults,
+      agentWarnings,
       agentData,
       availableSprites: [],
       runParallel: async () => [],
@@ -1586,6 +1649,7 @@ export async function createGenerationAgentRuntime(
     return {
       preInjections: initialInjections,
       preResults,
+      agentWarnings,
       agentData,
       availableSprites,
       runParallel: async () => pipeline.runParallel(),
@@ -1615,6 +1679,7 @@ export async function createGenerationAgentRuntime(
   return {
     preInjections,
     preResults,
+    agentWarnings,
     agentData,
     availableSprites,
     runParallel: async () => pipeline.runParallel(),

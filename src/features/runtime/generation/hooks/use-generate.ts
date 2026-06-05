@@ -1580,6 +1580,12 @@ export async function runGenerationWithUi(
         case "agent_result":
           queueAgentResultEffect(event.data);
           break;
+        case "agent_warning": {
+          const data = parseMaybeRecord(event.data);
+          const message = readString(data.message).trim();
+          if (message) toast.warning(message, { duration: 10_000 });
+          break;
+        }
         case "tool_call": {
           const name = toolEventName(event.data);
           useChatStore.getState().setGenerationPhase(name ? `Running tool: ${name}...` : "Running tool...");
@@ -1862,7 +1868,11 @@ export function useGenerate() {
           toast.error(formatAgentFailuresToast(failedRetries), { duration: 10_000 });
         }
         for (const event of events) {
-          if (event.type === "illustration") {
+          if (event.type === "agent_warning") {
+            const data = parseMaybeRecord(event.data);
+            const message = readString(data.message).trim();
+            if (message) toast.warning(message, { duration: 10_000 });
+          } else if (event.type === "illustration") {
             toast("Illustration generated.");
             // The chat-query refresh is fired unconditionally after this loop;
             // here we only need the illustration-specific gallery invalidate.
