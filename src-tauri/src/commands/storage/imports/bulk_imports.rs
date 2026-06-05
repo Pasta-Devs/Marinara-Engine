@@ -927,7 +927,7 @@ fn import_st_chat_text(
     chat.remove("id");
     chat.insert("name".to_string(), Value::String(chat_name));
     chat.entry("mode".to_string())
-        .or_insert(Value::String("conversation".to_string()));
+        .or_insert(Value::String("roleplay".to_string()));
     if character_ids.is_empty() {
         chat.entry("characterIds".to_string())
             .or_insert_with(|| json!([]));
@@ -1955,6 +1955,72 @@ mod tests {
 
         let _ = fs::remove_dir_all(app_root);
         let _ = fs::remove_dir_all(st_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_defaults_to_roleplay_mode() {
+        let app_root = temp_path("chat-default-mode");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+
+        let result = import_st_chat_text(
+            &state,
+            r#"{"character_name":"Bot","mes":"hello"}"#,
+            "Imported Chat".to_string(),
+            None,
+            StChatImportContext::default(),
+        )
+        .expect("chat import should succeed");
+
+        let chat_id = result
+            .get("chatId")
+            .and_then(Value::as_str)
+            .expect("import result should include chat id");
+        let chat = state
+            .storage
+            .get("chats", chat_id)
+            .expect("chat should be readable")
+            .expect("chat should exist");
+        assert_eq!(
+            chat.get("mode").and_then(Value::as_str),
+            Some("roleplay"),
+            "single-file SillyTavern JSONL imports should default to roleplay"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
+    }
+
+    #[test]
+    fn import_st_chat_text_preserves_inherited_mode() {
+        let app_root = temp_path("chat-inherited-mode");
+        let state = AppState::from_data_dir(&app_root, Vec::new())
+            .expect("test app state should initialize");
+
+        let result = import_st_chat_text(
+            &state,
+            r#"{"character_name":"Bot","mes":"hello"}"#,
+            "Imported Chat".to_string(),
+            Some(json!({ "mode": "conversation", "metadata": {}, "characterIds": [] })),
+            StChatImportContext::default(),
+        )
+        .expect("chat import should succeed");
+
+        let chat_id = result
+            .get("chatId")
+            .and_then(Value::as_str)
+            .expect("import result should include chat id");
+        let chat = state
+            .storage
+            .get("chats", chat_id)
+            .expect("chat should be readable")
+            .expect("chat should exist");
+        assert_eq!(
+            chat.get("mode").and_then(Value::as_str),
+            Some("conversation"),
+            "inherited/imported mode should not be overwritten by the ST default"
+        );
+
+        let _ = fs::remove_dir_all(app_root);
     }
 
     #[test]
