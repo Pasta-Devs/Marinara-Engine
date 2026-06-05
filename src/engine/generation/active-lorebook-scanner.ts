@@ -444,17 +444,48 @@ async function loadLorebookEntriesForActivation(
   return normalizeLorebookEntriesForActivation(lorebook, rows, folders);
 }
 
+/**
+ * A folder gates its entries when it is disabled OR any ancestor folder is
+ * disabled. Resolve the full set of "effectively disabled" folder ids by
+ * walking each folder's `parentFolderId` chain. A per-walk `seen` guard keeps
+ * a malformed parent cycle from looping forever — storage validation prevents
+ * cycles, but the activation scanner must never hang on bad data.
+ */
+function collectEffectivelyDisabledFolderIds(folders: JsonRecord[]): Set<string> {
+  const foldersById = new Map<string, JsonRecord>();
+  for (const folder of folders) {
+    const id = readString(folder.id);
+    if (id) foldersById.set(id, folder);
+  }
+
+  const disabled = new Set<string>();
+  for (const folder of folders) {
+    const id = readString(folder.id);
+    if (!id) continue;
+    const seen = new Set<string>();
+    let current: JsonRecord | undefined = folder;
+    let currentId: string | undefined = id;
+    while (current && currentId && !seen.has(currentId)) {
+      seen.add(currentId);
+      if (!boolish(current.enabled, true)) {
+        disabled.add(id);
+        break;
+      }
+      const parentId = readString(current.parentFolderId);
+      if (!parentId) break;
+      current = foldersById.get(parentId);
+      currentId = parentId;
+    }
+  }
+  return disabled;
+}
+
 function normalizeLorebookEntriesForActivation(
   lorebook: JsonRecord,
   rows: JsonRecord[],
   folders: JsonRecord[],
 ): LorebookEntry[] {
-  const disabledFolderIds = new Set(
-    folders
-      .filter((folder) => !boolish(folder.enabled, true))
-      .map((folder) => readString(folder.id))
-      .filter(Boolean),
-  );
+  const disabledFolderIds = collectEffectivelyDisabledFolderIds(folders);
   const defaultScanDepth = nonNegativeInteger(lorebook.scanDepth, 0);
   const excludeFromVectorization = boolish(lorebook.excludeFromVectorization, false);
   return rows

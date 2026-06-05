@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import type { LorebookEntry, LorebookFolder } from "../../../../../engine/contracts/types/lorebook";
+import { canReparentFolder, type FolderForest } from "../../lib/lorebook-folder-tree";
 
 type ReorderEntriesInput = {
   lorebookId: string;
@@ -10,12 +11,19 @@ type ReorderEntriesInput = {
 type ReorderFoldersInput = {
   lorebookId: string;
   folderIds: string[];
+  /** When set, the listed folders also adopt this parent (nest / un-nest). */
+  parentFolderId?: string | null;
 };
+
+/** Where a dragged folder will land relative to the folder it's hovering. */
+export type FolderDropZone = "before" | "inside" | "after";
+export type FolderDropTarget = { id: string; zone: FolderDropZone };
 
 export function useLorebookEditorDragDrop({
   lorebookId,
   entries,
   folders,
+  folderForest,
   entriesByContainer,
   showFolderGrouping,
   reorderEntriesPending,
@@ -26,6 +34,7 @@ export function useLorebookEditorDragDrop({
   lorebookId: string | null;
   entries: LorebookEntry[];
   folders: LorebookFolder[];
+  folderForest: FolderForest<LorebookFolder>;
   entriesByContainer: Map<string | null, LorebookEntry[]>;
   showFolderGrouping: boolean;
   reorderEntriesPending: boolean;
@@ -38,9 +47,10 @@ export function useLorebookEditorDragDrop({
   const [entryDropIdx, setEntryDropIdx] = useState<number | null>(null);
   const [dragSourceContainer, setDragSourceContainer] = useState<string | null | undefined>(undefined);
   const [dropTargetContainer, setDropTargetContainer] = useState<string | null | undefined>(undefined);
-  const [draggingFolderIdx, setDraggingFolderIdx] = useState<number | null>(null);
-  const folderDragReadyRef = useRef<number | null>(null);
-  const [folderDropIdx, setFolderDropIdx] = useState<number | null>(null);
+  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
+  const folderDragReadyRef = useRef<string | null>(null);
+  const [folderDropTarget, setFolderDropTarget] = useState<FolderDropTarget | null>(null);
+  const [folderRootDropActive, setFolderRootDropActive] = useState(false);
   const entryListRef = useRef<HTMLDivElement | null>(null);
 
   const canReorderEntries = showFolderGrouping && entries.length > 1 && !reorderEntriesPending;
@@ -55,9 +65,10 @@ export function useLorebookEditorDragDrop({
   }, []);
 
   const resetFolderDragState = useCallback(() => {
-    setDraggingFolderIdx(null);
+    setDraggingFolderId(null);
     folderDragReadyRef.current = null;
-    setFolderDropIdx(null);
+    setFolderDropTarget(null);
+    setFolderRootDropActive(false);
   }, []);
 
   const calcEntryDropIdx = useCallback((cardIdx: number, event: ReactDragEvent<HTMLDivElement>) => {
@@ -212,47 +223,124 @@ export function useLorebookEditorDragDrop({
   );
 
   const handleFolderDragStart = useCallback(
-    (idx: number, folderId: string, event: ReactDragEvent<HTMLDivElement>) => {
-      if (!canReorderFolders || folderDragReadyRef.current !== idx) {
+    (folderId: string, event: ReactDragEvent<HTMLDivElement>) => {
+      if (!canReorderFolders || folderDragReadyRef.current !== folderId) {
         event.preventDefault();
         return;
       }
-      setDraggingFolderIdx(idx);
+      setDraggingFolderId(folderId);
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", folderId);
     },
     [canReorderFolders],
   );
 
-  const handleFolderDragOverHeader = useCallback(
-    (idx: number, event: ReactDragEvent<HTMLDivElement>) => {
-      if (!canReorderFolders || draggingFolderIdx === null) return;
+  // Dragging a folder over another folder's header has three zones: the top
+  // edge reorders it as a sibling *before* the target, the bottom edge *after*,
+  // and the middle nests it *inside*. Each zone validates the move it implies
+  // (nest → under the target; before/after → into the target's parent), so an
+  // invalid hover (self, descendant, cross-lorebook) registers no drop target.
+  const handleFolderDragOverRow = useCallback(
+    (targetFolderId: string, event: ReactDragEvent<HTMLDivElement>) => {
+      if (!canReorderFolders || draggingFolderId === null || draggingFolderId === targetFolderId) return;
+      const target = folders.find((folder) => folder.id === targetFolderId);
+      if (!target) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const offset = event.clientY - rect.top;
+      const zone: FolderDropZone =
+        offset < rect.height * 0.28 ? "before" : offset > rect.height * 0.72 ? "after" : "inside";
+      const newParentId = zone === "inside" ? targetFolderId : target.parentFolderId;
+      if (!canReparentFolder(folders, draggingFolderId, newParentId).ok) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
-      const rect = event.currentTarget.getBoundingClientRect();
-      const midY = rect.top + rect.height / 2;
-      setFolderDropIdx(event.clientY < midY ? idx : idx + 1);
+      setFolderDropTarget({ id: targetFolderId, zone });
     },
-    [canReorderFolders, draggingFolderIdx],
+    [canReorderFolders, draggingFolderId, folders],
+  );
+
+  // Dragging a folder into another folder's body (its indented area, including
+  // the empty placeholder) nests it inside — mirroring entry-into-folder. Nested
+  // bodies stop propagation, so hovering the left indent margin lands on the
+  // shallower ancestor body, letting you aim at a more-parent folder.
+  const handleFolderBodyNestDragOver = useCallback(
+    (targetFolderId: string, event: ReactDragEvent<HTMLDivElement>) => {
+      if (!canReorderFolders || draggingFolderId === null || draggingFolderId === targetFolderId) return;
+      if (!canReparentFolder(folders, draggingFolderId, targetFolderId).ok) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      setFolderDropTarget({ id: targetFolderId, zone: "inside" });
+    },
+    [canReorderFolders, draggingFolderId, folders],
+  );
+
+  // Dragging a folder into the open root area (below the tree, where root-level
+  // entries live) un-nests it to the top level. Un-nesting is always valid.
+  const handleRootFolderDragOver = useCallback(
+    (event: ReactDragEvent<HTMLDivElement>) => {
+      if (!canReorderFolders || draggingFolderId === null) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      setFolderRootDropActive(true);
+      setFolderDropTarget(null);
+    },
+    [canReorderFolders, draggingFolderId],
   );
 
   const commitFolderDrop = useCallback(
     (event: ReactDragEvent<HTMLDivElement>) => {
       event.preventDefault();
-      const sourceIdx = draggingFolderIdx;
-      const targetIdx = folderDropIdx;
+      const draggedId = draggingFolderId;
+      const drop = folderDropTarget;
+      const toRoot = folderRootDropActive;
       resetFolderDragState();
-      if (!lorebookId || !canReorderFolders || sourceIdx === null || targetIdx === null) return;
-      let insertAt = targetIdx;
-      if (sourceIdx < insertAt) insertAt--;
-      if (sourceIdx === insertAt) return;
-      const ids = folders.map((folder) => folder.id);
-      const [moved] = ids.splice(sourceIdx, 1);
-      if (!moved) return;
-      ids.splice(insertAt, 0, moved);
-      onReorderFolders({ lorebookId, folderIds: ids });
+      if (!lorebookId || !canReorderFolders || !draggedId) return;
+
+      if (!drop) {
+        // Dropped in the open root area → un-nest to the end of the top level.
+        if (!toRoot) return;
+        const rootIds = folderForest.roots.map((folder) => folder.id).filter((id) => id !== draggedId);
+        rootIds.push(draggedId);
+        onReorderFolders({ lorebookId, folderIds: rootIds, parentFolderId: null });
+        return;
+      }
+
+      const target = folders.find((folder) => folder.id === drop.id);
+      if (!target) return;
+
+      if (drop.zone === "inside") {
+        if (!canReparentFolder(folders, draggedId, drop.id).ok) return;
+        // Nest: append to the target's children; each sibling adopts the target
+        // as parent (a no-op for ones already nested there).
+        const childIds = (folderForest.childrenByParent.get(drop.id) ?? [])
+          .map((child) => child.id)
+          .filter((id) => id !== draggedId);
+        childIds.push(draggedId);
+        onReorderFolders({ lorebookId, folderIds: childIds, parentFolderId: drop.id });
+        return;
+      }
+
+      // before / after: the dragged folder joins the target's sibling group at
+      // that position, adopting the target's parent (null re-homes it to root).
+      const newParentId = target.parentFolderId;
+      if (!canReparentFolder(folders, draggedId, newParentId).ok) return;
+      const siblings = (newParentId === null ? folderForest.roots : folderForest.childrenByParent.get(newParentId)) ?? [];
+      const orderedIds = siblings.map((folder) => folder.id).filter((id) => id !== draggedId);
+      const targetIndex = orderedIds.indexOf(drop.id);
+      if (targetIndex === -1) orderedIds.push(draggedId);
+      else orderedIds.splice(drop.zone === "before" ? targetIndex : targetIndex + 1, 0, draggedId);
+      onReorderFolders({ lorebookId, folderIds: orderedIds, parentFolderId: newParentId });
     },
-    [canReorderFolders, draggingFolderIdx, folderDropIdx, folders, lorebookId, onReorderFolders, resetFolderDragState],
+    [
+      canReorderFolders,
+      draggingFolderId,
+      folderDropTarget,
+      folderRootDropActive,
+      folderForest,
+      folders,
+      lorebookId,
+      onReorderFolders,
+      resetFolderDragState,
+    ],
   );
 
   return {
@@ -264,9 +352,10 @@ export function useLorebookEditorDragDrop({
     dragSourceContainer,
     setDragSourceContainer,
     dropTargetContainer,
-    draggingFolderIdx,
+    draggingFolderId,
     folderDragReadyRef,
-    folderDropIdx,
+    folderDropTarget,
+    folderRootDropActive,
     entryListRef,
     resetEntryDragState,
     resetFolderDragState,
@@ -277,7 +366,9 @@ export function useLorebookEditorDragDrop({
     handleRootListDragOver,
     commitEntryDrop,
     handleFolderDragStart,
-    handleFolderDragOverHeader,
+    handleFolderDragOverRow,
+    handleFolderBodyNestDragOver,
+    handleRootFolderDragOver,
     commitFolderDrop,
   };
 }

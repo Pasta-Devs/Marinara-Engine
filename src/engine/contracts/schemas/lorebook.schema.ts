@@ -40,9 +40,10 @@ const lorebookEmbeddingUpdatedAtSchema = z.string().nullable();
 
 // ──────────────────────────────────────────────
 // Folders — collapsible containers for entries
-// `parentFolderId` is reserved for a future nested-folder PR; v1 enforces
-// `null` at the route layer so the schema accepts the field but the server
-// rejects non-null values.
+// `parentFolderId` nests a folder under another folder in the same lorebook
+// (null = top level). Parent validity (same lorebook, no self-parent, no
+// cycle) is checked at write time in the lorebook editor; the activation
+// scanner also gates entries beneath any disabled ancestor.
 // ──────────────────────────────────────────────
 export const createLorebookFolderSchema = z.object({
   lorebookId: z.string(),

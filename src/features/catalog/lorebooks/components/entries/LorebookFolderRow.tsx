@@ -23,10 +23,14 @@ import { ChevronDown, Folder, GripVertical, ToggleLeft, ToggleRight, Trash2 } fr
 import { cn } from "../../../../../shared/lib/utils";
 import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
 import { useUpdateLorebookFolder, useDeleteLorebookFolder } from "../../hooks/use-lorebooks";
+import { canReparentFolder } from "../../lib/lorebook-folder-tree";
+import { CompactSelect } from "./LorebookEntryRowControls";
 import type { LorebookFolder } from "../../../../../engine/contracts/types/lorebook";
 
 interface Props {
   folder: LorebookFolder;
+  /** All folders in the lorebook — used to build the valid-parent options. */
+  folders: LorebookFolder[];
   lorebookId: string;
   /** Number of entries currently inside this folder (for the count badge). */
   entryCount: number;
@@ -37,6 +41,8 @@ interface Props {
   // act as drop targets when dragging an entry across containers.
   draggable: boolean;
   isDragging: boolean;
+  /** Highlighted as the folder a dragged folder will nest under. */
+  isNestTarget?: boolean;
   onDragHandleMouseDown: () => void;
   onDragStart: (e: ReactDragEvent<HTMLDivElement>) => void;
   onDragOver: (e: ReactDragEvent<HTMLDivElement>) => void;
@@ -46,12 +52,14 @@ interface Props {
 
 export function LorebookFolderRow({
   folder,
+  folders,
   lorebookId,
   entryCount,
   isCollapsed,
   onToggleCollapse,
   draggable,
   isDragging,
+  isNestTarget,
   onDragHandleMouseDown,
   onDragStart,
   onDragOver,
@@ -64,6 +72,7 @@ export function LorebookFolderRow({
   // Optimistic mirrors so toggle/rename feel snappy while the mutation flushes.
   const [localEnabled, setLocalEnabled] = useState(folder.enabled);
   const [localName, setLocalName] = useState(folder.name);
+  const [localParentId, setLocalParentId] = useState(folder.parentFolderId);
 
   const lastSyncedRef = useRef(folder);
   useEffect(() => {
@@ -71,6 +80,7 @@ export function LorebookFolderRow({
     lastSyncedRef.current = folder;
     setLocalEnabled(folder.enabled);
     setLocalName(folder.name);
+    setLocalParentId(folder.parentFolderId);
   }, [folder]);
 
   const handleEnableToggle = useCallback(
@@ -118,6 +128,25 @@ export function LorebookFolderRow({
     }
   }, [localName, folder.name, lorebookId, folder.id, updateFolder]);
 
+  const handleParentChange = useCallback(
+    (value: string) => {
+      const next = value === "" ? null : value;
+      const previous = localParentId;
+      // Optimistic so the selector doesn't snap back to the old parent while
+      // the PATCH flushes; restore on error like enable/name above.
+      setLocalParentId(next);
+      updateFolder.mutate(
+        { lorebookId, folderId: folder.id, parentFolderId: next },
+        {
+          onError: () => {
+            setLocalParentId(previous);
+          },
+        },
+      );
+    },
+    [localParentId, lorebookId, folder.id, updateFolder],
+  );
+
   const handleDelete = useCallback(
     async (e: ReactMouseEvent) => {
       e.stopPropagation();
@@ -136,11 +165,22 @@ export function LorebookFolderRow({
     [entryCount, lorebookId, folder.id, deleteFolder],
   );
 
+  // Valid parents: any other folder this one may nest under without creating a
+  // cycle or crossing lorebooks (canReparentFolder is the same guard the drag
+  // path will use), plus "(no parent)" to lift it back to the top level.
+  const parentOptions = [
+    { value: "", label: "(no parent)" },
+    ...folders
+      .filter((candidate) => candidate.id !== folder.id && canReparentFolder(folders, folder.id, candidate.id).ok)
+      .map((candidate) => ({ value: candidate.id, label: candidate.name.trim() || "Untitled folder" })),
+  ];
+
   return (
     <div
       className={cn(
         "rounded-xl bg-[var(--secondary)]/60 ring-1 ring-[var(--border)] transition-all",
         !isCollapsed && "ring-amber-400/30",
+        isNestTarget && "ring-2 ring-amber-400",
         isDragging && "opacity-40",
       )}
       draggable={draggable}
@@ -223,6 +263,21 @@ export function LorebookFolderRow({
           placeholder="Untitled folder"
           className="min-w-0 flex-1 truncate bg-transparent px-1 text-sm font-semibold outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)] rounded"
         />
+
+        {/* Parent-folder selector — the dropdown path for nesting (folder-into-folder
+            drag lands in a later step). Hidden when there's no other folder to nest under.
+            Wrapped so opening the select doesn't toggle the folder's collapse. */}
+        {folders.length > 1 && (
+          <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
+            <CompactSelect
+              value={localParentId ?? ""}
+              onChange={handleParentChange}
+              title="Nest this folder under another folder, or choose (no parent) for the top level."
+              options={parentOptions}
+              className="w-[5.5rem] sm:w-[7rem]"
+            />
+          </span>
+        )}
 
         {/* Entry count badge */}
         <span

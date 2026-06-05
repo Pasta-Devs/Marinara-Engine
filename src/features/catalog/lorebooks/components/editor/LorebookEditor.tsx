@@ -24,6 +24,7 @@ import {
   useTransferLorebookEntries,
   useBulkUnvectorizeLorebookEntries,
 } from "../../hooks/use-lorebooks";
+import { buildFolderForest } from "../../lib/lorebook-folder-tree";
 import { useCharacterSummaries, useCharacterSummariesByIds } from "../../../characters/index";
 import { usePersonaSummaries } from "../../../personas/index";
 import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
@@ -360,6 +361,9 @@ export function LorebookEditor() {
     return map;
   }, [entries, folders]);
 
+  /** Folders grouped into a render-ready tree (roots + children-by-parent), each sorted by order. */
+  const folderForest = useMemo(() => buildFolderForest(folders), [folders]);
+
   const {
     canReorderEntries,
     canReorderFolders,
@@ -369,9 +373,10 @@ export function LorebookEditor() {
     dragSourceContainer,
     setDragSourceContainer,
     dropTargetContainer,
-    draggingFolderIdx,
+    draggingFolderId,
     folderDragReadyRef,
-    folderDropIdx,
+    folderDropTarget,
+    folderRootDropActive,
     entryListRef,
     resetEntryDragState,
     resetFolderDragState,
@@ -382,12 +387,15 @@ export function LorebookEditor() {
     handleRootListDragOver,
     commitEntryDrop,
     handleFolderDragStart,
-    handleFolderDragOverHeader,
+    handleFolderDragOverRow,
+    handleFolderBodyNestDragOver,
+    handleRootFolderDragOver,
     commitFolderDrop,
   } = useLorebookEditorDragDrop({
     lorebookId,
     entries,
     folders,
+    folderForest,
     entriesByContainer,
     showFolderGrouping,
     reorderEntriesPending: reorderEntries.isPending,
@@ -650,6 +658,7 @@ export function LorebookEditor() {
                 lorebookId={lorebookId}
                 entries={entries}
                 folders={folders}
+                folderForest={folderForest}
                 filteredEntries={filteredEntries}
                 entriesByContainer={entriesByContainer}
                 characters={characters}
@@ -672,8 +681,9 @@ export function LorebookEditor() {
                 canReorderEntries={canReorderEntries}
                 canReorderFolders={canReorderFolders}
                 collapsedFolderIds={collapsedFolderIds}
-                draggingFolderIdx={draggingFolderIdx}
-                folderDropIdx={folderDropIdx}
+                draggingFolderId={draggingFolderId}
+                folderDropTarget={folderDropTarget}
+                folderRootDropActive={folderRootDropActive}
                 draggingEntryIdx={draggingEntryIdx}
                 entryDropIdx={entryDropIdx}
                 dragSourceContainer={dragSourceContainer}
@@ -700,13 +710,15 @@ export function LorebookEditor() {
                 onSetDragSourceContainer={setDragSourceContainer}
                 onFolderDragStart={handleFolderDragStart}
                 onFolderHeaderDragOver={handleFolderHeaderDragOver}
-                onFolderDragOverHeader={handleFolderDragOverHeader}
+                onFolderDragOverRow={handleFolderDragOverRow}
+                onFolderBodyNestDragOver={handleFolderBodyNestDragOver}
                 onCommitEntryDrop={commitEntryDrop}
                 onCommitFolderDrop={commitFolderDrop}
                 onResetFolderDragState={resetFolderDragState}
                 onResetEntryDragState={resetEntryDragState}
                 onFolderBodyDragOver={handleFolderBodyDragOver}
                 onRootListDragOver={handleRootListDragOver}
+                onRootFolderDragOver={handleRootFolderDragOver}
                 onEntryDragStart={handleEntryDragStart}
                 onEntryDragOver={handleEntryDragOver}
                 onToggleEntryExpanded={toggleEntryExpanded}
