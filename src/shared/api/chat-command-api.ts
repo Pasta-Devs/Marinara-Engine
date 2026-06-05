@@ -1,4 +1,17 @@
+import type { ListChatMemoriesOptions } from "../../engine/capabilities/storage";
 import { invokeTauri } from "./tauri-client";
+
+function memoryListArgs(chatId: string | null, options?: ListChatMemoriesOptions): Record<string, unknown> {
+  const limit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? Math.max(0, Math.trunc(options.limit))
+      : null;
+  return {
+    chatId,
+    limit,
+    order: options?.order ?? null,
+  };
+}
 
 export interface ChatGroupDeleteResult {
   deleted: number;
@@ -7,7 +20,8 @@ export interface ChatGroupDeleteResult {
 
 export const chatCommandApi = {
   messageCount: (chatId: string | null) => invokeTauri<{ count: number }>("chat_message_count", { chatId }),
-  memoriesList: <T = unknown>(chatId: string | null) => invokeTauri<T>("chat_memories_list", { chatId }),
+  memoriesList: <T = unknown>(chatId: string | null, options?: ListChatMemoriesOptions) =>
+    invokeTauri<T>("chat_memories_list", memoryListArgs(chatId, options)),
   memoryDelete: (chatId: string | null, memoryId: string) => invokeTauri("chat_memory_delete", { chatId, memoryId }),
   memoriesClear: (chatId: string | null) => invokeTauri("chat_memories_clear", { chatId }),
   memoriesRefresh: <T = unknown>(chatId: string | null) => invokeTauri<T>("chat_memories_refresh", { chatId }),

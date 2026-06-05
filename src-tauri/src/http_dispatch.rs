@@ -540,9 +540,12 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "tracker_snapshot_latest" => tracker_snapshot_latest(state, &args).await,
         "tracker_snapshot_get" => tracker_snapshot_get(state, &args).await,
         "tracker_snapshot_save" => tracker_snapshot_save(state, &args).await,
-        "chat_memories_list" => {
-            chats::chat_array_field(state, required_string(&args, "chatId")?, "memories")
-        }
+        "chat_memories_list" => chats::list_chat_memories(
+            state,
+            required_string(&args, "chatId")?,
+            optional_u32(&args, "limit").map(|value| value as usize),
+            optional_string(&args, "order").as_deref(),
+        ),
         "chat_memory_delete" => chats::delete_chat_array_item(
             state,
             required_string(&args, "chatId")?,

@@ -5,8 +5,18 @@ use serde_json::{json, Value};
 use tauri::State;
 
 #[tauri::command]
-pub fn chat_memories_list(state: State<'_, AppState>, chat_id: String) -> Result<Value, AppError> {
-    chats::chat_array_field(&state, &chat_id, "memories")
+pub fn chat_memories_list(
+    state: State<'_, AppState>,
+    chat_id: String,
+    limit: Option<u32>,
+    order: Option<String>,
+) -> Result<Value, AppError> {
+    chats::list_chat_memories(
+        &state,
+        &chat_id,
+        limit.map(|value| value as usize),
+        order.as_deref(),
+    )
 }
 
 #[tauri::command]

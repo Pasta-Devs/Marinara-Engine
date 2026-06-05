@@ -749,6 +749,67 @@ pub(crate) fn chat_array_field(state: &AppState, chat_id: &str, field: &str) -> 
     Ok(chat.get(field).cloned().unwrap_or_else(|| json!([])))
 }
 
+fn chat_memory_recency_key(memory: &Value) -> &str {
+    memory
+        .get("lastMessageAt")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| {
+            memory
+                .get("createdAt")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+        })
+        .or_else(|| {
+            memory
+                .get("firstMessageAt")
+                .and_then(Value::as_str)
+                .filter(|value| !value.trim().is_empty())
+        })
+        .unwrap_or("")
+}
+
+pub(crate) fn list_chat_memories(
+    state: &AppState,
+    chat_id: &str,
+    limit: Option<usize>,
+    order: Option<&str>,
+) -> AppResult<Value> {
+    let chat = get_required(state, "chats", chat_id)?;
+    let mut values = chat
+        .get("memories")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+
+    match order
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("stored")
+    {
+        "stored" => {}
+        "recent" => values.sort_by(|a, b| {
+            chat_memory_recency_key(b)
+                .cmp(chat_memory_recency_key(a))
+                .then_with(|| {
+                    let a_id = a.get("id").and_then(Value::as_str).unwrap_or("");
+                    let b_id = b.get("id").and_then(Value::as_str).unwrap_or("");
+                    b_id.cmp(a_id)
+                })
+        }),
+        other => {
+            return Err(AppError::invalid_input(format!(
+                "Unsupported chat memory order: {other}"
+            )));
+        }
+    }
+
+    if let Some(limit) = limit {
+        values.truncate(limit);
+    }
+
+    Ok(Value::Array(values))
+}
+
 pub(crate) fn set_chat_array_field(
     state: &AppState,
     chat_id: &str,
@@ -1410,6 +1471,60 @@ mod tests {
             std::fs::remove_dir_all(&path).expect("stale temp chat delete dir should be removable");
         }
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
+    }
+
+    fn memory_ids(value: &Value) -> Vec<String> {
+        value
+            .as_array()
+            .expect("memory list should be an array")
+            .iter()
+            .filter_map(|memory| {
+                memory
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .map(ToOwned::to_owned)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn list_chat_memories_can_return_recent_limited_chunks() {
+        let state = test_state("chat-memory-list-limit");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": [
+                        { "id": "old", "lastMessageAt": "2026-01-01T00:00:00.000Z" },
+                        { "id": "new", "lastMessageAt": "2026-01-04T00:00:00.000Z" },
+                        { "id": "created-only", "createdAt": "2026-01-03T00:00:00.000Z" },
+                        { "id": "first-only", "firstMessageAt": "2026-01-02T00:00:00.000Z" },
+                        { "id": "missing-date" }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+
+        let recent = list_chat_memories(&state, "chat-1", Some(3), Some("recent"))
+            .expect("recent limited memories should list");
+        assert_eq!(
+            memory_ids(&recent),
+            vec!["new", "created-only", "first-only"]
+        );
+
+        let stored = list_chat_memories(&state, "chat-1", None, None)
+            .expect("default memories should list in stored order");
+        assert_eq!(
+            memory_ids(&stored),
+            vec!["old", "new", "created-only", "first-only", "missing-date"]
+        );
+
+        let invalid = list_chat_memories(&state, "chat-1", None, Some("popular"))
+            .expect_err("unsupported ordering should be rejected");
+        assert_eq!(invalid.code, "invalid_input");
     }
 
     #[test]

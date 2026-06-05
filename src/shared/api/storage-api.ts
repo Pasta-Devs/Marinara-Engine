@@ -1,5 +1,6 @@
 import type {
   AddChatMessageSwipeOptions,
+  ListChatMemoriesOptions,
   StorageImageAttachmentReference,
   StorageEntity,
   StorageGateway,
@@ -13,6 +14,7 @@ import {
   type RemoteManagedAssetKind,
 } from "./local-file-api";
 import { blobToDataUrl } from "../lib/url-blob";
+import { chatCommandApi } from "./chat-command-api";
 import { invokeTauri } from "./tauri-client";
 import { trackerSnapshotApi, type TrackerSnapshotInput } from "./tracker-snapshot-api";
 import { urlBinaryApi } from "./url-binary-api";
@@ -27,10 +29,6 @@ function asRecord(value: unknown): Record<string, unknown> {
     }
   }
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function asArray<T = unknown>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
 }
 
 function parseStoredJson(value: unknown): unknown {
@@ -432,10 +430,8 @@ export const storageApi: StorageGateway = {
     invokeTauri("chat_evict_prompt_snapshots", { chatId, keepLast }) as Promise<{ evicted: number }>,
   patchChatMetadata: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
   patchChatSummaries: (chatId, patch) => patchChatSummariesField(chatId, patch),
-  listChatMemories: async (chatId) => {
-    const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
-    return asArray(chat?.memories);
-  },
+  listChatMemories: <T = unknown>(chatId: string, options?: ListChatMemoriesOptions) =>
+    chatCommandApi.memoriesList<T[]>(chatId, options),
   refreshChatMemories: (chatId) => invokeTauri("chat_memories_refresh", { chatId }),
   getWorldState: async (chatId) => {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);

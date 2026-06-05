@@ -1731,9 +1731,58 @@ const MAX_MEMORY_RECALL_BUDGET_TOKENS = 2048;
 const MAX_RECALLED_MEMORY_TOKENS = 384;
 const MIN_RECALLED_MEMORY_TOKENS = 96;
 const MEMORY_RECALL_CONTEXT_SHARE = 0.15;
+const MEMORY_RECALL_SIMILARITY_THRESHOLD = 0.25;
+const MAX_MEMORY_RECALL_SCORING_CHUNKS = 500;
+const MIN_MEMORY_RECALL_STRONG_LEXICAL_TOKENS = 2;
+const MIN_MEMORY_RECALL_STRONG_LEXICAL_COVERAGE = 0.75;
 const DEFAULT_MEMORY_RECALL_READ_BEHIND_MESSAGES = 1;
 const MAX_MEMORY_RECALL_READ_BEHIND_MESSAGES = 100;
 const RECALL_TRUNCATION_MARKER = "\n...[recalled memory truncated]...\n";
+const MEMORY_RECALL_QUERY_STOPWORDS = new Set([
+  "about",
+  "and",
+  "are",
+  "been",
+  "but",
+  "did",
+  "does",
+  "find",
+  "for",
+  "from",
+  "had",
+  "has",
+  "have",
+  "her",
+  "him",
+  "his",
+  "how",
+  "its",
+  "know",
+  "our",
+  "recall",
+  "remember",
+  "she",
+  "show",
+  "tell",
+  "that",
+  "the",
+  "their",
+  "them",
+  "then",
+  "there",
+  "they",
+  "this",
+  "was",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+  "you",
+  "your",
+]);
 
 function estimateTextTokens(text: string): number {
   const trimmed = text.trim();
@@ -1752,6 +1801,30 @@ function lexicalMemoryEmbedding(text: string): number[] {
   }
   const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
   return magnitude > 0 ? vector.map((value) => value / magnitude) : vector;
+}
+
+function memoryRecallTokenSet(text: string): Set<string> {
+  return new Set(text.toLowerCase().match(/[a-z0-9]{2,}/g) ?? []);
+}
+
+function memoryRecallQueryTokens(text: string): string[] {
+  return Array.from(memoryRecallTokenSet(text)).filter((token) => !MEMORY_RECALL_QUERY_STOPWORDS.has(token));
+}
+
+function memoryRecallLexicalOverlap(queryTokens: string[], contentTokens: Set<string>): number {
+  return queryTokens.reduce((score, token) => score + (contentTokens.has(token) ? 1 : 0), 0);
+}
+
+function hasStrongMemoryRecallLexicalMatch(queryTokenCount: number, lexicalScore: number): boolean {
+  if (queryTokenCount < MIN_MEMORY_RECALL_STRONG_LEXICAL_TOKENS) return false;
+  if (lexicalScore < MIN_MEMORY_RECALL_STRONG_LEXICAL_TOKENS) return false;
+  return lexicalScore / queryTokenCount >= MIN_MEMORY_RECALL_STRONG_LEXICAL_COVERAGE;
+}
+
+function passesMemoryRecallRelevanceFloor(similarity: number, queryTokenCount: number, lexicalScore: number): boolean {
+  return (
+    similarity >= MEMORY_RECALL_SIMILARITY_THRESHOLD || hasStrongMemoryRecallLexicalMatch(queryTokenCount, lexicalScore)
+  );
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -1875,6 +1948,21 @@ function memoriesAfterReadBehind(chat: JsonRecord, storedMessages: JsonRecord[],
   return memories.filter((memory) => !memoryOverlapsRecentMessages(memory, recentIds, recentStartAt));
 }
 
+function memoryRecallRecencyKey(memory: JsonRecord): string {
+  return (
+    readString(memory.lastMessageAt).trim() ||
+    readString(memory.createdAt).trim() ||
+    readString(memory.firstMessageAt).trim()
+  );
+}
+
+function recentMemoryRecallScoringSet(memories: JsonRecord[]): JsonRecord[] {
+  if (memories.length <= MAX_MEMORY_RECALL_SCORING_CHUNKS) return memories;
+  return [...memories]
+    .sort((a, b) => memoryRecallRecencyKey(b).localeCompare(memoryRecallRecencyKey(a)))
+    .slice(0, MAX_MEMORY_RECALL_SCORING_CHUNKS);
+}
+
 async function buildMemoryRecallBlock(
   storage: StorageGateway,
   chat: JsonRecord,
@@ -1888,12 +1976,15 @@ async function buildMemoryRecallBlock(
   if (!chatId) return null;
   let memories: JsonRecord[] = [];
   try {
-    const rows = await storage.listChatMemories<unknown>(chatId);
+    const rows = await storage.listChatMemories<unknown>(chatId, {
+      limit: MAX_MEMORY_RECALL_SCORING_CHUNKS,
+      order: "recent",
+    });
     memories = Array.isArray(rows) ? rows.filter(isRecord) : [];
   } catch {
     memories = Array.isArray(chat.memories) ? chat.memories.filter(isRecord) : [];
   }
-  memories = memoriesAfterReadBehind(chat, storedMessages, memories);
+  memories = recentMemoryRecallScoringSet(memoriesAfterReadBehind(chat, storedMessages, memories));
   if (memories.length === 0) return null;
 
   let semanticQueryVector: number[] | null = null;
@@ -1905,7 +1996,7 @@ async function buildMemoryRecallBlock(
     semanticQueryVector = null;
   }
   const queryVector = lexicalMemoryEmbedding(latestUserInput);
-  const queryTokens = new Set(latestUserInput.toLowerCase().match(/[a-z0-9]{2,}/g) ?? []);
+  const queryTokens = memoryRecallQueryTokens(latestUserInput);
   const recalled = memories
     .map((memory) => {
       const content = readString(memory.content).trim();
@@ -1913,15 +2004,14 @@ async function buildMemoryRecallBlock(
       const providerVector = semanticQueryVector ? memoryVector(memory, semanticQueryVector.length) : null;
       const vector = providerVector ?? memoryVector(memory, MEMORY_EMBEDDING_DIMS) ?? lexicalMemoryEmbedding(content);
       const baseQueryVector = providerVector && semanticQueryVector ? semanticQueryVector : queryVector;
-      const haystack = content.toLowerCase();
-      const lexicalScore = Array.from(queryTokens).reduce(
-        (score, token) => score + (haystack.includes(token) ? 1 : 0),
-        0,
-      );
+      const lexicalScore = memoryRecallLexicalOverlap(queryTokens, memoryRecallTokenSet(content));
       const similarity = cosineSimilarity(baseQueryVector, vector) + Math.min(0.2, lexicalScore * 0.025);
-      return { content, similarity };
+      return { content, similarity, lexicalScore };
     })
-    .filter((memory): memory is { content: string; similarity: number } => !!memory && memory.similarity > 0)
+    .filter(
+      (memory): memory is { content: string; similarity: number; lexicalScore: number } =>
+        !!memory && passesMemoryRecallRelevanceFloor(memory.similarity, queryTokens.length, memory.lexicalScore),
+    )
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 8);
   if (recalled.length === 0) return null;
