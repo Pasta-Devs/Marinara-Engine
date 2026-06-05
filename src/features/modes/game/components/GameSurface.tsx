@@ -14,7 +14,8 @@ import {
   Image,
   ListRestart,
   Loader2,
-  MoreHorizontal,
+  MoreVertical,
+  LayoutGrid,
   Play,
   Plug,
   RefreshCw,
@@ -26,6 +27,8 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import { useTopBarActions } from "../../../../app/shell/TopBarActionsContext";
+import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
 import { gameApi } from "../api/game-api";
@@ -1817,6 +1820,10 @@ export function GameSurface({
   const openGameAssetsBrowser = useUIStore((s) => s.openGameAssetsBrowser);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
+  const openRightPanel = useUIStore((s) => s.openRightPanel);
+  const closeAllDetails = useUIStore((s) => s.closeAllDetails);
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
+  const { setRightSlot } = useTopBarActions();
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
   const sceneTurnNumber = useMemo(() => gameSceneTurnNumber(messages), [messages]);
   const gameSceneIllustrationAllowed =
@@ -2037,8 +2044,8 @@ export function GameSurface({
   const [combatLogsOpen, setCombatLogsOpen] = useState(false);
   const [spotifyRetryPending, setSpotifyRetryPending] = useState(false);
   const combatLogScrolledRef = useRef(false);
-  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
-  const [mobileRetryMenuOpen, setMobileRetryMenuOpen] = useState(false);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [toolsSheetOpen, setToolsSheetOpen] = useState(false);
   const [confirmEndSessionOpen, setConfirmEndSessionOpen] = useState(false);
   const [nextSessionRequest, setNextSessionRequest] = useState("");
   const [jsonRepairRequest, setJsonRepairRequest] = useState<JsonRepairRequest | null>(null);
@@ -2179,6 +2186,38 @@ export function GameSurface({
   useEffect(() => {
     pendingInventoryUseRef.current = pendingInventoryUse;
   }, [pendingInventoryUse]);
+
+  // TopBar action buttons for mobile
+  useEffect(() => {
+    setRightSlot(
+      <>
+        <button
+          type="button"
+          onClick={() => setMoreSheetOpen((v) => !v)}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            moreSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="More options"
+        >
+          <MoreVertical size="1.15rem" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setToolsSheetOpen((v) => !v)}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="Tools"
+        >
+          <LayoutGrid size="1.15rem" />
+        </button>
+      </>,
+    );
+    return () => { setRightSlot(null); };
+  }, [moreSheetOpen, toolsSheetOpen, setRightSlot]);
+
   const recruitPartyMember = useRecruitPartyMember();
   const regeneratePartyCard = useRegeneratePartyCard();
   const removePartyMember = useRemovePartyMember();
@@ -2363,7 +2402,8 @@ export function GameSurface({
     inventoryOpen ||
     tutorialOpen ||
     confirmEndSessionOpen ||
-    mobileActionsOpen;
+    moreSheetOpen ||
+    toolsSheetOpen;
   const narrationVoicePlaybackBlocked =
     !!activeReadable ||
     historyOpen ||
@@ -2373,7 +2413,8 @@ export function GameSurface({
     inventoryOpen ||
     tutorialOpen ||
     confirmEndSessionOpen ||
-    mobileActionsOpen;
+    moreSheetOpen ||
+    toolsSheetOpen;
   const effectiveGameVoiceVolume = audioMuted || masterVolume === 0 ? 0 : getEffectiveVolume(masterVolume, ttsVolume);
 
   useEffect(() => {
@@ -4750,8 +4791,6 @@ export function GameSurface({
     const msg = latestAssistantMsgRef.current;
     if (!msg?.content) return;
     setRetryMenuOpen(false);
-    setMobileRetryMenuOpen(false);
-    setMobileActionsOpen(false);
 
     const assets = getScopedAssetMap();
     const tags = parseGmTags(msg.content);
@@ -8529,236 +8568,251 @@ export function GameSurface({
                   </button>
                 </div>
 
-                {/* Mobile controls */}
-                <div className="pointer-events-auto md:hidden">
-                  <div className="relative">
-                    <button
-                      onClick={() => {
-                        setMobileActionsOpen((open) => {
-                          const nextOpen = !open;
-                          if (!nextOpen) setVolumePopoverOpen(false);
-                          return nextOpen;
-                        });
-                        setMobileRetryMenuOpen(false);
-                      }}
-                      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white/85 backdrop-blur-md transition-colors hover:bg-black/65 hover:text-white"
-                      title="Game actions"
+                {/* Mobile: Tools top sheet */}
+                {toolsSheetOpen && (
+                  <>
+                    <div
+                      className="pointer-events-auto fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+                      onClick={() => setToolsSheetOpen(false)}
+                    />
+                    <div
+                      className="pointer-events-auto fixed top-0 left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl md:hidden"
+                      style={{ paddingTop: "max(1.25rem, env(safe-area-inset-top))" }}
                     >
-                      <MoreHorizontal size={15} />
-                    </button>
+                      <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+                        Panels
+                      </p>
+                      <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+                        {TOOLS_PANELS.map(({ panel, icon: Icon, label, gradient }) => (
+                          <button
+                            key={panel}
+                            type="button"
+                            onClick={() => {
+                              setToolsSheetOpen(false);
+                              setSidebarOpen(false);
+                              closeAllDetails();
+                              openRightPanel(panel);
+                            }}
+                            className="flex items-center gap-3 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)]/50 p-4 text-left transition-all active:scale-95 hover:border-[var(--border)]"
+                          >
+                            <div
+                              className={cn(
+                                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm",
+                                gradient,
+                              )}
+                            >
+                              <Icon size="1rem" />
+                            </div>
+                            <span className="text-sm font-semibold text-[var(--foreground)]">{label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
 
-                    {mobileActionsOpen && (
-                      <div className="absolute right-0 top-11 flex w-9 flex-col items-center gap-1 rounded-xl border border-white/15 bg-black/70 p-0.5 backdrop-blur-xl shadow-lg">
+                {/* Mobile: More options top sheet */}
+                {moreSheetOpen && (
+                  <>
+                    <div
+                      className="pointer-events-auto fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+                      onClick={() => setMoreSheetOpen(false)}
+                    />
+                    <div
+                      className="pointer-events-auto fixed top-[3.25rem] left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl overflow-hidden md:hidden"
+                      style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+                    >
+                      <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
+                        Game Actions
+                      </p>
+                      <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+                        {/* Tutorial */}
                         <button
+                          type="button"
                           onClick={() => {
+                            setMoreSheetOpen(false);
                             setTutorialOpen(true);
-                            setMobileActionsOpen(false);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/85 transition-colors hover:bg-white/10 hover:text-white"
-                          title="Game Mode Tutorial"
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                         >
-                          <HelpCircle size={14} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
+                            <HelpCircle size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Tutorial</span>
                         </button>
+
+                        {/* History */}
                         <button
+                          type="button"
                           onClick={() => {
+                            setMoreSheetOpen(false);
                             setHistoryOpen(true);
-                            setMobileActionsOpen(false);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                          title="History"
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                         >
-                          <History size={14} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
+                            <History size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">History</span>
                         </button>
+
+                        {/* Checkpoints */}
                         <button
+                          type="button"
                           onClick={() => {
+                            setMoreSheetOpen(false);
                             setCheckpointsOpen(true);
-                            setMobileActionsOpen(false);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                          title="Checkpoints"
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                         >
-                          <ListRestart size={14} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                            <ListRestart size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Checkpoints</span>
                         </button>
+
+                        {/* Journal */}
                         <button
+                          type="button"
                           onClick={() => {
-                            setMobileWorldInfoOpen(true);
-                            setMobileActionsOpen(false);
+                            setMoreSheetOpen(false);
+                            setJournalOpen(true);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                          title="Active World Info"
-                          aria-label="Active World Info"
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                         >
-                          <Globe size={14} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 text-white shadow-sm">
+                            <BookOpen size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Journal</span>
                         </button>
+
+                        {/* World Info */}
+                        <div
+                          className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.currentTarget.querySelector('button')?.click();
+                          }}
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
+                            <Globe size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">World Info</span>
+                          <div className="absolute inset-0 opacity-0">
+                            <ActiveWorldInfoButton chatId={activeChatId} />
+                          </div>
+                        </div>
+
+                        {/* End/Start Session */}
                         {sessionStatus !== "concluded" ? (
                           <button
+                            type="button"
                             onClick={() => {
+                              setMoreSheetOpen(false);
                               handleRequestEndSession();
-                              setMobileActionsOpen(false);
                             }}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10"
-                            title="End Session"
+                            className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                           >
-                            <Square size={13} />
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-sm">
+                              <Square size="1rem" />
+                            </div>
+                            <span className="text-xs font-medium text-[var(--foreground)]">End Session</span>
                           </button>
                         ) : (
                           <button
+                            type="button"
                             onClick={() => {
+                              setMoreSheetOpen(false);
                               handleStartNewSession();
-                              setMobileActionsOpen(false);
                             }}
                             disabled={startSessionLocked}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-200 transition-colors hover:bg-emerald-500/20 disabled:opacity-50 disabled:hover:bg-transparent"
-                            title={startSessionLocked ? "Generating next session" : "New Session"}
+                            className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)] disabled:opacity-50"
                           >
-                            {startSessionLocked ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                              {startSessionLocked ? <Loader2 size="1rem" className="animate-spin" /> : <Play size="1rem" />}
+                            </div>
+                            <span className="text-xs font-medium text-[var(--foreground)]">New Session</span>
                           </button>
                         )}
+
+                        {/* Gallery */}
                         <button
+                          type="button"
                           onClick={() => {
-                            setJournalOpen(true);
-                            setMobileActionsOpen(false);
-                          }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                          title="Journal"
-                        >
-                          <BookOpen size={14} />
-                        </button>
-                        <div className="relative" ref={mobileVolumePopoverRef}>
-                          <button
-                            onClick={() => {
-                              setVolumePopoverOpen((open) => !open);
-                              setMobileRetryMenuOpen(false);
-                            }}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                            title="Volume"
-                          >
-                            {audioMuted || masterVolume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                          </button>
-                          {volumePopoverOpen && (
-                            <GameVolumeMixer
-                              className="absolute right-10 top-0 z-50 max-w-[calc(100vw-4.5rem)]"
-                              audioMuted={audioMuted || masterVolume === 0}
-                              masterVolume={masterVolume}
-                              musicVolume={musicVolume}
-                              sfxVolume={sfxVolume}
-                              ttsVolume={ttsVolume}
-                              ambientVolume={ambientVolume}
-                              onMasterVolumeChange={handleMasterVolumeChange}
-                              onMusicVolumeChange={(value) =>
-                                handleChannelVolumeChange("musicVolume", setMusicVolume, value)
-                              }
-                              onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
-                              onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
-                              onAmbientVolumeChange={(value) =>
-                                handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)
-                              }
-                              onToggleMute={handleToggleMute}
-                              onAudioInteract={handleAudioInteract}
-                            />
-                          )}
-                        </div>
-                        <button
-                          onClick={() => {
+                            setMoreSheetOpen(false);
                             setGalleryOpen(true);
-                            setMobileActionsOpen(false);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                          title="Gallery"
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                         >
-                          <Image size={14} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
+                            <Image size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Gallery</span>
                         </button>
+
+                        {/* Game Assets */}
                         <button
+                          type="button"
                           onClick={() => {
+                            setMoreSheetOpen(false);
                             openGameAssetsBrowser();
-                            setMobileActionsOpen(false);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                          title="Game Assets"
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                         >
-                          <Folder size={14} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
+                            <Folder size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Assets</span>
                         </button>
-                        <div className="relative">
-                          <button
-                            onClick={() => setMobileRetryMenuOpen((v) => !v)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                            title="Retry"
-                            aria-label="Retry"
-                          >
-                            <RotateCcw
-                              size={14}
-                              className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-spin" : ""}
-                            />
-                          </button>
-                          {mobileRetryMenuOpen && (
-                            <div className="absolute right-10 top-0 z-50 flex w-72 max-w-[calc(100vw-4rem)] flex-col gap-1 rounded-xl border border-white/15 bg-black/85 p-1.5 shadow-xl backdrop-blur-xl">
-                              <button
-                                onClick={() => {
-                                  setMobileRetryMenuOpen(false);
-                                  setMobileActionsOpen(false);
-                                  void handleRetryTurn();
-                                }}
-                                disabled={!canRetryTurn}
-                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
-                              >
-                                <RotateCcw size={13} />
-                                <span>Retry Turn</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleRetryScene();
-                                  setMobileRetryMenuOpen(false);
-                                  setMobileActionsOpen(false);
-                                }}
-                                disabled={!canRetryScene}
-                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
-                              >
-                                <RefreshCw size={13} className={sceneAnalysis.isPending ? "animate-spin" : ""} />
-                                <span>Retry Scene Analysis</span>
-                              </button>
-                              {useSpotifyGameMusic && (
-                                <button
-                                  onClick={handleRetrySpotifyMusic}
-                                  disabled={!canRetrySpotifyMusic}
-                                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
-                                >
-                                  {spotifyRetryPending ? (
-                                    <RefreshCw size={13} className="animate-spin" />
-                                  ) : (
-                                    <Volume2 size={13} />
-                                  )}
-                                  <span>Retry Spotify DJ Music Generation</span>
-                                </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setMobileRetryMenuOpen(false);
-                                  setMobileActionsOpen(false);
-                                  retryAssetGeneration({ showSuccessToast: true });
-                                }}
-                                disabled={!canRetryAssets}
-                                className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
-                              >
-                                <Image size={13} />
-                                <span>Retry Assets Image Generation</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
+
+                        {/* Volume */}
                         <button
+                          type="button"
                           onClick={() => {
-                            onOpenSettings();
-                            setMobileActionsOpen(false);
+                            setMoreSheetOpen(false);
+                            setVolumePopoverOpen(true);
                           }}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/10 hover:text-white"
-                          title="Chat Settings"
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
                         >
-                          <Settings2 size={14} />
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                            {audioMuted || masterVolume === 0 ? <VolumeX size="1rem" /> : <Volume2 size="1rem" />}
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Volume</span>
+                        </button>
+
+                        {/* Retry */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMoreSheetOpen(false);
+                            setRetryMenuOpen(true);
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500 to-gray-500 text-white shadow-sm">
+                            <RotateCcw size="1rem" className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-spin" : ""} />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Retry</span>
+                        </button>
+
+                        {/* Settings */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMoreSheetOpen(false);
+                            onOpenSettings();
+                          }}
+                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                            <Settings2 size="1rem" />
+                          </div>
+                          <span className="text-xs font-medium text-[var(--foreground)]">Settings</span>
                         </button>
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <ActiveWorldInfoModal
@@ -8766,6 +8820,89 @@ export function GameSurface({
                 open={mobileWorldInfoOpen}
                 onClose={() => setMobileWorldInfoOpen(false)}
               />
+
+              {/* Mobile volume popover */}
+              {volumePopoverOpen && (
+                <div ref={mobileVolumePopoverRef} className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
+                  <GameVolumeMixer
+                    audioMuted={audioMuted || masterVolume === 0}
+                    masterVolume={masterVolume}
+                    musicVolume={musicVolume}
+                    sfxVolume={sfxVolume}
+                    ttsVolume={ttsVolume}
+                    ambientVolume={ambientVolume}
+                    onMasterVolumeChange={handleMasterVolumeChange}
+                    onMusicVolumeChange={(value) =>
+                      handleChannelVolumeChange("musicVolume", setMusicVolume, value)
+                    }
+                    onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
+                    onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
+                    onAmbientVolumeChange={(value) =>
+                      handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)
+                    }
+                    onToggleMute={handleToggleMute}
+                    onAudioInteract={handleAudioInteract}
+                  />
+                </div>
+              )}
+
+              {/* Mobile retry menu */}
+              {retryMenuOpen && (
+                <div className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
+                  <div className="flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-xl border border-white/15 bg-black/85 p-1.5 shadow-xl backdrop-blur-xl">
+                    <button
+                      onClick={() => {
+                        void handleRetryTurn();
+                        setRetryMenuOpen(false);
+                      }}
+                      disabled={!canRetryTurn}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+                    >
+                      <RotateCcw size={13} />
+                      <span>Retry Turn</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleRetryScene();
+                        setRetryMenuOpen(false);
+                      }}
+                      disabled={!canRetryScene}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+                    >
+                      <RefreshCw size={13} className={sceneAnalysis.isPending ? "animate-spin" : ""} />
+                      <span>Retry Scene Analysis</span>
+                    </button>
+                    {useSpotifyGameMusic && (
+                      <button
+                        onClick={() => {
+                          handleRetrySpotifyMusic();
+                          setRetryMenuOpen(false);
+                        }}
+                        disabled={!canRetrySpotifyMusic}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+                      >
+                        {spotifyRetryPending ? (
+                          <RefreshCw size={13} className="animate-spin" />
+                        ) : (
+                          <Volume2 size={13} />
+                        )}
+                        <span>Retry Spotify DJ Music Generation</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        retryAssetGeneration({ showSuccessToast: true });
+                        setRetryMenuOpen(false);
+                      }}
+                      disabled={!canRetryAssets}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-white/85 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent"
+                    >
+                      <Image size={13} />
+                      <span>Retry Assets Image Generation</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {pendingReaction && (
                 <GameElementReaction reaction={pendingReaction} onDismiss={() => setPendingReaction(null)} />
