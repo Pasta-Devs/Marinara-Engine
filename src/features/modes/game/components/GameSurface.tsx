@@ -8625,80 +8625,67 @@ export function GameSurface({
                       <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
                         Game Actions
                       </p>
-                      <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+                      <div className="flex flex-col pb-3">
+                        <p className="px-5 pt-1 pb-1 text-[0.6rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/50">Game</p>
+
                         {/* Tutorial */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            setTutorialOpen(true);
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); setTutorialOpen(true); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
-                            <HelpCircle size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white shadow-sm">
+                            <HelpCircle size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Tutorial</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Tutorial</span>
                         </button>
 
                         {/* History */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            setHistoryOpen(true);
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); setHistoryOpen(true); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
-                            <History size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
+                            <History size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">History</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">History</span>
                         </button>
 
                         {/* Checkpoints */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            setCheckpointsOpen(true);
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); setCheckpointsOpen(true); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
-                            <ListRestart size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                            <ListRestart size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Checkpoints</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Checkpoints</span>
                         </button>
 
                         {/* Journal */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            setJournalOpen(true);
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); setJournalOpen(true); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 text-white shadow-sm">
-                            <BookOpen size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-500 text-white shadow-sm">
+                            <BookOpen size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Journal</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Journal</span>
                         </button>
 
                         {/* World Info */}
                         <div
-                          className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.currentTarget.querySelector('button')?.click();
-                          }}
+                          className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
-                            <Globe size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
+                            <Globe size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">World Info</span>
-                          <div className="absolute inset-0 opacity-0">
+                          <span className="text-sm font-medium text-[var(--foreground)]">World Info</span>
+                          <div className="absolute inset-0 opacity-0 pointer-events-auto">
                             <ActiveWorldInfoButton chatId={activeChatId} />
                           </div>
                         </div>
@@ -8707,107 +8694,91 @@ export function GameSurface({
                         {sessionStatus !== "concluded" ? (
                           <button
                             type="button"
-                            onClick={() => {
-                              setMoreSheetOpen(false);
-                              handleRequestEndSession();
-                            }}
-                            className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                            onClick={() => { setMoreSheetOpen(false); handleRequestEndSession(); }}
+                            className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                           >
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-sm">
-                              <Square size="1rem" />
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-500 text-white shadow-sm">
+                              <Square size="0.9rem" />
                             </div>
-                            <span className="text-xs font-medium text-[var(--foreground)]">End Session</span>
+                            <span className="text-sm font-medium text-[var(--foreground)]">End Session</span>
                           </button>
                         ) : (
                           <button
                             type="button"
-                            onClick={() => {
-                              setMoreSheetOpen(false);
-                              handleStartNewSession();
-                            }}
+                            onClick={() => { setMoreSheetOpen(false); handleStartNewSession(); }}
                             disabled={startSessionLocked}
-                            className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)] disabled:opacity-50"
+                            className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20 disabled:opacity-50"
                           >
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
-                              {startSessionLocked ? <Loader2 size="1rem" className="animate-spin" /> : <Play size="1rem" />}
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                              {startSessionLocked ? <Loader2 size="0.9rem" className="animate-spin" /> : <Play size="0.9rem" />}
                             </div>
-                            <span className="text-xs font-medium text-[var(--foreground)]">New Session</span>
+                            <span className="text-sm font-medium text-[var(--foreground)]">New Session</span>
                           </button>
                         )}
+
+                        <div className="mx-5 my-1 h-px bg-[var(--border)]/30" />
+                        <p className="px-5 pt-1 pb-1 text-[0.6rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/50">Media & Tools</p>
 
                         {/* Gallery */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            setGalleryOpen(true);
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); setGalleryOpen(true); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
-                            <Image size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
+                            <Image size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Gallery</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Gallery</span>
                         </button>
 
                         {/* Game Assets */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            openGameAssetsBrowser();
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); openGameAssetsBrowser(); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
-                            <Folder size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
+                            <Folder size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Assets</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Assets</span>
                         </button>
 
                         {/* Volume */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            setVolumePopoverOpen(true);
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); setVolumePopoverOpen(true); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
-                            {audioMuted || masterVolume === 0 ? <VolumeX size="1rem" /> : <Volume2 size="1rem" />}
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                            {audioMuted || masterVolume === 0 ? <VolumeX size="0.9rem" /> : <Volume2 size="0.9rem" />}
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Volume</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Volume</span>
                         </button>
+
+                        <div className="mx-5 my-1 h-px bg-[var(--border)]/30" />
 
                         {/* Retry */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            setRetryMenuOpen(true);
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); setRetryMenuOpen(true); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500 to-gray-500 text-white shadow-sm">
-                            <RotateCcw size="1rem" className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-spin" : ""} />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500 to-gray-500 text-white shadow-sm">
+                            <RotateCcw size="0.9rem" className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-spin" : ""} />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Retry</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Retry</span>
                         </button>
 
-                        {/* Settings */}
+                        {/* Chat Settings */}
                         <button
                           type="button"
-                          onClick={() => {
-                            setMoreSheetOpen(false);
-                            onOpenSettings();
-                          }}
-                          className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                          onClick={() => { setMoreSheetOpen(false); onOpenSettings(); }}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
-                            <Settings2 size="1rem" />
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                            <Settings2 size="0.9rem" />
                           </div>
-                          <span className="text-xs font-medium text-[var(--foreground)]">Settings</span>
+                          <span className="text-sm font-medium text-[var(--foreground)]">Chat Settings</span>
                         </button>
                       </div>
                     </div>

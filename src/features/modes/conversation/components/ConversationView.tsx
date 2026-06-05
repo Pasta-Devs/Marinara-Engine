@@ -18,6 +18,7 @@ import {
   ChevronUp,
   Settings2,
   FolderOpen,
+  GitBranch,
   Globe,
   Image as ImageIcon,
   MoreVertical,
@@ -1481,70 +1482,71 @@ export function ConversationView({
             className="fixed top-[3.25rem] left-0 right-0 z-[9999] rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up overflow-hidden md:hidden"
             style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
           >
-            <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
-              Chat Options
-            </p>
-            <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+            <div className="flex flex-col pb-3">
               {chatGroupId && (
-                <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95">
-                  <ChatBranchSelector
-                    activeChatId={chatId}
-                    activeChatName={chatName}
-                    groupId={chatGroupId}
-                    compact
-                  />
-                  <span className="text-xs font-medium text-[var(--foreground)]">Branches</span>
+                <div
+                  className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
+                  onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector("button")?.click(); }}
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                    <GitBranch size="0.9rem" />
+                  </div>
+                  <span className="text-sm font-medium text-[var(--foreground)]">Branches</span>
+                  <div className="absolute inset-0 opacity-0 pointer-events-auto">
+                    <ChatBranchSelector activeChatId={chatId} activeChatName={chatName} groupId={chatGroupId} compact />
+                  </div>
                 </div>
               )}
               <button
                 type="button"
                 onClick={() => { setMoreMenuOpen(false); setSummaryOpen(true); }}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
-                  <ScrollText size="1rem" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                  <ScrollText size="0.9rem" />
                 </div>
-                <span className="text-xs font-medium text-[var(--foreground)]">Summary</span>
+                <span className="text-sm font-medium text-[var(--foreground)]">Summary</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setMoreMenuOpen(false); setMobileWorldInfoOpen(true); }}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
-                  <Globe size="1rem" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
+                  <Globe size="0.9rem" />
                 </div>
-                <span className="text-xs font-medium text-[var(--foreground)]">World Info</span>
+                <span className="text-sm font-medium text-[var(--foreground)]">World Info</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setMoreMenuOpen(false); onOpenGallery(); }}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
-                  <ImageIcon size="1rem" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
+                  <ImageIcon size="0.9rem" />
                 </div>
-                <span className="text-xs font-medium text-[var(--foreground)]">Gallery</span>
+                <span className="text-sm font-medium text-[var(--foreground)]">Gallery</span>
               </button>
               <button
                 type="button"
                 onClick={() => { setMoreMenuOpen(false); onOpenFiles(); }}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
-                  <FolderOpen size="1rem" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
+                  <FolderOpen size="0.9rem" />
                 </div>
-                <span className="text-xs font-medium text-[var(--foreground)]">Chat Files</span>
+                <span className="text-sm font-medium text-[var(--foreground)]">Chat Files</span>
               </button>
+              <div className="mx-5 my-1 h-px bg-[var(--border)]/30" />
               <button
                 type="button"
                 onClick={() => { setMoreMenuOpen(false); onOpenSettings(); }}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
-                  <Settings2 size="1rem" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                  <Settings2 size="0.9rem" />
                 </div>
-                <span className="text-xs font-medium text-[var(--foreground)]">Settings</span>
+                <span className="text-sm font-medium text-[var(--foreground)]">Chat Settings</span>
               </button>
             </div>
           </div>

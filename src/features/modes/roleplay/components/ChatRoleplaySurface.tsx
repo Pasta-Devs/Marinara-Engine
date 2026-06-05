@@ -1314,18 +1314,18 @@ export function ChatRoleplaySurface({
                 Chat Options
               </p>
 
-              <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 overflow-hidden">
+              <div className="flex flex-col pb-3">
                 {/* Branches */}
                 {chat?.groupId && (
                   <div
-                    className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                    className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
                     onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
-                      <GitBranch size="1rem" />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                      <GitBranch size="0.9rem" />
                     </div>
-                    <span className="text-xs font-medium text-[var(--foreground)]">Branches</span>
-                    <div className="absolute inset-0 opacity-0">
+                    <span className="text-sm font-medium text-[var(--foreground)]">Branches</span>
+                    <div className="absolute inset-0 opacity-0 pointer-events-auto">
                       <ChatBranchSelector
                         activeChatId={activeChatId}
                         activeChatName={chat?.name}
@@ -1339,14 +1339,14 @@ export function ChatRoleplaySurface({
 
                 {/* Summary */}
                 <div
-                  className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                  className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
                   onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
-                    <ScrollText size="1rem" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                    <ScrollText size="0.9rem" />
                   </div>
-                  <span className="text-xs font-medium text-[var(--foreground)]">Summary</span>
-                  <div className="absolute inset-0 opacity-0">
+                  <span className="text-sm font-medium text-[var(--foreground)]">Summary</span>
+                  <div className="absolute inset-0 opacity-0 pointer-events-auto">
                     <SummaryButton
                       chatId={chat?.id ?? null}
                       summary={metadataString(chatMeta.summary) || null}
@@ -1359,28 +1359,28 @@ export function ChatRoleplaySurface({
 
                 {/* World Info */}
                 <div
-                  className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                  className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
                   onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
-                    <Globe size="1rem" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
+                    <Globe size="0.9rem" />
                   </div>
-                  <span className="text-xs font-medium text-[var(--foreground)]">World Info</span>
-                  <div className="absolute inset-0 opacity-0">
+                  <span className="text-sm font-medium text-[var(--foreground)]">World Info</span>
+                  <div className="absolute inset-0 opacity-0 pointer-events-auto">
                     <ActiveWorldInfoButton chatId={chat?.id ?? null} />
                   </div>
                 </div>
 
                 {/* Author Notes */}
                 <div
-                  className="relative flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 cursor-pointer"
+                  className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
                   onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
-                    <PenLine size="1rem" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm">
+                    <PenLine size="0.9rem" />
                   </div>
-                  <span className="text-xs font-medium text-[var(--foreground)]">Notes</span>
-                  <div className="absolute inset-0 opacity-0">
+                  <span className="text-sm font-medium text-[var(--foreground)]">Author Notes</span>
+                  <div className="absolute inset-0 opacity-0 pointer-events-auto">
                     <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
                   </div>
                 </div>
@@ -1389,36 +1389,38 @@ export function ChatRoleplaySurface({
                 <button
                   type="button"
                   onClick={() => { setMoreMenuOpen(false); onOpenGallery(); }}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                  className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
-                    <Image size="1rem" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
+                    <Image size="0.9rem" />
                   </div>
-                  <span className="text-xs font-medium text-[var(--foreground)]">Gallery</span>
+                  <span className="text-sm font-medium text-[var(--foreground)]">Gallery</span>
                 </button>
 
                 {/* Chat Files */}
                 <button
                   type="button"
                   onClick={() => { setMoreMenuOpen(false); onOpenFiles(); }}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                  className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
-                    <FolderOpen size="1rem" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
+                    <FolderOpen size="0.9rem" />
                   </div>
-                  <span className="text-xs font-medium text-[var(--foreground)]">Chat Files</span>
+                  <span className="text-sm font-medium text-[var(--foreground)]">Chat Files</span>
                 </button>
 
-                {/* Settings */}
+                <div className="mx-5 my-1 h-px bg-[var(--border)]/30" />
+
+                {/* Chat Settings */}
                 <button
                   type="button"
                   onClick={() => { setMoreMenuOpen(false); onOpenSettings(); }}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--border)]/50 bg-[var(--secondary)] p-3 transition-all active:scale-95 hover:border-[var(--border)]"
+                  className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
-                    <Settings2 size="1rem" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
+                    <Settings2 size="0.9rem" />
                   </div>
-                  <span className="text-xs font-medium text-[var(--foreground)]">Settings</span>
+                  <span className="text-sm font-medium text-[var(--foreground)]">Chat Settings</span>
                 </button>
               </div>
             </div>,
