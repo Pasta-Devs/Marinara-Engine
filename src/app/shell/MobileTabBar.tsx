@@ -47,34 +47,26 @@ export function MobileTabBar({
   const closeAll = () => {
     setModePicker(false);
     setToolsSheet(false);
+    setSidebarOpen(false);
+    closeRightPanel();
+    closeAllDetails();
   };
 
   const goHome = () => {
-    setActiveChatId(null);
-    closeAllDetails();
-    closeRightPanel();
-    setSidebarOpen(false);
     closeAll();
+    setActiveChatId(null);
     onGoHome();
   };
 
   const openChats = () => {
-    closeRightPanel();
-    closeAllDetails();
-    if (sidebarOpen) {
-      setSidebarOpen(false);
-    } else {
-      setSidebarOpen(true);
-    }
+    const wasOpen = sidebarOpen;
     closeAll();
+    if (!wasOpen) setSidebarOpen(true);
   };
 
   const openMari = () => {
-    setActiveChatId(null);
-    closeAllDetails();
-    closeRightPanel();
-    setSidebarOpen(false);
     closeAll();
+    setActiveChatId(null);
     if (professorMariOpen) {
       onGoHome();
     } else {
@@ -83,23 +75,14 @@ export function MobileTabBar({
   };
 
   const openPanel = (panel: typeof TOOLS_PANELS[number]["panel"]) => {
-    setSidebarOpen(false);
-    closeAllDetails();
-    setModePicker(false);
-    if (rightPanelOpen && rightPanel === panel) {
-      closeRightPanel();
-    } else {
-      setToolsSheet(false);
-      openRightPanel(panel);
-    }
+    const wasThisPanel = rightPanelOpen && rightPanel === panel;
+    closeAll();
+    if (!wasThisPanel) openRightPanel(panel);
   };
 
   const startNewChat = (mode: "conversation" | "roleplay" | "game") => {
-    setActiveChatId(null);
-    closeAllDetails();
-    closeRightPanel();
-    setSidebarOpen(false);
     closeAll();
+    setActiveChatId(null);
     onGoHome();
     useChatStore.getState().setPendingNewChatMode(mode);
   };

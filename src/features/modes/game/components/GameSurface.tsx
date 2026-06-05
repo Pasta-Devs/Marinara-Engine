@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { useTopBarActions } from "../../../../app/shell/TopBarActionsContext";
+import { useIsMobile } from "../../../../shared/hooks/use-is-mobile";
 import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameAssetStore } from "../stores/game-asset.store";
@@ -2366,9 +2367,8 @@ export function GameSurface({
   const [ambientVolume, setAmbientVolume] = useState(persistedGameAudioSettings.ambientVolume);
   const [audioSettingsHydrated, setAudioSettingsHydrated] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [compactHudWidgets, setCompactHudWidgets] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 768 : false,
-  );
+  const isMobileViewport = useIsMobile();
+  const [compactHudWidgets, setCompactHudWidgets] = useState(isMobileViewport);
   const tutorialAutoTriggeredRef = useRef(false);
   const volumePopoverRef = useRef<HTMLDivElement>(null);
   const mobileVolumePopoverRef = useRef<HTMLDivElement>(null);

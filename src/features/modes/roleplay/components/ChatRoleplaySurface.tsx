@@ -36,6 +36,7 @@ import { TOOLS_PANELS } from "../../../../app/shell/MobileTabBar";
 import { getConnectedChatDisplayName } from "../../../../shared/lib/chat-display";
 import { resolveManagedLocalAssetUrl } from "../../../../shared/api/local-file-api";
 import { useUIStore } from "../../../../shared/stores/ui.store";
+import { useIsMobile } from "../../../../shared/hooks/use-is-mobile";
 import { useChatStore } from "../../../../shared/stores/chat.store";
 import { useGameStateStore } from "../../../runtime/world-state/index";
 import { ChatMessage, getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../shared/chat-ui/index";
@@ -294,7 +295,6 @@ function RpToolbarButton({
 }
 
 function ToolbarMenu({ children, mobilePortal = true, variant = "inline" }: { children: ReactNode; mobilePortal?: boolean; variant?: "inline" | "fab" }) {
-  const [open, setOpen] = useState(false);
   const compact = useUIStore((s) => s.centerCompact);
   const mobileChatToolsOpen = useUIStore((s) => s.mobileChatToolsOpen);
   const setMobileChatToolsOpen = useUIStore((s) => s.setMobileChatToolsOpen);
@@ -302,16 +302,15 @@ function ToolbarMenu({ children, mobilePortal = true, variant = "inline" }: { ch
   const fabRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-  const isMobileViewport = typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobileViewport = useIsMobile();
 
-  // Sync with mobileChatToolsOpen flag — only for the active mobile instance
-  useEffect(() => {
-    if (isMobileViewport && mobilePortal) setOpen(mobileChatToolsOpen);
-  }, [mobileChatToolsOpen, isMobileViewport, mobilePortal]);
+  // On mobile the store flag is the single source of truth; desktop uses its own local toggle.
+  const [desktopOpen, setDesktopOpen] = useState(false);
+  const open = isMobileViewport && mobilePortal ? mobileChatToolsOpen : desktopOpen;
 
   const handleClose = () => {
-    setOpen(false);
-    if (isMobileViewport) setMobileChatToolsOpen(false);
+    if (isMobileViewport && mobilePortal) setMobileChatToolsOpen(false);
+    else setDesktopOpen(false);
   };
 
   useLayoutEffect(() => {
@@ -323,21 +322,9 @@ function ToolbarMenu({ children, mobilePortal = true, variant = "inline" }: { ch
     });
   }, [open, isMobileViewport]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (target instanceof Element && target.closest("[data-chat-branch-popover]")) return;
-      if (btnRef.current?.contains(target) || fabRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      handleClose();
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const triggerBtn = (
     <button
-      onClick={() => { if (open) handleClose(); else setOpen(true); }}
+      onClick={() => { if (open) handleClose(); else setDesktopOpen(true); }}
       className={cn(
         variant === "fab"
           ? "flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-1.5 text-foreground/60 transition-all hover:bg-[var(--accent)]/30 hover:text-foreground"
@@ -381,14 +368,17 @@ function ToolbarMenu({ children, mobilePortal = true, variant = "inline" }: { ch
               </div>
             </>
           ) : (
-            <div
-              ref={popRef}
-              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-foreground/10 bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
-              style={{ top: pos.top, right: pos.right }}
-              onClick={handleClose}
-            >
-              {children}
-            </div>
+            <>
+              <div className="fixed inset-0 z-[9997]" onClick={handleClose} />
+              <div
+                ref={popRef}
+                className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-foreground/10 bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
+                style={{ top: pos.top, right: pos.right }}
+                onClick={handleClose}
+              >
+                {children}
+              </div>
+            </>
           ),
           document.body,
         )}
@@ -462,7 +452,7 @@ function metadataStringArray(value: unknown): string[] {
 function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMeta: Record<string, unknown> }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+  const isMobile = useIsMobile();
   const compact = useUIStore((s) => s.centerCompact);
 
   useEffect(() => {

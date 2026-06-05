@@ -661,6 +661,7 @@ export function ChatSidebar({
           }
           internalNavRef.current = true;
           setActiveChatId(chat.id);
+          useUIStore.getState().setMobileChatToolsOpen(false);
           if (window.innerWidth < 768) setSidebarOpen(false);
         }}
         className={cn(

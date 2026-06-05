@@ -2,7 +2,7 @@
 // Layout: Mobile App Top Bar
 // ──────────────────────────────────────────────
 import { ArrowLeft } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useChat } from "../../features/catalog/chats/index";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
@@ -67,6 +67,13 @@ export function TopBar({
     return s === "online" ? "bg-green-500" : s === "idle" ? "bg-yellow-500" : s === "dnd" ? "bg-red-500" : s === "offline" ? "bg-gray-400" : "";
   };
 
+  useEffect(() => {
+    if (charPopup === null) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setCharPopup(null); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [charPopup]);
+
   const backFromChat = () => {
     setActiveChatId(null);
     closeAllDetails();
@@ -90,6 +97,10 @@ export function TopBar({
       >
         <ArrowLeft size="1.15rem" aria-hidden />
       </button>
+
+      {charPopup !== null && (
+        <div className="fixed inset-0 z-40" onClick={() => setCharPopup(null)} aria-hidden />
+      )}
 
       {chat?.mode !== "game" && (
         characters && characters.length > 1 ? (
