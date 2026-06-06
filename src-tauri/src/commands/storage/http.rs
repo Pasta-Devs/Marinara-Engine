@@ -349,4 +349,21 @@ mod tests {
             .expect("public relative redirect should resolve");
         assert_eq!(resolved.as_str(), "https://cdn.example.com/resized/avatar.png");
     }
+
+    #[tokio::test]
+    async fn resolved_addresses_skip_pinning_for_ip_literal_hosts() {
+        // IP-literal hosts are screened by the URL guard, so no DNS lookup/pinning is performed.
+        let url = reqwest::Url::parse("http://1.1.1.1/x").unwrap();
+        assert!(binary_fetch_resolved_addresses(&url).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn resolved_addresses_reject_hosts_resolving_to_reserved_ips() {
+        // localhost resolves to a loopback address; the rebinding guard must reject it.
+        let url = reqwest::Url::parse("http://localhost:9/x").unwrap();
+        let error = binary_fetch_resolved_addresses(&url)
+            .await
+            .expect_err("a host that resolves to a reserved IP must be rejected");
+        assert_eq!(error.code, "invalid_input");
+    }
 }
