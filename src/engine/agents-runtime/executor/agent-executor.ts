@@ -357,9 +357,6 @@ async function executeAgentWithTools(
     // Execute each tool call and append results
     for (const tc of result.toolCalls) {
       logger.info("[agent-tools] %s calling: %s", config.type, tc.function.name);
-      if (config.type === "spotify" && tc.function.name === "spotify_play") {
-        spotifyPlayCalled = true;
-      }
       emit({
         level: "info",
         phase: config.phase,
@@ -386,6 +383,13 @@ async function executeAgentWithTools(
       }
       if (toolSucceeded) {
         logger.info("[agent-tools] %s %s completed", config.type, tc.function.name);
+        // Only mark spotify_play as called once it actually succeeded. A thrown
+        // call is recovered above (fed back to the model), so leaving the flag
+        // unset lets applySpotifyPlaybackFallback retry the real playback instead
+        // of suppressing it and reporting success with no audio.
+        if (config.type === "spotify" && tc.function.name === "spotify_play") {
+          spotifyPlayCalled = true;
+        }
       }
       emit({
         level: "info",
