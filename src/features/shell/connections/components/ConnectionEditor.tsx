@@ -437,7 +437,8 @@ export function ConnectionEditor() {
           c.id !== connectionDetailId &&
           c.id !== LEGACY_LOCAL_SIDECAR_CONNECTION_ID &&
           c.provider !== "image_generation" &&
-          c.provider !== "openai_chatgpt",
+          c.provider !== "openai_chatgpt" &&
+          c.provider !== "claude_subscription",
       ),
     [allConnections, connectionDetailId],
   );

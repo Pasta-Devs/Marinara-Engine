@@ -359,10 +359,16 @@ pub(crate) fn resolve_embedding_connection_for_id(
         if is_openai_chatgpt_connection(&embedding_connection) {
             return Err(openai_chatgpt_embedding_error());
         }
+        if is_claude_subscription_connection(&embedding_connection) {
+            return Err(claude_subscription_embedding_error());
+        }
         return Ok((embedding_connection_id.to_string(), embedding_connection));
     }
     if is_openai_chatgpt_connection(&connection) {
         return Err(openai_chatgpt_embedding_error());
+    }
+    if is_claude_subscription_connection(&connection) {
+        return Err(claude_subscription_embedding_error());
     }
     Ok((connection_id.to_string(), connection))
 }
@@ -420,6 +426,7 @@ pub(crate) fn embedding_model(connection: &Value, explicit: Option<&str>) -> App
 
 fn has_embedding_model(connection: &Value) -> bool {
     !is_openai_chatgpt_connection(connection)
+        && !is_claude_subscription_connection(connection)
         && !is_legacy_local_sidecar_connection(connection)
         && connection
             .get("embeddingModel")
@@ -443,6 +450,13 @@ fn is_openai_chatgpt_connection(connection: &Value) -> bool {
         .get("provider")
         .and_then(Value::as_str)
         .is_some_and(|provider| provider == "openai_chatgpt")
+}
+
+fn is_claude_subscription_connection(connection: &Value) -> bool {
+    connection
+        .get("provider")
+        .and_then(Value::as_str)
+        .is_some_and(|provider| provider == "claude_subscription")
 }
 
 pub(crate) fn value_string_array(value: Option<&Value>) -> Vec<String> {
@@ -516,6 +530,7 @@ pub(crate) async fn embed_text(connection: &Value, model: &str, text: &str) -> A
         .unwrap_or("openai");
     match provider {
         "openai_chatgpt" => Err(openai_chatgpt_embedding_error()),
+        "claude_subscription" => Err(claude_subscription_embedding_error()),
         "google" | "google_vertex" => embed_google(connection, model, text).await,
         "ollama" => embed_ollama(connection, model, text).await,
         _ => embed_openai_compatible(connection, model, text).await,
@@ -525,6 +540,12 @@ pub(crate) async fn embed_text(connection: &Value, model: &str, text: &str) -> A
 fn openai_chatgpt_embedding_error() -> AppError {
     AppError::invalid_input(
         "OpenAI (ChatGPT) does not support embeddings through Codex auth. Configure a separate embedding connection.",
+    )
+}
+
+fn claude_subscription_embedding_error() -> AppError {
+    AppError::invalid_input(
+        "Claude Subscription does not support embeddings through local subscription auth. Configure a separate embedding connection.",
     )
 }
 
@@ -1037,6 +1058,70 @@ mod tests {
     }
 
     #[test]
+    fn claude_subscription_embedding_connection_rejects_without_dedicated_connection() {
+        let state = test_state("claude-subscription-embedding-rejected");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "claude-subscription-connection",
+                    "name": "Claude Subscription",
+                    "provider": "claude_subscription",
+                    "model": "claude-sonnet-4-6",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("claude subscription connection should insert");
+
+        let error = resolve_embedding_connection_for_id(&state, "claude-subscription-connection")
+            .expect_err("claude subscription connection should not be used for embeddings");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+        assert!(error.message.contains("separate embedding"));
+    }
+
+    #[test]
+    fn claude_subscription_embedding_connection_rejects_as_dedicated_connection() {
+        let state = test_state("claude-subscription-dedicated-embedding-rejected");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "embeddingConnectionId": "claude-subscription-connection"
+                }),
+            )
+            .expect("chat connection should insert");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "claude-subscription-connection",
+                    "name": "Claude Subscription",
+                    "provider": "claude_subscription",
+                    "model": "claude-sonnet-4-6",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("claude subscription connection should insert");
+
+        let error = resolve_embedding_connection_for_id(&state, "chat-connection").expect_err(
+            "claude subscription dedicated connection should not be used for embeddings",
+        );
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+        assert!(error.message.contains("separate embedding"));
+    }
+
+    #[test]
     fn resolve_embedding_connection_rejects_legacy_local_sidecar_id() {
         let state = test_state("legacy-sidecar-embedding-rejected");
 
@@ -1085,6 +1170,23 @@ mod tests {
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("does not support embeddings"));
+    }
+
+    #[tokio::test]
+    async fn claude_subscription_embedding_text_rejects_before_provider_call() {
+        let connection = json!({
+            "provider": "claude_subscription",
+            "embeddingBaseUrl": "http://127.0.0.1:9/v1",
+            "apiKey": "unused"
+        });
+
+        let error = embed_text(&connection, "text-embedding-3-small", "hello")
+            .await
+            .expect_err("claude subscription embedding should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+        assert!(error.message.contains("separate embedding"));
     }
 
     #[test]
