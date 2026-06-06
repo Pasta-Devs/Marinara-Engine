@@ -6,7 +6,7 @@ const metadataFields = [
 const aiAuthorTerms = "(?:ai|chatgpt|claude|codex)";
 const generatedAuthorshipPattern = new RegExp(`\\bgenerated\\s+(?:by|using|with)\\s+${aiAuthorTerms}\\b`, "gi");
 const productOutputPrefixPattern =
-  /\b(?:chat\s+messages?|messages?|images?|prompts?|responses?|outputs?|model\s+outputs?|replies|text|content|completions?)\s+(?:are\s+|is\s+|were\s+|was\s+|be\s+|being\s+)?$/i;
+  /\b(?:chat\s+messages?|messages?|images?|prompts?|responses?|outputs?|model\s+outputs?|replies|text|content|completions?)\s+(?:(?:(?:that|which)\s+)?(?:are|is|were|was|be|being)\s+(?:being\s+)?)?$/i;
 
 function hasGeneratedAuthorshipClause(value) {
   for (const match of value.matchAll(generatedAuthorshipPattern)) {
