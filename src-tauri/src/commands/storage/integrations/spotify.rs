@@ -90,6 +90,11 @@ pub(crate) async fn spotify_call(
         ("POST", ["refresh"]) => {
             let agent_id = string_param(route, &body, "agentId")
                 .ok_or_else(|| AppError::invalid_input("agentId is required"))?;
+            // Serialize the explicit refresh route on the SAME per-agent lock as the
+            // proactive refresh in resolve_credentials, so the two refresh entrances
+            // cannot both POST grant_type=refresh_token with the same rotating token.
+            let lock = spotify_refresh_lock(&agent_id);
+            let _refresh_guard = lock.lock().await;
             refresh_agent_token(state, &agent_id)
                 .await
                 .map(|_| json!({ "success": true }))
