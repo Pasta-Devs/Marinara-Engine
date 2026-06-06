@@ -6786,17 +6786,21 @@ function ConversationPromptSection({
 }) {
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptDraft, setPromptDraft] = useState("");
-  const customPrompt = (metadata.customSystemPrompt as string) ?? "";
+  const customPrompt = typeof metadata.customSystemPrompt === "string" ? metadata.customSystemPrompt : "";
+  const storedPrompt = customPrompt.trim();
+  const usesDefaultPrompt = storedPrompt.length === 0 || storedPrompt === DEFAULT_CONVERSATION_SYSTEM_PROMPT;
 
   const openPromptEditor = () => {
-    setPromptDraft(customPrompt || DEFAULT_CONVERSATION_SYSTEM_PROMPT);
+    setPromptDraft(usesDefaultPrompt ? DEFAULT_CONVERSATION_SYSTEM_PROMPT : customPrompt);
     setPromptOpen(true);
   };
 
   const closePromptEditor = () => {
-    const isDefault = promptDraft === DEFAULT_CONVERSATION_SYSTEM_PROMPT;
-    updateMeta.mutate({ id: chat.id, customSystemPrompt: isDefault ? null : promptDraft });
-    useUIStore.getState().setCustomConversationPrompt(isDefault ? null : promptDraft);
+    const trimmedDraft = promptDraft.trim();
+    const nextPrompt =
+      trimmedDraft.length === 0 || trimmedDraft === DEFAULT_CONVERSATION_SYSTEM_PROMPT ? null : promptDraft;
+    updateMeta.mutate({ id: chat.id, customSystemPrompt: nextPrompt });
+    useUIStore.getState().setCustomConversationPrompt(nextPrompt);
     setPromptOpen(false);
   };
 
@@ -6817,11 +6821,11 @@ function ConversationPromptSection({
             <div className="min-w-0">
               <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">System Prompt</span>
               <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
-                {customPrompt ? "Using custom conversation prompt" : "Using default conversation prompt"}
+                {usesDefaultPrompt ? "Using default conversation prompt" : "Using custom conversation prompt"}
               </span>
             </div>
             <span className="shrink-0 rounded-full bg-[var(--background)] px-2 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-              {customPrompt ? "Custom" : "Default"}
+              {usesDefaultPrompt ? "Default" : "Custom"}
             </span>
           </div>
           <div className="flex gap-1.5">
@@ -6832,7 +6836,7 @@ function ConversationPromptSection({
               <Pencil size="0.625rem" />
               Edit Prompt
             </button>
-            {customPrompt && (
+            {!usesDefaultPrompt && (
               <button
                 onClick={resetPrompt}
                 className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"

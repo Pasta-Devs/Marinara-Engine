@@ -2,7 +2,10 @@ import type { LorebookEntryTimingState } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
 import type { CharacterData } from "../contracts/types/character";
 import { BUILT_IN_AGENTS } from "../contracts/types/agent";
-import { DEFAULT_CONVERSATION_SYSTEM_PROMPT } from "../contracts/constants/conversation-prompt";
+import {
+  DEFAULT_CONVERSATION_SYSTEM_PROMPT,
+  DEFAULT_GROUP_CONVERSATION_SYSTEM_PROMPT,
+} from "../contracts/constants/conversation-prompt";
 import type { ListChatMemoriesOptions, StorageGateway } from "../capabilities/storage";
 import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
@@ -1508,10 +1511,55 @@ function committedTrackerStatePromptMessage(input: PromptAssemblyInput, wrapForm
   };
 }
 
+function conversationCharacterNames(characters: GenerationCharacterContext[]): string[] {
+  return characters.map((character) => character.name.trim()).filter(Boolean);
+}
+
+function resolveConversationSystemPrompt(
+  template: string,
+  macros: MacroContext,
+  characters: GenerationCharacterContext[],
+): string {
+  const names = conversationCharacterNames(characters);
+  if (names.length <= 1) return resolveMacros(template, macros);
+  const characterList = names.join(", ");
+  const groupTemplate = template
+    .replace(/\{\{charName\}\}/gi, characterList)
+    .replace(/\{\{characters\}\}/gi, characterList);
+  return resolveMacros(groupTemplate, macros);
+}
+
+function groupConversationReplyGuidance(input: PromptAssemblyInput, characters: GenerationCharacterContext[]): string {
+  const names = conversationCharacterNames(characters);
+  if (names.length <= 1) return "";
+  const metadata = parseRecord(input.chat.metadata);
+  if (readString(metadata.groupResponseOrder, "sequential") === "manual") {
+    return [
+      "This is a group DM. Each character responds in their own voice and personality.",
+      "You will be told which character to respond as. Do NOT prefix your message with the character name - just respond naturally as that character.",
+    ].join("\n");
+  }
+
+  const first = names[0] ?? "Alice";
+  const second = names[1] ?? "Bob";
+  return [
+    "This is a group DM. Each character responds in their own voice and personality. Not every character needs to respond every time - only those who would naturally react.",
+    "IMPORTANT: Prefix each character's line with their name. Example:",
+    `${first}: hey whats up`,
+    `${second}: not much lol`,
+    "",
+    "If a character sends multiple lines in a row, only prefix the first line:",
+    `${first}: so anyway`,
+    "i was thinking about that",
+    `${second}: yeah?`,
+  ].join("\n");
+}
+
 function fallbackSystemPrompt(
   input: PromptAssemblyInput,
   args: {
     characters: GenerationCharacterContext[];
+    conversationCharacters: GenerationCharacterContext[];
     persona: GenerationPersonaContext | null;
     worldBefore: string;
     worldAfter: string;
@@ -1552,9 +1600,15 @@ function fallbackSystemPrompt(
       .join("\n\n");
   }
 
-  const rawConversationPrompt = readString(meta.customSystemPrompt).trim() || DEFAULT_CONVERSATION_SYSTEM_PROMPT;
-  const conversationPrompt = cleanPromptText(resolveMacros(rawConversationPrompt, args.macros));
-  return [conversationPrompt, ...common]
+  const groupConversation = conversationCharacterNames(args.conversationCharacters).length > 1;
+  const defaultConversationPrompt = groupConversation
+    ? DEFAULT_GROUP_CONVERSATION_SYSTEM_PROMPT
+    : DEFAULT_CONVERSATION_SYSTEM_PROMPT;
+  const rawConversationPrompt = readString(meta.customSystemPrompt).trim() || defaultConversationPrompt;
+  const conversationPrompt = cleanPromptText(
+    resolveConversationSystemPrompt(rawConversationPrompt, args.macros, args.conversationCharacters),
+  );
+  return [conversationPrompt, groupConversationReplyGuidance(input, args.conversationCharacters), ...common]
     .filter((part) => part.trim().length > 0)
     .join("\n\n");
 }
@@ -3155,6 +3209,7 @@ export async function assembleGenerationPrompt(
       role: "system",
       content: fallbackSystemPrompt(input, {
         characters: promptCharacters,
+        conversationCharacters: characters,
         persona,
         worldBefore: processedLore.worldInfoBefore,
         worldAfter: processedLore.worldInfoAfter,
