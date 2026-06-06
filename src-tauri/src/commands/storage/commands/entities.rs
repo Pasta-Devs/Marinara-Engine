@@ -740,9 +740,46 @@ pub(crate) fn storage_update_inner(
     validate_storage_entity(&entity)?;
     reject_message_swipe_mutation(&entity)?;
     if entity == "messages" {
-        return Ok(shared::project_timeline_message(
-            message_swipes::patch_message_update(state, &id, patch)?,
-        ));
+        let next_content = patch
+            .as_object()
+            .and_then(|object| object.get("content"))
+            .and_then(Value::as_str)
+            .map(shared::collapse_excess_blank_lines);
+        let previous_message = if next_content.is_some() {
+            state.storage.get("messages", &id)?
+        } else {
+            None
+        };
+        let previous_content = previous_message.as_ref().and_then(|message| {
+            message
+                .get("content")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        });
+        if next_content.as_deref() != previous_content.as_deref() {
+            if let Some(chat_id) = previous_message
+                .as_ref()
+                .and_then(|message| message.get("chatId"))
+                .and_then(Value::as_str)
+            {
+                chats::preflight_chat_memory_mutation(state, chat_id)?;
+            }
+        }
+        let updated = message_swipes::patch_message_update(state, &id, patch)?;
+        if next_content.as_deref() != previous_content.as_deref() {
+            if let Some(chat_id) = updated.get("chatId").and_then(Value::as_str) {
+                chats::invalidate_chat_memories_from_message(
+                    state,
+                    chat_id,
+                    updated.get("id").and_then(Value::as_str).unwrap_or(&id),
+                    updated
+                        .get("createdAt")
+                        .and_then(Value::as_str)
+                        .unwrap_or(""),
+                )?;
+            }
+        }
+        return Ok(shared::project_timeline_message(updated));
     }
     if entity == "characters" {
         return characters::update_character(state, &id, patch);
@@ -2665,6 +2702,115 @@ mod tests {
             updated["metadata"]["inactiveCharacterIds"],
             json!(["char-c"])
         );
+    }
+
+    #[test]
+    fn generic_message_content_update_prunes_stale_chat_memories() {
+        let state = test_state("generic-message-edit-memory-prune");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-1",
+                "name": "Memory chat",
+                "memories": [
+                    {
+                        "id": "keep-before",
+                        "messageIds": ["message-before"],
+                        "lastMessageAt": "2026-06-01T09:00:00.000Z"
+                    },
+                    {
+                        "id": "drop-edited",
+                        "messageIds": ["message-1"],
+                        "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                    },
+                    {
+                        "id": "drop-newer",
+                        "lastMessageAt": "2026-06-01T10:01:00.000Z"
+                    }
+                ]
+            }),
+        )
+        .expect("chat should seed");
+        storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        storage_update_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            json!({ "content": "new visible text" }),
+        )
+        .expect("message edit should update");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should be an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+
+        assert_eq!(memory_ids, vec!["keep-before"]);
+    }
+
+    #[test]
+    fn generic_message_content_update_malformed_memories_fail_before_message_write() {
+        let state = test_state("generic-message-edit-malformed-preflight");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should seed");
+        storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            json!({ "content": "new visible text" }),
+        )
+        .expect_err("malformed memories should fail before message write");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("old visible text"));
     }
 
     fn seed_linked_character_book(state: &AppState) {
