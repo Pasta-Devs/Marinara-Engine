@@ -1277,6 +1277,7 @@ export function ChatRoleplaySurface({
           <>
             <div
               className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+              style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
               onClick={() => setToolsSheetOpen(false)}
             />
             <div
@@ -1321,6 +1322,7 @@ export function ChatRoleplaySurface({
             <>
               <div
                 className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+                style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
                 onPointerDown={() => setMoreMenuOpen(false)}
                 onClick={(event) => event.stopPropagation()}
               />
