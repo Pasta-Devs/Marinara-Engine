@@ -1209,32 +1209,32 @@ pub(crate) fn validate_lorebook_folder_for_patch(
     let Some(object) = patch.as_object() else {
         return Err(AppError::invalid_input("Patch must be an object"));
     };
-    // Validate when EITHER field that defines the ancestry pair changes — a
-    // lorebookId-only patch could otherwise leave a parent that is now in a
-    // different lorebook, evading a check that only watched parentFolderId.
-    if !object.contains_key("parentFolderId") && !object.contains_key("lorebookId") {
+    let changes_parent = object.contains_key("parentFolderId");
+    let changes_lorebook = object.contains_key("lorebookId");
+    if !changes_parent && !changes_lorebook {
         return Ok(());
     }
     let existing = state
         .storage
         .get("lorebook-folders", id)?
         .ok_or_else(|| AppError::not_found(format!("lorebook-folders/{id} was not found")))?;
-    // Resolve the effective post-patch pair: the patched value if present, else
-    // whatever is already stored.
-    let effective_parent = if object.contains_key("parentFolderId") {
-        parse_chat_folder_id(patch.get("parentFolderId"))?
-    } else {
-        parse_chat_folder_id(existing.get("parentFolderId"))?
+    // A folder's lorebook is an immutable ownership key — the app never moves a
+    // folder between lorebooks. Allowing it would strand the folder's parent
+    // and/or its children across books (a root move leaves the children behind
+    // pointing at a parent that left), so reject any change to a different book
+    // outright rather than trying to validate ever-more-elaborate move shapes.
+    if changes_lorebook && lorebook_folder_lorebook_id(patch) != lorebook_folder_lorebook_id(&existing) {
+        return Err(AppError::invalid_input(
+            "A folder cannot be moved to a different lorebook.",
+        ));
+    }
+    if !changes_parent {
+        return Ok(());
+    }
+    let Some(parent_id) = parse_chat_folder_id(patch.get("parentFolderId"))? else {
+        return Ok(()); // moving to the top level is always allowed
     };
-    let Some(parent_id) = effective_parent else {
-        return Ok(()); // a root folder has no ancestry to validate
-    };
-    let effective_lorebook = if object.contains_key("lorebookId") {
-        lorebook_folder_lorebook_id(patch)
-    } else {
-        lorebook_folder_lorebook_id(&existing)
-    };
-    validate_lorebook_folder_parent(state, effective_lorebook, Some(id), &parent_id)
+    validate_lorebook_folder_parent(state, lorebook_folder_lorebook_id(&existing), Some(id), &parent_id)
 }
 
 fn lorebook_folder_lorebook_id(value: &Value) -> Option<String> {
@@ -3830,8 +3830,8 @@ mod tests {
             "nesting under a folder in another lorebook should be rejected"
         );
 
-        // Evasion: a lorebookId-only patch must not move B into another lorebook
-        // while it keeps a parent (A) that lives in the original one.
+        // Immutable lorebook: a child folder can't change lorebookId (it would
+        // keep a parent in the old book).
         assert!(
             storage_update_inner(
                 &state,
@@ -3840,7 +3840,20 @@ mod tests {
                 json!({ "lorebookId": "other" }),
             )
             .is_err(),
-            "changing only lorebookId while keeping a cross-lorebook parent should be rejected"
+            "changing a child folder's lorebookId should be rejected"
+        );
+
+        // Immutable lorebook: a ROOT folder can't change lorebookId either — that
+        // would strand its children (B) in the old book under a parent that left.
+        assert!(
+            storage_update_inner(
+                &state,
+                "lorebook-folders".to_string(),
+                "a".to_string(),
+                json!({ "lorebookId": "other" }),
+            )
+            .is_err(),
+            "changing a root folder's lorebookId would strand its children and must be rejected"
         );
 
         // Valid: move B back to the top level.
