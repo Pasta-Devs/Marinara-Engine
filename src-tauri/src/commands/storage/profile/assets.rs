@@ -1294,7 +1294,10 @@ mod tests {
             fs::read(data_dir.join("avatars/new.png")).unwrap(),
             b"new avatar"
         );
-        assert!(!data_dir.join("avatars/stale.png").exists());
+        assert_eq!(
+            fs::read(data_dir.join("avatars/stale.png")).unwrap(),
+            b"stale"
+        );
 
         restored.rollback().unwrap();
 
