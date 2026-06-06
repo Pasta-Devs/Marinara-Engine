@@ -53,7 +53,7 @@ import {
   isBuiltInAgent,
 } from "./built-in-agent-fallback";
 import { llmParameters } from "./context";
-import { loadAgentMemory, secretPlotStateFromMemory } from "./agent-memory-runtime";
+import { loadAgentMemory, secretPlotPromptGuidanceFromData, secretPlotStateFromMemory } from "./agent-memory-runtime";
 import {
   buildAvailableSpriteCharacter,
   normalizeSpriteDisplayModes,
@@ -151,6 +151,7 @@ const ILLUSTRATOR_AGENT_TYPE = "illustrator";
 const CARD_EVOLUTION_AUDITOR_AGENT_TYPE = "card-evolution-auditor";
 const CHAT_SUMMARY_AGENT_TYPE = "chat-summary";
 const HAPTIC_AGENT_TYPE = "haptic";
+const SECRET_PLOT_DRIVER_AGENT_TYPE = "secret-plot-driver";
 const KNOWLEDGE_RETRIEVAL_AGENT_TYPE = "knowledge-retrieval";
 const KNOWLEDGE_ROUTER_AGENT_TYPE = "knowledge-router";
 const KNOWLEDGE_AGENT_TYPES = new Set([KNOWLEDGE_RETRIEVAL_AGENT_TYPE, KNOWLEDGE_ROUTER_AGENT_TYPE]);
@@ -169,7 +170,7 @@ const MAX_CUSTOM_AGENT_USER_RUN_INTERVAL = 200;
 const MAX_AGENT_PARALLEL_JOBS = 16;
 const MAX_ILLUSTRATOR_REFERENCE_IMAGES = 8;
 const IMAGE_REFERENCE_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
-const PROMPT_INJECTABLE_RESULT_TYPES = new Set(["context_injection", "director_event"]);
+const PROMPT_INJECTABLE_RESULT_TYPES = new Set(["context_injection", "director_event", "secret_plot"]);
 type AutomaticIntervalMessageRole = "assistant" | "user";
 
 const DEFAULT_ROLEPLAY_EXPRESSIONS = [
@@ -1552,13 +1553,14 @@ async function buildAgentContext(
   const chatMode = readString(input.chat.mode || input.chat.chatMode, "roleplay");
   const chatMeta = parseRecord(input.chat.metadata);
   const recentSourceMessages = promptVisibleStoredMessages(input, chatMode, chatMeta);
+  const resolvedAgentIds = uniqueStrings(agents.map((agent) => agent.id).filter((id) => readString(id).trim()));
   const memoryRows = await Promise.all(
-    (await deps.storage.list<JsonRecord>("agents"))
-      .filter((agent) => readString(agent.id).trim())
-      .map((agent) => loadAgentMemory(deps.storage, readString(agent.id), chatId)),
+    resolvedAgentIds.map((agentId) => loadAgentMemory(deps.storage, agentId, chatId)),
   );
   const memory = Object.assign({}, ...memoryRows);
-  const secretPlotState = secretPlotStateFromMemory(memory);
+  const secretPlotAgent = agents.find((agent) => agent.type === SECRET_PLOT_DRIVER_AGENT_TYPE);
+  const secretPlotMemory = secretPlotAgent ? await loadAgentMemory(deps.storage, secretPlotAgent.id, chatId) : null;
+  const secretPlotState = secretPlotMemory ? secretPlotStateFromMemory(secretPlotMemory) : null;
   if (secretPlotState) memory._secretPlotState = secretPlotState;
   memory._spotifyDjConstraints = buildSpotifyDjConstraints(chatMode, chatMeta, {
     manualRetry: input.spotifyDjManualRetry === true,
@@ -1617,10 +1619,28 @@ async function buildAgentContext(
 function resultText(result: AgentResult): string | null {
   if (!result.success) return null;
   if (!PROMPT_INJECTABLE_RESULT_TYPES.has(result.type)) return null;
+  if (result.type === "secret_plot") return secretPlotPromptGuidanceFromData(result.data);
   if (typeof result.data === "string") return result.data;
   if (!isRecord(result.data)) return null;
   const text = result.data.text ?? result.data.direction ?? result.data.summary ?? result.data.raw;
   return typeof text === "string" && text.trim() ? text.trim() : null;
+}
+
+function cachedInjectionResult(injection: AgentInjection): AgentResult {
+  const agentType = injection.agentType;
+  return {
+    agentId: agentType,
+    agentType,
+    type: agentType === DIRECTOR_AGENT_TYPE ? "director_event" : "context_injection",
+    data:
+      agentType === DIRECTOR_AGENT_TYPE
+        ? { direction: injection.text, source: "cached_context_injection" }
+        : { text: injection.text, source: "cached_context_injection" },
+    tokensUsed: 0,
+    durationMs: 0,
+    success: true,
+    error: null,
+  };
 }
 
 function resultEventData(result: AgentResult): AgentResult {
@@ -1640,6 +1660,10 @@ export async function createGenerationAgentRuntime(
   for (const result of skippedResults) {
     onResult?.(result);
   }
+  for (const result of overrideInjections.map(cachedInjectionResult)) {
+    preResults.push(result);
+    onResult?.(result);
+  }
   if (agents.length === 0) {
     return {
       preInjections: initialInjections,
@@ -1653,6 +1677,8 @@ export async function createGenerationAgentRuntime(
   }
 
   const context = await buildAgentContext(deps, input, agents);
+  const secretPlotGuidance = secretPlotPromptGuidanceFromData(context.memory._secretPlotState);
+  if (secretPlotGuidance) agentData[SECRET_PLOT_DRIVER_AGENT_TYPE] = secretPlotGuidance;
   const availableSprites = availableSpritesFromContext(context);
   const pipelineAgents = agents.filter((agent) => !KNOWLEDGE_AGENT_TYPES.has(agent.type));
   const pipeline = createAgentPipeline(pipelineAgents, context, (result) => {

@@ -64,6 +64,7 @@ import {
 } from "../shared/attachments/image-attachments";
 import type { GenerationEvent } from "./generation-events";
 import {
+  applyCachedContextInjectionsToRegenerateInput,
   applyGenerationReplayToRegenerateInput,
   buildGenerationReplay,
   normalizeGenerationReplay,
@@ -1177,14 +1178,18 @@ async function inputWithStoredGenerationReplay(
   if (!isRecord(target) || readString(target.chatId).trim() !== chatId) return input;
 
   const targetExtra = parseRecord(target.extra);
-  const replay = normalizeGenerationReplay(targetExtra.generationReplay);
-  if (!replay) return input;
-  const currentFingerprint = fingerprintChatSummary(chatSummaryForGeneration(chat));
-  if (!chatSummaryFingerprintMatches(targetExtra, currentFingerprint)) return input;
-
   const nextInput = { ...input };
-  applyGenerationReplayToRegenerateInput(nextInput, replay);
-  return nextInput;
+  let applied = applyCachedContextInjectionsToRegenerateInput(nextInput, targetExtra.contextInjections);
+
+  const replay = normalizeGenerationReplay(targetExtra.generationReplay);
+  if (replay) {
+    const currentFingerprint = fingerprintChatSummary(chatSummaryForGeneration(chat));
+    if (chatSummaryFingerprintMatches(targetExtra, currentFingerprint)) {
+      applied = applyGenerationReplayToRegenerateInput(nextInput, replay) || applied;
+    }
+  }
+
+  return applied ? nextInput : input;
 }
 
 function requestMessages(input: StartGenerationInput): LlmMessage[] | null {

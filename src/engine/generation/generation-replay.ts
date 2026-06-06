@@ -3,8 +3,10 @@ import {
   stripGenerationGuideInstruction,
   type GenerationGuideSource,
 } from "../shared/text/generation-guide";
+import type { AgentInjectionOverride } from "./start-generation-input";
 
 type GenerationReplayGuideSource = GenerationGuideSource;
+const SECRET_PLOT_DRIVER_AGENT_TYPE = "secret-plot-driver";
 
 export interface GenerationReplay {
   impersonate?: true;
@@ -26,6 +28,7 @@ export interface GenerationReplayInput {
   impersonateConnectionId?: string | null;
   impersonateBlockAgents?: boolean;
   impersonatePromptTemplate?: string | null;
+  agentInjectionOverrides?: AgentInjectionOverride[];
 }
 
 const GUIDE_SOURCES = new Set<GenerationReplayGuideSource>(GENERATION_GUIDE_SOURCES);
@@ -42,6 +45,37 @@ function asGuideSource(value: unknown): GenerationReplayGuideSource | null {
   return typeof value === "string" && GUIDE_SOURCES.has(value as GenerationReplayGuideSource)
     ? (value as GenerationReplayGuideSource)
     : null;
+}
+
+function normalizeCachedContextInjections(value: unknown): AgentInjectionOverride[] {
+  if (!Array.isArray(value)) return [];
+  const injections: AgentInjectionOverride[] = [];
+  for (const entry of value) {
+    if (typeof entry === "string") {
+      const text = entry.trim();
+      if (text) injections.push({ agentType: "prose-guardian", text });
+      continue;
+    }
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const raw = entry as Record<string, unknown>;
+    const agentType = typeof raw.agentType === "string" ? raw.agentType.trim() : "";
+    const text = typeof raw.text === "string" ? raw.text.trim() : "";
+    if (!agentType || agentType === SECRET_PLOT_DRIVER_AGENT_TYPE || !text) continue;
+    const agentName = typeof raw.agentName === "string" ? raw.agentName.trim() : "";
+    injections.push({ agentType, ...(agentName ? { agentName } : {}), text });
+  }
+  return injections;
+}
+
+export function applyCachedContextInjectionsToRegenerateInput(
+  input: GenerationReplayInput,
+  contextInjections: unknown,
+): boolean {
+  if (Array.isArray(input.agentInjectionOverrides) && input.agentInjectionOverrides.length > 0) return false;
+  const cached = normalizeCachedContextInjections(contextInjections);
+  if (cached.length === 0) return false;
+  input.agentInjectionOverrides = cached;
+  return true;
 }
 
 export function buildGenerationReplay(input: GenerationReplayInput): GenerationReplay | null {

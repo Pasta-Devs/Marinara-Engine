@@ -37,6 +37,39 @@ export function secretPlotStateFromMemory(memory: Record<string, unknown>): Reco
   return Object.keys(state).length > 0 ? state : null;
 }
 
+function normalizeSecretPlotArc(value: unknown): unknown {
+  if (typeof value === "string") return value.trim() ? value.trim() : null;
+  if (value && typeof value === "object") return value;
+  return null;
+}
+
+function secretPlotArcText(value: unknown): string {
+  const arc = normalizeSecretPlotArc(value);
+  if (!arc) return "";
+  if (typeof arc === "string") return arc;
+  return JSON.stringify(arc);
+}
+
+export function secretPlotPromptGuidanceFromData(data: unknown): string | null {
+  if (!isRecord(data)) return null;
+  const arc = secretPlotArcText(data.overarchingArc);
+  const directions = normalizeSecretPlotSceneDirections(data.sceneDirections)
+    .filter((direction) => !direction.fulfilled)
+    .map((direction) => direction.direction);
+  const parts: string[] = [];
+  if (arc) {
+    parts.push(["<overarching_arc>", arc, "</overarching_arc>"].join("\n"));
+  }
+  if (directions.length > 0) {
+    parts.push(
+      ["<scene_directions>", directions.map((direction) => `- ${direction}`).join("\n"), "</scene_directions>"].join(
+        "\n",
+      ),
+    );
+  }
+  return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
 export async function persistSecretPlotAgentMemory(
   storage: StorageGateway,
   chatId: string,
@@ -48,8 +81,14 @@ export async function persistSecretPlotAgentMemory(
   const agentConfigId = result.agentId;
   const data = result.data;
 
-  if (data.overarchingArc && options.rerollMode !== "turn_only") {
-    await setAgentMemoryValue(storage, agentConfigId, chatId, "overarchingArc", data.overarchingArc);
+  if (Object.prototype.hasOwnProperty.call(data, "overarchingArc") && options.rerollMode !== "turn_only") {
+    await setAgentMemoryValue(
+      storage,
+      agentConfigId,
+      chatId,
+      "overarchingArc",
+      normalizeSecretPlotArc(data.overarchingArc),
+    );
   }
 
   if (data.sceneDirections !== undefined) {
