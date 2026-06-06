@@ -665,6 +665,7 @@ pub(crate) fn storage_create_inner(
     reject_message_swipe_mutation(&entity)?;
     validate_chat_folder_for_create(state, &entity, &value)?;
     validate_connection_folder_for_create(state, &entity, &value)?;
+    validate_lorebook_folder_for_create(state, &entity, &value)?;
     if entity == "messages" {
         return Ok(shared::project_timeline_message(
             message_swipes::create_message(
@@ -741,6 +742,7 @@ pub(crate) fn storage_update_inner(
     }
     validate_chat_folder_for_patch(state, &entity, &id, &patch)?;
     validate_connection_folder_for_patch(state, &entity, &patch)?;
+    validate_lorebook_folder_for_patch(state, &entity, &id, &patch)?;
     let mut normalized_patch =
         normalize_chat_for_update(&entity, shared::normalize_update_patch(&entity, patch)?)?;
     if entity == "chats" {
@@ -1169,6 +1171,112 @@ fn validate_chat_folder_assignment(
         return Err(AppError::invalid_input(format!(
             "Chat folder {folder_id} is for {folder_mode} chats, not {chat_mode} chats"
         )));
+    }
+    Ok(())
+}
+
+/// Reject a lorebook folder whose `parentFolderId` would break the tree: a
+/// missing parent, a parent in a different lorebook, a self-parent, or a move
+/// that nests a folder inside one of its own descendants (a cycle). Mirrors the
+/// editor's `canReparentFolder` guard, but at the storage write path so imports,
+/// remote callers, or any non-editor write can't persist a malformed tree the
+/// scanner would then have to defend against.
+pub(crate) fn validate_lorebook_folder_for_create(
+    state: &AppState,
+    entity: &str,
+    value: &Value,
+) -> Result<(), AppError> {
+    if entity != "lorebook-folders" {
+        return Ok(());
+    }
+    let Some(parent_id) = parse_chat_folder_id(value.get("parentFolderId"))? else {
+        return Ok(());
+    };
+    // A brand-new folder has no descendants yet, so only parent existence and
+    // same-lorebook can be violated on create; the cycle walk matters on reparent.
+    validate_lorebook_folder_parent(state, lorebook_folder_lorebook_id(value), None, &parent_id)
+}
+
+pub(crate) fn validate_lorebook_folder_for_patch(
+    state: &AppState,
+    entity: &str,
+    id: &str,
+    patch: &Value,
+) -> Result<(), AppError> {
+    if entity != "lorebook-folders" {
+        return Ok(());
+    }
+    let Some(object) = patch.as_object() else {
+        return Err(AppError::invalid_input("Patch must be an object"));
+    };
+    if !object.contains_key("parentFolderId") {
+        return Ok(());
+    }
+    let Some(parent_id) = parse_chat_folder_id(patch.get("parentFolderId"))? else {
+        return Ok(()); // moving to the top level is always allowed
+    };
+    let existing = state
+        .storage
+        .get("lorebook-folders", id)?
+        .ok_or_else(|| AppError::not_found(format!("lorebook-folders/{id} was not found")))?;
+    validate_lorebook_folder_parent(state, lorebook_folder_lorebook_id(&existing), Some(id), &parent_id)
+}
+
+fn lorebook_folder_lorebook_id(value: &Value) -> Option<String> {
+    value
+        .get("lorebookId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|candidate| !candidate.is_empty())
+        .map(str::to_string)
+}
+
+fn validate_lorebook_folder_parent(
+    state: &AppState,
+    lorebook_id: Option<String>,
+    folder_id: Option<&str>,
+    parent_id: &str,
+) -> Result<(), AppError> {
+    if Some(parent_id) == folder_id {
+        return Err(AppError::invalid_input("A folder cannot be its own parent."));
+    }
+    let parent = state
+        .storage
+        .get("lorebook-folders", parent_id)?
+        .ok_or_else(|| AppError::invalid_input(format!("lorebook-folders/{parent_id} was not found")))?;
+    if let Some(lorebook_id) = lorebook_id.as_deref() {
+        if parent.get("lorebookId").and_then(Value::as_str) != Some(lorebook_id) {
+            return Err(AppError::invalid_input(
+                "A folder can only nest under a folder in the same lorebook.",
+            ));
+        }
+    }
+    // Walk up from the target parent; reaching the folder being moved means the
+    // move would nest it inside its own subtree. The `seen` guard keeps a
+    // pre-existing malformed cycle from looping forever.
+    let Some(folder_id) = folder_id else {
+        return Ok(());
+    };
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut cursor = Some(parent_id.to_string());
+    while let Some(current_id) = cursor {
+        if current_id == folder_id {
+            return Err(AppError::invalid_input(
+                "A folder cannot be nested inside one of its own subfolders.",
+            ));
+        }
+        if !seen.insert(current_id.clone()) {
+            break;
+        }
+        cursor = state
+            .storage
+            .get("lorebook-folders", &current_id)?
+            .as_ref()
+            .and_then(|node| node.get("parentFolderId"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|candidate| !candidate.is_empty())
+            .map(str::to_string);
     }
     Ok(())
 }
@@ -3648,6 +3756,76 @@ mod tests {
             .expect("unrelated should read")
             .expect("unrelated should remain");
         assert_eq!(unrelated["parentFolderId"], "other");
+    }
+
+    #[test]
+    fn lorebook_folder_reparent_rejects_cycle_and_cross_lorebook() {
+        let state = test_state("lorebook-folder-reparent-validation");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "other", "name": "Other" }))
+            .expect("other lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "a", "lorebookId": "book", "name": "A" }),
+            )
+            .expect("folder a should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "b", "lorebookId": "book", "name": "B", "parentFolderId": "a" }),
+            )
+            .expect("folder b should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "c", "lorebookId": "other", "name": "C" }),
+            )
+            .expect("folder c should be created");
+
+        // Cycle: nest A under its own descendant B.
+        assert!(
+            storage_update_inner(
+                &state,
+                "lorebook-folders".to_string(),
+                "a".to_string(),
+                json!({ "parentFolderId": "b" }),
+            )
+            .is_err(),
+            "nesting a folder under its own descendant should be rejected"
+        );
+
+        // Cross-lorebook: nest A under a folder in another lorebook.
+        assert!(
+            storage_update_inner(
+                &state,
+                "lorebook-folders".to_string(),
+                "a".to_string(),
+                json!({ "parentFolderId": "c" }),
+            )
+            .is_err(),
+            "nesting under a folder in another lorebook should be rejected"
+        );
+
+        // Valid: move B back to the top level.
+        assert!(
+            storage_update_inner(
+                &state,
+                "lorebook-folders".to_string(),
+                "b".to_string(),
+                json!({ "parentFolderId": null }),
+            )
+            .is_ok(),
+            "moving a folder to the root should be allowed"
+        );
     }
 
     #[test]

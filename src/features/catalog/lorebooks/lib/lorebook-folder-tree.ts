@@ -107,10 +107,11 @@ export type FolderForest<T extends ForestNode> = {
  * cascade write.
  *
  * Generic over the folder shape so the editor gets full `LorebookFolder`s back.
- * Cycles cannot be created through the UI (`canReparentFolder` blocks them); a
- * cycle introduced by malformed import data leaves its members unreachable from
- * `roots`, and the recursive renderer additionally guards traversal with a
- * visited set, so a bad parent chain can never loop the tree.
+ * Cycles cannot be created through the UI (`canReparentFolder`) or the storage
+ * write path (`validate_lorebook_folder_*`); should malformed import data still
+ * introduce one, its members are promoted to `roots` so they stay visible and
+ * repairable, and the recursive renderer's visited set keeps a bad parent chain
+ * from looping the tree.
  */
 export function buildFolderForest<T extends ForestNode>(folders: T[]): FolderForest<T> {
   const ids = new Set(folders.map((folder) => folder.id));
@@ -126,6 +127,24 @@ export function buildFolderForest<T extends ForestNode>(folders: T[]): FolderFor
       roots.push(folder);
     }
   }
+
+  // Promote folders unreachable from any root — i.e. trapped in a parent cycle
+  // from malformed data (A→B→A) — up to the roots so they stay visible and
+  // repairable instead of silently vanishing. The write path rejects cycles, so
+  // this only matters for pre-existing or imported bad data; the recursive
+  // renderer's own visited guard keeps the promoted cycle from looping.
+  const reachable = new Set<string>();
+  const stack = roots.map((folder) => folder.id);
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (reachable.has(id)) continue;
+    reachable.add(id);
+    for (const child of childrenByParent.get(id) ?? []) stack.push(child.id);
+  }
+  for (const folder of folders) {
+    if (!reachable.has(folder.id)) roots.push(folder);
+  }
+
   const byOrder = (a: T, b: T) => a.order - b.order;
   roots.sort(byOrder);
   for (const siblings of childrenByParent.values()) siblings.sort(byOrder);
