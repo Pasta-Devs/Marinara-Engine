@@ -431,7 +431,10 @@ export function LorebookOverviewTab({
         </div>
         <div className="flex items-end gap-2">
           <div className="flex items-center justify-between rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]">
-            <span className="mr-2 text-xs">Recursive</span>
+            <span className="mr-2 inline-flex items-center gap-1 text-xs">
+              Recursive
+              <HelpTooltip text="When enabled on any active lorebook, recursive scanning runs for the whole active lore set. Selected entries from any active book can seed later passes unless that entry has No Recursion enabled." />
+            </span>
             <button
               onClick={() => {
                 onRecursiveChange(!recursive);
@@ -451,7 +454,7 @@ export function LorebookOverviewTab({
             <div>
               <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
                 Max Depth{" "}
-                <HelpTooltip text="Maximum number of recursive passes. Each pass scans activated entry content for additional keyword matches. Higher values find more connections but use more processing." />
+                <HelpTooltip text="Maximum recursive passes this lorebook contributes when it enables recursion. If multiple active lorebooks enable recursion, Marinara uses the highest active depth." />
               </label>
               <input
                 type="number"
@@ -478,9 +481,7 @@ export function LorebookOverviewTab({
                 onExcludeFromVectorizationChange(!excludeFromVectorization);
                 onDirty();
               }}
-              aria-label={
-                excludeFromVectorization ? "Enable semantic vectorization" : "Disable semantic vectorization"
-              }
+              aria-label={excludeFromVectorization ? "Enable semantic vectorization" : "Disable semantic vectorization"}
               aria-pressed={excludeFromVectorization}
             >
               {excludeFromVectorization ? (

@@ -230,6 +230,9 @@ pub(crate) async fn vectorize_lorebook(
     }
     let mut vectorized = 0usize;
     let mut skipped = 0usize;
+    // Collect the entries that actually need embedding so we can batch the
+    // provider calls instead of firing one HTTP round-trip per entry (#2285).
+    let mut pending: Vec<(String, String)> = Vec::new();
     for entry in entries {
         if is_excluded_from_vectorization(&entry) {
             skipped += 1;
@@ -253,18 +256,27 @@ pub(crate) async fn vectorize_lorebook(
             skipped += 1;
             continue;
         }
-        let embedding = embed_text(&connection, &model, &text).await?;
-        state.storage.patch(
-            "lorebook-entries",
-            entry_id,
-            json!({
-                "embedding": embedding,
-                "embeddingModel": model,
-                "embeddingConnectionId": embedding_connection_id,
-                "embeddingUpdatedAt": now_iso()
-            }),
-        )?;
-        vectorized += 1;
+        pending.push((entry_id.to_string(), text));
+    }
+    for chunk in pending.chunks(EMBEDDING_BATCH_SIZE) {
+        let texts = chunk
+            .iter()
+            .map(|(_, text)| text.as_str())
+            .collect::<Vec<_>>();
+        let embeddings = embed_texts(&connection, &model, &texts).await?;
+        for ((entry_id, _), embedding) in chunk.iter().zip(embeddings) {
+            state.storage.patch(
+                "lorebook-entries",
+                entry_id,
+                json!({
+                    "embedding": embedding,
+                    "embeddingModel": model,
+                    "embeddingConnectionId": embedding_connection_id,
+                    "embeddingUpdatedAt": now_iso()
+                }),
+            )?;
+            vectorized += 1;
+        }
     }
     Ok(json!({
         "success": true,
@@ -359,10 +371,16 @@ pub(crate) fn resolve_embedding_connection_for_id(
         if is_openai_chatgpt_connection(&embedding_connection) {
             return Err(openai_chatgpt_embedding_error());
         }
+        if is_claude_subscription_connection(&embedding_connection) {
+            return Err(claude_subscription_embedding_error());
+        }
         return Ok((embedding_connection_id.to_string(), embedding_connection));
     }
     if is_openai_chatgpt_connection(&connection) {
         return Err(openai_chatgpt_embedding_error());
+    }
+    if is_claude_subscription_connection(&connection) {
+        return Err(claude_subscription_embedding_error());
     }
     Ok((connection_id.to_string(), connection))
 }
@@ -420,6 +438,7 @@ pub(crate) fn embedding_model(connection: &Value, explicit: Option<&str>) -> App
 
 fn has_embedding_model(connection: &Value) -> bool {
     !is_openai_chatgpt_connection(connection)
+        && !is_claude_subscription_connection(connection)
         && !is_legacy_local_sidecar_connection(connection)
         && connection
             .get("embeddingModel")
@@ -443,6 +462,13 @@ fn is_openai_chatgpt_connection(connection: &Value) -> bool {
         .get("provider")
         .and_then(Value::as_str)
         .is_some_and(|provider| provider == "openai_chatgpt")
+}
+
+fn is_claude_subscription_connection(connection: &Value) -> bool {
+    connection
+        .get("provider")
+        .and_then(Value::as_str)
+        .is_some_and(|provider| provider == "claude_subscription")
 }
 
 pub(crate) fn value_string_array(value: Option<&Value>) -> Vec<String> {
@@ -516,15 +542,55 @@ pub(crate) async fn embed_text(connection: &Value, model: &str, text: &str) -> A
         .unwrap_or("openai");
     match provider {
         "openai_chatgpt" => Err(openai_chatgpt_embedding_error()),
+        "claude_subscription" => Err(claude_subscription_embedding_error()),
         "google" | "google_vertex" => embed_google(connection, model, text).await,
         "ollama" => embed_ollama(connection, model, text).await,
         _ => embed_openai_compatible(connection, model, text).await,
     }
 }
 
+/// Maximum number of texts sent in a single embeddings request, mirroring the
+/// web build's batch size so a large lorebook needs one HTTP round-trip per 50
+/// entries instead of one per entry (#2285).
+const EMBEDDING_BATCH_SIZE: usize = 50;
+
+/// Embed a batch of texts, returning one embedding per input in the same order.
+///
+/// OpenAI-compatible providers accept an `input` array and return `data[]`
+/// ordered by `index`, so they are batched in a single request. Google and
+/// Ollama embedding endpoints are single-input by protocol, so they fall back
+/// to one call per text.
+pub(crate) async fn embed_texts(
+    connection: &Value,
+    model: &str,
+    texts: &[&str],
+) -> AppResult<Vec<Vec<f64>>> {
+    let provider = connection
+        .get("provider")
+        .and_then(Value::as_str)
+        .unwrap_or("openai");
+    match provider {
+        "openai_chatgpt" => Err(openai_chatgpt_embedding_error()),
+        "google" | "google_vertex" | "ollama" => {
+            let mut out = Vec::with_capacity(texts.len());
+            for text in texts {
+                out.push(embed_text(connection, model, text).await?);
+            }
+            Ok(out)
+        }
+        _ => embed_openai_compatible_batch(connection, model, texts).await,
+    }
+}
+
 fn openai_chatgpt_embedding_error() -> AppError {
     AppError::invalid_input(
         "OpenAI (ChatGPT) does not support embeddings through Codex auth. Configure a separate embedding connection.",
+    )
+}
+
+fn claude_subscription_embedding_error() -> AppError {
+    AppError::invalid_input(
+        "Claude Subscription does not support embeddings through local subscription auth. Configure a separate embedding connection.",
     )
 }
 
@@ -539,12 +605,26 @@ async fn embed_openai_compatible(
     model: &str,
     text: &str,
 ) -> AppResult<Vec<f64>> {
+    let mut embeddings = embed_openai_compatible_batch(connection, model, &[text]).await?;
+    embeddings.pop().ok_or_else(|| {
+        AppError::new(
+            "embedding_response_error",
+            "Embedding response did not contain a numeric embedding",
+        )
+    })
+}
+
+async fn embed_openai_compatible_batch(
+    connection: &Value,
+    model: &str,
+    texts: &[&str],
+) -> AppResult<Vec<Vec<f64>>> {
     let base = embedding_base_url(connection, "https://api.openai.com/v1");
     let url = format!("{base}/embeddings");
     ensure_embedding_url_allowed(&url)?;
     let mut request = reqwest::Client::new()
         .post(url)
-        .json(&json!({ "model": model, "input": text }));
+        .json(&json!({ "model": model, "input": texts }));
     if let Some(api_key) = connection
         .get("apiKey")
         .and_then(Value::as_str)
@@ -556,14 +636,8 @@ async fn embed_openai_compatible(
         .send()
         .await
         .map_err(|error| AppError::new("embedding_network_error", error.to_string()))?;
-    parse_embedding_response(response, |json| {
-        json.get("data")
-            .and_then(Value::as_array)
-            .and_then(|items| items.first())
-            .and_then(|item| item.get("embedding"))
-            .and_then(json_embedding_array)
-    })
-    .await
+    let expected = texts.len();
+    parse_embedding_batch_response(response, expected).await
 }
 
 async fn embed_google(connection: &Value, model: &str, text: &str) -> AppResult<Vec<f64>> {
@@ -630,6 +704,102 @@ where
                 "embedding_response_error",
                 "Embedding response did not contain a numeric embedding",
                 json,
+            )
+        })
+}
+
+/// Parse an OpenAI-compatible batch embeddings response, returning embeddings
+/// ordered by each item's `index` (the API does not guarantee response order).
+async fn parse_embedding_batch_response(
+    response: reqwest::Response,
+    expected: usize,
+) -> AppResult<Vec<Vec<f64>>> {
+    let status = response.status();
+    let json: Value = response
+        .json()
+        .await
+        .map_err(|error| AppError::new("embedding_response_error", error.to_string()))?;
+    if !status.is_success() {
+        return Err(AppError::with_details(
+            "embedding_provider_error",
+            format!("Embedding provider returned HTTP {status}"),
+            json,
+        ));
+    }
+    order_embeddings_by_index(&json, expected)
+}
+
+/// Order the `data[]` embeddings of an OpenAI-compatible response by each
+/// item's `index` field, falling back to array position when `index` is
+/// absent. Errors loudly if any input slot ends up unfilled, so a misordered
+/// or truncated provider response can never silently write the wrong vector to
+/// an entry.
+fn order_embeddings_by_index(json: &Value, expected: usize) -> AppResult<Vec<Vec<f64>>> {
+    let items = json
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            AppError::with_details(
+                "embedding_response_error",
+                "Embedding response did not contain a data array",
+                json.clone(),
+            )
+        })?;
+    let mut ordered: Vec<Option<Vec<f64>>> = vec![None; expected];
+    let mut fallback = Vec::with_capacity(items.len());
+    for (position, item) in items.iter().enumerate() {
+        let embedding = item
+            .get("embedding")
+            .and_then(json_embedding_array)
+            .filter(|embedding| !embedding.is_empty())
+            .ok_or_else(|| {
+                AppError::with_details(
+                    "embedding_response_error",
+                    "Embedding response did not contain a numeric embedding",
+                    json.clone(),
+                )
+            })?;
+        let index = item.get("index").and_then(Value::as_u64).map(|n| n as usize);
+        match index {
+            // An explicit index is authoritative: an out-of-range or duplicate
+            // index is a malformed response, not a positional fallback. Treating
+            // it as positional would write the wrong input's vector to an entry,
+            // so fail loudly instead.
+            Some(index) if index >= expected => {
+                return Err(AppError::with_details(
+                    "embedding_response_error",
+                    format!("Embedding response returned an out-of-range index {index} for {expected} inputs"),
+                    json.clone(),
+                ));
+            }
+            Some(index) if ordered[index].is_some() => {
+                return Err(AppError::with_details(
+                    "embedding_response_error",
+                    format!("Embedding response returned a duplicate index {index}"),
+                    json.clone(),
+                ));
+            }
+            Some(index) => ordered[index] = Some(embedding),
+            // Only wholly-unindexed items fall back to array position.
+            None => fallback.push((position, embedding)),
+        }
+    }
+    for (position, embedding) in fallback {
+        if position < expected {
+            ordered[position].get_or_insert(embedding);
+        }
+    }
+    ordered
+        .into_iter()
+        .collect::<Option<Vec<_>>>()
+        .filter(|all| all.len() == expected)
+        .ok_or_else(|| {
+            AppError::with_details(
+                "embedding_response_error",
+                format!(
+                    "Embedding response returned fewer embeddings than the {expected} requested inputs"
+                ),
+                json.clone(),
             )
         })
 }
@@ -1037,6 +1207,70 @@ mod tests {
     }
 
     #[test]
+    fn claude_subscription_embedding_connection_rejects_without_dedicated_connection() {
+        let state = test_state("claude-subscription-embedding-rejected");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "claude-subscription-connection",
+                    "name": "Claude Subscription",
+                    "provider": "claude_subscription",
+                    "model": "claude-sonnet-4-6",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("claude subscription connection should insert");
+
+        let error = resolve_embedding_connection_for_id(&state, "claude-subscription-connection")
+            .expect_err("claude subscription connection should not be used for embeddings");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+        assert!(error.message.contains("separate embedding"));
+    }
+
+    #[test]
+    fn claude_subscription_embedding_connection_rejects_as_dedicated_connection() {
+        let state = test_state("claude-subscription-dedicated-embedding-rejected");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "chat-connection",
+                    "name": "Chat",
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "embeddingConnectionId": "claude-subscription-connection"
+                }),
+            )
+            .expect("chat connection should insert");
+        state
+            .storage
+            .create(
+                "connections",
+                json!({
+                    "id": "claude-subscription-connection",
+                    "name": "Claude Subscription",
+                    "provider": "claude_subscription",
+                    "model": "claude-sonnet-4-6",
+                    "embeddingModel": "text-embedding-3-small"
+                }),
+            )
+            .expect("claude subscription connection should insert");
+
+        let error = resolve_embedding_connection_for_id(&state, "chat-connection").expect_err(
+            "claude subscription dedicated connection should not be used for embeddings",
+        );
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+        assert!(error.message.contains("separate embedding"));
+    }
+
+    #[test]
     fn resolve_embedding_connection_rejects_legacy_local_sidecar_id() {
         let state = test_state("legacy-sidecar-embedding-rejected");
 
@@ -1085,6 +1319,23 @@ mod tests {
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("does not support embeddings"));
+    }
+
+    #[tokio::test]
+    async fn claude_subscription_embedding_text_rejects_before_provider_call() {
+        let connection = json!({
+            "provider": "claude_subscription",
+            "embeddingBaseUrl": "http://127.0.0.1:9/v1",
+            "apiKey": "unused"
+        });
+
+        let error = embed_text(&connection, "text-embedding-3-small", "hello")
+            .await
+            .expect_err("claude subscription embedding should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("does not support embeddings"));
+        assert!(error.message.contains("separate embedding"));
     }
 
     #[test]

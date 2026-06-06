@@ -1,9 +1,51 @@
 import type { LlmMessage } from "../capabilities/llm";
-import { readNumber } from "./runtime-records";
+import { MODEL_LISTS } from "../contracts/constants/model-lists";
+import { boolish, readNumber, readString } from "./runtime-records";
 
 const DEFAULT_RESPONSE_TOKENS = 4096;
 const CONTEXT_SAFETY_TOKENS = 256;
 const CHARS_PER_TOKEN = 4;
+
+type ContextConnection = Record<string, unknown> | null | undefined;
+type ContextParameters = Record<string, unknown> | null | undefined;
+
+function readPositiveContext(value: unknown): number {
+  const parsed = readNumber(value, 0);
+  return parsed > 0 ? Math.trunc(parsed) : 0;
+}
+
+function normalizedKey(value: unknown): string {
+  return readString(value).trim().toLowerCase();
+}
+
+function knownModelContext(connection: ContextConnection): number {
+  const provider = normalizedKey(connection?.provider);
+  const model = normalizedKey(connection?.model);
+  if (!provider || !model) return 0;
+
+  const modelLists = MODEL_LISTS as Partial<Record<string, Array<{ id: string; name: string; context: number }>>>;
+  const known = modelLists[provider]?.find(
+    (entry) => normalizedKey(entry.id) === model || normalizedKey(entry.name) === model,
+  );
+  return readPositiveContext(known?.context);
+}
+
+function minPositiveContext(...limits: number[]): number {
+  let resolved = 0;
+  for (const limit of limits) {
+    if (limit <= 0) continue;
+    resolved = resolved > 0 ? Math.min(resolved, limit) : limit;
+  }
+  return resolved;
+}
+
+export function effectiveMaxContext(connection: ContextConnection, parameters: ContextParameters): number {
+  const knownContext = knownModelContext(connection);
+  const parameterContext = boolish(parameters?.useMaxContext, false)
+    ? knownContext
+    : readPositiveContext(parameters?.maxContext);
+  return minPositiveContext(readPositiveContext(connection?.maxContext), knownContext, parameterContext);
+}
 
 function estimatedMessageTokens(message: LlmMessage): number {
   const contentTokens = Math.ceil((message.content?.length ?? 0) / CHARS_PER_TOKEN);
@@ -61,8 +103,12 @@ function truncateOldestHistory(messages: LlmMessage[], tokenBudget: number): Llm
   return next;
 }
 
-export function fitMessagesToContextWindow(messages: LlmMessage[], parameters: Record<string, unknown>): LlmMessage[] {
-  const maxContext = readNumber(parameters.maxContext, 0);
+export function fitMessagesToContextWindow(
+  messages: LlmMessage[],
+  parameters: Record<string, unknown>,
+  connection?: Record<string, unknown> | null,
+): LlmMessage[] {
+  const maxContext = effectiveMaxContext(connection, parameters);
   if (maxContext <= 0) return messages;
 
   const maxTokens = Math.max(1, readNumber(parameters.maxTokens, DEFAULT_RESPONSE_TOKENS));

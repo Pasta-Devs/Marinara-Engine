@@ -1,3 +1,5 @@
+import type { AgentConnectionWarning } from "./agent-runner";
+
 export type GenerationEvent =
   | { type: "phase"; data: string }
   | { type: "thinking"; data: string }
@@ -12,6 +14,7 @@ export type GenerationEvent =
   | { type: "user_message"; data: unknown }
   | { type: "assistant_message"; data: unknown }
   | { type: "agent_injection_review"; data: unknown }
+  | { type: "agent_warning"; data: AgentConnectionWarning }
   | { type: "agent_result"; data: unknown }
   | { type: "cross_post"; data: unknown }
   | { type: "assistant_action"; data: unknown }

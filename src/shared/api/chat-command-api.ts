@@ -1,4 +1,25 @@
+import type { ListChatMemoriesOptions } from "../../engine/capabilities/storage";
 import { invokeTauri } from "./tauri-client";
+
+function memoryListArgs(chatId: string | null, options?: ListChatMemoriesOptions): Record<string, unknown> {
+  const args: Record<string, unknown> = { chatId };
+  if (typeof options?.limit === "number" && Number.isFinite(options.limit)) {
+    args.limit = Math.max(0, Math.trunc(options.limit));
+  }
+  if (options?.order) args.order = options.order;
+  const excludeRecentMessageIds = Array.from(
+    new Set(
+      (options?.excludeRecentMessageIds ?? [])
+        .map((id) => (typeof id === "string" ? id.trim() : ""))
+        .filter(Boolean),
+    ),
+  );
+  if (excludeRecentMessageIds.length > 0) args.excludeRecentMessageIds = excludeRecentMessageIds;
+  const excludeRecentStartAt =
+    typeof options?.excludeRecentStartAt === "string" ? options.excludeRecentStartAt.trim() : "";
+  if (excludeRecentStartAt) args.excludeRecentStartAt = excludeRecentStartAt;
+  return args;
+}
 
 export interface ChatGroupDeleteResult {
   deleted: number;
@@ -7,7 +28,8 @@ export interface ChatGroupDeleteResult {
 
 export const chatCommandApi = {
   messageCount: (chatId: string | null) => invokeTauri<{ count: number }>("chat_message_count", { chatId }),
-  memoriesList: <T = unknown>(chatId: string | null) => invokeTauri<T>("chat_memories_list", { chatId }),
+  memoriesList: <T = unknown>(chatId: string | null, options?: ListChatMemoriesOptions) =>
+    invokeTauri<T>("chat_memories_list", memoryListArgs(chatId, options)),
   memoryDelete: (chatId: string | null, memoryId: string) => invokeTauri("chat_memory_delete", { chatId, memoryId }),
   memoriesClear: (chatId: string | null) => invokeTauri("chat_memories_clear", { chatId }),
   memoriesRefresh: <T = unknown>(chatId: string | null) => invokeTauri<T>("chat_memories_refresh", { chatId }),

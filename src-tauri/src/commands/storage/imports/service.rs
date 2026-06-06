@@ -8,6 +8,8 @@ use super::super::*;
 mod access;
 #[path = "bulk_imports.rs"]
 mod bulk_imports;
+#[path = "lorebook_signals.rs"]
+mod lorebook_signals;
 #[path = "marinara.rs"]
 mod marinara;
 #[path = "normalization.rs"]

@@ -1,6 +1,9 @@
+import type { AgentResult } from "../../../contracts/types/agent";
+import type { TrackerSnapshotSavedContext } from "../../../generation/tracker-snapshots";
 import type { GenerationEngineDeps, StartGenerationInput } from "../../../generation/start-generation";
 import { startGeneration } from "../../../generation/start-generation";
 import { isRecord, parseRecord, readString, type JsonRecord } from "../../../generation/runtime-records";
+import { createJournal, syncInventoryJournalFromPlayerStats, type Journal } from "../world/journal.service";
 
 export type GameTurnKind = "start" | "turn" | "retry";
 
@@ -37,6 +40,37 @@ function assertGameChat(chat: JsonRecord, kind: GameTurnKind): void {
   }
 }
 
+function isPersonaStatsResult(result: AgentResult): boolean {
+  return result.agentType === "persona-stats" || result.type === "persona_stats_update";
+}
+
+function journalFromMetadata(metadata: unknown): Journal {
+  const raw = parseRecord(parseRecord(metadata).gameJournal);
+  const empty = createJournal();
+  return {
+    entries: Array.isArray(raw.entries) ? (raw.entries as Journal["entries"]) : empty.entries,
+    quests: Array.isArray(raw.quests) ? (raw.quests as Journal["quests"]) : empty.quests,
+    locations: Array.isArray(raw.locations) ? (raw.locations as Journal["locations"]) : empty.locations,
+    npcLog: Array.isArray(raw.npcLog) ? (raw.npcLog as Journal["npcLog"]) : empty.npcLog,
+    inventoryLog: Array.isArray(raw.inventoryLog) ? (raw.inventoryLog as Journal["inventoryLog"]) : empty.inventoryLog,
+  };
+}
+
+async function persistGameInventoryJournalFromSnapshot(
+  deps: GenerationEngineDeps,
+  context: TrackerSnapshotSavedContext,
+): Promise<void> {
+  if (!context.results.some(isPersonaStatsResult) || !context.snapshot.playerStats) return;
+  const latestRawChat = await deps.storage.get("chats", context.chatId).catch(() => context.chat);
+  const latestChat = isRecord(latestRawChat) ? latestRawChat : context.chat;
+  if (readString(latestChat?.mode || latestChat?.chatMode).trim() !== "game") return;
+
+  const journal = journalFromMetadata(parseRecord(latestChat?.metadata));
+  const synced = syncInventoryJournalFromPlayerStats(journal, context.snapshot.playerStats);
+  if (synced === journal) return;
+  await deps.storage.patchChatMetadata(context.chatId, { gameJournal: synced });
+}
+
 function hasPlayerTurnInput(input: StartGameTurnInput): boolean {
   const text = readString(input.message).trim() || readString(input.userMessage).trim();
   const attachments = Array.isArray(input.attachments) ? input.attachments : [];
@@ -64,5 +98,14 @@ export async function* startGameTurnGeneration(
     generationGuideSource: gameGuideSourceFor(input.kind),
   };
 
-  yield* startGeneration(deps, generationInput, signal);
+  const upstreamOnTrackerSnapshotSaved = deps.onTrackerSnapshotSaved;
+  const gameDeps: GenerationEngineDeps = {
+    ...deps,
+    onTrackerSnapshotSaved: async (context) => {
+      await upstreamOnTrackerSnapshotSaved?.(context);
+      await persistGameInventoryJournalFromSnapshot(deps, context);
+    },
+  };
+
+  yield* startGeneration(gameDeps, generationInput, signal);
 }

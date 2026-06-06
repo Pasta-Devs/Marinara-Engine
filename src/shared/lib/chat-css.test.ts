@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cssTargetsTypingIndicator, filterCssByMode, scopeChatCss } from "./chat-css";
+import { cssTargetsTypingIndicator, filterCssByMode, scopeChatCss, stripDangerousCss } from "./chat-css";
 
 describe("filterCssByMode", () => {
   it("keeps global CSS and only the requested chat mode block", () => {
@@ -350,5 +350,44 @@ describe("cssTargetsTypingIndicator", () => {
     const css = "@chat-mode conversation { .mari-typing-text::after { content: ' is cooking…'; } }";
     expect(cssTargetsTypingIndicator(filterCssByMode(css, "conversation"))).toBe(true);
     expect(cssTargetsTypingIndicator(filterCssByMode(css, "game"))).toBe(false);
+  });
+});
+
+describe("stripDangerousCss (theme/extension CSS)", () => {
+  it("neutralizes remote url() exfiltration", () => {
+    const out = stripDangerousCss(".bg { background: url(https://tracker.test/pixel.png); }");
+    expect(out).toContain("url(about:invalid)");
+    expect(out).not.toContain("tracker.test");
+  });
+
+  it("still neutralizes url() hidden behind escaped characters (#1989)", () => {
+    const out = stripDangerousCss(".bg { background: \\75rl(https://tracker.test/pixel); }");
+    expect(out).not.toContain("tracker.test");
+  });
+
+  it("keeps data: image and font URLs", () => {
+    expect(stripDangerousCss(".x { background: url(data:image/png;base64,abc); }")).toContain("data:image/png");
+    expect(
+      stripDangerousCss("@font-face { font-family: F; src: url(data:font/woff2;base64,abc); }"),
+    ).toContain("data:font/woff2");
+  });
+
+  it("strips @import, expression(), and javascript: vectors", () => {
+    expect(stripDangerousCss('@import "https://evil.test/x.css"; .a { color: red; }')).not.toContain("@import");
+    expect(stripDangerousCss(".a { width: expression(alert(1)); }")).not.toContain("expression(");
+    expect(stripDangerousCss(".a { background: javascript:alert(1); }")).not.toContain("javascript:");
+  });
+
+  it("defuses :visited history probing", () => {
+    expect(stripDangerousCss("a:visited { color: red; }")).not.toContain(":visited");
+  });
+
+  it("preserves a theme's legitimate token, !important, and position overrides", () => {
+    const themeCss = ":root { --background: #101010; --accent: #ff0066; } .panel { color: red !important; position: fixed; }";
+    const out = stripDangerousCss(themeCss);
+    expect(out).toContain("--background: #101010");
+    expect(out).toContain("--accent: #ff0066");
+    expect(out).toContain("!important");
+    expect(out).toContain("position: fixed");
   });
 });

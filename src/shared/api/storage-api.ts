@@ -1,5 +1,6 @@
 import type {
   AddChatMessageSwipeOptions,
+  ListChatMemoriesOptions,
   StorageImageAttachmentReference,
   StorageEntity,
   StorageGateway,
@@ -13,6 +14,7 @@ import {
   type RemoteManagedAssetKind,
 } from "./local-file-api";
 import { blobToDataUrl } from "../lib/url-blob";
+import { chatCommandApi } from "./chat-command-api";
 import { invokeTauri } from "./tauri-client";
 import { trackerSnapshotApi, type TrackerSnapshotInput } from "./tracker-snapshot-api";
 import { urlBinaryApi } from "./url-binary-api";
@@ -27,10 +29,6 @@ function asRecord(value: unknown): Record<string, unknown> {
     }
   }
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function asArray<T = unknown>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
 }
 
 function parseStoredJson(value: unknown): unknown {
@@ -196,11 +194,65 @@ function chatMessageSwipeBody(content: string, options?: AddChatMessageSwipeOpti
   return body;
 }
 
-async function patchChatObjectField<T>(chatId: string, field: string, patch: Record<string, unknown>): Promise<T> {
-  const chat = await storageApi.get<Record<string, unknown>>("chats", chatId, { fields: [field] });
+const DISCORD_WEBHOOK_URL_PATTERN = /^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/;
+
+function normalizeChatInactiveCharacterIds(chat: Record<string, unknown>, value: unknown): string[] {
+  if (!Array.isArray(value) || value.some((id) => typeof id !== "string")) {
+    throw new ApiError("inactiveCharacterIds must be an array of strings", 400);
+  }
+  const activeIds = new Set(
+    Array.isArray(chat.characterIds) ? chat.characterIds.filter((id) => typeof id === "string") : [],
+  );
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const rawId of value) {
+    const id = rawId.trim();
+    if (!id || !activeIds.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    normalized.push(id);
+  }
+  return normalized;
+}
+
+function normalizeChatMetadataPatch(
+  chat: Record<string, unknown>,
+  current: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const metadata = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === "discordWebhookUrl" || key === "inactiveCharacterIds") continue;
+    metadata[key] = value;
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "discordWebhookUrl")) {
+    const value = patch.discordWebhookUrl;
+    if (value === undefined || value === null) {
+      delete metadata.discordWebhookUrl;
+    } else {
+      if (typeof value !== "string") throw new ApiError("Discord webhook URL must be a string", 400);
+      const trimmed = value.trim();
+      if (trimmed && !DISCORD_WEBHOOK_URL_PATTERN.test(trimmed)) {
+        throw new ApiError("Invalid Discord webhook URL", 400);
+      }
+      if (trimmed) {
+        metadata.discordWebhookUrl = trimmed;
+      } else {
+        delete metadata.discordWebhookUrl;
+      }
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "inactiveCharacterIds")) {
+    metadata.inactiveCharacterIds = normalizeChatInactiveCharacterIds(chat, patch.inactiveCharacterIds);
+  }
+  return metadata;
+}
+
+async function patchChatMetadataField<T>(chatId: string, patch: Record<string, unknown>): Promise<T> {
+  const chat = await storageApi.get<Record<string, unknown>>("chats", chatId, { fields: ["metadata", "characterIds"] });
   if (!chat) throw new ApiError(`Chat ${chatId} was not found`, 404);
-  const current = asRecord(chat[field]);
-  return storageApi.update<T>("chats", chatId, { [field]: { ...current, ...patch } });
+  return storageApi.update<T>("chats", chatId, {
+    metadata: normalizeChatMetadataPatch(chat, asRecord(chat.metadata), patch),
+  });
 }
 
 // Day/week summary maps live inside chat metadata, but callers send only the
@@ -430,12 +482,10 @@ export const storageApi: StorageGateway = {
     }),
   evictPromptSnapshots: (chatId, keepLast) =>
     invokeTauri("chat_evict_prompt_snapshots", { chatId, keepLast }) as Promise<{ evicted: number }>,
-  patchChatMetadata: (chatId, patch) => patchChatObjectField(chatId, "metadata", patch),
+  patchChatMetadata: (chatId, patch) => patchChatMetadataField(chatId, patch),
   patchChatSummaries: (chatId, patch) => patchChatSummariesField(chatId, patch),
-  listChatMemories: async (chatId) => {
-    const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);
-    return asArray(chat?.memories);
-  },
+  listChatMemories: <T = unknown>(chatId: string, options?: ListChatMemoriesOptions) =>
+    chatCommandApi.memoriesList<T[]>(chatId, options),
   refreshChatMemories: (chatId) => invokeTauri("chat_memories_refresh", { chatId }),
   getWorldState: async (chatId) => {
     const chat = await storageApi.get<Record<string, unknown>>("chats", chatId);

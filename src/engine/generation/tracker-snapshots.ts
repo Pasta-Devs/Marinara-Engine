@@ -49,6 +49,16 @@ export interface TrackerSnapshotMessageRebase {
   swipeCount?: unknown;
 }
 
+export interface TrackerSnapshotSavedContext {
+  chatId: string;
+  target: TrackerSnapshotTurnTarget;
+  chat: Record<string, unknown> | null;
+  snapshot: GameState;
+  results: AgentResult[];
+}
+
+export type TrackerSnapshotSavedHook = (context: TrackerSnapshotSavedContext) => Promise<void> | void;
+
 type TrackerStatePatch = Partial<
   Pick<
     GameState,
@@ -103,24 +113,10 @@ function mergeWorldStatePatchWithManualOverrides(snapshot: GameState, patch: Tra
   if (!manualOverrides) return patch;
 
   const nextPatch: TrackerStatePatch = { ...patch };
-  const nextManualOverrides: Record<string, string> = { ...manualOverrides };
-  let manualOverridesChanged = false;
   for (const field of MANUAL_OVERRIDE_FIELDS) {
     if (!hasManualOverrideField(patch, field)) continue;
-    const text = readNullableString(patch[field]);
     const override = manualOverrideValue(manualOverrides, field);
-    if (text) {
-      if (Object.prototype.hasOwnProperty.call(nextManualOverrides, field)) {
-        delete nextManualOverrides[field];
-        manualOverridesChanged = true;
-      }
-    } else if (override) {
-      nextPatch[field] = override;
-    }
-  }
-
-  if (manualOverridesChanged) {
-    nextPatch.manualOverrides = Object.keys(nextManualOverrides).length ? nextManualOverrides : null;
+    if (override) nextPatch[field] = override;
   }
   return nextPatch;
 }
@@ -423,6 +419,7 @@ function gameStatePatchFromAgentResult(
   previousWorldState: GameState,
   persona?: TrackerPersonaIdentity | null,
   sourceText?: string | null,
+  autoRemoveFullyCompletedQuests = false,
 ): TrackerStatePatch | null {
   if (!result.success) return null;
   if (result.agentType === "world-state" || result.type === "game_state_update") {
@@ -455,13 +452,20 @@ function gameStatePatchFromAgentResult(
 
   if (result.agentType === "persona-stats" || result.type === "persona_stats_update") {
     const playerStats = clonePlayerStats(snapshot.playerStats);
-    if (Object.prototype.hasOwnProperty.call(data, "status")) playerStats.status = readString(data.status).trim();
+    if (Object.prototype.hasOwnProperty.call(data, "status")) {
+      const status = readString(data.status).trim();
+      if (status) playerStats.status = status;
+    }
     if (Array.isArray(data.inventory)) {
-      playerStats.inventory = data.inventory.map(parseInventoryItem).filter((item): item is InventoryItem => !!item);
+      const inventory = data.inventory
+        .map(parseInventoryItem)
+        .filter((item): item is InventoryItem => !!item);
+      if (inventory.length > 0) playerStats.inventory = inventory;
     }
     const patch: TrackerStatePatch = { playerStats };
     if (Array.isArray(data.stats)) {
-      patch.personaStats = data.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat);
+      const stats = data.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat);
+      if (stats.length > 0) patch.personaStats = stats;
     }
     return patch;
   }
@@ -477,7 +481,9 @@ function gameStatePatchFromAgentResult(
   }
 
   if (result.agentType === "quest" || result.type === "quest_update") {
-    const questMerge = applyQuestUpdatesToPlayerStats(snapshot.playerStats, data.updates);
+    const questMerge = applyQuestUpdatesToPlayerStats(snapshot.playerStats, data.updates, {
+      autoRemoveFullyCompleted: autoRemoveFullyCompletedQuests,
+    });
     return questMerge.changed ? { playerStats: questMerge.playerStats } : null;
   }
 
@@ -489,7 +495,12 @@ export async function persistTrackerSnapshotForTurn(
   chatId: string,
   target: TrackerSnapshotTurnTarget | null,
   results: AgentResult[],
-  options: { baseSnapshot?: GameState | null; sourceText?: string | null } = {},
+  options: {
+    baseSnapshot?: GameState | null;
+    sourceText?: string | null;
+    onSavedSnapshot?: TrackerSnapshotSavedHook;
+    autoRemoveFullyCompletedQuests?: boolean;
+  } = {},
 ): Promise<GameState | null> {
   if (!target || !target.messageId || results.length === 0) return null;
   const existing = await getTrackerSnapshotForTarget(storage, chatId, target);
@@ -497,20 +508,25 @@ export async function persistTrackerSnapshotForTurn(
     (result) => result.agentType === "character-tracker" || result.type === "character_tracker_update",
   );
   const needsChatBaseline = !existing && !options.baseSnapshot;
-  const chat =
-    needsChatBaseline || hasCharacterTrackerResult
-      ? parseRecord(await storage.get("chats", chatId).catch(() => null))
-      : null;
+  const needsChat = needsChatBaseline || hasCharacterTrackerResult || !!options.onSavedSnapshot;
+  const chat = needsChat ? parseRecord(await storage.get("chats", chatId).catch(() => null)) : null;
   const persona = hasCharacterTrackerResult ? await loadPersonaSnapshotForChat(storage, chat).catch(() => null) : null;
   let snapshot = normalizeGameState(existing ?? options.baseSnapshot ?? chat?.gameState, chatId, target, persona);
   if (!existing) {
-    snapshot = { ...snapshot, id: "", committed: false, manualOverrides: null, createdAt: nowIso() };
+    snapshot = { ...snapshot, id: "", committed: false, createdAt: nowIso() };
   }
   let changed = false;
 
   for (const result of results) {
     const previousWorldState = options.baseSnapshot ?? snapshot;
-    const patch = gameStatePatchFromAgentResult(result, snapshot, previousWorldState, persona, options.sourceText);
+    const patch = gameStatePatchFromAgentResult(
+      result,
+      snapshot,
+      previousWorldState,
+      persona,
+      options.sourceText,
+      options.autoRemoveFullyCompletedQuests === true,
+    );
     if (!patch) continue;
     snapshot = normalizeGameState({ ...snapshot, ...patch }, chatId, target, persona);
     changed = true;
@@ -521,5 +537,8 @@ export async function persistTrackerSnapshotForTurn(
   const saved = await storage.saveTrackerSnapshot<GameState>(chatId, snapshot as unknown as Record<string, unknown>);
   const savedState = normalizeGameState(saved, chatId, target);
   await storage.update("chats", chatId, { gameState: savedState as unknown as Record<string, unknown> });
+  if (options.onSavedSnapshot) {
+    await options.onSavedSnapshot({ chatId, target, chat, snapshot: savedState, results });
+  }
   return savedState;
 }

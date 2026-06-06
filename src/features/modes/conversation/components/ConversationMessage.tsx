@@ -177,7 +177,7 @@ function highlightMentions(nodes: ReactNode[], names: string[], keyPrefix: strin
 }
 
 /** Renders message content, showing image URLs as inline images */
-function MessageContent({
+export const MessageContent = memo(function MessageContent({
   content,
   mentionNames,
   onImageOpen,
@@ -186,33 +186,43 @@ function MessageContent({
   mentionNames?: string[];
   onImageOpen: (url: string) => void;
 }) {
-  if (IMAGE_URL_RE.test(content.trim())) {
-    const url = content.trim();
+  const trimmed = content.trim();
+  const isImage = IMAGE_URL_RE.test(trimmed);
+
+  // Parse the markdown once per unique content/mentions set. ConversationView
+  // re-renders on every ~45ms stream commit while a message is generating, so
+  // without this memo every mounted message would re-run renderMarkdownBlocks on
+  // each commit — the streaming render storm (#2304). Memoizing the component plus
+  // the parse keeps re-parsing confined to messages whose content actually changed.
+  const rendered = useMemo(() => {
+    if (isImage) return null;
+    // Collapse runs of 3+ blank lines into a double newline (preserve paragraph breaks)
+    const compacted = content.replace(/\n{3,}/g, "\n\n");
+    // Use shared block-level renderer with mention support
+    const renderInline = mentionNames?.length
+      ? (text: string, kp: string) => highlightMentions(applyInlineMarkdown(text, kp), mentionNames, kp)
+      : applyInlineMarkdown;
+    return renderMarkdownBlocks(compacted, renderInline);
+  }, [content, isImage, mentionNames]);
+
+  if (isImage) {
     return (
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          onImageOpen(url);
+          onImageOpen(trimmed);
         }}
         className="block cursor-zoom-in rounded-lg text-left"
         title="Open image"
       >
-        <img src={url} alt="GIF" className="max-h-48 max-w-full sm:max-w-xs rounded-lg" loading="lazy" />
+        <img src={trimmed} alt="GIF" className="max-h-48 max-w-full sm:max-w-xs rounded-lg" loading="lazy" />
       </button>
     );
   }
 
-  // Collapse runs of 3+ blank lines into a double newline (preserve paragraph breaks)
-  const compacted = content.replace(/\n{3,}/g, "\n\n");
-
-  // Use shared block-level renderer with mention support
-  const renderInline = mentionNames?.length
-    ? (text: string, kp: string) => highlightMentions(applyInlineMarkdown(text, kp), mentionNames, kp)
-    : applyInlineMarkdown;
-
-  return <>{renderMarkdownBlocks(compacted, renderInline)}</>;
-}
+  return <>{rendered}</>;
+});
 
 /** Parse <speaker="Name">text</speaker> tags into segments */
 interface SpeakerSegment {
@@ -373,6 +383,8 @@ export const ConversationMessage = memo(function ConversationMessage({
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
   const [manuallyExpandedHidden, setManuallyExpandedHidden] = useState(false);
   const [imageLightbox, setImageLightbox] = useState<{ url: string; prompt?: string | null } | null>(null);
+  // Stable callback so the memoized MessageContent doesn't re-render (and re-parse) on every render.
+  const openImageLightbox = useCallback((url: string) => setImageLightbox({ url }), []);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const lastMessageTapAtRef = useRef(0);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
@@ -1275,7 +1287,7 @@ export const ConversationMessage = memo(function ConversationMessage({
                 <MessageContent
                   content={renderedContent}
                   mentionNames={mentionNames}
-                  onImageOpen={(url) => setImageLightbox({ url })}
+                  onImageOpen={openImageLightbox}
                 />
                 {isStreaming && (
                   <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-[var(--foreground)]/50" />

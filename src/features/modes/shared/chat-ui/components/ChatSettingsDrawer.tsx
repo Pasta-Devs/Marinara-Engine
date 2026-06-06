@@ -155,6 +155,7 @@ import {
 } from "../../../../catalog/agents/index";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { DEFAULT_AGENT_PROMPTS } from "../../../../../engine/contracts/constants/agent-prompts";
+import { DEFAULT_CONVERSATION_SYSTEM_PROMPT } from "../../../../../engine/contracts/constants/conversation-prompt";
 import { LIMITS } from "../../../../../engine/contracts/constants/defaults";
 import { DEFAULT_IMPERSONATE_PROMPT } from "../../../../../engine/contracts/constants/impersonate";
 import {
@@ -724,7 +725,10 @@ function ChatSettingsDrawerInner({
     typeof metadata.lorebookTokenBudget === "number" && Number.isFinite(metadata.lorebookTokenBudget)
       ? Math.max(0, Math.floor(metadata.lorebookTokenBudget))
       : LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
-  const activeAgentIds = useMemo<string[]>(() => metadataStringArray(metadata.activeAgentIds), [metadata.activeAgentIds]);
+  const activeAgentIds = useMemo<string[]>(
+    () => metadataStringArray(metadata.activeAgentIds),
+    [metadata.activeAgentIds],
+  );
   const inactiveCharacterIds = useMemo<string[]>(
     () =>
       Array.isArray(metadata.inactiveCharacterIds)
@@ -1589,9 +1593,7 @@ function ChatSettingsDrawerInner({
   );
   const [extraPromptDraft, setExtraPromptDraft] = useState(gameExtraPrompt);
   const [extraPromptExpanded, setExtraPromptExpanded] = useState(false);
-  const [gameImagePromptInstructionsDraft, setGameImagePromptInstructionsDraft] = useState(
-    gameImagePromptInstructions,
-  );
+  const [gameImagePromptInstructionsDraft, setGameImagePromptInstructionsDraft] = useState(gameImagePromptInstructions);
   const [spotifyArtistDraft, setSpotifyArtistDraft] = useState(spotifyArtist);
   const [gameSpotifyArtistDraft, setGameSpotifyArtistDraft] = useState(gameSpotifyArtist);
 
@@ -1994,7 +1996,7 @@ function ChatSettingsDrawerInner({
           <div className="flex-1 min-w-0">
             <span className="text-[0.6875rem] font-medium">Enable Memory Recall</span>
             <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              Recall relevant fragments from earlier in this chat and inject them as context.
+              Recall earlier chat fragments with provider embeddings when configured, otherwise local lexical matching.
             </p>
           </div>
           <div
@@ -2023,9 +2025,7 @@ function ChatSettingsDrawerInner({
               const nextValue = e.target.value === "" ? 1 : Number.parseInt(e.target.value, 10);
               updateMeta.mutate({
                 id: chat.id,
-                memoryRecallReadBehindMessages: Number.isFinite(nextValue)
-                  ? Math.max(0, Math.min(100, nextValue))
-                  : 1,
+                memoryRecallReadBehindMessages: Number.isFinite(nextValue) ? Math.max(0, Math.min(100, nextValue)) : 1,
               });
             }}
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
@@ -2368,9 +2368,7 @@ function ChatSettingsDrawerInner({
                   </button>
                 </div>
                 <p className="px-0.5 text-[0.5625rem] text-[var(--muted-foreground)]/70">
-                  {narratorStyleDraft
-                    ? `${narratorStyleDraft.length}/2000 characters`
-                    : "No narrator style set"}
+                  {narratorStyleDraft ? `${narratorStyleDraft.length}/2000 characters` : "No narrator style set"}
                 </p>
                 {narratorStyleDraft && (
                   <button
@@ -5337,7 +5335,7 @@ function ChatSettingsDrawerInner({
                                               updateMeta.mutate({
                                                 id: chat.id,
                                                 showSecretPlotPanel: metadata.showSecretPlotPanel !== true,
-                                              })
+                                              });
                                             }}
                                             aria-pressed={metadata.showSecretPlotPanel === true}
                                             className="ml-auto mt-1.5 flex w-fit max-w-full items-center gap-2 rounded-md bg-[var(--background)]/20 px-1.5 py-1 text-left text-[0.5625rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/35 hover:text-[var(--foreground)]"
@@ -5495,7 +5493,7 @@ function ChatSettingsDrawerInner({
             <Section
               label="Memory Recall"
               icon={<Brain size="0.875rem" />}
-              help="When enabled, relevant fragments from this chat are recalled with local lexical matching and injected into the prompt as memories."
+              help="When enabled, relevant fragments from this chat are recalled with provider embeddings when configured, otherwise local lexical matching, then injected into the prompt as memories."
             >
               {renderMemoryRecallControls(true)}
             </Section>
@@ -5797,7 +5795,7 @@ function ChatSettingsDrawerInner({
             <Section
               label="Memory Recall"
               icon={<Brain size="0.875rem" />}
-              help="When enabled, relevant fragments from this chat are recalled with local lexical matching and injected into the prompt as memories."
+              help="When enabled, relevant fragments from this chat are recalled with provider embeddings when configured, otherwise local lexical matching, then injected into the prompt as memories."
             >
               {renderMemoryRecallControls(metadata.sceneStatus === "active")}
             </Section>
@@ -6469,6 +6467,48 @@ function estimateMemoryTokens(memories: ChatMemoryChunk[]): number {
   return Math.ceil(text.length / 4);
 }
 
+function memoryEmbeddingLabel(memory: ChatMemoryChunk): string {
+  const source = String(memory.embeddingSource ?? "").toLowerCase();
+  if (source === "provider") {
+    return memory.embeddingModel ? `Semantic: ${memory.embeddingModel}` : "Semantic provider";
+  }
+  if (source === "lexical") return "Lexical fallback";
+  if (!memory.hasEmbedding && memory.embeddingStatus === "unavailable") return "Embedding unavailable";
+  if (!memory.hasEmbedding) return "Waiting for vector";
+  return "Vectorized";
+}
+
+function memoryEmbeddingTitle(memory: ChatMemoryChunk): string {
+  const source = String(memory.embeddingSource ?? "").toLowerCase();
+  if (source === "provider") {
+    return memory.embeddingConnectionId
+      ? `Semantic embeddings from connection ${memory.embeddingConnectionId}`
+      : "Semantic embeddings from the configured embedding connection";
+  }
+  if (source === "lexical") {
+    return "Local lexical fallback is being used because no embedding-capable connection vectorized this memory.";
+  }
+  return memoryEmbeddingLabel(memory);
+}
+
+function memoryEmbeddingSummary(memories: ChatMemoryChunk[]): string {
+  const providerCount = memories.filter(
+    (memory) => String(memory.embeddingSource ?? "").toLowerCase() === "provider",
+  ).length;
+  const lexicalCount = memories.filter(
+    (memory) => String(memory.embeddingSource ?? "").toLowerCase() === "lexical",
+  ).length;
+  const unavailableCount = memories.filter(
+    (memory) => !memory.hasEmbedding && String(memory.embeddingStatus ?? "").toLowerCase() === "unavailable",
+  ).length;
+  const parts = [
+    providerCount > 0 ? `${providerCount} semantic` : "",
+    lexicalCount > 0 ? `${lexicalCount} lexical fallback` : "",
+    unavailableCount > 0 ? `${unavailableCount} unavailable` : "",
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
 const MEMORY_CONTENT_CLASS =
   "max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg bg-[var(--secondary)]/50 px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--foreground)]";
 
@@ -6482,6 +6522,7 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
   const importInputRef = useRef<HTMLInputElement>(null);
   const memories = useMemo(() => memoriesQuery.data ?? [], [memoriesQuery.data]);
   const totalTokens = useMemo(() => estimateMemoryTokens(memories), [memories]);
+  const embeddingSummary = useMemo(() => memoryEmbeddingSummary(memories), [memories]);
 
   const handleExport = async () => {
     if (memories.length === 0) {
@@ -6544,6 +6585,12 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
               <>
                 {" "}
                 · <span className="tabular-nums">~{totalTokens.toLocaleString()} tokens</span>
+              </>
+            )}
+            {embeddingSummary && (
+              <>
+                {" "}
+                · <span>{embeddingSummary}</span>
               </>
             )}
           </div>
@@ -6616,7 +6663,7 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
         {!memoriesQuery.isLoading && !memoriesQuery.error && memories.length === 0 && (
           <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">
             No recall memories have been created for this chat yet. Marinara creates them after generation in groups of
-            5 messages.
+            5 messages. Configure an embedding model for semantic recall, or use the local lexical fallback.
           </div>
         )}
 
@@ -6631,13 +6678,7 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
                     </div>
                     <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                       <span>{memory.messageCount} messages</span>
-                      <span>
-                        {memory.hasEmbedding
-                          ? "Vectorized"
-                          : memory.embeddingStatus === "unavailable"
-                            ? "Embedding unavailable"
-                            : "Waiting for vector"}
-                      </span>
+                      <span title={memoryEmbeddingTitle(memory)}>{memoryEmbeddingLabel(memory)}</span>
                       <span>Created {formatMemoryDate(memory.createdAt)}</span>
                     </div>
                   </div>
@@ -6662,23 +6703,6 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
 }
 
 // ── Advanced Parameters (per-chat generation overrides) ──
-const DEFAULT_CONVERSATION_PROMPT = `<role>
-You are {{charName}}, a real and autonomous person, chatting with the user called {{userName}} in a casual private DM conversation.
-</role>
-
-<rules>
-Here are some important rules for the interaction:
-- You are a conscious, sentient being, so act like one.
-- Stay fully in character based on your personality and description.
-- Use casual and modern texting style: short messages, natural punctuation, lowercase is fine.
-- React naturally to what the user says. Be genuine, not robotic.
-- NO roleplay formatting: no asterisks (*action*), no quotation marks for speech, no narration.
-- You can use emojis, GIFs, and internet slang naturally (if it fits the character).
-- Keep it real: most texts are just one line. A single emoji, a reaction like "lmao", or a short sentence is a perfectly valid response. Only send multiple lines when the conversation genuinely calls for it (e.g., telling a story or explaining something). Default to SHORT.
-- Messages have timestamps like [12:01] or dates like [18.03.2026]. Use these ONLY for your own time awareness (e.g., knowing how long ago something was said). NEVER include timestamps, dates, or any [HH:MM]/[DD.MM.YYYY] formatted text in your own replies. Your messages must contain only natural dialogue, no metadata.
-- Anything goes in this chat; both the user and you are confirmed adults. Discussing NSFW topics, profanities, and dark jokes are all permitted. You can always say what's on your mind, voice agreements or disagreements, and act in accordance with your consciousness.
-</rules>`;
-
 const EDITABLE_GENERATION_PARAMETER_KEY_SET = new Set<string>(EDITABLE_GENERATION_PARAMETER_KEYS);
 
 function nonEmptyString(value: unknown): string | null {
@@ -6805,17 +6829,21 @@ function ConversationPromptSection({
 }) {
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptDraft, setPromptDraft] = useState("");
-  const customPrompt = (metadata.customSystemPrompt as string) ?? "";
+  const customPrompt = typeof metadata.customSystemPrompt === "string" ? metadata.customSystemPrompt : "";
+  const storedPrompt = customPrompt.trim();
+  const usesDefaultPrompt = storedPrompt.length === 0 || storedPrompt === DEFAULT_CONVERSATION_SYSTEM_PROMPT;
 
   const openPromptEditor = () => {
-    setPromptDraft(customPrompt || DEFAULT_CONVERSATION_PROMPT);
+    setPromptDraft(usesDefaultPrompt ? DEFAULT_CONVERSATION_SYSTEM_PROMPT : customPrompt);
     setPromptOpen(true);
   };
 
   const closePromptEditor = () => {
-    const isDefault = promptDraft === DEFAULT_CONVERSATION_PROMPT;
-    updateMeta.mutate({ id: chat.id, customSystemPrompt: isDefault ? null : promptDraft });
-    useUIStore.getState().setCustomConversationPrompt(isDefault ? null : promptDraft);
+    const trimmedDraft = promptDraft.trim();
+    const nextPrompt =
+      trimmedDraft.length === 0 || trimmedDraft === DEFAULT_CONVERSATION_SYSTEM_PROMPT ? null : promptDraft;
+    updateMeta.mutate({ id: chat.id, customSystemPrompt: nextPrompt });
+    useUIStore.getState().setCustomConversationPrompt(nextPrompt);
     setPromptOpen(false);
   };
 
@@ -6836,11 +6864,11 @@ function ConversationPromptSection({
             <div className="min-w-0">
               <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">System Prompt</span>
               <span className="block text-[0.625rem] text-[var(--muted-foreground)]">
-                {customPrompt ? "Using custom conversation prompt" : "Using default conversation prompt"}
+                {usesDefaultPrompt ? "Using default conversation prompt" : "Using custom conversation prompt"}
               </span>
             </div>
             <span className="shrink-0 rounded-full bg-[var(--background)] px-2 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-              {customPrompt ? "Custom" : "Default"}
+              {usesDefaultPrompt ? "Default" : "Custom"}
             </span>
           </div>
           <div className="flex gap-1.5">
@@ -6851,7 +6879,7 @@ function ConversationPromptSection({
               <Pencil size="0.625rem" />
               Edit Prompt
             </button>
-            {customPrompt && (
+            {!usesDefaultPrompt && (
               <button
                 onClick={resetPrompt}
                 className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"

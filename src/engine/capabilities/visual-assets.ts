@@ -38,9 +38,17 @@ interface VisualReferenceImageSource {
   avatarFilename?: string | null;
 }
 
+interface NpcAvatarUploadResult {
+  avatarPath: string;
+  avatarFilePath?: string | null;
+  avatarFilename?: string | null;
+  [key: string]: unknown;
+}
+
 export interface VisualAssetGateway {
   listSprites(ownerId: string, ownerType?: SpriteOwnerType): Promise<SpriteAssetInfo[]>;
   listBackgrounds(): Promise<BackgroundAssetInfo[]>;
   gameAssetsManifest?(): Promise<GameAssetManifest | null>;
   resolveReferenceImage?(source: VisualReferenceImageSource): Promise<string | null>;
+  uploadNpcAvatar?(chatId: string, name: string, avatar: string): Promise<NpcAvatarUploadResult>;
 }

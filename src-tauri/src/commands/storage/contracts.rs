@@ -16,6 +16,7 @@ pub(crate) struct TypedJsonField {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DeleteCleanup {
     ActivateDefaultChatPreset,
+    ClearChatFolder,
     ClearConnectionFolder,
     ClearLorebookReferences,
     DeleteCharacterGallery,
@@ -132,6 +133,8 @@ const AGENT_FIELDS: &[TypedJsonField] = &[object("settings")];
 const REGEX_SCRIPT_FIELDS: &[TypedJsonField] = &[array("placement"), array("trimStrings")];
 
 const CHAT_DEFAULTS: &[&str] = &["metadata", "gameState", "characterIds"];
+const CHAT_FOLDER_DEFAULTS: &[&str] = &["color", "collapsed", "sortOrder", "order"];
+const CHAT_FOLDER_FIELDS: &[TypedJsonField] = &[boolish("collapsed")];
 const CONNECTION_DEFAULTS: &[&str] = &["enabled"];
 const CONNECTION_FOLDER_DEFAULTS: &[&str] = &["color", "collapsed", "sortOrder", "order"];
 const CHARACTER_DEFAULTS: &[&str] = &["data", "comment", "avatarPath"];
@@ -188,6 +191,7 @@ const LOREBOOK_CLEANUP: &[DeleteCleanup] = &[
 ];
 const PROMPT_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::DeletePromptChildren];
 const CHAT_PRESET_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::ActivateDefaultChatPreset];
+const CHAT_FOLDER_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::ClearChatFolder];
 const CONNECTION_FOLDER_CLEANUP: &[DeleteCleanup] = &[DeleteCleanup::ClearConnectionFolder];
 const CHARACTER_CLEANUP: &[DeleteCleanup] = &[
     DeleteCleanup::RemoveOwnedMedia,
@@ -386,9 +390,9 @@ pub(crate) const COLLECTIONS: &[StorageCollectionContract] = &[
         "chat-folders",
         true,
         false,
-        EMPTY_DEFAULTS,
-        EMPTY_FIELDS,
-        EMPTY_CLEANUP,
+        CHAT_FOLDER_DEFAULTS,
+        CHAT_FOLDER_FIELDS,
+        CHAT_FOLDER_CLEANUP,
     ),
     contract(
         "messages",

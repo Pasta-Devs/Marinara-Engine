@@ -19,7 +19,7 @@ Before push or PR creation:
 3. Confirm the branch name, commit subject or label, trailers, and PR title or body do not self-name AI/tool/provider authorship. Rename or reword explicit authorship phrases before pushing or opening the PR. Do not reject bare product/domain words in legitimate feature names, file paths, data fields, or app output.
 4. Confirm only intentional files will ship.
 5. Verify evidence exists for the PR claim.
-6. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes the unused-code check, so do not wait for CI to discover dead files or exports.
+6. Run `pnpm check` after the final diff or reviewer-fix pass and before pushing or handing off the PR. It includes a warning-only unused-code report; review those findings because they no longer fail local checks or CI.
    If it cannot run, record the exact blocker and why the PR is still being handed off.
 7. Confirm repo-defined docs/release notes are updated for user-facing changes when an appropriate source exists, or explicitly record why not needed.
 8. If `.github/pull_request_template.md` exists, use it as the PR body, preserve its sections, and fill applicable placeholders.
@@ -27,12 +27,40 @@ Before push or PR creation:
 10. Draft external text exactly.
 
 `pnpm check` is the general pre-PR gate. It does not replace targeted proof
-such as focused tests, lint, build, size checks, clippy, native Tauri QA, or
-browser checks when the change needs them.
+such as existing test output, lint, build, size checks, clippy, native Tauri QA,
+or browser checks when the change needs them.
 
-Do not submit `*.test.ts` or `*.test.tsx` files as PR proof. If a repro needs
-one locally, keep it out of the submitted diff and cite the command output,
-existing checks, app/browser/Tauri proof, or manual verification notes instead.
+Proof is session evidence, not permission to add durable test artifacts by
+reflex.
+
+Temporary tests and harnesses are allowed when they stay local and uncommitted.
+Cite their command output or resulting observation instead of submitting the
+artifacts.
+
+New committed test artifacts are allowed only when at least one condition
+applies:
+
+- A maintainer explicitly asks for tests.
+- The change fixes a known regression that needs a small focused guard.
+- The behavior is risky and easy to break silently.
+- The touched area already has a nearby narrow/stable test pattern that is
+  cheaper than repeated manual proof.
+
+Before adding a durable test artifact, state `Durable test rationale` with:
+
+- The regression or risky invariant.
+- Why existing proof is insufficient.
+- Why this test is narrow.
+
+Prefer the smallest stable test near the owner:
+
+- Pure helper test.
+- Focused integration test.
+- Component test.
+- Browser/e2e only when browser behavior is the claim.
+
+Do not add broad fixture suites, snapshots, large e2e tests, or Rust inline
+tests merely to satisfy proof wording.
 
 If `pnpm check` fails, do not push or mark the PR ready. Classify the failure as
 in-scope or pre-existing/unrelated, fix in-scope failures, and report unrelated

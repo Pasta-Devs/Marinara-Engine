@@ -1,6 +1,6 @@
 use super::{
-    avatars, characters, chats, connection_secrets, contracts, game_state_snapshots,
-    lorebook_images, media_uploads, message_swipes, personas, prompts, shared,
+    avatars, characters, chats, connection_secrets, contracts, game_state_snapshots, integrations,
+    lorebook_images, media_uploads, message_swipes, personas, prompts, shared, sprites,
 };
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
@@ -10,8 +10,10 @@ use std::collections::HashSet;
 use tauri::State;
 
 type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
+type LorebookMetadataAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
 type LorebookFolderDeleteAtomicRows<'a> =
     (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
+type ChatFolderDeleteAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
 
 struct StorageWhereIn {
     field: String,
@@ -34,6 +36,118 @@ fn reject_message_swipe_mutation(entity: &str) -> Result<(), AppError> {
             "message-swipes is internal sidecar storage; mutate swipes through message commands",
         ));
     }
+    Ok(())
+}
+
+fn validate_chat_metadata_patch(
+    state: &AppState,
+    chat_id: &str,
+    patch: &mut Value,
+) -> Result<(), AppError> {
+    let metadata_patch = match patch.get("metadata") {
+        Some(Value::Object(object)) => Some(object.clone()),
+        Some(_) => return Err(AppError::invalid_input("Chat metadata must be an object")),
+        None => None,
+    };
+    if metadata_patch.is_none() && patch.get("characterIds").is_none() {
+        return Ok(());
+    };
+
+    let chat = state
+        .storage
+        .get("chats", chat_id)?
+        .ok_or_else(|| AppError::not_found(format!("Chat {chat_id} was not found")))?;
+    let active_ids_source = patch
+        .get("characterIds")
+        .or_else(|| chat.get("characterIds"));
+    let active_ids = chat_active_character_ids(active_ids_source);
+    let mut effective_metadata = shared::json_object_value(chat.get("metadata"))
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    if let Some(metadata_patch) = metadata_patch {
+        for (key, value) in metadata_patch {
+            effective_metadata.insert(key, value);
+        }
+    }
+    let previous_metadata = effective_metadata.clone();
+    normalize_chat_metadata_object(&mut effective_metadata, &active_ids)?;
+
+    if patch.get("metadata").is_some() || effective_metadata != previous_metadata {
+        patch["metadata"] = Value::Object(effective_metadata);
+    }
+    Ok(())
+}
+
+fn chat_active_character_ids(value: Option<&Value>) -> HashSet<String> {
+    shared::string_array_from_value(value).into_iter().collect()
+}
+
+fn normalize_chat_metadata_object(
+    metadata: &mut Map<String, Value>,
+    active_ids: &HashSet<String>,
+) -> Result<(), AppError> {
+    normalize_discord_webhook_metadata(metadata)?;
+    normalize_inactive_character_metadata(metadata, active_ids)?;
+    Ok(())
+}
+
+fn normalize_discord_webhook_metadata(metadata: &mut Map<String, Value>) -> Result<(), AppError> {
+    let Some(webhook_url) = metadata.get("discordWebhookUrl") else {
+        return Ok(());
+    };
+    let normalized = if webhook_url.is_null() {
+        None
+    } else if let Some(raw_url) = webhook_url.as_str() {
+        let trimmed_url = raw_url.trim();
+        if trimmed_url.is_empty() {
+            None
+        } else {
+            if !integrations::is_valid_discord_webhook_url(trimmed_url) {
+                return Err(AppError::invalid_input("Invalid Discord webhook URL"));
+            }
+            Some(Value::String(trimmed_url.to_string()))
+        }
+    } else {
+        return Err(AppError::invalid_input(
+            "Discord webhook URL must be a string",
+        ));
+    };
+    if let Some(value) = normalized {
+        metadata.insert("discordWebhookUrl".to_string(), value);
+    } else {
+        metadata.remove("discordWebhookUrl");
+    }
+    Ok(())
+}
+
+fn normalize_inactive_character_metadata(
+    metadata: &mut Map<String, Value>,
+    active_ids: &HashSet<String>,
+) -> Result<(), AppError> {
+    let Some(inactive_value) = metadata.get("inactiveCharacterIds") else {
+        return Ok(());
+    };
+    let Some(inactive_ids) = inactive_value.as_array() else {
+        return Err(AppError::invalid_input(
+            "inactiveCharacterIds must be an array of strings",
+        ));
+    };
+    if inactive_ids.iter().any(|id| !id.is_string()) {
+        return Err(AppError::invalid_input(
+            "inactiveCharacterIds must be an array of strings",
+        ));
+    }
+
+    let mut seen = HashSet::new();
+    let normalized: Vec<Value> = inactive_ids
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty() && active_ids.contains(*id))
+        .filter(|id| seen.insert((*id).to_string()))
+        .map(|id| Value::String(id.to_string()))
+        .collect();
+    metadata.insert("inactiveCharacterIds".to_string(), Value::Array(normalized));
     Ok(())
 }
 
@@ -564,6 +678,7 @@ pub(crate) fn storage_create_inner(
 ) -> Result<Value, AppError> {
     validate_storage_entity(&entity)?;
     reject_message_swipe_mutation(&entity)?;
+    validate_chat_folder_for_create(state, &entity, &value)?;
     validate_connection_folder_for_create(state, &entity, &value)?;
     if entity == "messages" {
         return Ok(shared::project_timeline_message(
@@ -572,6 +687,12 @@ pub(crate) fn storage_create_inner(
                 prepare_entity_for_create(state, &entity, value)?,
             )?,
         ));
+    }
+    if entity == "chat-folders" {
+        return create_chat_folder(state, value);
+    }
+    if entity == "connection-folders" {
+        return create_connection_folder(state, value);
     }
     let should_remove_prepared_gallery_file = gallery_create_persists_inline_image(&entity, &value);
     let prepared = prepare_entity_for_create(state, &entity, value)?;
@@ -623,9 +744,8 @@ pub(crate) fn storage_update_inner(
     validate_storage_entity(&entity)?;
     reject_message_swipe_mutation(&entity)?;
     if entity == "messages" {
-        return Ok(shared::project_timeline_message(
-            message_swipes::patch_message_update(state, &id, patch)?,
-        ));
+        let updated = chats::patch_message_update_with_memory_prune(state, &id, patch)?;
+        return Ok(shared::project_timeline_message(updated));
     }
     if entity == "characters" {
         return characters::update_character(state, &id, patch);
@@ -633,10 +753,21 @@ pub(crate) fn storage_update_inner(
     if entity == "chat-presets" {
         return patch_chat_preset(state, &id, patch);
     }
+    if entity == "chat-folders" {
+        return patch_chat_folder(state, &id, patch);
+    }
+    validate_chat_folder_for_patch(state, &entity, &id, &patch)?;
     validate_connection_folder_for_patch(state, &entity, &patch)?;
-    let normalized_patch = shared::normalize_update_patch(&entity, patch)?;
+    let mut normalized_patch =
+        normalize_chat_for_update(&entity, shared::normalize_update_patch(&entity, patch)?)?;
+    if entity == "chats" {
+        validate_chat_metadata_patch(state, &id, &mut normalized_patch)?;
+    }
     if entity == "lorebook-entries" {
         return update_lorebook_entry_with_character_book_sync(state, &id, normalized_patch);
+    }
+    if entity == "lorebooks" {
+        return update_lorebook_with_character_book_sync(state, &id, normalized_patch);
     }
     let updated = if entity == "connections" {
         connection_secrets::patch_connection(state, &id, normalized_patch)?
@@ -657,10 +788,222 @@ pub(crate) fn prepare_entity_for_create(
     let value = shared::with_entity_defaults(entity, value)?;
     match entity {
         "connections" => connection_secrets::prepare_connection_for_create(state, value),
+        "chats" => normalize_chat_for_create(value),
+        "chat-folders" => chat_folder_defaults_for_create(value),
         "connection-folders" => connection_folder_defaults_for_create(state, value),
         "gallery" | "character-gallery" => gallery_defaults_for_create(state, value),
         _ => Ok(value),
     }
+}
+
+fn normalize_chat_for_create(value: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    normalize_chat_mode_object(&mut object);
+    normalize_chat_folder_id_object(&mut object)?;
+    normalize_chat_metadata_for_create(&mut object)?;
+    Ok(Value::Object(object))
+}
+
+fn normalize_chat_for_update(entity: &str, patch: Value) -> Result<Value, AppError> {
+    if entity != "chats" {
+        return Ok(patch);
+    }
+    let mut object = ensure_object(patch)?;
+    normalize_chat_mode_object(&mut object);
+    normalize_chat_folder_id_object(&mut object)?;
+    Ok(Value::Object(object))
+}
+
+fn normalize_chat_metadata_for_create(object: &mut Map<String, Value>) -> Result<(), AppError> {
+    let active_ids = chat_active_character_ids(object.get("characterIds"));
+    let Some(metadata) = object.get_mut("metadata") else {
+        return Ok(());
+    };
+    let Some(metadata) = metadata.as_object_mut() else {
+        return Err(AppError::invalid_input("Chat metadata must be an object"));
+    };
+    normalize_chat_metadata_object(metadata, &active_ids)
+}
+
+fn normalize_chat_mode_object(object: &mut Map<String, Value>) {
+    if let Some(mode) = object
+        .get("mode")
+        .and_then(Value::as_str)
+        .and_then(canonical_chat_mode)
+    {
+        object.insert("mode".to_string(), Value::String(mode.to_string()));
+    }
+}
+
+fn normalize_chat_folder_id_object(object: &mut Map<String, Value>) -> Result<(), AppError> {
+    if !object.contains_key("folderId") {
+        return Ok(());
+    }
+    let normalized = match object.get("folderId") {
+        Some(Value::Null) => Value::Null,
+        Some(Value::String(folder_id)) => {
+            let folder_id = folder_id.trim();
+            if folder_id.is_empty() {
+                return Err(AppError::invalid_input(
+                    "folderId must be a folder id or null",
+                ));
+            }
+            Value::String(folder_id.to_string())
+        }
+        _ => {
+            return Err(AppError::invalid_input(
+                "folderId must be a folder id or null",
+            ));
+        }
+    };
+    object.insert("folderId".to_string(), normalized);
+    Ok(())
+}
+
+fn validated_chat_folder_name(value: &Value) -> Result<String, AppError> {
+    value
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| AppError::invalid_input("Chat folder name is required"))
+}
+
+fn normalize_chat_folder_name_patch(object: &mut Map<String, Value>) -> Result<(), AppError> {
+    if let Some(name) = object.get("name") {
+        let name = validated_chat_folder_name(name)?;
+        object.insert("name".to_string(), Value::String(name));
+    }
+    Ok(())
+}
+
+fn patch_chat_folder(state: &AppState, id: &str, patch: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(shared::normalize_update_patch("chat-folders", patch)?)?;
+    normalize_chat_folder_name_patch(&mut object)?;
+    if let Some(mode_value) = object.get("mode") {
+        let mode = mode_value
+            .as_str()
+            .and_then(canonical_chat_mode)
+            .ok_or_else(|| AppError::invalid_input("Invalid chat folder mode"))?;
+        object.insert("mode".to_string(), Value::String(mode.to_string()));
+        validate_chat_folder_mode_patch(state, id, mode)?;
+    }
+    state
+        .storage
+        .patch("chat-folders", id, Value::Object(object))
+}
+
+fn validate_chat_folder_mode_patch(
+    state: &AppState,
+    folder_id: &str,
+    folder_mode: &str,
+) -> Result<(), AppError> {
+    let mut filters = Map::new();
+    filters.insert("folderId".to_string(), Value::String(folder_id.to_string()));
+    for chat in state.storage.list_where("chats", &filters)? {
+        let chat_id = chat
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or("<unknown>");
+        let chat_mode = chat_mode_for_value(&chat).map_err(|_| {
+            AppError::invalid_input(format!(
+                "Chat folder {folder_id} contains chat {chat_id} with invalid mode"
+            ))
+        })?;
+        if chat_mode != folder_mode {
+            return Err(AppError::invalid_input(format!(
+                "Chat folder {folder_id} contains {chat_mode} chat {chat_id}, not {folder_mode} chat"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn create_chat_folder(state: &AppState, value: Value) -> Result<Value, AppError> {
+    let prepared = prepare_entity_for_create(state, "chat-folders", value)?;
+    state
+        .storage
+        .update_collections_atomically(vec!["chat-folders"], move |collections| {
+            let [folders] = collections else {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Chat folder create expected chat-folder collection",
+                ));
+            };
+            if folders.collection() != "chat-folders" {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Chat folder create received unexpected collection",
+                ));
+            }
+            create_chat_folder_in_rows(folders.rows_mut(), prepared)
+        })
+}
+
+fn create_chat_folder_in_rows(rows: &mut Vec<Value>, value: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    let id = object
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(new_id);
+    if rows
+        .iter()
+        .any(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+    {
+        return Err(AppError::invalid_input(format!(
+            "chat-folders/{id} already exists"
+        )));
+    }
+
+    let now = now_iso();
+    object.insert("id".to_string(), Value::String(id));
+    object
+        .entry("createdAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object
+        .entry("updatedAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object.insert("sortOrder".to_string(), json!(0));
+    object.insert("order".to_string(), json!(0));
+
+    for folder in rows.iter_mut() {
+        let Some(folder) = folder.as_object_mut() else {
+            return Err(AppError::invalid_input("Stored record is not an object"));
+        };
+        let next_order = folder
+            .get("sortOrder")
+            .or_else(|| folder.get("order"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            + 1;
+        folder.insert("sortOrder".to_string(), json!(next_order));
+        folder.insert("order".to_string(), json!(next_order));
+        folder.insert("updatedAt".to_string(), Value::String(now.clone()));
+    }
+
+    let record = Value::Object(object);
+    rows.push(record.clone());
+    Ok(record)
+}
+
+fn chat_folder_defaults_for_create(value: Value) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    let name = validated_chat_folder_name(object.get("name").unwrap_or(&Value::Null))?;
+    object.insert("name".to_string(), Value::String(name));
+
+    let mode = object
+        .get("mode")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .and_then(canonical_chat_mode)
+        .ok_or_else(|| AppError::invalid_input("Invalid chat folder mode"))?
+        .to_string();
+    object.insert("mode".to_string(), Value::String(mode));
+    object.insert("sortOrder".to_string(), json!(0));
+    object.insert("order".to_string(), json!(0));
+    Ok(Value::Object(object))
 }
 
 fn gallery_defaults_for_create(state: &AppState, value: Value) -> Result<Value, AppError> {
@@ -729,6 +1072,99 @@ fn connection_folder_defaults_for_create(
     Ok(Value::Object(object))
 }
 
+fn create_connection_folder(state: &AppState, value: Value) -> Result<Value, AppError> {
+    let explicit_order = explicit_positive_connection_folder_order(&value);
+    let mut prepared = prepare_entity_for_create(state, "connection-folders", value)?;
+    if let Some(order) = explicit_order {
+        let Some(object) = prepared.as_object_mut() else {
+            return Err(AppError::invalid_input(
+                "Connection folder must be an object",
+            ));
+        };
+        object.insert("sortOrder".to_string(), json!(order));
+        object.insert("order".to_string(), json!(order));
+        return state.storage.create("connection-folders", prepared);
+    }
+
+    state
+        .storage
+        .update_collections_atomically(vec!["connection-folders"], move |collections| {
+            let [folders] = collections else {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Connection folder create expected connection-folder collection",
+                ));
+            };
+            if folders.collection() != "connection-folders" {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Connection folder create received unexpected collection",
+                ));
+            }
+            create_connection_folder_in_rows(folders.rows_mut(), prepared)
+        })
+}
+
+fn explicit_positive_connection_folder_order(value: &Value) -> Option<i64> {
+    ["sortOrder", "order"].into_iter().find_map(|field| {
+        value
+            .get(field)
+            .and_then(Value::as_i64)
+            .filter(|order| *order > 0)
+    })
+}
+
+fn create_connection_folder_in_rows(
+    rows: &mut Vec<Value>,
+    value: Value,
+) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    let id = object
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(new_id);
+    if rows
+        .iter()
+        .any(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+    {
+        return Err(AppError::invalid_input(format!(
+            "connection-folders/{id} already exists"
+        )));
+    }
+
+    let now = now_iso();
+    object.insert("id".to_string(), Value::String(id));
+    object
+        .entry("createdAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object
+        .entry("updatedAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object.insert("sortOrder".to_string(), json!(0));
+    object.insert("order".to_string(), json!(0));
+
+    for folder in rows.iter_mut() {
+        let Some(folder) = folder.as_object_mut() else {
+            return Err(AppError::invalid_input("Stored record is not an object"));
+        };
+        let next_order = folder
+            .get("sortOrder")
+            .or_else(|| folder.get("order"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            + 1;
+        folder.insert("sortOrder".to_string(), json!(next_order));
+        folder.insert("order".to_string(), json!(next_order));
+        folder.insert("updatedAt".to_string(), Value::String(now.clone()));
+    }
+
+    let record = Value::Object(object);
+    rows.push(record.clone());
+    Ok(record)
+}
+
 pub(crate) fn validate_connection_folder_for_create(
     state: &AppState,
     entity: &str,
@@ -784,6 +1220,121 @@ fn validate_connection_folder_id(
         )));
     }
     Ok(())
+}
+
+pub(crate) fn validate_chat_folder_for_create(
+    state: &AppState,
+    entity: &str,
+    value: &Value,
+) -> Result<(), AppError> {
+    if entity != "chats" {
+        return Ok(());
+    }
+    let Some(folder_id) = parse_chat_folder_id(value.get("folderId"))? else {
+        return Ok(());
+    };
+    validate_chat_folder_assignment(state, &folder_id, chat_mode_for_value(value)?)
+}
+
+pub(crate) fn validate_chat_folder_for_patch(
+    state: &AppState,
+    entity: &str,
+    id: &str,
+    patch: &Value,
+) -> Result<(), AppError> {
+    if entity != "chats" {
+        return Ok(());
+    }
+    let Some(patch_object) = patch.as_object() else {
+        return Err(AppError::invalid_input("Patch must be an object"));
+    };
+    if !patch_object.contains_key("folderId") && !patch_object.contains_key("mode") {
+        return Ok(());
+    }
+
+    let existing = state
+        .storage
+        .get("chats", id)?
+        .ok_or_else(|| AppError::not_found(format!("chats/{id} was not found")))?;
+    let folder_id = if patch_object.contains_key("folderId") {
+        patch.get("folderId")
+    } else {
+        existing.get("folderId")
+    };
+    let Some(folder_id) = parse_chat_folder_id(folder_id)? else {
+        return Ok(());
+    };
+    let mode = if patch_object.contains_key("mode") {
+        chat_mode_for_value(patch)?
+    } else {
+        chat_mode_for_value(&existing)?
+    };
+    validate_chat_folder_assignment(state, &folder_id, mode)
+}
+
+fn validate_chat_folder_assignment(
+    state: &AppState,
+    folder_id: &str,
+    chat_mode: &str,
+) -> Result<(), AppError> {
+    let folder = state
+        .storage
+        .get("chat-folders", folder_id)?
+        .ok_or_else(|| {
+            AppError::invalid_input(format!("Chat folder {folder_id} does not exist"))
+        })?;
+    let folder_mode = folder
+        .get("mode")
+        .and_then(Value::as_str)
+        .and_then(canonical_chat_mode)
+        .ok_or_else(|| {
+            AppError::invalid_input(format!("Chat folder {folder_id} has invalid mode"))
+        })?;
+    if folder_mode != chat_mode {
+        return Err(AppError::invalid_input(format!(
+            "Chat folder {folder_id} is for {folder_mode} chats, not {chat_mode} chats"
+        )));
+    }
+    Ok(())
+}
+
+fn parse_chat_folder_id(folder_id: Option<&Value>) -> Result<Option<String>, AppError> {
+    let Some(folder_id) = folder_id else {
+        return Ok(None);
+    };
+    if folder_id.is_null() {
+        return Ok(None);
+    }
+    let Some(folder_id) = folder_id
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Err(AppError::invalid_input(
+            "folderId must be a folder id or null",
+        ));
+    };
+    Ok(Some(folder_id.to_string()))
+}
+
+fn chat_mode_for_value(value: &Value) -> Result<&'static str, AppError> {
+    let Some(mode) = value
+        .get("mode")
+        .and_then(Value::as_str)
+        .and_then(canonical_chat_mode)
+    else {
+        return Err(AppError::invalid_input("Chat mode is required"));
+    };
+    Ok(mode)
+}
+
+fn canonical_chat_mode(mode: &str) -> Option<&'static str> {
+    match mode.trim() {
+        "conversation" => Some("conversation"),
+        "roleplay" | "visual_novel" => Some("roleplay"),
+        "game" => Some("game"),
+        _ => None,
+    }
 }
 
 fn connection_default_agent_scope(connection: &Value) -> Option<&'static str> {
@@ -892,6 +1443,10 @@ pub(crate) fn delete_entity(
         let deleted = delete_lorebook_folder_with_entry_reparent_sync(state, id)?;
         return Ok(json!({ "deleted": deleted }));
     }
+    if entity == "chat-folders" {
+        let deleted = delete_chat_folder_with_chat_unfile(state, id)?;
+        return Ok(json!({ "deleted": deleted }));
+    }
     let existing = owned_record_for_delete(state, entity, id)?;
     let message_chat_id = if entity == "messages" {
         existing
@@ -903,7 +1458,16 @@ pub(crate) fn delete_entity(
         None
     };
     let deleted = if entity == "messages" {
-        message_swipes::delete_message_rows_with_swipes(state, &[id.to_string()])? > 0
+        if let (Some(chat_id), Some(message)) = (message_chat_id.as_deref(), existing.as_ref()) {
+            let (deleted, _) = chats::delete_message_rows_with_memory_prune(
+                state,
+                chat_id,
+                std::slice::from_ref(message),
+            )?;
+            deleted > 0
+        } else {
+            false
+        }
     } else {
         state.storage.delete(entity, id)?
     };
@@ -936,6 +1500,7 @@ fn apply_delete_cleanup(
                     activate_default_chat_preset_if_needed(state, record)?;
                 }
             }
+            contracts::DeleteCleanup::ClearChatFolder => unfile_chats_in_folder(state, id)?,
             contracts::DeleteCleanup::ClearConnectionFolder => {
                 unfile_connections_in_folder(state, id)?
             }
@@ -949,6 +1514,9 @@ fn apply_delete_cleanup(
                 delete_lorebook_children(state, id)?
             }
             contracts::DeleteCleanup::DeleteMessageTrackerSnapshots => {
+                if entity == "messages" {
+                    continue;
+                }
                 if let Some(chat_id) = message_chat_id {
                     game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
                     game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
@@ -1048,16 +1616,28 @@ pub(crate) fn connection_move_inner(
 }
 
 fn unfile_connections_in_folder(state: &AppState, folder_id: &str) -> Result<(), AppError> {
+    unfile_records_in_folder(state, "connections", folder_id)
+}
+
+fn unfile_chats_in_folder(state: &AppState, folder_id: &str) -> Result<(), AppError> {
+    unfile_records_in_folder(state, "chats", folder_id)
+}
+
+fn unfile_records_in_folder(
+    state: &AppState,
+    collection: &str,
+    folder_id: &str,
+) -> Result<(), AppError> {
     let mut filters = Map::new();
     filters.insert("folderId".to_string(), Value::String(folder_id.to_string()));
-    let rows = state.storage.list_where("connections", &filters)?;
+    let rows = state.storage.list_where(collection, &filters)?;
     let patches = rows
         .into_iter()
         .filter_map(|row| row.get("id").and_then(Value::as_str).map(str::to_string))
         .map(|id| (id, json!({ "folderId": Value::Null })))
         .collect::<Vec<_>>();
     if !patches.is_empty() {
-        state.storage.patch_many("connections", patches)?;
+        state.storage.patch_many(collection, patches)?;
     }
     Ok(())
 }
@@ -1213,6 +1793,39 @@ fn delete_lorebook_entry_with_character_book_sync(
     )
 }
 
+fn update_lorebook_with_character_book_sync(
+    state: &AppState,
+    id: &str,
+    patch: Value,
+) -> Result<Value, AppError> {
+    let patch = ensure_object(patch)?;
+    state.storage.update_collections_atomically(
+        vec!["lorebooks", "lorebook-entries", "characters"],
+        move |collections| {
+            let (lorebook_rows, entry_rows, character_rows) =
+                lorebook_metadata_atomic_rows(collections)?;
+            let row = lorebook_rows
+                .iter_mut()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
+                .ok_or_else(|| AppError::not_found(format!("lorebooks/{id} was not found")))?;
+            let Some(object) = row.as_object_mut() else {
+                return Err(AppError::invalid_input("Stored record is not an object"));
+            };
+            for (key, value) in patch {
+                object.insert(key, value);
+            }
+            object.insert("updatedAt".to_string(), Value::String(now_iso()));
+            let updated = Value::Object(object.clone());
+            sync_linked_character_books_for_lorebook_record_in_place(
+                character_rows,
+                entry_rows,
+                &updated,
+            )?;
+            Ok(updated)
+        },
+    )
+}
+
 fn delete_lorebook_folder_with_entry_reparent_sync(
     state: &AppState,
     folder_id: &str,
@@ -1256,6 +1869,61 @@ fn delete_lorebook_folder_with_entry_reparent_sync(
     )
 }
 
+fn delete_chat_folder_with_chat_unfile(
+    state: &AppState,
+    folder_id: &str,
+) -> Result<bool, AppError> {
+    state
+        .storage
+        .update_collections_atomically(vec!["chat-folders", "chats"], move |collections| {
+            delete_chat_folder_in_rows(collections, folder_id)
+        })
+}
+
+fn delete_chat_folder_in_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+    folder_id: &str,
+) -> Result<bool, AppError> {
+    let (folder_rows, chat_rows) = chat_folder_delete_atomic_rows(collections)?;
+    let before = folder_rows.len();
+    folder_rows.retain(|row| row.get("id").and_then(Value::as_str) != Some(folder_id));
+    let deleted = folder_rows.len() != before;
+    if !deleted {
+        return Ok(false);
+    }
+
+    let now = now_iso();
+    for chat in chat_rows.iter_mut() {
+        if chat.get("folderId").and_then(Value::as_str) != Some(folder_id) {
+            continue;
+        }
+        let Some(object) = chat.as_object_mut() else {
+            return Err(AppError::invalid_input("Stored record is not an object"));
+        };
+        object.insert("folderId".to_string(), Value::Null);
+        object.insert("updatedAt".to_string(), Value::String(now.clone()));
+    }
+    Ok(true)
+}
+
+fn chat_folder_delete_atomic_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+) -> Result<ChatFolderDeleteAtomicRows<'_>, AppError> {
+    let [folders, chats] = collections else {
+        return Err(AppError::new(
+            "storage_error",
+            "Chat folder delete expected folder and chat collections",
+        ));
+    };
+    match (folders.collection(), chats.collection()) {
+        ("chat-folders", "chats") => Ok((folders.rows_mut(), chats.rows_mut())),
+        _ => Err(AppError::new(
+            "storage_error",
+            "Chat folder delete received unexpected collections",
+        )),
+    }
+}
+
 fn lorebook_entry_atomic_rows(
     collections: &mut [marinara_storage::AtomicCollectionRows],
 ) -> Result<LorebookEntryAtomicRows<'_>, AppError> {
@@ -1270,6 +1938,32 @@ fn lorebook_entry_atomic_rows(
         _ => Err(AppError::new(
             "storage_error",
             "Lorebook entry sync received unexpected collections",
+        )),
+    }
+}
+
+fn lorebook_metadata_atomic_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+) -> Result<LorebookMetadataAtomicRows<'_>, AppError> {
+    let [lorebooks, entries, characters] = collections else {
+        return Err(AppError::new(
+            "storage_error",
+            "Lorebook metadata sync expected lorebook, entry, and character collections",
+        ));
+    };
+    match (
+        lorebooks.collection(),
+        entries.collection(),
+        characters.collection(),
+    ) {
+        ("lorebooks", "lorebook-entries", "characters") => Ok((
+            lorebooks.rows_mut(),
+            entries.rows_mut(),
+            characters.rows_mut(),
+        )),
+        _ => Err(AppError::new(
+            "storage_error",
+            "Lorebook metadata sync received unexpected collections",
         )),
     }
 }
@@ -1385,6 +2079,123 @@ fn sync_linked_character_books_for_lorebook_in_place(
         character_object.insert("updatedAt".to_string(), Value::String(now_iso()));
     }
     Ok(())
+}
+
+fn sync_linked_character_books_for_lorebook_record_in_place(
+    character_rows: &mut [Value],
+    all_entry_rows: &[Value],
+    lorebook: &Value,
+) -> Result<(), AppError> {
+    let Some(lorebook_id) = lorebook.get("id").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let mut entries = all_entry_rows
+        .iter()
+        .filter(|entry| lorebook_entry_lorebook_id(entry) == Some(lorebook_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        compare_json_values(
+            left.get("sortOrder").or_else(|| left.get("order")),
+            right.get("sortOrder").or_else(|| right.get("order")),
+        )
+        .then_with(|| compare_json_values(left.get("createdAt"), right.get("createdAt")))
+    });
+
+    for character in character_rows {
+        let Some(character_id) = character.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let mut data = character.get("data").cloned().unwrap_or_else(|| json!({}));
+        if embedded_lorebook_id(&data) != Some(lorebook_id) {
+            continue;
+        }
+        let Some(data_object) = data.as_object_mut() else {
+            continue;
+        };
+        let mut book = match data_object.get("character_book") {
+            Some(Value::Null) | None => Map::new(),
+            Some(Value::Object(book)) => book.clone(),
+            Some(_) => {
+                return Err(AppError::invalid_input(format!(
+                    "Character {character_id} has a malformed embedded lorebook"
+                )));
+            }
+        };
+        sync_linked_character_book_fields(&mut book, lorebook, &entries);
+        data_object.insert("character_book".to_string(), Value::Object(book));
+
+        if let Some(import_metadata) = data
+            .pointer_mut("/extensions/importMetadata/embeddedLorebook")
+            .and_then(Value::as_object_mut)
+        {
+            import_metadata.insert("entriesImported".to_string(), json!(entries.len()));
+            import_metadata.insert("hasEmbeddedLorebook".to_string(), Value::Bool(true));
+        }
+        let Some(character_object) = character.as_object_mut() else {
+            return Err(AppError::invalid_input(
+                "Stored character record is not an object",
+            ));
+        };
+        character_object.insert("data".to_string(), data);
+        character_object.insert("updatedAt".to_string(), Value::String(now_iso()));
+    }
+    Ok(())
+}
+
+fn sync_linked_character_book_fields(
+    book: &mut Map<String, Value>,
+    lorebook: &Value,
+    entries: &[Value],
+) {
+    book.insert(
+        "name".to_string(),
+        json!(lorebook
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("Character Lorebook")),
+    );
+    book.insert(
+        "description".to_string(),
+        json!(lorebook
+            .get("description")
+            .and_then(Value::as_str)
+            .unwrap_or("")),
+    );
+    book.insert(
+        "scan_depth".to_string(),
+        linked_character_book_number(lorebook.get("scanDepth"), 2),
+    );
+    book.insert(
+        "token_budget".to_string(),
+        linked_character_book_number(lorebook.get("tokenBudget"), 2048),
+    );
+    book.insert(
+        "recursive_scanning".to_string(),
+        json!(lorebook
+            .get("recursiveScanning")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)),
+    );
+    if !book.contains_key("extensions") {
+        book.insert("extensions".to_string(), json!({}));
+    }
+    book.insert(
+        "entries".to_string(),
+        json!(entries
+            .iter()
+            .enumerate()
+            .map(|(index, entry)| linked_character_book_entry(entry, index))
+            .collect::<Vec<_>>()),
+    );
+}
+
+fn linked_character_book_number(value: Option<&Value>, fallback: i64) -> Value {
+    match value {
+        Some(Value::Number(number)) => Value::Number(number.clone()),
+        _ => json!(fallback),
+    }
 }
 
 fn linked_character_book_entry(entry: &Value, index: usize) -> Value {
@@ -1533,10 +2344,18 @@ fn delete_cleanup_needs_existing_record(cleanup: &contracts::DeleteCleanup) -> b
 
 fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
     match entity {
-        "characters" => avatars::remove_avatar_file(state, entity, record),
+        "characters" => {
+            avatars::remove_avatar_file(state, entity, record);
+            if let Some(id) = record.get("id").and_then(Value::as_str) {
+                sprites::remove_owned_sprite_dir(state, sprites::SpriteOwnerKind::Character, id);
+            }
+        }
         "character-versions" => characters::remove_character_version_avatar_file(state, record),
         "personas" => {
-            avatars::remove_avatar_file_preserving_persona_snapshots(state, entity, record)
+            avatars::remove_avatar_file_preserving_persona_snapshots(state, entity, record);
+            if let Some(id) = record.get("id").and_then(Value::as_str) {
+                sprites::remove_owned_sprite_dir(state, sprites::SpriteOwnerKind::Persona, id);
+            }
         }
         "lorebooks" => lorebook_images::remove_lorebook_image_file(state, record),
         "gallery" | "character-gallery" => remove_gallery_file(state, record),
@@ -1833,6 +2652,510 @@ mod tests {
             .unwrap_or(false)
     }
 
+    #[test]
+    fn chat_metadata_patch_rejects_invalid_discord_webhook_url() {
+        let state = test_state("chat-metadata-invalid-discord-webhook");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({ "id": "chat-a", "name": "Chat A", "metadata": {} }),
+        )
+        .expect("chat should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "discordWebhookUrl": "not-a-discord-webhook" } }),
+        )
+        .expect_err("invalid Discord webhook metadata should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid Discord webhook URL"));
+    }
+
+    #[test]
+    fn chat_metadata_create_rejects_invalid_discord_webhook_url() {
+        let state = test_state("chat-metadata-create-invalid-webhook");
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "metadata": { "discordWebhookUrl": "not-a-discord-webhook" }
+            }),
+        )
+        .expect_err("invalid Discord webhook metadata should reject on create");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains("Invalid Discord webhook URL"));
+        assert!(
+            state
+                .storage
+                .get("chats", "chat-a")
+                .expect("chat lookup should succeed")
+                .is_none(),
+            "invalid chat metadata should not persist"
+        );
+    }
+
+    #[test]
+    fn chat_metadata_create_normalizes_discord_webhook_url() {
+        let state = test_state("chat-metadata-create-normalize-webhook");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "metadata": {
+                    "discordWebhookUrl": "  https://discord.com/api/webhooks/123456789/token_AB-12  ",
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("valid Discord webhook metadata should create");
+
+        assert_eq!(
+            created["metadata"]["discordWebhookUrl"],
+            json!("https://discord.com/api/webhooks/123456789/token_AB-12")
+        );
+        assert_eq!(created["metadata"]["theme"], json!("kept"));
+
+        let cleared = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-b",
+                "name": "Chat B",
+                "metadata": {
+                    "discordWebhookUrl": null,
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("null Discord webhook metadata should clear on create");
+        assert!(!cleared["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+
+        let blank = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-c",
+                "name": "Chat C",
+                "metadata": { "discordWebhookUrl": "   " }
+            }),
+        )
+        .expect("blank Discord webhook metadata should clear on create");
+        assert!(!blank["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+    }
+
+    #[test]
+    fn chat_metadata_patch_clears_discord_webhook_url() {
+        let state = test_state("chat-metadata-patch-clear-webhook");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "metadata": {
+                    "discordWebhookUrl": "https://discord.com/api/webhooks/123456789/token_AB-12",
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "discordWebhookUrl": null } }),
+        )
+        .expect("null Discord webhook metadata should clear");
+
+        assert!(!updated["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+        assert_eq!(updated["metadata"]["theme"], json!("kept"));
+
+        let restored = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({
+                "metadata": {
+                    "discordWebhookUrl": " https://discordapp.com/api/webhooks/123456789/token_AB-12 "
+                }
+            }),
+        )
+        .expect("valid Discord webhook metadata should update");
+        assert_eq!(
+            restored["metadata"]["discordWebhookUrl"],
+            json!("https://discordapp.com/api/webhooks/123456789/token_AB-12")
+        );
+
+        let cleared = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "discordWebhookUrl": "  " } }),
+        )
+        .expect("blank Discord webhook metadata should clear");
+        assert!(!cleared["metadata"]
+            .as_object()
+            .expect("metadata should stay an object")
+            .contains_key("discordWebhookUrl"));
+    }
+
+    #[test]
+    fn chat_metadata_create_normalizes_inactive_character_ids() {
+        let state = test_state("chat-metadata-create-inactive-characters");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": {
+                    "theme": "kept",
+                    "inactiveCharacterIds": [" char-a ", "missing", "char-a", "char-b"]
+                }
+            }),
+        )
+        .expect("valid inactive character metadata should create");
+
+        assert_eq!(
+            created["metadata"]["inactiveCharacterIds"],
+            json!(["char-a", "char-b"])
+        );
+        assert_eq!(created["metadata"]["theme"], json!("kept"));
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-b",
+                "name": "Chat B",
+                "characterIds": ["char-a"],
+                "metadata": { "inactiveCharacterIds": ["char-a", 3] }
+            }),
+        )
+        .expect_err("non-string inactive character ids should reject on create");
+
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn chat_metadata_patch_normalizes_inactive_character_ids() {
+        let state = test_state("chat-metadata-inactive-characters");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": { "theme": "kept" }
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "inactiveCharacterIds": [" char-a ", "missing", "char-a", "char-b"] } }),
+        )
+        .expect("valid inactive character metadata should update");
+
+        assert_eq!(
+            updated["metadata"]["inactiveCharacterIds"],
+            json!(["char-a", "char-b"])
+        );
+        assert_eq!(updated["metadata"]["theme"], json!("kept"));
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "metadata": { "inactiveCharacterIds": ["char-a", 3] } }),
+        )
+        .expect_err("non-string inactive character ids should reject");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn chat_metadata_patch_prunes_stored_inactive_ids_after_character_patch() {
+        let state = test_state("chat-character-patch-prunes-inactive");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": {
+                    "inactiveCharacterIds": ["char-b"],
+                    "theme": "kept"
+                }
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "characterIds": ["char-a"] }),
+        )
+        .expect("character-only patch should prune stale inactive ids");
+
+        assert_eq!(updated["characterIds"], json!(["char-a"]));
+        assert_eq!(updated["metadata"]["inactiveCharacterIds"], json!([]));
+        assert_eq!(updated["metadata"]["theme"], json!("kept"));
+    }
+
+    #[test]
+    fn chat_metadata_patch_normalizes_inactive_ids_against_patched_character_ids() {
+        let state = test_state("chat-metadata-inactive-patched-characters");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "name": "Chat A",
+                "characterIds": ["char-a", "char-b"],
+                "metadata": {}
+            }),
+        )
+        .expect("chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({
+                "characterIds": ["char-c"],
+                "metadata": { "inactiveCharacterIds": ["char-a", "char-c"] }
+            }),
+        )
+        .expect("same patch should use the patched chat membership");
+
+        assert_eq!(updated["characterIds"], json!(["char-c"]));
+        assert_eq!(
+            updated["metadata"]["inactiveCharacterIds"],
+            json!(["char-c"])
+        );
+    }
+
+    #[test]
+    fn generic_message_content_update_prunes_stale_chat_memories() {
+        let state = test_state("generic-message-edit-memory-prune");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-1",
+                "name": "Memory chat",
+                "memories": [
+                    {
+                        "id": "keep-before",
+                        "messageIds": ["message-before"],
+                        "lastMessageAt": "2026-06-01T09:00:00.000Z"
+                    },
+                    {
+                        "id": "drop-edited",
+                        "messageIds": ["message-1"],
+                        "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                    },
+                    {
+                        "id": "drop-newer",
+                        "lastMessageAt": "2026-06-01T10:01:00.000Z"
+                    }
+                ]
+            }),
+        )
+        .expect("chat should seed");
+        storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        storage_update_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            json!({ "content": "new visible text" }),
+        )
+        .expect("message edit should update");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should be an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+
+        assert_eq!(memory_ids, vec!["keep-before"]);
+    }
+
+    #[test]
+    fn generic_message_content_update_malformed_memories_fail_before_message_write() {
+        let state = test_state("generic-message-edit-malformed-preflight");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should seed");
+        storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            json!({ "content": "new visible text" }),
+        )
+        .expect_err("malformed memories should fail before message write");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("old visible text"));
+    }
+
+    #[test]
+    fn generic_message_content_update_rolls_back_when_memory_cleanup_fails() {
+        let state = test_state("generic-message-edit-atomic-failure");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": [
+                        {
+                            "id": "keep-before",
+                            "messageIds": ["message-before"],
+                            "lastMessageAt": "2026-06-01T09:00:00.000Z"
+                        },
+                        {
+                            "id": "__fail_after_message_mutation__",
+                            "messageIds": ["message-before"],
+                            "lastMessageAt": "2026-06-01T09:30:00.000Z"
+                        },
+                        {
+                            "id": "drop-edited",
+                            "messageIds": ["message-1"],
+                            "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-newer",
+                            "lastMessageAt": "2026-06-01T10:01:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            json!({ "content": "new visible text" }),
+        )
+        .expect_err("cleanup failure should abort generic message edit");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should be an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("old visible text"));
+        assert_eq!(
+            memory_ids,
+            vec![
+                "keep-before",
+                "__fail_after_message_mutation__",
+                "drop-edited",
+                "drop-newer"
+            ]
+        );
+    }
+
     fn seed_linked_character_book(state: &AppState) {
         state
             .storage
@@ -1844,6 +3167,12 @@ mod tests {
                     "data": {
                         "name": "Mira",
                         "character_book": {
+                            "extensions": {
+                                "sillytavern": {
+                                    "source": "card",
+                                    "preserved": true
+                                }
+                            },
                             "entries": [
                                 {
                                     "name": "Old",
@@ -1900,6 +3229,22 @@ mod tests {
             .into_iter()
             .next()
             .expect("character book should have an entry")
+    }
+
+    fn character_book_header(state: &AppState) -> Value {
+        let mut book = state
+            .storage
+            .get("characters", "character-1")
+            .expect("character should read")
+            .and_then(|character| {
+                character
+                    .pointer("/data/character_book")
+                    .and_then(Value::as_object)
+                    .cloned()
+            })
+            .expect("character book should exist");
+        book.remove("entries");
+        Value::Object(book)
     }
 
     fn entry_exists(state: &AppState, id: &str) -> bool {
@@ -2025,6 +3370,55 @@ mod tests {
     }
 
     #[test]
+    fn linked_lorebook_metadata_update_is_atomic_when_character_book_sync_fails() {
+        let state = test_state("linked-character-book-metadata-update-atomic");
+        seed_linked_character_book(&state);
+        state
+            .storage
+            .patch(
+                "characters",
+                "character-1",
+                json!({
+                    "data": {
+                        "name": "Mira",
+                        "character_book": "malformed",
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "linked-book",
+                                    "entriesImported": 1
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("malformed linked character book should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "lorebooks".to_string(),
+            "linked-book".to_string(),
+            json!({
+                "name": "Should Roll Back"
+            }),
+        )
+        .expect_err("malformed linked character book should reject the metadata update");
+
+        assert_eq!(error.code, "invalid_input");
+        let lorebook = state
+            .storage
+            .get("lorebooks", "linked-book")
+            .expect("lorebook should read")
+            .expect("lorebook should still exist");
+        assert_eq!(
+            lorebook.get("name").and_then(Value::as_str),
+            Some("Mira Lorebook")
+        );
+    }
+
+    #[test]
     fn updating_linked_lorebook_entry_syncs_character_book() {
         let state = test_state("linked-character-book-entry-update");
         seed_linked_character_book(&state);
@@ -2062,6 +3456,99 @@ mod tests {
         );
         assert_eq!(entry["keys"], json!(["sun"]));
         assert_eq!(entry.get("enabled").and_then(Value::as_bool), Some(false));
+    }
+
+    #[test]
+    fn updating_linked_lorebook_metadata_syncs_character_book_header() {
+        let state = test_state("linked-character-book-metadata-update");
+        seed_linked_character_book(&state);
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-1",
+                    "lorebookId": "linked-book",
+                    "name": "Moon",
+                    "content": "moon text",
+                    "keys": ["moon"]
+                }),
+            )
+            .expect("entry should seed");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-other",
+                    "name": "Other",
+                    "data": {
+                        "name": "Other",
+                        "character_book": {
+                            "name": "Other Header",
+                            "entries": []
+                        },
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "other-book",
+                                    "entriesImported": 0
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("unrelated linked character should seed");
+
+        storage_update_inner(
+            &state,
+            "lorebooks".to_string(),
+            "linked-book".to_string(),
+            json!({
+                "name": "Updated Mira Lorebook",
+                "description": "Fresh linked header",
+                "scanDepth": 7,
+                "tokenBudget": 333,
+                "recursiveScanning": true
+            }),
+        )
+        .expect("lorebook metadata update should sync");
+
+        assert_eq!(
+            character_book_header(&state),
+            json!({
+                "name": "Updated Mira Lorebook",
+                "description": "Fresh linked header",
+                "scan_depth": 7,
+                "token_budget": 333,
+                "recursive_scanning": true,
+                "extensions": {
+                    "sillytavern": {
+                        "source": "card",
+                        "preserved": true
+                    }
+                }
+            })
+        );
+        let entry = first_character_book_entry(&state);
+        assert_eq!(entry.get("name").and_then(Value::as_str), Some("Moon"));
+        assert_eq!(
+            entry.get("content").and_then(Value::as_str),
+            Some("moon text")
+        );
+        let other = state
+            .storage
+            .get("characters", "character-other")
+            .expect("other character should read")
+            .expect("other character should exist");
+        assert_eq!(
+            other
+                .pointer("/data/character_book/name")
+                .and_then(Value::as_str),
+            Some("Other Header")
+        );
     }
 
     #[test]
@@ -3273,6 +4760,87 @@ mod tests {
     }
 
     #[test]
+    fn deleting_character_removes_its_sprite_directory() {
+        let state = test_state("character-delete-sprites");
+        let sprite_dir = state.data_dir.join("sprites").join("char-1");
+        std::fs::create_dir_all(&sprite_dir).expect("sprite dir should be created");
+        std::fs::write(sprite_dir.join("neutral.png"), b"sprite")
+            .expect("sprite should be written");
+        state
+            .storage
+            .create("characters", json!({ "id": "char-1" }))
+            .expect("character row should be created");
+
+        delete_entity(&state, "characters", "char-1", false)
+            .expect("character delete should succeed");
+
+        assert!(
+            !sprite_dir.exists(),
+            "deleted character should remove its sprite directory"
+        );
+    }
+
+    #[test]
+    fn deleting_persona_removes_its_sprite_directory() {
+        let state = test_state("persona-delete-sprites");
+        let sprite_dir = state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("persona-1");
+        std::fs::create_dir_all(&sprite_dir).expect("persona sprite dir should be created");
+        std::fs::write(sprite_dir.join("happy.png"), b"sprite").expect("sprite should be written");
+        state
+            .storage
+            .create("personas", json!({ "id": "persona-1" }))
+            .expect("persona row should be created");
+
+        delete_entity(&state, "personas", "persona-1", false)
+            .expect("persona delete should succeed");
+
+        assert!(
+            !sprite_dir.exists(),
+            "deleted persona should remove its sprite directory"
+        );
+    }
+
+    #[test]
+    fn deleting_persona_removes_namespaced_sprites_and_leaves_legacy_dir() {
+        // When both a legacy sprites/<id> and the namespaced sprites/personas/<id> exist, deleting
+        // the persona must still remove the namespaced dir (no dependence on legacy migration) and
+        // must NOT touch the legacy path, which can belong to a same-id character.
+        let state = test_state("persona-delete-sprites-conflict");
+        let legacy_dir = state.data_dir.join("sprites").join("persona-1");
+        let namespaced_dir = state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("persona-1");
+        std::fs::create_dir_all(&legacy_dir).expect("legacy sprite dir should be created");
+        std::fs::write(legacy_dir.join("happy.png"), b"legacy")
+            .expect("legacy sprite should write");
+        std::fs::create_dir_all(&namespaced_dir).expect("namespaced sprite dir should be created");
+        std::fs::write(namespaced_dir.join("happy.png"), b"namespaced")
+            .expect("sprite should write");
+        state
+            .storage
+            .create("personas", json!({ "id": "persona-1" }))
+            .expect("persona row should be created");
+
+        delete_entity(&state, "personas", "persona-1", false)
+            .expect("persona delete should succeed");
+
+        assert!(
+            !namespaced_dir.exists(),
+            "deleted persona should remove its namespaced sprite directory even with a legacy dir present"
+        );
+        assert!(
+            legacy_dir.exists(),
+            "deleted persona must not remove the legacy sprite path (it can belong to a same-id character)"
+        );
+    }
+
+    #[test]
     fn deleting_character_version_preserves_avatar_still_used_by_character() {
         let state = test_state("character-version-delete-live-avatar");
         let avatar_dir = state.data_dir.join("avatars").join("characters");
@@ -3367,6 +4935,394 @@ mod tests {
             .expect("chat should read")
             .expect("chat should remain");
         assert!(chat["gameState"].is_null());
+    }
+
+    #[test]
+    fn deleting_message_prunes_overlapping_chat_memories() {
+        let state = test_state("message-delete-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory delete chat",
+                    "memories": [
+                        {
+                            "id": "keep-older",
+                            "messageIds": ["message-old"],
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-by-id",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-later-window",
+                            "messageIds": ["message-later"],
+                            "lastMessageAt": "2026-01-03T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        for (id, created_at) in [
+            ("message-old", "2026-01-01T00:00:00.000Z"),
+            ("message-delete", "2026-01-02T00:00:00.000Z"),
+            ("message-later", "2026-01-03T00:00:00.000Z"),
+        ] {
+            state
+                .storage
+                .create(
+                    "messages",
+                    json!({
+                        "id": id,
+                        "chatId": "chat-1",
+                        "role": "assistant",
+                        "content": id,
+                        "createdAt": created_at
+                    }),
+                )
+                .expect("message should be created");
+        }
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should prune memory recall");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ids, vec!["keep-older"]);
+    }
+
+    #[test]
+    fn deleting_message_prunes_created_at_only_chat_memories() {
+        let state = test_state("message-delete-created-at-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Created-at memory delete chat",
+                    "memories": [
+                        { "id": "keep-created-at-old", "createdAt": "2026-01-01T00:00:00.000Z" },
+                        { "id": "drop-created-at-new", "createdAt": "2026-01-03T00:00:00.000Z" }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should prune created-at memory recall");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ids, vec!["keep-created-at-old"]);
+    }
+
+    #[test]
+    fn deleting_message_prunes_mixed_timestamp_memory_by_shared_precedence() {
+        let state = test_state("message-delete-mixed-timestamp-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Mixed timestamp memory delete chat",
+                    "memories": [
+                        {
+                            "id": "drop-created-inside-window",
+                            "createdAt": "2026-01-03T00:00:00.000Z",
+                            "firstMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "keep-created-before-window",
+                            "createdAt": "2026-01-01T00:00:00.000Z",
+                            "firstMessageAt": "2026-01-04T00:00:00.000Z"
+                        },
+                        {
+                            "id": "keep-last-message-before-window",
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z",
+                            "createdAt": "2026-01-04T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should use shared memory timestamp precedence");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            memory_ids,
+            vec![
+                "keep-created-before-window",
+                "keep-last-message-before-window"
+            ]
+        );
+    }
+
+    #[test]
+    fn deleting_message_keeps_rows_and_memories_when_memory_prune_fails() {
+        let state = test_state("message-delete-prune-fails");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Prune failure delete chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+
+        let error = delete_entity(&state, "messages", "message-delete", false)
+            .expect_err("malformed memories should abort atomic delete");
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_some());
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert_eq!(chat["memories"], json!("{not valid json"));
+    }
+
+    #[test]
+    fn deleting_message_rolls_back_rows_memories_and_trackers_when_cleanup_fails() {
+        let state = test_state("message-delete-tracker-cleanup-fails");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Tracker rollback delete chat",
+                    "gameState": { "location": "before" },
+                    "memories": [
+                        {
+                            "id": "drop-memory",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        },
+                        {
+                            "id": "__fail_after_delete_mutation__",
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "message-delete",
+                "location": "delete target"
+            }),
+        )
+        .expect("tracker snapshot should seed");
+
+        let error = delete_entity(&state, "messages", "message-delete", false)
+            .expect_err("injected cleanup failure should abort atomic delete");
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_some());
+        let snapshots = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should read");
+        assert_eq!(snapshots.len(), 1);
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            memory_ids,
+            vec!["drop-memory", "__fail_after_delete_mutation__"]
+        );
+        assert_eq!(chat["gameState"]["location"], "before");
+    }
+
+    #[test]
+    fn deleting_message_converges_rows_snapshots_visible_tracker_and_memories() {
+        let state = test_state("message-delete-tracker-success");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Tracker success delete chat",
+                    "gameState": { "location": "delete target" },
+                    "memories": [
+                        {
+                            "id": "keep-memory",
+                            "messageIds": ["message-keep"],
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-memory",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        for (id, created_at) in [
+            ("message-keep", "2026-01-01T00:00:00.000Z"),
+            ("message-delete", "2026-01-02T00:00:00.000Z"),
+        ] {
+            state
+                .storage
+                .create(
+                    "messages",
+                    json!({
+                        "id": id,
+                        "chatId": "chat-1",
+                        "role": "assistant",
+                        "content": id,
+                        "createdAt": created_at
+                    }),
+                )
+                .expect("message should be created");
+            game_state_snapshots::save_tracker_snapshot(
+                &state,
+                "chat-1",
+                json!({
+                    "messageId": id,
+                    "location": id
+                }),
+            )
+            .expect("tracker snapshot should seed");
+        }
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should converge cleanup");
+
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_none());
+        let snapshots = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should read");
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0]["messageId"], "message-keep");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ids, vec!["keep-memory"]);
+        assert_eq!(chat["gameState"]["location"], "message-keep");
     }
 
     #[test]
@@ -4335,6 +6291,844 @@ mod tests {
     }
 
     #[test]
+    fn creating_connection_folder_defaults_and_shifts_existing_folders() {
+        let state = test_state("connection-folder-create-defaults");
+        storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "New folder"
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["color"], "#38bdf8");
+        assert_eq!(created["collapsed"], false);
+        assert_eq!(created["sortOrder"], 0);
+        assert_eq!(created["order"], 0);
+        assert!(created.get("createdAt").is_some());
+        assert!(created.get("updatedAt").is_some());
+
+        let shifted = state
+            .storage
+            .get("connection-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(shifted["sortOrder"], 1);
+        assert_eq!(shifted["order"], 1);
+    }
+
+    #[test]
+    fn creating_connection_folder_with_explicit_order_does_not_shift_existing_folders() {
+        let state = test_state("connection-folder-create-explicit-order");
+        storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "New folder",
+                "sortOrder": 4,
+                "order": 4
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["sortOrder"], 4);
+        assert_eq!(created["order"], 4);
+
+        let existing = state
+            .storage
+            .get("connection-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(existing["sortOrder"], 0);
+        assert_eq!(existing["order"], 0);
+    }
+
+    #[test]
+    fn creating_connection_folder_with_explicit_legacy_order_preserves_order() {
+        let state = test_state("connection-folder-create-legacy-order");
+        storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "New folder",
+                "order": 3
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["sortOrder"], 3);
+        assert_eq!(created["order"], 3);
+
+        let existing = state
+            .storage
+            .get("connection-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(existing["sortOrder"], 0);
+        assert_eq!(existing["order"], 0);
+    }
+
+    #[test]
+    fn creating_chat_folder_defaults_and_shifts_existing_folders() {
+        let state = test_state("chat-folder-create-defaults");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old",
+                "mode": "conversation"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "  New folder  ",
+                "mode": "roleplay"
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["name"], "New folder");
+        assert_eq!(created["color"], "");
+        assert_eq!(created["collapsed"], false);
+        assert_eq!(created["sortOrder"], 0);
+        assert_eq!(created["order"], 0);
+        assert!(created.get("createdAt").is_some());
+        assert!(created.get("updatedAt").is_some());
+
+        let shifted = state
+            .storage
+            .get("chat-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(shifted["sortOrder"], 1);
+        assert_eq!(shifted["order"], 1);
+    }
+
+    #[test]
+    fn creating_chat_folder_rejects_invalid_name_and_mode() {
+        let state = test_state("chat-folder-create-invalid");
+        let blank_name = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "name": "  ", "mode": "conversation" }),
+        )
+        .expect_err("blank names should be rejected");
+        assert_eq!(blank_name.code, "invalid_input");
+
+        let invalid_mode = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "name": "Folder", "mode": "unknown" }),
+        )
+        .expect_err("invalid modes should be rejected");
+        assert_eq!(invalid_mode.code, "invalid_input");
+    }
+
+    #[test]
+    fn creating_chat_folder_canonicalizes_legacy_mode_alias() {
+        let state = test_state("chat-folder-create-alias");
+        let created = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "visual_novel" }),
+        )
+        .expect("legacy mode alias should be accepted");
+
+        assert_eq!(created["mode"], "roleplay");
+        let stored = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should persist");
+        assert_eq!(stored["mode"], "roleplay");
+    }
+
+    #[test]
+    fn duplicate_chat_folder_create_leaves_existing_order_unchanged() {
+        let state = test_state("chat-folder-duplicate-keeps-order");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let error = storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Duplicate", "mode": "conversation" }),
+        )
+        .expect_err("duplicate folder ids should be rejected");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(folder["sortOrder"], 0);
+        assert_eq!(folder["order"], 0);
+    }
+
+    #[test]
+    fn deleting_chat_folder_unfiles_child_chats() {
+        let state = test_state("chat-folder-delete");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-delete", "name": "Delete", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-keep", "name": "Keep", "mode": "conversation" }),
+        )
+        .expect("negative-control folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-reparent",
+                "title": "Reparent",
+                "mode": "conversation",
+                "folderId": "folder-delete"
+            }),
+        )
+        .expect("chat should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-keep",
+                "title": "Keep",
+                "mode": "conversation",
+                "folderId": "folder-keep"
+            }),
+        )
+        .expect("negative-control chat should be created");
+
+        delete_entity(&state, "chat-folders", "folder-delete", false)
+            .expect("folder delete should succeed");
+
+        let reparented = state
+            .storage
+            .get("chats", "chat-reparent")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(reparented.get("folderId").is_none_or(Value::is_null));
+        let kept = state
+            .storage
+            .get("chats", "chat-keep")
+            .expect("negative-control chat should read")
+            .expect("negative-control chat should remain");
+        assert_eq!(kept["folderId"], "folder-keep");
+    }
+
+    #[test]
+    fn chat_folder_mode_patch_rejects_incompatible_filed_chats() {
+        let state = test_state("chat-folder-mode-patch-incompatible");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "folder-a"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "mode": "game" }),
+        )
+        .expect_err("incompatible filed chats should block folder mode changes");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(folder["mode"], "conversation");
+    }
+
+    #[test]
+    fn chat_folder_mode_patch_canonicalizes_alias_and_rejects_invalid_mode() {
+        let state = test_state("chat-folder-mode-patch-alias-invalid");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let updated = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "mode": "visual_novel" }),
+        )
+        .expect("legacy folder mode alias should be canonicalized");
+        assert_eq!(updated["mode"], "roleplay");
+
+        let error = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "mode": "unknown" }),
+        )
+        .expect_err("invalid folder modes should reject before storage writes");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(folder["mode"], "roleplay");
+    }
+
+    #[test]
+    fn chat_folder_name_patch_trims_and_rejects_blank_names() {
+        let state = test_state("chat-folder-name-patch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let updated = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "name": "  Folder B  " }),
+        )
+        .expect("folder name patch should trim");
+        assert_eq!(updated["name"], "Folder B");
+
+        let error = storage_update_inner(
+            &state,
+            "chat-folders".to_string(),
+            "folder-a".to_string(),
+            json!({ "name": "   " }),
+        )
+        .expect_err("blank folder name patch should reject");
+        assert_eq!(error.code, "invalid_input");
+
+        let stored = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(stored["name"], "Folder B");
+    }
+
+    #[test]
+    fn filed_chat_alias_mode_create_and_patch_persist_canonical_mode() {
+        let state = test_state("chat-folder-filed-chat-mode-alias");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "roleplay-folder", "name": "Roleplay", "mode": "roleplay" }),
+        )
+        .expect("folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "visual_novel",
+                "folderId": "roleplay-folder"
+            }),
+        )
+        .expect("filed chat using legacy mode alias should be accepted");
+        assert_eq!(created["mode"], "roleplay");
+
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-b",
+                "title": "Chat B",
+                "mode": "roleplay",
+                "folderId": "roleplay-folder"
+            }),
+        )
+        .expect("second filed chat should be created");
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-b".to_string(),
+            json!({ "mode": "visual_novel" }),
+        )
+        .expect("filed chat mode alias patch should be accepted");
+        assert_eq!(updated["mode"], "roleplay");
+
+        let stored = state
+            .storage
+            .get("chats", "chat-b")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert_eq!(stored["mode"], "roleplay");
+    }
+
+    #[test]
+    fn chat_folder_id_create_and_patch_persist_trimmed_reference() {
+        let state = test_state("chat-folder-id-trim");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-b", "name": "Folder B", "mode": "conversation" }),
+        )
+        .expect("second folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": " folder-a "
+            }),
+        )
+        .expect("padded folderId create should be accepted and normalized");
+        assert_eq!(created["folderId"], "folder-a");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "folderId": " folder-b " }),
+        )
+        .expect("padded folderId patch should be accepted and normalized");
+        assert_eq!(updated["folderId"], "folder-b");
+
+        delete_entity(&state, "chat-folders", "folder-b", false)
+            .expect("folder delete should succeed");
+        let chat = state
+            .storage
+            .get("chats", "chat-a")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(chat.get("folderId").is_none_or(Value::is_null));
+    }
+
+    #[test]
+    fn unfiling_legacy_no_mode_chat_does_not_require_mode() {
+        let state = test_state("chat-folder-clear-legacy-no-mode");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        state
+            .storage
+            .replace_all(
+                "chats",
+                vec![json!({
+                    "id": "legacy-chat",
+                    "title": "Legacy Chat",
+                    "folderId": "folder-a"
+                })],
+            )
+            .expect("legacy chat should seed");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "legacy-chat".to_string(),
+            json!({ "folderId": Value::Null }),
+        )
+        .expect("clearing folderId should not require mode");
+        assert!(updated.get("folderId").is_none_or(Value::is_null));
+
+        let stored = state
+            .storage
+            .get("chats", "legacy-chat")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(stored.get("folderId").is_none_or(Value::is_null));
+    }
+
+    #[test]
+    fn filing_legacy_no_mode_chat_still_requires_mode() {
+        let state = test_state("chat-folder-assign-legacy-no-mode");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        state
+            .storage
+            .replace_all(
+                "chats",
+                vec![json!({
+                    "id": "legacy-chat",
+                    "title": "Legacy Chat"
+                })],
+            )
+            .expect("legacy chat should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "legacy-chat".to_string(),
+            json!({ "folderId": "folder-a" }),
+        )
+        .expect_err("assigning a folder should require provable mode compatibility");
+        assert_eq!(error.code, "invalid_input");
+
+        let stored = state
+            .storage
+            .get("chats", "legacy-chat")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert!(stored.get("folderId").is_none());
+    }
+
+    #[test]
+    fn chat_folder_delete_atomic_failure_leaves_folder_and_child_references() {
+        let state = test_state("chat-folder-delete-atomic-failure");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "folder-a", "name": "Folder A", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "folder-a"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = state
+            .storage
+            .update_collections_atomically(vec!["chat-folders", "chats"], |collections| {
+                let (folder_rows, chat_rows) = chat_folder_delete_atomic_rows(collections)?;
+                folder_rows.retain(|row| row.get("id").and_then(Value::as_str) != Some("folder-a"));
+                if chat_rows
+                    .iter()
+                    .any(|row| row.get("folderId").and_then(Value::as_str) == Some("folder-a"))
+                {
+                    return Err(AppError::invalid_input("injected child cleanup failure"));
+                }
+                Ok(true)
+            })
+            .expect_err("atomic update failure should roll back both collections");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder = state
+            .storage
+            .get("chat-folders", "folder-a")
+            .expect("folder should read")
+            .expect("folder should remain after rollback");
+        assert_eq!(folder["id"], "folder-a");
+        let chat = state
+            .storage
+            .get("chats", "chat-a")
+            .expect("chat should read")
+            .expect("chat should remain after rollback");
+        assert_eq!(chat["folderId"], "folder-a");
+    }
+
+    #[test]
+    fn moving_chat_rejects_missing_folder() {
+        let state = test_state("chat-folder-missing");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "folderId": "missing-folder" }),
+        )
+        .expect_err("missing folders should be rejected");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn creating_chat_rejects_folder_from_another_mode() {
+        let state = test_state("chat-folder-create-mode-mismatch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "roleplay-folder", "name": "Roleplay", "mode": "roleplay" }),
+        )
+        .expect("folder should be created");
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "roleplay-folder"
+            }),
+        )
+        .expect_err("folder mode mismatch should reject create");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn creating_folderless_chat_does_not_require_mode_for_folder_validation() {
+        let state = test_state("chat-folder-create-folderless-no-mode");
+        let created = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A"
+            }),
+        )
+        .expect("folderless chat create should not fail in folder validation");
+
+        assert_eq!(created["id"], "chat-a");
+    }
+
+    #[test]
+    fn creating_filed_chat_still_requires_mode() {
+        let state = test_state("chat-folder-create-filed-no-mode");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "conversation-folder", "name": "Conversation", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+
+        let error = storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "folderId": "conversation-folder"
+            }),
+        )
+        .expect_err("filed chat create should require mode compatibility");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn moving_chat_rejects_folder_from_another_mode() {
+        let state = test_state("chat-folder-move-mode-mismatch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "conversation-folder", "name": "Conversation", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "game-chat",
+                "title": "Game Chat",
+                "mode": "game"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "game-chat".to_string(),
+            json!({ "folderId": "conversation-folder" }),
+        )
+        .expect_err("folder-only patch should use persisted chat mode");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
+    fn moving_chat_accepts_compatible_folder() {
+        let state = test_state("chat-folder-move-compatible");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "game-folder", "name": "Game", "mode": "game" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "game-chat",
+                "title": "Game Chat",
+                "mode": "game"
+            }),
+        )
+        .expect("chat should be created");
+
+        let updated = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "game-chat".to_string(),
+            json!({ "folderId": "game-folder" }),
+        )
+        .expect("compatible folder assignment should succeed");
+        assert_eq!(updated["folderId"], "game-folder");
+    }
+
+    #[test]
+    fn updating_chat_mode_and_folder_validates_post_patch_pair() {
+        let state = test_state("chat-folder-mode-folder-patch");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "game-folder", "name": "Game", "mode": "game" }),
+        )
+        .expect("game folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-compatible",
+                "title": "Compatible",
+                "mode": "conversation"
+            }),
+        )
+        .expect("compatible chat should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-incompatible",
+                "title": "Incompatible",
+                "mode": "conversation"
+            }),
+        )
+        .expect("incompatible chat should be created");
+
+        let compatible = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-compatible".to_string(),
+            json!({ "mode": "game", "folderId": "game-folder" }),
+        )
+        .expect("post-patch mode and folder should be compatible");
+        assert_eq!(compatible["mode"], "game");
+        assert_eq!(compatible["folderId"], "game-folder");
+
+        let incompatible = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-incompatible".to_string(),
+            json!({ "mode": "roleplay", "folderId": "game-folder" }),
+        )
+        .expect_err("post-patch mode and folder mismatch should reject");
+        assert_eq!(incompatible.code, "invalid_input");
+    }
+
+    #[test]
+    fn changing_chat_mode_rejects_existing_incompatible_folder() {
+        let state = test_state("chat-folder-mode-change-filed");
+        storage_create_inner(
+            &state,
+            "chat-folders".to_string(),
+            json!({ "id": "conversation-folder", "name": "Conversation", "mode": "conversation" }),
+        )
+        .expect("folder should be created");
+        storage_create_inner(
+            &state,
+            "chats".to_string(),
+            json!({
+                "id": "chat-a",
+                "title": "Chat A",
+                "mode": "conversation",
+                "folderId": "conversation-folder"
+            }),
+        )
+        .expect("chat should be created");
+
+        let error = storage_update_inner(
+            &state,
+            "chats".to_string(),
+            "chat-a".to_string(),
+            json!({ "mode": "game" }),
+        )
+        .expect_err("mode-only patch should validate existing folder");
+        assert_eq!(error.code, "invalid_input");
+    }
+
+    #[test]
     fn reordering_connection_folders_requires_each_folder_once() {
         let state = test_state("connection-folder-reorder-validate");
         storage_create_inner(
@@ -4366,6 +7160,7 @@ mod tests {
             .get("connection-folders", "folder-b")
             .expect("folder should read")
             .expect("folder should exist");
-        assert_eq!(folder_b["sortOrder"], 1);
+        assert_eq!(folder_b["sortOrder"], 0);
+        assert_eq!(folder_b["order"], 0);
     }
 }

@@ -580,6 +580,11 @@ pub(crate) fn update_npc_avatar(state: &AppState, chat_id: &str, body: Value) ->
         &body,
         "avatar",
     )?;
+    // Mirror update_character_avatar_inner's prior-file cleanup: NPC avatars are not
+    // tracked records, so there is no `previous` to read. Instead remove any older files
+    // for this chat+name that the regen just superseded (every regen writes a new
+    // timestamped filename and never overwrites), keeping only the file just written.
+    remove_superseded_npc_avatar_files(state, chat_id, &name, &stored.filename);
     Ok(json!({
         "chatId": chat_id,
         "name": name,
@@ -587,6 +592,69 @@ pub(crate) fn update_npc_avatar(state: &AppState, chat_id: &str, body: Value) ->
         "avatarFilePath": stored.absolute_path,
         "avatarFilename": stored.filename
     }))
+}
+
+/// Best-effort cleanup of older NPC avatar files for one chat+name, preserving the
+/// freshly written `keep_filename`. Stored NPC filenames are
+/// `{safe_filename(chat_id-name)}-{millis}[-N].{ext}`, so the same-name prefix is
+/// `safe_filename("{chat_id}-{name}")` followed by the `-` millis delimiter (which keeps
+/// "Rin" from matching "Rina"). Failures are logged and ignored — this is disk hygiene.
+fn remove_superseded_npc_avatar_files(
+    state: &AppState,
+    chat_id: &str,
+    name: &str,
+    keep_filename: &str,
+) {
+    let prefix = format!("{}-", safe_filename(&format!("{chat_id}-{name}")));
+    remove_npc_avatar_files_matching(state, |filename| {
+        filename != keep_filename && filename.starts_with(&prefix)
+    });
+}
+
+/// Remove every file directly under `avatars/npc` whose filename satisfies `keep`.
+/// Best-effort: a missing directory or per-file removal error is logged and skipped so
+/// callers (re-upload cleanup, chat delete) never fail on disk hygiene.
+pub(crate) fn remove_npc_avatar_files_matching<F>(state: &AppState, matches: F)
+where
+    F: Fn(&str) -> bool,
+{
+    let dir = state.data_dir.join("avatars").join("npc");
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+        Err(error) => {
+            log::warn!("could not scan {} for NPC avatar cleanup: {error}", dir.display());
+            return;
+        }
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let Some(filename) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if !matches(filename) {
+            continue;
+        }
+        if let Err(error) = fs::remove_file(&path) {
+            log::warn!("could not remove NPC avatar {}: {error}", path.display());
+        }
+    }
+}
+
+/// Remove all NPC avatar files belonging to the given chat ids. NPC filenames are
+/// prefixed with `{chat_id}-` (chat ids are UUIDs, so no chat id is a prefix of another),
+/// letting chat deletion clean files that are referenced only inline in chat metadata.
+pub(crate) fn remove_npc_avatar_files_for_chats(state: &AppState, chat_ids: &HashSet<String>) {
+    if chat_ids.is_empty() {
+        return;
+    }
+    let prefixes: Vec<String> = chat_ids.iter().map(|id| format!("{id}-")).collect();
+    remove_npc_avatar_files_matching(state, |filename| {
+        prefixes.iter().any(|prefix| filename.starts_with(prefix))
+    });
 }
 
 #[cfg(test)]

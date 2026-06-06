@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { coreModulesApi } from "../../../../shared/api/core-modules-api";
 import { coreModuleViews, enabledCoreModuleStyles, isCoreModuleEnabled } from "../lib/core-module-registry";
 
-const DEFAULT_CORE_MODULE_SETTINGS = { enabled: {} };
-
 const coreModuleKeys = {
   all: ["core-modules"] as const,
   settings: () => [...coreModuleKeys.all, "settings"] as const,
@@ -23,7 +21,7 @@ export function useCoreModules() {
   const query = useCoreModuleSettings();
   return {
     ...query,
-    data: coreModuleViews(query.data ?? DEFAULT_CORE_MODULE_SETTINGS),
+    data: query.data ? coreModuleViews(query.data) : undefined,
   };
 }
 
@@ -48,7 +46,8 @@ export function useSetCoreModuleEnabled() {
   return useMutation({
     mutationFn: ({ moduleId, enabled }: { moduleId: string; enabled: boolean }) =>
       coreModulesApi.settings.setEnabled(moduleId, enabled),
-    onSuccess: () => {
+    onSuccess: (settings) => {
+      qc.setQueryData(coreModuleKeys.settings(), settings);
       qc.invalidateQueries({ queryKey: coreModuleKeys.all });
     },
   });

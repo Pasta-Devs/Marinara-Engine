@@ -2,12 +2,15 @@ use super::*;
 
 #[path = "marinara_assets.rs"]
 mod marinara_assets;
+#[path = "marinara_chat_bulk.rs"]
+mod marinara_chat_bulk;
 #[path = "marinara_helpers.rs"]
 mod marinara_helpers;
 #[path = "marinara_rollback.rs"]
 mod marinara_rollback;
 
 use marinara_assets::*;
+use marinara_chat_bulk::*;
 use marinara_helpers::*;
 use marinara_rollback::*;
 
@@ -19,6 +22,13 @@ pub(super) fn import_marinara_file(state: &AppState, body: Value) -> AppResult<V
         body.get("file")
             .ok_or_else(|| AppError::invalid_input("file is required"))?,
     )?;
+    if let Ok(text) = std::str::from_utf8(&uploaded.bytes) {
+        if let Ok(payload) = parse_json_text(text) {
+            if payload.get("format").and_then(Value::as_str) == Some("marinara-chat-bulk") {
+                return import_marinara_chat_bulk(state, payload);
+            }
+        }
+    }
     if uploaded.bytes.len() < 4 || uploaded.bytes[0] != 0x50 || uploaded.bytes[1] != 0x4b {
         return Err(AppError::invalid_input(
             "Not a .marinara file (zip signature missing)",
@@ -40,13 +50,8 @@ pub(super) fn import_marinara_file(state: &AppState, body: Value) -> AppResult<V
 
     let data_entry = zip_entry_name_case_insensitive(&names, "data.json")
         .ok_or_else(|| AppError::invalid_input(".marinara file is missing data.json"))?;
-    let data_bytes = read_zip_entry(&uploaded.bytes, &data_entry)?
+    let data_bytes = read_zip_entry_with_limit(&uploaded.bytes, &data_entry, MAX_DATA_JSON_BYTES)?
         .ok_or_else(|| AppError::invalid_input(".marinara file is missing data.json"))?;
-    if data_bytes.len() > MAX_DATA_JSON_BYTES {
-        return Err(AppError::invalid_input(
-            "data.json in .marinara file is too large",
-        ));
-    }
     let mut envelope = parse_object(&data_bytes)?;
 
     let avatar_name = names
@@ -65,13 +70,8 @@ pub(super) fn import_marinara_file(state: &AppState, body: Value) -> AppResult<V
         })
         .cloned();
     if let Some(avatar_name) = avatar_name {
-        let avatar = read_zip_entry(&uploaded.bytes, &avatar_name)?
+        let avatar = read_zip_entry_with_limit(&uploaded.bytes, &avatar_name, MAX_AVATAR_BYTES)?
             .ok_or_else(|| AppError::invalid_input("Could not read .marinara avatar"))?;
-        if avatar.len() > MAX_AVATAR_BYTES {
-            return Err(AppError::invalid_input(
-                "Avatar image in .marinara file is too large",
-            ));
-        }
         let mime = image_mime_from_path(&avatar_name);
         if let Some(data) = envelope.get_mut("data").and_then(Value::as_object_mut) {
             data.insert(

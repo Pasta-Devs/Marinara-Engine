@@ -5,7 +5,7 @@ use super::shared::{
 };
 use crate::state::AppState;
 use marinara_core::{ensure_object, new_id, now_iso, AppError, AppResult};
-use marinara_storage::FileStorage;
+use marinara_storage::{AtomicCollectionRows, FileStorage};
 use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -362,11 +362,34 @@ fn write_message_and_swipes(
     swipes: Vec<Value>,
     force_updated_at: bool,
 ) -> AppResult<Value> {
+    write_message_and_swipes_with_collections(
+        state,
+        message,
+        swipes,
+        force_updated_at,
+        Vec::new(),
+        |_, _| Ok(()),
+    )
+}
+
+fn write_message_and_swipes_with_collections<F>(
+    state: &AppState,
+    message: Value,
+    swipes: Vec<Value>,
+    force_updated_at: bool,
+    extra_collections: Vec<&str>,
+    update_collections: F,
+) -> AppResult<Value>
+where
+    F: FnOnce(&mut [AtomicCollectionRows], &Value) -> AppResult<()>,
+{
     let (message_id, message) = message_row_for_write(message, force_updated_at)?;
     let replacement = swipe_rows_for_message(&message, &swipes)?;
+    let mut collections = vec!["messages", COLLECTION];
+    collections.extend(extra_collections);
     state
         .storage
-        .update_collections_atomically(vec!["messages", COLLECTION], move |collections| {
+        .update_collections_atomically(collections, move |collections| {
             let messages = collections[0].rows_mut();
             let mut replaced = false;
             for row in messages.iter_mut() {
@@ -385,7 +408,119 @@ fn write_message_and_swipes(
             sidecars.extend(replacement);
             sort_sidecar_rows(sidecars);
 
+            update_collections(collections, &message)?;
             Ok(message)
+        })
+}
+
+fn materialized_message_from_loaded_rows(
+    message: &Value,
+    message_id: &str,
+    sidecars: &[Value],
+) -> Value {
+    let mut materialized = message.clone();
+    if materialized
+        .get("swipes")
+        .and_then(Value::as_array)
+        .is_some()
+    {
+        preserve_embedded_parent_active_extra(&mut materialized);
+        materialize_message_swipe_fields(&mut materialized);
+        return materialized;
+    }
+    let mut swipes = sidecars
+        .iter()
+        .filter(|row| sidecar_matches_message_id(row, message_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    sort_swipes(&mut swipes);
+    apply_sidecar_swipes(
+        &mut materialized,
+        &swipes,
+        MessageSwipeMaterialization::full(),
+    );
+    materialized
+}
+
+pub(crate) fn update_message_content_if_current_and_update_collections<F>(
+    state: &AppState,
+    message_id: &str,
+    extra_collections: Vec<&str>,
+    expected_chat_id: &str,
+    expected_content: &str,
+    content: &str,
+    update_collections: F,
+) -> AppResult<Option<Value>>
+where
+    F: FnOnce(&mut [AtomicCollectionRows], &Value, bool) -> AppResult<()>,
+{
+    let message_id = message_id.trim();
+    if message_id.is_empty() {
+        return Ok(None);
+    }
+    let message_id = message_id.to_string();
+    let expected_chat_id = expected_chat_id.to_string();
+    let expected_content = expected_content.to_string();
+    let content = content.to_string();
+    let mut collections = vec!["messages", COLLECTION];
+    collections.extend(extra_collections);
+    state
+        .storage
+        .update_collections_atomically(collections, move |collections| {
+            let current = collections[0]
+                .rows()
+                .iter()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(message_id.as_str()))
+                .cloned();
+            let Some(current) = current else {
+                return Ok(None);
+            };
+            let mut current =
+                materialized_message_from_loaded_rows(&current, &message_id, collections[1].rows());
+            let previous_visible_content = {
+                let current = current
+                    .as_object_mut()
+                    .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+                if current.get("chatId").and_then(Value::as_str) != Some(expected_chat_id.as_str())
+                {
+                    return Ok(None);
+                }
+                let current_content = current
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                if current_content != expected_content {
+                    return Ok(None);
+                }
+                let mut patch = Map::new();
+                patch.insert("content".to_string(), Value::String(content.clone()));
+                current.insert("content".to_string(), Value::String(content.clone()));
+                sync_message_patch_content_to_active_swipe(current, &patch);
+                current_content
+            };
+            materialize_message_swipe_fields(&mut current);
+            let swipes = take_swipes_for_storage(&mut current)?.unwrap_or_default();
+            let (message_id, message) = message_row_for_write(current, true)?;
+            let replacement = swipe_rows_for_message(&message, &swipes)?;
+            let visible_content_changed = previous_visible_content != content;
+
+            let messages = collections[0].rows_mut();
+            let Some(row) = messages
+                .iter_mut()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(message_id.as_str()))
+            else {
+                return Ok(None);
+            };
+            *row = message.clone();
+
+            let sidecars = collections[1].rows_mut();
+            sidecars.retain(|row| !sidecar_matches_message_id(row, &message_id));
+            sidecars.extend(replacement);
+            sort_sidecar_rows(sidecars);
+
+            update_collections(collections, &message, visible_content_changed)?;
+            Ok(Some(message))
         })
 }
 
@@ -395,6 +530,26 @@ pub(crate) fn replace_message_with_swipes(
     swipes: Vec<Value>,
 ) -> AppResult<Value> {
     write_message_and_swipes(state, message, swipes, true)
+}
+
+pub(crate) fn replace_message_with_swipes_and_update_collections<F>(
+    state: &AppState,
+    message: Value,
+    swipes: Vec<Value>,
+    extra_collections: Vec<&str>,
+    update_collections: F,
+) -> AppResult<Value>
+where
+    F: FnOnce(&mut [AtomicCollectionRows], &Value) -> AppResult<()>,
+{
+    write_message_and_swipes_with_collections(
+        state,
+        message,
+        swipes,
+        true,
+        extra_collections,
+        update_collections,
+    )
 }
 
 fn preserve_parent_active_extra(swipes: &mut [Value], active_index: usize, extra: Option<&Value>) {
@@ -743,6 +898,7 @@ pub(crate) fn delete_for_messages(state: &AppState, message_ids: &[String]) -> A
     })
 }
 
+#[cfg(test)]
 pub(crate) fn delete_message_rows_with_swipes(
     state: &AppState,
     message_ids: &[String],
@@ -846,71 +1002,6 @@ fn persist_created_message_swipes(state: &AppState, mut message: Value) -> AppRe
     let mut updated = write_message_and_swipes(state, message, swipes, false)?;
     materialize_message(state, &mut updated, true)?;
     Ok(updated)
-}
-
-pub(crate) fn patch_message_update(
-    state: &AppState,
-    message_id: &str,
-    patch: Value,
-) -> AppResult<Value> {
-    let normalized = super::shared::normalize_update_patch("messages", patch)?;
-    let patch_object = normalized.as_object().cloned().unwrap_or_default();
-    let mut message = state
-        .storage
-        .get("messages", message_id)?
-        .ok_or_else(|| AppError::not_found(format!("messages/{message_id} was not found")))?;
-    materialize_message(state, &mut message, true)?;
-    {
-        let object = message
-            .as_object_mut()
-            .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
-        for (key, value) in patch_object.clone() {
-            object.insert(key, value);
-        }
-        sync_message_patch_content_to_active_swipe(object, &patch_object);
-    }
-    materialize_message_swipe_fields(&mut message);
-    let swipes = take_swipes_for_storage(&mut message)?.unwrap_or_default();
-    let mut updated = write_message_and_swipes(state, message, swipes, true)?;
-    materialize_message(state, &mut updated, true)?;
-    Ok(updated)
-}
-
-pub(crate) fn update_message_content_if_unchanged(
-    state: &AppState,
-    chat_id: &str,
-    message_id: &str,
-    expected_content: &str,
-    content: &str,
-) -> AppResult<Option<Value>> {
-    let content = collapse_excess_blank_lines(content);
-    let mut message = state
-        .storage
-        .get("messages", message_id)?
-        .ok_or_else(|| AppError::not_found(format!("messages/{message_id} was not found")))?;
-    materialize_message(state, &mut message, true)?;
-    {
-        let object = message
-            .as_object_mut()
-            .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
-        let current_chat_id = object.get("chatId").and_then(Value::as_str).unwrap_or("");
-        if current_chat_id != chat_id {
-            return Ok(None);
-        }
-        let current_content = object.get("content").and_then(Value::as_str).unwrap_or("");
-        if current_content != expected_content {
-            return Ok(None);
-        }
-        let mut patch = Map::new();
-        patch.insert("content".to_string(), Value::String(content.clone()));
-        object.insert("content".to_string(), Value::String(content));
-        sync_message_patch_content_to_active_swipe(object, &patch);
-    }
-    materialize_message_swipe_fields(&mut message);
-    let swipes = take_swipes_for_storage(&mut message)?.unwrap_or_default();
-    let mut updated = write_message_and_swipes(state, message, swipes, true)?;
-    materialize_message(state, &mut updated, true)?;
-    Ok(Some(updated))
 }
 
 #[cfg(test)]

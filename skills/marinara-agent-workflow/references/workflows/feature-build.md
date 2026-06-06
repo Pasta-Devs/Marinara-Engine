@@ -46,10 +46,10 @@ For UI work, classify UX risk:
 
 For medium/high UX risk, define the primary user path, required states,
 mobile/theme proof, and whether an Impeccable critique/polish pass is useful.
-Prefer targeted tests, scratch harnesses, route/module repros, or jsdom/component
-proof when they cover the claim; use scripted Playwright proof for repeatable
-browser-dependent UI claims; use manual instructions when automation cannot cover
-the full path.
+Prefer existing test output, temporary uncommitted tests or harnesses,
+route/module repros, or jsdom/component proof when they cover the claim; use
+scripted Playwright proof for repeatable browser-dependent UI claims; use manual
+instructions when automation cannot cover the full path.
 
 ## Code Smell Guard
 

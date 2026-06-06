@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { IntegrationGateway } from "../capabilities/integrations";
-import type { LlmGateway } from "../capabilities/llm";
+import type { LlmChunk, LlmGateway } from "../capabilities/llm";
 import type { StorageEntity, StorageGateway } from "../capabilities/storage";
 import type { WeekSchedule } from "../modes/chat/schedules/schedule.service";
-import { startGeneration, type StartGenerationInput } from "./start-generation";
+import { retryGenerationAgents, startGeneration, type StartGenerationInput } from "./start-generation";
 
 type Store = Partial<Record<StorageEntity, Record<string, Record<string, unknown>>>>;
 
@@ -25,14 +25,18 @@ function scheduleFor(status: "idle" | "dnd" | "offline"): WeekSchedule {
 
 function createStore(
   status: "idle" | "dnd" | "offline",
-  options: { secondStatus?: "idle" | "dnd" | "offline"; messages?: Record<string, Record<string, unknown>> } = {},
+  options: {
+    secondStatus?: "idle" | "dnd" | "offline";
+    messages?: Record<string, Record<string, unknown>>;
+    mode?: string;
+  } = {},
 ): Store {
   const characterIds = options.secondStatus ? ["char-1", "char-2"] : ["char-1"];
   return {
     chats: {
       "chat-1": {
         id: "chat-1",
-        mode: "conversation",
+        mode: options.mode ?? "conversation",
         connectionId: "conn-1",
         characterIds,
         metadata: {
@@ -128,6 +132,101 @@ function createReviewStore(
   };
 }
 
+function createDefaultAgentConnectionWarningStore(options: { defaultForAgents?: boolean } = {}): Store {
+  const defaultForAgents = options.defaultForAgents ?? true;
+  return {
+    chats: {
+      "chat-1": {
+        id: "chat-1",
+        mode: "roleplay",
+        connectionId: "chat-conn",
+        characterIds: ["char-1"],
+        metadata: { activeAgentIds: ["director"] },
+      },
+    },
+    characters: {
+      "char-1": { id: "char-1", data: { name: "Mira" } },
+    },
+    connections: {
+      "chat-conn": { id: "chat-conn", provider: "test", model: "chat-model" },
+      "agent-default": {
+        id: "agent-default",
+        name: "Paid Agents",
+        provider: "test",
+        model: "paid-agent-model",
+        defaultForAgents,
+      },
+    },
+    agents: {
+      director: {
+        id: "director",
+        type: "director",
+        name: "Narrative Director",
+        enabled: true,
+        phase: "pre_generation",
+        promptTemplate: "",
+        settings: {},
+      },
+    },
+    messages: {},
+  };
+}
+
+function createLorebookKeeperDefaultConnectionWarningStore(): Store {
+  return {
+    chats: {
+      "chat-1": {
+        id: "chat-1",
+        mode: "roleplay",
+        connectionId: "chat-conn",
+        characterIds: ["char-1"],
+        metadata: { activeAgentIds: ["lorebook-keeper"], lorebookKeeperTargetLorebookId: "lorebook-1" },
+      },
+    },
+    characters: {
+      "char-1": { id: "char-1", data: { name: "Mira" } },
+    },
+    connections: {
+      "chat-conn": { id: "chat-conn", provider: "test", model: "chat-model" },
+      "agent-default": {
+        id: "agent-default",
+        name: "Paid Agents",
+        provider: "test",
+        model: "paid-agent-model",
+        defaultForAgents: true,
+      },
+    },
+    agents: {
+      "lorebook-keeper": {
+        id: "lorebook-keeper",
+        type: "lorebook-keeper",
+        name: "Lorebook Keeper",
+        enabled: true,
+        phase: "post_processing",
+        promptTemplate: "",
+        settings: { runInterval: 1 },
+      },
+    },
+    lorebooks: {
+      "lorebook-1": {
+        id: "lorebook-1",
+        name: "Global Lore",
+        enabled: true,
+        isGlobal: true,
+      },
+    },
+    messages: {
+      "assistant-1": {
+        id: "assistant-1",
+        chatId: "chat-1",
+        role: "assistant",
+        content: "Mira found a clue.",
+        createdAt: "2026-06-04T00:00:00.000Z",
+      },
+    },
+  };
+}
+
 function createStorage(
   store: Store,
   capture: { extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }> } = {},
@@ -212,15 +311,23 @@ function createDeps(
   options: {
     secondStatus?: "idle" | "dnd" | "offline";
     messages?: Record<string, Record<string, unknown>>;
-    capture?: { extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }> };
+    mode?: string;
+    capture?: {
+      extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }>;
+      streamParameters?: Record<string, unknown>[];
+    };
+    streamChunks?: LlmChunk[];
   } = {},
 ) {
   const llm: LlmGateway = {
     async complete() {
       return "";
     },
-    async *stream() {
-      yield { type: "token" as const, text: "Hello." };
+    async *stream(request) {
+      options.capture?.streamParameters?.push(request.parameters ?? {});
+      for (const chunk of options.streamChunks ?? [{ type: "token" as const, text: "Hello." }]) {
+        yield chunk;
+      }
     },
     async listModels() {
       return [];
@@ -247,6 +354,44 @@ function createReviewDeps(mode: "roleplay" | "visual_novel" | "conversation", op
   };
   return {
     storage: createStorage(createReviewStore(mode, options)),
+    integrations: {} as IntegrationGateway,
+    llm,
+  };
+}
+
+function createDefaultAgentConnectionWarningDeps(options: { defaultForAgents?: boolean } = {}) {
+  const llm: LlmGateway = {
+    async complete() {
+      return "";
+    },
+    async *stream() {
+      yield { type: "token" as const, text: "Keep the reply varied." };
+    },
+    async listModels() {
+      return [];
+    },
+  };
+  return {
+    storage: createStorage(createDefaultAgentConnectionWarningStore(options)),
+    integrations: {} as IntegrationGateway,
+    llm,
+  };
+}
+
+function createLorebookKeeperDefaultConnectionWarningDeps() {
+  const llm: LlmGateway = {
+    async complete() {
+      return "";
+    },
+    async *stream() {
+      yield { type: "token" as const, text: "{}" };
+    },
+    async listModels() {
+      return [];
+    },
+  };
+  return {
+    storage: createStorage(createLorebookKeeperDefaultConnectionWarningStore()),
     integrations: {} as IntegrationGateway,
     llm,
   };
@@ -303,6 +448,40 @@ function reviewEvent(events: Awaited<ReturnType<typeof collectReviewEvents>>) {
     | undefined;
 }
 
+async function collectDefaultAgentConnectionWarningEvents(options: { defaultForAgents?: boolean } = {}) {
+  const events = [];
+  for await (const event of startGeneration(createDefaultAgentConnectionWarningDeps(options), {
+    chatId: "chat-1",
+    message: "Hi Mira",
+  })) {
+    events.push(event);
+    if ((event as { type: string }).type === "agent_warning" || event.type === "done") break;
+  }
+  return events;
+}
+
+async function collectDefaultAgentConnectionRetryEvents() {
+  return retryGenerationAgents(createDefaultAgentConnectionWarningDeps(), {
+    chatId: "chat-1",
+    agentTypes: ["director"],
+    options: { bypassActivation: true },
+  });
+}
+
+async function collectLorebookKeeperBackfillEvents() {
+  return retryGenerationAgents(createLorebookKeeperDefaultConnectionWarningDeps(), {
+    chatId: "chat-1",
+    agentTypes: ["lorebook-keeper"],
+    options: { lorebookKeeperBackfill: true },
+  });
+}
+
+async function drainGeneration(stream: AsyncGenerator<unknown>): Promise<void> {
+  for await (const _event of stream) {
+    void _event;
+  }
+}
+
 describe("startGeneration conversation availability delays", () => {
   it("uses short legacy mention delays for explicit conversation mentions and manual targets", async () => {
     const random = vi.spyOn(Math, "random").mockReturnValue(0);
@@ -355,7 +534,148 @@ describe("startGeneration conversation availability delays", () => {
   });
 });
 
+describe("startGeneration LLM stream errors", () => {
+  it("throws the provider message from terminal stream error chunks", async () => {
+    const deps = createDeps("idle", {
+      mode: "roleplay",
+      streamChunks: [{ type: "error", data: { message: "Provider failed" } }],
+    });
+
+    await expect(drainGeneration(startGeneration(deps, { chatId: "chat-1", message: "Hi Mira" }))).rejects.toThrow(
+      "Provider failed",
+    );
+  });
+});
+
 describe("startGeneration context injection compatibility", () => {
+  it("randomizes fixed integer seeds from every supported request location when regenerating conversation swipes", async () => {
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.25);
+    const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
+    const deps = createDeps("idle", {
+      capture,
+      messages: {
+        "assistant-1": {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          characterId: "char-1",
+          content: "Previous response.",
+          createdAt: "2026-06-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    try {
+      for await (const event of startGeneration(deps, {
+        chatId: "chat-1",
+        message: "Regenerate that.",
+        regenerateMessageId: "assistant-1",
+        parameters: {
+          seed: 1,
+          customParameters: {
+            seed: 4_294_967_295,
+            repeat_penalty: 1.05,
+          },
+          custom_params: {
+            seed: 42,
+            dry_multiplier: 0.8,
+          },
+        },
+      })) {
+        if (event.type === "done") break;
+      }
+    } finally {
+      random.mockRestore();
+    }
+
+    expect(capture.streamParameters[0]).toMatchObject({
+      seed: 1_073_741_823,
+      customParameters: {
+        seed: 1_073_741_823,
+        repeat_penalty: 1.05,
+      },
+      custom_params: {
+        seed: 1_073_741_823,
+        dry_multiplier: 0.8,
+      },
+    });
+  });
+
+  it("preserves nested non-integer custom seeds when regenerating conversation swipes", async () => {
+    const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
+    const deps = createDeps("idle", {
+      capture,
+      messages: {
+        "assistant-1": {
+          id: "assistant-1",
+          chatId: "chat-1",
+          role: "assistant",
+          characterId: "char-1",
+          content: "Previous response.",
+          createdAt: "2026-06-01T00:00:00.000Z",
+        },
+      },
+    });
+
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      message: "Regenerate that.",
+      regenerateMessageId: "assistant-1",
+      parameters: {
+        seed: "4294967295",
+        customParameters: {
+          seed: 123.45,
+        },
+        custom_params: {
+          seed: null,
+        },
+      },
+    })) {
+      if (event.type === "done") break;
+    }
+
+    expect(capture.streamParameters[0]).not.toHaveProperty("seed");
+    expect(capture.streamParameters[0]).toMatchObject({
+      customParameters: {
+        seed: 123.45,
+      },
+      custom_params: {
+        seed: null,
+      },
+    });
+  });
+
+  it("preserves fixed integer seeds on non-regenerate turns", async () => {
+    const capture: { streamParameters: Record<string, unknown>[] } = { streamParameters: [] };
+    const deps = createDeps("idle", { capture, mode: "roleplay" });
+
+    for await (const event of startGeneration(deps, {
+      chatId: "chat-1",
+      message: "Hi Mira.",
+      parameters: {
+        seed: 1,
+        customParameters: {
+          seed: 4_294_967_295,
+        },
+        custom_params: {
+          seed: 42,
+        },
+      },
+    })) {
+      if (event.type === "done") break;
+    }
+
+    expect(capture.streamParameters[0]).toMatchObject({
+      seed: 1,
+      customParameters: {
+        seed: 4_294_967_295,
+      },
+      custom_params: {
+        seed: 42,
+      },
+    });
+  });
+
   it("keeps legacy bare-string context injections when merging regenerated agent injections", async () => {
     const capture: { extraPatches: Array<{ messageId: string; patch: Record<string, unknown> }> } = {
       extraPatches: [],
@@ -514,5 +834,71 @@ describe("startGeneration agent injection review", () => {
 
     expect(reviewEvent(conversationEvents)).toBeUndefined();
     expect(reviewEvent(visualNovelEvents)?.type).toBe("agent_injection_review");
+  });
+});
+
+describe("startGeneration agent connection warnings", () => {
+  it("warns when an agent uses the default-for-agents connection", async () => {
+    const events = await collectDefaultAgentConnectionWarningEvents();
+    const warning = events.find((event) => (event as { type: string }).type === "agent_warning") as
+      | {
+          type: "agent_warning";
+          data: {
+            code: string;
+            severity: string;
+            agentNames: string[];
+            connectionName: string;
+            model: string;
+            message: string;
+          };
+        }
+      | undefined;
+
+    expect(warning?.data).toMatchObject({
+      code: "default_agent_connection_active",
+      severity: "warning",
+      agentNames: ["Narrative Director"],
+      connectionName: "Paid Agents",
+      model: "paid-agent-model",
+    });
+    expect(warning?.data.message).toContain("may bill that provider");
+  });
+
+  it("does not warn when agents fall back to the chat connection without a default-for-agents connection", async () => {
+    const events = await collectDefaultAgentConnectionWarningEvents({ defaultForAgents: false });
+
+    expect(events.some((event) => (event as { type: string }).type === "agent_warning")).toBe(false);
+  });
+
+  it("warns through the manual agent retry path", async () => {
+    const { events } = await collectDefaultAgentConnectionRetryEvents();
+    const warning = events.find((event) => (event as { type: string }).type === "agent_warning");
+
+    expect(warning).toMatchObject({
+      type: "agent_warning",
+      data: {
+        code: "default_agent_connection_active",
+        severity: "warning",
+        agentNames: ["Narrative Director"],
+        connectionName: "Paid Agents",
+        model: "paid-agent-model",
+      },
+    });
+  });
+
+  it("propagates warnings through Lorebook Keeper backfill retries", async () => {
+    const { events } = await collectLorebookKeeperBackfillEvents();
+    const warning = events.find((event) => (event as { type: string }).type === "agent_warning");
+
+    expect(warning).toMatchObject({
+      type: "agent_warning",
+      data: {
+        code: "default_agent_connection_active",
+        severity: "warning",
+        agentNames: ["Lorebook Keeper"],
+        connectionName: "Paid Agents",
+        model: "paid-agent-model",
+      },
+    });
   });
 });

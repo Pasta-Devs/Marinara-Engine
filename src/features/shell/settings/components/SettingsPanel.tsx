@@ -19,10 +19,11 @@ import {
   type VisualTheme,
 } from "../../../../shared/stores/ui.store";
 import { cn } from "../../../../shared/lib/utils";
+import { stripDangerousCss } from "../../../../shared/lib/chat-css";
 import { TEMPERATURE_UNITS } from "../../../../shared/lib/temperature-units";
 import { QUOTE_FORMATS } from "../../../../shared/lib/dialogue-quotes";
 import { useExtensions, useCreateExtension, useDeleteExtension, useUpdateExtension } from "../hooks/use-extensions";
-import { CoreModulesSettings } from "../../plugins/shell";
+import { CoreModulesSettings } from "../../plugins/settings";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { gameAssetsApi } from "../../../../shared/api/assets-api";
 import { openExternalUrl } from "../../../../shared/api/external-link-api";
@@ -109,6 +110,7 @@ import { ImageUploadDropzone } from "../../../../shared/components/ui/ImageUploa
 import { ConversationSoundSetting, ToggleSetting } from "./settings/SettingControls";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../../../../shared/components/ui/DraftNumberInput";
+import { TrackerCardColorSettings } from "../../../runtime/tracker/shell";
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../../../shared/lib/character-import";
 import { ProfileImportSection } from "./ProfileImportSection";
 import { showConfirmDialog } from "../../../../shared/lib/app-dialogs";
@@ -1727,6 +1729,8 @@ function AppearanceSettings() {
         setTrackerTemperatureUnit={setTrackerTemperatureUnit}
       />
 
+      <TrackerCardColorSettings />
+
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1.5">
           <Image size="0.75rem" className="text-[var(--muted-foreground)]" />
@@ -2558,7 +2562,9 @@ function ThemesSettings() {
       style = document.createElement("style");
       style.id = "marinara-css-editor-preview";
     }
-    style.textContent = themeCss;
+    // Sanitize the live preview the same way the saved-activation injector does, so editing
+    // (or importing) a malicious theme can't fire url() beacons / scripts during preview (#2365).
+    style.textContent = stripDangerousCss(themeCss);
     // Always (re-)append so it's the last <style> in <head>,
     // overriding the active-theme injector's saved CSS.
     document.head.appendChild(style);

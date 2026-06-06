@@ -152,6 +152,15 @@ interface LorebookBudgetSelectionState {
   chatBudgetExhausted: boolean;
 }
 
+interface LorebookResolvedCandidatePass {
+  entries: ActivatedEntry[];
+  restoreVariables: Array<() => void>;
+}
+
+type BudgetedLorebookEntrySelection =
+  | { selected: true; entry: ActivatedEntry }
+  | { selected: false; skipped?: BudgetSkippedLorebookEntry };
+
 const MAX_LOREBOOK_RECURSION_DEPTH = 10;
 
 function nonNegativeInteger(value: unknown, fallback = 0): number {
@@ -559,15 +568,39 @@ function createLorebookBudgetSelectionState(): LorebookBudgetSelectionState {
   };
 }
 
+function cloneLorebookBudgetSelectionState(state: LorebookBudgetSelectionState): LorebookBudgetSelectionState {
+  return {
+    selected: [...state.selected],
+    selectedIds: new Set(state.selectedIds),
+    perLorebookTokens: new Map(state.perLorebookTokens),
+    exhaustedLorebookIds: new Set(state.exhaustedLorebookIds),
+    totalTokens: state.totalTokens,
+    chatBudgetExhausted: state.chatBudgetExhausted,
+  };
+}
+
+function applyLorebookBudgetSelectionState(
+  target: LorebookBudgetSelectionState,
+  source: LorebookBudgetSelectionState,
+): void {
+  target.selected = source.selected;
+  target.selectedIds = source.selectedIds;
+  target.perLorebookTokens = source.perLorebookTokens;
+  target.exhaustedLorebookIds = source.exhaustedLorebookIds;
+  target.totalTokens = source.totalTokens;
+  target.chatBudgetExhausted = source.chatBudgetExhausted;
+}
+
 function activatedEntryWithResolvedContent(
   activatedEntry: ActivatedEntry,
   contentResolver?: LorebookContentResolver,
 ): ActivatedEntry {
   if (!contentResolver) return activatedEntry;
-  const resolvedContent = contentResolver.resolve(activatedEntry.entry.content);
+  const rawContent = activatedEntry.rawContent ?? activatedEntry.entry.content;
+  const resolvedContent = contentResolver.resolve(rawContent);
   return {
     ...activatedEntry,
-    rawContent: activatedEntry.rawContent ?? activatedEntry.entry.content,
+    rawContent,
     entry: {
       ...activatedEntry.entry,
       content: resolvedContent,
@@ -575,10 +608,121 @@ function activatedEntryWithResolvedContent(
   };
 }
 
+function resolveLorebookCandidatePass(
+  candidates: ActivatedEntry[],
+  contentResolver?: LorebookContentResolver,
+): LorebookResolvedCandidatePass {
+  const entries: ActivatedEntry[] = [];
+  const restoreVariables: Array<() => void> = [];
+
+  for (const candidate of [...candidates].sort(lorebookInjectionOrder)) {
+    const restore = contentResolver?.snapshotVariables?.();
+    const resolvedCandidate = activatedEntryWithResolvedContent(candidate, contentResolver);
+    if (restore) restoreVariables.push(restore);
+    entries.push(resolvedCandidate);
+  }
+
+  return { entries, restoreVariables };
+}
+
+function rollbackLorebookCandidatePass(pass: LorebookResolvedCandidatePass): void {
+  for (const restore of [...pass.restoreVariables].reverse()) {
+    restore();
+  }
+}
+
+function sameActivatedEntrySet(a: ActivatedEntry[], b: ActivatedEntry[]): boolean {
+  if (a.length !== b.length) return false;
+  const bIds = new Set(b.map((entry) => entry.entry.id));
+  return a.every((entry) => bIds.has(entry.entry.id));
+}
+
+function recordBudgetSelectionPass(
+  skippedById: Map<string, BudgetSkippedLorebookEntry>,
+  selectedEntries: ActivatedEntry[],
+  skippedEntries: BudgetSkippedLorebookEntry[],
+): void {
+  for (const selected of selectedEntries) {
+    skippedById.delete(selected.entry.id);
+  }
+  for (const skipped of skippedEntries) {
+    skippedById.set(skipped.id, skipped);
+  }
+}
+
+function applySkippedBudgetExhaustion(
+  state: LorebookBudgetSelectionState,
+  skippedEntries: Iterable<BudgetSkippedLorebookEntry>,
+): void {
+  for (const skipped of skippedEntries) {
+    if (skipped.blockedBy === "lorebook" || skipped.blockedBy === "both") {
+      state.exhaustedLorebookIds.add(skipped.lorebookId);
+    }
+    if (skipped.blockedBy === "chat" || skipped.blockedBy === "both") {
+      state.chatBudgetExhausted = true;
+    }
+  }
+}
+
+function sortedBudgetSkippedEntries(
+  skippedById: ReadonlyMap<string, BudgetSkippedLorebookEntry>,
+): BudgetSkippedLorebookEntry[] {
+  return [...skippedById.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
 function budgetSkipReason(exceedsLorebookBudget: boolean, exceedsChatBudget: boolean): "lorebook" | "chat" | "both" {
   if (exceedsLorebookBudget && exceedsChatBudget) return "both";
   if (exceedsLorebookBudget) return "lorebook";
   return "chat";
+}
+
+function trySelectBudgetedLorebookEntry(
+  candidate: ActivatedEntry,
+  state: LorebookBudgetSelectionState,
+  lorebooksById: ReadonlyMap<string, ActiveLorebookBudgetMetadata>,
+  chatBudget: number,
+  maxEntries: number,
+): BudgetedLorebookEntrySelection {
+  if (state.selectedIds.has(candidate.entry.id)) return { selected: false };
+  if (maxEntries > 0 && state.selected.length >= maxEntries) return { selected: false };
+
+  const entryTokens = estimateLorebookTokens(candidate.entry.content);
+  const lorebookMeta = lorebooksById.get(candidate.entry.lorebookId);
+  const lorebookBudget = lorebookMeta?.lorebookBudget ?? 0;
+  const lorebookUsedTokens = state.perLorebookTokens.get(candidate.entry.lorebookId) ?? 0;
+  const exceedsLorebookBudget =
+    state.exhaustedLorebookIds.has(candidate.entry.lorebookId) ||
+    (lorebookBudget > 0 && lorebookUsedTokens + entryTokens > lorebookBudget);
+  const exceedsChatBudget =
+    state.chatBudgetExhausted || (chatBudget > 0 && state.totalTokens + entryTokens > chatBudget);
+
+  if (exceedsLorebookBudget || exceedsChatBudget) {
+    if (exceedsLorebookBudget) state.exhaustedLorebookIds.add(candidate.entry.lorebookId);
+    if (exceedsChatBudget) state.chatBudgetExhausted = true;
+    return {
+      selected: false,
+      skipped: {
+        id: candidate.entry.id,
+        name: candidate.entry.name,
+        lorebookId: candidate.entry.lorebookId,
+        lorebookName: lorebookMeta?.lorebookName ?? candidate.entry.lorebookId,
+        matchedKeys: candidate.matchedKeys,
+        estimatedTokens: entryTokens,
+        lorebookBudget,
+        lorebookUsedTokens,
+        chatBudget,
+        chatUsedTokens: state.totalTokens,
+        blockedBy: budgetSkipReason(exceedsLorebookBudget, exceedsChatBudget),
+      },
+    };
+  }
+
+  state.selected.push(candidate);
+  state.selectedIds.add(candidate.entry.id);
+  state.perLorebookTokens.set(candidate.entry.lorebookId, lorebookUsedTokens + entryTokens);
+  state.totalTokens += entryTokens;
+
+  return { selected: true, entry: candidate };
 }
 
 function selectBudgetedLorebookEntries(
@@ -589,53 +733,47 @@ function selectBudgetedLorebookEntries(
   maxEntries: number,
   contentResolver?: LorebookContentResolver,
 ): { selectedFromCandidates: ActivatedEntry[]; budgetSkippedEntries: BudgetSkippedLorebookEntry[] } {
-  const selectedFromCandidates: ActivatedEntry[] = [];
-  const budgetSkippedEntries: BudgetSkippedLorebookEntry[] = [];
+  if (candidates.length === 0) return { selectedFromCandidates: [], budgetSkippedEntries: [] };
 
-  for (const candidate of [...candidates].sort(lorebookBudgetSelectionOrder)) {
-    if (state.selectedIds.has(candidate.entry.id)) continue;
-    if (maxEntries > 0 && state.selected.length >= maxEntries) break;
+  let pool = candidates;
+  const skippedById = new Map<string, BudgetSkippedLorebookEntry>();
+  const maxPasses = Math.max(1, candidates.length + 1);
 
-    const resolvedCandidate = activatedEntryWithResolvedContent(candidate, contentResolver);
-    const entryTokens = estimateLorebookTokens(resolvedCandidate.entry.content);
-    const lorebookMeta = lorebooksById.get(resolvedCandidate.entry.lorebookId);
-    const lorebookBudget = lorebookMeta?.lorebookBudget ?? 0;
-    const lorebookUsedTokens = state.perLorebookTokens.get(resolvedCandidate.entry.lorebookId) ?? 0;
-    const exceedsLorebookBudget =
-      state.exhaustedLorebookIds.has(resolvedCandidate.entry.lorebookId) ||
-      (lorebookBudget > 0 && lorebookUsedTokens + entryTokens > lorebookBudget);
-    const exceedsChatBudget =
-      state.chatBudgetExhausted || (chatBudget > 0 && state.totalTokens + entryTokens > chatBudget);
+  for (let passIndex = 0; passIndex < maxPasses; passIndex += 1) {
+    const pass = resolveLorebookCandidatePass(pool, contentResolver);
+    const nextState = cloneLorebookBudgetSelectionState(state);
+    const selectedFromCandidates: ActivatedEntry[] = [];
+    const skippedFromCandidates: BudgetSkippedLorebookEntry[] = [];
 
-    if (exceedsLorebookBudget || exceedsChatBudget) {
-      if (exceedsLorebookBudget) state.exhaustedLorebookIds.add(resolvedCandidate.entry.lorebookId);
-      if (exceedsChatBudget) state.chatBudgetExhausted = true;
-      budgetSkippedEntries.push({
-        id: resolvedCandidate.entry.id,
-        name: resolvedCandidate.entry.name,
-        lorebookId: resolvedCandidate.entry.lorebookId,
-        lorebookName: lorebookMeta?.lorebookName ?? resolvedCandidate.entry.lorebookId,
-        matchedKeys: resolvedCandidate.matchedKeys,
-        estimatedTokens: entryTokens,
-        lorebookBudget,
-        lorebookUsedTokens,
-        chatBudget,
-        chatUsedTokens: state.totalTokens,
-        blockedBy: budgetSkipReason(exceedsLorebookBudget, exceedsChatBudget),
-      });
-      continue;
+    for (const candidate of [...pass.entries].sort(lorebookBudgetSelectionOrder)) {
+      const selected = trySelectBudgetedLorebookEntry(candidate, nextState, lorebooksById, chatBudget, maxEntries);
+      if (selected.selected) {
+        selectedFromCandidates.push(selected.entry);
+      } else if (selected.skipped) {
+        skippedFromCandidates.push(selected.skipped);
+      }
     }
 
-    state.selected.push(resolvedCandidate);
-    state.selectedIds.add(resolvedCandidate.entry.id);
-    state.perLorebookTokens.set(resolvedCandidate.entry.lorebookId, lorebookUsedTokens + entryTokens);
-    state.totalTokens += entryTokens;
-    selectedFromCandidates.push(resolvedCandidate);
+    selectedFromCandidates.sort(lorebookInjectionOrder);
+    recordBudgetSelectionPass(skippedById, selectedFromCandidates, skippedFromCandidates);
+
+    if (sameActivatedEntrySet(pool, selectedFromCandidates)) {
+      applySkippedBudgetExhaustion(nextState, skippedById.values());
+      applyLorebookBudgetSelectionState(state, nextState);
+      return {
+        selectedFromCandidates,
+        budgetSkippedEntries: sortedBudgetSkippedEntries(skippedById),
+      };
+    }
+
+    rollbackLorebookCandidatePass(pass);
+    pool = selectedFromCandidates;
   }
 
+  applySkippedBudgetExhaustion(state, skippedById.values());
   return {
-    selectedFromCandidates: selectedFromCandidates.sort(lorebookInjectionOrder),
-    budgetSkippedEntries: budgetSkippedEntries.sort((a, b) => a.id.localeCompare(b.id)),
+    selectedFromCandidates: [],
+    budgetSkippedEntries: sortedBudgetSkippedEntries(skippedById),
   };
 }
 
@@ -673,10 +811,7 @@ async function scanActiveLorebookEntrySet(
     budgetSkippedEntries.push(...selectedBatch.budgetSkippedEntries);
 
     const recursiveContent = selectedBatch.selectedFromCandidates
-      .filter(
-        (selected) =>
-          lorebooksById.get(selected.entry.lorebookId)?.recursiveScanning && !selected.entry.preventRecursion,
-      )
+      .filter((selected) => !selected.entry.preventRecursion)
       .map((selected) => selected.entry.content)
       .join("\n");
 
@@ -791,7 +926,8 @@ async function loadActivatedLore(input: ActiveLorebookScannerInput): Promise<Loa
   const activeLorebookReasons = scopedLorebooks.map((entry) => entry.reason);
   const activeCharacterIds = input.characters.map((character) => character.id);
   const activeCharacterTags = input.characters.flatMap((character) => character.tags);
-  const gameState = parseRecord(input.chat.gameState ?? meta.gameState);
+  const rawGameState = input.chat.gameState ?? meta.gameState;
+  const gameState = rawGameState == null ? null : parseRecord(rawGameState);
   const previousTimingStates = lorebookTimingStateMap(meta.entryTimingStates);
   const previousEntryStateOverrides = lorebookEntryStateOverrideMap(meta.entryStateOverrides);
   const messages = input.storedMessages

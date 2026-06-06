@@ -898,6 +898,11 @@ fn apply_create_default_field(
             insert_default(object, field, json!({}));
         }
         ("chats", "characterIds") => insert_default(object, field, json!([])),
+        ("chat-folders", "color") => insert_default(object, field, Value::String(String::new())),
+        ("chat-folders", "collapsed") => insert_default(object, field, Value::Bool(false)),
+        ("chat-folders", "sortOrder") | ("chat-folders", "order") => {
+            insert_default(object, field, json!(0));
+        }
         ("connections", "enabled") => insert_default(object, field, Value::Bool(true)),
         ("connection-folders", "color") => {
             insert_default(object, field, Value::String("#38bdf8".to_string()));

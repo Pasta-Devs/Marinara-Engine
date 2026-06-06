@@ -278,6 +278,22 @@ pub fn run() {
             storage_commands::update_commands::update_check,
             storage_commands::update_commands::update_apply,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Flush pending debounced storage writes on quit so writes made inside the
+            // 750ms debounce window aren't lost when the app closes (#2319).
+            if matches!(
+                event,
+                tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
+            ) {
+                if let Some(state) = app_handle.try_state::<crate::state::AppState>() {
+                    if let Err(error) = state.storage.flush() {
+                        // Best-effort: a failed quit-time flush must not block shutdown, but it
+                        // must not be silent either, so a dropped write is diagnosable.
+                        log::error!("failed to flush pending storage writes on quit: {error}");
+                    }
+                }
+            }
+        });
 }

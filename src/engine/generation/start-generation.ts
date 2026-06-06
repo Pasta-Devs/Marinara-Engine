@@ -95,6 +95,7 @@ import {
   resolveVisibleGameStateFallbackMessageIds,
   selectTrackerSnapshotForGeneration,
   trackerSnapshotTargetFromMessage,
+  type TrackerSnapshotSavedHook,
 } from "./tracker-snapshots";
 
 export type { StartGenerationInput } from "./start-generation-input";
@@ -105,6 +106,7 @@ export interface GenerationEngineDeps {
   integrations: IntegrationGateway;
   visuals?: VisualAssetGateway;
   events?: EventGateway;
+  onTrackerSnapshotSaved?: TrackerSnapshotSavedHook;
 }
 
 export interface RetryAgentsInput extends JsonRecord {
@@ -140,6 +142,7 @@ const DEFAULT_LOREBOOK_KEEPER_RUN_INTERVAL = BUILT_IN_AGENT_RUN_INTERVAL_DEFAULT
 
 const CONTINUE_ASSISTANT_RESPONSE_INSTRUCTION =
   "[Generation instruction: continue from the latest assistant message. Do not repeat or summarize the previous response; pick up naturally from where it stopped.]";
+const MAX_RANDOM_LLM_SEED_EXCLUSIVE = 4_294_967_295;
 
 type InternalStartGenerationOptions = {
   groupTurnChild?: boolean;
@@ -211,14 +214,26 @@ function generationEmbeddingSource(llm: LlmGateway, connection: JsonRecord) {
   if (!llm.embed) return null;
   const connectionId = readString(connection.id).trim() || null;
   const model = readString(connection.embeddingModel).trim() || null;
+  const cache = new Map<string, Promise<number[][] | null>>();
   return {
-    embed: (texts: string[], request?: { connectionId?: string | null; model?: string | null }) =>
-      llm.embed!({
+    embed: (texts: string[], request?: { connectionId?: string | null; model?: string | null }) => {
+      const payload = {
         texts,
         connectionId: request?.connectionId !== undefined ? request.connectionId : connectionId,
         model: request?.model !== undefined ? request.model : model,
-      }),
+      };
+      const key = JSON.stringify(payload);
+      const existing = cache.get(key);
+      if (existing) return existing;
+      const embedding = llm.embed!(payload);
+      cache.set(key, embedding);
+      return embedding;
+    },
   };
+}
+
+function hasPromptAgentData(agentData: Record<string, string> | null | undefined): agentData is Record<string, string> {
+  return Object.values(agentData ?? {}).some((value) => readString(value).trim().length > 0);
 }
 
 function inputAttachments(input: StartGenerationInput): PromptAttachment[] {
@@ -455,6 +470,14 @@ function imageExtension(mimeType: string): string {
   return "png";
 }
 
+function generatedImageExtension(ext: unknown, mimeType: string): string {
+  const normalized = readString(ext).trim().toLowerCase().replace(/^\./, "");
+  if (["png", "jpg", "jpeg", "webp", "gif"].includes(normalized)) {
+    return normalized === "jpeg" ? "jpg" : normalized;
+  }
+  return imageExtension(mimeType);
+}
+
 function illustrationSize(value: unknown): { width: number; height: number } {
   const text = readString(value).trim();
   const match = text.match(/^(\d{2,5})\s*x\s*(\d{2,5})$/i);
@@ -610,7 +633,7 @@ async function fullBodySpriteReference(
   return preferred ? resolveIllustrationReferenceImage(visuals, preferred) : "";
 }
 
-async function defaultIllustratorImageConnectionId(storage: StorageGateway): Promise<string> {
+async function defaultAgentImageConnectionId(storage: StorageGateway): Promise<string> {
   const connections = await storage.list<JsonRecord>("connections").catch(() => []);
   const connection = connections.find(
     (item) => readString(item.provider).trim() === "image_generation" && boolish(item.defaultForAgents, false),
@@ -639,7 +662,7 @@ async function illustrationImageSettings(args: {
     readString(settings.imageConnectionId).trim() ||
     readString(meta.illustrationImageConnectionId).trim() ||
     readString(meta.imageGenConnectionId).trim() ||
-    (await defaultIllustratorImageConnectionId(args.storage));
+    (await defaultAgentImageConnectionId(args.storage));
   return {
     connectionId,
     positivePrompt:
@@ -799,6 +822,7 @@ async function generateIllustrationAttachments(args: {
         base64?: string;
         mimeType?: string;
         image?: string;
+        ext?: string;
         provider?: string;
         model?: string;
       }>({
@@ -818,7 +842,7 @@ async function generateIllustrationAttachments(args: {
       const imageUrl = readString(image.image).trim() || (base64 ? `data:${mimeType};base64,${base64}` : "");
       if (!imageUrl) throw new Error("Image provider returned no image data.");
 
-      const filename = `illustration_${Date.now()}_${index + 1}.${imageExtension(mimeType)}`;
+      const filename = `illustration_${Date.now()}_${index + 1}.${generatedImageExtension(image.ext, mimeType)}`;
       const gallery = await args.deps.storage.create<JsonRecord>("gallery", {
         chatId: readString(args.chat.id),
         filePath: filename,
@@ -862,6 +886,251 @@ async function generateIllustrationAttachments(args: {
   }
 
   return { attachments, events };
+}
+
+interface TrackerAvatarImageSettings {
+  connectionId: string;
+  positivePrompt: string;
+  negativePrompt: string;
+}
+
+function isCharacterTrackerResult(result: AgentResult): boolean {
+  return result.agentType === "character-tracker" || result.type === "character_tracker_update";
+}
+
+async function agentSettingsByType(
+  storage: StorageGateway,
+  agentId: string,
+  agentType: string,
+): Promise<JsonRecord> {
+  const direct = agentId ? await storage.get<JsonRecord>("agents", agentId).catch(() => null) : null;
+  if (isRecord(direct)) return parseRecord(direct.settings);
+  const fallback = await storage.get<JsonRecord>("agents", agentType).catch(() => null);
+  if (isRecord(fallback)) return parseRecord(fallback.settings);
+  const agents = await storage.list<JsonRecord>("agents").catch(() => []);
+  const agent = agents.find(
+    (item) => readString(item.id).trim() === agentType || readString(item.type).trim() === agentType,
+  );
+  return isRecord(agent) ? parseRecord(agent.settings) : {};
+}
+
+async function trackerAvatarImageSettings(args: {
+  storage: StorageGateway;
+  chat: JsonRecord;
+  result: AgentResult;
+}): Promise<TrackerAvatarImageSettings | null> {
+  const settings = await agentSettingsByType(args.storage, args.result.agentId, "character-tracker");
+  if (!boolish(settings.autoGenerateAvatars, false)) return null;
+  const meta = parseRecord(args.chat.metadata);
+  const connectionId =
+    readString(settings.imageConnectionId).trim() ||
+    readString(meta.characterTrackerImageConnectionId).trim() ||
+    readString(meta.imageGenConnectionId).trim() ||
+    (await defaultAgentImageConnectionId(args.storage));
+  return {
+    connectionId,
+    positivePrompt: readString(settings.imagePositivePrompt).trim(),
+    negativePrompt: combinedPromptParts([
+      readString(settings.imageNegativePrompt).trim(),
+      readString(meta.selfieNegativePrompt).trim(),
+    ]),
+  };
+}
+
+function trackerAvatarLookupKey(kind: "id" | "name", value: unknown): string {
+  const text = readString(value).trim().toLowerCase();
+  return text ? `${kind}:${text}` : "";
+}
+
+function addTrackerAvatarLookupEntry(
+  lookup: Map<string, string>,
+  character: JsonRecord,
+  avatarPath: string,
+): void {
+  const avatar = avatarPath.trim();
+  if (!avatar) return;
+  const idKey = trackerAvatarLookupKey("id", character.characterId ?? character.id);
+  const nameKey = trackerAvatarLookupKey("name", character.name);
+  if (idKey) lookup.set(idKey, avatar);
+  if (nameKey) lookup.set(nameKey, avatar);
+}
+
+function trackerAvatarLookup(snapshot?: GameState | null): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const character of snapshot?.presentCharacters ?? []) {
+    const record = character as unknown as JsonRecord;
+    const avatarPath = readString(record.avatarPath).trim();
+    addTrackerAvatarLookupEntry(lookup, record, avatarPath);
+  }
+  return lookup;
+}
+
+function existingTrackerAvatarPath(lookup: Map<string, string>, character: JsonRecord): string {
+  const idKey = trackerAvatarLookupKey("id", character.characterId ?? character.id);
+  if (idKey && lookup.has(idKey)) return lookup.get(idKey) ?? "";
+  const nameKey = trackerAvatarLookupKey("name", character.name);
+  return nameKey ? lookup.get(nameKey) ?? "" : "";
+}
+
+function trackerAvatarPrompt(character: JsonRecord, positivePrompt: string): string {
+  const name = readString(character.name).trim();
+  const appearance = readString(character.appearance).trim();
+  const outfit = readString(character.outfit).trim();
+  const mood = readString(character.mood ?? character.expression).trim();
+  return [
+    `Portrait avatar of ${name}.`,
+    `Appearance: ${appearance}.`,
+    outfit ? `Outfit: ${outfit}.` : "",
+    mood ? `Expression or mood: ${mood}.` : "",
+    "Centered bust portrait, expressive face, clean background, high detail, polished character art.",
+    positivePrompt,
+  ]
+    .filter((part) => part.trim().length > 0)
+    .join(" ");
+}
+
+function imageDataUrlFromGeneratedImage(image: { base64?: unknown; mimeType?: unknown; image?: unknown }): string {
+  const direct = readString(image.image).trim();
+  if (direct) return direct;
+  const base64 = readString(image.base64).trim();
+  if (!base64) return "";
+  const mimeType = readString(image.mimeType).trim() || "image/png";
+  return `data:${mimeType};base64,${base64}`;
+}
+
+function shouldGenerateTrackerAvatar(character: JsonRecord): boolean {
+  if (readString(character.avatarPath).trim()) return false;
+  if (!readString(character.name).trim()) return false;
+  if (!readString(character.appearance).trim()) return false;
+  const characterId = readString(character.characterId ?? character.id).trim();
+  return !characterId.startsWith("manual-");
+}
+
+async function generatedTrackerAvatarPath(args: {
+  deps: GenerationEngineDeps;
+  chatId: string;
+  character: JsonRecord;
+  settings: TrackerAvatarImageSettings;
+  index: number;
+  signal?: AbortSignal;
+}): Promise<string> {
+  if (!args.deps.visuals?.uploadNpcAvatar) return "";
+  const name = readString(args.character.name).trim();
+  const prompt = trackerAvatarPrompt(args.character, args.settings.positivePrompt);
+  const image = await args.deps.integrations.image.generate<{
+    base64?: string;
+    mimeType?: string;
+    image?: string;
+  }>({
+    connectionId: args.settings.connectionId,
+    kind: "avatar",
+    reviewId: `tracker-avatar:${args.chatId}:${args.index}:${name}`,
+    reviewTitle: `NPC avatar: ${name}`,
+    prompt,
+    negativePrompt: args.settings.negativePrompt || undefined,
+    width: 768,
+    height: 1024,
+  });
+  throwIfAborted(args.signal);
+  const imageUrl = imageDataUrlFromGeneratedImage(image);
+  if (!imageUrl) throw new Error("Image provider returned no avatar image data.");
+  const upload = await args.deps.visuals.uploadNpcAvatar(args.chatId, name, imageUrl);
+  return readString(upload.avatarPath).trim();
+}
+
+async function generateTrackerAvatarsForResults(args: {
+  deps: GenerationEngineDeps;
+  chat: JsonRecord;
+  results: AgentResult[];
+  baseline?: GameState | null;
+  signal?: AbortSignal;
+}): Promise<AgentResult[]> {
+  if (!args.deps.integrations?.image || !args.deps.visuals?.uploadNpcAvatar) return args.results;
+  if (!args.results.some(isCharacterTrackerResult)) return args.results;
+  const chatId = readString(args.chat.id).trim();
+  if (!chatId) return args.results;
+  const lookup = trackerAvatarLookup(args.baseline);
+  const settingsCache = new Map<string, TrackerAvatarImageSettings | null>();
+  let changedAny = false;
+
+  const nextResults: AgentResult[] = [];
+  for (const result of args.results) {
+    if (!result.success || !isCharacterTrackerResult(result)) {
+      nextResults.push(result);
+      continue;
+    }
+    const data = parseRecord(result.data);
+    if (!Array.isArray(data.presentCharacters)) {
+      nextResults.push(result);
+      continue;
+    }
+
+    const settingsKey = readString(result.agentId).trim() || result.agentType;
+    if (!settingsCache.has(settingsKey)) {
+      settingsCache.set(
+        settingsKey,
+        await trackerAvatarImageSettings({ storage: args.deps.storage, chat: args.chat, result }),
+      );
+    }
+    const settings = settingsCache.get(settingsKey) ?? null;
+    if (!settings?.connectionId) {
+      nextResults.push(result);
+      continue;
+    }
+
+    let changedResult = false;
+    const presentCharacters = data.presentCharacters.map((value) => {
+      const character = parseRecord(value);
+      const preservedAvatar = existingTrackerAvatarPath(lookup, character);
+      if (preservedAvatar && !readString(character.avatarPath).trim()) {
+        changedResult = true;
+        return { ...character, avatarPath: preservedAvatar };
+      }
+      if (readString(character.avatarPath).trim()) {
+        addTrackerAvatarLookupEntry(lookup, character, readString(character.avatarPath).trim());
+      }
+      return value;
+    });
+
+    for (let index = 0; index < presentCharacters.length; index += 1) {
+      throwIfAborted(args.signal);
+      const character = parseRecord(presentCharacters[index]);
+      if (!shouldGenerateTrackerAvatar(character)) continue;
+      const existingAvatar = existingTrackerAvatarPath(lookup, character);
+      if (existingAvatar) {
+        presentCharacters[index] = { ...character, avatarPath: existingAvatar };
+        changedResult = true;
+        continue;
+      }
+      try {
+        const avatarPath = await generatedTrackerAvatarPath({
+          deps: args.deps,
+          chatId,
+          character,
+          settings,
+          index,
+          signal: args.signal,
+        });
+        if (!avatarPath) continue;
+        const nextCharacter = { ...character, avatarPath };
+        presentCharacters[index] = nextCharacter;
+        addTrackerAvatarLookupEntry(lookup, nextCharacter, avatarPath);
+        changedResult = true;
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") throw error;
+        console.warn("[generation] tracker avatar generation failed", error);
+      }
+    }
+
+    if (changedResult) {
+      changedAny = true;
+      nextResults.push({ ...result, data: { ...data, presentCharacters } });
+    } else {
+      nextResults.push(result);
+    }
+  }
+
+  return changedAny ? nextResults : args.results;
 }
 
 async function mirrorSavedAssistantMessageToDiscord(args: {
@@ -1117,6 +1386,14 @@ function sequentialGroupTarget(messages: JsonRecord[], activeIds: string[]): str
   if (!lastCharacterId) return activeIds[0] ?? null;
   const index = activeIds.indexOf(lastCharacterId);
   return activeIds[(index + 1) % activeIds.length] ?? activeIds[0] ?? null;
+}
+
+function sequentialGroupTurnOrder(messages: JsonRecord[], activeIds: string[]): string[] {
+  if (activeIds.length === 0) return [];
+  const lastCharacterId = lastVisibleAssistantCharacterId(messages, activeIds);
+  const lastIndex = lastCharacterId ? activeIds.indexOf(lastCharacterId) : -1;
+  const start = lastIndex >= 0 ? (lastIndex + 1) % activeIds.length : 0;
+  return activeIds.map((_, offset) => activeIds[(start + offset) % activeIds.length]!);
 }
 
 function activeSwipeCharacterId(message: JsonRecord | undefined): string | null {
@@ -1417,8 +1694,7 @@ async function resolveIndividualGroupTurnIds(args: {
       selectionMode: "multi",
     });
   }
-  const sequential = sequentialGroupTarget(args.storedMessages, activeIds);
-  return sequential ? [sequential] : [];
+  return sequentialGroupTurnOrder(args.storedMessages, activeIds);
 }
 
 async function* runIndividualGroupTurnLoop(args: {
@@ -1671,11 +1947,18 @@ async function persistTrackerSnapshotSafely(
   results: AgentResult[],
   baseSnapshot?: GameState | null,
   sourceText?: string | null,
+  onSavedSnapshot?: TrackerSnapshotSavedHook,
+  autoRemoveFullyCompletedQuests = false,
 ): Promise<void> {
   const target = trackerSnapshotTargetFromMessage(targetMessage);
   if (!target) return;
   try {
-    await persistTrackerSnapshotForTurn(storage, chatId, target, results, { baseSnapshot, sourceText });
+    await persistTrackerSnapshotForTurn(storage, chatId, target, results, {
+      baseSnapshot,
+      sourceText,
+      onSavedSnapshot,
+      autoRemoveFullyCompletedQuests,
+    });
   } catch (error) {
     console.warn("[generation] tracker snapshot persist failed", error);
   }
@@ -1713,6 +1996,10 @@ async function refreshMemoryRecallSafely(storage: StorageGateway, chat: JsonReco
   } catch (error) {
     console.warn("[generation] memory recall refresh failed", error);
   }
+}
+
+function scheduleMemoryRecallRefresh(storage: StorageGateway, chat: JsonRecord): void {
+  void refreshMemoryRecallSafely(storage, chat);
 }
 
 async function persistLorebookTimingStatesSafely(
@@ -2208,6 +2495,59 @@ function savedGenerationEventData(saved: unknown): unknown {
   return { ...withoutSwipes, extra: timelineExtra };
 }
 
+/**
+ * Mutable sink the streaming loop fills with the accumulated turn so the caller
+ * can recover the partial assistant text after an abort. The loop writes these
+ * fields in a `finally`, so they are populated even when the stream throws an
+ * `AbortError` before returning.
+ */
+interface StreamPartialSink {
+  content: string;
+  thinking: string;
+  usage: unknown;
+  promptSnapshot: MainGenerationPromptSnapshot | null;
+}
+
+/**
+ * On a Stop mid-stream, persist whatever the model has already produced so the
+ * partial assistant message is not lost. Returns the saved row (so the caller
+ * can emit an `assistant_message` event for it) or null when there is nothing
+ * worth saving. Reuses `saveAssistantMessage`, preserving impersonate and
+ * regenerate routing. Post-save agent / illustration / tracker work is skipped:
+ * the caller rethrows the abort right after this, before any of that runs.
+ */
+async function persistPartialOnAbort(args: {
+  deps: GenerationEngineDeps;
+  chat: JsonRecord;
+  input: StartGenerationInput;
+  connection: JsonRecord;
+  partial: StreamPartialSink;
+  chatSummaryFingerprint: string | null;
+  signal: AbortSignal | undefined;
+  existingExtra?: unknown;
+}): Promise<unknown | null> {
+  if (!args.signal?.aborted) return null;
+  if (!args.partial.content.trim()) return null;
+  try {
+    return await saveAssistantMessage({
+      storage: args.deps.storage,
+      chat: args.chat,
+      input: args.input,
+      connection: args.connection,
+      content: args.partial.content,
+      thinking: args.partial.thinking,
+      agentResults: [],
+      noteCount: 0,
+      chatSummaryFingerprint: args.chatSummaryFingerprint,
+      usage: args.partial.usage,
+      promptSnapshot: args.partial.promptSnapshot,
+      existingExtra: args.existingExtra,
+    });
+  } catch {
+    return null;
+  }
+}
+
 function messageId(saved: unknown): string | null {
   return isRecord(saved) ? readString(saved.id) || null : null;
 }
@@ -2526,7 +2866,14 @@ async function runGenerationAgentsForTarget(args: {
   for (const result of [...runtime.preResults, ...results]) {
     unique.set(resultKey(result), result);
   }
-  const finalResults = [...unique.values()];
+  let finalResults = [...unique.values()];
+  finalResults = await generateTrackerAvatarsForResults({
+    deps,
+    chat: chatForAgents,
+    results: finalResults,
+    baseline: targetSnapshot ?? retryBaseline,
+    signal,
+  });
   await persistAgentMessageExtraForTarget(
     deps.storage,
     target,
@@ -2535,14 +2882,22 @@ async function runGenerationAgentsForTarget(args: {
     runtime.availableSprites,
   );
   if (target) {
-    await persistTrackerSnapshotSafely(deps.storage, chatId, target, finalResults, retryBaseline, mainResponse);
+    await persistTrackerSnapshotSafely(
+      deps.storage,
+      chatId,
+      target,
+      finalResults,
+      retryBaseline,
+      mainResponse,
+      deps.onTrackerSnapshotSaved,
+    );
   }
   await persistSecretPlotAgentMemorySafely(deps.storage, chatId, finalResults, {
     rerollMode: secretPlotRerollMode(input),
   });
   await persistAgentResults(deps.storage, chatId, target ? readString(target.id) || null : null, finalResults);
 
-  const events: GenerationEvent[] = [];
+  const events: GenerationEvent[] = runtime.agentWarnings.map((warning) => ({ type: "agent_warning", data: warning }));
   const hasIllustrationRequest = finalResults.some((result) => illustratorPromptData(result) !== null);
   if (target && hasIllustrationRequest) {
     const illustration = await generateIllustrationAttachments({
@@ -2571,10 +2926,10 @@ async function runLorebookKeeperBackfill(
     storedMessages?: JsonRecord[];
     signal?: AbortSignal;
   },
-): Promise<AgentResult[]> {
+): Promise<{ results: AgentResult[]; events: GenerationEvent[] }> {
   const chatId = readString(input.chatId).trim();
   const agent = await lorebookKeeperAgent(deps.storage, args.chat);
-  if (!agent) return [];
+  if (!agent) return { results: [], events: [] };
 
   const storedMessages =
     args.storedMessages ??
@@ -2591,6 +2946,7 @@ async function runLorebookKeeperBackfill(
   });
   const agentTypes = new Set([LOREBOOK_KEEPER_AGENT_TYPE]);
   const allResults: AgentResult[] = [];
+  const allEvents: GenerationEvent[] = [];
 
   for (const target of targets) {
     const targetMessages = await loadMessagesForGenerationTarget({
@@ -2604,23 +2960,21 @@ async function runLorebookKeeperBackfill(
       targetMessages.find((message) => readString(message.id).trim() === readString(target.message.id).trim()) ??
       target.message;
     if (!readString(hydratedTarget.content).trim()) continue;
-    allResults.push(
-      ...(
-        await runGenerationAgentsForTarget({
-          deps,
-          input,
-          chat: args.chat,
-          connection: args.connection,
-          storedMessages: targetMessages,
-          target: hydratedTarget,
-          agentTypes,
-          signal: args.signal,
-        })
-      ).results,
-    );
+    const run = await runGenerationAgentsForTarget({
+      deps,
+      input,
+      chat: args.chat,
+      connection: args.connection,
+      storedMessages: targetMessages,
+      target: hydratedTarget,
+      agentTypes,
+      signal: args.signal,
+    });
+    allResults.push(...run.results);
+    allEvents.push(...run.events);
   }
 
-  return allResults;
+  return { results: allResults, events: allEvents };
 }
 
 export async function retryGenerationAgents(
@@ -2637,10 +2991,7 @@ export async function retryGenerationAgents(
   assertChatCanGenerate(chat);
   const connection = await resolveGenerationConnection(deps.storage, chat, input);
   if (isLorebookKeeperBackfill(input)) {
-    return {
-      results: await runLorebookKeeperBackfill(deps, input, { chat, connection, signal }),
-      events: [],
-    };
+    return runLorebookKeeperBackfill(deps, input, { chat, connection, signal });
   }
   const targetMessageId = readString(input.options?.forMessageId).trim();
   const storedMessages = await loadMessagesForGenerationTarget({
@@ -2802,6 +3153,7 @@ export async function* startGeneration(
   const agentEvents: AgentResult[] = [];
   const continueAssistantResponse = shouldContinueAssistantResponse(input, preparedUserInput, generationMessages);
   const agentInjectionOverrides = normalizedAgentInjectionOverrides(input);
+  const turnEmbeddingSource = generationEmbeddingSource(deps.llm, connection);
 
   yield { type: "phase", data: "Assembling prompt..." };
   let prompt = directMessages;
@@ -2811,7 +3163,7 @@ export async function* startGeneration(
     connection,
     request: input,
     latestUserInput,
-    embeddingSource: generationEmbeddingSource(deps.llm, connection),
+    embeddingSource: turnEmbeddingSource,
     visuals: deps.visuals,
     persistPromptVariables: true,
   });
@@ -2833,7 +3185,7 @@ export async function* startGeneration(
             persona: assembly.persona,
             activatedLorebookEntries: assembly.activatedLorebookEntries,
             chatSummary: assembly.chatSummary,
-            embeddingSource: generationEmbeddingSource(deps.llm, connection),
+            embeddingSource: turnEmbeddingSource,
             debugMode: input.debugMode === true,
             debugSink: input.debugSink,
             hideAutomatedSummarySourceMessages: input.hideAutomatedSummarySourceMessages === true,
@@ -2846,6 +3198,9 @@ export async function* startGeneration(
         )
       : null;
     throwIfAborted(signal);
+    for (const warning of runtime?.agentWarnings ?? []) {
+      yield { type: "agent_warning", data: warning };
+    }
     for (const result of agentEvents) {
       yield { type: "agent_result", data: result };
     }
@@ -2868,18 +3223,21 @@ export async function* startGeneration(
       return;
     }
 
-    assembly = await assembleGenerationPrompt(deps.storage, {
-      chat: chatForGeneration,
-      storedMessages: generationMessages,
-      connection,
-      request: input,
-      latestUserInput,
-      agentData: runtime?.agentData,
-      embeddingSource: generationEmbeddingSource(deps.llm, connection),
-      visuals: deps.visuals,
-      persistPromptVariables: true,
-    });
-    throwIfAborted(signal);
+    if (hasPromptAgentData(runtime?.agentData)) {
+      assembly = await assembleGenerationPrompt(deps.storage, {
+        chat: chatForGeneration,
+        storedMessages: generationMessages,
+        connection,
+        request: input,
+        latestUserInput,
+        agentData: runtime.agentData,
+        embeddingSource: turnEmbeddingSource,
+        visuals: deps.visuals,
+        persistPromptVariables: true,
+        reusableContext: assembly.reusableContext,
+      });
+      throwIfAborted(signal);
+    }
     await consumePendingConnectedInfluences(deps.storage, chatForGeneration);
     throwIfAborted(signal);
     const generationDirectiveMessages = directiveMessages(
@@ -2917,26 +3275,52 @@ export async function* startGeneration(
     const baseMessages: LlmMessage[] = [...prompt, generationGuide(input, runtime?.preInjections)].filter(
       (message): message is LlmMessage => !!message,
     );
-    const {
-      content: streamedContent,
-      thinking: streamedThinking,
-      usage,
-      promptSnapshot,
-    } = yield* streamMainGenerationLoop({
-      deps,
-      connection,
-      input,
-      chat: chatForGeneration,
-      parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
-      baseMessages,
-      previewMessages: [...promptPreviewMessages, generationGuide(input, runtime?.preInjections)].filter(
-        (message): message is LlmMessage => !!message,
-      ),
-      promptPresetId: assembly.promptPresetId,
-      mainTools,
-      toolRuntimeInput,
-      signal,
-    });
+    const mainPartial: StreamPartialSink = { content: "", thinking: "", usage: null, promptSnapshot: null };
+    let streamedContent = "";
+    let streamedThinking = "";
+    let usage: unknown = null;
+    let promptSnapshot: MainGenerationPromptSnapshot | null = null;
+    try {
+      ({
+        content: streamedContent,
+        thinking: streamedThinking,
+        usage,
+        promptSnapshot,
+      } = yield* streamMainGenerationLoop({
+        deps,
+        connection,
+        input,
+        chat: chatForGeneration,
+        parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
+        baseMessages,
+        previewMessages: [...promptPreviewMessages, generationGuide(input, runtime?.preInjections)].filter(
+          (message): message is LlmMessage => !!message,
+        ),
+        promptPresetId: assembly.promptPresetId,
+        mainTools,
+        toolRuntimeInput,
+        signal,
+        partial: mainPartial,
+      }));
+    } catch (err) {
+      // On a Stop mid-stream, persist the partial text before the abort
+      // propagates so it is not discarded, and emit its message event so the
+      // client upserts the saved row before clearing the streaming buffer.
+      const savedPartial = await persistPartialOnAbort({
+        deps,
+        chat,
+        input,
+        connection,
+        partial: mainPartial,
+        chatSummaryFingerprint: assembly.chatSummaryFingerprint,
+        signal,
+        existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
+      });
+      if (savedPartial) {
+        yield { type: savedGenerationEventType(input), data: savedGenerationEventData(savedPartial) };
+      }
+      throw err;
+    }
     throwIfAborted(signal);
     let content = streamedContent;
 
@@ -3012,7 +3396,14 @@ export async function* startGeneration(
     throwIfAborted(signal);
     const postResults = runtime ? await runtime.runPost(content) : [];
     throwIfAborted(signal);
-    const emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
+    let emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
+    emittedAgentResults = await generateTrackerAvatarsForResults({
+      deps,
+      chat: chatForGeneration,
+      results: emittedAgentResults,
+      baseline: generationTrackerBaseline,
+      signal,
+    });
     for (const result of emittedAgentResults) {
       yield { type: "agent_result", data: result };
     }
@@ -3063,6 +3454,8 @@ export async function* startGeneration(
         allAgentResults,
         generationTrackerBaseline,
         readString(parseRecord(latestSaved).content),
+        deps.onTrackerSnapshotSaved,
+        true,
       );
     }
     throwIfAborted(signal);
@@ -3071,7 +3464,7 @@ export async function* startGeneration(
     await persistAgentResults(deps.storage, chatId, messageId(latestSaved), allAgentResults);
     throwIfAborted(signal);
     if (saved && input.impersonate !== true) {
-      const autoLorebookResults = await runLorebookKeeperBackfill(
+      const autoLorebookBackfill = await runLorebookKeeperBackfill(
         deps,
         {
           chatId,
@@ -3081,12 +3474,15 @@ export async function* startGeneration(
         },
         { chat, connection, signal },
       );
-      for (const result of autoLorebookResults) {
+      for (const event of autoLorebookBackfill.events) {
+        yield event;
+      }
+      for (const result of autoLorebookBackfill.results) {
         yield { type: "agent_result", data: result };
       }
     }
     if (saved && input.impersonate !== true) {
-      await refreshMemoryRecallSafely(deps.storage, chat);
+      scheduleMemoryRecallRefresh(deps.storage, chat);
     }
     yield { type: "done", data: { transcript: visibleTranscript(generationMessages) } };
     return;
@@ -3125,26 +3521,52 @@ export async function* startGeneration(
   const baseMessagesDirect: LlmMessage[] = [...(prompt ?? []), generationGuide(input)].filter(
     (message): message is LlmMessage => !!message,
   );
-  const {
-    content: streamedContentDirect,
-    thinking: streamedThinkingDirect,
-    usage,
-    promptSnapshot: promptSnapshotDirect,
-  } = yield* streamMainGenerationLoop({
-    deps,
-    connection,
-    input,
-    chat: chatForGeneration,
-    parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
-    baseMessages: baseMessagesDirect,
-    previewMessages: [...(promptPreviewMessagesDirect ?? []), generationGuide(input)].filter(
-      (message): message is LlmMessage => !!message,
-    ),
-    promptPresetId: assembly.promptPresetId,
-    mainTools: mainToolsDirect,
-    toolRuntimeInput: toolRuntimeInputDirect,
-    signal,
-  });
+  const directPartial: StreamPartialSink = { content: "", thinking: "", usage: null, promptSnapshot: null };
+  let streamedContentDirect = "";
+  let streamedThinkingDirect = "";
+  let usage: unknown = null;
+  let promptSnapshotDirect: MainGenerationPromptSnapshot | null = null;
+  try {
+    ({
+      content: streamedContentDirect,
+      thinking: streamedThinkingDirect,
+      usage,
+      promptSnapshot: promptSnapshotDirect,
+    } = yield* streamMainGenerationLoop({
+      deps,
+      connection,
+      input,
+      chat: chatForGeneration,
+      parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
+      baseMessages: baseMessagesDirect,
+      previewMessages: [...(promptPreviewMessagesDirect ?? []), generationGuide(input)].filter(
+        (message): message is LlmMessage => !!message,
+      ),
+      promptPresetId: assembly.promptPresetId,
+      mainTools: mainToolsDirect,
+      toolRuntimeInput: toolRuntimeInputDirect,
+      signal,
+      partial: directPartial,
+    }));
+  } catch (err) {
+    // On a Stop mid-stream, persist the partial text before the abort
+    // propagates so it is not discarded, and emit its message event so the
+    // client upserts the saved row before clearing the streaming buffer.
+    const savedPartial = await persistPartialOnAbort({
+      deps,
+      chat,
+      input,
+      connection,
+      partial: directPartial,
+      chatSummaryFingerprint: assembly.chatSummaryFingerprint,
+      signal,
+      existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
+    });
+    if (savedPartial) {
+      yield { type: savedGenerationEventType(input), data: savedGenerationEventData(savedPartial) };
+    }
+    throw err;
+  }
   throwIfAborted(signal);
   let content = streamedContentDirect;
   content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
@@ -3207,7 +3629,7 @@ export async function* startGeneration(
   }
   throwIfAborted(signal);
   if (saved && input.impersonate !== true) {
-    const autoLorebookResults = await runLorebookKeeperBackfill(
+    const autoLorebookBackfill = await runLorebookKeeperBackfill(
       deps,
       {
         chatId,
@@ -3217,12 +3639,15 @@ export async function* startGeneration(
       },
       { chat, connection, signal },
     );
-    for (const result of autoLorebookResults) {
+    for (const event of autoLorebookBackfill.events) {
+      yield event;
+    }
+    for (const result of autoLorebookBackfill.results) {
       yield { type: "agent_result", data: result };
     }
   }
   if (saved && input.impersonate !== true) {
-    await refreshMemoryRecallSafely(deps.storage, chat);
+    scheduleMemoryRecallRefresh(deps.storage, chat);
   }
   yield { type: "done" };
 }
@@ -3244,9 +3669,10 @@ function runtimeLlmParameters(
   chat: JsonRecord,
   parameters: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (readString(connection.provider).trim() !== "claude_subscription") return parameters;
+  const generationParameters = rerollSeedParameters(input, parameters);
+  if (readString(connection.provider).trim() !== "claude_subscription") return generationParameters;
   return {
-    ...parameters,
+    ...generationParameters,
     _marinara: {
       chatId: readString(chat.id).trim() || readString(input.chatId).trim(),
       mode: readString(chat.mode || chat.chatMode).trim(),
@@ -3254,6 +3680,56 @@ function runtimeLlmParameters(
       impersonate: input.impersonate === true,
     },
   };
+}
+
+function isIntegerSeed(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && Number.isFinite(value);
+}
+
+function nextRandomLlmSeed(): number {
+  return Math.floor(Math.random() * MAX_RANDOM_LLM_SEED_EXCLUSIVE);
+}
+
+function rerollSeedParameters(input: StartGenerationInput, parameters: Record<string, unknown>): Record<string, unknown> {
+  if (!readString(input.regenerateMessageId).trim()) return parameters;
+
+  let nextParameters = parameters;
+  let nextSeed: number | null = null;
+  const freshSeed = () => {
+    nextSeed ??= nextRandomLlmSeed();
+    return nextSeed;
+  };
+
+  if (isIntegerSeed(parameters.seed)) {
+    nextParameters = {
+      ...nextParameters,
+      seed: freshSeed(),
+    };
+  }
+
+  const custom = parseRecord(parameters.customParameters);
+  if (isIntegerSeed(custom.seed)) {
+    nextParameters = {
+      ...nextParameters,
+      customParameters: {
+        ...custom,
+        seed: freshSeed(),
+      },
+    };
+  }
+
+  const customParams = parseRecord(parameters.custom_params);
+  if (isIntegerSeed(customParams.seed)) {
+    nextParameters = {
+      ...nextParameters,
+      custom_params: {
+        ...customParams,
+        seed: freshSeed(),
+      },
+    };
+  }
+
+  return nextParameters;
 }
 
 /**
@@ -3265,8 +3741,15 @@ function runtimeLlmParameters(
  */
 const MAX_MAIN_TOOL_ITERATIONS = 8;
 
-function llmChunkText(chunk: { text?: unknown; data?: unknown }): string {
-  return typeof chunk.text === "string" ? chunk.text : typeof chunk.data === "string" ? chunk.data : "";
+function llmChunkText(chunk: { text?: unknown; data?: unknown; error?: unknown; message?: unknown }): string {
+  if (typeof chunk.text === "string") return chunk.text;
+  if (typeof chunk.data === "string") return chunk.data;
+  const data = isRecord(chunk.data) ? chunk.data : {};
+  return readString(chunk.message) || readString(chunk.error) || readString(data.message) || readString(data.error);
+}
+
+function llmStreamErrorMessage(chunk: { text?: unknown; data?: unknown }): string {
+  return llmChunkText(chunk).trim() || "LLM stream failed";
 }
 
 /**
@@ -3296,6 +3779,7 @@ async function* streamMainGenerationLoop(args: {
   mainTools: MainToolDefinitions | null;
   toolRuntimeInput: ToolRuntimeInput;
   signal: AbortSignal | undefined;
+  partial?: StreamPartialSink | null;
 }): AsyncGenerator<
   GenerationEvent,
   { content: string; thinking: string; usage: unknown; promptSnapshot: MainGenerationPromptSnapshot | null }
@@ -3312,6 +3796,7 @@ async function* streamMainGenerationLoop(args: {
     mainTools,
     toolRuntimeInput,
     signal,
+    partial,
   } = args;
   let content = "";
   let thinking = "";
@@ -3319,13 +3804,19 @@ async function* streamMainGenerationLoop(args: {
   const conversation: LlmMessage[] = [...baseMessages];
   let promptSnapshot: MainGenerationPromptSnapshot | null = null;
   let iteration = 0;
+  // Text streamed in the current turn but not yet committed to `content`.
+  // Lets the abort `finally` recover an in-flight turn (the `content +=
+  // turnContent` commit only runs once the turn's stream completes).
+  let inFlightTurn = "";
 
-  while (true) {
+  try {
+    while (true) {
     throwIfAborted(signal);
     iteration++;
     const pendingToolCalls: LLMToolCall[] = [];
     const streamUsages: unknown[] = [];
     let turnContent = "";
+    inFlightTurn = "";
     const thinkingParser = createInlineThinkingStreamParser();
     const emitInlineParts = function* (text: string): Generator<GenerationEvent> {
       for (const part of thinkingParser.push(text)) {
@@ -3335,14 +3826,15 @@ async function* streamMainGenerationLoop(args: {
           yield { type: "thinking", data: part.text };
         } else {
           turnContent += part.text;
+          inFlightTurn = turnContent;
           yield { type: "token", data: part.text };
         }
       }
     };
 
-    const requestMessages = fitMessagesToContextWindow(conversation, parameters);
+    const requestMessages = fitMessagesToContextWindow(conversation, parameters, connection);
     const requestPreviewMessages = previewMessages?.length
-      ? fitMessagesToContextWindow(previewMessages, parameters)
+      ? fitMessagesToContextWindow(previewMessages, parameters, connection)
       : null;
     const requestParameters = runtimeLlmParameters(connection, input, chat, parameters);
     const requestTools = mainTools?.toolDefs;
@@ -3383,6 +3875,8 @@ async function* streamMainGenerationLoop(args: {
         if (normalized) pendingToolCalls.push(normalized);
       } else if (chunk.type === "usage" && chunk.data != null) {
         streamUsages.push(chunk.data);
+      } else if (chunk.type === "error") {
+        throw new Error(llmStreamErrorMessage(chunk));
       }
     }
     const streamUsage = mergeStreamUsageChunks(streamUsages);
@@ -3394,12 +3888,14 @@ async function* streamMainGenerationLoop(args: {
         yield { type: "thinking", data: part.text };
       } else {
         turnContent += part.text;
+        inFlightTurn = turnContent;
         yield { type: "token", data: part.text };
       }
     }
 
     throwIfAborted(signal);
     content += turnContent;
+    inFlightTurn = "";
 
     if (!mainTools || pendingToolCalls.length === 0) break;
     if (iteration >= MAX_MAIN_TOOL_ITERATIONS) {
@@ -3446,6 +3942,18 @@ async function* streamMainGenerationLoop(args: {
         tool_call_id: call.id,
         name: toolName,
       });
+    }
+    }
+  } finally {
+    // Expose the accumulated turn to the caller even when the stream is
+    // aborted mid-flight, so a Stop can persist the partial assistant text
+    // instead of discarding it. Runs on the normal return path too, but the
+    // caller only reads `partial` when `signal.aborted` is true.
+    if (partial) {
+      partial.content = content + inFlightTurn;
+      partial.thinking = thinking;
+      partial.usage = mergeTurnUsages(turnUsages);
+      partial.promptSnapshot = promptSnapshot;
     }
   }
 

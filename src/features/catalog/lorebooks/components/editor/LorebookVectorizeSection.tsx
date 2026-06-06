@@ -27,10 +27,17 @@ export function LorebookVectorizeSection({
   const queryClient = useQueryClient();
   const unvectorizeEntries = useBulkUnvectorizeLorebookEntries();
   const { data: rawConnections } = useConnections();
-  const connections = (rawConnections ?? []) as Array<{ id: string; name: string; embeddingModel?: string }>;
+  const connections = (rawConnections ?? []) as Array<{
+    id: string;
+    name: string;
+    provider?: string;
+    embeddingModel?: string;
+  }>;
   const embeddingConnections = connections.filter(
     (connection) =>
       connection.id !== LEGACY_LOCAL_SIDECAR_CONNECTION_ID &&
+      connection.provider !== "openai_chatgpt" &&
+      connection.provider !== "claude_subscription" &&
       typeof connection.embeddingModel === "string" &&
       connection.embeddingModel.trim(),
   );

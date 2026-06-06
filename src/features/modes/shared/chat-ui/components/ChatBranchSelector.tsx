@@ -2,6 +2,7 @@ import { createPortal } from "react-dom";
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, GitBranch, Loader2, MessageSquare } from "lucide-react";
 import { useChatGroup } from "../../../../catalog/chats/index";
+import { getChatDisplayName } from "../../../../../shared/lib/chat-display";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
 import { cn } from "../../../../../shared/lib/utils";
 
@@ -110,7 +111,7 @@ export const ChatBranchSelector = forwardRef<ChatBranchSelectorHandle, ChatBranc
   if (!groupId) return null;
   if (!isLoading && branches.length <= 1) return null;
 
-  const branchLabel = currentBranch?.name ?? activeChatName ?? "Current branch";
+  const branchLabel = currentBranch ? getChatDisplayName(currentBranch) : (activeChatName ?? "Current branch");
   const buttonClassName =
     variant === "roleplay"
       ? "border border-foreground/10 bg-foreground/5 text-foreground/80 hover:bg-foreground/10 hover:text-foreground"
@@ -209,7 +210,7 @@ export const ChatBranchSelector = forwardRef<ChatBranchSelectorHandle, ChatBranc
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{branch.name}</div>
+                      <div className="truncate text-sm font-medium">{getChatDisplayName(branch)}</div>
                       <div className="text-[0.6875rem] text-[var(--muted-foreground)]">Updated {updatedAt}</div>
                     </div>
 

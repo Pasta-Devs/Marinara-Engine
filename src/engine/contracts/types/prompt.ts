@@ -178,8 +178,12 @@ export interface GenerationParameters {
   serviceTier: "auto" | "default" | "flex" | "scale" | "priority" | "standard_only" | null;
   /** Optional assistant-role prefill appended after the final user message. */
   assistantPrefill: string;
+  /** Optional deterministic seed for providers that expose seeded generation. */
+  seed?: number;
   /** Raw provider request parameters merged into the outgoing request body. */
   customParameters: Record<string, unknown>;
+  /** Provider-compatibility alias for raw request parameters. */
+  custom_params?: Record<string, unknown>;
   /** Merge consecutive system messages */
   squashSystemMessages: boolean;
   /** Show model reasoning/thinking */

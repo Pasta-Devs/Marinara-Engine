@@ -1,5 +1,11 @@
 import type { StorageGateway } from "../../../capabilities/storage";
-import { getBusyDelay, getCurrentStatus, getMonday, type WeekSchedule } from "../schedules/schedule.service.js";
+import {
+  getBusyDelay,
+  getCurrentStatus,
+  getEnabledConversationSchedules,
+  getMonday,
+  type WeekSchedule,
+} from "../schedules/schedule.service.js";
 
 // ── Types ──
 
@@ -75,8 +81,41 @@ async function chatMessages(storage: StorageGateway, chatId: string): Promise<St
 }
 
 function characterSchedules(meta: Record<string, unknown>): Record<string, WeekSchedule> {
-  const raw = metadataRecord(meta.characterSchedules);
-  return raw as Record<string, WeekSchedule>;
+  return getEnabledConversationSchedules(meta);
+}
+
+async function syncStoredConversationStatus(
+  storage: StorageGateway,
+  characterId: string,
+  status: { status: string; activity: string } | null,
+): Promise<void> {
+  const character = await storage.get<Record<string, unknown>>("characters", characterId);
+  if (!character) return;
+  const data = metadataRecord(character.data);
+  const extensions = metadataRecord(data.extensions);
+  const nextExtensions = { ...extensions };
+  if (status) {
+    nextExtensions.conversationStatus = status.status;
+    nextExtensions.conversationActivity = status.activity;
+    nextExtensions.conversationStatusSource = "schedule";
+  } else {
+    delete nextExtensions.conversationStatus;
+    delete nextExtensions.conversationActivity;
+    delete nextExtensions.conversationStatusSource;
+  }
+  if (
+    nextExtensions.conversationStatus === extensions.conversationStatus &&
+    nextExtensions.conversationActivity === extensions.conversationActivity &&
+    nextExtensions.conversationStatusSource === extensions.conversationStatusSource
+  ) {
+    return;
+  }
+  await storage.update("characters", characterId, {
+    data: {
+      ...data,
+      extensions: nextExtensions,
+    },
+  });
 }
 
 function clampPercent(value: number): number {
@@ -132,6 +171,7 @@ export async function getConversationStatus(
       activity: status?.activity ?? (schedule ? "scheduled" : "unknown (no schedule)"),
       schedule,
     };
+    await syncStoredConversationStatus(storage, characterId, status);
   }
   return { statuses, needsRefresh: false };
 }

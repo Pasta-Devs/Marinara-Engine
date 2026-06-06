@@ -35,7 +35,6 @@ export function TrackerSectionList({
     enabledAgentTypes,
     expressionSpritesEnabled,
     featuredCharacterCards,
-    flushPatch,
     gameState,
     gameStateRefreshing,
     getSnapshot,
@@ -62,7 +61,6 @@ export function TrackerSectionList({
   const { rerunTracker, trackerRetryBusy } = useTrackerRerun({
     activeChatId,
     enabledAgentTypes,
-    flushPatch,
     gameStateRefreshing,
   });
   const {

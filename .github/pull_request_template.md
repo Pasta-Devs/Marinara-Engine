@@ -44,7 +44,13 @@ Pressure points touched:
 ## Validation
 
 <!-- Check only what you personally ran or manually verified. Treat unchecked items as explicit TODOs. -->
-<!-- Do not submit *.test.ts or *.test.tsx files as PR proof; cite existing checks, command output, app/browser/Tauri verification, or manual notes instead. -->
+<!--
+Proof is session evidence, not permission to add durable test artifacts by reflex.
+Temporary local tests or harnesses are fine when they remain uncommitted.
+If this PR adds a committed test artifact, explain the durable test rationale in
+the notes below: the regression or risky invariant, why existing proof is
+insufficient, and why this test is narrow.
+-->
 
 - [ ] Matching validation command passes locally (for example `pnpm typecheck`, `pnpm build`, `pnpm check:architecture`, `pnpm check:docs`, or full `pnpm check` when warranted)
 - [ ] Full `pnpm check` passes before PR push/handoff

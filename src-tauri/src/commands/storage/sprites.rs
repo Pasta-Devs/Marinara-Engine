@@ -18,6 +18,8 @@ use std::time::UNIX_EPOCH;
 
 const SPRITE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "avif", "svg"];
 const CLEANUP_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp"];
+const SPRITE_CLEANUP_RESTORE_POINTS_DIR: &str = ".cleanup-restore-points";
+const SPRITE_CLEANUP_RESTORE_POINT_LIMIT: usize = 5;
 const SPRITE_PORTRAIT_SINGLE_PROMPT_KEY: &str = "sprite.portraitSingle";
 const SPRITE_EXPRESSION_SHEET_PROMPT_KEY: &str = "sprite.expressionSheet";
 const SPRITE_FULL_BODY_SINGLE_PROMPT_KEY: &str = "sprite.fullBodySingle";
@@ -44,6 +46,12 @@ struct SpritePlan {
 struct SpriteCleanupOutput {
     bytes: Vec<u8>,
     engine: String,
+}
+
+struct SpriteCleanupRestorePoint {
+    id: String,
+    created_millis: u128,
+    path: PathBuf,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -460,7 +468,7 @@ pub(crate) fn clean_saved_sprites(
     }
 
     let restore_point_id = format!("{}-{}", now_millis(), new_id());
-    let restore_point_dir = dir.join(".cleanup-restore-points").join(&restore_point_id);
+    let restore_point_dir = sprite_cleanup_restore_points_dir(&dir).join(&restore_point_id);
     fs::create_dir_all(&restore_point_dir)?;
     let mut entries = Vec::new();
     let mut failed = Vec::new();
@@ -511,6 +519,11 @@ pub(crate) fn clean_saved_sprites(
                 "entries": entries
             }))?,
         )?;
+        prune_sprite_cleanup_restore_points(
+            &dir,
+            SPRITE_CLEANUP_RESTORE_POINT_LIMIT,
+            Some(restore_point_id.as_str()),
+        );
     }
     Ok(json!({
         "processed": processed,
@@ -537,7 +550,7 @@ pub(crate) fn restore_sprite_cleanup_point(
         .filter(|id| id.chars().all(|ch| ch.is_ascii_alphanumeric() || ch == '-'))
         .ok_or_else(|| AppError::invalid_input("Invalid cleanup restore point ID"))?;
     let dir = sprites_dir(state, owner_kind, character_id)?;
-    let restore_point_dir = dir.join(".cleanup-restore-points").join(restore_point_id);
+    let restore_point_dir = sprite_cleanup_restore_points_dir(&dir).join(restore_point_id);
     let manifest_path = restore_point_dir.join("manifest.json");
     if !manifest_path.exists() {
         return Err(AppError::not_found("Cleanup restore point was not found"));
@@ -1668,6 +1681,114 @@ fn list_sprites_for_dir(
     Ok(Value::Array(items))
 }
 
+fn sprite_cleanup_restore_points_dir(sprite_dir: &Path) -> PathBuf {
+    sprite_dir.join(SPRITE_CLEANUP_RESTORE_POINTS_DIR)
+}
+
+fn cleanup_restore_point_created_millis(id: &str) -> Option<u128> {
+    let (prefix, suffix) = id.split_once('-')?;
+    if prefix.is_empty() || suffix.is_empty() {
+        return None;
+    }
+    prefix.parse::<u128>().ok()
+}
+
+fn collect_sprite_cleanup_restore_points(sprite_dir: &Path) -> Vec<SpriteCleanupRestorePoint> {
+    let restore_points_dir = sprite_cleanup_restore_points_dir(sprite_dir);
+    if !restore_points_dir.exists() {
+        return Vec::new();
+    }
+
+    let entries = match fs::read_dir(&restore_points_dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            log::warn!(
+                "could not inspect sprite cleanup restore points at {}: {error}",
+                restore_points_dir.display()
+            );
+            return Vec::new();
+        }
+    };
+
+    let mut points = Vec::new();
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                log::warn!(
+                    "could not inspect sprite cleanup restore point entry under {}: {error}",
+                    restore_points_dir.display()
+                );
+                continue;
+            }
+        };
+        match entry.file_type() {
+            Ok(file_type) if file_type.is_dir() => {}
+            Ok(_) => continue,
+            Err(error) => {
+                log::warn!(
+                    "could not inspect sprite cleanup restore point at {}: {error}",
+                    entry.path().display()
+                );
+                continue;
+            }
+        }
+        let id = entry.file_name().to_string_lossy().to_string();
+        let Some(created_millis) = cleanup_restore_point_created_millis(&id) else {
+            continue;
+        };
+        points.push(SpriteCleanupRestorePoint {
+            id,
+            created_millis,
+            path: entry.path(),
+        });
+    }
+    points
+}
+
+fn prune_sprite_cleanup_restore_points(
+    sprite_dir: &Path,
+    keep_latest: usize,
+    protected_restore_point_id: Option<&str>,
+) {
+    let mut points = collect_sprite_cleanup_restore_points(sprite_dir);
+    if points.len() <= keep_latest {
+        return;
+    }
+
+    points.sort_by(|a, b| {
+        b.created_millis
+            .cmp(&a.created_millis)
+            .then_with(|| b.id.cmp(&a.id))
+    });
+
+    let mut keep_ids = protected_restore_point_id
+        .map(|id| vec![id.to_string()])
+        .unwrap_or_default();
+    for point in &points {
+        if keep_ids.len() >= keep_latest {
+            break;
+        }
+        if keep_ids.iter().any(|id| id == &point.id) {
+            continue;
+        }
+        keep_ids.push(point.id.clone());
+    }
+
+    for point in points {
+        if keep_ids.iter().any(|id| id == &point.id) {
+            continue;
+        }
+        if let Err(error) = fs::remove_dir_all(&point.path) {
+            log::warn!(
+                "could not prune sprite cleanup restore point {} at {}: {error}",
+                point.id,
+                point.path.display()
+            );
+        }
+    }
+}
+
 fn sprites_dir(
     state: &AppState,
     owner_kind: SpriteOwnerKind,
@@ -1689,6 +1810,34 @@ fn persona_sprites_dir(state: &AppState, persona_id: &str) -> PathBuf {
         .join("sprites")
         .join("personas")
         .join(persona_id)
+}
+
+/// Best-effort removal of an owner's entire sprite directory on entity delete.
+/// Mirrors the avatar-cleanup pattern: failures are logged, never propagated, so a
+/// missing or locked sprite dir can't block the delete.
+///
+/// Resolves the canonical sprite directory WITHOUT running legacy migration: destructive
+/// cleanup must not depend on migration succeeding (a migration error would otherwise leak the
+/// namespaced dir), and it must never remove the legacy `sprites/<id>` path for a persona, since
+/// that path can belong to a character that shares the id. The owner id is validated first so a
+/// malformed value can't escape the sprites tree.
+pub(crate) fn remove_owned_sprite_dir(state: &AppState, owner_kind: SpriteOwnerKind, owner_id: &str) {
+    if validate_safe_segment(owner_id, owner_kind.owner_label()).is_err() {
+        return;
+    }
+    let dir = match owner_kind {
+        SpriteOwnerKind::Character => state.data_dir.join("sprites").join(owner_id),
+        SpriteOwnerKind::Persona => persona_sprites_dir(state, owner_id),
+    };
+    if dir.exists() {
+        if let Err(error) = fs::remove_dir_all(&dir) {
+            log::warn!(
+                "could not remove {} sprite directory at {}: {error}",
+                owner_kind.as_str(),
+                dir.display()
+            );
+        }
+    }
 }
 
 fn legacy_persona_sprites_dir(state: &AppState, persona_id: &str) -> PathBuf {
@@ -2451,6 +2600,148 @@ mod sprite_prompt_override_tests {
         let prompt = preview_prompt(&state, body).await;
 
         assert_eq!(prompt, "GPT TRANSIENT PROMPT");
+
+        let _ = fs::remove_dir_all(root);
+    }
+}
+
+#[cfg(test)]
+mod sprite_cleanup_restore_point_tests {
+    use super::*;
+    use std::fs;
+
+    fn test_sprite_dir(label: &str) -> (PathBuf, PathBuf) {
+        let root = env::temp_dir().join(format!(
+            "marinara-sprite-restore-prune-{label}-{}",
+            now_millis()
+        ));
+        let sprite_dir = root.join("data").join("sprites").join("character-1");
+        fs::create_dir_all(&sprite_dir).expect("sprite dir should be created");
+        (root, sprite_dir)
+    }
+
+    fn test_state(label: &str) -> (AppState, PathBuf, PathBuf) {
+        let root = env::temp_dir().join(format!(
+            "marinara-sprite-restore-prune-{label}-{}",
+            now_millis()
+        ));
+        let data_dir = root.join("data");
+        let state = AppState::from_data_dir_with_resource_dir(data_dir, Vec::new(), None)
+            .expect("test state should initialize");
+        let sprite_dir = state.data_dir.join("sprites").join("character-1");
+        fs::create_dir_all(&sprite_dir).expect("sprite dir should be created");
+        (state, root, sprite_dir)
+    }
+
+    fn seed_restore_point(sprite_dir: &Path, id: &str) -> PathBuf {
+        let path = sprite_cleanup_restore_points_dir(sprite_dir).join(id);
+        fs::create_dir_all(&path).expect("restore point dir should be created");
+        fs::write(path.join("manifest.json"), b"{}").expect("manifest should be written");
+        path
+    }
+
+    #[test]
+    fn prune_restore_points_keeps_latest_generated_dirs_and_manual_dirs() {
+        let (root, sprite_dir) = test_sprite_dir("latest");
+        let old = seed_restore_point(&sprite_dir, "100-old");
+        let middle = seed_restore_point(&sprite_dir, "200-middle");
+        let newest = seed_restore_point(&sprite_dir, "300-newest");
+        let manual = sprite_cleanup_restore_points_dir(&sprite_dir).join("manual-backup");
+        fs::create_dir_all(&manual).expect("manual dir should be created");
+        let loose_file = sprite_cleanup_restore_points_dir(&sprite_dir).join("999-loose-file");
+        fs::write(&loose_file, b"not a dir").expect("loose file should be written");
+
+        prune_sprite_cleanup_restore_points(&sprite_dir, 2, None);
+
+        assert!(!old.exists());
+        assert!(middle.exists());
+        assert!(newest.exists());
+        assert!(manual.exists());
+        assert!(loose_file.exists());
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn clean_saved_sprites_does_not_prune_restore_points_when_nothing_processed() {
+        let (state, root, sprite_dir) = test_state("all-failed");
+        let old_points = (1..=6)
+            .map(|index| seed_restore_point(&sprite_dir, &format!("{}-old", index * 100)))
+            .collect::<Vec<_>>();
+        fs::write(sprite_dir.join("neutral.gif"), b"not cleaned")
+            .expect("unsupported sprite should be written");
+
+        let result =
+            clean_saved_sprites(&state, "character-1", json!({ "engine": "builtin" }), None)
+                .expect("all-failed cleanup should still return partial result");
+
+        assert_eq!(result.get("processed").and_then(Value::as_u64), Some(0));
+        assert!(result.get("restorePointId").is_some_and(Value::is_null));
+        assert_eq!(
+            result.get("failed").and_then(Value::as_array).map(Vec::len),
+            Some(1)
+        );
+        for point in old_points {
+            assert!(point.exists());
+        }
+        assert_eq!(collect_sprite_cleanup_restore_points(&sprite_dir).len(), 6);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn clean_saved_sprites_prunes_after_manifest_backed_restore_point_exists() {
+        let (state, root, sprite_dir) = test_state("success");
+        let old_points = (1..=5)
+            .map(|index| seed_restore_point(&sprite_dir, &format!("{}-old", index * 100)))
+            .collect::<Vec<_>>();
+        let png = encode_png(DynamicImage::ImageRgba8(RgbaImage::from_pixel(
+            2,
+            2,
+            Rgba([255, 255, 255, 255]),
+        )))
+        .expect("sprite png should encode");
+        fs::write(sprite_dir.join("neutral.png"), png).expect("sprite should be written");
+
+        let result = clean_saved_sprites(
+            &state,
+            "character-1",
+            json!({ "engine": "builtin", "expressions": ["neutral"] }),
+            None,
+        )
+        .expect("successful cleanup should return result");
+
+        let restore_point_id = result
+            .get("restorePointId")
+            .and_then(Value::as_str)
+            .expect("successful cleanup should return restore point");
+        let restore_point_dir =
+            sprite_cleanup_restore_points_dir(&sprite_dir).join(restore_point_id);
+        assert!(restore_point_dir.join("manifest.json").exists());
+        assert!(!old_points[0].exists());
+        for point in old_points.iter().skip(1) {
+            assert!(point.exists());
+        }
+        assert_eq!(
+            collect_sprite_cleanup_restore_points(&sprite_dir).len(),
+            SPRITE_CLEANUP_RESTORE_POINT_LIMIT
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn prune_restore_points_keeps_protected_point_inside_cap() {
+        let (root, sprite_dir) = test_sprite_dir("protected");
+        let protected = seed_restore_point(&sprite_dir, "100-protected");
+        let middle = seed_restore_point(&sprite_dir, "200-middle");
+        let newest = seed_restore_point(&sprite_dir, "300-newest");
+
+        prune_sprite_cleanup_restore_points(&sprite_dir, 2, Some("100-protected"));
+
+        assert!(protected.exists());
+        assert!(!middle.exists());
+        assert!(newest.exists());
 
         let _ = fs::remove_dir_all(root);
     }

@@ -37,8 +37,13 @@ export interface Lorebook {
   scanDepth: number;
   /** Max output tokens allocated to this lorebook */
   tokenBudget: number;
+  /**
+   * Enables recursive scanning for the active lorebook set. Once any active
+   * lorebook enables recursion, selected entries from all active lorebooks can
+   * seed later passes unless the entry has preventRecursion.
+   */
   recursiveScanning: boolean;
-  /** Maximum recursion depth for recursive scanning (default 3) */
+  /** Maximum recursion depth this lorebook contributes when it enables recursive scanning. */
   maxRecursionDepth: number;
   /** ID of the character this lorebook is linked to (character books) */
   characterId: string | null;
@@ -177,7 +182,7 @@ export interface LorebookEntry {
   // ── Engine extensions (beyond ST) ──
   /** When true, the Lorebook Keeper agent cannot modify or overwrite this entry */
   locked: boolean;
-  /** When true, this entry's content won't trigger further entries during recursive scanning */
+  /** When true, this entry's content won't seed later recursive scanning passes. */
   preventRecursion: boolean;
   /** Sub-category tag for the entry (e.g. "location", "item", "lore", "quest") */
   tag: string;

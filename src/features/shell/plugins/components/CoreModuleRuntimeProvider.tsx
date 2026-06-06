@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { useEnabledCoreModuleStyles, useIsCoreModuleEnabled } from "../hooks/use-core-modules";
-import { CORE_MODULE_PLACEHOLDER_ID } from "../lib/core-module-registry";
-import { CoreModulePlaceholder } from "../placeholder/CoreModulePlaceholder";
+import { ME_NOTES_MODULE_ID } from "../lib/core-module-registry";
+import { MeNotepadModule } from "../notepad/MeNotepadModule";
 
 const STYLE_PREFIX = "marinara-core-module-";
 
 export function CoreModuleRuntimeProvider() {
   const { data: styles = [] } = useEnabledCoreModuleStyles();
-  const { data: placeholderEnabled } = useIsCoreModuleEnabled(CORE_MODULE_PLACEHOLDER_ID);
+  const { data: meNotesEnabled } = useIsCoreModuleEnabled(ME_NOTES_MODULE_ID);
 
   useEffect(() => {
     document.querySelectorAll(`style[id^="${STYLE_PREFIX}"]`).forEach((element) => element.remove());
@@ -24,5 +24,5 @@ export function CoreModuleRuntimeProvider() {
     };
   }, [styles]);
 
-  return <>{placeholderEnabled ? <CoreModulePlaceholder /> : null}</>;
+  return <>{meNotesEnabled ? <MeNotepadModule /> : null}</>;
 }

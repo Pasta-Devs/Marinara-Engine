@@ -57,6 +57,15 @@ export type StorageListOptions = StorageListBaseOptions & StorageListSelector;
 
 export type ChatMessageListOptions = StorageListBaseOptions;
 
+export type ChatMemoryListOrder = "stored" | "recent";
+
+export interface ListChatMemoriesOptions {
+  limit?: number;
+  order?: ChatMemoryListOrder;
+  excludeRecentMessageIds?: string[];
+  excludeRecentStartAt?: string;
+}
+
 export interface AddChatMessageSwipeOptions {
   extra?: Record<string, unknown>;
   activate?: boolean;
@@ -111,7 +120,7 @@ export interface StorageGateway {
   ): Promise<T>;
   patchChatMetadata<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
   patchChatSummaries<T = unknown>(chatId: string, patch: Record<string, unknown>): Promise<T>;
-  listChatMemories<T = unknown>(chatId: string): Promise<T[]>;
+  listChatMemories<T = unknown>(chatId: string, options?: ListChatMemoriesOptions): Promise<T[]>;
   refreshChatMemories?<T = unknown>(chatId: string): Promise<T>;
   getWorldState<T = unknown>(chatId: string): Promise<T | null>;
   saveTrackerSnapshot<T = unknown>(chatId: string, snapshot: Record<string, unknown>): Promise<T>;

@@ -1,14 +1,19 @@
 use futures_util::StreamExt;
 use marinara_core::{AppError, AppResult};
-use marinara_security::{is_allowed_outbound_url, redact_sensitive_json, redact_sensitive_text};
+use marinara_security::{
+    is_allowed_provider_url, is_forbidden_provider_resolved_ip, is_loopback_provider_host,
+    redact_sensitive_json, redact_sensitive_text,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     env, fs,
     io::Write,
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
     process::{Command, Stdio},
+    time::Duration,
 };
 use uuid::Uuid;
 
@@ -18,6 +23,9 @@ const OPENAI_CHATGPT_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const APP_VERSION: &str = "1.6.1";
 const CLAUDE_SUBSCRIPTION_1M_SUFFIX: &str = "[1m]";
 const CLAUDE_SUBSCRIPTION_1M_BETA: &str = "context-1m-2025-08-07";
+const PROVIDER_LOCAL_URLS_ENABLED_FLAG: &str = "PROVIDER_LOCAL_URLS_ENABLED";
+const PROVIDER_RESPONSE_MAX_BYTES: usize = 5 * 1024 * 1024;
+const PROVIDER_RESPONSE_HEADERS_TIMEOUT_SECS: u64 = 5 * 60;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SseBlockStatus {
@@ -100,6 +108,9 @@ pub async fn complete_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
                     tool_calls: Vec::new(),
                 })
         }
+        "cohere" if should_use_cohere_compatibility(&request) => {
+            complete_openai_compatible_rich(request).await
+        }
         "cohere" => complete_cohere_rich(request).await,
         _ => complete_openai_compatible_rich(request).await,
     }
@@ -118,6 +129,8 @@ pub async fn stream_events(
         stream_google(request, &mut emit).await?;
     } else if request.connection.provider == "anthropic" {
         stream_anthropic(request, &mut emit).await?;
+    } else if request.connection.provider == "cohere" && should_use_cohere_compatibility(&request) {
+        stream_openai_compatible(request, &mut emit).await?;
     } else if request.connection.provider == "cohere" {
         stream_cohere(request, &mut emit).await?;
     } else if request.connection.provider != "claude_subscription" {
@@ -231,7 +244,7 @@ fn base_url(provider: &str, configured: &str) -> String {
                 .to_string()
         }
         "mistral" => "https://api.mistral.ai/v1".to_string(),
-        "cohere" => "https://api.cohere.com/v2".to_string(),
+        "cohere" => "https://api.cohere.com/compatibility/v1".to_string(),
         "openrouter" => "https://openrouter.ai/api/v1".to_string(),
         "nanogpt" => "https://nano-gpt.com/api/v1".to_string(),
         "xai" => "https://api.x.ai/v1".to_string(),
@@ -241,17 +254,25 @@ fn base_url(provider: &str, configured: &str) -> String {
 
 fn cohere_base_url(configured: &str) -> String {
     let base = base_url("cohere", configured);
-    if base.ends_with("/compatibility/v1") {
-        return format!("{}/v2", base.trim_end_matches("/compatibility/v1"));
-    }
     if base.ends_with("/v1") && base.contains("api.cohere.") {
         return format!("{}/v2", base.trim_end_matches("/v1"));
     }
     base
 }
 
+fn should_use_cohere_compatibility(request: &LlmRequest) -> bool {
+    base_url("cohere", &request.connection.base_url).ends_with("/compatibility/v1")
+}
+
+fn openai_compatible_chat_endpoint(request: &LlmRequest) -> String {
+    let base = base_url(&request.connection.provider, &request.connection.base_url);
+    format!("{base}/chat/completions")
+}
+
 fn cohere_chat_endpoint(configured: &str) -> String {
-    let base = cohere_base_url(configured).trim_end_matches('/').to_string();
+    let base = cohere_base_url(configured)
+        .trim_end_matches('/')
+        .to_string();
     if base.ends_with("/v2/chat") {
         base
     } else if base.ends_with("/v2") {
@@ -366,14 +387,147 @@ fn request_max_tokens(request: &LlmRequest, fallback: u64) -> u64 {
         .unwrap_or(value)
 }
 
-fn ensure_url_allowed(url: &str) -> AppResult<()> {
-    if is_allowed_outbound_url(url, true) {
-        Ok(())
-    } else {
+fn provider_local_urls_enabled() -> bool {
+    std::env::var(PROVIDER_LOCAL_URLS_ENABLED_FLAG).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+async fn provider_http_client_for_url(url: &str) -> AppResult<reqwest::Client> {
+    let parsed = reqwest::Url::parse(url).map_err(|error| {
+        AppError::invalid_input(format!(
+            "Outbound URL is invalid: {}",
+            redact_sensitive_text(&error.to_string())
+        ))
+    })?;
+    let allow_private_or_reserved = provider_local_urls_enabled();
+    if !is_allowed_provider_url(parsed.as_str(), allow_private_or_reserved) {
+        return Err(provider_url_not_allowed_error(url));
+    }
+    let resolved = validate_provider_url_resolution(&parsed, allow_private_or_reserved).await?;
+    provider_http_client(parsed.host_str(), resolved.as_deref())
+}
+
+async fn validate_provider_url_resolution(
+    url: &reqwest::Url,
+    allow_private_or_reserved: bool,
+) -> AppResult<Option<Vec<SocketAddr>>> {
+    if allow_private_or_reserved {
+        return Ok(None);
+    }
+    let Some(host) = url.host_str() else {
+        return Err(provider_url_not_allowed_error(url.as_str()));
+    };
+    if is_loopback_provider_host(host) {
+        return Ok(None);
+    }
+    if let Some(address) = provider_host_ip(host) {
+        if is_forbidden_provider_resolved_ip(address, allow_private_or_reserved) {
+            return Err(provider_url_not_allowed_error(url.as_str()));
+        }
+        return Ok(None);
+    }
+    let port = url.port_or_known_default().unwrap_or(443);
+    let addresses = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|error| {
+            AppError::invalid_input(format!(
+                "Outbound URL host '{}' did not resolve: {}",
+                redact_sensitive_text(host),
+                redact_sensitive_text(&error.to_string())
+            ))
+        })?
+        .collect::<Vec<_>>();
+    validate_provider_resolved_addresses(url, allow_private_or_reserved, addresses)
+}
+
+fn validate_provider_resolved_addresses(
+    url: &reqwest::Url,
+    allow_private_or_reserved: bool,
+    addresses: Vec<SocketAddr>,
+) -> AppResult<Option<Vec<SocketAddr>>> {
+    if addresses.is_empty() {
         Err(AppError::invalid_input(format!(
-            "Outbound URL is not allowed: {}",
-            redact_sensitive_text(url)
+            "Outbound URL host '{}' did not resolve",
+            redact_sensitive_text(url.host_str().unwrap_or("<missing>"))
         )))
+    } else if addresses
+        .iter()
+        .any(|address| is_forbidden_provider_resolved_ip(address.ip(), allow_private_or_reserved))
+    {
+        Err(provider_url_not_allowed_error(url.as_str()))
+    } else {
+        Ok(Some(addresses))
+    }
+}
+
+fn provider_host_ip(host: &str) -> Option<IpAddr> {
+    let unbracketed = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
+    unbracketed.parse::<IpAddr>().ok()
+}
+
+fn provider_url_not_allowed_error(url: &str) -> AppError {
+    AppError::invalid_input(format!(
+        "Outbound URL points to a private, LAN, metadata, or reserved target: {}. Set {PROVIDER_LOCAL_URLS_ENABLED_FLAG}=true only if you trust that provider target.",
+        redact_sensitive_text(url)
+    ))
+}
+
+fn provider_http_client(
+    host: Option<&str>,
+    resolved_addresses: Option<&[SocketAddr]>,
+) -> AppResult<reqwest::Client> {
+    let mut builder = reqwest::Client::builder()
+        .connect_timeout(provider_response_headers_timeout())
+        .redirect(reqwest::redirect::Policy::none());
+    if let (Some(host), Some(addresses)) = (host, resolved_addresses) {
+        builder = builder.resolve_to_addrs(host, addresses);
+    }
+    builder
+        .build()
+        .map_err(|error| AppError::new("llm_client_error", error.to_string()))
+}
+
+fn provider_response_headers_timeout() -> Duration {
+    Duration::from_secs(PROVIDER_RESPONSE_HEADERS_TIMEOUT_SECS)
+}
+
+async fn send_provider_request(request: reqwest::RequestBuilder) -> AppResult<reqwest::Response> {
+    send_provider_request_with_error_code(request, "llm_network_error").await
+}
+
+async fn send_provider_request_with_error_code(
+    request: reqwest::RequestBuilder,
+    error_code: &str,
+) -> AppResult<reqwest::Response> {
+    send_provider_request_with_timeout(request, error_code, provider_response_headers_timeout())
+        .await
+}
+
+async fn send_provider_request_with_timeout(
+    request: reqwest::RequestBuilder,
+    error_code: &str,
+    timeout: Duration,
+) -> AppResult<reqwest::Response> {
+    match tokio::time::timeout(timeout, request.send()).await {
+        Ok(Ok(response)) => Ok(response),
+        Ok(Err(error)) => Err(AppError::new(
+            error_code,
+            provider_transport_error_message(error),
+        )),
+        Err(_) => Err(AppError::new(
+            error_code,
+            format!(
+                "LLM provider request timed out while waiting for response headers after {} ms",
+                timeout.as_millis()
+            ),
+        )),
     }
 }
 
@@ -530,8 +684,12 @@ fn mistral_reasoning_effort(request: &LlmRequest) -> Option<&'static str> {
             _ => None,
         };
     }
-    param_boolish(&request.parameters, &["showThoughts", "show_thoughts"], false)
-        .map(|show| if show { "high" } else { "none" })
+    param_boolish(
+        &request.parameters,
+        &["showThoughts", "show_thoughts"],
+        false,
+    )
+    .map(|show| if show { "high" } else { "none" })
 }
 
 fn supports_cohere_thinking(model: &str) -> bool {
@@ -562,7 +720,11 @@ fn cohere_thinking_config(request: &LlmRequest) -> Option<Value> {
 
     let budget = param_i64(&request.parameters, &["thinkingBudget", "thinking_budget"])
         .filter(|value| *value > 0);
-    let show_thoughts = param_boolish(&request.parameters, &["showThoughts", "show_thoughts"], true);
+    let show_thoughts = param_boolish(
+        &request.parameters,
+        &["showThoughts", "show_thoughts"],
+        true,
+    );
     if let Some(budget) = budget {
         let mut thinking = json!({ "token_budget": budget });
         if show_thoughts.unwrap_or(true)
@@ -755,10 +917,7 @@ fn scrub_cohere_parameter_body(body: &mut Value, has_tools: bool) {
 }
 
 fn xai_model_id(model: &str) -> String {
-    model
-        .trim()
-        .trim_start_matches("xai/")
-        .to_ascii_lowercase()
+    model.trim().trim_start_matches("xai/").to_ascii_lowercase()
 }
 
 fn is_xai_grok_43_model(model: &str) -> bool {
@@ -785,8 +944,11 @@ fn xai_reasoning_effort(request: &LlmRequest) -> Option<&'static str> {
     if !is_xai_grok_43_model(&request.connection.model) {
         return None;
     }
-    let effort = param_string(&request.parameters, &["reasoningEffort", "reasoning_effort"])?
-        .to_ascii_lowercase();
+    let effort = param_string(
+        &request.parameters,
+        &["reasoningEffort", "reasoning_effort"],
+    )?
+    .to_ascii_lowercase();
     match effort.as_str() {
         "none" => Some("none"),
         "minimal" => Some("low"),
@@ -808,8 +970,11 @@ fn xai_reasoning_config(request: &LlmRequest) -> Option<Value> {
     {
         return Some(reasoning.clone());
     }
-    let effort = param_string(&request.parameters, &["reasoningEffort", "reasoning_effort"])?
-        .to_ascii_lowercase();
+    let effort = param_string(
+        &request.parameters,
+        &["reasoningEffort", "reasoning_effort"],
+    )?
+    .to_ascii_lowercase();
     match effort.as_str() {
         "low" | "minimal" => Some(json!({ "effort": "low" })),
         "medium" => Some(json!({ "effort": "medium" })),
@@ -832,11 +997,7 @@ fn is_xai_grok_420_or_newer_model(model: &str) -> bool {
     id.starts_with("grok-4.20") || id.starts_with("grok-4.3")
 }
 
-fn is_xai_unsupported_custom_parameter_key(
-    key: &str,
-    model: &str,
-    reasoning_active: bool,
-) -> bool {
+fn is_xai_unsupported_custom_parameter_key(key: &str, model: &str, reasoning_active: bool) -> bool {
     if matches!(
         key,
         "top_k"
@@ -988,8 +1149,8 @@ fn is_gemini_25_pro_model(model: &str) -> bool {
 }
 
 fn google_thinking_level(model: &str, parameters: &Value) -> Option<&'static str> {
-    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?
-        .to_ascii_lowercase();
+    let effort =
+        param_string(parameters, &["reasoningEffort", "reasoning_effort"])?.to_ascii_lowercase();
     match effort.as_str() {
         "none" | "minimal" if is_gemini_3_pro_model(model) => Some("low"),
         "none" | "minimal" => Some("minimal"),
@@ -1001,8 +1162,8 @@ fn google_thinking_level(model: &str, parameters: &Value) -> Option<&'static str
 }
 
 fn google_thinking_budget(model: &str, parameters: &Value) -> Option<i64> {
-    let effort = param_string(parameters, &["reasoningEffort", "reasoning_effort"])?
-        .to_ascii_lowercase();
+    let effort =
+        param_string(parameters, &["reasoningEffort", "reasoning_effort"])?.to_ascii_lowercase();
     let pro = is_gemini_25_pro_model(model);
     match effort.as_str() {
         "none" | "minimal" if pro => Some(128),
@@ -1131,14 +1292,14 @@ fn should_send_top_k(request: &LlmRequest) -> bool {
     if request.connection.provider == "openrouter" {
         return !is_openrouter_openai_model(&request.connection.model);
     }
-    !matches!(request.connection.provider.as_str(), "openai" | "xai" | "mistral" | "cohere")
+    !matches!(
+        request.connection.provider.as_str(),
+        "openai" | "xai" | "mistral" | "cohere"
+    )
 }
 
 fn is_openrouter_openai_model(model: &str) -> bool {
-    let normalized = model
-        .trim()
-        .trim_start_matches('~')
-        .to_ascii_lowercase();
+    let normalized = model.trim().trim_start_matches('~').to_ascii_lowercase();
     if normalized.starts_with("openai/") {
         return true;
     }
@@ -1245,7 +1406,8 @@ fn nanogpt_reasoning_config(parameters: &Value) -> Option<Value> {
     }
 
     let mut reasoning = serde_json::Map::new();
-    if let Some(show_thoughts) = param_boolish(parameters, &["showThoughts", "show_thoughts"], false)
+    if let Some(show_thoughts) =
+        param_boolish(parameters, &["showThoughts", "show_thoughts"], false)
     {
         reasoning.insert("exclude".to_string(), json!(!show_thoughts));
     }
@@ -1438,17 +1600,18 @@ fn openai_chatgpt_auth_is_stale(auth_json: &Value) -> bool {
 }
 
 async fn refresh_openai_chatgpt_auth(refresh_token: &str) -> AppResult<Value> {
-    ensure_url_allowed(OPENAI_CHATGPT_REFRESH_URL)?;
-    let response = reqwest::Client::new()
-        .post(OPENAI_CHATGPT_REFRESH_URL)
-        .json(&json!({
-            "client_id": OPENAI_CHATGPT_CLIENT_ID,
-            "grant_type": "refresh_token",
-            "refresh_token": refresh_token,
-        }))
-        .send()
-        .await
-        .map_err(|error| AppError::new("openai_chatgpt_auth_refresh_error", error.to_string()))?;
+    let response = send_provider_request_with_error_code(
+        provider_http_client_for_url(OPENAI_CHATGPT_REFRESH_URL)
+            .await?
+            .post(OPENAI_CHATGPT_REFRESH_URL)
+            .json(&json!({
+                "client_id": OPENAI_CHATGPT_CLIENT_ID,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+            })),
+        "openai_chatgpt_auth_refresh_error",
+    )
+    .await?;
     parse_json_response(response, |json| Some(json.to_string()))
         .await
         .and_then(|raw| {
@@ -1555,8 +1718,7 @@ fn apply_cohere_parameters(body: &mut Value, request: &LlmRequest) {
     {
         body["frequency_penalty"] = json!(frequency_penalty);
     }
-    if let Some(presence_penalty) =
-        param_f64(parameters, &["presencePenalty", "presence_penalty"])
+    if let Some(presence_penalty) = param_f64(parameters, &["presencePenalty", "presence_penalty"])
     {
         body["presence_penalty"] = json!(presence_penalty);
     }
@@ -1595,7 +1757,9 @@ fn apply_cohere_parameters(body: &mut Value, request: &LlmRequest) {
         body["priority"] = json!(priority);
     }
     if !request.tools.is_empty() {
-        if let Some(strict_tools) = param_boolish(parameters, &["strictTools", "strict_tools"], false) {
+        if let Some(strict_tools) =
+            param_boolish(parameters, &["strictTools", "strict_tools"], false)
+        {
             body["strict_tools"] = json!(strict_tools);
         }
     }
@@ -1632,17 +1796,14 @@ fn build_cohere_body(request: &LlmRequest, stream: bool) -> Value {
 
 async fn complete_cohere_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
     let url = cohere_chat_endpoint(&request.connection.base_url);
-    ensure_url_allowed(&url)?;
     let body = build_cohere_body(&request, false);
     log_prompt_connection_request("cohere.v2.chat", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
     }
-    let response = req.send().await.map_err(|error| {
-        AppError::new("llm_network_error", provider_transport_error_message(error))
-    })?;
+    let response = send_provider_request(req).await?;
     parse_cohere_response_rich(response).await
 }
 
@@ -1651,20 +1812,17 @@ async fn stream_cohere(
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
     let url = cohere_chat_endpoint(&request.connection.base_url);
-    ensure_url_allowed(&url)?;
     let body = build_cohere_body(&request, true);
     log_prompt_connection_request("cohere.v2.chat.stream", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
     }
-    let response = req.send().await.map_err(|error| {
-        AppError::new("llm_network_error", provider_transport_error_message(error))
-    })?;
+    let response = send_provider_request(req).await?;
     let status = response.status();
     if !status.is_success() {
-        let error_body = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
+        let error_body = read_error_response_details(response).await?;
         return Err(provider_http_error(status, error_body));
     }
 
@@ -1678,8 +1836,7 @@ async fn stream_cohere(
         })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
-            if process_cohere_sse_block(&block, emit, &mut tool_calls)?
-                == SseBlockStatus::Complete
+            if process_cohere_sse_block(&block, emit, &mut tool_calls)? == SseBlockStatus::Complete
             {
                 completed = true;
                 break;
@@ -1702,9 +1859,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
     if should_use_openai_responses(&request) {
         return complete_openai_responses_rich(request).await;
     }
-    let base = base_url(&request.connection.provider, &request.connection.base_url);
-    let url = format!("{base}/chat/completions");
-    ensure_url_allowed(&url)?;
+    let url = openai_compatible_chat_endpoint(&request);
     let messages: Vec<Value> = request_messages(&request)
         .iter()
         .map(openai_message)
@@ -1732,7 +1887,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
     }
     apply_openai_parameters(&mut body, &request);
     log_prompt_connection_request("openai.chat.completions", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
@@ -1742,9 +1897,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
             .header("HTTP-Referer", "https://marinara.local")
             .header("X-Title", "Marinara Engine");
     }
-    let response = req.send().await.map_err(|error| {
-        AppError::new("llm_network_error", provider_transport_error_message(error))
-    })?;
+    let response = send_provider_request(req).await?;
     parse_json_response_rich(response).await
 }
 
@@ -1752,9 +1905,7 @@ async fn stream_openai_compatible(
     request: LlmRequest,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
-    let base = base_url(&request.connection.provider, &request.connection.base_url);
-    let url = format!("{base}/chat/completions");
-    ensure_url_allowed(&url)?;
+    let url = openai_compatible_chat_endpoint(&request);
     let messages: Vec<Value> = request_messages(&request)
         .iter()
         .map(openai_message)
@@ -1782,7 +1933,7 @@ async fn stream_openai_compatible(
     }
     apply_openai_parameters(&mut body, &request);
     log_prompt_connection_request("openai.chat.completions.stream", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
@@ -1792,12 +1943,10 @@ async fn stream_openai_compatible(
             .header("HTTP-Referer", "https://marinara.local")
             .header("X-Title", "Marinara Engine");
     }
-    let response = req.send().await.map_err(|error| {
-        AppError::new("llm_network_error", provider_transport_error_message(error))
-    })?;
+    let response = send_provider_request(req).await?;
     let status = response.status();
     if !status.is_success() {
-        let error_body = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
+        let error_body = read_error_response_details(response).await?;
         return Err(provider_http_error(status, error_body));
     }
 
@@ -1941,17 +2090,17 @@ async fn openai_responses_request(
 ) -> AppResult<reqwest::Response> {
     let base = base_url(&request.connection.provider, &request.connection.base_url);
     let url = format!("{base}/responses");
-    ensure_url_allowed(&url)?;
     log_prompt_connection_request("openai.responses", &url, request, body);
-    let req = reqwest::Client::new().post(url).json(body);
+    let req = provider_http_client_for_url(&url)
+        .await?
+        .post(url)
+        .json(body);
     let req = if request.connection.provider == "openai_chatgpt" {
         apply_chatgpt_auth_headers(req).await?
     } else {
         apply_openai_auth_headers(req, request)
     };
-    req.send().await.map_err(|error| {
-        AppError::new("llm_network_error", provider_transport_error_message(error))
-    })
+    send_provider_request(req).await
 }
 
 async fn complete_openai_responses_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
@@ -2435,7 +2584,8 @@ fn openai_message(message: &LlmMessage) -> Value {
 
 fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
     let parameters = &request.parameters;
-    let xai_reasoning_active = request.connection.provider == "xai" && xai_reasoning_active(request);
+    let xai_reasoning_active =
+        request.connection.provider == "xai" && xai_reasoning_active(request);
     if should_send_openai_sampling_parameters(request) {
         if let Some(top_p) = param_f64(parameters, &["topP", "top_p"]) {
             body["top_p"] = json!(top_p);
@@ -2460,21 +2610,19 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
             body["presence_penalty"] = json!(presence_penalty);
         }
         if request.connection.provider == "openrouter" || request.connection.provider == "nanogpt" {
-            if let Some(min_p) =
-                param_f64(parameters, &["minP", "min_p"]).filter(|value| (0.0..=1.0).contains(value))
+            if let Some(min_p) = param_f64(parameters, &["minP", "min_p"])
+                .filter(|value| (0.0..=1.0).contains(value))
             {
                 body["min_p"] = json!(min_p);
             }
-            if let Some(top_a) =
-                param_f64(parameters, &["topA", "top_a"]).filter(|value| (0.0..=1.0).contains(value))
+            if let Some(top_a) = param_f64(parameters, &["topA", "top_a"])
+                .filter(|value| (0.0..=1.0).contains(value))
             {
                 body["top_a"] = json!(top_a);
             }
-            if let Some(repetition_penalty) = param_f64(
-                parameters,
-                &["repetitionPenalty", "repetition_penalty"],
-            )
-            .filter(|value| (0.0..=2.0).contains(value))
+            if let Some(repetition_penalty) =
+                param_f64(parameters, &["repetitionPenalty", "repetition_penalty"])
+                    .filter(|value| (0.0..=2.0).contains(value))
             {
                 body["repetition_penalty"] = json!(repetition_penalty);
             }
@@ -2497,8 +2645,9 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
                 {
                     body["typical_p"] = json!(typical_p);
                 }
-                if let Some(mirostat_mode) = param_i64(parameters, &["mirostatMode", "mirostat_mode"])
-                    .filter(|value| (0..=2).contains(value))
+                if let Some(mirostat_mode) =
+                    param_i64(parameters, &["mirostatMode", "mirostat_mode"])
+                        .filter(|value| (0..=2).contains(value))
                 {
                     body["mirostat_mode"] = json!(mirostat_mode);
                 }
@@ -2595,8 +2744,8 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         if let Some(prompt_caching) = nanogpt_prompt_caching_config(parameters) {
             body["prompt_caching"] = prompt_caching;
         }
-        if let Some(caching) =
-            param_boolish(parameters, &["caching"], false).or(request.connection.enable_caching.then_some(true))
+        if let Some(caching) = param_boolish(parameters, &["caching"], false)
+            .or(request.connection.enable_caching.then_some(true))
         {
             body["caching"] = json!(caching);
         }
@@ -2631,15 +2780,14 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         if let Some(ignore_eos) = param_boolish(parameters, &["ignoreEos", "ignore_eos"], false) {
             body["ignore_eos"] = json!(ignore_eos);
         }
-        if let Some(no_repeat_ngram_size) = param_i64(
-            parameters,
-            &["noRepeatNgramSize", "no_repeat_ngram_size"],
-        )
-        .filter(|value| *value >= 0)
+        if let Some(no_repeat_ngram_size) =
+            param_i64(parameters, &["noRepeatNgramSize", "no_repeat_ngram_size"])
+                .filter(|value| *value >= 0)
         {
             body["no_repeat_ngram_size"] = json!(no_repeat_ngram_size);
         }
-        if let Some(stop_token_ids) = param_i64_array(parameters, &["stopTokenIds", "stop_token_ids"])
+        if let Some(stop_token_ids) =
+            param_i64_array(parameters, &["stopTokenIds", "stop_token_ids"])
         {
             body["stop_token_ids"] = json!(stop_token_ids);
         }
@@ -2663,9 +2811,11 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         {
             body["prompt_logprobs"] = json!(prompt_logprobs);
         }
-        if let Some(reasoning_delta_field) =
-            param_string(parameters, &["reasoningDeltaField", "reasoning_delta_field"])
-                .filter(|value| value == "reasoning_content")
+        if let Some(reasoning_delta_field) = param_string(
+            parameters,
+            &["reasoningDeltaField", "reasoning_delta_field"],
+        )
+        .filter(|value| value == "reasoning_content")
         {
             body["reasoning_delta_field"] = json!(reasoning_delta_field);
         }
@@ -2695,8 +2845,8 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         {
             body["prompt_cache_key"] = json!(prompt_cache_key);
         }
-        if let Some(prompt_mode) =
-            param_string(parameters, &["promptMode", "prompt_mode"]).filter(|value| value == "reasoning")
+        if let Some(prompt_mode) = param_string(parameters, &["promptMode", "prompt_mode"])
+            .filter(|value| value == "reasoning")
         {
             body["prompt_mode"] = json!(prompt_mode);
         }
@@ -2707,7 +2857,10 @@ fn apply_openai_parameters(body: &mut Value, request: &LlmRequest) {
         ) {
             body["parallel_tool_calls"] = json!(parallel_tool_calls);
         }
-        if let Some(prediction) = parameters.get("prediction").filter(|value| !value.is_null()) {
+        if let Some(prediction) = parameters
+            .get("prediction")
+            .filter(|value| !value.is_null())
+        {
             body["prediction"] = prediction.clone();
         }
     }
@@ -3469,18 +3622,16 @@ async fn anthropic_request(
 ) -> AppResult<reqwest::Response> {
     let base = base_url(&request.connection.provider, &request.connection.base_url);
     let url = anthropic_endpoint(&base, "messages");
-    ensure_url_allowed(&url)?;
     log_prompt_connection_request(kind, &url, request, body);
-    reqwest::Client::new()
-        .post(url)
-        .header("x-api-key", request.connection.api_key.trim())
-        .header("anthropic-version", "2023-06-01")
-        .json(body)
-        .send()
-        .await
-        .map_err(|error| {
-            AppError::new("llm_network_error", provider_transport_error_message(error))
-        })
+    send_provider_request(
+        provider_http_client_for_url(&url)
+            .await?
+            .post(url)
+            .header("x-api-key", request.connection.api_key.trim())
+            .header("anthropic-version", "2023-06-01")
+            .json(body),
+    )
+    .await
 }
 
 async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
@@ -3781,14 +3932,16 @@ fn google_generation_config(request: &LlmRequest) -> Value {
             generation_config["topK"] = json!(top_k);
         }
     }
-    if let Some(frequency_penalty) =
-        param_f64(&request.parameters, &["frequencyPenalty", "frequency_penalty"])
-    {
+    if let Some(frequency_penalty) = param_f64(
+        &request.parameters,
+        &["frequencyPenalty", "frequency_penalty"],
+    ) {
         generation_config["frequencyPenalty"] = json!(frequency_penalty);
     }
-    if let Some(presence_penalty) =
-        param_f64(&request.parameters, &["presencePenalty", "presence_penalty"])
-    {
+    if let Some(presence_penalty) = param_f64(
+        &request.parameters,
+        &["presencePenalty", "presence_penalty"],
+    ) {
         generation_config["presencePenalty"] = json!(presence_penalty);
     }
     if let Some(thinking_config) =
@@ -3882,17 +4035,15 @@ fn google_generate_body(request: &LlmRequest) -> Value {
 
 async fn complete_google(request: LlmRequest) -> AppResult<String> {
     let url = google_endpoint(&request, "generateContent", false);
-    ensure_url_allowed(&url)?;
     let body = google_generate_body(&request);
     log_prompt_connection_request("google.generateContent", &url, &request, &body);
-    let response = reqwest::Client::new()
-        .post(url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|error| {
-            AppError::new("llm_network_error", provider_transport_error_message(error))
-        })?;
+    let response = send_provider_request(
+        provider_http_client_for_url(&url)
+            .await?
+            .post(url)
+            .json(&body),
+    )
+    .await?;
     parse_json_response(response, |json| {
         json.get("candidates")
             .and_then(Value::as_array)
@@ -3923,17 +4074,15 @@ async fn stream_google(
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
     let url = google_endpoint(&request, "streamGenerateContent", true);
-    ensure_url_allowed(&url)?;
     let body = google_generate_body(&request);
     log_prompt_connection_request("google.streamGenerateContent", &url, &request, &body);
-    let response = reqwest::Client::new()
-        .post(url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|error| {
-            AppError::new("llm_network_error", provider_transport_error_message(error))
-        })?;
+    let response = send_provider_request(
+        provider_http_client_for_url(&url)
+            .await?
+            .post(url)
+            .json(&body),
+    )
+    .await?;
     let status = response.status();
     if !status.is_success() {
         let error_body = read_error_response_details(response).await?;
@@ -4058,12 +4207,7 @@ fn ensure_google_finish_reason_allows_complete(reason: &str) -> AppResult<()> {
 }
 
 async fn read_error_response_details(response: reqwest::Response) -> AppResult<Value> {
-    let text = response.text().await.map_err(|error| {
-        AppError::new(
-            "llm_response_error",
-            provider_transport_error_message(error),
-        )
-    })?;
+    let text = read_capped_provider_error_text(response).await?;
     Ok(provider_error_details_from_text(&text))
 }
 
@@ -4071,15 +4215,11 @@ async fn read_json_response(
     response: reqwest::Response,
 ) -> AppResult<(reqwest::StatusCode, Value)> {
     let status = response.status();
-    let text = response.text().await.map_err(|error| {
-        AppError::new(
-            "llm_response_error",
-            provider_transport_error_message(error),
-        )
-    })?;
     if !status.is_success() {
+        let text = read_capped_provider_error_text(response).await?;
         return Ok((status, provider_error_details_from_text(&text)));
     }
+    let text = read_limited_provider_text(response).await?;
     let json = serde_json::from_str::<Value>(&text).map_err(|error| {
         AppError::with_details(
             "llm_response_error",
@@ -4088,6 +4228,62 @@ async fn read_json_response(
         )
     })?;
     Ok((status, json))
+}
+
+async fn read_limited_provider_text(mut response: reqwest::Response) -> AppResult<String> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > PROVIDER_RESPONSE_MAX_BYTES as u64)
+    {
+        return Err(provider_response_too_large_error());
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        AppError::new(
+            "llm_response_error",
+            provider_transport_error_message(error),
+        )
+    })? {
+        if body.len().saturating_add(chunk.len()) > PROVIDER_RESPONSE_MAX_BYTES {
+            return Err(provider_response_too_large_error());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
+async fn read_capped_provider_error_text(mut response: reqwest::Response) -> AppResult<String> {
+    let mut body = Vec::new();
+    let mut truncated = false;
+
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        AppError::new(
+            "llm_response_error",
+            provider_transport_error_message(error),
+        )
+    })? {
+        let remaining = PROVIDER_RESPONSE_MAX_BYTES.saturating_sub(body.len());
+        if chunk.len() > remaining {
+            body.extend_from_slice(&chunk[..remaining]);
+            truncated = true;
+            break;
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    let mut text = String::from_utf8_lossy(&body).into_owned();
+    if truncated {
+        text.push_str(" [truncated]");
+    }
+    Ok(text)
+}
+
+fn provider_response_too_large_error() -> AppError {
+    AppError::new(
+        "llm_response_error",
+        format!("Provider response exceeds {PROVIDER_RESPONSE_MAX_BYTES} bytes"),
+    )
 }
 
 async fn parse_json_response<F>(response: reqwest::Response, extract: F) -> AppResult<String>
@@ -4142,19 +4338,17 @@ fn content_thinking_text(value: &Value) -> String {
             .filter(|text| !text.trim().is_empty())
             .collect::<Vec<_>>()
             .join(""),
-        Value::Object(_) if value.get("type").and_then(Value::as_str) == Some("thinking") => {
-            value
-                .get("thinking")
-                .map(content_text)
-                .filter(|text| !text.trim().is_empty())
-                .or_else(|| {
-                    value
-                        .get("text")
-                        .and_then(Value::as_str)
-                        .map(str::to_string)
-                })
-                .unwrap_or_default()
-        }
+        Value::Object(_) if value.get("type").and_then(Value::as_str) == Some("thinking") => value
+            .get("thinking")
+            .map(content_text)
+            .filter(|text| !text.trim().is_empty())
+            .or_else(|| {
+                value
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .unwrap_or_default(),
         _ => String::new(),
     }
 }
@@ -4322,6 +4516,8 @@ fn normalize_tool_call(call: Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
 
     fn test_connection() -> LlmConnection {
         LlmConnection {
@@ -4354,6 +4550,129 @@ mod tests {
             parameters,
             tools: Vec::new(),
         }
+    }
+
+    async fn serve_response(
+        status: &'static str,
+        content_type: &'static str,
+        body: Vec<u8>,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test LLM server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test LLM server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test LLM server should accept one request");
+            let mut buffer = [0_u8; 1024];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test LLM server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test LLM server should write response headers");
+            stream
+                .write_all(&body)
+                .await
+                .expect("test LLM server should write response body");
+        });
+        format!("http://{address}")
+    }
+
+    async fn serve_chunked_response(
+        status: &'static str,
+        content_type: &'static str,
+        chunks: Vec<Vec<u8>>,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test LLM server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test LLM server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test LLM server should accept one request");
+            let mut buffer = [0_u8; 1024];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test LLM server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test LLM server should write response headers");
+            for chunk in chunks {
+                let header = format!("{:x}\r\n", chunk.len());
+                stream
+                    .write_all(header.as_bytes())
+                    .await
+                    .expect("test LLM server should write chunk header");
+                stream
+                    .write_all(&chunk)
+                    .await
+                    .expect("test LLM server should write chunk body");
+                stream
+                    .write_all(b"\r\n")
+                    .await
+                    .expect("test LLM server should write chunk terminator");
+            }
+            stream
+                .write_all(b"0\r\n\r\n")
+                .await
+                .expect("test LLM server should write final chunk");
+        });
+        format!("http://{address}")
+    }
+
+    async fn serve_delayed_response_headers(delay: Duration) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test LLM server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test LLM server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test LLM server should accept one request");
+            let mut buffer = [0_u8; 1024];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test LLM server should read request");
+            tokio::time::sleep(delay).await;
+            let _ = stream
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}",
+                )
+                .await;
+        });
+        format!("http://{address}")
+    }
+
+    async fn response_from_url(url: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .get(url)
+            .send()
+            .await
+            .expect("test LLM response should arrive")
     }
 
     #[test]
@@ -4495,6 +4814,28 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
     }
 
     #[test]
+    fn cohere_default_base_uses_openai_compatible_endpoint() {
+        let mut request = request_for("cohere", "command-a", json!({}));
+
+        assert_eq!(
+            base_url("cohere", ""),
+            "https://api.cohere.com/compatibility/v1"
+        );
+        assert!(should_use_cohere_compatibility(&request));
+        assert_eq!(
+            openai_compatible_chat_endpoint(&request),
+            "https://api.cohere.com/compatibility/v1/chat/completions"
+        );
+
+        request.connection.base_url = "https://api.cohere.com/v2".to_string();
+        assert!(!should_use_cohere_compatibility(&request));
+        assert_eq!(
+            cohere_chat_endpoint(&request.connection.base_url),
+            "https://api.cohere.com/v2/chat"
+        );
+    }
+
+    #[test]
     fn openai_chatgpt_missing_auth_message_hides_local_path() {
         let error = std::io::Error::new(std::io::ErrorKind::NotFound, "missing");
         let message = openai_chatgpt_auth_missing_message(&error);
@@ -4569,11 +4910,7 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
 
     #[test]
     fn openai_responses_body_downgrades_xhigh_for_unsupported_models() {
-        let xhigh_request = request_for(
-            "openai",
-            "gpt-5.1",
-            json!({ "reasoningEffort": "xhigh" }),
-        );
+        let xhigh_request = request_for("openai", "gpt-5.1", json!({ "reasoningEffort": "xhigh" }));
         let maximum_request = request_for(
             "openai",
             "gpt-5-pro",
@@ -4603,14 +4940,93 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert_eq!(body["reasoning"], json!({ "effort": "xhigh" }));
     }
 
-    #[test]
-    fn ensure_url_allowed_redacts_query_secret() {
-        let error = ensure_url_allowed("ftp://example.test/models?key=sk-test-secret")
+    #[tokio::test]
+    async fn provider_http_client_redacts_query_secret() {
+        let error = provider_http_client_for_url("ftp://example.test/models?key=sk-test-secret")
+            .await
             .expect_err("disallowed URL should fail");
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("[REDACTED]"));
         assert!(!error.message.contains("sk-test-secret"));
+    }
+
+    #[test]
+    fn provider_http_client_policy_blocks_private_dns_answers() {
+        let url = reqwest::Url::parse("https://public-looking.example.test/v1/chat/completions")
+            .expect("test URL should parse");
+        let error = validate_provider_resolved_addresses(
+            &url,
+            false,
+            vec![
+                "10.0.0.1:443".parse().expect("private address parses"),
+                "[::ffff:10.0.0.1]:443"
+                    .parse()
+                    .expect("mapped private address parses"),
+            ],
+        )
+        .expect_err("private DNS answers should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+    }
+
+    #[test]
+    fn provider_http_client_policy_blocks_loopback_dns_answers() {
+        let url = reqwest::Url::parse("https://public-looking.example.test/v1/chat/completions")
+            .expect("test URL should parse");
+        let error = validate_provider_resolved_addresses(
+            &url,
+            false,
+            vec![
+                "127.0.0.1:443".parse().expect("loopback address parses"),
+                "[::1]:443".parse().expect("IPv6 loopback address parses"),
+                "[::ffff:127.0.0.1]:443"
+                    .parse()
+                    .expect("mapped loopback address parses"),
+            ],
+        )
+        .expect_err("loopback DNS answers should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+    }
+
+    #[tokio::test]
+    async fn provider_http_client_policy_keeps_literal_loopback_allowed() {
+        for url in [
+            "http://127.0.0.1:11434/api/chat",
+            "http://localhost:11434/api/chat",
+            "http://[::ffff:127.0.0.1]:11434/api/chat",
+        ] {
+            let url = reqwest::Url::parse(url).expect("test URL should parse");
+            let allowed = validate_provider_url_resolution(&url, false)
+                .await
+                .expect("literal loopback host should keep local provider allowance");
+
+            assert!(allowed.is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn provider_request_times_out_waiting_for_response_headers() {
+        let url = serve_delayed_response_headers(Duration::from_millis(250)).await;
+        let request = provider_http_client_for_url(&url)
+            .await
+            .expect("loopback test provider URL should be allowed")
+            .get(&url);
+
+        let error = send_provider_request_with_timeout(
+            request,
+            "llm_network_error",
+            Duration::from_millis(25),
+        )
+        .await
+        .expect_err("slow provider headers should time out");
+
+        assert_eq!(error.code, "llm_network_error");
+        assert!(error.message.contains("timed out"));
+        assert!(error.message.contains("response headers"));
     }
 
     #[test]
@@ -4688,6 +5104,54 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert_eq!(details["api_key"], "[REDACTED]");
         assert_eq!(details["usage"]["input_tokens"], 12);
         assert!(!details.to_string().contains("sk-test-secret"));
+    }
+
+    #[tokio::test]
+    async fn oversized_llm_error_body_preserves_provider_status() {
+        let url = serve_response(
+            "429 Too Many Requests",
+            "text/plain",
+            vec![b'x'; PROVIDER_RESPONSE_MAX_BYTES + 1024],
+        )
+        .await;
+        let response = response_from_url(url).await;
+        let error = parse_json_response(response, |json| Some(json.to_string()))
+            .await
+            .expect_err("oversized provider error should stay status-bearing");
+
+        assert_eq!(error.code, "llm_provider_error");
+        assert!(error
+            .message
+            .contains("Provider returned HTTP 429 Too Many Requests"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 700);
+    }
+
+    #[tokio::test]
+    async fn chunked_llm_error_body_is_bounded_redacted_and_status_bearing() {
+        let url = serve_chunked_response(
+            "401 Unauthorized",
+            "text/plain",
+            vec![
+                b"bad key sk-test-secret ".to_vec(),
+                vec![b'x'; PROVIDER_RESPONSE_MAX_BYTES + 1024],
+            ],
+        )
+        .await;
+        let response = response_from_url(url).await;
+        let error_body = read_error_response_details(response)
+            .await
+            .expect("chunked provider error details should read bounded diagnostic");
+        let error = provider_http_error(reqwest::StatusCode::UNAUTHORIZED, error_body);
+
+        assert_eq!(error.code, "llm_provider_error");
+        assert!(error
+            .message
+            .contains("Provider returned HTTP 401 Unauthorized"));
+        assert!(error.message.contains("[REDACTED]"));
+        assert!(!error.message.contains("sk-test-secret"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 700);
     }
 
     #[test]

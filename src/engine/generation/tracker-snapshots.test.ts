@@ -90,6 +90,19 @@ function worldStateResult(data: unknown): AgentResult {
   };
 }
 
+function personaStatsResult(data: unknown): AgentResult {
+  return {
+    agentId: "persona-stats",
+    agentType: "persona-stats",
+    type: "persona_stats_update",
+    data,
+    tokensUsed: 0,
+    durationMs: 0,
+    success: true,
+    error: null,
+  };
+}
+
 describe("tracker snapshots", () => {
   it("does not persist player persona rows from character tracker output", async () => {
     const chat = {
@@ -165,5 +178,62 @@ describe("tracker snapshots", () => {
       time: "7:30 PM",
       temperature: "68\u00b0F",
     });
+  });
+
+  it("does not clobber player inventory, status, or persona stats on empty persona-stats output", async () => {
+    const baseline = gameState({
+      playerStats: {
+        stats: [],
+        inventory: [{ name: "Iron Sword", quantity: 1 }],
+        status: "Wounded",
+      },
+      personaStats: [{ name: "Health", value: 40, max: 100 }],
+    } as unknown as Partial<GameState>);
+    const { storage } = storageWithRows({}, []);
+
+    const saved = await persistTrackerSnapshotForTurn(
+      storage,
+      "chat-1",
+      { messageId: "assistant-1", swipeIndex: 0 },
+      [personaStatsResult({ status: "", inventory: [], stats: [] })],
+      { baseSnapshot: baseline },
+    );
+
+    expect(saved?.playerStats?.inventory).toHaveLength(1);
+    expect(saved?.playerStats?.inventory?.[0]).toMatchObject({ name: "Iron Sword" });
+    expect(saved?.playerStats?.status).toBe("Wounded");
+    expect(saved?.personaStats).toHaveLength(1);
+    expect(saved?.personaStats?.[0]).toMatchObject({ name: "Health", value: 40 });
+  });
+
+  it("applies persona-stats updates when the agent returns non-empty values", async () => {
+    const baseline = gameState({
+      playerStats: {
+        stats: [],
+        inventory: [{ name: "Iron Sword", quantity: 1 }],
+        status: "Wounded",
+      },
+      personaStats: [{ name: "Health", value: 40, max: 100 }],
+    } as unknown as Partial<GameState>);
+    const { storage } = storageWithRows({}, []);
+
+    const saved = await persistTrackerSnapshotForTurn(
+      storage,
+      "chat-1",
+      { messageId: "assistant-1", swipeIndex: 0 },
+      [
+        personaStatsResult({
+          status: "Healthy",
+          inventory: [{ name: "Health Potion", quantity: 3 }],
+          stats: [{ name: "Health", value: 90, max: 100 }],
+        }),
+      ],
+      { baseSnapshot: baseline },
+    );
+
+    expect(saved?.playerStats?.status).toBe("Healthy");
+    expect(saved?.playerStats?.inventory).toHaveLength(1);
+    expect(saved?.playerStats?.inventory?.[0]).toMatchObject({ name: "Health Potion", quantity: 3 });
+    expect(saved?.personaStats?.[0]).toMatchObject({ name: "Health", value: 90 });
   });
 });

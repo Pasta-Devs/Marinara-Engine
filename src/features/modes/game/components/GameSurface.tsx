@@ -72,6 +72,7 @@ import {
   gameKeys,
   patchChatMetadata,
 } from "../hooks/use-game";
+import { normalizeHudWidgets } from "../lib/hud-widget-normalization";
 import {
   chatKeys,
   useBranchChat,
@@ -7893,7 +7894,7 @@ export function GameSurface({
     gameSceneIllustrationAllowed,
   ]);
 
-  const normalizedWidgets = hudWidgets;
+  const normalizedWidgets = useMemo(() => normalizeHudWidgets(hudWidgets), [hudWidgets]);
 
   const handleStartGameRequest = useCallback(() => {
     if (startGame.isPending || startGameRequested || startGameGuardRef.current) return;

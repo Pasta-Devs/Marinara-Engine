@@ -437,7 +437,8 @@ export function ConnectionEditor() {
           c.id !== connectionDetailId &&
           c.id !== LEGACY_LOCAL_SIDECAR_CONNECTION_ID &&
           c.provider !== "image_generation" &&
-          c.provider !== "openai_chatgpt",
+          c.provider !== "openai_chatgpt" &&
+          c.provider !== "claude_subscription",
       ),
     [allConnections, connectionDetailId],
   );
@@ -1816,7 +1817,7 @@ export function ConnectionEditor() {
             <FieldGroup
               label="Embedding Model"
               icon={<Server size="0.875rem" className="text-violet-400" />}
-              help="Optional. The model used for generating embeddings when vectorizing lorebook entries. Leave empty to skip semantic matching. Examples: text-embedding-3-small, text-embedding-ada-002."
+              help="Optional. The model used for semantic embeddings. Leave empty to use local lexical Memory Recall and keyword-only lorebook/knowledge routing. Examples: text-embedding-3-small, text-embedding-ada-002."
             >
               <input
                 value={localEmbeddingModel}
