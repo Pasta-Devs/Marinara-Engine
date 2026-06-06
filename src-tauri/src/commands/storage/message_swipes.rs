@@ -743,6 +743,7 @@ pub(crate) fn delete_for_messages(state: &AppState, message_ids: &[String]) -> A
     })
 }
 
+#[cfg(test)]
 pub(crate) fn delete_message_rows_with_swipes(
     state: &AppState,
     message_ids: &[String],

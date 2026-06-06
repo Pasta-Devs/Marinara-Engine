@@ -1359,7 +1359,16 @@ pub(crate) fn delete_entity(
         None
     };
     let deleted = if entity == "messages" {
-        message_swipes::delete_message_rows_with_swipes(state, &[id.to_string()])? > 0
+        if let (Some(chat_id), Some(message)) = (message_chat_id.as_deref(), existing.as_ref()) {
+            let (deleted, _) = chats::delete_message_rows_with_memory_prune(
+                state,
+                chat_id,
+                std::slice::from_ref(message),
+            )?;
+            deleted > 0
+        } else {
+            false
+        }
     } else {
         state.storage.delete(entity, id)?
     };
@@ -4201,6 +4210,165 @@ mod tests {
             .expect("chat should read")
             .expect("chat should remain");
         assert!(chat["gameState"].is_null());
+    }
+
+    #[test]
+    fn deleting_message_prunes_overlapping_chat_memories() {
+        let state = test_state("message-delete-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory delete chat",
+                    "memories": [
+                        {
+                            "id": "keep-older",
+                            "messageIds": ["message-old"],
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-by-id",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-later-window",
+                            "messageIds": ["message-later"],
+                            "lastMessageAt": "2026-01-03T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        for (id, created_at) in [
+            ("message-old", "2026-01-01T00:00:00.000Z"),
+            ("message-delete", "2026-01-02T00:00:00.000Z"),
+            ("message-later", "2026-01-03T00:00:00.000Z"),
+        ] {
+            state
+                .storage
+                .create(
+                    "messages",
+                    json!({
+                        "id": id,
+                        "chatId": "chat-1",
+                        "role": "assistant",
+                        "content": id,
+                        "createdAt": created_at
+                    }),
+                )
+                .expect("message should be created");
+        }
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should prune memory recall");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ids, vec!["keep-older"]);
+    }
+
+    #[test]
+    fn deleting_message_prunes_created_at_only_chat_memories() {
+        let state = test_state("message-delete-created-at-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Created-at memory delete chat",
+                    "memories": [
+                        { "id": "keep-created-at-old", "createdAt": "2026-01-01T00:00:00.000Z" },
+                        { "id": "drop-created-at-new", "createdAt": "2026-01-03T00:00:00.000Z" }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should prune created-at memory recall");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ids, vec!["keep-created-at-old"]);
+    }
+
+    #[test]
+    fn deleting_message_keeps_rows_and_memories_when_memory_prune_fails() {
+        let state = test_state("message-delete-prune-fails");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Prune failure delete chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+
+        let error = delete_entity(&state, "messages", "message-delete", false)
+            .expect_err("malformed memories should abort atomic delete");
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_some());
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        assert_eq!(chat["memories"], json!("{not valid json"));
     }
 
     #[test]

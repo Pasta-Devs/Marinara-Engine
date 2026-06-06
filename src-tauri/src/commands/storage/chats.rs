@@ -647,7 +647,7 @@ pub(crate) fn bulk_delete_messages(
             "messageIds must be an array of strings",
         ));
     }
-    let mut deleted_ids = Vec::new();
+    let mut deleted_messages = Vec::new();
     let requested_ids: Vec<&str> = ids
         .iter()
         .filter_map(Value::as_str)
@@ -665,20 +665,26 @@ pub(crate) fn bulk_delete_messages(
         // (and their swipe sidecars) — the pre-scan must gate on parentage, not mere existence.
         if let Some(message) = state.storage.get("messages", id)? {
             if message.get("chatId").and_then(Value::as_str) == Some(chat_id) {
-                deleted_ids.push(id.to_string());
+                deleted_messages.push(message);
             }
         }
     }
-    deleted_ids.sort_unstable();
-    deleted_ids.dedup();
-    let deleted = message_swipe_storage::delete_message_rows_with_swipes(state, &deleted_ids)?;
+    deleted_messages.sort_by(|a, b| {
+        let a_id = a.get("id").and_then(Value::as_str).unwrap_or("");
+        let b_id = b.get("id").and_then(Value::as_str).unwrap_or("");
+        a_id.cmp(b_id)
+    });
+    deleted_messages.dedup_by(|a, b| {
+        a.get("id").and_then(Value::as_str) == b.get("id").and_then(Value::as_str)
+    });
+    let (deleted, deleted_ids) =
+        delete_message_rows_with_memory_prune(state, chat_id, &deleted_messages)?;
     if deleted > 0 {
         for id in &deleted_ids {
             game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
         }
         game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
     }
-    touch_chat(state, chat_id)?;
     Ok(json!({ "deleted": deleted }))
 }
 
@@ -858,6 +864,151 @@ fn chat_memory_message_ids(memory: &Value) -> HashSet<String> {
         }
     }
     ids
+}
+
+fn chat_memory_last_message_at(memory: &Value) -> Option<&str> {
+    memory
+        .get("lastMessageAt")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            memory
+                .get("firstMessageAt")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+        .or_else(|| {
+            memory
+                .get("createdAt")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+        })
+}
+
+fn memory_overlaps_deleted_messages(
+    memory: &Value,
+    deleted_ids: &HashSet<String>,
+    deleted_start_at: Option<&str>,
+) -> bool {
+    let chunk_ids = chat_memory_message_ids(memory);
+    if !chunk_ids.is_empty() && chunk_ids.iter().any(|id| deleted_ids.contains(id)) {
+        return true;
+    }
+    let Some(deleted_start_at) = deleted_start_at else {
+        return false;
+    };
+    chat_memory_last_message_at(memory)
+        .is_some_and(|last_message_at| last_message_at >= deleted_start_at)
+}
+
+fn prune_chat_memory_values_for_deleted_messages(
+    values: Vec<Value>,
+    deleted_messages: &[Value],
+) -> Option<Vec<Value>> {
+    let deleted_ids = deleted_messages
+        .iter()
+        .filter_map(|message| message.get("id").and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>();
+    if deleted_ids.is_empty() {
+        return None;
+    }
+
+    let deleted_start_at = deleted_messages
+        .iter()
+        .filter_map(|message| message.get("createdAt").and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .min();
+    let original_len = values.len();
+    let retained = values
+        .into_iter()
+        .filter(|memory| !memory_overlaps_deleted_messages(memory, &deleted_ids, deleted_start_at))
+        .collect::<Vec<_>>();
+    (retained.len() != original_len).then_some(retained)
+}
+
+pub(crate) fn delete_message_rows_with_memory_prune(
+    state: &AppState,
+    chat_id: &str,
+    candidate_messages: &[Value],
+) -> AppResult<(usize, Vec<String>)> {
+    let requested_ids = candidate_messages
+        .iter()
+        .filter_map(|message| message.get("id").and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<HashSet<_>>();
+    if requested_ids.is_empty() {
+        return Ok((0, Vec::new()));
+    }
+
+    let now = now_iso();
+    state.storage.update_collections_atomically(
+        vec!["messages", message_swipe_storage::COLLECTION, "chats"],
+        move |collections| {
+            let messages = collections[0].rows_mut();
+            let mut deleted_messages = Vec::new();
+            messages.retain(|row| {
+                let should_delete = row
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .is_some_and(|id| requested_ids.contains(id))
+                    && row.get("chatId").and_then(Value::as_str) == Some(chat_id);
+                if should_delete {
+                    deleted_messages.push(row.clone());
+                }
+                !should_delete
+            });
+
+            let deleted_ids = deleted_messages
+                .iter()
+                .filter_map(|message| message.get("id").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect::<HashSet<_>>();
+            if deleted_ids.is_empty() {
+                return Ok((0, Vec::new()));
+            }
+
+            collections[1].rows_mut().retain(|row| {
+                row.get("messageId")
+                    .and_then(Value::as_str)
+                    .is_none_or(|message_id| !deleted_ids.contains(message_id))
+            });
+
+            let Some(chat) = collections[2]
+                .rows_mut()
+                .iter_mut()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(chat_id))
+            else {
+                let mut ids = deleted_ids.into_iter().collect::<Vec<_>>();
+                ids.sort();
+                return Ok((deleted_messages.len(), ids));
+            };
+            let memories = chat_memory_values_for_mutation(chat)?;
+            if let Some(retained) =
+                prune_chat_memory_values_for_deleted_messages(memories, &deleted_messages)
+            {
+                let object = chat
+                    .as_object_mut()
+                    .ok_or_else(|| AppError::invalid_input("Chat is not an object"))?;
+                object.insert("memories".to_string(), Value::Array(retained));
+            }
+            if let Some(object) = chat.as_object_mut() {
+                object.insert("lastMessageAt".to_string(), Value::String(now.clone()));
+            }
+
+            let mut ids = deleted_ids.into_iter().collect::<Vec<_>>();
+            ids.sort();
+            Ok((deleted_messages.len(), ids))
+        },
+    )
 }
 
 fn memory_overlaps_excluded_recent(
@@ -1301,15 +1452,6 @@ pub(crate) async fn import_chat_memories(
     }
     set_chat_array_field(state, chat_id, "memories", memories)?;
     Ok(json!({ "imported": imported, "skipped": skipped }))
-}
-
-pub(crate) fn touch_chat(state: &AppState, chat_id: &str) -> AppResult<()> {
-    if state.storage.get("chats", chat_id)?.is_some() {
-        state
-            .storage
-            .patch("chats", chat_id, json!({ "lastMessageAt": now_iso() }))?;
-    }
-    Ok(())
 }
 
 pub(crate) fn delete_chat_group(state: &AppState, group_id: &str) -> AppResult<Value> {
@@ -3535,6 +3677,225 @@ mod tests {
                 .is_some(),
             "a message belonging to another chat must not be deleted by this chat's bulk delete"
         );
+    }
+
+    #[test]
+    fn bulk_delete_messages_prunes_overlapping_chat_memories() {
+        let state = test_state("bulk-delete-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory prune chat",
+                    "memories": [
+                        {
+                            "id": "keep-older",
+                            "messageIds": ["message-old"],
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-by-id",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-later-window",
+                            "messageIds": ["message-later"],
+                            "lastMessageAt": "2026-01-03T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        for (id, created_at) in [
+            ("message-old", "2026-01-01T00:00:00.000Z"),
+            ("message-delete", "2026-01-02T00:00:00.000Z"),
+            ("message-later", "2026-01-03T00:00:00.000Z"),
+        ] {
+            message_swipe_storage::create_message(
+                &state,
+                json!({
+                    "id": id,
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": id,
+                    "createdAt": created_at,
+                    "activeSwipeIndex": 0,
+                    "swipes": [{ "content": id }]
+                }),
+            )
+            .expect("message should seed");
+        }
+
+        bulk_delete_messages(
+            &state,
+            "chat-1",
+            json!({ "messageIds": ["message-delete"] }),
+        )
+        .expect("bulk delete should prune memory recall");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(memory_ids(&chat["memories"]), vec!["keep-older"]);
+    }
+
+    #[test]
+    fn bulk_delete_messages_prunes_created_at_only_memory_window() {
+        let state = test_state("bulk-delete-created-at-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Created-at memory prune chat",
+                    "memories": [
+                        { "id": "keep-created-at-old", "createdAt": "2026-01-01T00:00:00.000Z" },
+                        { "id": "drop-created-at-new", "createdAt": "2026-01-03T00:00:00.000Z" }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-delete",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "delete me",
+                "createdAt": "2026-01-02T00:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "delete me" }]
+            }),
+        )
+        .expect("message should seed");
+
+        bulk_delete_messages(
+            &state,
+            "chat-1",
+            json!({ "messageIds": ["message-delete"] }),
+        )
+        .expect("bulk delete should prune created-at memory recall");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(memory_ids(&chat["memories"]), vec!["keep-created-at-old"]);
+    }
+
+    #[test]
+    fn bulk_delete_messages_prunes_only_confirmed_deleted_rows() {
+        let state = test_state("bulk-delete-confirmed-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Confirmed memory prune chat",
+                    "memories": [
+                        {
+                            "id": "drop-own",
+                            "messageIds": ["own-message"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        },
+                        {
+                            "id": "keep-foreign",
+                            "messageIds": ["foreign-message"],
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        for (chat_id, message_id) in [("chat-1", "own-message"), ("chat-2", "foreign-message")] {
+            state
+                .storage
+                .create("chats", json!({ "id": chat_id, "name": chat_id }))
+                .ok();
+            message_swipe_storage::create_message(
+                &state,
+                json!({
+                    "id": message_id,
+                    "chatId": chat_id,
+                    "role": "assistant",
+                    "content": message_id,
+                    "createdAt": "2026-01-02T00:00:00.000Z",
+                    "activeSwipeIndex": 0,
+                    "swipes": [{ "content": message_id }]
+                }),
+            )
+            .expect("message should seed");
+        }
+
+        bulk_delete_messages(
+            &state,
+            "chat-1",
+            json!({ "messageIds": ["own-message", "foreign-message"] }),
+        )
+        .expect("bulk delete should only prune confirmed rows");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(memory_ids(&chat["memories"]), vec!["keep-foreign"]);
+    }
+
+    #[test]
+    fn bulk_delete_messages_keeps_rows_and_memories_when_memory_prune_fails() {
+        let state = test_state("bulk-delete-prune-fails");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Prune failure chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-delete",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "delete me",
+                "createdAt": "2026-01-02T00:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "delete me" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = bulk_delete_messages(
+            &state,
+            "chat-1",
+            json!({ "messageIds": ["message-delete"] }),
+        )
+        .expect_err("malformed memories should abort atomic delete");
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_some());
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(chat["memories"], json!("{not valid json"));
     }
 
     #[test]
