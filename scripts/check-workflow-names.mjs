@@ -3,10 +3,32 @@ const metadataFields = [
   { label: "PR source branch", value: process.env.PR_HEAD_REF },
 ];
 
-const aiAuthorTerms = "(?:ai|chatgpt|claude|codex)";
-const generatedAuthorshipPattern = new RegExp(`\\bgenerated\\s+(?:by|using|with)\\s+${aiAuthorTerms}\\b`, "gi");
-const productOutputPrefixPattern =
-  /\b(?:chat\s+messages?|messages?|images?|prompts?|responses?|outputs?|model\s+outputs?|replies|text|content|completions?)\s+(?:(?:(?:that|which)\s+)?(?:are|is|were|was|be|being)\s+(?:being\s+)?)?$/i;
+const aiAuthorTermPattern = "(?:ai|chatgpt|claude|codex)";
+const generatedAuthorshipVerbPattern = "(?:by|using|with)";
+const generatedAuthorshipPattern = new RegExp(
+  `\\bgenerated\\s+${generatedAuthorshipVerbPattern}\\s+${aiAuthorTermPattern}\\b`,
+  "gi",
+);
+
+const productOutputSubjectPattern = [
+  "chat\\s+messages?",
+  "messages?",
+  "images?",
+  "prompts?",
+  "responses?",
+  "outputs?",
+  "model\\s+outputs?",
+  "replies",
+  "text",
+  "content",
+  "completions?",
+].join("|");
+const productOutputRelativeBridgePattern =
+  "(?:(?:(?:that|which)\\s+)?(?:are|is|were|was|be|being)\\s+(?:being\\s+)?)?";
+const productOutputPrefixPattern = new RegExp(
+  `\\b(?:${productOutputSubjectPattern})\\s+${productOutputRelativeBridgePattern}$`,
+  "i",
+);
 
 function hasGeneratedAuthorshipClause(value) {
   for (const match of value.matchAll(generatedAuthorshipPattern)) {
@@ -24,15 +46,24 @@ function hasGeneratedAuthorshipClause(value) {
 }
 
 const bannedAuthorshipMarkers = [
-  { label: "AI/tool label prefix", pattern: new RegExp(`(?:^|[\\s:\\-\\u2013\\u2014])${aiAuthorTerms}\\s*:`, "i") },
+  {
+    label: "AI/tool label prefix",
+    pattern: new RegExp(`(?:^|[\\s:\\-\\u2013\\u2014])${aiAuthorTermPattern}\\s*:`, "i"),
+  },
   { label: "generated AI authorship wording", matches: hasGeneratedAuthorshipClause },
   { label: "AI-generated wording", pattern: /\bai[-\s]*generated\b/i },
-  { label: "AI co-author trailer", pattern: new RegExp(`\\bco-authored-by:\\s*.*\\b${aiAuthorTerms}\\b`, "i") },
+  {
+    label: "AI co-author trailer",
+    pattern: new RegExp(`\\bco-authored-by:\\s*.*\\b${aiAuthorTermPattern}\\b`, "i"),
+  },
   {
     label: "AI author wording",
-    pattern: new RegExp(`\\b(?:authored|created|implemented|written)\\s+by\\s+${aiAuthorTerms}\\b`, "i"),
+    pattern: new RegExp(`\\b(?:authored|created|implemented|written)\\s+by\\s+${aiAuthorTermPattern}\\b`, "i"),
   },
-  { label: "AI author branch prefix", pattern: new RegExp(`^${aiAuthorTerms}(?:[/-]|$)`, "i") },
+  {
+    label: "AI author branch prefix",
+    pattern: new RegExp(`^${aiAuthorTermPattern}(?:[/-]|$)`, "i"),
+  },
 ];
 
 const presentFields = metadataFields.filter(({ value }) => typeof value === "string" && value.trim().length > 0);
@@ -45,7 +76,8 @@ if (presentFields.length === 0) {
 const failures = [];
 for (const { label, value } of presentFields) {
   for (const marker of bannedAuthorshipMarkers) {
-    const markerMatches = typeof marker.matches === "function" ? marker.matches(value) : marker.pattern.test(value);
+    const markerMatches =
+      typeof marker.matches === "function" ? marker.matches(value) : marker.pattern.test(value);
     if (markerMatches) {
       failures.push(`${label} contains ${marker.label}: "${value}"`);
     }
