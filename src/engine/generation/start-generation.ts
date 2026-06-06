@@ -1122,6 +1122,14 @@ function sequentialGroupTarget(messages: JsonRecord[], activeIds: string[]): str
   return activeIds[(index + 1) % activeIds.length] ?? activeIds[0] ?? null;
 }
 
+function sequentialGroupTurnOrder(messages: JsonRecord[], activeIds: string[]): string[] {
+  if (activeIds.length === 0) return [];
+  const lastCharacterId = lastVisibleAssistantCharacterId(messages, activeIds);
+  const lastIndex = lastCharacterId ? activeIds.indexOf(lastCharacterId) : -1;
+  const start = lastIndex >= 0 ? (lastIndex + 1) % activeIds.length : 0;
+  return activeIds.map((_, offset) => activeIds[(start + offset) % activeIds.length]!);
+}
+
 function activeSwipeCharacterId(message: JsonRecord | undefined): string | null {
   if (!message) return null;
   const rawSwipes = Array.isArray(message.swipes)
@@ -1420,8 +1428,7 @@ async function resolveIndividualGroupTurnIds(args: {
       selectionMode: "multi",
     });
   }
-  const sequential = sequentialGroupTarget(args.storedMessages, activeIds);
-  return sequential ? [sequential] : [];
+  return sequentialGroupTurnOrder(args.storedMessages, activeIds);
 }
 
 async function* runIndividualGroupTurnLoop(args: {
