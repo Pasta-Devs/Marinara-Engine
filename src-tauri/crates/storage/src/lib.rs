@@ -610,7 +610,12 @@ impl FileStorage {
         F: FnOnce(&mut [AtomicCollectionRows]) -> AppResult<T>,
     {
         let _atomic_update = self.begin_atomic_update()?;
-        let mut entries = {
+        // Load the rows and capture each collection's file stamp under the SAME
+        // write lock, so the conflict baseline reflects exactly the bytes the rows
+        // were read from. Sampling the stamp after the lock is released would let a
+        // concurrent writer slip in between the read and the stamp, baking its change
+        // into the baseline and hiding it from the commit-time conflict check.
+        let (mut entries, original_stamps) = {
             let _guard = self
                 .lock
                 .write()
@@ -618,10 +623,11 @@ impl FileStorage {
             self.flush_dirty_collections_locked()?;
 
             let mut loaded = Vec::with_capacity(collections.len());
+            let mut original_stamps = Vec::with_capacity(collections.len());
             let mut seen_paths = HashSet::new();
             for collection in collections {
                 let path = self.collection_path(collection)?;
-                if !seen_paths.insert(path) {
+                if !seen_paths.insert(path.clone()) {
                     return Err(AppError::invalid_input(format!(
                         "Duplicate collection update: {collection}"
                     )));
@@ -630,17 +636,10 @@ impl FileStorage {
                     collection: collection.to_string(),
                     rows: self.read_collection_no_recovery(collection)?,
                 });
+                original_stamps.push((collection.to_string(), collection_file_stamp(&path)?));
             }
-            loaded
+            (loaded, original_stamps)
         };
-
-        let original_stamps = entries
-            .iter()
-            .map(|entry| {
-                let path = self.collection_path(&entry.collection)?;
-                Ok((entry.collection.clone(), collection_file_stamp(&path)?))
-            })
-            .collect::<AppResult<Vec<_>>>()?;
 
         let output = update(&mut entries)?;
 
