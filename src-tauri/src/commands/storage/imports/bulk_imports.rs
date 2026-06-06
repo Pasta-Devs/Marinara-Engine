@@ -44,7 +44,7 @@ fn selected_import_total(options: &Value) -> usize {
     .sum()
 }
 
-fn imported_jsonl_message_role(row: &Value) -> &'static str {
+pub(crate) fn imported_jsonl_message_role(row: &Value) -> &'static str {
     match row.get("role").and_then(Value::as_str).map(str::trim) {
         Some("user") => "user",
         Some("assistant") => "assistant",
