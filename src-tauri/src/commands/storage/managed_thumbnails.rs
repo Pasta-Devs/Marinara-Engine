@@ -108,6 +108,33 @@ pub(crate) fn managed_thumbnail_path(
     Ok(target)
 }
 
+pub(crate) fn remove_managed_thumbnail_files(
+    state: &AppState,
+    kind: ManagedThumbnailKind,
+    path: &str,
+) {
+    let Ok(source) = canonical_source(state, kind, path) else {
+        return;
+    };
+    let Ok(root) = canonical_root(state, kind) else {
+        return;
+    };
+    let Ok(relative) = source.strip_prefix(&root) else {
+        return;
+    };
+    for size in MANAGED_THUMBNAIL_SIZES {
+        let target = thumbnail_target_path(state, kind, *size, relative);
+        if target.is_file() {
+            if let Err(error) = fs::remove_file(&target) {
+                log::warn!(
+                    "could not remove managed thumbnail {}: {error}",
+                    target.display()
+                );
+            }
+        }
+    }
+}
+
 fn canonical_source(
     state: &AppState,
     kind: ManagedThumbnailKind,

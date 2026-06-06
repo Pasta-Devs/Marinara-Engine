@@ -1,4 +1,4 @@
-use super::profile;
+use super::{connection_secrets, profile};
 use crate::state::AppState;
 use base64::{engine::general_purpose, Engine as _};
 use marinara_core::{now_millis, AppError, AppResult};
@@ -92,10 +92,38 @@ fn copy_dir_contents(source: &Path, target: &Path) -> AppResult<()> {
             if let Some(parent) = target_path.parent() {
                 fs::create_dir_all(parent)?;
             }
-            fs::copy(&source_path, &target_path)?;
+            copy_backup_file(&source_path, &target_path)?;
         }
     }
     Ok(())
+}
+
+fn copy_backup_file(source_path: &Path, target_path: &Path) -> AppResult<()> {
+    if is_connections_collection_file(source_path) {
+        let mut value: Value = serde_json::from_slice(&fs::read(source_path)?)?;
+        match &mut value {
+            Value::Array(rows) => {
+                for row in rows {
+                    connection_secrets::mask_connection_for_read(row);
+                }
+            }
+            Value::Object(_) => connection_secrets::mask_connection_for_read(&mut value),
+            _ => {}
+        }
+        fs::write(target_path, serde_json::to_vec_pretty(&value)?)?;
+    } else {
+        fs::copy(source_path, target_path)?;
+    }
+    Ok(())
+}
+
+fn is_connections_collection_file(path: &Path) -> bool {
+    path.file_name().and_then(|value| value.to_str()) == Some("connections.json")
+        && path
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|value| value.to_str())
+            == Some("collections")
 }
 
 fn write_backup_payload(state: &AppState, target: &Path) -> AppResult<()> {

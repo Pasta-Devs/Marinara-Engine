@@ -60,10 +60,17 @@ export interface MacroContext {
 
 export interface ResolveMacroOptions {
   trimResult?: boolean;
+  /**
+   * Preserve speaker-scoped character macros as internal tokens for a later
+   * known-speaker pass. "names" delays only {{char}}/{{charName}}; "all" also
+   * delays character field macros.
+   */
+  deferCharacterMacros?: "names" | "all";
 }
 
 interface MacroResolutionState {
   characterFieldDepth: number;
+  deferCharacterMacros?: ResolveMacroOptions["deferCharacterMacros"];
   /** Recursion depth of setvar/addvar value re-expansion (billion-laughs guard). */
   variableExpansionDepth?: number;
 }
@@ -79,6 +86,25 @@ const CHARACTER_MACRO_PATTERN =
 const CHARACTER_FIELD_MACRO_PATTERN =
   /\{\{(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\}\}|\{\{\s*#if\s+[^}]*\b(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\b/i;
 const MAX_CHARACTER_FIELD_RESOLUTION_DEPTH = 4;
+// Private placeholders used while character macros are deferred.
+// Internal-only and resolved before provider requests.
+const DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX = "\x1eMARINARA_DEFERRED_CHARACTER_";
+const DEFERRED_CHARACTER_CONDITIONAL_TOKEN_PREFIX = "\x1eMARINARA_DEFERRED_CHARACTER_IF:";
+const DEFERRED_CHARACTER_CONDITIONAL_TOKEN_RE = new RegExp(
+  `${DEFERRED_CHARACTER_CONDITIONAL_TOKEN_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\x1f]+)\\x1f`,
+  "g",
+);
+const DEFERRED_CHARACTER_MACRO_TOKENS = {
+  char: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}CHAR\x1f`,
+  description: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}DESCRIPTION\x1f`,
+  personality: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}PERSONALITY\x1f`,
+  backstory: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}BACKSTORY\x1f`,
+  appearance: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}APPEARANCE\x1f`,
+  scenario: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}SCENARIO\x1f`,
+  example: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}EXAMPLE\x1f`,
+  systemPrompt: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}SYSTEM_PROMPT\x1f`,
+  postHistoryInstructions: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}POST_HISTORY\x1f`,
+} as const;
 // Resource bounds for content-driven macro expansion (see issue #2363).
 // Generous so legitimate Celia-style {{cb1}}..{{cbN}} variable assembly keeps working.
 /** Max recursion depth for setvar/addvar value re-expansion. */
@@ -99,7 +125,19 @@ function totalVariableSize(variables: Record<string, string>): number {
 }
 
 type CharacterMacroProfile = NonNullable<MacroContext["characterProfiles"]>[number];
-type CharacterFieldMacroName = keyof NonNullable<MacroContext["characterFields"]>;
+type CharacterFieldMacroName = Exclude<keyof typeof DEFERRED_CHARACTER_MACRO_TOKENS, "char">;
+type ConditionalBlockPayload = {
+  condition: string;
+  truthy: string;
+  falsy: string;
+};
+
+export function hasDeferredCharacterMacros(template: string): boolean {
+  return (
+    template.includes(DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX) ||
+    template.includes(DEFERRED_CHARACTER_CONDITIONAL_TOKEN_PREFIX)
+  );
+}
 
 export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{user}}", description: "Current user or persona name" },
@@ -240,6 +278,19 @@ function resolveContextCharacterFieldOperand(ctx: MacroContext, field: Character
     : value;
 }
 
+function deferredCharacterReplacement(
+  field: keyof typeof DEFERRED_CHARACTER_MACRO_TOKENS,
+  ctx: MacroContext,
+  options: ResolveMacroOptions,
+  state: MacroResolutionState,
+): string {
+  if (options.deferCharacterMacros === "all" || (options.deferCharacterMacros === "names" && field === "char")) {
+    return DEFERRED_CHARACTER_MACRO_TOKENS[field];
+  }
+  if (field === "char") return ctx.char;
+  return resolveContextCharacterFieldValue(ctx, field, state.characterFieldDepth);
+}
+
 function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: MacroContext): MacroContext {
   return {
     user: base?.user ?? "User",
@@ -289,6 +340,65 @@ function resolveCharacterScopedMacros(
     .replace(/\{\{charPostHistory\}\}/gi, () =>
       resolveCharacterFieldValue(profile, "postHistoryInstructions", depth, baseContext),
     );
+}
+
+export function resolveDeferredCharacterMacros(
+  template: string,
+  profile: CharacterMacroProfile,
+  baseContext?: MacroContext,
+): string {
+  if (!hasDeferredCharacterMacros(template)) return template;
+  const scopedContext = macroContextForCharacterProfile(profile, baseContext);
+  let result = resolveDeferredCharacterConditionals(template, scopedContext);
+  result = result.split(DEFERRED_CHARACTER_MACRO_TOKENS.char).join(profile.name);
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.description)
+    .join(resolveCharacterFieldValue(profile, "description", 0, baseContext));
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.personality)
+    .join(resolveCharacterFieldValue(profile, "personality", 0, baseContext));
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.backstory)
+    .join(resolveCharacterFieldValue(profile, "backstory", 0, baseContext));
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.appearance)
+    .join(resolveCharacterFieldValue(profile, "appearance", 0, baseContext));
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.scenario)
+    .join(resolveCharacterFieldValue(profile, "scenario", 0, baseContext));
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.example)
+    .join(resolveCharacterFieldValue(profile, "example", 0, baseContext));
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.systemPrompt)
+    .join(resolveCharacterFieldValue(profile, "systemPrompt", 0, baseContext));
+  result = result
+    .split(DEFERRED_CHARACTER_MACRO_TOKENS.postHistoryInstructions)
+    .join(resolveCharacterFieldValue(profile, "postHistoryInstructions", 0, baseContext));
+  return result;
+}
+
+function parseDeferredConditionalPayload(encoded: string): ConditionalBlockPayload | null {
+  try {
+    const parsed = JSON.parse(decodeURIComponent(encoded)) as Partial<ConditionalBlockPayload>;
+    if (typeof parsed.condition !== "string" || typeof parsed.truthy !== "string" || typeof parsed.falsy !== "string") {
+      return null;
+    }
+    return { condition: parsed.condition, truthy: parsed.truthy, falsy: parsed.falsy };
+  } catch {
+    return null;
+  }
+}
+
+function resolveDeferredCharacterConditionals(template: string, ctx: MacroContext): string {
+  return template.replace(DEFERRED_CHARACTER_CONDITIONAL_TOKEN_RE, (match, encoded: string) => {
+    const payload = parseDeferredConditionalPayload(encoded);
+    if (!payload) return match;
+    const selected = evaluateCondition(payload.condition, ctx, { characterFieldDepth: 0 })
+      ? payload.truthy
+      : payload.falsy;
+    return resolveMacros(selected, ctx, { trimResult: false });
+  });
 }
 
 function expandBracketedCharacterBlocks(template: string, ctx: MacroContext): string {
@@ -396,6 +506,10 @@ function replaceBalancedMacros(
   return result;
 }
 
+function encodeDeferredConditional(payload: ConditionalBlockPayload): string {
+  return `${DEFERRED_CHARACTER_CONDITIONAL_TOKEN_PREFIX}${encodeURIComponent(JSON.stringify(payload))}\x1f`;
+}
+
 function quoteKind(value?: string): "single" | "double" | null {
   if (!value) return null;
   if (/["\u201c\u201d\u201e\u201f]/u.test(value)) return "double";
@@ -470,6 +584,26 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext, state: MacroR
   }
 }
 
+function isNameConditionalOperand(raw: string): boolean {
+  if (/\{\{\s*(?:char|charName)\s*\}\}/i.test(raw)) {
+    return true;
+  }
+  return /^(char|charname|character|speaker)$/.test(normalizeConditionKey(raw));
+}
+
+function isFieldConditionalOperand(raw: string): boolean {
+  if (
+    /\{\{\s*(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\s*\}\}/i.test(
+      raw,
+    )
+  ) {
+    return true;
+  }
+  return /^(description|personality|backstory|appearance|scenario|example|charsysinfo|charposthistory)$/.test(
+    normalizeConditionKey(raw),
+  );
+}
+
 function parseConditionExpression(condition: string): { left: string; operator: string; right?: string } {
   const symbolicMatch = condition.match(/^(.+?)\s*(==|!=|=)\s*(.+)$/i);
   const wordMatch =
@@ -480,6 +614,16 @@ function parseConditionExpression(condition: string): { left: string; operator: 
     operator: (wordMatch[2] ?? "").toLowerCase().replace(/\s+/g, " "),
     right: wordMatch[3]?.trim() ?? "",
   };
+}
+
+function conditionDependsOnDeferredCharacter(
+  condition: string,
+  deferCharacterMacros: NonNullable<MacroResolutionState["deferCharacterMacros"]>,
+): boolean {
+  const parsed = parseConditionExpression(condition);
+  const operands = [parsed.left, parsed.right ?? ""];
+  if (operands.some(isNameConditionalOperand)) return true;
+  return deferCharacterMacros === "all" && operands.some(isFieldConditionalOperand);
 }
 
 function compareConditionValues(left: string, operator: string, right: string): boolean {
@@ -608,6 +752,16 @@ function resolveConditionalBlocks(
     const truthy = input.slice(contentStart, blockEnd.elseStart ?? blockEnd.endStart);
     const falsy =
       blockEnd.elseStart === null ? "" : input.slice(blockEnd.elseEnd ?? blockEnd.endStart, blockEnd.endStart);
+    if (
+      state.deferCharacterMacros &&
+      state.characterFieldDepth === 0 &&
+      conditionDependsOnDeferredCharacter(condition, state.deferCharacterMacros)
+    ) {
+      result += input.slice(index, blockStart);
+      result += encodeDeferredConditional({ condition, truthy, falsy });
+      index = blockEnd.endEnd;
+      continue;
+    }
     const selected = evaluateCondition(condition, ctx, state) ? truthy : falsy;
 
     result += input.slice(index, blockStart);
@@ -747,7 +901,10 @@ function pickWeightedRandomChoice(choices: string[]): string {
  *  - {{#if char == "Name"}}...{{else}}...{{/if}} - conditional block
  */
 export function resolveMacros(template: string, ctx: MacroContext, options: ResolveMacroOptions = {}): string {
-  return resolveMacrosWithState(template, ctx, options, { characterFieldDepth: 0 });
+  return resolveMacrosWithState(template, ctx, options, {
+    characterFieldDepth: 0,
+    deferCharacterMacros: options.deferCharacterMacros,
+  });
 }
 
 function resolveMacrosWithState(
@@ -780,34 +937,28 @@ function resolveMacrosWithState(
 
   // ── Character field substitutions ──
   result = result.replace(/\{\{description\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "description", state.characterFieldDepth),
+    deferredCharacterReplacement("description", ctx, options, state),
   );
   result = result.replace(/\{\{personality\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "personality", state.characterFieldDepth),
+    deferredCharacterReplacement("personality", ctx, options, state),
   );
-  result = result.replace(/\{\{backstory\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "backstory", state.characterFieldDepth),
-  );
+  result = result.replace(/\{\{backstory\}\}/gi, () => deferredCharacterReplacement("backstory", ctx, options, state));
   result = result.replace(/\{\{appearance\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "appearance", state.characterFieldDepth),
+    deferredCharacterReplacement("appearance", ctx, options, state),
   );
-  result = result.replace(/\{\{scenario\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "scenario", state.characterFieldDepth),
-  );
-  result = result.replace(/\{\{example\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "example", state.characterFieldDepth),
-  );
+  result = result.replace(/\{\{scenario\}\}/gi, () => deferredCharacterReplacement("scenario", ctx, options, state));
+  result = result.replace(/\{\{example\}\}/gi, () => deferredCharacterReplacement("example", ctx, options, state));
   result = result.replace(/\{\{charSysInfo\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "systemPrompt", state.characterFieldDepth),
+    deferredCharacterReplacement("systemPrompt", ctx, options, state),
   );
   result = result.replace(/\{\{charPostHistory\}\}/gi, () =>
-    resolveContextCharacterFieldValue(ctx, "postHistoryInstructions", state.characterFieldDepth),
+    deferredCharacterReplacement("postHistoryInstructions", ctx, options, state),
   );
 
   // ── Static substitutions ──
   result = result.replace(/\{\{user(?:Name)?\}\}/gi, ctx.user);
   result = result.replace(/\{\{persona\}\}/gi, personaText);
-  result = result.replace(/\{\{char(?:Name)?\}\}/gi, ctx.char);
+  result = result.replace(/\{\{char(?:Name)?\}\}/gi, () => deferredCharacterReplacement("char", ctx, options, state));
   result = result.replace(/\{\{characters\}\}/gi, ctx.characters.join(", "));
   result = result.replace(/\{\{input\}\}/gi, ctx.lastInput ?? "");
   result = result.replace(/\{\{model\}\}/gi, ctx.model ?? "");
@@ -888,10 +1039,15 @@ function resolveMacrosWithState(
         if (totalVariableSize(ctx.variables) >= MAX_TOTAL_VARIABLE_SIZE) return "";
         ctx.variables[name] =
           (ctx.variables[name] ?? "") +
-          resolveMacrosWithState(writeMatch?.[3] ?? "", ctx, { ...options, trimResult: false }, {
-            ...state,
-            variableExpansionDepth: (state.variableExpansionDepth ?? 0) + 1,
-          });
+          resolveMacrosWithState(
+            writeMatch?.[3] ?? "",
+            ctx,
+            { ...options, trimResult: false },
+            {
+              ...state,
+              variableExpansionDepth: (state.variableExpansionDepth ?? 0) + 1,
+            },
+          );
         return "";
       }
       case "incvar":

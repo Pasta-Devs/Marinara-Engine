@@ -1887,6 +1887,7 @@ async fn generate_dj_mari_playlist_plan(
                 images: Vec::new(),
                 tool_call_id: None,
                 tool_calls: None,
+                provider_metadata: None,
             },
             marinara_llm::LlmMessage {
                 role: "user".to_string(),
@@ -1897,6 +1898,7 @@ async fn generate_dj_mari_playlist_plan(
                 images: Vec::new(),
                 tool_call_id: None,
                 tool_calls: None,
+                provider_metadata: None,
             },
         ],
         parameters: json!({

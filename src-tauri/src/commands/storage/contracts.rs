@@ -56,6 +56,7 @@ const MESSAGE_FIELDS: &[TypedJsonField] = &[
     array("attachments"),
     nullable_object("extra"),
 ];
+const MESSAGE_DEFAULTS: &[&str] = &["extra"];
 const MESSAGE_SWIPE_FIELDS: &[TypedJsonField] = &[nullable_object("extra")];
 const CHARACTER_GROUP_FIELDS: &[TypedJsonField] = &[array("characterIds")];
 const PERSONA_GROUP_FIELDS: &[TypedJsonField] = &[array("personaIds")];
@@ -398,7 +399,7 @@ pub(crate) const COLLECTIONS: &[StorageCollectionContract] = &[
         "messages",
         true,
         false,
-        EMPTY_DEFAULTS,
+        MESSAGE_DEFAULTS,
         MESSAGE_FIELDS,
         MESSAGE_CLEANUP,
     ),

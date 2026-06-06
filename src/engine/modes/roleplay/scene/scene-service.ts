@@ -281,10 +281,17 @@ export async function forkRoleplayScene(storage: StorageGateway, input: SceneFor
   if (input.mode !== "clone" && input.mode !== "convert") {
     throw new Error("mode must be clone or convert");
   }
+  if (input.mode === "convert" && input.upToMessageId) {
+    throw new Error("Convert cannot be limited to a message");
+  }
   const sceneChat = await requireChat(storage, input.sceneChatId);
   const sceneMeta = parseJsonObject(sceneChat.metadata);
   const originChatId = stringValue(sceneMeta.sceneOriginChatId) || null;
   const baseName = stringValue(sceneChat.name) || "Scene";
+  const sourceMessages = chronologicalMessages(await messagesForChat(storage, input.sceneChatId));
+  if (input.upToMessageId && !sourceMessages.some((message) => stringValue(message.id) === input.upToMessageId)) {
+    throw new Error("Message is not part of this scene");
+  }
   const forkChat = await storage.create<JsonRecord>("chats", {
     name: `${baseName} ${input.mode === "clone" ? "Clone" : "Converted"}`,
     mode: "roleplay",
@@ -312,9 +319,9 @@ export async function forkRoleplayScene(storage: StorageGateway, input: SceneFor
 
   let skippedGuide = false;
   const trackerMessageRebases: TrackerSnapshotMessageRebase[] = [];
-  for (const message of await messagesForChat(storage, input.sceneChatId)) {
+  for (const message of sourceMessages) {
     const sourceMessageId = stringValue(message.id).trim();
-    const stopAfterThis = input.upToMessageId && message.id === input.upToMessageId;
+    const stopAfterThis = input.upToMessageId && sourceMessageId === input.upToMessageId;
     if (input.includeParticipationGuide === false && !skippedGuide && message.role === "narrator") {
       skippedGuide = true;
       if (stopAfterThis) break;
@@ -674,6 +681,15 @@ async function requireChat(storage: StorageGateway, chatId: string): Promise<Jso
 async function messagesForChat(storage: StorageGateway, chatId: string): Promise<StoredMessage[]> {
   const rows = await storage.listChatMessages<unknown>(chatId);
   return Array.isArray(rows) ? rows.filter(isRecord) : [];
+}
+
+function chronologicalMessages(messages: StoredMessage[]): StoredMessage[] {
+  return [...messages].sort((a, b) => {
+    const aTime = Date.parse(stringValue(a.createdAt));
+    const bTime = Date.parse(stringValue(b.createdAt));
+    if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return aTime - bTime;
+    return stringValue(a.id).localeCompare(stringValue(b.id));
+  });
 }
 
 async function createChatMessage(storage: StorageGateway, chatId: string, message: JsonRecord): Promise<void> {

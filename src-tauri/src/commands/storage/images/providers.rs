@@ -20,9 +20,12 @@ const DEFAULT_RUNPOD_BASE_URL: &str = "https://api.runpod.ai/v2";
 const DEFAULT_GOOGLE_IMAGE_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 const NOVELAI_V4_PROMPT_HINT: &str = "NovelAI V4/V4.5 prompts support roughly 512 T5 tokens and reject most Unicode prompt characters; try a shorter ASCII prompt without emoji or non-Latin text.";
 const NOVELAI_V4_PROMPT_CHAR_LIMIT: usize = 1800;
+const NOVELAI_METADATA_CHUNK_KEYWORD: &str = "marinara_novelai_request";
 const IMAGE_PROVIDER_ERROR_MAX_BYTES: usize = 256 * 1024;
 const IMAGE_PROVIDER_JSON_ENVELOPE_MAX_BYTES: usize = 48 * 1024 * 1024;
 const IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES: usize = 32 * 1024 * 1024;
+const IMAGE_PROVIDER_LOCAL_URLS_ENABLED_FLAG: &str = "IMAGE_PROVIDER_LOCAL_URLS_ENABLED";
+const RUNPOD_COMFYUI_MAX_REFERENCE_IMAGES: usize = 4;
 const COMFYUI_PLACEHOLDER_REFERENCE_BASE64: &str =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
@@ -62,6 +65,7 @@ pub(crate) async fn generate_image_with_options(
         ));
     }
     let source = image_source(connection);
+    validate_image_provider_base_url(connection, &source).await?;
     match source.as_str() {
         "pollinations" => {
             generate_pollinations(
@@ -297,6 +301,33 @@ pub(crate) fn connection_base_url(connection: &Value, source: &str) -> String {
         .unwrap_or(fallback)
         .trim_end_matches('/')
         .to_string()
+}
+
+fn image_provider_local_urls_allowed(source: &str) -> bool {
+    provider_local_urls_enabled(IMAGE_PROVIDER_LOCAL_URLS_ENABLED_FLAG)
+        || matches!(source, "automatic1111" | "drawthings" | "comfyui")
+}
+
+async fn validate_image_provider_base_url(connection: &Value, source: &str) -> AppResult<()> {
+    let base = connection_base_url(connection, source);
+    validate_provider_url_for_request(
+        &base,
+        image_provider_local_urls_allowed(source),
+        IMAGE_PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+    )
+    .await?;
+    Ok(())
+}
+
+async fn validate_image_download_url(url: &str, allow_private_or_reserved: bool) -> AppResult<()> {
+    validate_provider_url_for_request(
+        url,
+        allow_private_or_reserved
+            || provider_local_urls_enabled(IMAGE_PROVIDER_LOCAL_URLS_ENABLED_FLAG),
+        IMAGE_PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+    )
+    .await?;
+    Ok(())
 }
 
 #[derive(Clone, Debug)]
@@ -773,7 +804,12 @@ fn image_response_too_large_error(max_bytes: usize) -> AppError {
     )
 }
 
-async fn fetch_image_url(client: &reqwest::Client, url: &str) -> AppResult<(String, String)> {
+async fn fetch_image_url(
+    client: &reqwest::Client,
+    url: &str,
+    allow_private_or_reserved: bool,
+) -> AppResult<(String, String)> {
+    validate_image_download_url(url, allow_private_or_reserved).await?;
     let response = client.get(url).send().await.map_err(|error| {
         AppError::new("image_network_error", image_transport_error_message(error))
     })?;
@@ -805,7 +841,7 @@ async fn generate_pollinations(
         url.push_str("&negative=");
         url.push_str(&percent_encode_component(negative));
     }
-    fetch_image_url(&http_client(120)?, &url).await
+    fetch_image_url(&http_client(120)?, &url, false).await
 }
 
 async fn generate_openai_compatible_image(
@@ -862,12 +898,14 @@ async fn generate_openai_compatible_image(
             AppError::new("image_network_error", image_transport_error_message(error))
         })?;
         let json = response_json(response, source).await?;
-        return parse_image_json(&client, &json).await?.ok_or_else(|| {
-            AppError::new(
-                "image_response_error",
-                format!("{source} returned no image data"),
-            )
-        });
+        return parse_image_json(&client, &json, false)
+            .await?
+            .ok_or_else(|| {
+                AppError::new(
+                    "image_response_error",
+                    format!("{source} returned no image data"),
+                )
+            });
     }
 
     let mut payload = Map::new();
@@ -905,12 +943,14 @@ async fn generate_openai_compatible_image(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, source).await?;
-    parse_image_json(&client, &json).await?.ok_or_else(|| {
-        AppError::new(
-            "image_response_error",
-            format!("{source} returned no image data"),
-        )
-    })
+    parse_image_json(&client, &json, false)
+        .await?
+        .ok_or_else(|| {
+            AppError::new(
+                "image_response_error",
+                format!("{source} returned no image data"),
+            )
+        })
 }
 
 pub(crate) fn is_openai_gpt_image_model(model: &str) -> bool {
@@ -1018,7 +1058,7 @@ async fn generate_xai(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "xai").await?;
-    parse_image_json(&client, &json)
+    parse_image_json(&client, &json, false)
         .await?
         .ok_or_else(|| AppError::new("image_response_error", "xAI returned no image data"))
 }
@@ -1151,7 +1191,7 @@ async fn generate_nanogpt_image(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "nanogpt").await?;
-    parse_image_json(&client, &json)
+    parse_image_json(&client, &json, false)
         .await?
         .ok_or_else(|| AppError::new("image_response_error", "NanoGPT returned no image data"))
 }
@@ -1197,7 +1237,7 @@ async fn generate_together_image(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "togetherai").await?;
-    parse_image_json(&client, &json)
+    parse_image_json(&client, &json, false)
         .await?
         .ok_or_else(|| AppError::new("image_response_error", "Together AI returned no image data"))
 }
@@ -1247,12 +1287,14 @@ async fn generate_chat_image(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, &source).await?;
-    parse_image_json(&client, &json).await?.ok_or_else(|| {
-        AppError::new(
-            "image_response_error",
-            format!("{source} returned no image data"),
-        )
-    })
+    parse_image_json(&client, &json, false)
+        .await?
+        .ok_or_else(|| {
+            AppError::new(
+                "image_response_error",
+                format!("{source} returned no image data"),
+            )
+        })
 }
 
 const GOOGLE_IMAGE_PROVIDER: &str = "google_image";
@@ -1528,6 +1570,7 @@ fn chat_completions_url(base: &str) -> String {
 async fn parse_image_json(
     client: &reqwest::Client,
     json: &Value,
+    allow_private_or_reserved_downloads: bool,
 ) -> AppResult<Option<(String, String)>> {
     if let Some(base64) = json
         .pointer("/data/0/b64_json")
@@ -1545,7 +1588,9 @@ async fn parse_image_json(
             let (base64, mime) = strip_data_url(url);
             return validated_base64_image(base64, mime).map(Some);
         }
-        return fetch_image_url(client, url).await.map(Some);
+        return fetch_image_url(client, url, allow_private_or_reserved_downloads)
+            .await
+            .map(Some);
     }
     if let Some(value) = find_image_string(json) {
         if value.starts_with("data:image/") {
@@ -1553,7 +1598,9 @@ async fn parse_image_json(
             return validated_base64_image(base64, mime).map(Some);
         }
         if is_http_image_url(value) {
-            return fetch_image_url(client, value).await.map(Some);
+            return fetch_image_url(client, value, allow_private_or_reserved_downloads)
+                .await
+                .map(Some);
         }
     }
     Ok(None)
@@ -2178,7 +2225,7 @@ async fn generate_horde(
             .and_then(Value::as_str)
         {
             if img.starts_with("http://") || img.starts_with("https://") {
-                return fetch_image_url(&client, img).await;
+                return fetch_image_url(&client, img, false).await;
             }
             let (base64, mime) = strip_data_url(img);
             return validated_base64_image(base64, mime);
@@ -2225,7 +2272,7 @@ async fn generate_comfyui(
         &negative_prompt,
         width,
         height,
-        options.reference_images.first().map(String::as_str),
+        &options.reference_images,
     );
     let reference_name_tokens = comfy_reference_name_tokens(&workflow);
     if !reference_name_tokens.is_empty() {
@@ -2296,7 +2343,7 @@ async fn generate_comfyui(
                     percent_encode_component(subfolder),
                     percent_encode_component(kind)
                 );
-                return fetch_image_url(&client, &url).await;
+                return fetch_image_url(&client, &url, true).await;
             }
         }
     }
@@ -2357,7 +2404,7 @@ fn comfy_replacements(
     negative_prompt: &str,
     width: u64,
     height: u64,
-    reference_image: Option<&str>,
+    reference_images: &[String],
 ) -> HashMap<String, Value> {
     let mut replacements = HashMap::from([
         ("%prompt%".to_string(), Value::String(prompt.to_string())),
@@ -2397,13 +2444,21 @@ fn comfy_replacements(
     {
         replacements.insert("%model%".to_string(), Value::String(model.to_string()));
     }
-    if let Some(reference) = reference_image {
-        replacements.insert(
-            "%reference_image%".to_string(),
-            Value::String(
-                reference_base64(reference).unwrap_or_else(|_| image_data_url(reference)),
-            ),
+    for (index, reference) in reference_images
+        .iter()
+        .take(RUNPOD_COMFYUI_MAX_REFERENCE_IMAGES)
+        .enumerate()
+    {
+        let replacement = Value::String(
+            reference_base64(reference).unwrap_or_else(|_| image_data_url(reference)),
         );
+        replacements.insert(
+            format!("%reference_image_{:02}%", index + 1),
+            replacement.clone(),
+        );
+        if index == 0 {
+            replacements.insert("%reference_image%".to_string(), replacement);
+        }
     }
     replacements
 }
@@ -2485,7 +2540,7 @@ async fn generate_runpod_comfyui(
             &negative_prompt,
             width,
             height,
-            options.reference_images.first().map(String::as_str),
+            &options.reference_images,
         ),
     );
     let base = connection_base_url(connection, "runpod_comfyui");
@@ -2682,7 +2737,7 @@ async fn generate_novelai(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let (bytes, content_type) = response_bytes(response, "novelai").await?;
-    parse_novelai_image_response(&client, bytes, &content_type).await
+    parse_novelai_image_response_with_metadata(&client, bytes, &content_type, Some(&body)).await
 }
 
 fn is_novelai_v4_model(model: &str) -> bool {
@@ -2809,10 +2864,86 @@ fn image_provider_json_error(json: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-async fn parse_novelai_image_response(
+fn append_novelai_generation_metadata(image: Vec<u8>, request: &Value) -> Vec<u8> {
+    let Ok(metadata) = serde_json::to_string(&json!({
+        "source": "marinara-engine",
+        "provider": "novelai",
+        "request": request,
+    })) else {
+        return image;
+    };
+    inject_png_itxt_chunk(&image, NOVELAI_METADATA_CHUNK_KEYWORD, &metadata).unwrap_or(image)
+}
+
+fn inject_png_itxt_chunk(png: &[u8], keyword: &str, text: &str) -> Option<Vec<u8>> {
+    const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
+    if !png.starts_with(PNG_SIGNATURE) {
+        return None;
+    }
+    let text_chunk = build_png_chunk(b"iTXt", &build_png_itxt_data(keyword, text))?;
+    let mut output = Vec::with_capacity(png.len() + text_chunk.len());
+    output.extend_from_slice(PNG_SIGNATURE);
+    let mut offset = PNG_SIGNATURE.len();
+    let mut inserted = false;
+    while offset + 12 <= png.len() {
+        let length = u32::from_be_bytes(png[offset..offset + 4].try_into().ok()?) as usize;
+        let chunk_type = png.get(offset + 4..offset + 8)?;
+        let chunk_end = offset.checked_add(12)?.checked_add(length)?;
+        if chunk_end > png.len() {
+            return None;
+        }
+        if !inserted && (chunk_type == b"IDAT" || chunk_type == b"IEND") {
+            output.extend_from_slice(&text_chunk);
+            inserted = true;
+        }
+        output.extend_from_slice(&png[offset..chunk_end]);
+        offset = chunk_end;
+        if chunk_type == b"IEND" {
+            return Some(output);
+        }
+    }
+    None
+}
+
+fn build_png_itxt_data(keyword: &str, text: &str) -> Vec<u8> {
+    let mut data = Vec::with_capacity(keyword.len() + text.len() + 5);
+    data.extend_from_slice(keyword.as_bytes());
+    data.extend_from_slice(&[0, 0, 0, 0, 0]);
+    data.extend_from_slice(text.as_bytes());
+    data
+}
+
+fn build_png_chunk(chunk_type: &[u8; 4], data: &[u8]) -> Option<Vec<u8>> {
+    let length = u32::try_from(data.len()).ok()?;
+    let mut chunk = Vec::with_capacity(data.len() + 12);
+    chunk.extend_from_slice(&length.to_be_bytes());
+    chunk.extend_from_slice(chunk_type);
+    chunk.extend_from_slice(data);
+    let crc = png_crc32(chunk_type, data);
+    chunk.extend_from_slice(&crc.to_be_bytes());
+    Some(chunk)
+}
+
+fn png_crc32(chunk_type: &[u8; 4], data: &[u8]) -> u32 {
+    let mut crc = 0xffff_ffff_u32;
+    for byte in chunk_type.iter().chain(data.iter()) {
+        crc ^= u32::from(*byte);
+        for _ in 0..8 {
+            if crc & 1 == 1 {
+                crc = (crc >> 1) ^ 0xedb8_8320;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    crc ^ 0xffff_ffff
+}
+
+async fn parse_novelai_image_response_with_metadata(
     client: &reqwest::Client,
     bytes: Vec<u8>,
     content_type: &str,
+    metadata_request: Option<&Value>,
 ) -> AppResult<(String, String)> {
     if bytes.starts_with(b"PK") || content_type.to_ascii_lowercase().contains("zip") {
         let mut zip_reader = zip::ZipArchive::new(Cursor::new(bytes.clone()))
@@ -2839,6 +2970,9 @@ async fn parse_novelai_image_response(
                     IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES,
                 ));
             }
+            if let Some(request) = metadata_request {
+                image = append_novelai_generation_metadata(image, request);
+            }
             return normalized_image_bytes(image, None);
         }
     }
@@ -2848,10 +2982,14 @@ async fn parse_novelai_image_response(
         || bytes.starts_with(b"GIF87a")
         || bytes.starts_with(b"GIF89a")
     {
+        let bytes = metadata_request
+            .filter(|_| bytes.starts_with(&[0x89, b'P', b'N', b'G']))
+            .map(|request| append_novelai_generation_metadata(bytes.clone(), request))
+            .unwrap_or(bytes);
         return normalized_image_bytes(bytes, Some(content_type));
     }
     if let Ok(json) = serde_json::from_slice::<Value>(&bytes) {
-        if let Some(result) = parse_image_json(client, &json).await? {
+        if let Some(result) = parse_image_json(client, &json, false).await? {
             return Ok(result);
         }
         if let Some(error) = image_provider_json_error(&json) {
@@ -3118,6 +3256,131 @@ mod tests {
         writer.finish().expect("zip should finish").into_inner()
     }
 
+    fn test_comfy_defaults() -> ComfyDefaults {
+        ComfyDefaults {
+            prompt_prefix: String::new(),
+            negative_prompt_prefix: String::new(),
+            sampler: "euler_ancestral".to_string(),
+            scheduler: "normal".to_string(),
+            steps: 20,
+            cfg_scale: 7.0,
+            denoising_strength: 1.0,
+            clip_skip: None,
+        }
+    }
+
+    fn png_itxt_text(png: &[u8], keyword: &str) -> Option<String> {
+        let mut offset = 8;
+        while offset + 12 <= png.len() {
+            let length = u32::from_be_bytes(png[offset..offset + 4].try_into().ok()?) as usize;
+            let chunk_type = png.get(offset + 4..offset + 8)?;
+            let data_start = offset + 8;
+            let data_end = data_start.checked_add(length)?;
+            if data_end + 4 > png.len() {
+                return None;
+            }
+            if chunk_type == b"iTXt" {
+                let data = &png[data_start..data_end];
+                let keyword_bytes = keyword.as_bytes();
+                if data.starts_with(keyword_bytes)
+                    && data.get(keyword_bytes.len()) == Some(&0)
+                    && data.len() >= keyword_bytes.len() + 5
+                {
+                    return Some(
+                        String::from_utf8_lossy(&data[keyword_bytes.len() + 5..]).to_string(),
+                    );
+                }
+            }
+            offset = data_end + 4;
+        }
+        None
+    }
+
+    #[test]
+    fn comfy_replacements_resolve_numbered_reference_image_slots() {
+        let first_reference = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+        let second_reference = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+        let third_reference = "QUJDRA==";
+        let fourth_reference = "RUZHSA==";
+        let ignored_reference = "SUpLTA==";
+        let workflow = json!({
+            "alias": "%reference_image%",
+            "first": "%reference_image_01%",
+            "second": "%reference_image_02%",
+            "third": "%reference_image_03%",
+            "fourth": "%reference_image_04%",
+            "embedded": "refs:%reference_image_01%|%reference_image_02%|%reference_image_04%",
+            "ignored": "%reference_image_05%"
+        });
+        let replacements = comfy_replacements(
+            &json!({ "model": "comfy-test-model" }),
+            &test_comfy_defaults(),
+            "prompt",
+            "negative",
+            512,
+            768,
+            &[
+                first_reference.to_string(),
+                second_reference.to_string(),
+                third_reference.to_string(),
+                fourth_reference.to_string(),
+                ignored_reference.to_string(),
+            ],
+        );
+
+        let resolved = replace_workflow_placeholders(workflow, &replacements);
+
+        assert_eq!(resolved["alias"], json!(first_reference));
+        assert_eq!(resolved["first"], json!(first_reference));
+        assert_eq!(resolved["second"], json!(second_reference));
+        assert_eq!(resolved["third"], json!(third_reference));
+        assert_eq!(resolved["fourth"], json!(fourth_reference));
+        assert_eq!(
+            resolved["embedded"],
+            json!(format!(
+                "refs:{first_reference}|{second_reference}|{fourth_reference}"
+            ))
+        );
+        assert_eq!(resolved["ignored"], json!("%reference_image_05%"));
+    }
+
+    #[tokio::test]
+    async fn novelai_png_outputs_include_request_metadata_chunk() {
+        let client = http_client(1).expect("client should build");
+        let image = general_purpose::STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=")
+            .expect("test png should decode");
+        let request = json!({
+            "model": "nai-diffusion-4-5-full",
+            "parameters": { "seed": 123, "steps": 28 }
+        });
+
+        for (bytes, content_type) in [
+            (image.clone(), "image/png"),
+            (zip_with_image("image.png", &image), "application/zip"),
+        ] {
+            let (base64, mime) = parse_novelai_image_response_with_metadata(
+                &client,
+                bytes,
+                content_type,
+                Some(&request),
+            )
+            .await
+            .expect("NovelAI PNG response should parse");
+            let png = general_purpose::STANDARD
+                .decode(base64)
+                .expect("metadata PNG should decode");
+            let metadata = png_itxt_text(&png, NOVELAI_METADATA_CHUNK_KEYWORD)
+                .expect("NovelAI metadata chunk should be present");
+            let metadata: Value = serde_json::from_str(&metadata).expect("metadata should be JSON");
+
+            assert_eq!(mime, "image/png");
+            assert_eq!(metadata["source"], json!("marinara-engine"));
+            assert_eq!(metadata["provider"], json!("novelai"));
+            assert_eq!(metadata["request"], request);
+        }
+    }
+
     #[test]
     fn image_provider_error_sanitizer_redacts_secrets() {
         let sanitized = sanitize_error(
@@ -3128,6 +3391,60 @@ mod tests {
         assert!(sanitized.contains("[REDACTED_URL]"));
         assert!(!sanitized.contains("sk-test-secret"));
         assert!(!sanitized.contains("retrieve/session"));
+    }
+
+    #[tokio::test]
+    async fn image_provider_blocks_metadata_base_url() {
+        let connection = json!({
+            "provider": "image_generation",
+            "imageGenerationSource": "openai",
+            "baseUrl": "http://169.254.169.254/v1?api_key=sk-test-secret"
+        });
+
+        let error = generate_image_with_options(
+            &connection,
+            "blocked metadata target",
+            64,
+            64,
+            ImageGenerationOptions::default(),
+        )
+        .await
+        .expect_err("metadata image provider URL should be blocked before request dispatch");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("private, LAN, metadata, or reserved target"));
+        assert!(error
+            .message
+            .contains(IMAGE_PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+        assert!(!error.message.contains("sk-test-secret"));
+    }
+
+    #[tokio::test]
+    async fn image_provider_blocks_metadata_download_url() {
+        let payload = json!({
+            "data": [{
+                "url": "http://169.254.169.254/image.png?api_key=sk-test-secret"
+            }]
+        });
+
+        let error = parse_image_json(
+            &http_client(1).expect("test image client should build"),
+            &payload,
+            false,
+        )
+        .await
+        .expect_err("metadata image download URL should be blocked before fetch");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("private, LAN, metadata, or reserved target"));
+        assert!(error
+            .message
+            .contains(IMAGE_PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+        assert!(!error.message.contains("sk-test-secret"));
     }
 
     #[tokio::test]
@@ -3193,7 +3510,7 @@ mod tests {
         let json = response_json(response, "test-provider")
             .await
             .expect("large JSON envelope should parse within envelope cap");
-        let result = parse_image_json(&http_client(1).expect("client should build"), &json)
+        let result = parse_image_json(&http_client(1).expect("client should build"), &json, false)
             .await
             .expect("decoded image should be within raw image cap")
             .expect("image data should be found");
@@ -3220,7 +3537,7 @@ mod tests {
         let base64 = general_purpose::STANDARD.encode(&image);
         let json = json!({ "data": [{ "b64_json": base64 }] });
 
-        let error = parse_image_json(&http_client(1).expect("client should build"), &json)
+        let error = parse_image_json(&http_client(1).expect("client should build"), &json, false)
             .await
             .expect_err("decoded image above raw cap should fail");
 
@@ -3293,7 +3610,7 @@ mod tests {
         )
         .await;
         let json = json!({ "data": [{ "url": url }] });
-        let error = parse_image_json(&http_client(1).expect("client should build"), &json)
+        let error = parse_image_json(&http_client(1).expect("client should build"), &json, false)
             .await
             .expect_err("oversized fetched image should surface");
 
@@ -3313,7 +3630,7 @@ mod tests {
             .await
         );
         let json = json!({ "message": format!("image at {url}") });
-        let error = parse_image_json(&http_client(1).expect("client should build"), &json)
+        let error = parse_image_json(&http_client(1).expect("client should build"), &json, false)
             .await
             .expect_err("oversized nested fetched image should surface");
 
@@ -3327,7 +3644,7 @@ mod tests {
         image[..8].copy_from_slice(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']);
         let url = serve_bytes_response("200 OK", "image/png", image).await;
         let json = json!({ "data": [{ "url": url }] });
-        let result = parse_image_json(&http_client(1).expect("client should build"), &json)
+        let result = parse_image_json(&http_client(1).expect("client should build"), &json, false)
             .await
             .expect("image URL fetch should succeed")
             .expect("image URL should return image data");
@@ -3343,9 +3660,10 @@ mod tests {
             &vec![0_u8; IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES + 1],
         );
         assert!(archive.len() < IMAGE_PROVIDER_JSON_ENVELOPE_MAX_BYTES);
-        let error = parse_novelai_image_response(&client, archive, "application/zip")
-            .await
-            .expect_err("oversized zipped image should fail");
+        let error =
+            parse_novelai_image_response_with_metadata(&client, archive, "application/zip", None)
+                .await
+                .expect_err("oversized zipped image should fail");
 
         assert_eq!(error.code, "image_response_error");
         assert!(error.message.contains("exceeds"));
@@ -3357,9 +3675,10 @@ mod tests {
         let mut image = vec![0_u8; 1024];
         image[..8].copy_from_slice(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']);
         let archive = zip_with_image("image.png", &image);
-        let (_base64, mime) = parse_novelai_image_response(&client, archive, "application/zip")
-            .await
-            .expect("small zipped image should parse");
+        let (_base64, mime) =
+            parse_novelai_image_response_with_metadata(&client, archive, "application/zip", None)
+                .await
+                .expect("small zipped image should parse");
 
         assert_eq!(mime, "image/png");
     }
@@ -3436,10 +3755,11 @@ mod tests {
     #[tokio::test]
     async fn novelai_json_error_is_reported() {
         let client = http_client(1).expect("client should build");
-        let error = parse_novelai_image_response(
+        let error = parse_novelai_image_response_with_metadata(
             &client,
             br#"{"error":{"message":"prompt is too long"}}"#.to_vec(),
             "application/json",
+            None,
         )
         .await
         .expect_err("json error payload should fail");

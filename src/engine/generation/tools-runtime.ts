@@ -60,6 +60,8 @@ interface ToolDeps {
   integrations: IntegrationGateway;
 }
 
+const chatMetadataQueues = new Map<string, Promise<void>>();
+
 export function normalizeToolCall(value: unknown): LLMToolCall | null {
   if (!isRecord(value)) return null;
   const rawFunction = isRecord(value.function) ? value.function : value;
@@ -226,10 +228,32 @@ async function updateChatMetadata(
   updater: (metadata: JsonRecord) => JsonRecord,
 ): Promise<JsonRecord> {
   const chatId = requireChatId(input);
-  const metadata = updater({ ...parseRecord(input.chat.metadata) });
-  await storage.update("chats", chatId, { metadata });
-  input.chat.metadata = metadata;
-  return metadata;
+  return withChatMetadataQueue(chatId, async () => {
+    const latestChat = (await storage.get<JsonRecord>("chats", chatId)) ?? input.chat;
+    const metadata = updater({ ...parseRecord(latestChat.metadata) });
+    await storage.update("chats", chatId, { metadata });
+    input.chat.metadata = metadata;
+    return metadata;
+  });
+}
+
+async function withChatMetadataQueue<T>(chatId: string, task: () => Promise<T>): Promise<T> {
+  const previous = chatMetadataQueues.get(chatId) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const queued = previous.catch(() => undefined).then(() => gate);
+  chatMetadataQueues.set(chatId, queued);
+  await previous.catch(() => undefined);
+  try {
+    return await task();
+  } finally {
+    release();
+    if (chatMetadataQueues.get(chatId) === queued) {
+      chatMetadataQueues.delete(chatId);
+    }
+  }
 }
 
 function rollDiceNotation(notation: string) {
@@ -356,15 +380,19 @@ export async function executeBuiltInTool(
         description: stringArg(args, "description"),
       };
       if (!update.type || !update.target || !update.key) toolError("type, target, and key are required.");
-      const metadata = parseRecord(input.chat.metadata);
-      const updates = Array.isArray(metadata.agentGameStateUpdates) ? metadata.agentGameStateUpdates : [];
-      metadata.agentGameStateUpdates = [...updates, update].slice(-100);
-      const gameState = isRecord(input.chat.gameState) ? { ...input.chat.gameState } : {};
-      if (update.type === "location_change") gameState.location = update.value;
-      if (update.type === "time_advance") gameState.time = update.value;
-      await storage.update("chats", chatId, { metadata, gameState });
-      input.chat.metadata = metadata;
-      input.chat.gameState = gameState;
+      const gameState = await withChatMetadataQueue(chatId, async () => {
+        const latestChat = (await storage.get<JsonRecord>("chats", chatId)) ?? input.chat;
+        const metadata = parseRecord(latestChat.metadata);
+        const updates = Array.isArray(metadata.agentGameStateUpdates) ? metadata.agentGameStateUpdates : [];
+        metadata.agentGameStateUpdates = [...updates, update].slice(-100);
+        const gameState = isRecord(latestChat.gameState) ? { ...latestChat.gameState } : {};
+        if (update.type === "location_change") gameState.location = update.value;
+        if (update.type === "time_advance") gameState.time = update.value;
+        await storage.update("chats", chatId, { metadata, gameState });
+        input.chat.metadata = metadata;
+        input.chat.gameState = gameState;
+        return gameState;
+      });
       return { success: true, update, gameState };
     }
     case "set_expression": {
@@ -401,28 +429,32 @@ export async function executeBuiltInTool(
       const text = stringArg(args, "text");
       if (!text) toolError("text is required.");
       const now = nowIso();
-      const metadata = parseRecord(input.chat.metadata);
       const sourceMessageIds = automatedSummarySourceMessageIds(input);
-      const appended = appendChatSummaryEntryToMetadata(
-        metadata,
-        {
-          content: text,
-          origin: "automated",
-          sourceMode: "agent",
-          title: "Agent memory",
-          messageCount: sourceMessageIds.length || undefined,
-          messageIds: sourceMessageIds.length > 0 ? sourceMessageIds : undefined,
-        },
-        { now, createId: () => newId("summary") },
-      );
       const hiddenMessageIds = input.hideAutomatedSummarySourceMessages
         ? await hideSummarySourceMessages(storage, sourceMessageIds)
         : [];
-      metadata.summaryEntries = appended.entries;
-      metadata.summary = appended.summary;
-      input.chat.metadata = metadata;
-      input.chatSummary = appended.summary;
-      await storage.update("chats", chatId, { metadata });
+      const appended = await withChatMetadataQueue(chatId, async () => {
+        const latestChat = (await storage.get<JsonRecord>("chats", chatId)) ?? input.chat;
+        const metadata = parseRecord(latestChat.metadata);
+        const appended = appendChatSummaryEntryToMetadata(
+          metadata,
+          {
+            content: text,
+            origin: "automated",
+            sourceMode: "agent",
+            title: "Agent memory",
+            messageCount: sourceMessageIds.length || undefined,
+            messageIds: sourceMessageIds.length > 0 ? sourceMessageIds : undefined,
+          },
+          { now, createId: () => newId("summary") },
+        );
+        metadata.summaryEntries = appended.entries;
+        metadata.summary = appended.summary;
+        input.chat.metadata = metadata;
+        input.chatSummary = appended.summary;
+        await storage.update("chats", chatId, { metadata });
+        return appended;
+      });
       return { success: true, entry: appended.entry, summary: appended.summary, hiddenMessageIds };
     }
     case "read_chat_variable": {

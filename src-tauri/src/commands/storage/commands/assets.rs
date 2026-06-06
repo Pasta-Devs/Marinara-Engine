@@ -129,6 +129,11 @@ pub fn game_assets_delete_file(
     state: State<'_, AppState>,
     path: String,
 ) -> Result<Value, AppError> {
+    managed_thumbnails::remove_managed_thumbnail_files(
+        &state,
+        managed_thumbnails::ManagedThumbnailKind::Game,
+        &path,
+    );
     state.game_assets.remove(&path, false)?;
     Ok(json!({ "deleted": true }))
 }
@@ -159,6 +164,11 @@ pub fn game_assets_rename(
     path: String,
     new_name: String,
 ) -> Result<Value, AppError> {
+    managed_thumbnails::remove_managed_thumbnail_files(
+        &state,
+        managed_thumbnails::ManagedThumbnailKind::Game,
+        &path,
+    );
     state.game_assets.rename(&path, &new_name)
 }
 
@@ -168,6 +178,11 @@ pub fn game_assets_move(
     path: String,
     target_folder: Option<String>,
 ) -> Result<Value, AppError> {
+    managed_thumbnails::remove_managed_thumbnail_files(
+        &state,
+        managed_thumbnails::ManagedThumbnailKind::Game,
+        &path,
+    );
     state
         .game_assets
         .move_to_folder(&path, target_folder.as_deref().unwrap_or(""))
@@ -190,6 +205,13 @@ pub fn game_assets_move_bulk(
     paths: Vec<String>,
     target_folder: Option<String>,
 ) -> Result<Value, AppError> {
+    for path in &paths {
+        managed_thumbnails::remove_managed_thumbnail_files(
+            &state,
+            managed_thumbnails::ManagedThumbnailKind::Game,
+            path,
+        );
+    }
     Ok(state
         .game_assets
         .move_many(&paths, target_folder.as_deref().unwrap_or("")))
@@ -211,6 +233,13 @@ pub fn game_assets_delete_bulk(
     state: State<'_, AppState>,
     paths: Vec<String>,
 ) -> Result<Value, AppError> {
+    for path in &paths {
+        managed_thumbnails::remove_managed_thumbnail_files(
+            &state,
+            managed_thumbnails::ManagedThumbnailKind::Game,
+            path,
+        );
+    }
     Ok(state.game_assets.delete_many(&paths))
 }
 

@@ -170,17 +170,49 @@ function normalizeStorageReadResult(entity: StorageEntity, value: unknown): unkn
   return normalizeStorageRecord(entity, value);
 }
 
+function messageExtraRecord(value: unknown): Record<string, unknown> {
+  if (value === undefined || value === null) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    } catch {
+      throw new ApiError("Message extra must be a JSON object", 400);
+    }
+    throw new ApiError("Message extra must be a JSON object", 400);
+  }
+  if (typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  throw new ApiError("Message extra must be a JSON object", 400);
+}
+
+function messageExtraDefaults(role: unknown, value: unknown): Record<string, unknown> {
+  return {
+    displayText: null,
+    isGenerated: role !== "user",
+    tokenCount: null,
+    generationInfo: null,
+    ...messageExtraRecord(value),
+  };
+}
+
 function chatMessageDefaults(chatId: string, value: Record<string, unknown>): Record<string, unknown> {
+  const role = typeof value.role === "string" ? value.role : "user";
   const content = typeof value.content === "string" ? collapseExcessBlankLines(value.content) : "";
-  const extra = value.extra ?? {};
+  const extra = messageExtraDefaults(role, value.extra);
+  const swipes = Array.isArray(value.swipes) && value.swipes.length > 0 ? value.swipes : [{ content, extra }];
+  const requestedActiveIndex =
+    typeof value.activeSwipeIndex === "number" && Number.isFinite(value.activeSwipeIndex)
+      ? Math.max(0, Math.trunc(value.activeSwipeIndex))
+      : 0;
+  const activeSwipeIndex = Math.min(requestedActiveIndex, swipes.length - 1);
   return {
     ...value,
     chatId,
-    role: value.role ?? "user",
+    role,
     content,
     extra,
-    activeSwipeIndex: value.activeSwipeIndex ?? 0,
-    swipes: value.swipes ?? [{ content, extra }],
+    activeSwipeIndex,
+    swipes,
   };
 }
 

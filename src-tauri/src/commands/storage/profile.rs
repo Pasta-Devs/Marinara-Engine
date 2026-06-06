@@ -1775,7 +1775,10 @@ mod tests {
             .get("characters", "char-1")
             .expect("character lookup should not fail")
             .is_some());
-        assert!(!avatar_dir.join("keep.png").exists());
+        assert_eq!(
+            std::fs::read(avatar_dir.join("keep.png")).expect("avatar should remain"),
+            b"keep"
+        );
     }
 
     #[test]

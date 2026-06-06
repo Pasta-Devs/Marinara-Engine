@@ -355,6 +355,9 @@ struct EditMarinaraCodeFileTool {}
 #[async_trait]
 impl ToolRuntime for EditMarinaraCodeFileTool {
     async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        if !mari_write_tools_enabled() {
+            return Err(mari_write_requires_approval_error());
+        }
         let args: EditMarinaraCodeFileArgs = serde_json::from_value(args)
             .map_err(|error| mari_tool_error("mari_code_edit_invalid_args", error))?;
         edit_marinara_code_file(&args.path, &args.old_text, &args.new_text)
@@ -375,9 +378,6 @@ struct CreateMarinaraExtensionArgs {
     #[input(description = "Optional JavaScript payload to run while the extension is enabled.")]
     #[serde(default)]
     js: Option<String>,
-    #[input(description = "Whether the extension should be enabled immediately.")]
-    #[serde(default = "default_true")]
-    enabled: bool,
 }
 
 #[tool(
@@ -392,6 +392,9 @@ struct CreateMarinaraExtensionTool {
 #[async_trait]
 impl ToolRuntime for CreateMarinaraExtensionTool {
     async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        if !mari_write_tools_enabled() {
+            return Err(mari_write_requires_approval_error());
+        }
         let args: CreateMarinaraExtensionArgs = serde_json::from_value(args)
             .map_err(|error| mari_tool_error("mari_extension_invalid_args", error))?;
         create_marinara_extension(&self.state, args)
@@ -425,9 +428,6 @@ struct CreateMarinaraCustomAgentArgs {
     #[input(description = "Optional JSON object string for additional agent settings.")]
     #[serde(default)]
     settings_json: Option<String>,
-    #[input(description = "Whether the custom agent should be enabled immediately.")]
-    #[serde(default = "default_true")]
-    enabled: bool,
 }
 
 #[tool(
@@ -442,6 +442,9 @@ struct CreateMarinaraCustomAgentTool {
 #[async_trait]
 impl ToolRuntime for CreateMarinaraCustomAgentTool {
     async fn execute(&self, args: Value) -> Result<Value, ToolCallError> {
+        if !mari_write_tools_enabled() {
+            return Err(mari_write_requires_approval_error());
+        }
         let args: CreateMarinaraCustomAgentArgs = serde_json::from_value(args)
             .map_err(|error| mari_tool_error("mari_agent_invalid_args", error))?;
         create_marinara_custom_agent(&self.state, args)
@@ -535,7 +538,7 @@ fn read_only_mari_action_contract() -> Value {
     json!({
         "type": "none",
         "capability": "workspace_agent",
-        "reason": "Professor Mari can inspect Marinara Engine's codebase, create extension/custom-agent records, and apply exact code edits through workspace tools.",
+        "reason": "Professor Mari can inspect Marinara Engine's codebase and creative library. Write tools require an explicit approval flow and are disabled for autonomous tool runs.",
     })
 }
 
@@ -564,6 +567,7 @@ fn autoagents_message_to_marinara(message: &ChatMessage) -> marinara_llm::LlmMes
         images: Vec::new(),
         tool_call_id: first_tool_result.map(|call| call.id.clone()),
         tool_calls,
+        provider_metadata: None,
     }
 }
 
@@ -913,8 +917,15 @@ fn mari_tool_error(code: &str, error: impl ToString) -> ToolCallError {
     ToolCallError::RuntimeError(Box::new(AppError::new(code, error.to_string())))
 }
 
-fn default_true() -> bool {
-    true
+fn mari_write_tools_enabled() -> bool {
+    false
+}
+
+fn mari_write_requires_approval_error() -> ToolCallError {
+    mari_tool_error(
+        "mari_write_requires_approval",
+        "Professor Mari write tools require explicit user approval and are disabled for autonomous tool runs.",
+    )
 }
 
 fn default_agent_phase() -> String {
@@ -1113,7 +1124,7 @@ fn create_marinara_extension(
             "description": args.description,
             "css": css,
             "js": js,
-            "enabled": args.enabled,
+            "enabled": false,
             "installedAt": now_iso(),
         }),
     )
@@ -1187,7 +1198,7 @@ fn create_marinara_custom_agent(
             "name": name,
             "description": args.description,
             "phase": args.phase,
-            "enabled": args.enabled,
+            "enabled": false,
             "connectionId": args.connection_id.filter(|value| !value.trim().is_empty()),
             "promptTemplate": prompt_template,
             "settings": Value::Object(settings),

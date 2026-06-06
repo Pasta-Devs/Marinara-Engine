@@ -27,6 +27,13 @@ pub(crate) fn update_lorebook_image(
 }
 
 pub(crate) fn remove_lorebook_image_file(state: &AppState, record: &Value) {
+    if let Some(filename) = record.get("imageFilename").and_then(Value::as_str) {
+        managed_thumbnails::remove_managed_thumbnail_files(
+            state,
+            managed_thumbnails::ManagedThumbnailKind::Lorebook,
+            filename,
+        );
+    }
     remove_managed_record_file(
         state,
         "lorebooks/images",

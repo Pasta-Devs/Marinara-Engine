@@ -2073,6 +2073,7 @@ pub(crate) fn branch_chat(state: &AppState, chat_id: &str, body: Value) -> AppRe
     object.insert("id".to_string(), Value::String(new_chat_id.clone()));
     object.insert("name".to_string(), Value::String(base_name));
     object.insert("groupId".to_string(), Value::String(group_id.clone()));
+    object.insert("connectedChatId".to_string(), Value::Null);
     prune_branch_summary_metadata(&mut chat);
     initialize_branch_display_name(&mut chat);
     let source_has_tracker_snapshots =

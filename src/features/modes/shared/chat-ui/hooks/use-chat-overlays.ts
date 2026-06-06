@@ -98,16 +98,25 @@ export function useChatOverlays(activeChatId: string) {
   useEffect(() => {
     if (!activeChatId) return;
 
-    const intent = useChatStore.getState().consumeNewChatSetupIntent(activeChatId);
+    const intent = newChatSetupIntent?.chatId === activeChatId ? newChatSetupIntent : null;
     if (intent) {
       setNewChatSetupChatId(intent.chatId);
       queueSetupOverlayOpen(`intent:${intent.chatId}`, () => {
-        if (intent.openWizard) {
-          if (intent.shortcutMode) useChatStore.getState().setShouldOpenWizardInShortcutMode(true);
+        const consumed = useChatStore.getState().consumeNewChatSetupIntent(activeChatId);
+        if (!consumed) {
+          setNewChatSetupChatId(null);
+          return;
+        }
+
+        setNewChatSetupChatId(consumed.chatId);
+        if (consumed.openWizard) {
+          if (consumed.shortcutMode) useChatStore.getState().setShouldOpenWizardInShortcutMode(true);
           setWizardOpen(true);
-        } else if (intent.openSettings) {
+        } else if (consumed.openSettings) {
           setSettingsOpen(true);
         }
+      }, () => {
+        setNewChatSetupChatId((current) => (current === intent.chatId ? null : current));
       });
       return;
     }

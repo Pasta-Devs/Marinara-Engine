@@ -119,6 +119,11 @@ fn rename_background(state: &AppState, id: &str, body: Value) -> AppResult<Value
     if new_filename.is_empty() {
         return Err(AppError::invalid_input("Background name is invalid"));
     }
+    managed_thumbnails::remove_managed_thumbnail_files(
+        state,
+        managed_thumbnails::ManagedThumbnailKind::Background,
+        &old_filename,
+    );
     let old_path = state.backgrounds.absolute_path(&old_filename)?;
     let new_path = unique_background_path(state.backgrounds.absolute_path(&new_filename)?)?;
     fs::rename(&old_path, &new_path)?;
@@ -152,6 +157,11 @@ fn rename_background(state: &AppState, id: &str, body: Value) -> AppResult<Value
 
 fn delete_background(state: &AppState, id: &str) -> AppResult<Value> {
     let filename = decode_path(id);
+    managed_thumbnails::remove_managed_thumbnail_files(
+        state,
+        managed_thumbnails::ManagedThumbnailKind::Background,
+        &filename,
+    );
     state.backgrounds.remove(&filename, false)?;
     if let Some(meta) = find_background_meta(state, &filename)? {
         if let Some(id) = meta.get("id").and_then(Value::as_str) {

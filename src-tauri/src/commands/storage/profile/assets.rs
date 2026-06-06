@@ -20,6 +20,7 @@ const PROFILE_ASSET_DIRS: &[&str] = &[
     "lorebooks/images",
 ];
 const MAX_PROFILE_ASSET_BYTES: u64 = 256 * 1024 * 1024;
+const PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES: u64 = 1024 * 1024 * 1024;
 
 const OLD_ASSET_MARKERS: &[&str] = &[
     "/api/avatars/file/",
@@ -80,8 +81,8 @@ struct ProfileAssetTransaction {
     data_dir: PathBuf,
     staging_root: PathBuf,
     backup_root: PathBuf,
-    backed_up: Vec<&'static str>,
-    installed: Vec<&'static str>,
+    backed_up: Vec<PathBuf>,
+    installed: Vec<PathBuf>,
     finished: bool,
 }
 
@@ -174,30 +175,24 @@ impl ProfileAssetTransaction {
     }
 
     fn install_inner(&mut self) -> AppResult<()> {
-        for dir in PROFILE_ASSET_DIRS {
-            let target = self.data_dir.join(dir);
-            if !path_exists_no_follow(&target)? {
-                continue;
-            }
-            let backup = self.backup_root.join(dir);
-            if let Some(parent) = backup.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::rename(&target, &backup)?;
-            self.backed_up.push(*dir);
-        }
-
-        for dir in PROFILE_ASSET_DIRS {
-            let source = self.staging_root.join(dir);
-            if !path_exists_no_follow(&source)? {
-                continue;
-            }
-            let target = self.data_dir.join(dir);
+        let mut staged = Vec::new();
+        collect_staged_profile_asset_files(&self.staging_root, Path::new(""), &mut staged)?;
+        for relative in staged {
+            let source = self.staging_root.join(&relative);
+            let target = self.data_dir.join(&relative);
             if let Some(parent) = target.parent() {
                 fs::create_dir_all(parent)?;
             }
+            if path_exists_no_follow(&target)? {
+                let backup = self.backup_root.join(&relative);
+                if let Some(parent) = backup.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::rename(&target, &backup)?;
+                self.backed_up.push(relative.clone());
+            }
             fs::rename(&source, &target)?;
-            self.installed.push(*dir);
+            self.installed.push(relative);
         }
 
         remove_path_if_exists(&self.staging_root)?;
@@ -216,14 +211,14 @@ impl ProfileAssetTransaction {
         }
         self.finished = true;
         let mut first_error = None;
-        for dir in self.installed.iter().rev() {
-            let target = self.data_dir.join(dir);
+        for relative in self.installed.iter().rev() {
+            let target = self.data_dir.join(relative);
             if let Err(error) = remove_path_if_exists(&target) {
                 first_error.get_or_insert(error);
             }
         }
-        for dir in self.backed_up.iter().rev() {
-            let backup = self.backup_root.join(dir);
+        for relative in self.backed_up.iter().rev() {
+            let backup = self.backup_root.join(relative);
             match path_exists_no_follow(&backup) {
                 Ok(true) => {}
                 Ok(false) => continue,
@@ -232,7 +227,7 @@ impl ProfileAssetTransaction {
                     continue;
                 }
             }
-            let target = self.data_dir.join(dir);
+            let target = self.data_dir.join(relative);
             if let Some(parent) = target.parent() {
                 if let Err(error) = fs::create_dir_all(parent) {
                     first_error.get_or_insert(AppError::from(error));
@@ -258,6 +253,40 @@ impl Drop for ProfileAssetTransaction {
             let _ = self.rollback();
         }
     }
+}
+
+fn collect_staged_profile_asset_files(
+    root: &Path,
+    relative: &Path,
+    files: &mut Vec<PathBuf>,
+) -> AppResult<()> {
+    let dir = root.join(relative);
+    let metadata = match fs::symlink_metadata(&dir) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(&dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.file_type().is_symlink() {
+            continue;
+        }
+        let Some(name) = path.file_name() else {
+            continue;
+        };
+        let next_relative = relative.join(name);
+        if metadata.is_dir() {
+            collect_staged_profile_asset_files(root, &next_relative, files)?;
+        } else if metadata.is_file() {
+            files.push(next_relative);
+        }
+    }
+    Ok(())
 }
 
 pub(super) fn profile_assets(state: &AppState) -> AppResult<Vec<Value>> {
@@ -376,7 +405,13 @@ fn restore_profile_json_assets_in_root(
     let (assets, warnings) = decoded_profile_json_assets(raw_assets, allow_legacy_data_field)?;
     let restored = assets.len();
     let transaction = ProfileAssetTransaction::new(data_dir)?;
+    let mut total_bytes = 0;
     for (relative, bytes) in assets {
+        add_profile_archive_asset_bytes(
+            &mut total_bytes,
+            &profile_relative_path(&relative),
+            bytes.len() as u64,
+        )?;
         transaction.stage_bytes(&relative, &bytes)?;
     }
     Ok(RestoredProfileAssets {
@@ -428,6 +463,14 @@ fn preview_profile_json_assets(
     allow_legacy_data_field: bool,
 ) -> AppResult<(usize, Vec<Value>)> {
     let (assets, warnings) = decoded_profile_json_assets(raw_assets, allow_legacy_data_field)?;
+    let mut total_bytes = 0;
+    for (relative, bytes) in &assets {
+        add_profile_archive_asset_bytes(
+            &mut total_bytes,
+            &profile_relative_path(relative),
+            bytes.len() as u64,
+        )?;
+    }
     Ok((assets.len(), warnings))
 }
 
@@ -448,9 +491,15 @@ pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
     let (assets, warnings) = decoded_profile_zip_assets(raw_assets, names, profile_prefix)?;
     let restored = assets.len();
     let transaction = ProfileAssetTransaction::new(&state.data_dir)?;
+    let mut total_bytes = 0;
     for asset in assets {
         match asset.source {
             ProfileAssetSource::Bytes(bytes) => {
+                add_profile_archive_asset_bytes(
+                    &mut total_bytes,
+                    &profile_relative_path(&asset.relative),
+                    bytes.len() as u64,
+                )?;
                 transaction.stage_bytes(&asset.relative, &bytes)?;
             }
             ProfileAssetSource::ZipEntry(entry_name) => {
@@ -464,6 +513,7 @@ pub(super) fn restore_profile_zip_assets<R: Read + Seek>(
                     ))
                 })?;
                 validate_profile_zip_asset_declared_size(&entry_name, entry.size())?;
+                add_profile_archive_asset_bytes(&mut total_bytes, &entry_name, entry.size())?;
                 let mut output = File::create(target)?;
                 copy_limited_profile_zip_asset(&entry_name, &mut entry, &mut output)?;
                 output.flush()?;
@@ -484,17 +534,27 @@ pub(super) fn preview_profile_zip_assets<R: Read + Seek>(
     profile_prefix: &str,
 ) -> AppResult<(usize, Vec<Value>)> {
     let (assets, warnings) = decoded_profile_zip_assets(raw_assets, names, profile_prefix)?;
+    let mut total_bytes = 0;
     for asset in &assets {
-        let ProfileAssetSource::ZipEntry(entry_name) = &asset.source else {
-            continue;
-        };
-        let mut entry = archive.by_name(entry_name).map_err(|error| {
-            AppError::invalid_input(format!(
-                "Could not read profile asset {entry_name}: {error}"
-            ))
-        })?;
-        validate_profile_zip_asset_declared_size(entry_name, entry.size())?;
-        copy_limited_profile_zip_asset(entry_name, &mut entry, std::io::sink())?;
+        match &asset.source {
+            ProfileAssetSource::Bytes(bytes) => {
+                add_profile_archive_asset_bytes(
+                    &mut total_bytes,
+                    &profile_relative_path(&asset.relative),
+                    bytes.len() as u64,
+                )?;
+            }
+            ProfileAssetSource::ZipEntry(entry_name) => {
+                let mut entry = archive.by_name(entry_name).map_err(|error| {
+                    AppError::invalid_input(format!(
+                        "Could not read profile asset {entry_name}: {error}"
+                    ))
+                })?;
+                validate_profile_zip_asset_declared_size(entry_name, entry.size())?;
+                add_profile_archive_asset_bytes(&mut total_bytes, entry_name, entry.size())?;
+                copy_limited_profile_zip_asset(entry_name, &mut entry, std::io::sink())?;
+            }
+        }
     }
     Ok((assets.len(), warnings))
 }
@@ -560,6 +620,24 @@ fn validate_profile_zip_asset_declared_size(entry_name: &str, size: u64) -> AppR
     validate_profile_zip_asset_declared_size_with_limit(entry_name, size, MAX_PROFILE_ASSET_BYTES)
 }
 
+fn add_profile_archive_asset_bytes(total: &mut u64, entry_name: &str, size: u64) -> AppResult<()> {
+    *total = total.checked_add(size).ok_or_else(|| {
+        profile_archive_too_large_error(
+            entry_name,
+            u64::MAX,
+            PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES,
+        )
+    })?;
+    if *total > PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES {
+        return Err(profile_archive_too_large_error(
+            entry_name,
+            *total,
+            PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES,
+        ));
+    }
+    Ok(())
+}
+
 fn validate_profile_zip_asset_declared_size_with_limit(
     entry_name: &str,
     size: u64,
@@ -600,6 +678,12 @@ fn copy_limited_profile_zip_asset_with_limit<R: Read, W: Write>(
 fn profile_asset_too_large_error(entry_name: &str, size: u64, limit: u64) -> AppError {
     AppError::invalid_input(format!(
         "Profile asset {entry_name} is too large ({size} bytes; limit is {limit} bytes)"
+    ))
+}
+
+fn profile_archive_too_large_error(entry_name: &str, size: u64, limit: u64) -> AppError {
+    AppError::invalid_input(format!(
+        "Profile archive assets exceed the total uncompressed limit after {entry_name} ({size} bytes; limit is {limit} bytes)"
     ))
 }
 
@@ -1092,8 +1176,8 @@ mod tests {
     }
 
     #[test]
-    fn profile_asset_restore_replaces_managed_asset_dirs() {
-        let data_dir = temp_data_dir("replace-assets");
+    fn profile_asset_restore_merges_managed_asset_dirs() {
+        let data_dir = temp_data_dir("merge-assets");
         fs::create_dir_all(data_dir.join("avatars")).unwrap();
         fs::create_dir_all(data_dir.join("backgrounds/nested")).unwrap();
         fs::create_dir_all(data_dir.join("lorebooks/images/old")).unwrap();
@@ -1136,9 +1220,18 @@ mod tests {
             fs::read(data_dir.join("lorebooks/images/book/new.webp")).unwrap(),
             b"new lorebook image"
         );
-        assert!(!data_dir.join("avatars/stale.png").exists());
-        assert!(!data_dir.join("backgrounds/nested/stale.jpg").exists());
-        assert!(!data_dir.join("lorebooks/images/old/stale.webp").exists());
+        assert_eq!(
+            fs::read(data_dir.join("avatars/stale.png")).unwrap(),
+            b"stale"
+        );
+        assert_eq!(
+            fs::read(data_dir.join("backgrounds/nested/stale.jpg")).unwrap(),
+            b"stale"
+        );
+        assert_eq!(
+            fs::read(data_dir.join("lorebooks/images/old/stale.webp")).unwrap(),
+            b"stale"
+        );
         assert_eq!(
             fs::read(data_dir.join("lorebooks/notes.txt")).unwrap(),
             b"keep"
@@ -1201,7 +1294,10 @@ mod tests {
             fs::read(data_dir.join("avatars/new.png")).unwrap(),
             b"new avatar"
         );
-        assert!(!data_dir.join("avatars/stale.png").exists());
+        assert_eq!(
+            fs::read(data_dir.join("avatars/stale.png")).unwrap(),
+            b"stale"
+        );
 
         restored.rollback().unwrap();
 

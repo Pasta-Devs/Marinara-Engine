@@ -12,6 +12,7 @@ const MAX_TTS_REQUEST_TIMEOUT_MS: u64 = 30 * 60_000;
 const ELEVENLABS_VOICE_PAGE_SIZE: &str = "100";
 const ELEVENLABS_VOICE_PAGE_LIMIT: usize = 20;
 const ELEVENLABS_VOICE_TYPES: &[&str] = &["default", "non-default"];
+const TTS_PROVIDER_LOCAL_URLS_ENABLED_FLAG: &str = "TTS_PROVIDER_LOCAL_URLS_ENABLED";
 
 const OPENAI_FALLBACK_VOICES: &[&str] = &[
     "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
@@ -230,15 +231,19 @@ async fn voices(state: &AppState) -> AppResult<Value> {
         return Ok(fallback_voices(source));
     }
     let api_key = config.get("apiKey").and_then(Value::as_str).unwrap_or("");
+    let voices_url = openai_voices_url(
+        &base,
+        config.get("model").and_then(Value::as_str),
+        config.get("voicesPath").and_then(Value::as_str),
+    );
+    if let Err(error) = validate_tts_provider_url(&voices_url, source).await {
+        return Ok(fallback_voices_with_error(source, &error));
+    }
     let response = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
         .map_err(|error| AppError::new("tts_client_error", error.to_string()))?
-        .get(openai_voices_url(
-            &base,
-            config.get("model").and_then(Value::as_str),
-            config.get("voicesPath").and_then(Value::as_str),
-        ))
+        .get(voices_url)
         .headers(openai_headers(api_key)?)
         .send()
         .await;
@@ -354,6 +359,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
     } else {
         format!("{base}/audio/speech")
     };
+    validate_tts_provider_url(&url, source).await?;
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_millis(tts_request_timeout_ms(&config)))
@@ -516,6 +522,20 @@ fn configured_base_url(config: &Value) -> String {
         "pockettts" => "http://localhost:8000".to_string(),
         _ => "https://api.openai.com/v1".to_string(),
     }
+}
+
+fn tts_provider_local_urls_allowed(source: &str) -> bool {
+    provider_local_urls_enabled(TTS_PROVIDER_LOCAL_URLS_ENABLED_FLAG) || source == "pockettts"
+}
+
+async fn validate_tts_provider_url(url: &str, source: &str) -> AppResult<()> {
+    validate_provider_url_for_request(
+        url,
+        tts_provider_local_urls_allowed(source),
+        TTS_PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+    )
+    .await?;
+    Ok(())
 }
 
 /// Builds the OpenAI-compatible voice discovery endpoint.
@@ -700,6 +720,7 @@ async fn elevenlabs_voice_page(
     next_page_token: Option<&str>,
 ) -> AppResult<Value> {
     let url = elevenlabs_voice_page_url(root, voice_type, next_page_token)?;
+    validate_tts_provider_url(&url, "elevenlabs").await?;
     let response = client
         .get(url)
         .headers(elevenlabs_headers(api_key)?)
@@ -1232,6 +1253,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn openai_voice_lookup_blocks_metadata_base_url_with_fallback_metadata() {
+        let state = test_state("openai-voices-metadata-url");
+        state
+            .storage
+            .upsert_with_id(
+                "app-settings",
+                TTS_SETTINGS_KEY,
+                json!({
+                    "value": {
+                        "enabled": true,
+                        "source": "openai",
+                        "baseUrl": "http://169.254.169.254/v1?api_key=sk-test-secret",
+                        "apiKey": "bad-key",
+                        "model": "tts-1"
+                    }
+                }),
+            )
+            .expect("TTS settings should be stored");
+
+        let result = voices(&state)
+            .await
+            .expect("blocked voice lookup should return fallback metadata");
+
+        assert_eq!(result["fromProvider"], false);
+        assert_eq!(result["fallback"], true);
+        assert_eq!(result["providerErrorCode"], "invalid_input");
+        assert!(result["providerError"]
+            .as_str()
+            .is_some_and(|message| message.contains("private, LAN, metadata, or reserved target")));
+        assert!(result["providerError"]
+            .as_str()
+            .is_some_and(|message| message.contains(TTS_PROVIDER_LOCAL_URLS_ENABLED_FLAG)));
+        assert!(!result.to_string().contains("sk-test-secret"));
+        assert_eq!(result["voices"], json!(OPENAI_FALLBACK_VOICES));
+    }
+
+    #[tokio::test]
     async fn disabled_voice_lookup_uses_fallback_without_provider_error() {
         let state = test_state("openai-voices-disabled");
         state
@@ -1288,6 +1346,39 @@ mod tests {
         assert!(result["audioBase64"]
             .as_str()
             .is_some_and(|audio| !audio.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn tts_speak_blocks_metadata_provider_url() {
+        let state = test_state("openai-speak-metadata-url");
+        state
+            .storage
+            .upsert_with_id(
+                "app-settings",
+                TTS_SETTINGS_KEY,
+                json!({
+                    "value": {
+                        "enabled": true,
+                        "source": "openai",
+                        "baseUrl": "http://169.254.169.254/v1?api_key=sk-test-secret",
+                        "apiKey": "bad-key",
+                        "model": "tts-1",
+                        "voice": "alloy"
+                    }
+                }),
+            )
+            .expect("TTS settings should be stored");
+
+        let error = speak(&state, json!({ "text": "Blocked metadata speech target." }))
+            .await
+            .expect_err("metadata TTS provider URL should be blocked before request dispatch");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("private, LAN, metadata, or reserved target"));
+        assert!(error.message.contains(TTS_PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+        assert!(!error.message.contains("sk-test-secret"));
     }
 
     #[tokio::test]

@@ -934,7 +934,7 @@ function extractResultBlocks(responseText: string): Map<string, string> {
     if (blocks.has(current.agent)) continue;
     const nextStart = starts[index + 1]?.index ?? responseText.length;
     const segment = responseText.slice(current.contentStart, nextStart);
-    const closeIndex = segment.toLowerCase().lastIndexOf("</result");
+    const closeIndex = segment.search(/<\/result\s*>/i);
     const content = (closeIndex >= 0 ? segment.slice(0, closeIndex) : segment).trim();
     blocks.set(current.agent, content);
   }

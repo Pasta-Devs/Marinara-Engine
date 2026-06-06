@@ -1,6 +1,7 @@
 use super::{
     avatars, characters, chats, connection_secrets, contracts, game_state_snapshots, integrations,
-    lorebook_images, media_uploads, message_swipes, personas, prompts, shared, sprites,
+    lorebook_images, managed_thumbnails, media_uploads, message_swipes, personas, prompts, shared,
+    sprites,
 };
 use crate::builtins::is_protected_record;
 use crate::state::AppState;
@@ -714,6 +715,7 @@ pub(crate) fn storage_create_inner(
         }
     };
     if entity == "connections" {
+        clear_other_default_connections(state, &created)?;
         clear_other_default_agent_connections(state, &created)?;
         let mut masked = created;
         connection_secrets::mask_connection_for_read(&mut masked);
@@ -775,6 +777,7 @@ pub(crate) fn storage_update_inner(
         state.storage.patch(&entity, &id, normalized_patch)?
     };
     if entity == "connections" {
+        clear_other_default_connections(state, &updated)?;
         clear_other_default_agent_connections(state, &updated)?;
     }
     Ok(updated)
@@ -785,6 +788,9 @@ pub(crate) fn prepare_entity_for_create(
     entity: &str,
     value: Value,
 ) -> Result<Value, AppError> {
+    if entity == "messages" {
+        return shared::with_message_create_defaults(value);
+    }
     let value = shared::with_entity_defaults(entity, value)?;
     match entity {
         "connections" => connection_secrets::prepare_connection_for_create(state, value),
@@ -1351,6 +1357,44 @@ fn connection_default_for_agents_enabled(connection: &Value) -> bool {
         .get("defaultForAgents")
         .and_then(Value::as_bool)
         .unwrap_or(false)
+}
+
+fn connection_is_default(connection: &Value) -> bool {
+    value_truthy(connection.get("isDefault")) || value_truthy(connection.get("default"))
+}
+
+fn clear_other_default_connections(
+    state: &AppState,
+    selected_connection: &Value,
+) -> Result<(), AppError> {
+    if !connection_is_default(selected_connection) {
+        return Ok(());
+    }
+    let Some(selected_id) = selected_connection
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+    else {
+        return Ok(());
+    };
+    for connection in state.storage.list("connections")? {
+        let Some(id) = connection
+            .get("id")
+            .and_then(Value::as_str)
+            .filter(|id| *id != selected_id)
+        else {
+            continue;
+        };
+        if !connection_is_default(&connection) {
+            continue;
+        }
+        state.storage.patch(
+            "connections",
+            id,
+            json!({ "isDefault": false, "default": false }),
+        )?;
+    }
+    Ok(())
 }
 
 fn clear_other_default_agent_connections(
@@ -2364,6 +2408,13 @@ fn remove_owned_media(state: &AppState, entity: &str, record: &Value) {
 }
 
 fn remove_gallery_file(state: &AppState, record: &Value) {
+    if let Some(filename) = record.get("filename").and_then(Value::as_str) {
+        managed_thumbnails::remove_managed_thumbnail_files(
+            state,
+            managed_thumbnails::ManagedThumbnailKind::Gallery,
+            filename,
+        );
+    }
     media_uploads::remove_managed_record_file(state, "gallery", record, "filePath", "filename");
 }
 
@@ -2650,6 +2701,69 @@ mod tests {
             .expect("connection should read")
             .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
             .unwrap_or(false)
+    }
+
+    #[test]
+    fn storage_create_message_returns_default_extra_and_persists_initial_swipe() {
+        let state = test_state("message-create-default-extra");
+        let created = storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first"
+            }),
+        )
+        .expect("message should create");
+        let expected_extra = json!({
+            "displayText": null,
+            "isGenerated": true,
+            "tokenCount": null,
+            "generationInfo": null
+        });
+
+        assert_eq!(created["activeSwipeIndex"], json!(0));
+        assert_eq!(created["swipeCount"], json!(1));
+        assert_eq!(created["extra"], expected_extra);
+        let sidecars = state
+            .storage
+            .list(message_swipes::COLLECTION)
+            .expect("message swipe sidecars should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["content"], json!("first"));
+        assert_eq!(sidecars[0]["extra"], expected_extra);
+    }
+
+    #[test]
+    fn storage_create_message_rejects_malformed_extra_before_defaulting() {
+        for (label, extra) in [
+            ("array-extra", json!([])),
+            ("scalar-extra", json!(42)),
+            ("invalid-json-extra", json!("{not-json")),
+        ] {
+            let state = test_state(label);
+            let error = storage_create_inner(
+                &state,
+                "messages".to_string(),
+                json!({
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "first",
+                    "extra": extra
+                }),
+            )
+            .expect_err("malformed message extra should reject");
+
+            assert_eq!(error.code, "invalid_input");
+            assert!(
+                error
+                    .message
+                    .contains("extra must be a JSON object or null"),
+                "unexpected error message: {}",
+                error.message
+            );
+        }
     }
 
     #[test]
@@ -4134,7 +4248,13 @@ mod tests {
         assert_eq!(sidecars.len(), 1);
         assert_eq!(
             sidecars[0]["extra"],
-            json!({ "thinking": "parent thought" })
+            json!({
+                "displayText": null,
+                "isGenerated": true,
+                "tokenCount": null,
+                "generationInfo": null,
+                "thinking": "parent thought"
+            })
         );
     }
 

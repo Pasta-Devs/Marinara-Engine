@@ -29,6 +29,7 @@ export function useAutonomousMessaging(
   const qc = useQueryClient();
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const busyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const busyGenerationStartedAtRef = useRef<number | null>(null);
   const generatingRef = useRef(false);
   const onAutonomousMessageRef = useRef(onAutonomousMessage);
   onAutonomousMessageRef.current = onAutonomousMessage;
@@ -73,10 +74,10 @@ export function useAutonomousMessaging(
   }, [chatId]);
 
   const triggerAutonomousGeneration = useCallback(
-    async (characterId: string, poll: () => Promise<void>) => {
+    async (characterId: string, poll: () => Promise<void>, lockedAt?: number) => {
       if (!chatId) return;
       generatingRef.current = true;
-      const startedAt = markGenerationInProgress(chatId);
+      const startedAt = lockedAt ?? markGenerationInProgress(chatId);
       let produced = false;
       let shouldSchedulePoll = true;
       try {
@@ -148,6 +149,7 @@ export function useAutonomousMessaging(
         return;
       }
 
+      let startedAt: number | null = null;
       try {
         const result = await checkConversationAutonomous(storageApi, { chatId, userStatus });
         invalidateCharacterCollectionQueries(qc);
@@ -156,22 +158,37 @@ export function useAutonomousMessaging(
           schedulePoll(poll);
           return;
         }
+        startedAt = markGenerationInProgress(chatId);
 
         const delay = await getConversationBusyDelay(storageApi, { chatId, characterId });
         if (delay.delayMs > 0) {
+          const lockedAt = startedAt;
+          if (busyGenerationStartedAtRef.current != null) {
+            clearGenerationInProgress(chatId, busyGenerationStartedAtRef.current);
+          }
           clearTimeout(busyTimerRef.current);
+          busyGenerationStartedAtRef.current = lockedAt;
           busyTimerRef.current = setTimeout(() => {
+            busyGenerationStartedAtRef.current = null;
             if (generatingRef.current || useChatStore.getState().abortControllers.has(chatId)) {
+              clearGenerationInProgress(chatId, lockedAt);
               schedulePoll(poll);
               return;
             }
-            void triggerAutonomousGeneration(characterId, poll);
+            void triggerAutonomousGeneration(characterId, poll, lockedAt);
           }, delay.delayMs);
           return;
         }
 
-        await triggerAutonomousGeneration(characterId, poll);
+        await triggerAutonomousGeneration(characterId, poll, startedAt);
       } catch {
+        if (startedAt != null) {
+          clearGenerationInProgress(chatId, startedAt);
+        }
+        if (busyGenerationStartedAtRef.current != null) {
+          clearGenerationInProgress(chatId, busyGenerationStartedAtRef.current);
+          busyGenerationStartedAtRef.current = null;
+        }
         schedulePoll(poll);
       }
     };
@@ -180,6 +197,10 @@ export function useAutonomousMessaging(
     return () => {
       clearTimeout(pollTimerRef.current);
       clearTimeout(busyTimerRef.current);
+      if (busyGenerationStartedAtRef.current != null) {
+        clearGenerationInProgress(chatId, busyGenerationStartedAtRef.current);
+        busyGenerationStartedAtRef.current = null;
+      }
     };
   }, [autonomousEnabled, chatId, exchangesEnabled, qc, schedulePoll, triggerAutonomousGeneration]);
 

@@ -1,6 +1,6 @@
 use super::shared::*;
 use super::*;
-use marinara_security::is_allowed_outbound_url;
+use marinara_security::is_allowed_provider_url;
 use std::collections::{HashMap, HashSet};
 
 const LEGACY_LOCAL_SIDECAR_CONNECTION_ID: &str = "__local_sidecar__";
@@ -645,12 +645,35 @@ async fn embed_google(connection: &Value, model: &str, text: &str) -> AppResult<
         .get("apiKey")
         .and_then(Value::as_str)
         .unwrap_or("");
-    let base = embedding_base_url(connection, "https://generativelanguage.googleapis.com");
-    let url = format!("{base}/v1beta/models/{model}:embedContent?key={api_key}");
+    let provider = connection
+        .get("provider")
+        .and_then(Value::as_str)
+        .unwrap_or("google");
+    let base = embedding_base_url(
+        connection,
+        if provider == "google_vertex" {
+            "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1"
+        } else {
+            "https://generativelanguage.googleapis.com"
+        },
+    );
+    let url = if provider == "google_vertex" {
+        let base = base.trim_end_matches("/publishers/google/models");
+        format!("{base}/publishers/google/models/{model}:embedContent")
+    } else {
+        format!("{base}/v1beta/models/{model}:embedContent?key={api_key}")
+    };
     ensure_embedding_url_allowed(&url)?;
-    let response = reqwest::Client::new()
+    let mut request = reqwest::Client::new()
         .post(url)
-        .json(&json!({ "content": { "parts": [{ "text": text }] } }))
+        .json(&json!({ "content": { "parts": [{ "text": text }] } }));
+    if provider == "google_vertex" {
+        for (name, value) in marinara_llm::google_vertex_auth_headers_for_credential(api_key).await?
+        {
+            request = request.header(name, value);
+        }
+    }
+    let response = request
         .send()
         .await
         .map_err(|error| AppError::new("embedding_network_error", error.to_string()))?;
@@ -833,7 +856,7 @@ fn embedding_base_url(connection: &Value, fallback: &str) -> String {
 }
 
 fn ensure_embedding_url_allowed(url: &str) -> AppResult<()> {
-    if is_allowed_outbound_url(url, true) {
+    if is_allowed_provider_url(url, false) {
         Ok(())
     } else {
         Err(AppError::invalid_input(format!(

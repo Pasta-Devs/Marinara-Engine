@@ -11,10 +11,20 @@ import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
 import { injectAtDepth } from "../generation-core/lorebooks/prompt-injector";
 import { wrapContent, wrapGroup } from "../generation-core/prompt/format-engine";
-import { mergeAdjacentMessages, squashLeadingSystemMessages } from "../generation-core/prompt/merger";
+import {
+  canMergePromptMessages,
+  mergeAdjacentMessages,
+  mergePromptContextKind,
+  squashLeadingSystemMessages,
+} from "../generation-core/prompt/merger";
 import { applyRegexScriptsToPromptMessages } from "../generation-core/regex/regex-application";
 import { stripConversationPromptTimestamps } from "../modes/chat/core/summaries/transcript-sanitize";
-import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
+import {
+  hasDeferredCharacterMacros,
+  resolveDeferredCharacterMacros,
+  resolveMacros,
+  type MacroContext,
+} from "../shared/macros/macro-engine";
 import { normalizeChatSummaryMetadata } from "../shared/text/chat-summary-entries";
 import { collapseExcessBlankLines } from "../shared/text/newlines";
 import { cleanPromptText, stripPromptComments } from "../shared/text/prompt-comments";
@@ -161,6 +171,7 @@ interface PromptAssemblyReusableContext {
   promptParameters: StoredGenerationParameters | null;
   maxContext: number | null;
   wrapFormat: WrapFormat;
+  groupScenarioOverride: GroupScenarioOverride;
   promptCharacters: GenerationCharacterContext[];
   baseLorebookIncludedPositions: ActiveLorebookIncludedPositions;
   loreScan: ActiveLorebookScannerResult;
@@ -169,6 +180,10 @@ interface PromptAssemblyReusableContext {
   memoryRecallBlock: string | null;
   history: ChatMLMessage[];
   greetingPromptVariables: Record<string, string>;
+  macroSensitiveScope: {
+    deferCharacterMacros: boolean;
+    targetCharacterId: string | null;
+  };
 }
 
 type PromptSectionRecord = JsonRecord & {
@@ -205,6 +220,13 @@ type PromptAssemblyEntry = ChatMLMessage & {
   promptGroupId?: string | null;
   promptGroupName?: string | null;
 };
+
+type GroupScenarioOverride = {
+  enabled: boolean;
+  text: string;
+};
+
+const NO_GROUP_SCENARIO_OVERRIDE: GroupScenarioOverride = { enabled: false, text: "" };
 
 interface SelectedPromptPreset {
   id: string;
@@ -353,12 +375,16 @@ function promptChoiceVariables(input: {
   return variables;
 }
 
-function resolvePromptChoiceVariableMacros(macros: MacroContext, variableNames: string[]): void {
+function resolvePromptChoiceVariableMacros(
+  macros: MacroContext,
+  variableNames: string[],
+  deferCharacterMacros: boolean,
+): void {
   const uniqueNames = new Set(variableNames);
   for (const name of uniqueNames) {
     const value = macros.variables[name];
     if (value === undefined || !value.includes("{{")) continue;
-    macros.variables[name] = resolveMacros(value, macros, { trimResult: false });
+    macros.variables[name] = resolvePromptMacros(value, macros, deferCharacterMacros);
   }
 }
 
@@ -599,6 +625,11 @@ function characterCardText(character: GenerationCharacterContext, gameCard?: Jso
   if (character.scenario) parts.push(`Scenario: ${character.scenario}`);
   appendGameCardFields(parts, gameCard);
   return parts.join("\n");
+}
+
+function groupScenarioOverride(meta: JsonRecord): GroupScenarioOverride {
+  if (!boolish(meta.groupScenarioOverride, false)) return NO_GROUP_SCENARIO_OVERRIDE;
+  return { enabled: true, text: cleanPromptText(readString(meta.groupScenarioText).trim()) };
 }
 
 function personaCardText(persona: GenerationPersonaContext | null, gameCard?: JsonRecord): string | null {
@@ -1123,8 +1154,11 @@ function macroContext(input: {
   agentData?: Record<string, string>;
   variables?: Record<string, string>;
   request: JsonRecord;
+  groupScenarioOverride: GroupScenarioOverride;
 }): MacroContext {
   const first = input.characters[0];
+  const scenarioValue = (scenario: string | undefined) =>
+    input.groupScenarioOverride.enabled ? input.groupScenarioOverride.text : scenario;
   return {
     user: input.persona?.name || "User",
     char: first?.name || "Character",
@@ -1135,7 +1169,7 @@ function macroContext(input: {
       personality: character.personality,
       backstory: character.backstory,
       appearance: character.appearance,
-      scenario: character.scenario,
+      scenario: scenarioValue(character.scenario),
       example: character.mesExample,
       systemPrompt: character.systemPrompt,
       postHistoryInstructions: character.postHistoryInstructions,
@@ -1152,7 +1186,7 @@ function macroContext(input: {
           personality: first.personality,
           backstory: first.backstory,
           appearance: first.appearance,
-          scenario: first.scenario,
+          scenario: scenarioValue(first.scenario),
           example: first.mesExample,
           systemPrompt: first.systemPrompt,
           postHistoryInstructions: first.postHistoryInstructions,
@@ -1223,7 +1257,7 @@ function characterFieldValue(character: GenerationCharacterContext, fieldName: s
       return character.mesExample ?? "";
     case "creator_notes":
     case "creatorNotes":
-      return "";
+      return character.creatorNotes ?? "";
     case "system_prompt":
     case "systemPrompt":
       return character.systemPrompt ?? "";
@@ -1239,9 +1273,13 @@ function characterMarkerFieldValue(
   character: GenerationCharacterContext,
   fieldName: string,
   macros: MacroContext | null,
+  groupScenarioOverride: GroupScenarioOverride,
 ): string {
+  if (fieldName === "scenario" && groupScenarioOverride.enabled) return "";
   const value = characterFieldValue(character, fieldName);
-  return macros ? resolveMacros(value, macroContextForCharacter(macros, character), { trimResult: false }) : value;
+  return macros
+    ? resolveMacros(value, macroContextForCharacter(macros, character, groupScenarioOverride), { trimResult: false })
+    : value;
 }
 
 function characterMarkerFields(marker: MarkerConfig | null): string[] {
@@ -1260,21 +1298,51 @@ function renderNamedFields(entries: Array<[string, string | undefined]>, wrapFor
     .join("\n\n");
 }
 
+function groupScenarioMacroContext(base: MacroContext, characters: GenerationCharacterContext[]): MacroContext {
+  const names = characters.map((character) => character.name.trim()).filter(Boolean);
+  const characterList = names.join(", ") || base.char;
+  return {
+    ...base,
+    char: characterList,
+    characters: names.length ? names : base.characters,
+    characterProfiles: [],
+    characterFields: {
+      description: "",
+      personality: "",
+      backstory: "",
+      appearance: "",
+      scenario: "",
+      example: "",
+      systemPrompt: "",
+      postHistoryInstructions: "",
+    },
+  };
+}
+
+function groupScenarioMarkerValue(
+  text: string,
+  macros: MacroContext | null,
+  characters: GenerationCharacterContext[],
+): string {
+  return macros ? resolveMacros(text, groupScenarioMacroContext(macros, characters), { trimResult: false }) : text;
+}
+
 function renderCharacters(
   characters: GenerationCharacterContext[],
   wrapFormat: WrapFormat,
   marker: MarkerConfig | null,
   macros: MacroContext | null = null,
+  groupScenarioOverride: GroupScenarioOverride = NO_GROUP_SCENARIO_OVERRIDE,
 ): string {
   const fields = characterMarkerFields(marker);
-  return characters
+  const characterBlocks = characters
     .map((character) => {
       const content = renderNamedFields(
         [
           ["Name", character.name],
           ...fields.map((fieldName): [string, string] => [
             CHARACTER_FIELD_LABELS[fieldName] ?? fieldName,
-            characterMarkerFieldValue(character, fieldName, macros),
+            characterMarkerFieldValue(character, fieldName, macros, groupScenarioOverride),
           ]),
         ],
         wrapFormat,
@@ -1283,8 +1351,16 @@ function renderCharacters(
       if (!content) return "";
       return wrapFormat === "none" ? content : wrapContent(content, character.name, wrapFormat, 1);
     })
-    .filter(Boolean)
-    .join("\n\n");
+    .filter(Boolean);
+  const groupScenarioBlock =
+    groupScenarioOverride.enabled && groupScenarioOverride.text && fields.includes("scenario")
+      ? renderNamedFields(
+          [["Scenario", groupScenarioMarkerValue(groupScenarioOverride.text, macros, characters)]],
+          wrapFormat,
+          1,
+        )
+      : "";
+  return [...characterBlocks, groupScenarioBlock].filter(Boolean).join("\n\n");
 }
 
 function renderDialogueExamples(characters: GenerationCharacterContext[]): string {
@@ -1595,12 +1671,13 @@ function fallbackSystemPrompt(
     summary: string | null;
     wrapFormat: WrapFormat;
     macros: MacroContext;
+    groupScenarioOverride: GroupScenarioOverride;
   },
 ): string {
   const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
   const meta = parseRecord(input.chat.metadata);
   const common = [
-    renderCharacters(args.characters, args.wrapFormat, null, args.macros),
+    renderCharacters(args.characters, args.wrapFormat, null, args.macros, args.groupScenarioOverride),
     renderPersona(args.persona, args.wrapFormat),
     args.worldBefore,
     args.worldAfter,
@@ -1646,6 +1723,17 @@ function shouldForceRoleplaySummaryIntoSystem(chat: JsonRecord): boolean {
   const meta = parseRecord(chat.metadata);
   const mode = readString(chat.mode || chat.chatMode, "conversation");
   return mode === "roleplay" || meta.sceneStatus === "active";
+}
+
+function shouldFallbackInsertChatSummary(
+  chat: JsonRecord,
+  selectedPreset: SelectedPromptPreset | null,
+  summary: string | null,
+): boolean {
+  if (!selectedPreset || !summary?.trim()) return false;
+  if (presetCanInsertChatSummary(selectedPreset, summary)) return false;
+  const mode = readString(chat.mode || chat.chatMode, "conversation");
+  return mode === "conversation" || shouldForceRoleplaySummaryIntoSystem(chat);
 }
 
 function appendSummaryToSystemPrompt(
@@ -1798,7 +1886,10 @@ function shouldCompactHistoryForSummary(
   const meta = parseRecord(chat.metadata);
   if (!hasConversationSummaryCompaction(meta)) return false;
   if (!selectedPreset) return true;
-  return presetCanInsertChatSummary(selectedPreset, summary) || shouldForceRoleplaySummaryIntoSystem(chat);
+  return (
+    presetCanInsertChatSummary(selectedPreset, summary) ||
+    shouldFallbackInsertChatSummary(chat, selectedPreset, summary)
+  );
 }
 
 function compactedHistoryLimit(meta: JsonRecord, fallbackLimit: number, shouldCompact: boolean): number {
@@ -2627,6 +2718,12 @@ function messageStoredReasoning(message: JsonRecord): string {
   return thinking;
 }
 
+function messageProviderMetadata(message: JsonRecord): Record<string, unknown> | undefined {
+  const extra = parseRecord(message.extra);
+  const metadata = parseRecord(extra.providerMetadata ?? extra.provider_metadata);
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
 function historyMessageContent(message: JsonRecord, includePastReasoning: boolean): string {
   const content = collapseExcessBlankLines(readString(message.content).trim());
   if (!includePastReasoning || readString(message.role) !== "assistant") return content;
@@ -2648,13 +2745,18 @@ function historyMessages(storedMessages: JsonRecord[], limit: number, includePas
   return scopedMessages
     .filter((message) => !hiddenFromAi(message))
     .slice(-limit)
-    .map((message) => ({
-      role: normalizeRole(message.role),
-      content: historyMessageContent(message, includePastReasoning),
-      contextKind: "history" as const,
-      characterId: readString(message.characterId).trim() || undefined,
-      name: readString(message.name).trim() || undefined,
-    }))
+    .map((message) => {
+      const role = normalizeRole(message.role);
+      const providerMetadata = role === "assistant" ? messageProviderMetadata(message) : undefined;
+      return {
+        role,
+        content: historyMessageContent(message, includePastReasoning),
+        contextKind: "history" as const,
+        characterId: readString(message.characterId).trim() || undefined,
+        name: readString(message.name).trim() || undefined,
+        ...(providerMetadata ? { providerMetadata } : {}),
+      };
+    })
     .filter((message) => message.content.length > 0);
 }
 
@@ -2674,6 +2776,7 @@ async function seedPromptVariablesFromGreeting(
   storage: StorageGateway,
   input: PromptAssemblyInput,
   macros: MacroContext,
+  deferCharacterMacros: boolean,
 ): Promise<Record<string, string>> {
   const greetingContents = leadingGreetingContents(input.storedMessages);
   if (greetingContents.length === 0) return {};
@@ -2681,7 +2784,7 @@ async function seedPromptVariablesFromGreeting(
   const persistedVariables = chatPromptVariables(input.chat);
   const before = { ...macros.variables };
   for (const content of greetingContents) {
-    resolveMacros(content, macros, { trimResult: false });
+    resolvePromptMacros(content, macros, deferCharacterMacros);
   }
 
   for (const [name, value] of Object.entries(persistedVariables)) {
@@ -2727,22 +2830,11 @@ function applyReusableGreetingPromptVariables(macros: MacroContext, variables: R
 
 function shouldMergeSameRolePromptMessage(
   previous: ChatMLMessage | undefined,
-  _message: ChatMLMessage,
+  message: ChatMLMessage,
   effectiveRole: "user" | "assistant",
 ): previous is ChatMLMessage {
   if (!previous || previous.role !== effectiveRole) return false;
-  return true;
-}
-
-function mergedPromptContextKind(
-  previous: ChatMLMessage["contextKind"] | undefined,
-  next: ChatMLMessage["contextKind"] | undefined,
-): ChatMLMessage["contextKind"] | undefined {
-  if (previous === next) return previous;
-  if ((previous === "history" && next === "injection") || (previous === "injection" && next === "history")) {
-    return "history";
-  }
-  return undefined;
+  return canMergePromptMessages(previous, { ...message, role: effectiveRole });
 }
 
 function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatMLMessage): void {
@@ -2751,7 +2843,7 @@ function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatML
   if ((previous.displayName ?? null) !== (message.displayName ?? null)) {
     delete previous.displayName;
   }
-  const contextKind = mergedPromptContextKind(previous.contextKind, message.contextKind);
+  const contextKind = mergePromptContextKind(previous.contextKind, message.contextKind);
   if (contextKind) {
     previous.contextKind = contextKind;
   } else {
@@ -2767,6 +2859,45 @@ function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatML
   if (previous.role === "assistant" && message.providerMetadata) {
     previous.providerMetadata = message.providerMetadata;
   }
+}
+
+function strictRoleBoundaryLabel(message: ChatMLMessage): string {
+  const speaker =
+    readString(message.name).trim() || readString(message.displayName).trim() || readString(message.characterId).trim();
+  if (speaker) return `${speaker}:`;
+  if (message.contextKind === "prompt") return "[Prompt]";
+  if (message.contextKind === "history") return "[History]";
+  if (message.contextKind === "injection") return "[Injection]";
+  return `[${message.role}]`;
+}
+
+function strictRoleSegmentContent(message: ChatMLMessage): string {
+  return `${strictRoleBoundaryLabel(message)}\n${message.content}`;
+}
+
+function mergeIntoStrictRoleSafeMessage(
+  previous: ChatMLMessage,
+  message: ChatMLMessage,
+  normalizedMessages: WeakSet<ChatMLMessage>,
+): void {
+  const previousContent = normalizedMessages.has(previous) ? previous.content : strictRoleSegmentContent(previous);
+  previous.content = collapseExcessBlankLines(`${previousContent}\n\n${strictRoleSegmentContent(message)}`);
+  const contextKind = mergePromptContextKind(previous.contextKind, message.contextKind);
+  if (contextKind) {
+    previous.contextKind = contextKind;
+  } else {
+    delete previous.contextKind;
+  }
+  if ((previous.displayName ?? null) !== (message.displayName ?? null)) {
+    delete previous.displayName;
+  }
+  delete previous.characterId;
+  delete previous.name;
+  delete previous.providerMetadata;
+  if (message.images?.length) {
+    previous.images = [...(previous.images ?? []), ...message.images];
+  }
+  normalizedMessages.add(previous);
 }
 
 function promptMessageWithRole(message: ChatMLMessage, role: "user" | "assistant"): ChatMLMessage {
@@ -2915,6 +3046,7 @@ function scopeIndividualGroupHistoryRoles(messages: ChatMLMessage[], targetChara
 function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return messages;
   const result: ChatMLMessage[] = [];
+  const strictRoleNormalizedMessages = new WeakSet<ChatMLMessage>();
   let index = 0;
   const systemParts: string[] = [];
   while (index < messages.length && messages[index]!.role === "system") {
@@ -2939,7 +3071,11 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
     if (message.contextKind === "injection") {
       const previous = result[result.length - 1];
       if (message.role !== "system" && previous?.role === message.role) {
-        mergeIntoPreviousPromptMessage(previous, message);
+        if (canMergePromptMessages(previous, message)) {
+          mergeIntoPreviousPromptMessage(previous, message);
+        } else {
+          mergeIntoStrictRoleSafeMessage(previous, message, strictRoleNormalizedMessages);
+        }
         continue;
       }
 
@@ -2967,8 +3103,13 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
     }
 
     const previous = result[result.length - 1];
-    if (shouldMergeSameRolePromptMessage(previous, message, effectiveRole)) {
-      mergeIntoPreviousPromptMessage(previous, message);
+    if (previous?.role === effectiveRole) {
+      const sameRoleMessage = promptMessageWithRole(message, effectiveRole);
+      if (shouldMergeSameRolePromptMessage(previous, sameRoleMessage, effectiveRole)) {
+        mergeIntoPreviousPromptMessage(previous, sameRoleMessage);
+      } else {
+        mergeIntoStrictRoleSafeMessage(previous, sameRoleMessage, strictRoleNormalizedMessages);
+      }
       continue;
     }
 
@@ -3003,6 +3144,7 @@ function authorNotesDepthEntry(chat: JsonRecord): { content: string; role: "syst
 
 function macroProfileForCharacter(
   character: GenerationCharacterContext,
+  groupScenarioOverride: GroupScenarioOverride = NO_GROUP_SCENARIO_OVERRIDE,
 ): NonNullable<MacroContext["characterProfiles"]>[number] {
   return {
     name: character.name,
@@ -3010,15 +3152,19 @@ function macroProfileForCharacter(
     personality: character.personality,
     backstory: character.backstory,
     appearance: character.appearance,
-    scenario: character.scenario,
+    scenario: groupScenarioOverride.enabled ? groupScenarioOverride.text : character.scenario,
     example: character.mesExample,
     systemPrompt: character.systemPrompt,
     postHistoryInstructions: character.postHistoryInstructions,
   };
 }
 
-function macroContextForCharacter(base: MacroContext, character: GenerationCharacterContext): MacroContext {
-  const profile = macroProfileForCharacter(character);
+function macroContextForCharacter(
+  base: MacroContext,
+  character: GenerationCharacterContext,
+  groupScenarioOverride: GroupScenarioOverride = NO_GROUP_SCENARIO_OVERRIDE,
+): MacroContext {
+  const profile = macroProfileForCharacter(character, groupScenarioOverride);
   return {
     ...base,
     char: character.name,
@@ -3029,7 +3175,7 @@ function macroContextForCharacter(base: MacroContext, character: GenerationChara
       personality: character.personality,
       backstory: character.backstory,
       appearance: character.appearance,
-      scenario: character.scenario,
+      scenario: groupScenarioOverride.enabled ? groupScenarioOverride.text : character.scenario,
       example: character.mesExample,
       systemPrompt: character.systemPrompt,
       postHistoryInstructions: character.postHistoryInstructions,
@@ -3037,14 +3183,50 @@ function macroContextForCharacter(base: MacroContext, character: GenerationChara
   };
 }
 
+function resolvePromptMacros(value: string, macros: MacroContext, deferCharacterMacros: boolean): string {
+  return resolveMacros(value, macros, {
+    trimResult: false,
+    deferCharacterMacros: deferCharacterMacros ? "all" : undefined,
+  });
+}
+
+function finalizeDeferredCharacterMessages(
+  messages: ChatMLMessage[],
+  macros: MacroContext,
+  target: GenerationCharacterContext | null,
+): ChatMLMessage[] {
+  if (!target || !messages.some((message) => hasDeferredCharacterMacros(message.content))) return messages;
+  const profile = macroProfileForCharacter(target);
+  return messages.map((message) =>
+    hasDeferredCharacterMacros(message.content)
+      ? { ...message, content: resolveDeferredCharacterMacros(message.content, profile, macros) }
+      : message,
+  );
+}
+
+function reusableContextMacroScopeMatches(
+  reusableContext: PromptAssemblyReusableContext | undefined,
+  deferCharacterMacros: boolean,
+  targetCharacterId: string | null,
+): boolean {
+  if (!reusableContext) return false;
+  return (
+    reusableContext.macroSensitiveScope.deferCharacterMacros === deferCharacterMacros &&
+    reusableContext.macroSensitiveScope.targetCharacterId === targetCharacterId
+  );
+}
+
 function characterDepthPromptEntries(
   characters: GenerationCharacterContext[],
   macros: MacroContext,
+  groupScenarioOverride: GroupScenarioOverride,
 ): Array<{ content: string; role: "system" | "user" | "assistant"; depth: number }> {
   return characters.flatMap((character) => {
     const depthPrompt = character.depthPrompt;
     if (!depthPrompt) return [];
-    const content = cleanPromptText(resolveMacros(depthPrompt.prompt, macroContextForCharacter(macros, character)));
+    const content = cleanPromptText(
+      resolveMacros(depthPrompt.prompt, macroContextForCharacter(macros, character, groupScenarioOverride)),
+    );
     if (!content.trim()) return [];
     return [{ content, role: depthPrompt.role, depth: depthPrompt.depth }];
   });
@@ -3061,10 +3243,11 @@ function sectionContent(args: {
   agentData: Record<string, string>;
   wrapFormat: WrapFormat;
   macros: MacroContext | null;
+  groupScenarioOverride: GroupScenarioOverride;
 }) {
   switch (args.marker?.type) {
     case "character":
-      return renderCharacters(args.characters, args.wrapFormat, args.marker, args.macros);
+      return renderCharacters(args.characters, args.wrapFormat, args.marker, args.macros, args.groupScenarioOverride);
     case "persona":
       return renderPersona(args.persona, args.wrapFormat);
     case "dialogue_examples":
@@ -3172,7 +3355,6 @@ export async function assembleGenerationPrompt(
 
   const characters = reusableContext?.characters ?? (await loadCharacters(storage, input.chat));
   const persona = reusableContext?.persona ?? (await loadPersona(storage, input.chat));
-  const embeddingSource = reusableContext ? null : memoizedEmbeddingSource(input.embeddingSource);
   const selectedPreset =
     reusableContext?.selectedPreset ??
     (await loadSelectedPromptPreset(storage, {
@@ -3193,7 +3375,20 @@ export async function assembleGenerationPrompt(
     normalizeWrapFormat(input.chat.wrapFormat) ??
     normalizeWrapFormat(input.connection.wrapFormat) ??
     "xml";
+  const activeGroupScenarioOverride = reusableContext?.groupScenarioOverride ?? groupScenarioOverride(chatMeta);
   const promptCharacters = reusableContext?.promptCharacters ?? promptCharactersForGeneration(input, characters);
+  const individualGroupTarget = scopedIndividualGroupTarget(input, characters);
+  const individualGroupTargetCharacter = individualGroupTarget
+    ? (characters.find((character) => character.id === individualGroupTarget) ?? null)
+    : null;
+  const deferCharacterMacros = !!individualGroupTargetCharacter;
+  const canReuseMacroSensitiveContext = reusableContextMacroScopeMatches(
+    reusableContext,
+    deferCharacterMacros,
+    individualGroupTarget,
+  );
+  const embeddingSource =
+    reusableContext && canReuseMacroSensitiveContext ? null : memoizedEmbeddingSource(input.embeddingSource);
   const macros = macroContext({
     chat: input.chat,
     connection: input.connection,
@@ -3203,10 +3398,14 @@ export async function assembleGenerationPrompt(
     agentData: input.agentData,
     variables: selectedPreset?.variables,
     request: input.request,
+    groupScenarioOverride: activeGroupScenarioOverride,
   });
-  if (selectedPreset) resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames);
+  if (selectedPreset)
+    resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames, deferCharacterMacros);
   const greetingPromptVariables =
-    reusableContext?.greetingPromptVariables ?? (await seedPromptVariablesFromGreeting(storage, input, macros));
+    canReuseMacroSensitiveContext && reusableContext
+      ? reusableContext.greetingPromptVariables
+      : await seedPromptVariablesFromGreeting(storage, input, macros, deferCharacterMacros);
   if (reusableContext) applyReusableGreetingPromptVariables(macros, greetingPromptVariables);
   const baseLorebookIncludedPositions =
     reusableContext?.baseLorebookIncludedPositions ?? lorebookIncludedPositionsForPrompt(selectedPreset, chatMode);
@@ -3222,12 +3421,16 @@ export async function assembleGenerationPrompt(
       embeddingSource,
       includedPositions,
       contentResolver: {
-        resolve: (content) => cleanPromptText(resolveMacros(content, macros)),
+        resolve: (content) => cleanPromptText(resolvePromptMacros(content, macros, deferCharacterMacros)),
         snapshotVariables: () => snapshotMacroVariables(macros),
       },
     });
-  let loreScan = reusableContext?.loreScan ?? (await scanLorebooksForPositions(baseLorebookIncludedPositions));
-  let processedLore = reusableContext?.processedLore ?? loreScan.processedLore;
+  let loreScan =
+    canReuseMacroSensitiveContext && reusableContext
+      ? reusableContext.loreScan
+      : await scanLorebooksForPositions(baseLorebookIncludedPositions);
+  let processedLore =
+    canReuseMacroSensitiveContext && reusableContext ? reusableContext.processedLore : loreScan.processedLore;
   const summary = reusableContext?.summary ?? chatSummaryForGeneration(input.chat);
   const memoryRecallBlock =
     reusableContext?.memoryRecallBlock ??
@@ -3246,7 +3449,11 @@ export async function assembleGenerationPrompt(
     reusableContext?.history ??
     historyMessages(
       input.storedMessages,
-      compactedHistoryLimit(chatMeta, historyLimit, shouldCompactHistoryForSummary(input.chat, selectedPreset, summary)),
+      compactedHistoryLimit(
+        chatMeta,
+        historyLimit,
+        shouldCompactHistoryForSummary(input.chat, selectedPreset, summary),
+      ),
       chatMeta.excludePastReasoning === false,
     );
   const agentData = input.agentData ?? {};
@@ -3285,8 +3492,10 @@ export async function assembleGenerationPrompt(
         agentData,
         wrapFormat,
         macros,
+        groupScenarioOverride: activeGroupScenarioOverride,
       });
-      const resolvedContent = marker?.type === "character" ? rawContent : resolveMacros(rawContent, macros);
+      const resolvedContent =
+        marker?.type === "character" ? rawContent : resolvePromptMacros(rawContent, macros, deferCharacterMacros);
       const resolved = cleanPromptText(resolvedContent);
       if (!resolved.trim()) continue;
       if (marker?.type === "chat_summary" && summary?.trim()) insertedSummary = true;
@@ -3336,12 +3545,17 @@ export async function assembleGenerationPrompt(
         summary,
         wrapFormat,
         macros,
+        groupScenarioOverride: activeGroupScenarioOverride,
       }),
       contextKind: "prompt",
     });
   }
 
-  if (!usedFallbackSystemPrompt && !insertedSummary && shouldForceRoleplaySummaryIntoSystem(input.chat)) {
+  if (
+    !usedFallbackSystemPrompt &&
+    !insertedSummary &&
+    shouldFallbackInsertChatSummary(input.chat, selectedPreset, summary)
+  ) {
     appendSummaryToSystemPrompt(messages, summary, wrapFormat);
   }
 
@@ -3410,7 +3624,8 @@ export async function assembleGenerationPrompt(
   ]);
 
   const authorNotesEntry = authorNotesDepthEntry(input.chat);
-  const characterDepthEntries = chatMode === "game" ? [] : characterDepthPromptEntries(promptCharacters, macros);
+  const characterDepthEntries =
+    chatMode === "game" ? [] : characterDepthPromptEntries(promptCharacters, macros, activeGroupScenarioOverride);
   messages = injectAtDepth(
     messages,
     authorNotesEntry
@@ -3418,9 +3633,9 @@ export async function assembleGenerationPrompt(
       : [...processedLore.depthEntries, ...characterDepthEntries],
     chatHistoryDepthInjectionBounds(messages),
   );
-  const regexScripts = await storage.list<JsonRecord>("regex-scripts");
+  const regexScripts = (await storage.list<JsonRecord>("regex-scripts")).sort(bySortOrder);
   applyRegexScriptsToPromptMessages(messages, regexScripts, {
-    resolveMacros: (value) => resolveMacros(value, macros, { trimResult: false }),
+    resolveMacros: (value) => resolvePromptMacros(value, macros, deferCharacterMacros),
   });
   const turnPrompt =
     individualGroupTurnPromptMessage(input, characters) ??
@@ -3435,13 +3650,16 @@ export async function assembleGenerationPrompt(
       content: collapseExcessBlankLines(stripPromptComments(message.content)).trim(),
     }))
     .filter((message) => message.content.length > 0);
-  const individualGroupTarget = scopedIndividualGroupTarget(input, characters);
   if (individualGroupTarget) {
     messages = scopeIndividualGroupHistoryRoles(messages, individualGroupTarget);
   }
   const conversationGroupTarget = scopedConversationGroupTarget(input, characters);
   if (conversationGroupTarget) {
     messages = scopeIndividualGroupHistoryRoles(messages, conversationGroupTarget);
+  }
+  messages = finalizeDeferredCharacterMessages(messages, macros, individualGroupTargetCharacter);
+  if (messages.some((message) => hasDeferredCharacterMacros(message.content))) {
+    throw new Error("Deferred character macro placeholder remained before prompt handoff");
   }
   const previewMessages = previewMessagesForPrompt(messages);
   const shouldEnforceStrictRoles = boolish(promptParameters?.strictRoleFormatting, true) && !individualGroupTarget;
@@ -3464,6 +3682,7 @@ export async function assembleGenerationPrompt(
     promptParameters,
     maxContext,
     wrapFormat,
+    groupScenarioOverride: activeGroupScenarioOverride,
     promptCharacters,
     baseLorebookIncludedPositions,
     loreScan,
@@ -3472,6 +3691,10 @@ export async function assembleGenerationPrompt(
     memoryRecallBlock,
     history,
     greetingPromptVariables,
+    macroSensitiveScope: {
+      deferCharacterMacros,
+      targetCharacterId: individualGroupTarget,
+    },
   };
 
   return {

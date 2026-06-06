@@ -12,7 +12,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   checkConversationAutonomous,
+  clearGenerationInProgress,
   getConversationBusyDelay,
+  markGenerationInProgress,
   recordAssistantActivity,
 } from "../../../../../engine/modes/chat/autonomous/autonomous.service";
 import { chatCommandApi } from "../../../../../shared/api/chat-command-api";
@@ -56,7 +58,7 @@ function parseMeta(chat: RawChat): Record<string, unknown> {
 export function useBackgroundAutonomousPolling() {
   const qc = useQueryClient();
   const pollTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const busyDelayTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const busyDelayTimers = useRef<Map<ReturnType<typeof setTimeout>, { chatId: string; startedAt: number }>>(new Map());
   const generatingForRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
 
@@ -112,6 +114,7 @@ export function useBackgroundAutonomousPolling() {
 
           if (result.shouldTrigger && result.characterIds.length > 0) {
             const characterId = result.characterIds[0]!;
+            const startedAt = markGenerationInProgress(chat.id);
 
             // Check busy delay
             const delay = await getConversationBusyDelay(storageApi, { chatId: chat.id, characterId });
@@ -127,6 +130,7 @@ export function useBackgroundAutonomousPolling() {
                 if (useChatStore.getState().abortControllers.has(chat.id)) {
                   shouldClearAutonomousFlag = false;
                   generatingForRef.current.delete(chat.id);
+                  clearGenerationInProgress(chat.id, startedAt);
                   return;
                 }
 
@@ -209,6 +213,7 @@ export function useBackgroundAutonomousPolling() {
                 if (!receivedTokens && shouldClearAutonomousFlag) {
                   recordAssistantActivity(chat.id);
                 }
+                clearGenerationInProgress(chat.id, startedAt);
                 generatingForRef.current.delete(chat.id);
               }
             };
@@ -218,7 +223,7 @@ export function useBackgroundAutonomousPolling() {
                 busyDelayTimers.current.delete(timerId);
                 doGenerate();
               }, delay.delayMs);
-              busyDelayTimers.current.add(timerId);
+              busyDelayTimers.current.set(timerId, { chatId: chat.id, startedAt });
             } else {
               doGenerate();
             }
@@ -243,7 +248,10 @@ export function useBackgroundAutonomousPolling() {
     return () => {
       mountedRef.current = false;
       clearTimeout(pollTimerRef.current);
-      for (const t of delayTimers) clearTimeout(t);
+      for (const [timer, lock] of delayTimers) {
+        clearTimeout(timer);
+        clearGenerationInProgress(lock.chatId, lock.startedAt);
+      }
       delayTimers.clear();
     };
   }, [qc]); // Only depends on qc (which is stable) — timer lifecycle is self-managed

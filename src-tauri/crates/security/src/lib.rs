@@ -348,6 +348,7 @@ fn is_sensitive_json_key(key: &str) -> bool {
             | "cookie"
             | "credential"
             | "credentials"
+            | "encryptedcontent"
             | "password"
             | "secret"
             | "sessionid"
@@ -357,6 +358,7 @@ fn is_sensitive_json_key(key: &str) -> bool {
         || normalized.ends_with("token")
         || normalized.ends_with("secret")
         || normalized.ends_with("password")
+        || normalized.ends_with("encryptedcontent")
         || normalized.contains("credential")
 }
 
@@ -487,12 +489,15 @@ mod tests {
         let redacted = redact_sensitive_json(json!({
             "api_key": "sk-test-secret",
             "error": { "message": "Authorization: Bearer sk-test-secret" },
+            "output": [{ "type": "reasoning", "encrypted_content": "encrypted-provider-payload" }],
             "usage": { "input_tokens": 12, "output_tokens": 3 }
         }));
 
         assert_eq!(redacted["api_key"], "[REDACTED]");
+        assert_eq!(redacted["output"][0]["encrypted_content"], "[REDACTED]");
         assert_eq!(redacted["usage"]["input_tokens"], 12);
         assert!(!redacted.to_string().contains("sk-test-secret"));
+        assert!(!redacted.to_string().contains("encrypted-provider-payload"));
     }
 
     #[test]

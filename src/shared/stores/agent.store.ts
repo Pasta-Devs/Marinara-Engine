@@ -291,7 +291,5 @@ export const useAgentStore = create<AgentState>((set) => ({
       echoLoadedChatId: null,
       cyoaChoices: [],
       cyoaChoicesChatId: null,
-      pendingCardUpdates: [],
-      pendingLorebookUpdates: [],
     }),
 }));

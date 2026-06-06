@@ -191,11 +191,15 @@ impl AssetService {
         if new_name.contains('/') || new_name.contains('\\') || new_name.trim().is_empty() {
             return Err(AppError::invalid_input("Invalid asset name"));
         }
+        let sanitized_name = sanitize_filename(new_name)?;
         let source = self.absolute_path(path)?;
-        let target = source
-            .parent()
-            .ok_or_else(|| AppError::invalid_input("Asset has no parent folder"))?
-            .join(new_name);
+        let target = assert_inside_dir(
+            &self.root,
+            &source
+                .parent()
+                .ok_or_else(|| AppError::invalid_input("Asset has no parent folder"))?
+                .join(sanitized_name),
+        )?;
         fs::rename(&source, &target)?;
         Ok(json!({ "path": self.relative_string(&target) }))
     }
