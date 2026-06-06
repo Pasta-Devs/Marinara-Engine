@@ -3265,7 +3265,7 @@ export async function assembleGenerationPrompt(
   }
   const previewMessages = previewMessagesForPrompt(messages);
   const shouldEnforceStrictRoles =
-    boolish(promptParameters?.strictRoleFormatting, true) && chatMode === "roleplay" && !individualGroupTarget;
+    boolish(promptParameters?.strictRoleFormatting, true) && !individualGroupTarget;
   messages = shouldEnforceStrictRoles ? enforceStrictRoles(messages) : mergeAdjacentMessages(messages);
   if (!shouldEnforceStrictRoles && boolish(promptParameters?.squashSystemMessages, false)) {
     messages = squashLeadingSystemMessages(messages);
