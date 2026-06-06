@@ -740,8 +740,27 @@ fn order_embeddings_by_index(json: &Value, expected: usize) -> AppResult<Vec<Vec
             })?;
         let index = item.get("index").and_then(Value::as_u64).map(|n| n as usize);
         match index {
-            Some(index) if index < expected => ordered[index] = Some(embedding),
-            _ => fallback.push((position, embedding)),
+            // An explicit index is authoritative: an out-of-range or duplicate
+            // index is a malformed response, not a positional fallback. Treating
+            // it as positional would write the wrong input's vector to an entry,
+            // so fail loudly instead.
+            Some(index) if index >= expected => {
+                return Err(AppError::with_details(
+                    "embedding_response_error",
+                    format!("Embedding response returned an out-of-range index {index} for {expected} inputs"),
+                    json.clone(),
+                ));
+            }
+            Some(index) if ordered[index].is_some() => {
+                return Err(AppError::with_details(
+                    "embedding_response_error",
+                    format!("Embedding response returned a duplicate index {index}"),
+                    json.clone(),
+                ));
+            }
+            Some(index) => ordered[index] = Some(embedding),
+            // Only wholly-unindexed items fall back to array position.
+            None => fallback.push((position, embedding)),
         }
     }
     for (position, embedding) in fallback {
