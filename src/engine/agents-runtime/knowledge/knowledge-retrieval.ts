@@ -158,14 +158,17 @@ export async function executeKnowledgeRetrieval(
     const priorExtractions = extractions.slice(0, -1);
     const consolidatedLower = consolidated.toLowerCase();
     const isSuperset = priorExtractions.every((prior) => {
-      // A prior extraction is considered preserved if its first non-trivial line
-      // (a stable, content-bearing signature) survived into the consolidation.
-      const signature = prior
+      // A prior extraction is considered preserved only when EVERY one of its
+      // content-bearing lines survived into the consolidation. Sampling just the
+      // first line would let a model keep a heading while dropping later facts and
+      // still pass as a superset; requiring all lines means any dropped fact routes
+      // to the merge fallback below instead of being silently lost.
+      const lines = prior
         .split("\n")
         .map((line) => line.trim())
-        .find((line) => line.length >= 12);
-      if (!signature) return true; // nothing meaningful to preserve
-      return consolidatedLower.includes(signature.toLowerCase());
+        .filter((line) => line.length >= 12);
+      if (lines.length === 0) return true; // nothing meaningful to preserve
+      return lines.every((line) => consolidatedLower.includes(line.toLowerCase()));
     });
 
     if (isSuperset) {
