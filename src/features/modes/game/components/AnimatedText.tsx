@@ -201,7 +201,9 @@ function wrapCharactersForWave(html: string): string {
     const chars = [...text];
     const wrapped = chars
       .map((ch, i) =>
-        ch === " " ? " " : `<span class="anim-text-wave-char" style="animation-delay:${i * 60}ms">${ch}</span>`,
+        ch === " "
+          ? " "
+          : `<span class="anim-text-wave-char anim-text-wave-char-${i % 10}">${ch}</span>`,
       )
       .join("");
     return `<span class="anim-text-wave">${wrapped}</span>`;
@@ -226,7 +228,7 @@ export function AnimatedText({ html, className, style }: AnimatedTextProps) {
     // Re-sanitize after our additions
     return DOMPurify.sanitize(result, {
       ALLOWED_TAGS: ["strong", "em", "br", "span"],
-      ALLOWED_ATTR: ["class", "style"],
+      ALLOWED_ATTR: ["class"],
     });
   }, [html]);
 
@@ -239,6 +241,6 @@ export function animateTextHtml(html: string): string {
   result = wrapCharactersForWave(result);
   return DOMPurify.sanitize(result, {
     ALLOWED_TAGS: ["strong", "em", "br", "span"],
-    ALLOWED_ATTR: ["class", "style"],
+    ALLOWED_ATTR: ["class"],
   });
 }

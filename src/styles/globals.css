@@ -3385,6 +3385,40 @@ summary[class*="cursor-pointer"],
   animation: text-wave-char 1.2s ease-in-out infinite;
 }
 
+/* Per-character wave delay buckets (char index modulo 10).
+   Replaces a former inline style="animation-delay" so the wave effect
+   survives DOMPurify stripping the style attribute (security: no inline style). */
+.anim-text-wave-char-0 {
+  animation-delay: 0ms;
+}
+.anim-text-wave-char-1 {
+  animation-delay: 60ms;
+}
+.anim-text-wave-char-2 {
+  animation-delay: 120ms;
+}
+.anim-text-wave-char-3 {
+  animation-delay: 180ms;
+}
+.anim-text-wave-char-4 {
+  animation-delay: 240ms;
+}
+.anim-text-wave-char-5 {
+  animation-delay: 300ms;
+}
+.anim-text-wave-char-6 {
+  animation-delay: 360ms;
+}
+.anim-text-wave-char-7 {
+  animation-delay: 420ms;
+}
+.anim-text-wave-char-8 {
+  animation-delay: 480ms;
+}
+.anim-text-wave-char-9 {
+  animation-delay: 540ms;
+}
+
 /* Flicker — fire, flames (epilepsy-safe: no full opacity drops, gentle variation) */
 @keyframes text-flicker {
   0%,
