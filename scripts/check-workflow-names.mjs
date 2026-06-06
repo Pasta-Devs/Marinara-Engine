@@ -4,17 +4,16 @@ const metadataFields = [
 ];
 
 const bannedAuthorshipMarkers = [
-  { label: "AI label prefix", pattern: /^\s*ai\s*:/i },
-  { label: "Codex label prefix", pattern: /^\s*codex\s*:/i },
-  { label: "generated-by wording", pattern: /\bgenerated\s+by\b/i },
-  { label: "generated-with AI wording", pattern: /\bgenerated\s+(?:using|with)\s+(?:ai|chatgpt|claude|codex)\b/i },
+  { label: "AI/tool label prefix", pattern: /^\s*(?:ai|chatgpt|claude|codex)\s*:/i },
+  { label: "generated-by authorship wording", pattern: /^\s*generated\s+by\s+(?:ai|chatgpt|claude|codex)\b/i },
+  { label: "generated-with AI wording", pattern: /^\s*generated\s+(?:using|with)\s+(?:ai|chatgpt|claude|codex)\b/i },
   { label: "AI-generated wording", pattern: /\bai[-\s]*generated\b/i },
   { label: "AI co-author trailer", pattern: /\bco-authored-by:\s*.*\b(?:ai|chatgpt|claude|codex)\b/i },
   {
     label: "AI author wording",
-    pattern: /\b(?:authored|created|implemented|written)\s+by\s+(?:ai|chatgpt|claude|codex)\b/i,
+    pattern: /^\s*(?:authored|created|implemented|written)\s+by\s+(?:ai|chatgpt|claude|codex)\b/i,
   },
-  { label: "AI author branch prefix", pattern: /^(?:ai|codex)(?:[/-]|$)/i },
+  { label: "AI author branch prefix", pattern: /^(?:ai|chatgpt|claude|codex)(?:[/-]|$)/i },
 ];
 
 const presentFields = metadataFields.filter(({ value }) => typeof value === "string" && value.trim().length > 0);
