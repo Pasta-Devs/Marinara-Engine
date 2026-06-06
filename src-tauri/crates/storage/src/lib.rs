@@ -634,10 +634,13 @@ impl FileStorage {
             loaded
         };
 
-        let original_rows = entries
+        let original_stamps = entries
             .iter()
-            .map(|entry| (entry.collection.clone(), entry.rows.clone()))
-            .collect::<Vec<_>>();
+            .map(|entry| {
+                let path = self.collection_path(&entry.collection)?;
+                Ok((entry.collection.clone(), collection_file_stamp(&path)?))
+            })
+            .collect::<AppResult<Vec<_>>>()?;
 
         let output = update(&mut entries)?;
 
@@ -646,8 +649,9 @@ impl FileStorage {
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.flush_dirty_collections_locked()?;
-        for (collection, rows) in &original_rows {
-            if self.read_collection_no_recovery(collection)? != *rows {
+        for (collection, original_stamp) in &original_stamps {
+            let path = self.collection_path(collection)?;
+            if collection_file_stamp(&path)? != *original_stamp {
                 return Err(AppError::new(
                     "storage_conflict",
                     format!("Collection changed during atomic update: {collection}"),
