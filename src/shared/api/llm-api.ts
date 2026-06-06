@@ -2,7 +2,7 @@ import type { LlmChunk, LlmGateway, LlmRequest } from "../../engine/capabilities
 import { Channel } from "@tauri-apps/api/core";
 import { ignoreLlmStreamCancelFailure } from "./llm-cancel-logging";
 import { invokeTauri } from "./tauri-client";
-import { cancelRemoteLlmStream, remoteRuntimeTarget, streamRemoteLlm } from "./remote-runtime";
+import { cancelRemoteLlmStream, remoteRuntimeTarget, streamRemoteLlm, type RuntimeTarget } from "./remote-runtime";
 
 function createStreamId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
@@ -10,6 +10,7 @@ function createStreamId(): string {
 }
 
 const activeTauriStreamIds = new Set<string>();
+const activeRemoteStreams = new Map<string, RuntimeTarget>();
 let unloadCancellationInstalled = false;
 const TAURI_STREAM_TERMINAL_CLEANUP_GRACE_MS = 250;
 
@@ -25,11 +26,22 @@ function cancelActiveTauriStreams() {
   }
 }
 
+function cancelActiveRemoteStreams() {
+  for (const [streamId, target] of activeRemoteStreams) {
+    void cancelRemoteLlmStream(streamId, target, { keepalive: true });
+  }
+}
+
+function cancelActiveLlmStreams() {
+  cancelActiveTauriStreams();
+  cancelActiveRemoteStreams();
+}
+
 function installUnloadCancellation() {
   if (unloadCancellationInstalled || typeof window === "undefined") return;
   unloadCancellationInstalled = true;
-  window.addEventListener("pagehide", cancelActiveTauriStreams);
-  window.addEventListener("beforeunload", cancelActiveTauriStreams);
+  window.addEventListener("pagehide", cancelActiveLlmStreams);
+  window.addEventListener("beforeunload", cancelActiveLlmStreams);
 }
 
 export const llmApi: LlmGateway = {
@@ -57,6 +69,8 @@ export const llmApi: LlmGateway = {
     const streamId = createStreamId();
     const remoteTarget = remoteRuntimeTarget();
     if (remoteTarget) {
+      installUnloadCancellation();
+      activeRemoteStreams.set(streamId, remoteTarget);
       const abort = () => void cancelRemoteLlmStream(streamId, remoteTarget);
       if (signal?.aborted) abort();
       signal?.addEventListener("abort", abort, { once: true });
@@ -67,6 +81,7 @@ export const llmApi: LlmGateway = {
         }
       } finally {
         signal?.removeEventListener("abort", abort);
+        activeRemoteStreams.delete(streamId);
       }
       return;
     }

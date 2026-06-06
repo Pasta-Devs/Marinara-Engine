@@ -615,7 +615,11 @@ export async function* streamRemoteLlm(
   }
 }
 
-export async function cancelRemoteLlmStream(streamId: string, target: RuntimeTarget | null): Promise<void> {
+export async function cancelRemoteLlmStream(
+  streamId: string,
+  target: RuntimeTarget | null,
+  options: { keepalive?: boolean } = {},
+): Promise<void> {
   if (!target) return;
   await ignoreLlmStreamCancelFailure(
     "remote",
@@ -624,6 +628,7 @@ export async function cancelRemoteLlmStream(streamId: string, target: RuntimeTar
       const response = await fetch(`${target.baseUrl}/api/llm/stream/${encodeURIComponent(streamId)}/cancel`, remoteFetchInit({
         method: "POST",
         headers: remoteHeaders(target),
+        ...(options.keepalive === undefined ? {} : { keepalive: options.keepalive }),
       }));
       if (!response.ok) throw await readRemoteError(response);
     })(),
