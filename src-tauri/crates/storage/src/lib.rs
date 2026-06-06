@@ -18,6 +18,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 const MESSAGE_REVERSE_READ_CHUNK_SIZE: u64 = 1024 * 1024;
 const STORAGE_SAVE_DEBOUNCE_MS: u64 = 750;
 
+#[cfg(test)]
+type IndexBuildTestHook = Box<dyn FnMut(&Path) + Send + 'static>;
+
+#[cfg(test)]
+static INDEX_BUILD_TEST_HOOK: std::sync::Mutex<Option<IndexBuildTestHook>> =
+    std::sync::Mutex::new(None);
+
 #[derive(Default)]
 struct StorageCache {
     collections: HashMap<String, CachedCollection>,
@@ -1827,37 +1834,58 @@ impl FileStorage {
         recover_on_fallback: bool,
     ) -> AppResult<Option<(PathBuf, CachedCollectionRecord)>> {
         let path = self.collection_path(collection)?;
-        let stamp = collection_content_stamp(&path)?;
-        if stamp.is_none() {
-            return Ok(None);
-        }
-        if let Some(row) = self.cached_indexed_row_by_id(collection, id, stamp)? {
-            return Ok(row.map(|record| (path, record)));
+        for _ in 0..2 {
+            let stamp = collection_content_stamp(&path)?;
+            if stamp.is_none() {
+                return Ok(None);
+            }
+            if let Some(row) = self.cached_indexed_row_by_id(collection, id, stamp)? {
+                return Ok(row.map(|record| (path, record)));
+            }
+
+            let records_by_id = if let Some(ranges) = pretty_record_ranges_by_id(&path)? {
+                ranges
+                    .into_iter()
+                    .map(|(id, range)| (id, CachedCollectionRecord::PrettyRange(range)))
+                    .collect()
+            } else {
+                let rows = if recover_on_fallback {
+                    self.read_collection_from_disk(collection)?
+                } else {
+                    self.read_collection_from_disk_no_recovery(collection)?
+                };
+                records_by_id(&rows)
+            };
+            #[cfg(test)]
+            run_index_build_test_hook(&path)?;
+            let refreshed_stamp = collection_content_stamp(&path)?;
+            if refreshed_stamp != stamp {
+                continue;
+            }
+            let record = records_by_id.get(id).cloned();
+            self.cache_id_index(collection, records_by_id, refreshed_stamp)?;
+            return Ok(record.map(|record| (path, record)));
         }
 
-        let records_by_id = if let Some(ranges) = pretty_record_ranges_by_id(&path)? {
-            ranges
-                .into_iter()
-                .map(|(id, range)| (id, CachedCollectionRecord::PrettyRange(range)))
-                .collect()
+        self.uncached_record_by_id_from_disk(collection, id, recover_on_fallback)
+    }
+
+    fn uncached_record_by_id_from_disk(
+        &self,
+        collection: &str,
+        id: &str,
+        recover_on_fallback: bool,
+    ) -> AppResult<Option<(PathBuf, CachedCollectionRecord)>> {
+        let path = self.collection_path(collection)?;
+        let rows = if recover_on_fallback {
+            self.read_collection_from_disk(collection)?
         } else {
-            let rows = if recover_on_fallback {
-                self.read_collection_from_disk(collection)?
-            } else {
-                self.read_collection_from_disk_no_recovery(collection)?
-            };
-            records_by_id(&rows)
+            self.read_collection_from_disk_no_recovery(collection)?
         };
-        let refreshed_stamp = collection_content_stamp(&path)?;
-        if refreshed_stamp != stamp {
-            return Err(AppError::new(
-                "storage_index_unstable",
-                format!("Collection changed while building id index: {collection}"),
-            ));
-        }
-        let record = records_by_id.get(id).cloned();
-        self.cache_id_index(collection, records_by_id, refreshed_stamp)?;
-        Ok(record.map(|record| (path, record)))
+        Ok(rows
+            .into_iter()
+            .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
+            .map(|row| (path, CachedCollectionRecord::Row(row))))
     }
 
     fn cached_indexed_row_by_id(
@@ -2484,6 +2512,17 @@ fn projection_shape(
         fields: normalized_fields,
         field_selections: normalized_selections,
     }
+}
+
+#[cfg(test)]
+fn run_index_build_test_hook(path: &Path) -> AppResult<()> {
+    let mut hook = INDEX_BUILD_TEST_HOOK
+        .lock()
+        .map_err(|_| AppError::new("lock_error", "Storage index test hook lock poisoned"))?;
+    if let Some(hook) = hook.as_mut() {
+        hook(path);
+    }
+    Ok(())
 }
 
 fn records_by_id(rows: &[Value]) -> HashMap<String, CachedCollectionRecord> {
@@ -5030,6 +5069,49 @@ mod tests {
                 .expect("target should still exist"),
             json!({ "id": "target", "name": "Bravo" })
         );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn get_id_index_retries_when_file_changes_during_index_build() {
+        let root = temp_storage_root("get-id-index-retries-unstable-scan");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::create_dir_all(collection.parent().unwrap()).unwrap();
+        let initial = serde_json::to_vec_pretty(&json!([
+            { "id": "target", "name": "Alpha" },
+            { "id": "other", "name": "Omega" }
+        ]))
+        .unwrap();
+        let replacement = serde_json::to_vec_pretty(&json!([
+            { "id": "target", "name": "Bravo" },
+            { "id": "other", "name": "Omega" }
+        ]))
+        .unwrap();
+        fs::write(&collection, initial).unwrap();
+        let original_modified = fs::metadata(&collection).unwrap().modified().unwrap();
+        let rewrite_path = collection.clone();
+        let mut replacement = Some(replacement);
+        *INDEX_BUILD_TEST_HOOK.lock().unwrap() = Some(Box::new(move |path| {
+            if path == rewrite_path.as_path() {
+                if let Some(bytes) = replacement.take() {
+                    rewrite_with_modified_time(
+                        path,
+                        &bytes,
+                        original_modified + Duration::from_secs(1),
+                    );
+                }
+            }
+        }));
+
+        let row = storage
+            .get("characters", "target")
+            .expect("scan-time rewrite should retry instead of surfacing instability")
+            .expect("target should still exist");
+        *INDEX_BUILD_TEST_HOOK.lock().unwrap() = None;
+
+        assert_eq!(row, json!({ "id": "target", "name": "Bravo" }));
 
         fs::remove_dir_all(root).unwrap();
     }
