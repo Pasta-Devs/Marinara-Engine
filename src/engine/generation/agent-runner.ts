@@ -54,6 +54,7 @@ import {
 } from "./built-in-agent-fallback";
 import { llmParameters } from "./context";
 import { loadAgentMemory, secretPlotPromptGuidanceFromData, secretPlotStateFromMemory } from "./agent-memory-runtime";
+import { illustratorAvatarReferencesEnabled } from "./illustrator-settings";
 import {
   buildAvailableSpriteCharacter,
   normalizeSpriteDisplayModes,
@@ -410,11 +411,7 @@ async function fullBodySpriteReference(
 
 function illustratorUsesAvatarReferences(agent: ResolvedAgent | undefined, chatMeta: JsonRecord): boolean {
   if (!agent) return false;
-  return (
-    (agent.settings.useAvatarReferences === undefined || agent.settings.useAvatarReferences === null
-      ? true
-      : boolish(agent.settings.useAvatarReferences, false)) || boolish(chatMeta.illustrationUseAvatarReferences, false)
-  );
+  return illustratorAvatarReferencesEnabled(agent.settings, chatMeta);
 }
 
 interface AutomaticIntervalGate {

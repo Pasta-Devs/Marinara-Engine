@@ -83,6 +83,11 @@ import {
   type AgentResultType,
   type ToolDefinition,
 } from "../../../../engine/contracts/types/agent";
+import {
+  illustratorAvatarReferenceMode,
+  serializeIllustratorAvatarReferenceSettings,
+  type IllustratorAvatarReferenceMode,
+} from "../../../../engine/generation/illustrator-settings";
 
 function createCustomAgentType(name: string): string {
   const slug =
@@ -235,7 +240,8 @@ export function AgentEditor() {
   const [localSourceFileIds, setLocalSourceFileIds] = useState<string[]>([]);
   const [localAutoGenerateAvatars, setLocalAutoGenerateAvatars] = useState(false);
   const [localAutoGenerateBackgrounds, setLocalAutoGenerateBackgrounds] = useState(false);
-  const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
+  const [localAvatarReferenceMode, setLocalAvatarReferenceMode] =
+    useState<IllustratorAvatarReferenceMode>("inherit");
   const [localImagePositivePrompt, setLocalImagePositivePrompt] = useState("");
   const [localImageNegativePrompt, setLocalImageNegativePrompt] = useState("");
   const [spotifyStatus, setSpotifyStatus] = useState<{
@@ -296,9 +302,7 @@ export function AgentEditor() {
       setLocalSourceFileIds(settings.sourceFileIds ?? []);
       setLocalAutoGenerateAvatars(settings.autoGenerateAvatars ?? false);
       setLocalAutoGenerateBackgrounds(settings.autoGenerateBackgrounds ?? false);
-      setLocalUseAvatarReferences(
-        (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
-      );
+      setLocalAvatarReferenceMode(illustratorAvatarReferenceMode(settings));
       setLocalImagePositivePrompt((settings.imagePositivePrompt as string) ?? "");
       setLocalImageNegativePrompt((settings.imageNegativePrompt as string) ?? "");
       setLocalResultType(normalizeCustomResultType(settings.resultType));
@@ -325,7 +329,7 @@ export function AgentEditor() {
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
       setLocalAutoGenerateBackgrounds(false);
-      setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
+      setLocalAvatarReferenceMode(illustratorAvatarReferenceMode(defaultSettings));
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
       setLocalResultType("context_injection");
@@ -353,7 +357,7 @@ export function AgentEditor() {
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
       setLocalAutoGenerateBackgrounds(false);
-      setLocalUseAvatarReferences(false);
+      setLocalAvatarReferenceMode("inherit");
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
       setLocalResultType("context_injection");
@@ -546,7 +550,7 @@ export function AgentEditor() {
         ...(localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
         ...(localAutoGenerateBackgrounds ? { autoGenerateBackgrounds: true } : {}),
-        ...(isIllustratorAgent ? { useAvatarReferences: localUseAvatarReferences } : {}),
+        ...(isIllustratorAgent ? serializeIllustratorAvatarReferenceSettings(localAvatarReferenceMode) : {}),
         ...(localImagePositivePrompt.trim() ? { imagePositivePrompt: localImagePositivePrompt.trim() } : {}),
         ...(localImageNegativePrompt.trim() ? { imageNegativePrompt: localImageNegativePrompt.trim() } : {}),
       },
@@ -600,7 +604,7 @@ export function AgentEditor() {
     localSourceFileIds,
     localAutoGenerateAvatars,
     localAutoGenerateBackgrounds,
-    localUseAvatarReferences,
+    localAvatarReferenceMode,
     localImagePositivePrompt,
     localImageNegativePrompt,
     dbConfig,
@@ -1061,17 +1065,22 @@ export function AgentEditor() {
                 sent directly to the image generator and combine with any connection-level defaults. NovelAI tag syntax
                 is supported.
               </p>
-              <label className="mt-3 flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={localUseAvatarReferences}
+              <label className="mt-3 flex flex-col gap-1.5">
+                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  Character &amp; persona references
+                </span>
+                <select
+                  value={localAvatarReferenceMode}
                   onChange={(e) => {
-                    setLocalUseAvatarReferences(e.target.checked);
+                    setLocalAvatarReferenceMode(e.target.value as IllustratorAvatarReferenceMode);
                     markDirty();
                   }}
-                  className="rounded border-[var(--border)] bg-[var(--secondary)] text-[var(--primary)] focus:ring-[var(--ring)]"
-                />
-                <span className="text-sm">Send character &amp; persona references</span>
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                >
+                  <option value="inherit">Inherit chat setting</option>
+                  <option value="enabled">Always send</option>
+                  <option value="disabled">Never send</option>
+                </select>
               </label>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 Sends full-body sprites when available, otherwise character avatars and your persona avatar, to the

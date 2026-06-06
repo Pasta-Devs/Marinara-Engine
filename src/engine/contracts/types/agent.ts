@@ -400,7 +400,7 @@ const BUILT_IN_AGENT_DEFINITIONS: Array<Omit<BuiltInAgentMeta, "credit">> = [
     description:
       "Injects a prompt directive that encourages the model to include inline HTML, CSS, and JS for immersive in-world visual elements.",
     phase: "pre_generation",
-    enabledByDefault: true,
+    enabledByDefault: false,
     category: "misc",
   },
   {
@@ -538,10 +538,6 @@ export function getDefaultBuiltInAgentSettings(agentType: string): Record<string
   const runInterval = BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[agentType];
   if (runInterval !== undefined) {
     settings.runInterval = runInterval;
-  }
-
-  if (agentType === "illustrator") {
-    settings.useAvatarReferences = true;
   }
 
   if (agentType === "knowledge-retrieval" || agentType === "knowledge-router") {

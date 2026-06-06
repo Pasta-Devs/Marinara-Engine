@@ -75,6 +75,7 @@ import { assembleGenerationPrompt, chatSummaryForGeneration } from "./prompt-ass
 import type { GenerationCharacterContext, GenerationPersonaContext } from "./prompt-assembly";
 import { generationInfoFromVisibleParameters, providerVisibleLlmParameters } from "./provider-visible-parameters";
 import { applyRuntimeRegexScripts } from "./regex-runtime";
+import { illustratorAvatarReferencesEnabled } from "./illustrator-settings";
 import {
   normalizeStartGenerationInput,
   type AgentInjectionOverride,
@@ -682,10 +683,7 @@ async function illustrationImageSettings(args: {
       readString(meta.illustrationNegativePrompt).trim(),
       readString(meta.selfieNegativePrompt).trim(),
     ]),
-    useAvatarReferences:
-      (settings.useAvatarReferences === undefined || settings.useAvatarReferences === null
-        ? true
-        : boolish(settings.useAvatarReferences, false)) || boolish(meta.illustrationUseAvatarReferences, false),
+    useAvatarReferences: illustratorAvatarReferencesEnabled(settings, meta),
   };
 }
 
