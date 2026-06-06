@@ -42,8 +42,9 @@ const lorebookEmbeddingUpdatedAtSchema = z.string().nullable();
 // Folders — collapsible containers for entries
 // `parentFolderId` nests a folder under another folder in the same lorebook
 // (null = top level). Parent validity (same lorebook, no self-parent, no
-// cycle) is checked at write time in the lorebook editor; the activation
-// scanner also gates entries beneath any disabled ancestor.
+// cycle) is checked at the storage write path; the editor mirrors that guard as
+// immediate UI feedback. The activation scanner also gates entries beneath any
+// disabled ancestor.
 // ──────────────────────────────────────────────
 export const createLorebookFolderSchema = z.object({
   lorebookId: z.string(),

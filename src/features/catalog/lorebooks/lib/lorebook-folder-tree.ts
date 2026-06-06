@@ -24,15 +24,16 @@ export function canReparentFolder(
   folderId: string,
   newParentId: string | null,
 ): ReparentResult {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const folder = byId.get(folderId);
+  if (!folder) return { ok: false, reason: "Folder not found." };
+
   if (newParentId === null) return { ok: true };
   if (newParentId === folderId) {
     return { ok: false, reason: "A folder cannot be its own parent." };
   }
 
-  const byId = new Map(folders.map((folder) => [folder.id, folder]));
-  const folder = byId.get(folderId);
   const newParent = byId.get(newParentId);
-  if (!folder) return { ok: false, reason: "Folder not found." };
   if (!newParent) return { ok: false, reason: "Target parent folder not found." };
   if (newParent.lorebookId !== folder.lorebookId) {
     return { ok: false, reason: "A folder can only nest under a folder in the same lorebook." };

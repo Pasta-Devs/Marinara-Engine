@@ -280,7 +280,7 @@ export function LorebookFolderRow({
         {/* Parent-folder selector — the dropdown path for nesting (folder-into-folder
             drag lands in a later step). Hidden when there's no other folder to nest under.
             Wrapped so opening the select doesn't toggle the folder's collapse. */}
-        {folders.length > 1 && (
+        {(folders.length > 1 || localParentId !== null) && (
           <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <CompactSelect
               value={localParentId ?? ""}

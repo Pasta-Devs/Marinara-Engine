@@ -11,8 +11,8 @@ type ReorderEntriesInput = {
 type ReorderFoldersInput = {
   lorebookId: string;
   folderIds: string[];
-  /** When set, the listed folders also adopt this parent (nest / un-nest). */
-  parentFolderId?: string | null;
+  /** The listed folders adopt this parent (null un-nests to root). */
+  parentFolderId: string | null;
 };
 
 /** Where a dragged folder will land relative to the folder it's hovering. */
@@ -242,15 +242,26 @@ export function useLorebookEditorDragDrop({
   // invalid hover (self, descendant, cross-lorebook) registers no drop target.
   const handleFolderDragOverRow = useCallback(
     (targetFolderId: string, event: ReactDragEvent<HTMLDivElement>) => {
-      if (!canReorderFolders || draggingFolderId === null || draggingFolderId === targetFolderId) return;
+      if (!canReorderFolders || draggingFolderId === null) return;
+      setFolderRootDropActive(false);
+      if (draggingFolderId === targetFolderId) {
+        setFolderDropTarget(null);
+        return;
+      }
       const target = folders.find((folder) => folder.id === targetFolderId);
-      if (!target) return;
+      if (!target) {
+        setFolderDropTarget(null);
+        return;
+      }
       const rect = event.currentTarget.getBoundingClientRect();
       const offset = event.clientY - rect.top;
       const zone: FolderDropZone =
         offset < rect.height * 0.28 ? "before" : offset > rect.height * 0.72 ? "after" : "inside";
       const newParentId = zone === "inside" ? targetFolderId : target.parentFolderId;
-      if (!canReparentFolder(folders, draggingFolderId, newParentId).ok) return;
+      if (!canReparentFolder(folders, draggingFolderId, newParentId).ok) {
+        setFolderDropTarget(null);
+        return;
+      }
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       setFolderDropTarget({ id: targetFolderId, zone });
@@ -264,8 +275,16 @@ export function useLorebookEditorDragDrop({
   // shallower ancestor body, letting you aim at a more-parent folder.
   const handleFolderBodyNestDragOver = useCallback(
     (targetFolderId: string, event: ReactDragEvent<HTMLDivElement>) => {
-      if (!canReorderFolders || draggingFolderId === null || draggingFolderId === targetFolderId) return;
-      if (!canReparentFolder(folders, draggingFolderId, targetFolderId).ok) return;
+      if (!canReorderFolders || draggingFolderId === null) return;
+      setFolderRootDropActive(false);
+      if (draggingFolderId === targetFolderId) {
+        setFolderDropTarget(null);
+        return;
+      }
+      if (!canReparentFolder(folders, draggingFolderId, targetFolderId).ok) {
+        setFolderDropTarget(null);
+        return;
+      }
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       setFolderDropTarget({ id: targetFolderId, zone: "inside" });
@@ -323,7 +342,8 @@ export function useLorebookEditorDragDrop({
       // that position, adopting the target's parent (null re-homes it to root).
       const newParentId = target.parentFolderId;
       if (!canReparentFolder(folders, draggedId, newParentId).ok) return;
-      const siblings = (newParentId === null ? folderForest.roots : folderForest.childrenByParent.get(newParentId)) ?? [];
+      const siblings =
+        (newParentId === null ? folderForest.roots : folderForest.childrenByParent.get(newParentId)) ?? [];
       const orderedIds = siblings.map((folder) => folder.id).filter((id) => id !== draggedId);
       const targetIndex = orderedIds.indexOf(drop.id);
       if (targetIndex === -1) orderedIds.push(draggedId);

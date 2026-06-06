@@ -105,6 +105,7 @@ const REMOTE_COMMANDS = new Set([
   "storage_delete",
   "storage_duplicate",
   "connection_folder_reorder",
+  "lorebook_folder_reorder",
   "connection_move",
   "chat_message_add_swipe",
   "chat_message_update_content_if_unchanged",

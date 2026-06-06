@@ -13,6 +13,7 @@ import {
   updateLorebookFolderSchema,
   updateLorebookSchema,
 } from "../../../../engine/contracts/schemas/lorebook.schema";
+import { lorebookFolderApi } from "../../../../shared/api/lorebook-folder-api";
 import { storageApi } from "../../../../shared/api/storage-api";
 import { ApiError } from "../../../../shared/api/api-errors";
 import { lorebookCommandApi } from "../../../../shared/api/lorebook-command-api";
@@ -89,19 +90,13 @@ async function reorderLorebookEntries(
 async function reorderLorebookFolders(
   lorebookId: string,
   folderIds: string[],
-  parentFolderId?: string | null,
+  parentFolderId: string | null,
 ): Promise<LorebookFolder[]> {
-  await Promise.all(
-    folderIds.map((folderId, index) => {
-      // When `parentFolderId` is provided, this doubles as a re-parent: every id
-      // in the list adopts that parent (a no-op for existing children) and is
-      // renumbered, so nesting/un-nesting + sibling order land in one pass.
-      const patch: Record<string, unknown> = { order: index, sortOrder: index };
-      if (parentFolderId !== undefined) patch.parentFolderId = parentFolderId;
-      return storageApi.update("lorebook-folders", folderId, updateLorebookFolderSchema.parse(patch));
-    }),
-  );
-  return storageApi.list<LorebookFolder>("lorebook-folders", { filters: { lorebookId } });
+  return lorebookFolderApi.reorder({
+    lorebookId,
+    folderIds,
+    parentFolderId,
+  });
 }
 
 async function bulkUnvectorizeLorebookEntries(
@@ -459,7 +454,7 @@ export function useReorderLorebookFolders() {
     }: {
       lorebookId: string;
       folderIds: string[];
-      parentFolderId?: string | null;
+      parentFolderId: string | null;
     }) => reorderLorebookFolders(lorebookId, folderIds, parentFolderId),
     onSuccess: (folders, variables) => {
       qc.setQueryData(lorebookKeys.folders(variables.lorebookId), folders);

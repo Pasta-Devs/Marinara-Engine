@@ -6,7 +6,7 @@ use crate::builtins::is_protected_record;
 use crate::state::AppState;
 use marinara_core::{ensure_object, new_id, now_iso, AppError};
 use serde_json::{json, Map, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use tauri::State;
 
 type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
@@ -1223,7 +1223,9 @@ pub(crate) fn validate_lorebook_folder_for_patch(
     // and/or its children across books (a root move leaves the children behind
     // pointing at a parent that left), so reject any change to a different book
     // outright rather than trying to validate ever-more-elaborate move shapes.
-    if changes_lorebook && lorebook_folder_lorebook_id(patch) != lorebook_folder_lorebook_id(&existing) {
+    if changes_lorebook
+        && lorebook_folder_lorebook_id(patch) != lorebook_folder_lorebook_id(&existing)
+    {
         return Err(AppError::invalid_input(
             "A folder cannot be moved to a different lorebook.",
         ));
@@ -1234,7 +1236,12 @@ pub(crate) fn validate_lorebook_folder_for_patch(
     let Some(parent_id) = parse_chat_folder_id(patch.get("parentFolderId"))? else {
         return Ok(()); // moving to the top level is always allowed
     };
-    validate_lorebook_folder_parent(state, lorebook_folder_lorebook_id(&existing), Some(id), &parent_id)
+    validate_lorebook_folder_parent(
+        state,
+        lorebook_folder_lorebook_id(&existing),
+        Some(id),
+        &parent_id,
+    )
 }
 
 fn lorebook_folder_lorebook_id(value: &Value) -> Option<String> {
@@ -1253,12 +1260,16 @@ fn validate_lorebook_folder_parent(
     parent_id: &str,
 ) -> Result<(), AppError> {
     if Some(parent_id) == folder_id {
-        return Err(AppError::invalid_input("A folder cannot be its own parent."));
+        return Err(AppError::invalid_input(
+            "A folder cannot be its own parent.",
+        ));
     }
     let parent = state
         .storage
         .get("lorebook-folders", parent_id)?
-        .ok_or_else(|| AppError::invalid_input(format!("lorebook-folders/{parent_id} was not found")))?;
+        .ok_or_else(|| {
+            AppError::invalid_input(format!("lorebook-folders/{parent_id} was not found"))
+        })?;
     if let Some(lorebook_id) = lorebook_id.as_deref() {
         if parent.get("lorebookId").and_then(Value::as_str) != Some(lorebook_id) {
             return Err(AppError::invalid_input(
@@ -1575,6 +1586,224 @@ fn validate_connection_folder_reorder(
         ));
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn lorebook_folder_reorder(
+    state: State<'_, AppState>,
+    lorebook_id: String,
+    ordered_ids: Vec<String>,
+    parent_folder_id: Option<String>,
+) -> Result<Value, AppError> {
+    lorebook_folder_reorder_inner(&state, &lorebook_id, ordered_ids, parent_folder_id)
+}
+
+pub(crate) fn lorebook_folder_reorder_inner(
+    state: &AppState,
+    lorebook_id: &str,
+    ordered_ids: Vec<String>,
+    parent_folder_id: Option<String>,
+) -> Result<Value, AppError> {
+    let lorebook_id = lorebook_id.trim().to_string();
+    if lorebook_id.is_empty() {
+        return Err(AppError::invalid_input("lorebookId is required"));
+    }
+    let parent_folder_id = normalize_lorebook_reorder_parent_id(parent_folder_id)?;
+    let ordered_ids = normalize_lorebook_reorder_ids(ordered_ids)?;
+
+    state
+        .storage
+        .update_collections_atomically(vec!["lorebook-folders"], move |collections| {
+            let [folders] = collections else {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Lorebook folder reorder expected the lorebook folder collection",
+                ));
+            };
+            if folders.collection() != "lorebook-folders" {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Lorebook folder reorder received an unexpected collection",
+                ));
+            }
+            lorebook_folder_reorder_in_rows(
+                folders.rows_mut(),
+                &lorebook_id,
+                ordered_ids,
+                parent_folder_id,
+            )
+        })
+}
+
+fn lorebook_folder_reorder_in_rows(
+    folder_rows: &mut Vec<Value>,
+    lorebook_id: &str,
+    ordered_ids: Vec<String>,
+    parent_folder_id: Option<String>,
+) -> Result<Value, AppError> {
+    let by_id = folder_rows
+        .iter()
+        .filter_map(|folder| {
+            folder
+                .get("id")
+                .and_then(Value::as_str)
+                .map(|id| (id.to_string(), folder))
+        })
+        .collect::<HashMap<_, _>>();
+    let ordered_id_set = ordered_ids.iter().cloned().collect::<HashSet<_>>();
+
+    if let Some(parent_id) = parent_folder_id.as_deref() {
+        validate_lorebook_folder_parent_in_rows(&by_id, Some(lorebook_id), None, parent_id)?;
+    }
+
+    for id in &ordered_ids {
+        if by_id
+            .get(id)
+            .and_then(|folder| lorebook_folder_lorebook_id(folder))
+            .as_deref()
+            != Some(lorebook_id)
+        {
+            return Err(AppError::invalid_input(format!(
+                "lorebook-folders/{id} does not belong to lorebook {lorebook_id}"
+            )));
+        }
+        if let Some(parent_id) = parent_folder_id.as_deref() {
+            validate_lorebook_folder_parent_in_rows(
+                &by_id,
+                Some(lorebook_id),
+                Some(id),
+                parent_id,
+            )?;
+        }
+    }
+
+    for sibling_id in folder_rows.iter().filter_map(|folder| {
+        let id = folder.get("id").and_then(Value::as_str)?;
+        if lorebook_folder_lorebook_id(folder).as_deref() == Some(lorebook_id)
+            && lorebook_folder_parent_id(folder) == parent_folder_id
+        {
+            Some(id.to_string())
+        } else {
+            None
+        }
+    }) {
+        if !ordered_id_set.contains(&sibling_id) {
+            return Err(AppError::invalid_input(
+                "Lorebook folder reorder must include every existing sibling in the target folder",
+            ));
+        }
+    }
+
+    let parent_patch = parent_folder_id.map(Value::String).unwrap_or(Value::Null);
+    let now = now_iso();
+    for (index, id) in ordered_ids.iter().enumerate() {
+        let row = folder_rows
+            .iter_mut()
+            .find(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+            .ok_or_else(|| AppError::not_found(format!("lorebook-folders/{id} was not found")))?;
+        let Some(object) = row.as_object_mut() else {
+            return Err(AppError::invalid_input("Stored record is not an object"));
+        };
+        object.insert("order".to_string(), json!(index));
+        object.insert("sortOrder".to_string(), json!(index));
+        object.insert("parentFolderId".to_string(), parent_patch.clone());
+        object.insert("updatedAt".to_string(), Value::String(now.clone()));
+    }
+
+    Ok(Value::Array(
+        folder_rows
+            .iter()
+            .filter(|folder| lorebook_folder_lorebook_id(folder).as_deref() == Some(lorebook_id))
+            .cloned()
+            .collect(),
+    ))
+}
+
+fn normalize_lorebook_reorder_parent_id(
+    parent_folder_id: Option<String>,
+) -> Result<Option<String>, AppError> {
+    let Some(parent_folder_id) = parent_folder_id else {
+        return Ok(None);
+    };
+    let parent_folder_id = parent_folder_id.trim();
+    if parent_folder_id.is_empty() {
+        return Err(AppError::invalid_input(
+            "parentFolderId must be a folder id or null",
+        ));
+    }
+    Ok(Some(parent_folder_id.to_string()))
+}
+
+fn normalize_lorebook_reorder_ids(ordered_ids: Vec<String>) -> Result<Vec<String>, AppError> {
+    if ordered_ids.is_empty() {
+        return Err(AppError::invalid_input(
+            "Lorebook folder reorder must include at least one folder",
+        ));
+    }
+    let mut seen = HashSet::with_capacity(ordered_ids.len());
+    let mut normalized = Vec::with_capacity(ordered_ids.len());
+    for raw_id in ordered_ids {
+        let id = raw_id.trim().to_string();
+        if id.is_empty() || !seen.insert(id.clone()) {
+            return Err(AppError::invalid_input(
+                "Lorebook folder reorder must include each folder id exactly once",
+            ));
+        }
+        normalized.push(id);
+    }
+    Ok(normalized)
+}
+
+fn validate_lorebook_folder_parent_in_rows(
+    by_id: &HashMap<String, &Value>,
+    lorebook_id: Option<&str>,
+    folder_id: Option<&str>,
+    parent_id: &str,
+) -> Result<(), AppError> {
+    if Some(parent_id) == folder_id {
+        return Err(AppError::invalid_input(
+            "A folder cannot be its own parent.",
+        ));
+    }
+    let parent = by_id.get(parent_id).ok_or_else(|| {
+        AppError::invalid_input(format!("lorebook-folders/{parent_id} was not found"))
+    })?;
+    if let Some(lorebook_id) = lorebook_id {
+        if parent.get("lorebookId").and_then(Value::as_str) != Some(lorebook_id) {
+            return Err(AppError::invalid_input(
+                "A folder can only nest under a folder in the same lorebook.",
+            ));
+        }
+    }
+
+    let Some(folder_id) = folder_id else {
+        return Ok(());
+    };
+    let mut seen = HashSet::new();
+    let mut cursor = Some(parent_id.to_string());
+    while let Some(current_id) = cursor {
+        if current_id == folder_id {
+            return Err(AppError::invalid_input(
+                "A folder cannot be nested inside one of its own subfolders.",
+            ));
+        }
+        if !seen.insert(current_id.clone()) {
+            break;
+        }
+        cursor = by_id
+            .get(&current_id)
+            .and_then(|node| lorebook_folder_parent_id(node));
+    }
+    Ok(())
+}
+
+fn lorebook_folder_parent_id(folder: &Value) -> Option<String> {
+    folder
+        .get("parentFolderId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 #[tauri::command]
@@ -3752,7 +3981,8 @@ mod tests {
             )
             .expect("unrelated folder should be created");
 
-        delete_entity(&state, "lorebook-folders", "parent", false).expect("folder delete should succeed");
+        delete_entity(&state, "lorebook-folders", "parent", false)
+            .expect("folder delete should succeed");
 
         assert!(state
             .storage
@@ -3867,6 +4097,86 @@ mod tests {
             .is_ok(),
             "moving a folder to the root should be allowed"
         );
+    }
+
+    #[test]
+    fn lorebook_folder_reorder_rejects_invalid_batch_without_partial_writes() {
+        let state = test_state("lorebook-folder-reorder-atomic-validation");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "other", "name": "Other" }))
+            .expect("other lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-a", "lorebookId": "book", "name": "A", "order": 0, "sortOrder": 0 }),
+            )
+            .expect("folder a should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "folder-b", "lorebookId": "book", "name": "B", "order": 1, "sortOrder": 1 }),
+            )
+            .expect("folder b should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "foreign", "lorebookId": "other", "name": "Foreign", "order": 0, "sortOrder": 0 }),
+            )
+            .expect("foreign folder should be created");
+
+        let error = lorebook_folder_reorder_inner(
+            &state,
+            "book",
+            vec![
+                "folder-b".to_string(),
+                "folder-a".to_string(),
+                "foreign".to_string(),
+            ],
+            None,
+        )
+        .expect_err("cross-lorebook batch member should reject the reorder");
+        assert_eq!(error.code, "invalid_input");
+
+        let folder_a = state
+            .storage
+            .get("lorebook-folders", "folder-a")
+            .expect("folder a should read")
+            .expect("folder a should exist");
+        let folder_b = state
+            .storage
+            .get("lorebook-folders", "folder-b")
+            .expect("folder b should read")
+            .expect("folder b should exist");
+        assert_eq!(folder_a["order"], 0);
+        assert_eq!(folder_b["order"], 1);
+
+        lorebook_folder_reorder_inner(
+            &state,
+            "book",
+            vec!["folder-b".to_string(), "folder-a".to_string()],
+            None,
+        )
+        .expect("valid same-lorebook batch should reorder folders");
+        let folder_a = state
+            .storage
+            .get("lorebook-folders", "folder-a")
+            .expect("folder a should read")
+            .expect("folder a should exist");
+        let folder_b = state
+            .storage
+            .get("lorebook-folders", "folder-b")
+            .expect("folder b should read")
+            .expect("folder b should exist");
+        assert_eq!(folder_b["order"], 0);
+        assert_eq!(folder_a["order"], 1);
     }
 
     #[test]

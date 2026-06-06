@@ -545,6 +545,7 @@ pub async fn dispatch(state: &AppState, request: InvokeRequest) -> AppResult<Val
         "storage_delete" => storage_delete(state, &args),
         "storage_duplicate" => storage_duplicate(state, &args),
         "connection_folder_reorder" => connection_folder_reorder(state, &args),
+        "lorebook_folder_reorder" => lorebook_folder_reorder(state, &args),
         "connection_move" => connection_move(state, &args),
         "chat_message_add_swipe" => chat_message_add_swipe(state, &args),
         "chat_message_update_content_if_unchanged" => {
@@ -991,6 +992,24 @@ fn connection_folder_reorder(state: &AppState, args: &Map<String, Value>) -> App
     entity_commands::connection_folder_reorder_inner(
         state,
         required_string_vec(args, "orderedIds")?,
+    )
+}
+
+fn lorebook_folder_reorder(state: &AppState, args: &Map<String, Value>) -> AppResult<Value> {
+    let parent_folder_id = match args.get("parentFolderId") {
+        Some(Value::Null) | None => None,
+        Some(Value::String(value)) => Some(value.clone()),
+        Some(_) => {
+            return Err(AppError::invalid_input(
+                "parentFolderId must be a folder id or null",
+            ));
+        }
+    };
+    entity_commands::lorebook_folder_reorder_inner(
+        state,
+        required_string(args, "lorebookId")?,
+        required_string_vec(args, "orderedIds")?,
+        parent_folder_id,
     )
 }
 
