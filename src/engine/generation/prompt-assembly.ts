@@ -2509,7 +2509,7 @@ function historyMessages(storedMessages: JsonRecord[], limit: number, includePas
   if (limit <= 0) return [];
   let conversationStartIndex = 0;
   for (let index = storedMessages.length - 1; index >= 0; index -= 1) {
-    if (parseRecord(storedMessages[index]!.extra).isConversationStart === true) {
+    if (boolish(parseRecord(storedMessages[index]!.extra).isConversationStart, false)) {
       conversationStartIndex = index;
       break;
     }
