@@ -386,7 +386,7 @@ async function* runMakerRequest(
   for await (const chunk of llm.stream(request, signal)) {
     if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     if (chunk.type === "token") {
-      const token = typeof chunk.text === "string" ? chunk.text : typeof chunk.data === "string" ? chunk.data : "";
+      const token = llmChunkText(chunk);
       if (token) {
         raw += token;
         yield { type: "token", data: token };

@@ -12,6 +12,10 @@ import {
 } from "./remote-runtime";
 import { useUIStore } from "../stores/ui.store";
 
+const llmRequest: LlmRequest = {
+  messages: [{ role: "user", content: "Hello" }],
+};
+
 describe("remote runtime retry metadata", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -125,7 +129,7 @@ describe("remote runtime cache policy", () => {
     const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const stream = streamRemoteLlm("stream-1", {} as Parameters<typeof streamRemoteLlm>[1], target);
+    const stream = streamRemoteLlm("stream-1", llmRequest, target);
     await stream.next();
     await cancelRemoteLlmStream("stream-1", target);
 
@@ -158,7 +162,7 @@ describe("remote LLM stream events", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const stream = streamRemoteLlm("stream-1", {} as Parameters<typeof streamRemoteLlm>[1], target);
+    const stream = streamRemoteLlm("stream-1", llmRequest, target);
 
     await expect(stream.next()).resolves.toMatchObject({
       done: false,
@@ -173,10 +177,6 @@ describe("remote LLM stream events", () => {
     await expect(stream.next()).resolves.toMatchObject({ done: true });
   });
 });
-
-const llmRequest: LlmRequest = {
-  messages: [{ role: "user", content: "Hello" }],
-};
 
 async function collectLlmChunks(stream: AsyncGenerator<LlmChunk>): Promise<LlmChunk[]> {
   const chunks: LlmChunk[] = [];
@@ -204,7 +204,7 @@ async function loadMockedLlmApi() {
       }
 
       send(event: T): void {
-        this.handler(event);
+        void Promise.resolve().then(() => this.handler(event));
       }
     },
   }));
@@ -243,7 +243,8 @@ describe("embedded LLM stream events", () => {
       return Promise.resolve(null);
     });
 
-    await expect(collectLlmChunks(llmApi.stream(llmRequest))).resolves.toEqual([
+    const stream = llmApi.stream(llmRequest);
+    await expect(collectLlmChunks(stream)).resolves.toEqual([
       {
         type: "error",
         text: "Provider failed",
@@ -255,6 +256,37 @@ describe("embedded LLM stream events", () => {
         },
       },
     ]);
+    await expect(stream.next()).resolves.toMatchObject({ done: true });
+  });
+
+  it("normalizes serialized native stream rejections into an error chunk", async () => {
+    const { llmApi, mocks } = await loadMockedLlmApi();
+    mocks.invokeTauri.mockImplementation((command: string) => {
+      if (command === "llm_stream_channel") {
+        return Promise.reject({
+          code: "llm_provider_error",
+          data: { safe: true },
+          message: "Serialized provider failed",
+          status: 502,
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const stream = llmApi.stream(llmRequest);
+    await expect(collectLlmChunks(stream)).resolves.toEqual([
+      {
+        type: "error",
+        text: "Serialized provider failed",
+        data: {
+          code: "llm_provider_error",
+          message: "Serialized provider failed",
+          safe: true,
+          status: 502,
+        },
+      },
+    ]);
+    await expect(stream.next()).resolves.toMatchObject({ done: true });
   });
 
   it("keeps cancellation as a thrown AbortError", async () => {

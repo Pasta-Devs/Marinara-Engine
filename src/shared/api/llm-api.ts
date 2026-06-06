@@ -32,6 +32,10 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function chunkText(event: LlmChunk): string | undefined {
   if (typeof event.text === "string") return event.text;
   if (typeof event.data === "string") return event.data;
@@ -47,20 +51,44 @@ function chunkText(event: LlmChunk): string | undefined {
 }
 
 function streamErrorChunk(error: unknown): LlmChunk {
-  const message = error instanceof Error ? error.message : String(error ?? "LLM stream failed");
-  const details =
-    error instanceof ApiError && isRecord(error.details)
-      ? error.details
-      : error instanceof ApiError && error.details !== undefined
+  let message = "LLM stream failed";
+  let status: number | undefined;
+  let details: Record<string, unknown> = {};
+
+  if (error instanceof ApiError) {
+    message = error.message || message;
+    status = error.status;
+    details = isRecord(error.details)
+      ? { ...error.details }
+      : error.details !== undefined
         ? { details: error.details }
         : {};
+  } else if (error instanceof Error) {
+    message = error.message || message;
+  } else if (isRecord(error)) {
+    message = readString(error.message) || readString(error.error) || message;
+    details = isRecord(error.data)
+      ? { ...error.data }
+      : isRecord(error.details)
+        ? { ...error.details }
+        : error.details !== undefined
+          ? { details: error.details }
+          : {};
+    const code = readString(error.code);
+    const nextStatus = readNumber(error.status) ?? readNumber(error.statusCode);
+    if (code && details.code === undefined) details.code = code;
+    if (nextStatus !== null) status = nextStatus;
+  } else {
+    message = String(error ?? message) || message;
+  }
+
   return {
     type: "error",
-    text: message || "LLM stream failed",
+    text: message,
     data: {
       ...details,
-      message: message || "LLM stream failed",
-      ...(error instanceof ApiError ? { status: error.status } : {}),
+      message,
+      ...(status !== undefined ? { status } : {}),
     },
   };
 }
