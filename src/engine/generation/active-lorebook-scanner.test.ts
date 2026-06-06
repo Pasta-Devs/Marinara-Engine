@@ -557,7 +557,7 @@ describe("scanActiveLorebooks", () => {
     expect(macros.variables.flag).toBe("selected");
   });
 
-  it("keeps lorebook exhaustion active for recursive frontiers after macro-stable replay", async () => {
+  it("does not keep lorebook budget exhaustion active for recursive frontiers after macro-stable replay", async () => {
     const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
     const storage = storageWithRows(
       {
@@ -608,14 +608,14 @@ describe("scanActiveLorebooks", () => {
       embeddingSource: null,
     });
 
-    expect(result.processedLore.includedEntries.map((entry) => entry.entry.id)).toEqual(["entry-b-recursive"]);
-    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual([
-      "entry-a-large",
+    expect(result.processedLore.includedEntries.map((entry) => entry.entry.id)).toEqual([
+      "entry-b-recursive",
       "entry-a-recursive",
     ]);
+    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-a-large"]);
   });
 
-  it("keeps chat budget exhaustion active for recursive frontiers after macro-stable replay", async () => {
+  it("does not keep chat budget exhaustion active for recursive frontiers after macro-stable replay", async () => {
     const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
     const storage = storageWithRows(
       {
@@ -666,11 +666,9 @@ describe("scanActiveLorebooks", () => {
 
     expect(result.processedLore.includedEntries.map((entry) => entry.entry.id)).toEqual([
       "entry-selected-recursive",
-    ]);
-    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual([
-      "entry-chat-large",
       "entry-recursive-after-chat-exhaustion",
     ]);
+    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-chat-large"]);
   });
 
   it("keeps earlier skipped diagnostics when later replay passes skip another survivor", async () => {
@@ -730,7 +728,7 @@ describe("scanActiveLorebooks", () => {
     expect(macros.variables.payload).toBe("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
   });
 
-  it("keeps lower-priority entries skipped after the chat lorebook budget is exhausted", async () => {
+  it("selects lower-priority entries after an oversized entry is skipped when they fit the chat lorebook budget", async () => {
     const calls = { batchedEntryReads: 0, singleEntryReads: 0 };
     const storage = storageWithRows(
       {
@@ -766,11 +764,11 @@ describe("scanActiveLorebooks", () => {
       characters: [],
       persona: null,
       storedMessages: [{ id: "message-1", role: "user", content: "alpha-key" }],
-      request: { lorebookTokenBudget: 1 },
+      request: { lorebookTokenBudget: 2 },
       embeddingSource: null,
     });
 
-    expect(result.processedLore.includedEntries).toEqual([]);
-    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-large", "entry-small"]);
+    expect(result.processedLore.includedEntries.map((entry) => entry.entry.id)).toEqual(["entry-small"]);
+    expect(result.budgetSkippedLorebookEntries.map((entry) => entry.id)).toEqual(["entry-large"]);
   });
 });
