@@ -1874,6 +1874,39 @@ mod tests {
     }
 
     #[test]
+    fn create_message_rejects_contentless_provided_swipes() {
+        let state = test_state("create-contentless-provided-swipes");
+        let error = create_message(
+            &state,
+            json!({
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "parent content",
+                "activeSwipeIndex": 0,
+                "swipes": [{}]
+            }),
+        )
+        .expect_err("provided swipes must have usable content");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(error.message, "Message swipe content is required");
+        assert!(
+            state
+                .storage
+                .list("messages")
+                .expect("messages should list")
+                .is_empty()
+        );
+        assert!(
+            state
+                .storage
+                .list(COLLECTION)
+                .expect("sidecars should list")
+                .is_empty()
+        );
+    }
+
+    #[test]
     fn create_message_clamps_active_index_before_parent_extra_inheritance() {
         let state = test_state("create-active-index-extra-inheritance");
         let created = create_message(

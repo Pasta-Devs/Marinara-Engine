@@ -12,6 +12,7 @@ export const chatModeSchema = z.preprocess(
 
 const messageRoleSchema = z.enum(["user", "assistant", "system", "narrator"]);
 const jsonObjectSchema = z.record(z.string(), z.unknown());
+const createMessageSwipeSchema = z.object({ content: z.string() }).passthrough();
 
 export const createChatSchema = z.object({
   name: z.string().min(1).max(200),
@@ -31,7 +32,7 @@ export const createMessageSchema = z
     content: z.string(),
     extra: jsonObjectSchema.optional(),
     activeSwipeIndex: z.number().int().nonnegative().optional(),
-    swipes: z.array(jsonObjectSchema).optional(),
+    swipes: z.array(createMessageSwipeSchema).optional(),
   })
   .superRefine((message, ctx) => {
     const effectiveSwipeCount = message.swipes && message.swipes.length > 0 ? message.swipes.length : 1;

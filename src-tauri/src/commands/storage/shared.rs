@@ -642,6 +642,25 @@ fn normalize_message_text_fields(object: &mut Map<String, Value>) {
     }
 }
 
+fn validate_message_create_swipes(object: &Map<String, Value>) -> AppResult<()> {
+    let Some(swipes) = object.get("swipes").and_then(Value::as_array) else {
+        return Ok(());
+    };
+    for swipe in swipes {
+        let Some(swipe) = swipe.as_object() else {
+            return Err(AppError::invalid_input(
+                "Message swipes must be JSON objects with content",
+            ));
+        };
+        if !matches!(swipe.get("content"), Some(Value::String(_))) {
+            return Err(AppError::invalid_input(
+                "Message swipe content is required",
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn normalize_character_data_for_storage(data: &Value) -> AppResult<Value> {
     match data {
         Value::Object(_) => Ok(data.clone()),
@@ -976,10 +995,31 @@ fn insert_character_data_default(object: &mut Map<String, Value>) -> AppResult<(
     Ok(())
 }
 
-fn insert_message_extra_default(object: &mut Map<String, Value>) {
-    let mut extra = json_object_value(object.get("extra"))
-        .and_then(|value| value.as_object().cloned())
-        .unwrap_or_default();
+fn message_extra_object_for_create(value: Option<&Value>) -> AppResult<Map<String, Value>> {
+    let Some(value) = value else {
+        return Ok(Map::new());
+    };
+    if value.is_null() {
+        return Ok(Map::new());
+    }
+    if let Some(object) = value.as_object() {
+        return Ok(object.clone());
+    }
+    if let Some(raw) = value.as_str() {
+        let parsed: Value = serde_json::from_str(raw).map_err(|_| {
+            AppError::invalid_input("extra must be a JSON object or null")
+        })?;
+        if let Some(object) = parsed.as_object() {
+            return Ok(object.clone());
+        }
+    }
+    Err(AppError::invalid_input(
+        "extra must be a JSON object or null",
+    ))
+}
+
+fn insert_message_extra_default(object: &mut Map<String, Value>) -> AppResult<()> {
+    let mut extra = message_extra_object_for_create(object.get("extra"))?;
     let is_generated = object.get("role").and_then(Value::as_str) != Some("user");
     extra
         .entry("displayText".to_string())
@@ -992,6 +1032,7 @@ fn insert_message_extra_default(object: &mut Map<String, Value>) {
         .entry("generationInfo".to_string())
         .or_insert(Value::Null);
     object.insert("extra".to_string(), Value::Object(extra));
+    Ok(())
 }
 
 fn apply_create_default_field(
@@ -1017,7 +1058,7 @@ fn apply_create_default_field(
         ("connection-folders", "sortOrder") | ("connection-folders", "order") => {
             insert_default(object, field, json!(0));
         }
-        ("messages", "extra") => insert_message_extra_default(object),
+        ("messages", "extra") => insert_message_extra_default(object)?,
         ("characters", "data") => insert_character_data_default(object)?,
         ("characters", "comment") => insert_default(object, field, Value::String(String::new())),
         ("characters", "avatarPath") => insert_default(object, field, Value::Null),
@@ -1098,8 +1139,8 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
 pub(crate) fn with_message_create_defaults(body: Value) -> AppResult<Value> {
     let mut object = ensure_object(body)?;
     normalize_json_array_fields(&mut object, &["swipes", "images", "attachments"])?;
-    normalize_nullable_json_object_fields(&mut object, &["extra"])?;
-    insert_message_extra_default(&mut object);
+    validate_message_create_swipes(&object)?;
+    insert_message_extra_default(&mut object)?;
     normalize_message_text_fields(&mut object);
     Ok(Value::Object(object))
 }
@@ -1916,6 +1957,66 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn message_entity_defaults_reject_present_malformed_extra() {
+        for extra in [json!([]), json!(""), json!("   "), json!("not-json"), json!(true)] {
+            let error = with_entity_defaults(
+                "messages",
+                json!({
+                    "role": "assistant",
+                    "content": "Hello",
+                    "extra": extra
+                }),
+            )
+            .expect_err("present malformed extra should reject before defaults");
+
+            assert_eq!(error.code, "invalid_input");
+            assert_eq!(error.message, "extra must be a JSON object or null");
+        }
+    }
+
+    #[test]
+    fn message_entity_defaults_merge_default_extra_for_absent_null_and_partial() {
+        let absent = with_entity_defaults(
+            "messages",
+            json!({
+                "role": "assistant",
+                "content": "Hello"
+            }),
+        )
+        .expect("absent extra should receive defaults");
+        assert_eq!(absent["extra"]["displayText"], Value::Null);
+        assert_eq!(absent["extra"]["isGenerated"], json!(true));
+        assert_eq!(absent["extra"]["tokenCount"], Value::Null);
+        assert_eq!(absent["extra"]["generationInfo"], Value::Null);
+
+        let null = with_entity_defaults(
+            "messages",
+            json!({
+                "role": "user",
+                "content": "Hello",
+                "extra": null
+            }),
+        )
+        .expect("null extra should receive defaults");
+        assert_eq!(null["extra"]["isGenerated"], json!(false));
+
+        let partial = with_entity_defaults(
+            "messages",
+            json!({
+                "role": "assistant",
+                "content": "Hello",
+                "extra": "{\"thinking\":\"kept\"}"
+            }),
+        )
+        .expect("JSON object string extra should normalize and receive defaults");
+        assert_eq!(partial["extra"]["thinking"], json!("kept"));
+        assert_eq!(partial["extra"]["displayText"], Value::Null);
+        assert_eq!(partial["extra"]["isGenerated"], json!(true));
+        assert_eq!(partial["extra"]["tokenCount"], Value::Null);
+        assert_eq!(partial["extra"]["generationInfo"], Value::Null);
     }
 
     #[test]

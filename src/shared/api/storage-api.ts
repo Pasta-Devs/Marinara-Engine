@@ -173,7 +173,6 @@ function normalizeStorageReadResult(entity: StorageEntity, value: unknown): unkn
 function messageExtraRecord(value: unknown): Record<string, unknown> {
   if (value === undefined || value === null) return {};
   if (typeof value === "string") {
-    if (!value.trim()) return {};
     try {
       const parsed = JSON.parse(value);
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
