@@ -968,6 +968,9 @@ fn profile_collections_import_plan(
         if collection == "connections" {
             rows = normalize_profile_connection_rows(state, rows, mode)?;
         }
+        if collection == "extensions" {
+            disable_imported_extension_rows(&mut rows);
+        }
         imported.insert(collection.to_string(), json!(rows.len()));
         if mode == ProfileImportMode::Commit {
             progress.advance_counted(
@@ -1096,6 +1099,20 @@ fn normalize_profile_json_fields(collection: &str, rows: &mut [Value]) -> AppRes
         }
     }
     Ok(())
+}
+
+/// Imported extensions must never auto-run their JavaScript. `CustomThemeInjector`
+/// gates CSS/JS execution on the row's `enabled` flag, so an exported extension
+/// carrying `enabled: true` would execute arbitrary JS on the next render with no
+/// user opt-in. Force every imported extension row disabled so the JS/CSS only
+/// runs after the user explicitly re-enables it in settings. Mirrors the
+/// connection-secret redaction special-case in this same import loop (#2366).
+pub(super) fn disable_imported_extension_rows(rows: &mut [Value]) {
+    for row in rows {
+        if let Some(object) = row.as_object_mut() {
+            object.insert("enabled".to_string(), Value::Bool(false));
+        }
+    }
 }
 
 pub(super) fn normalize_profile_prompt_overrides(rows: &mut Vec<Value>) -> usize {

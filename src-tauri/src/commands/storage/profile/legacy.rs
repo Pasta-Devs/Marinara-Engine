@@ -509,6 +509,7 @@ fn legacy_profile_import_plan(
             "gallery" | "character-gallery" => {
                 normalize_legacy_gallery_rows(state, staging_root, &mut rows)
             }
+            "extensions" => super::disable_imported_extension_rows(&mut rows),
             _ => {}
         }
         normalize_legacy_profile_json_fields(collection, &mut rows)?;
