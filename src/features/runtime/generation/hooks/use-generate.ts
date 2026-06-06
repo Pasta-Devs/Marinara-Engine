@@ -1175,8 +1175,8 @@ export async function runGenerationWithUi(
   const controller = new AbortController();
   chatStore.setAbortController(chatId, controller);
   chatStore.setStreaming(true, chatId);
-  chatStore.setRegenerateMessageId(regenerateMessageId);
-  chatStore.setStreamingCharacterId(requestedCharacterId);
+  chatStore.setRegenerateMessageId(regenerateMessageId, chatId);
+  chatStore.setStreamingCharacterId(requestedCharacterId, chatId);
   chatStore.setGenerationPhase("Starting generation...");
   chatStore.setStreamBuffer("", chatId);
   chatStore.setThinkingBuffer("", chatId);
@@ -1432,11 +1432,14 @@ export async function runGenerationWithUi(
     state.setAbortController(chatId, null);
     state.setMariPhase(chatId, "idle");
     clearChatAvailabilityState();
+    // Clear this chat's own regenerate/streaming-character ids regardless of
+    // whether it's the foreground chat, so a background chat's generation
+    // doesn't leave stale per-chat ids that leak when it's next opened.
+    state.setRegenerateMessageId(null, chatId);
+    state.setStreamingCharacterId(null, chatId);
     if (state.streamingChatId === chatId) {
       state.setStreaming(false, chatId);
-      state.setRegenerateMessageId(null);
       state.setGenerationPhase(null);
-      state.setStreamingCharacterId(null);
     }
     if (useChatStore.getState().abortControllers.size === 0) {
       useAgentStore.getState().setProcessing(false);
@@ -1535,9 +1538,7 @@ export async function runGenerationWithUi(
           const characterName = readString(data.characterName).trim();
           groupTurnIndex = typeof data.index === "number" && Number.isFinite(data.index) ? data.index : 0;
           groupTurnTotal = typeof data.total === "number" && Number.isFinite(data.total) ? Math.max(1, data.total) : 1;
-          if (useChatStore.getState().activeChatId === chatId) {
-            useChatStore.getState().setStreamingCharacterId(characterId || null);
-          }
+          useChatStore.getState().setStreamingCharacterId(characterId || null, chatId);
           if (characterName) {
             const state = useChatStore.getState();
             state.setPerChatTyping(chatId, characterName);

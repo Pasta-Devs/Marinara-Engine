@@ -77,8 +77,12 @@ interface ChatState {
   abortControllers: Map<string, AbortController>;
   /** When regenerating, the ID of the message being regenerated (so streaming shows in-place). */
   regenerateMessageId: string | null;
+  /** Per-chat regenerate target so switching chats mid-stream doesn't leak one chat's regenerate id into another. */
+  regenerateMessageIdByChatId: Map<string, string>;
   /** During group chat individual mode, the character currently streaming. */
   streamingCharacterId: string | null;
+  /** Per-chat streaming character so switching chats mid-stream doesn't leak one chat's streaming character into another. */
+  streamingCharacterIdByChatId: Map<string, string>;
   /** Character name(s) shown in typing indicator when generation is active. */
   typingCharacterName: string | null;
   /** Human-readable label for the current server-side generation phase (e.g. "Running agents..."). */
@@ -138,8 +142,8 @@ interface ChatState {
   appendThinkingBuffer: (text: string, chatId?: string) => void;
   setThinkingBuffer: (text: string, chatId?: string) => void;
   clearThinkingBuffer: (chatId?: string) => void;
-  setRegenerateMessageId: (id: string | null) => void;
-  setStreamingCharacterId: (id: string | null) => void;
+  setRegenerateMessageId: (id: string | null, chatId?: string) => void;
+  setStreamingCharacterId: (id: string | null, chatId?: string) => void;
   setTypingCharacterName: (name: string | null) => void;
   setGenerationPhase: (phase: string | null) => void;
   setDelayedCharacterInfo: (info: { name: string; status: string } | null) => void;
@@ -193,7 +197,9 @@ export const useChatStore = create<ChatState>()(
     thinkingBuffers: new Map(),
     abortControllers: new Map(),
     regenerateMessageId: null,
+    regenerateMessageIdByChatId: new Map(),
     streamingCharacterId: null,
+    streamingCharacterIdByChatId: new Map(),
     typingCharacterName: null,
     generationPhase: null,
     delayedCharacterInfo: null,
@@ -239,7 +245,15 @@ export const useChatStore = create<ChatState>()(
         // Clearing it would cause a black flash and wipe the background for new chats.
         // Restore per-chat typing/delayed indicators for the newly active chat
         if (id) {
-          const { perChatTyping, perChatDelayed, abortControllers, streamBuffers, thinkingBuffers } = get();
+          const {
+            perChatTyping,
+            perChatDelayed,
+            abortControllers,
+            streamBuffers,
+            thinkingBuffers,
+            regenerateMessageIdByChatId,
+            streamingCharacterIdByChatId,
+          } = get();
           const typing = perChatTyping.get(id) ?? null;
           const delayed = perChatDelayed.get(id) ?? null;
           // If this chat has an active generation, restore streaming state so the
@@ -252,6 +266,8 @@ export const useChatStore = create<ChatState>()(
             streamingChatId: hasActiveGeneration ? id : null,
             streamBuffer: hasActiveGeneration ? (streamBuffers.get(id) ?? "") : "",
             thinkingBuffer: hasActiveGeneration ? (thinkingBuffers.get(id) ?? "") : "",
+            regenerateMessageId: regenerateMessageIdByChatId.get(id) ?? null,
+            streamingCharacterId: streamingCharacterIdByChatId.get(id) ?? null,
           });
         } else {
           set({
@@ -261,6 +277,8 @@ export const useChatStore = create<ChatState>()(
             streamingChatId: null,
             streamBuffer: "",
             thinkingBuffer: "",
+            regenerateMessageId: null,
+            streamingCharacterId: null,
           });
         }
       }
@@ -400,9 +418,31 @@ export const useChatStore = create<ChatState>()(
         };
       }),
 
-    setRegenerateMessageId: (id) => set({ regenerateMessageId: id }),
+    setRegenerateMessageId: (id, chatId) =>
+      set((state) => {
+        const targetChatId = chatId ?? state.streamingChatId ?? state.activeChatId ?? "";
+        if (!targetChatId) return { regenerateMessageId: id };
+        const m = new Map(state.regenerateMessageIdByChatId);
+        if (id) m.set(targetChatId, id);
+        else m.delete(targetChatId);
+        return {
+          regenerateMessageIdByChatId: m,
+          ...(state.activeChatId === targetChatId ? { regenerateMessageId: id } : {}),
+        };
+      }),
 
-    setStreamingCharacterId: (id) => set({ streamingCharacterId: id }),
+    setStreamingCharacterId: (id, chatId) =>
+      set((state) => {
+        const targetChatId = chatId ?? state.streamingChatId ?? state.activeChatId ?? "";
+        if (!targetChatId) return { streamingCharacterId: id };
+        const m = new Map(state.streamingCharacterIdByChatId);
+        if (id) m.set(targetChatId, id);
+        else m.delete(targetChatId);
+        return {
+          streamingCharacterIdByChatId: m,
+          ...(state.activeChatId === targetChatId ? { streamingCharacterId: id } : {}),
+        };
+      }),
 
     setTypingCharacterName: (name) => set({ typingCharacterName: name, delayedCharacterInfo: null }),
 
@@ -641,7 +681,9 @@ export const useChatStore = create<ChatState>()(
         thinkingBuffers: new Map(),
         abortControllers: new Map(),
         regenerateMessageId: null,
+        regenerateMessageIdByChatId: new Map(),
         streamingCharacterId: null,
+        streamingCharacterIdByChatId: new Map(),
         typingCharacterName: null,
         generationPhase: null,
         delayedCharacterInfo: null,
