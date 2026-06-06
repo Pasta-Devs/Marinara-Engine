@@ -3413,9 +3413,9 @@ async function* streamMainGenerationLoop(args: {
       }
     };
 
-    const requestMessages = fitMessagesToContextWindow(conversation, parameters);
+    const requestMessages = fitMessagesToContextWindow(conversation, parameters, connection);
     const requestPreviewMessages = previewMessages?.length
-      ? fitMessagesToContextWindow(previewMessages, parameters)
+      ? fitMessagesToContextWindow(previewMessages, parameters, connection)
       : null;
     const requestParameters = runtimeLlmParameters(connection, input, chat, parameters);
     const requestTools = mainTools?.toolDefs;

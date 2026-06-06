@@ -39,6 +39,7 @@ import {
   mergeStoredGenerationParameters,
   type StoredGenerationParameters,
 } from "./generate-route-utils";
+import { effectiveMaxContext } from "./context-window";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
   bySortOrder,
@@ -3089,6 +3090,7 @@ export async function assembleGenerationPrompt(
   const promptParameters = mergeStoredGenerationParameters(
     ...generationParameterSources(input.connection, input.request, input.chat, selectedPreset?.parameters),
   );
+  const maxContext = effectiveMaxContext(input.connection, promptParameters);
   const wrapFormat =
     selectedPreset?.wrapFormat ??
     normalizeWrapFormat(input.chat.wrapFormat) ??
@@ -3132,7 +3134,7 @@ export async function assembleGenerationPrompt(
     input.chat,
     input.storedMessages,
     input.latestUserInput,
-    readNumber(input.connection.maxContext, 0) || undefined,
+    maxContext || undefined,
     embeddingSource,
   );
   const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
