@@ -43,6 +43,9 @@ interface Props {
   isDragging: boolean;
   /** Highlighted as the folder a dragged folder will nest under. */
   isNestTarget?: boolean;
+  /** True when an ancestor folder is disabled, so this folder's entries are
+   *  gated out at activation even when this folder's own toggle is on. */
+  inheritedDisabled?: boolean;
   onDragHandleMouseDown: () => void;
   onDragStart: (e: ReactDragEvent<HTMLDivElement>) => void;
   onDragOver: (e: ReactDragEvent<HTMLDivElement>) => void;
@@ -60,6 +63,7 @@ export function LorebookFolderRow({
   draggable,
   isDragging,
   isNestTarget,
+  inheritedDisabled = false,
   onDragHandleMouseDown,
   onDragStart,
   onDragOver,
@@ -175,6 +179,10 @@ export function LorebookFolderRow({
       .map((candidate) => ({ value: candidate.id, label: candidate.name.trim() || "Untitled folder" })),
   ];
 
+  // A disabled ancestor gates this folder's entries regardless of its own
+  // toggle, so reflect that in the icon/toggle styling and copy below.
+  const effectivelyDisabled = inheritedDisabled || !localEnabled;
+
   return (
     <div
       className={cn(
@@ -230,15 +238,20 @@ export function LorebookFolderRow({
           type="button"
           aria-label={localEnabled ? "Disable folder" : "Enable folder"}
           title={
-            localEnabled
-              ? "Folder enabled — entries inside activate normally"
-              : "Folder disabled — entries inside will not activate, regardless of their own toggle"
+            inheritedDisabled
+              ? "A parent folder is disabled, so entries here won't activate even though this folder is on."
+              : localEnabled
+                ? "Folder enabled — entries inside activate normally"
+                : "Folder disabled — entries inside will not activate, regardless of their own toggle"
           }
           onClick={handleEnableToggle}
           className="shrink-0"
         >
           {localEnabled ? (
-            <ToggleRight size="1.125rem" className="text-amber-400" />
+            <ToggleRight
+              size="1.125rem"
+              className={inheritedDisabled ? "text-[var(--muted-foreground)]" : "text-amber-400"}
+            />
           ) : (
             <ToggleLeft size="1.125rem" className="text-[var(--muted-foreground)]" />
           )}
@@ -247,7 +260,7 @@ export function LorebookFolderRow({
         {/* Folder icon + name */}
         <Folder
           size="0.875rem"
-          className={cn("shrink-0", localEnabled ? "text-amber-400" : "text-[var(--muted-foreground)]")}
+          className={cn("shrink-0", effectivelyDisabled ? "text-[var(--muted-foreground)]" : "text-amber-400")}
         />
         <input
           value={localName}
@@ -276,6 +289,16 @@ export function LorebookFolderRow({
               options={parentOptions}
               className="w-[5.5rem] sm:w-[7rem]"
             />
+          </span>
+        )}
+
+        {/* Inherited-disabled cue — entries here are gated by a disabled ancestor */}
+        {inheritedDisabled && (
+          <span
+            className="shrink-0 rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] font-medium text-amber-500/80"
+            title="A parent folder is disabled, so entries in this folder won't activate."
+          >
+            parent off
           </span>
         )}
 

@@ -54,6 +54,38 @@ export function canReparentFolder(
   return { ok: true };
 }
 
+/**
+ * Folder ids whose entries are hidden in the tree because the folder is
+ * collapsed OR sits inside a collapsed ancestor. Collapsing a folder hides its
+ * whole subtree, so a descendant of a collapsed folder counts as hidden even if
+ * it is itself expanded. Used so "select all visible" never picks up entries the
+ * user cannot actually see.
+ */
+export function collectHiddenFolderIds(
+  folders: Pick<LorebookFolder, "id" | "parentFolderId">[],
+  collapsedFolderIds: ReadonlySet<string>,
+): Set<string> {
+  if (collapsedFolderIds.size === 0) return new Set();
+  const childrenByParent = new Map<string, string[]>();
+  for (const folder of folders) {
+    const parentId = folder.parentFolderId;
+    if (!parentId) continue;
+    const siblings = childrenByParent.get(parentId);
+    if (siblings) siblings.push(folder.id);
+    else childrenByParent.set(parentId, [folder.id]);
+  }
+  const hidden = new Set<string>();
+  const stack = Array.from(collapsedFolderIds);
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (hidden.has(id)) continue; // also guards against malformed parent cycles
+    hidden.add(id);
+    const children = childrenByParent.get(id);
+    if (children) stack.push(...children);
+  }
+  return hidden;
+}
+
 /** The folder fields the forest builder needs. Callers pass full `LorebookFolder`s. */
 type ForestNode = { id: string; parentFolderId: string | null; order: number };
 

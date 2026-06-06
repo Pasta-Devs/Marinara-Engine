@@ -458,6 +458,7 @@ export function LorebookEditor() {
     lorebooks,
     entries,
     filteredEntries,
+    folders,
     showFolderGrouping,
     collapsedFolderIds,
     onTransferEntries: transferEntries.mutateAsync,

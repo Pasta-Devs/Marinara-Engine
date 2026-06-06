@@ -162,7 +162,7 @@ export function LorebookEntriesTab({
   // a guard against a malformed parent cycle looping the tree (cycles can't be
   // created through the UI; canReparentFolder blocks them).
   const renderedFolderIds = new Set<string>();
-  const renderFolder = (folder: LorebookFolder): ReactNode => {
+  const renderFolder = (folder: LorebookFolder, ancestorDisabled = false): ReactNode => {
     // `lorebookId` is non-null wherever this renders (the tree only mounts
     // inside the `lorebookId &&` guard below); the check also narrows the type
     // for the row props. The cycle guard keeps each folder to a single draw.
@@ -182,6 +182,7 @@ export function LorebookEntriesTab({
           entryCount={folderEntries.length}
           isCollapsed={isCollapsed}
           isNestTarget={dropZone === "inside"}
+          inheritedDisabled={ancestorDisabled}
           onToggleCollapse={() => onToggleFolderCollapsed(folder.id)}
           draggable={canReorderFolders}
           isDragging={draggingFolderId === folder.id}
@@ -287,7 +288,7 @@ export function LorebookEntriesTab({
                 </div>
               );
             })}
-            {childFolders.map((child) => renderFolder(child))}
+            {childFolders.map((child) => renderFolder(child, ancestorDisabled || folder.enabled === false))}
           </div>
         )}
         {dropZone === "after" && <div className="mx-2 mt-1 h-0.5 rounded-full bg-amber-400" />}

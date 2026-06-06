@@ -1673,6 +1673,21 @@ fn delete_lorebook_folder_with_entry_reparent_sync(
             }
 
             let now = now_iso();
+            // Reparent direct child folders to root so they don't keep a stale
+            // parentFolderId pointing at the now-deleted folder. Later reorder/
+            // reparent logic reads that id and would otherwise reject or misplace
+            // moves; buildFolderForest already renders them at root, so this just
+            // makes storage match what the UI shows.
+            for folder in folder_rows.iter_mut() {
+                if folder.get("parentFolderId").and_then(Value::as_str) != Some(folder_id) {
+                    continue;
+                }
+                let Some(object) = folder.as_object_mut() else {
+                    return Err(AppError::invalid_input("Stored record is not an object"));
+                };
+                object.insert("parentFolderId".to_string(), Value::Null);
+                object.insert("updatedAt".to_string(), Value::String(now.clone()));
+            }
             let mut changed_entries = Vec::new();
             for entry in entry_rows.iter_mut() {
                 if entry.get("folderId").and_then(Value::as_str) != Some(folder_id) {
@@ -3583,6 +3598,56 @@ mod tests {
             .expect("negative-control entry should read")
             .expect("negative-control entry should remain");
         assert_eq!(other_folder["folderId"], "folder-keep");
+    }
+
+    #[test]
+    fn deleting_lorebook_folder_reparents_child_folders_to_root() {
+        let state = test_state("lorebook-folder-delete-reparent-children");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
+            .expect("lorebook should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "parent", "lorebookId": "book", "name": "Parent" }),
+            )
+            .expect("parent folder should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "child", "lorebookId": "book", "name": "Child", "parentFolderId": "parent" }),
+            )
+            .expect("child folder should be created");
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "unrelated", "lorebookId": "book", "name": "Unrelated", "parentFolderId": "other" }),
+            )
+            .expect("unrelated folder should be created");
+
+        delete_entity(&state, "lorebook-folders", "parent", false).expect("folder delete should succeed");
+
+        assert!(state
+            .storage
+            .get("lorebook-folders", "parent")
+            .expect("parent should read")
+            .is_none());
+        let child = state
+            .storage
+            .get("lorebook-folders", "child")
+            .expect("child should read")
+            .expect("child should remain");
+        assert!(child.get("parentFolderId").is_none_or(Value::is_null));
+        let unrelated = state
+            .storage
+            .get("lorebook-folders", "unrelated")
+            .expect("unrelated should read")
+            .expect("unrelated should remain");
+        assert_eq!(unrelated["parentFolderId"], "other");
     }
 
     #[test]

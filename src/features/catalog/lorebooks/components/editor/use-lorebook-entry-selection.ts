@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import type { Lorebook, LorebookEntry } from "../../../../../engine/contracts/types/lorebook";
+import type { Lorebook, LorebookEntry, LorebookFolder } from "../../../../../engine/contracts/types/lorebook";
 import { showConfirmDialog } from "../../../../../shared/lib/app-dialogs";
+import { collectHiddenFolderIds } from "../../lib/lorebook-folder-tree";
 
 type TransferOperation = "copy" | "move";
 
@@ -19,6 +20,7 @@ export function useLorebookEntrySelection({
   lorebooks,
   entries,
   filteredEntries,
+  folders,
   showFolderGrouping,
   collapsedFolderIds,
   onTransferEntries,
@@ -28,6 +30,7 @@ export function useLorebookEntrySelection({
   lorebooks: Lorebook[];
   entries: LorebookEntry[];
   filteredEntries: LorebookEntry[];
+  folders: LorebookFolder[];
   showFolderGrouping: boolean;
   collapsedFolderIds: Set<string>;
   onTransferEntries: TransferEntries;
@@ -41,13 +44,20 @@ export function useLorebookEntrySelection({
     () => lorebooks.filter((book) => book.id !== lorebookId).sort((a, b) => a.name.localeCompare(b.name)),
     [lorebooks, lorebookId],
   );
+  // Collapsing a folder hides its whole subtree, so an entry is "visible" only
+  // when neither its folder nor any ancestor is collapsed — not just its direct
+  // folder. Otherwise "select all visible" would grab entries the user can't see.
+  const hiddenFolderIds = useMemo(
+    () => collectHiddenFolderIds(folders, collapsedFolderIds),
+    [folders, collapsedFolderIds],
+  );
   const visibleEntryIds = useMemo(
     () =>
       (showFolderGrouping
-        ? entries.filter((entry) => !entry.folderId || !collapsedFolderIds.has(entry.folderId))
+        ? entries.filter((entry) => !entry.folderId || !hiddenFolderIds.has(entry.folderId))
         : filteredEntries
       ).map((entry) => entry.id),
-    [collapsedFolderIds, entries, filteredEntries, showFolderGrouping],
+    [hiddenFolderIds, entries, filteredEntries, showFolderGrouping],
   );
 
   useEffect(() => {
