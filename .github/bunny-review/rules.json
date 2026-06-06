@@ -1,0 +1,100 @@
+{
+  "review_focus": [
+    "correctness",
+    "user-visible regressions",
+    "security and privacy",
+    "architecture boundaries",
+    "mode ownership",
+    "failure paths",
+    "missing regression tests",
+    "CI and deployment failures"
+  ],
+  "severity_policy": {
+    "blocking": "The PR should not merge because the changed behavior is broken, unsafe, or violates a hard architecture boundary.",
+    "high": "A likely production or data-loss regression, security/privacy issue, or serious cross-mode/remote-runtime contract risk.",
+    "medium": "A concrete bug, edge case, maintainability trap, or missing test tied directly to changed behavior.",
+    "low": "A small but actionable correctness, proof, or maintainability risk tied to changed behavior.",
+    "nitpick": "Optional changed-line polish with no behavior risk, such as readability, naming, tiny duplication, stale comments, dead code, type clarity, or local consistency."
+  },
+  "nitpick_policy": {
+    "max_count": 2,
+    "line_scope": "changed-line only",
+    "risk": "No behavior-risk requirement; use for optional polish only."
+  },
+  "control_warn_types": {
+    "Proof Gap": "Important changed behavior lacks focused proof.",
+    "Review Limitation": "Bunny lacked full packet/context to prove a suspected issue.",
+    "CI Timing": "Expected checks were missing, pending, or not yet observable when posted.",
+    "Non-blocking Coverage": "Useful coverage or context note that should not block merge by itself."
+  },
+  "path_instructions": [
+    {
+      "name": "Engine and runtime boundaries",
+      "prefixes": [
+        "src/engine/",
+        "src/features/",
+        "src/shared/api/",
+        "src-tauri/"
+      ],
+      "guidance": [
+        "skills/marinara-architecture-guard/SKILL.md"
+      ],
+      "checks": [
+        "Engine code stays React-free and does not import feature internals, Tauri APIs, Zustand stores, or concrete shared API adapters.",
+        "Feature code uses focused shared API wrappers instead of raw invokeTauri or raw remote-runtime fetch.",
+        "Remote-capable behavior follows the explicit HTTP pipeline."
+      ]
+    },
+    {
+      "name": "Mode separation",
+      "prefixes": [
+        "src/engine/chat/",
+        "src/engine/roleplay/",
+        "src/engine/game/",
+        "src/features/modes/"
+      ],
+      "guidance": [
+        "skills/marinara-mode-separation/SKILL.md"
+      ],
+      "checks": [
+        "Chat, roleplay, and game behavior remain in their owning mode.",
+        "Shared generation or prompt changes do not silently alter unrelated modes."
+      ]
+    },
+    {
+      "name": "Bug fixes and privileged contracts",
+      "prefixes": [
+        "src-tauri/src/commands/",
+        "src-tauri/src/storage/",
+        "src-tauri/src/providers/",
+        "src/shared/api/"
+      ],
+      "guidance": [
+        "skills/marinara-bugfix-discipline/SKILL.md"
+      ],
+      "checks": [
+        "Fixes address root causes instead of adding fake success, silent catches, broad fallbacks, or UI-only guards.",
+        "Provider, storage, command, and transport changes preserve error contracts and hostable behavior.",
+        "Parent records must not collect IDs, metadata, counts, or relationships from child rows that later skip import or fail to persist.",
+        "Pre-scan logic should use the same eligibility criteria as the write loop, especially for imports, migrations, and rollback-sensitive storage paths."
+      ]
+    },
+    {
+      "name": "Docs and agent guidance",
+      "prefixes": [
+        "README",
+        "docs/",
+        "skills/",
+        "AGENTS.md",
+        ".github/"
+      ],
+      "guidance": [
+        "skills/marinara-getting-started/SKILL.md"
+      ],
+      "checks": [
+        "Durable feature-area additions update relevant maps or guidance.",
+        "Workflow and agent changes remain concrete, testable, and narrow."
+      ]
+    }
+  ]
+}
