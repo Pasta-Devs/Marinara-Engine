@@ -100,6 +100,9 @@ pub async fn complete_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
                     tool_calls: Vec::new(),
                 })
         }
+        "cohere" if should_use_cohere_compatibility(&request) => {
+            complete_openai_compatible_rich(request).await
+        }
         "cohere" => complete_cohere_rich(request).await,
         _ => complete_openai_compatible_rich(request).await,
     }
@@ -118,6 +121,8 @@ pub async fn stream_events(
         stream_google(request, &mut emit).await?;
     } else if request.connection.provider == "anthropic" {
         stream_anthropic(request, &mut emit).await?;
+    } else if request.connection.provider == "cohere" && should_use_cohere_compatibility(&request) {
+        stream_openai_compatible(request, &mut emit).await?;
     } else if request.connection.provider == "cohere" {
         stream_cohere(request, &mut emit).await?;
     } else if request.connection.provider != "claude_subscription" {
@@ -231,7 +236,7 @@ fn base_url(provider: &str, configured: &str) -> String {
                 .to_string()
         }
         "mistral" => "https://api.mistral.ai/v1".to_string(),
-        "cohere" => "https://api.cohere.com/v2".to_string(),
+        "cohere" => "https://api.cohere.com/compatibility/v1".to_string(),
         "openrouter" => "https://openrouter.ai/api/v1".to_string(),
         "nanogpt" => "https://nano-gpt.com/api/v1".to_string(),
         "xai" => "https://api.x.ai/v1".to_string(),
@@ -241,13 +246,19 @@ fn base_url(provider: &str, configured: &str) -> String {
 
 fn cohere_base_url(configured: &str) -> String {
     let base = base_url("cohere", configured);
-    if base.ends_with("/compatibility/v1") {
-        return format!("{}/v2", base.trim_end_matches("/compatibility/v1"));
-    }
     if base.ends_with("/v1") && base.contains("api.cohere.") {
         return format!("{}/v2", base.trim_end_matches("/v1"));
     }
     base
+}
+
+fn should_use_cohere_compatibility(request: &LlmRequest) -> bool {
+    base_url("cohere", &request.connection.base_url).ends_with("/compatibility/v1")
+}
+
+fn openai_compatible_chat_endpoint(request: &LlmRequest) -> String {
+    let base = base_url(&request.connection.provider, &request.connection.base_url);
+    format!("{base}/chat/completions")
 }
 
 fn cohere_chat_endpoint(configured: &str) -> String {
@@ -1702,8 +1713,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
     if should_use_openai_responses(&request) {
         return complete_openai_responses_rich(request).await;
     }
-    let base = base_url(&request.connection.provider, &request.connection.base_url);
-    let url = format!("{base}/chat/completions");
+    let url = openai_compatible_chat_endpoint(&request);
     ensure_url_allowed(&url)?;
     let messages: Vec<Value> = request_messages(&request)
         .iter()
@@ -1752,8 +1762,7 @@ async fn stream_openai_compatible(
     request: LlmRequest,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
-    let base = base_url(&request.connection.provider, &request.connection.base_url);
-    let url = format!("{base}/chat/completions");
+    let url = openai_compatible_chat_endpoint(&request);
     ensure_url_allowed(&url)?;
     let messages: Vec<Value> = request_messages(&request)
         .iter()
@@ -4491,6 +4500,28 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert_eq!(
             base_url("openai_chatgpt", "https://api.example.com/v1"),
             OPENAI_CHATGPT_CODEX_BASE_URL
+        );
+    }
+
+    #[test]
+    fn cohere_default_base_uses_openai_compatible_endpoint() {
+        let mut request = request_for("cohere", "command-a", json!({}));
+
+        assert_eq!(
+            base_url("cohere", ""),
+            "https://api.cohere.com/compatibility/v1"
+        );
+        assert!(should_use_cohere_compatibility(&request));
+        assert_eq!(
+            openai_compatible_chat_endpoint(&request),
+            "https://api.cohere.com/compatibility/v1/chat/completions"
+        );
+
+        request.connection.base_url = "https://api.cohere.com/v2".to_string();
+        assert!(!should_use_cohere_compatibility(&request));
+        assert_eq!(
+            cohere_chat_endpoint(&request.connection.base_url),
+            "https://api.cohere.com/v2/chat"
         );
     }
 

@@ -1319,9 +1319,7 @@ fn model_endpoint(provider: &str, base: &str, connection: &Value) -> String {
             let base = base.trim_end_matches("/publishers/google/models");
             format!("{base}/publishers/google/models")
         }
-        "cohere" if base.ends_with("/compatibility/v1") => {
-            format!("{}/v1/models", base.trim_end_matches("/compatibility/v1"))
-        }
+        "cohere" if base.ends_with("/compatibility/v1") => format!("{base}/models"),
         "cohere" if base.ends_with("/v2") => {
             format!("{}/v1/models", base.trim_end_matches("/v2"))
         }
@@ -1380,7 +1378,7 @@ fn provider_default_base_url(provider: &str) -> &'static str {
         "nanogpt" => "https://nano-gpt.com/api/v1",
         "ollama" => "http://127.0.0.1:11434",
         "mistral" => "https://api.mistral.ai/v1",
-        "cohere" => "https://api.cohere.com/v2",
+        "cohere" => "https://api.cohere.com/compatibility/v1",
         "togetherai" => "https://api.together.xyz/v1",
         _ => "https://api.openai.com/v1",
     }
@@ -1459,6 +1457,45 @@ mod tests {
         format!("http://{address}/v1")
     }
 
+    async fn serve_models_asserting_request(
+        expected_path: &'static str,
+        expected_auth: &'static str,
+        body: &'static str,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept one request");
+            let mut buffer = [0_u8; 4096];
+            let read = stream
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read request");
+            let request = String::from_utf8_lossy(&buffer[..read]);
+            assert!(request.starts_with(&format!("GET {expected_path} HTTP/1.1")));
+            assert!(request.to_ascii_lowercase().contains(&format!(
+                "\r\nauthorization: {}\r\n",
+                expected_auth.to_ascii_lowercase()
+            )));
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test model server should write response");
+        });
+        format!("http://{address}")
+    }
+
     #[test]
     fn google_vertex_model_lookup_uses_aiplatform_endpoint() {
         assert_eq!(
@@ -1481,6 +1518,57 @@ mod tests {
             ),
             "https://us-central1-aiplatform.googleapis.com/v1/projects/demo/locations/us-central1/publishers/google/models"
         );
+    }
+
+    #[test]
+    fn cohere_model_lookup_uses_compatibility_models_path() {
+        assert_eq!(
+            provider_default_base_url("cohere"),
+            "https://api.cohere.com/compatibility/v1"
+        );
+        assert_eq!(
+            model_endpoint(
+                "cohere",
+                "https://api.cohere.com/compatibility/v1",
+                &json!({ "apiKey": "sk-test-key" })
+            ),
+            "https://api.cohere.com/compatibility/v1/models"
+        );
+    }
+
+    #[tokio::test]
+    async fn cohere_connection_models_compatibility_endpoint_sends_authorization() {
+        let state = test_state("cohere-compat-models");
+        let base_url = format!(
+            "{}/compatibility/v1",
+            serve_models_asserting_request(
+                "/compatibility/v1/models",
+                "Bearer sk-test-key",
+                r#"{"data":[{"id":"command-a"}]}"#
+            )
+            .await
+        );
+        state
+            .storage
+            .upsert_with_id(
+                "connections",
+                "cohere-compat",
+                json!({
+                    "provider": "cohere",
+                    "baseUrl": base_url,
+                    "apiKey": "sk-test-key",
+                    "model": "command-a"
+                }),
+            )
+            .expect("connection should be stored");
+
+        let result = connection_models(&state, "cohere-compat")
+            .await
+            .expect("Cohere model lookup should use compatibility endpoint");
+
+        assert_eq!(result["fromProvider"], true);
+        assert_eq!(result["fallback"], false);
+        assert_eq!(result["models"][0]["id"], "command-a");
     }
 
     #[test]
