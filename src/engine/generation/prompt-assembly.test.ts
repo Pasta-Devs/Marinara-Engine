@@ -314,6 +314,74 @@ describe("assembleGenerationPrompt character markers", () => {
     expect(prompt).not.toContain("Bob description references Alice personality");
     expect(prompt).not.toContain("Alice scenario for Bob");
   });
+
+  it("finalizes deferred speaker macros for a targeted individual group turn with reusable prompt context", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content:
+            'Speaker {{char}} has {{description}}. {{#if char == "Bob"}}Bob branch{{else}}Other branch{{/if}}. {{#if {{char}} == "Bob"}}Nested Bob{{else}}Nested other{{/if}}.',
+          enabled: true,
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        { id: "char-1", data: { name: "Alice", description: "Alice description" } },
+        { id: "char-2", data: { name: "Bob", description: "Bob description" } },
+      ],
+      personas: [],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const shared = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1", "char-2"],
+        metadata: { groupChatMode: "individual" },
+      },
+      storedMessages: [],
+      connection: {},
+      request: {},
+      latestUserInput: "",
+    });
+
+    const targeted = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1", "char-2"],
+        metadata: { groupChatMode: "individual" },
+      },
+      storedMessages: [],
+      connection: {},
+      request: { forCharacterId: "char-2" },
+      latestUserInput: "",
+      reusableContext: shared.reusableContext,
+    });
+
+    const prompt = targeted.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Speaker Bob has Bob description. Bob branch. Nested Bob.");
+    expect(prompt).not.toContain("Speaker Alice");
+    expect(prompt).not.toContain("Other branch");
+    expect(prompt).not.toContain("Nested other");
+    expect(prompt).not.toContain("MARINARA_DEFERRED_CHARACTER");
+  });
 });
 
 describe("assembleGenerationPrompt game sprites", () => {
