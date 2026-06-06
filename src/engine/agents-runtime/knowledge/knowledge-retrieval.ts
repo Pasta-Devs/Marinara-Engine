@@ -148,13 +148,54 @@ export async function executeKnowledgeRetrieval(
       };
     }
 
-    // The last extraction is the consolidated result
+    // The last extraction is the LLM-consolidated result. Trust it ONLY when it
+    // is actually a superset of every prior extraction. The consolidation prompt
+    // asks the model to fold all `_previousExtractions` into the final pass, but a
+    // weak model (or many chunks) can under-merge and silently drop earlier
+    // excerpts. If that happens, fall back to joining every extraction so we never
+    // lose knowledge from earlier chunks (mirrors the partial-failure branch above).
     const consolidated = extractions[extractions.length - 1]!;
+    const priorExtractions = extractions.slice(0, -1);
+    const consolidatedLower = consolidated.toLowerCase();
+    const isSuperset = priorExtractions.every((prior) => {
+      // A prior extraction is considered preserved if its first non-trivial line
+      // (a stable, content-bearing signature) survived into the consolidation.
+      const signature = prior
+        .split("\n")
+        .map((line) => line.trim())
+        .find((line) => line.length >= 12);
+      if (!signature) return true; // nothing meaningful to preserve
+      return consolidatedLower.includes(signature.toLowerCase());
+    });
+
+    if (isSuperset) {
+      return {
+        agentId: config.id,
+        agentType: config.type,
+        type: "context_injection",
+        data: { text: consolidated },
+        tokensUsed: totalTokens,
+        durationMs: totalDuration,
+        success: true,
+        error: null,
+      };
+    }
+
+    // Under-merged consolidation: keep the consolidated pass (it carries the last
+    // chunk's new info) plus every dropped prior extraction, de-duplicated.
+    const seen = new Set<string>();
+    const mergedParts: string[] = [];
+    for (const part of [consolidated, ...priorExtractions]) {
+      const key = part.trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      mergedParts.push(key);
+    }
     return {
       agentId: config.id,
       agentType: config.type,
       type: "context_injection",
-      data: { text: consolidated },
+      data: { text: mergedParts.join("\n\n") },
       tokensUsed: totalTokens,
       durationMs: totalDuration,
       success: true,
