@@ -44,8 +44,6 @@ export function buildGenerationPromptPresetCandidates(args: {
   impersonatePromptPresetId?: unknown;
   requestPromptPresetId?: unknown;
 }): PromptPresetCandidate[] {
-  if (args.chatMode === "conversation") return [];
-
   const candidates: PromptPresetCandidate[] = [];
   const seen = new Set<string>();
 

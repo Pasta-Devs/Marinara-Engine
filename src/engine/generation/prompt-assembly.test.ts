@@ -88,6 +88,108 @@ function depthInjectionRows(): RowMap {
   };
 }
 
+function occurrenceCount(value: string, needle: string): number {
+  return value.split(needle).length - 1;
+}
+
+function summaryPresetRows(includeSummaryMarker: boolean): RowMap {
+  return {
+    prompts: [
+      {
+        id: "preset-1",
+        wrapFormat: "none",
+        parameters: { strictRoleFormatting: false },
+      },
+    ],
+    "prompt-sections": [
+      {
+        id: "system",
+        presetId: "preset-1",
+        role: "system",
+        name: "System",
+        content: "Conversation shell.",
+        enabled: true,
+      },
+      ...(includeSummaryMarker
+        ? [
+            {
+              id: "summary",
+              presetId: "preset-1",
+              role: "system",
+              name: "Summary",
+              markerConfig: { type: "chat_summary" },
+              enabled: true,
+            },
+          ]
+        : []),
+      {
+        id: "history",
+        presetId: "preset-1",
+        identifier: "chat_history",
+        enabled: true,
+      },
+    ],
+    "prompt-groups": [],
+    "prompt-variables": [],
+    characters: [],
+    personas: [],
+    lorebooks: [],
+    "lorebook-folders": [],
+    "lorebook-entries": [],
+    "regex-scripts": [],
+  };
+}
+
+describe("assembleGenerationPrompt chat summary preset insertion", () => {
+  it("fallback-inserts a conversation summary when the selected preset has no summary marker", async () => {
+    const storage = storageWithRows(summaryPresetRows(false));
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "conversation",
+        promptPresetId: "preset-1",
+        metadata: { summary: "Remember the lighthouse." },
+      },
+      storedMessages: [{ id: "message-1", role: "user", content: "What did we discuss?" }],
+      connection: {},
+      request: {},
+      latestUserInput: "What did we discuss?",
+    });
+
+    expect(assembly.promptPresetId).toBe("preset-1");
+    const previewContents = assembly.previewMessages.map((message) => message.content);
+    expect(previewContents[0]).toBe("Conversation shell.\n\nRemember the lighthouse.");
+    expect(previewContents.at(-1)).toBe("What did we discuss?");
+    expect(assembly.chatSummaryFingerprint).not.toBeNull();
+  });
+
+  it("keeps explicit conversation summary marker placement without duplicating the summary", async () => {
+    const storage = storageWithRows(summaryPresetRows(true));
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "conversation",
+        promptPresetId: "preset-1",
+        metadata: { summary: "Remember the lighthouse." },
+      },
+      storedMessages: [{ id: "message-1", role: "user", content: "What did we discuss?" }],
+      connection: {},
+      request: {},
+      latestUserInput: "What did we discuss?",
+    });
+
+    const promptText = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(assembly.promptPresetId).toBe("preset-1");
+    const previewContents = assembly.previewMessages.map((message) => message.content);
+    expect(previewContents[0]).toBe("Conversation shell.");
+    expect(previewContents[1]).toBe("Remember the lighthouse.");
+    expect(previewContents.at(-1)).toBe("What did we discuss?");
+    expect(occurrenceCount(promptText, "Remember the lighthouse.")).toBe(1);
+  });
+});
+
 describe("assembleGenerationPrompt depth injection", () => {
   it("anchors lorebook depth entries to chat history bounds", async () => {
     const storage = storageWithRows(depthInjectionRows());
