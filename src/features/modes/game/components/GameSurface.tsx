@@ -8112,6 +8112,8 @@ export function GameSurface({
             moreSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
           )}
           title="More options"
+          aria-label="More options"
+          aria-expanded={moreSheetOpen}
         >
           <MoreVertical size="1.15rem" />
         </button>
@@ -8126,6 +8128,8 @@ export function GameSurface({
             toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
           )}
           title="Tools"
+          aria-label="Tools"
+          aria-expanded={toolsSheetOpen}
         >
           <LayoutGrid size="1.15rem" />
         </button>
@@ -8698,18 +8702,16 @@ export function GameSurface({
                         </button>
 
                         {/* World Info */}
-                        <div
-                          className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
-                          onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
+                          onClick={() => { setMoreSheetOpen(false); setMobileWorldInfoOpen(true); }}
                         >
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
                             <Globe size="0.9rem" />
                           </div>
                           <span className="text-sm font-medium text-[var(--foreground)]">World Info</span>
-                          <div className="absolute inset-0 opacity-0 pointer-events-auto">
-                            <ActiveWorldInfoButton chatId={activeChatId} />
-                          </div>
-                        </div>
+                        </button>
 
                         {/* End/Start Session */}
                         {sessionStatus !== "concluded" ? (

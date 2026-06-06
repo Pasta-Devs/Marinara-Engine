@@ -41,7 +41,7 @@ import { useGameStateStore } from "../../../runtime/world-state/index";
 import { ChatMessage, getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../shared/chat-ui/index";
 import { ChatInput } from "../../shared/chat-ui/index";
 import { CyoaChoices } from "./CyoaChoices";
-import { ChatBranchSelector } from "../../shared/chat-ui/index";
+import { ChatBranchSelector, type ChatBranchSelectorHandle } from "../../shared/chat-ui/index";
 import { EndSceneBar, SceneBanner } from "../../shared/scene-ui";
 import { ChatCommonOverlays } from "../../shared/chat-ui/index";
 import { ActiveWorldInfoButton } from "../../../runtime/visuals/index";
@@ -323,7 +323,16 @@ function ToolbarMenu({ children, mobilePortal = true, variant = "inline" }: { ch
 
   const triggerBtn = (
     <button
-      onClick={() => { if (open) handleClose(); else setDesktopOpen(true); }}
+      type="button"
+      onClick={() => {
+        if (open) {
+          handleClose();
+        } else if (isMobileViewport && mobilePortal) {
+          setMobileChatToolsOpen(true);
+        } else {
+          setDesktopOpen(true);
+        }
+      }}
       className={cn(
         variant === "fab"
           ? "flex h-9 w-9 items-center justify-center rounded-full bg-transparent p-1.5 text-foreground/60 transition-all hover:bg-[var(--accent)]/30 hover:text-foreground"
@@ -801,6 +810,7 @@ export function ChatRoleplaySurface({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuBtnRef = useRef<HTMLButtonElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const branchSelectorRef = useRef<ChatBranchSelectorHandle | null>(null);
   const [transcriptWindowStart, setTranscriptWindowStart] = useState<number | null>(null);
   const previousTailRef = useRef<{ messageId: string | undefined; isStreaming: boolean }>({
     messageId: undefined,
@@ -850,6 +860,15 @@ export function ChatRoleplaySurface({
       return next >= transcriptWindow.latestStartIndex ? null : next;
     });
   };
+  useEffect(() => {
+    if (!toolsSheetOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setToolsSheetOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toolsSheetOpen]);
+
   useEffect(() => {
     if (!moreMenuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -1340,7 +1359,7 @@ export function ChatRoleplaySurface({
                 {chat?.groupId && (
                   <div
                     className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
-                    onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
+                    onClick={(e) => { e.stopPropagation(); branchSelectorRef.current?.toggle(); }}
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
                       <GitBranch size="0.9rem" />
@@ -1348,6 +1367,7 @@ export function ChatRoleplaySurface({
                     <span className="text-sm font-medium text-[var(--foreground)]">Branches</span>
                     <div className="absolute inset-0 opacity-0 pointer-events-auto">
                       <ChatBranchSelector
+                        ref={branchSelectorRef}
                         activeChatId={activeChatId}
                         activeChatName={chat?.name}
                         groupId={chat?.groupId ?? null}

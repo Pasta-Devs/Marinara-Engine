@@ -113,7 +113,7 @@ export function TopBar({
       {chat?.mode !== "game" && (
         characters && characters.length > 1 ? (
           // Multi-char: stacked avatars with status dots, each clickable to show activity
-          <div className="relative flex shrink-0 items-center" style={{ width: `${Math.min(characters.length, 3) * 20 + 8}px`, height: 32 }}>
+          <div className="relative flex shrink-0 items-center" style={{ width: `${characters.length > 3 ? 92 : 20 * Math.min(characters.length, 3) + 12}px`, height: 32 }}>
             {characters.slice(0, 3).map((c, i) => {
               const ext = (c.data?.extensions ?? {}) as Record<string, unknown>;
               const dotColor = charStatusColor(ext);

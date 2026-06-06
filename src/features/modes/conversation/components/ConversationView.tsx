@@ -66,6 +66,31 @@ const SummaryPopover = lazy(async () => {
   return { default: module.SummaryPopover };
 });
 
+const SHEET_FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "textarea:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function getSheetFocusableElements(root: HTMLElement) {
+  return Array.from(root.querySelectorAll<HTMLElement>(SHEET_FOCUSABLE_SELECTOR)).filter((element) => {
+    if (element.closest("[inert]")) return false;
+    const style = window.getComputedStyle(element);
+    return style.display !== "none" && style.visibility !== "hidden";
+  });
+}
+
+function setElementInert(element: HTMLElement | null, inert: boolean) {
+  if (!element) return;
+  element.toggleAttribute("inert", inert);
+  (element as HTMLElement & { inert?: boolean }).inert = inert;
+  if (inert) element.setAttribute("aria-hidden", "true");
+  else element.removeAttribute("aria-hidden");
+}
+
 interface ConversationViewProps {
   chatId: string;
   messages: Message[] | undefined;
@@ -512,6 +537,10 @@ export function ConversationView({
   const [mobileWorldInfoOpen, setMobileWorldInfoOpen] = useState(false);
   const [toolsSheetOpen, setToolsSheetOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const sheetContentRef = useRef<HTMLDivElement>(null);
+  const toolsSheetRef = useRef<HTMLDivElement>(null);
+  const moreSheetRef = useRef<HTMLDivElement>(null);
+  const lastSheetFocusRef = useRef<HTMLElement | null>(null);
   const { setRightSlot } = useTopBarActions();
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
@@ -553,6 +582,61 @@ export function ConversationView({
       removeClickListener();
     };
   }, [charActivityPopupId]);
+
+  useEffect(() => {
+    const activeSheet = toolsSheetOpen ? toolsSheetRef.current : moreMenuOpen ? moreSheetRef.current : null;
+    const content = sheetContentRef.current;
+    setElementInert(content, !!activeSheet);
+    if (!activeSheet) return;
+
+    lastSheetFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusSheet = () => {
+      if (!activeSheet.isConnected || activeSheet.contains(document.activeElement)) return;
+      const [firstFocusable] = getSheetFocusableElements(activeSheet);
+      (firstFocusable ?? activeSheet).focus();
+    };
+    const frame = window.requestAnimationFrame(focusSheet);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setToolsSheetOpen(false);
+        setMoreMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = getSheetFocusableElements(activeSheet);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        activeSheet.focus();
+        return;
+      }
+
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const activeElement = document.activeElement;
+      if (!activeSheet.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      setElementInert(content, false);
+      const previous = lastSheetFocusRef.current;
+      if (previous?.isConnected) previous.focus();
+    };
+  }, [toolsSheetOpen, moreMenuOpen]);
 
   // ── Scroll tracking ──
   useEffect(() => {
@@ -666,6 +750,8 @@ export function ConversationView({
             moreMenuOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
           )}
           title="More options"
+          aria-label="More options"
+          aria-expanded={moreMenuOpen}
         >
           <MoreVertical size="1.15rem" />
         </button>
@@ -680,6 +766,8 @@ export function ConversationView({
             toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
           )}
           title="Tools"
+          aria-label="Tools"
+          aria-expanded={toolsSheetOpen}
         >
           <LayoutGrid size="1.15rem" />
         </button>
@@ -1026,6 +1114,7 @@ export function ConversationView({
       data-chat-mode="conversation"
       style={{ ...gradientStyle, isolation: "isolate" }}
     >
+      <div ref={sheetContentRef} className="flex min-h-0 flex-1 flex-col">
       {/* ── Messages scroll area ── */}
       <div ref={scrollRef} className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden">
         {/* Desktop floating header */}
@@ -1061,10 +1150,12 @@ export function ConversationView({
             if (chars.length === 1) {
               const c = chars[0]!;
               return (
-                <div
+                <button
+                  type="button"
                   className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30 cursor-pointer hover:bg-[var(--card)] transition-colors"
                   onClick={() => setTrackerPanelOpen(true)}
                   title="View schedule"
+                  aria-label={c.name}
                 >
                   <div className="relative flex-shrink-0">
                     {c.avatarUrl ? (
@@ -1091,7 +1182,7 @@ export function ConversationView({
                       <span className="text-[0.5625rem] text-foreground/50">{c.conversationActivity}</span>
                     )}
                   </div>
-                </div>
+                </button>
               );
             }
 
@@ -1458,6 +1549,7 @@ export function ConversationView({
         }
         onPeekPrompt={onPeekPrompt}
       />
+      </div>
 
       {/* Tools top sheet */}
       {toolsSheetOpen && (
@@ -1467,6 +1559,11 @@ export function ConversationView({
             onClick={() => setToolsSheetOpen(false)}
           />
           <div
+            ref={toolsSheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Tools"
+            tabIndex={-1}
             className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down md:hidden"
             style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
           >
@@ -1510,6 +1607,11 @@ export function ConversationView({
             onClick={() => setMoreMenuOpen(false)}
           />
           <div
+            ref={moreSheetRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="More options"
+            tabIndex={-1}
             className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down md:hidden"
             style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
           >

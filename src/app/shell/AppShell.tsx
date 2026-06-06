@@ -1163,7 +1163,8 @@ export function AppShell() {
                 transition={{ type: "spring", damping: 28, stiffness: 350 }}
                 data-component="TrackerDataSidebarMobile"
                 aria-label="Tracker data panel"
-                role="complementary"
+                role="dialog"
+                aria-modal="true"
                 className={cn(
                   "mari-tracker-panel fixed! top-0 z-[70] overflow-y-auto bg-[var(--background)]/65 shadow-2xl backdrop-blur-xl",
                   trackerPanelSide === "left" ? "left-0" : "right-0",

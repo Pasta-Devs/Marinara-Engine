@@ -22,7 +22,7 @@ export function useCharactersPanelChatActions() {
 
   const chatCharacterIds = useMemo(
     () => normalizeChatCharacterIds((activeChat as unknown as { characterIds?: unknown })?.characterIds),
-    [activeChat?.characterIds],
+    [activeChat],
   );
   const isConversation = (activeChat as unknown as { mode?: string })?.mode === "conversation";
 
