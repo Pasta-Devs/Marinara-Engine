@@ -288,7 +288,11 @@ pub fn run() {
                 tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit
             ) {
                 if let Some(state) = app_handle.try_state::<crate::state::AppState>() {
-                    let _ = state.storage.flush();
+                    if let Err(error) = state.storage.flush() {
+                        // Best-effort: a failed quit-time flush must not block shutdown, but it
+                        // must not be silent either, so a dropped write is diagnosable.
+                        log::error!("failed to flush pending storage writes on quit: {error}");
+                    }
                 }
             }
         });
