@@ -393,10 +393,10 @@ pub(crate) fn message_swipes(
 ) -> AppResult<Value> {
     let mut message = get_required(state, "messages", message_id)?;
     message_swipe_storage::materialize_message(state, &mut message, true)?;
+    let owner_chat_id = owned_message_chat_id(&message, chat_id)?;
     if body.is_null() {
         return Ok(message.get("swipes").cloned().unwrap_or_else(|| json!([])));
     }
-    let owner_chat_id = owned_message_chat_id(&message, chat_id)?;
     let content = body
         .get("content")
         .cloned()
@@ -3331,6 +3331,34 @@ mod tests {
             materialized["extra"]["reasoning_content"],
             json!("first reasoning")
         );
+    }
+
+    #[test]
+    fn message_swipes_read_rejects_message_from_another_chat() {
+        let state = test_state("swipe-read-cross-chat-owner");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 0,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = message_swipes(&state, "GET", "chat-2", "message-1", Value::Null)
+            .expect_err("cross-chat swipe read should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Message does not belong to the requested chat"));
     }
 
     #[test]
