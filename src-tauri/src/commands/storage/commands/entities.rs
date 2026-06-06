@@ -1969,7 +1969,6 @@ fn sync_linked_character_books_for_lorebook_record_in_place(
         .then_with(|| compare_json_values(left.get("createdAt"), right.get("createdAt")))
     });
 
-    let book = linked_character_book(lorebook, &entries);
     for character in character_rows {
         let Some(character_id) = character.get("id").and_then(Value::as_str) else {
             continue;
@@ -1981,15 +1980,17 @@ fn sync_linked_character_books_for_lorebook_record_in_place(
         let Some(data_object) = data.as_object_mut() else {
             continue;
         };
-        match data_object.get("character_book") {
-            Some(Value::Null) | None | Some(Value::Object(_)) => {}
+        let mut book = match data_object.get("character_book") {
+            Some(Value::Null) | None => Map::new(),
+            Some(Value::Object(book)) => book.clone(),
             Some(_) => {
                 return Err(AppError::invalid_input(format!(
                     "Character {character_id} has a malformed embedded lorebook"
                 )));
             }
         };
-        data_object.insert("character_book".to_string(), book.clone());
+        sync_linked_character_book_fields(&mut book, lorebook, &entries);
+        data_object.insert("character_book".to_string(), Value::Object(book));
 
         if let Some(import_metadata) = data
             .pointer_mut("/extensions/importMetadata/embeddedLorebook")
@@ -2009,30 +2010,52 @@ fn sync_linked_character_books_for_lorebook_record_in_place(
     Ok(())
 }
 
-fn linked_character_book(lorebook: &Value, entries: &[Value]) -> Value {
-    json!({
-        "name": lorebook
+fn sync_linked_character_book_fields(
+    book: &mut Map<String, Value>,
+    lorebook: &Value,
+    entries: &[Value],
+) {
+    book.insert(
+        "name".to_string(),
+        json!(lorebook
             .get("name")
             .and_then(Value::as_str)
             .filter(|value| !value.trim().is_empty())
-            .unwrap_or("Character Lorebook"),
-        "description": lorebook
+            .unwrap_or("Character Lorebook")),
+    );
+    book.insert(
+        "description".to_string(),
+        json!(lorebook
             .get("description")
             .and_then(Value::as_str)
-            .unwrap_or(""),
-        "scan_depth": linked_character_book_number(lorebook.get("scanDepth"), 2),
-        "token_budget": linked_character_book_number(lorebook.get("tokenBudget"), 2048),
-        "recursive_scanning": lorebook
+            .unwrap_or("")),
+    );
+    book.insert(
+        "scan_depth".to_string(),
+        linked_character_book_number(lorebook.get("scanDepth"), 2),
+    );
+    book.insert(
+        "token_budget".to_string(),
+        linked_character_book_number(lorebook.get("tokenBudget"), 2048),
+    );
+    book.insert(
+        "recursive_scanning".to_string(),
+        json!(lorebook
             .get("recursiveScanning")
             .and_then(Value::as_bool)
-            .unwrap_or(false),
-        "extensions": {},
-        "entries": entries
+            .unwrap_or(false)),
+    );
+    if !book.contains_key("extensions") {
+        book.insert("extensions".to_string(), json!({}));
+    }
+    book.insert(
+        "entries".to_string(),
+        json!(entries
             .iter()
             .enumerate()
             .map(|(index, entry)| linked_character_book_entry(entry, index))
-            .collect::<Vec<_>>(),
-    })
+            .collect::<Vec<_>>()),
+    );
 }
 
 fn linked_character_book_number(value: Option<&Value>, fallback: i64) -> Value {
@@ -2624,6 +2647,12 @@ mod tests {
                     "data": {
                         "name": "Mira",
                         "character_book": {
+                            "extensions": {
+                                "sillytavern": {
+                                    "source": "card",
+                                    "preserved": true
+                                }
+                            },
                             "entries": [
                                 {
                                     "name": "Old",
@@ -2821,6 +2850,55 @@ mod tests {
     }
 
     #[test]
+    fn linked_lorebook_metadata_update_is_atomic_when_character_book_sync_fails() {
+        let state = test_state("linked-character-book-metadata-update-atomic");
+        seed_linked_character_book(&state);
+        state
+            .storage
+            .patch(
+                "characters",
+                "character-1",
+                json!({
+                    "data": {
+                        "name": "Mira",
+                        "character_book": "malformed",
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "linked-book",
+                                    "entriesImported": 1
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("malformed linked character book should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "lorebooks".to_string(),
+            "linked-book".to_string(),
+            json!({
+                "name": "Should Roll Back"
+            }),
+        )
+        .expect_err("malformed linked character book should reject the metadata update");
+
+        assert_eq!(error.code, "invalid_input");
+        let lorebook = state
+            .storage
+            .get("lorebooks", "linked-book")
+            .expect("lorebook should read")
+            .expect("lorebook should still exist");
+        assert_eq!(
+            lorebook.get("name").and_then(Value::as_str),
+            Some("Mira Lorebook")
+        );
+    }
+
+    #[test]
     fn updating_linked_lorebook_entry_syncs_character_book() {
         let state = test_state("linked-character-book-entry-update");
         seed_linked_character_book(&state);
@@ -2926,7 +3004,12 @@ mod tests {
                 "scan_depth": 7,
                 "token_budget": 333,
                 "recursive_scanning": true,
-                "extensions": {}
+                "extensions": {
+                    "sillytavern": {
+                        "source": "card",
+                        "preserved": true
+                    }
+                }
             })
         );
         let entry = first_character_book_entry(&state);
