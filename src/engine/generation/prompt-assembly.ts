@@ -1298,6 +1298,35 @@ function renderNamedFields(entries: Array<[string, string | undefined]>, wrapFor
     .join("\n\n");
 }
 
+function groupScenarioMacroContext(base: MacroContext, characters: GenerationCharacterContext[]): MacroContext {
+  const names = characters.map((character) => character.name.trim()).filter(Boolean);
+  const characterList = names.join(", ") || base.char;
+  return {
+    ...base,
+    char: characterList,
+    characters: names.length ? names : base.characters,
+    characterProfiles: [],
+    characterFields: {
+      description: "",
+      personality: "",
+      backstory: "",
+      appearance: "",
+      scenario: "",
+      example: "",
+      systemPrompt: "",
+      postHistoryInstructions: "",
+    },
+  };
+}
+
+function groupScenarioMarkerValue(
+  text: string,
+  macros: MacroContext | null,
+  characters: GenerationCharacterContext[],
+): string {
+  return macros ? resolveMacros(text, groupScenarioMacroContext(macros, characters), { trimResult: false }) : text;
+}
+
 function renderCharacters(
   characters: GenerationCharacterContext[],
   wrapFormat: WrapFormat,
@@ -1326,14 +1355,7 @@ function renderCharacters(
   const groupScenarioBlock =
     groupScenarioOverride.enabled && groupScenarioOverride.text && fields.includes("scenario")
       ? renderNamedFields(
-          [
-            [
-              "Scenario",
-              macros
-                ? resolveMacros(groupScenarioOverride.text, macros, { trimResult: false })
-                : groupScenarioOverride.text,
-            ],
-          ],
+          [["Scenario", groupScenarioMarkerValue(groupScenarioOverride.text, macros, characters)]],
           wrapFormat,
           1,
         )
