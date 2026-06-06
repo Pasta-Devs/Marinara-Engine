@@ -99,15 +99,37 @@ Playwright/browser proof when visual layout, interaction, routing, responsive
 behavior, screenshots, console/network behavior, or browser-only behavior is the
 claim.
 
-Proof is session evidence, not permission to add durable test artifacts. Unless
-a maintainer explicitly asks for tests, do not add or submit new test artifacts
-in any language as PR proof, including `*.test.*`, `*.spec.*`, `tests/`,
-`__tests__/`, Rust `#[test]` or `#[cfg(test)]` modules, snapshots, fixtures, or
-committed harness files. Temporary tests and harnesses are allowed when they stay
-local and uncommitted; cite their command output or resulting observation
-instead of submitting the artifacts. If a durable regression test is the right
-engineering answer, ask first and explain why existing proof paths are
-insufficient.
+Proof is session evidence, not permission to add durable test artifacts by
+reflex.
+
+Temporary tests and harnesses are allowed when they stay local and uncommitted.
+Cite their command output or resulting observation instead of submitting the
+artifacts.
+
+New committed test artifacts are allowed only when at least one condition
+applies:
+
+- A maintainer explicitly asks for tests.
+- The change fixes a known regression that needs a small focused guard.
+- The behavior is risky and easy to break silently.
+- The touched area already has a nearby narrow/stable test pattern that is
+  cheaper than repeated manual proof.
+
+Before adding a durable test artifact, state `Durable test rationale` with:
+
+- The regression or risky invariant.
+- Why existing proof is insufficient.
+- Why this test is narrow.
+
+Prefer the smallest stable test near the owner:
+
+- Pure helper test.
+- Focused integration test.
+- Component test.
+- Browser/e2e only when browser behavior is the claim.
+
+Do not add broad fixture suites, snapshots, large e2e tests, or Rust inline
+tests merely to satisfy proof wording.
 
 ## Risky Work
 

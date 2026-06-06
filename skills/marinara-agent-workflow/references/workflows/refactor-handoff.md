@@ -35,8 +35,10 @@ behavior:
 
 Each extraction PR must move one pure helper cluster plus focused proof, preserve
 all UI behavior, and avoid broad component rewrites. Use existing tests or
-temporary uncommitted tests/harnesses when useful; do not add durable test
-artifacts unless a maintainer explicitly requested them.
+temporary uncommitted tests/harnesses when useful. Durable tests are acceptable
+when a maintainer requested them, a known regression needs a small focused
+guard, or the owner already has a nearby narrow/stable test pattern that is
+cheaper than repeated manual proof.
 
 ## Blockers Vs Review Notes
 

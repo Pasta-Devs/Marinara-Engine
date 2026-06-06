@@ -37,8 +37,29 @@ security, or risky-work boundaries.
   user explicitly asked you to post, close, merge, tag, or release.
 - Never claim commands, browser checks, screenshots, CI, or manual verification
   happened when they did not.
-- Proof is session evidence, not permission to add durable test artifacts.
-  Unless a maintainer explicitly asks for tests, do not add or submit new test artifacts in any language as PR proof, including `*.test.*`, `*.spec.*`, `tests/`, `__tests__/`, Rust `#[test]` or `#[cfg(test)]` modules, snapshots, fixtures, or committed harness files. Temporary tests and harnesses are allowed when they stay local and uncommitted; cite their command output or resulting observation instead of submitting the artifacts. If a durable regression test is the right engineering answer, ask first and explain why existing proof paths are insufficient.
+- Proof is session evidence, not permission to add durable test artifacts by
+  reflex.
+- Temporary tests and harnesses are allowed when they stay local and uncommitted.
+  Cite their command output or resulting observation instead of submitting the
+  artifacts.
+- New committed test artifacts are allowed only when at least one condition
+  applies:
+  - A maintainer explicitly asks for tests.
+  - The change fixes a known regression that needs a small focused guard.
+  - The behavior is risky and easy to break silently.
+  - The touched area already has a nearby narrow/stable test pattern that is
+    cheaper than repeated manual proof.
+- Before adding a durable test artifact, state `Durable test rationale` with:
+  - The regression or risky invariant.
+  - Why existing proof is insufficient.
+  - Why this test is narrow.
+- Prefer the smallest stable test near the owner:
+  - Pure helper test.
+  - Focused integration test.
+  - Component test.
+  - Browser/e2e only when browser behavior is the claim.
+- Do not add broad fixture suites, snapshots, large e2e tests, or Rust inline
+  tests merely to satisfy proof wording.
 
 ## Bugfix Lane
 
@@ -103,8 +124,9 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 - Before pushing, opening, or handing off a PR, run `pnpm check` after the final
   diff. It includes a warning-only unused-code report; review those findings
   because they no longer fail local checks or CI.
-- Do not add or carry new test artifacts in any language as PR proof artifacts.
-  If a local repro needs a test or harness, keep it temporary, local, and out of the submitted diff.
+- Do not add or carry new test artifacts in any language merely as PR proof.
+  Durable tests need the rationale above; if a local repro needs a test or
+  harness, keep it temporary, local, and out of the submitted diff.
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.
 - After pushing, inspect CI and review feedback when asked to ship or ready a PR.
