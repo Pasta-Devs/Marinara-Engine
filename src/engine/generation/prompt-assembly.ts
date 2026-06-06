@@ -2,6 +2,7 @@ import type { LorebookEntryTimingState } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
 import type { CharacterData } from "../contracts/types/character";
 import { BUILT_IN_AGENTS } from "../contracts/types/agent";
+import { DEFAULT_CONVERSATION_SYSTEM_PROMPT } from "../contracts/constants/conversation-prompt";
 import type { ListChatMemoriesOptions, StorageGateway } from "../capabilities/storage";
 import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
@@ -1516,12 +1517,13 @@ function fallbackSystemPrompt(
     worldAfter: string;
     summary: string | null;
     wrapFormat: WrapFormat;
+    macros: MacroContext;
   },
 ): string {
   const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
   const meta = parseRecord(input.chat.metadata);
   const common = [
-    renderCharacters(args.characters, args.wrapFormat, null),
+    renderCharacters(args.characters, args.wrapFormat, null, args.macros),
     renderPersona(args.persona, args.wrapFormat),
     args.worldBefore,
     args.worldAfter,
@@ -1550,11 +1552,9 @@ function fallbackSystemPrompt(
       .join("\n\n");
   }
 
-  return [
-    "You are participating in a Marinara Engine conversation. Reply as the appropriate assistant character or narrator for this chat.",
-    "Treat this as the conversation path: keep the exchange conversational, respect character cards and memory, and do not introduce roleplay HUD or game mechanics unless the user explicitly asks.",
-    ...common,
-  ]
+  const rawConversationPrompt = readString(meta.customSystemPrompt).trim() || DEFAULT_CONVERSATION_SYSTEM_PROMPT;
+  const conversationPrompt = cleanPromptText(resolveMacros(rawConversationPrompt, args.macros));
+  return [conversationPrompt, ...common]
     .filter((part) => part.trim().length > 0)
     .join("\n\n");
 }
@@ -2684,8 +2684,12 @@ function promptCharactersForGeneration(
   characters: GenerationCharacterContext[],
 ): GenerationCharacterContext[] {
   const targetId = scopedIndividualGroupTarget(input, characters);
-  if (!targetId) return characters;
-  return characters.filter((character) => character.id === targetId);
+  if (targetId) return characters.filter((character) => character.id === targetId);
+  const conversationTargetId = scopedConversationGroupTarget(input, characters);
+  if (!conversationTargetId) return characters;
+  const target = characters.find((character) => character.id === conversationTargetId);
+  if (!target) return characters;
+  return [target, ...characters.filter((character) => character.id !== conversationTargetId)];
 }
 
 function individualGroupTurnPromptMessage(
@@ -3156,6 +3160,7 @@ export async function assembleGenerationPrompt(
         worldAfter: processedLore.worldInfoAfter,
         summary,
         wrapFormat,
+        macros,
       }),
       contextKind: "prompt",
     });

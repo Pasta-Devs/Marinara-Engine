@@ -247,6 +247,8 @@ export interface ChatMetadata {
   characterSchedules?: Record<string, unknown>;
   /** Week start timestamp for the current generated conversation schedules. */
   scheduleWeekStart?: string;
+  /** Chat-scoped conversation-mode system prompt. Empty/null uses the built-in conversation prompt. */
+  customSystemPrompt?: string | null;
   /** Chat-scoped selfie prompt-builder template. Empty/null uses the global/default prompt. */
   selfiePrompt?: string | null;
   /** Extra positive prompt/tags appended to generated conversation selfie prompts. */

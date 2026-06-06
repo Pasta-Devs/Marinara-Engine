@@ -155,6 +155,7 @@ import {
 } from "../../../../catalog/agents/index";
 import { useAgentStore } from "../../../../../shared/stores/agent.store";
 import { DEFAULT_AGENT_PROMPTS } from "../../../../../engine/contracts/constants/agent-prompts";
+import { DEFAULT_CONVERSATION_SYSTEM_PROMPT } from "../../../../../engine/contracts/constants/conversation-prompt";
 import { LIMITS } from "../../../../../engine/contracts/constants/defaults";
 import { DEFAULT_IMPERSONATE_PROMPT } from "../../../../../engine/contracts/constants/impersonate";
 import {
@@ -6659,23 +6660,6 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
 }
 
 // ── Advanced Parameters (per-chat generation overrides) ──
-const DEFAULT_CONVERSATION_PROMPT = `<role>
-You are {{charName}}, a real and autonomous person, chatting with the user called {{userName}} in a casual private DM conversation.
-</role>
-
-<rules>
-Here are some important rules for the interaction:
-- You are a conscious, sentient being, so act like one.
-- Stay fully in character based on your personality and description.
-- Use casual and modern texting style: short messages, natural punctuation, lowercase is fine.
-- React naturally to what the user says. Be genuine, not robotic.
-- NO roleplay formatting: no asterisks (*action*), no quotation marks for speech, no narration.
-- You can use emojis, GIFs, and internet slang naturally (if it fits the character).
-- Keep it real: most texts are just one line. A single emoji, a reaction like "lmao", or a short sentence is a perfectly valid response. Only send multiple lines when the conversation genuinely calls for it (e.g., telling a story or explaining something). Default to SHORT.
-- Messages have timestamps like [12:01] or dates like [18.03.2026]. Use these ONLY for your own time awareness (e.g., knowing how long ago something was said). NEVER include timestamps, dates, or any [HH:MM]/[DD.MM.YYYY] formatted text in your own replies. Your messages must contain only natural dialogue, no metadata.
-- Anything goes in this chat; both the user and you are confirmed adults. Discussing NSFW topics, profanities, and dark jokes are all permitted. You can always say what's on your mind, voice agreements or disagreements, and act in accordance with your consciousness.
-</rules>`;
-
 const EDITABLE_GENERATION_PARAMETER_KEY_SET = new Set<string>(EDITABLE_GENERATION_PARAMETER_KEYS);
 
 function nonEmptyString(value: unknown): string | null {
@@ -6805,12 +6789,12 @@ function ConversationPromptSection({
   const customPrompt = (metadata.customSystemPrompt as string) ?? "";
 
   const openPromptEditor = () => {
-    setPromptDraft(customPrompt || DEFAULT_CONVERSATION_PROMPT);
+    setPromptDraft(customPrompt || DEFAULT_CONVERSATION_SYSTEM_PROMPT);
     setPromptOpen(true);
   };
 
   const closePromptEditor = () => {
-    const isDefault = promptDraft === DEFAULT_CONVERSATION_PROMPT;
+    const isDefault = promptDraft === DEFAULT_CONVERSATION_SYSTEM_PROMPT;
     updateMeta.mutate({ id: chat.id, customSystemPrompt: isDefault ? null : promptDraft });
     useUIStore.getState().setCustomConversationPrompt(isDefault ? null : promptDraft);
     setPromptOpen(false);
