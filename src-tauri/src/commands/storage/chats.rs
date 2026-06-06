@@ -1647,6 +1647,10 @@ pub(crate) fn delete_chat_with_messages(state: &AppState, chat_id: &str) -> AppR
     game_state_snapshots::delete_tracker_snapshots_for_chats(state, &delete_ids)?;
     let delete_id_set = delete_ids.iter().cloned().collect::<HashSet<_>>();
     delete_gallery_for_chats(state, &delete_id_set)?;
+    // NPC avatars live inline in chat metadata (gameNpcs / presentCharacters), not as
+    // tracked records, so they have no managed-file cleanup hook. Best-effort prefix scan
+    // of avatars/npc by deleted chat id (mirrors delete_gallery_for_chats) to avoid orphans.
+    super::avatars::remove_npc_avatar_files_for_chats(state, &delete_id_set);
     message_swipe_storage::delete_message_rows_for_chats_with_swipes(state, &delete_id_set)?;
     for delete_id in &delete_ids {
         agents::delete_agent_bookkeeping_for_chat(state, delete_id)?;
