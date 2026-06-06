@@ -84,6 +84,9 @@ type AgentResultEffectOptions = {
   skipTrackerSync?: boolean;
   cacheBackgroundResults?: boolean;
   showTrackerBubbles?: boolean;
+  // Per-turn quest updates remove fully-completed quests; the single-tracker
+  // re-run path leaves them visible (mirrors the engine persist split).
+  autoRemoveFullyCompletedQuests?: boolean;
 };
 const HAPTIC_COMMAND_INTERVAL_MS = 225;
 const TYPEWRITER_MAX_FRAME_MS = 120;
@@ -787,11 +790,12 @@ async function applyBackgroundChoice(chatId: string, chosen: unknown) {
   }
 }
 
-function applyQuestUpdates(rawData: unknown) {
+function applyQuestUpdates(rawData: unknown, autoRemoveFullyCompleted: boolean) {
   const current = useGameStateStore.getState().current;
   const { playerStats, changed } = applyQuestUpdatesToPlayerStats(
     current?.playerStats,
     parseMaybeRecord(rawData).updates,
+    { autoRemoveFullyCompleted },
   );
   if (!changed) return;
 
@@ -1151,7 +1155,7 @@ async function applyAgentResultEffects(
   if (result.type === "background_change" || result.agentType === "background") {
     await applyBackgroundChoice(chatId, data.chosen);
   }
-  if (result.agentType === "quest") applyQuestUpdates(result.data);
+  if (result.agentType === "quest") applyQuestUpdates(result.data, options.autoRemoveFullyCompletedQuests === true);
   if (!options.skipTrackerSync) await applyTrackerResultToGameState(queryClient, chatId, result);
 }
 
@@ -1412,6 +1416,7 @@ export async function runGenerationWithUi(
         await applyAgentResultEffects(queryClient, chatId, rawResult, {
           cacheBackgroundResults: false,
           showTrackerBubbles: false,
+          autoRemoveFullyCompletedQuests: true,
         });
       }
       if (pendingAgentResultEffects.length > 0) drainAgentResultEffects();
