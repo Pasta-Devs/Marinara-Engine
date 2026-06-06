@@ -244,6 +244,57 @@ describe("assembleGenerationPrompt lorebook marker gating", () => {
 });
 
 describe("assembleGenerationPrompt character markers", () => {
+  it("renders requested creator notes fields with character macro resolution", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "characters",
+          presetId: "preset-1",
+          identifier: "character",
+          role: "system",
+          enabled: true,
+          markerConfig: { type: "character", characterFields: ["creator_notes", "creatorNotes"] },
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice description.",
+            creator_notes: "Creator note for {{char}} and {{user}}.",
+          },
+        },
+      ],
+      personas: [{ id: "persona-1", isActive: true, data: { name: "Celia" } }],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: { id: "chat-1", mode: "roleplay", characterIds: ["char-1"], metadata: {} },
+      storedMessages: [],
+      connection: {},
+      request: {},
+      latestUserInput: "",
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt.match(/Creator Notes: Creator note for Alice and Celia\./g)).toHaveLength(2);
+  });
+
   it("resolves character field macros against each rendered character in a group", async () => {
     const storage = storageWithRows({
       prompts: [

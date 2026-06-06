@@ -1223,7 +1223,7 @@ function characterFieldValue(character: GenerationCharacterContext, fieldName: s
       return character.mesExample ?? "";
     case "creator_notes":
     case "creatorNotes":
-      return "";
+      return character.creatorNotes ?? "";
     case "system_prompt":
     case "systemPrompt":
       return character.systemPrompt ?? "";
