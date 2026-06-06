@@ -182,6 +182,7 @@ interface PromptAssemblyReusableContext {
   memoryRecallBlock: string | null;
   history: ChatMLMessage[];
   greetingPromptVariables: Record<string, string>;
+  userRegenerationSourceFingerprint: string | null;
   macroSensitiveScope: {
     deferCharacterMacros: boolean;
     targetCharacterId: string | null;
@@ -3218,6 +3219,14 @@ function reusableContextMacroScopeMatches(
   );
 }
 
+function userRegenerationSourceFingerprint(message: ChatMLMessage | null): string | null {
+  if (!message) return null;
+  return JSON.stringify({
+    content: readString(message.content),
+    images: (message.images ?? []).filter((image) => typeof image === "string"),
+  });
+}
+
 function characterDepthPromptEntries(
   characters: GenerationCharacterContext[],
   macros: MacroContext,
@@ -3394,7 +3403,7 @@ export async function assembleGenerationPrompt(
     deferCharacterMacros,
     individualGroupTarget,
   );
-  const embeddingSource =
+  let embeddingSource =
     reusableContext && canReuseMacroSensitiveContext ? null : memoizedEmbeddingSource(input.embeddingSource);
   const macros = macroContext({
     chat: input.chat,
@@ -3431,6 +3440,13 @@ export async function assembleGenerationPrompt(
       userRegenerationSourceMessage = null;
     }
   }
+  const regenerationSourceFingerprint = userRegenerationSourceFingerprint(userRegenerationSourceMessage);
+  const canReuseSourceSensitiveContext =
+    canReuseMacroSensitiveContext &&
+    reusableContext?.userRegenerationSourceFingerprint === regenerationSourceFingerprint;
+  if (!canReuseSourceSensitiveContext && !embeddingSource) {
+    embeddingSource = memoizedEmbeddingSource(input.embeddingSource);
+  }
   const greetingPromptVariables =
     canReuseMacroSensitiveContext && reusableContext
       ? reusableContext.greetingPromptVariables
@@ -3464,22 +3480,23 @@ export async function assembleGenerationPrompt(
       },
     });
   let loreScan =
-    canReuseMacroSensitiveContext && reusableContext
+    canReuseSourceSensitiveContext && reusableContext
       ? reusableContext.loreScan
       : await scanLorebooksForPositions(baseLorebookIncludedPositions);
   let processedLore =
-    canReuseMacroSensitiveContext && reusableContext ? reusableContext.processedLore : loreScan.processedLore;
+    canReuseSourceSensitiveContext && reusableContext ? reusableContext.processedLore : loreScan.processedLore;
   const summary = reusableContext?.summary ?? chatSummaryForGeneration(input.chat);
   const memoryRecallBlock =
-    reusableContext?.memoryRecallBlock ??
-    (await buildMemoryRecallBlock(
-      storage,
-      input.chat,
-      input.storedMessages,
-      input.latestUserInput,
-      maxContext || undefined,
-      embeddingSource,
-    ));
+    canReuseSourceSensitiveContext && reusableContext
+      ? reusableContext.memoryRecallBlock
+      : await buildMemoryRecallBlock(
+          storage,
+          input.chat,
+          input.storedMessages,
+          input.latestUserInput,
+          maxContext || undefined,
+          embeddingSource,
+        );
   const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
   const requestedHistoryLimit = readNumber(input.request.historyLimit, metadataHistoryLimit || 300);
   const historyLimit = Math.max(1, Math.min(300, metadataHistoryLimit || requestedHistoryLimit || 300));
@@ -3709,7 +3726,7 @@ export async function assembleGenerationPrompt(
     messages = collapseToSingleUserMessage(messages);
   }
   const summaryFingerprint = fingerprintChatSummary(summary);
-  const nextReusableContext: PromptAssemblyReusableContext = reusableContext ?? {
+  const nextReusableContext: PromptAssemblyReusableContext = {
     chatMeta,
     chatMode,
     storedMessages: input.storedMessages,
@@ -3729,6 +3746,7 @@ export async function assembleGenerationPrompt(
     memoryRecallBlock,
     history,
     greetingPromptVariables,
+    userRegenerationSourceFingerprint: regenerationSourceFingerprint,
     macroSensitiveScope: {
       deferCharacterMacros,
       targetCharacterId: individualGroupTarget,

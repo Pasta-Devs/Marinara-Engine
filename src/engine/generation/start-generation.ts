@@ -1360,9 +1360,14 @@ async function loadFullRegenerationTarget(
 ): Promise<JsonRecord | null> {
   const targetId = readString(target?.id).trim();
   if (!targetId) return null;
-  const loaded = await storage.get<unknown>("messages", targetId).catch(() => null);
-  const loadedRecord = isRecord(loaded) ? loaded : null;
-  return targetBelongsToChat(loadedRecord, chatId) ? loadedRecord : target;
+  const loaded = await storage.get<unknown>("messages", targetId);
+  if (!isRecord(loaded)) {
+    throw new Error("Cannot regenerate user message because its full source record was not found");
+  }
+  if (!targetBelongsToChat(loaded, chatId)) {
+    throw new Error("Cannot regenerate user message because its full source record belongs to another chat");
+  }
+  return loaded;
 }
 
 async function userMessageRegenerationSourceMessage(
