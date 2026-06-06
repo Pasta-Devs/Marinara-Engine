@@ -2825,6 +2825,45 @@ function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatML
   }
 }
 
+function strictRoleBoundaryLabel(message: ChatMLMessage): string {
+  const speaker =
+    readString(message.name).trim() || readString(message.displayName).trim() || readString(message.characterId).trim();
+  if (speaker) return `${speaker}:`;
+  if (message.contextKind === "prompt") return "[Prompt]";
+  if (message.contextKind === "history") return "[History]";
+  if (message.contextKind === "injection") return "[Injection]";
+  return `[${message.role}]`;
+}
+
+function strictRoleSegmentContent(message: ChatMLMessage): string {
+  return `${strictRoleBoundaryLabel(message)}\n${message.content}`;
+}
+
+function mergeIntoStrictRoleSafeMessage(
+  previous: ChatMLMessage,
+  message: ChatMLMessage,
+  normalizedMessages: WeakSet<ChatMLMessage>,
+): void {
+  const previousContent = normalizedMessages.has(previous) ? previous.content : strictRoleSegmentContent(previous);
+  previous.content = collapseExcessBlankLines(`${previousContent}\n\n${strictRoleSegmentContent(message)}`);
+  const contextKind = mergePromptContextKind(previous.contextKind, message.contextKind);
+  if (contextKind) {
+    previous.contextKind = contextKind;
+  } else {
+    delete previous.contextKind;
+  }
+  if ((previous.displayName ?? null) !== (message.displayName ?? null)) {
+    delete previous.displayName;
+  }
+  delete previous.characterId;
+  delete previous.name;
+  delete previous.providerMetadata;
+  if (message.images?.length) {
+    previous.images = [...(previous.images ?? []), ...message.images];
+  }
+  normalizedMessages.add(previous);
+}
+
 function promptMessageWithRole(message: ChatMLMessage, role: "user" | "assistant"): ChatMLMessage {
   const next = { ...message, role };
   if (role !== "assistant") {
@@ -2971,6 +3010,7 @@ function scopeIndividualGroupHistoryRoles(messages: ChatMLMessage[], targetChara
 function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return messages;
   const result: ChatMLMessage[] = [];
+  const strictRoleNormalizedMessages = new WeakSet<ChatMLMessage>();
   let index = 0;
   const systemParts: string[] = [];
   while (index < messages.length && messages[index]!.role === "system") {
@@ -2994,8 +3034,12 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
     const message = messages[index]!;
     if (message.contextKind === "injection") {
       const previous = result[result.length - 1];
-      if (message.role !== "system" && previous && canMergePromptMessages(previous, message)) {
-        mergeIntoPreviousPromptMessage(previous, message);
+      if (message.role !== "system" && previous?.role === message.role) {
+        if (canMergePromptMessages(previous, message)) {
+          mergeIntoPreviousPromptMessage(previous, message);
+        } else {
+          mergeIntoStrictRoleSafeMessage(previous, message, strictRoleNormalizedMessages);
+        }
         continue;
       }
 
@@ -3023,8 +3067,13 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
     }
 
     const previous = result[result.length - 1];
-    if (shouldMergeSameRolePromptMessage(previous, message, effectiveRole)) {
-      mergeIntoPreviousPromptMessage(previous, message);
+    if (previous?.role === effectiveRole) {
+      const sameRoleMessage = promptMessageWithRole(message, effectiveRole);
+      if (shouldMergeSameRolePromptMessage(previous, sameRoleMessage, effectiveRole)) {
+        mergeIntoPreviousPromptMessage(previous, sameRoleMessage);
+      } else {
+        mergeIntoStrictRoleSafeMessage(previous, sameRoleMessage, strictRoleNormalizedMessages);
+      }
       continue;
     }
 
