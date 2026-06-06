@@ -3,17 +3,36 @@ const metadataFields = [
   { label: "PR source branch", value: process.env.PR_HEAD_REF },
 ];
 
+const aiAuthorTerms = "(?:ai|chatgpt|claude|codex)";
+const generatedAuthorshipPattern = new RegExp(`\\bgenerated\\s+(?:by|using|with)\\s+${aiAuthorTerms}\\b`, "gi");
+const productOutputPrefixPattern =
+  /\b(?:chat\s+messages?|messages?|images?|prompts?|responses?|outputs?|model\s+outputs?|replies|text|content|completions?)\s+(?:are\s+|is\s+|were\s+|was\s+|be\s+|being\s+)?$/i;
+
+function hasGeneratedAuthorshipClause(value) {
+  for (const match of value.matchAll(generatedAuthorshipPattern)) {
+    if (match.index === undefined) {
+      return true;
+    }
+
+    const prefix = value.slice(Math.max(0, match.index - 64), match.index);
+    if (!productOutputPrefixPattern.test(prefix)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const bannedAuthorshipMarkers = [
-  { label: "AI/tool label prefix", pattern: /^\s*(?:ai|chatgpt|claude|codex)\s*:/i },
-  { label: "generated-by authorship wording", pattern: /^\s*generated\s+by\s+(?:ai|chatgpt|claude|codex)\b/i },
-  { label: "generated-with AI wording", pattern: /^\s*generated\s+(?:using|with)\s+(?:ai|chatgpt|claude|codex)\b/i },
+  { label: "AI/tool label prefix", pattern: new RegExp(`(?:^|[\\s:\\-\\u2013\\u2014])${aiAuthorTerms}\\s*:`, "i") },
+  { label: "generated AI authorship wording", matches: hasGeneratedAuthorshipClause },
   { label: "AI-generated wording", pattern: /\bai[-\s]*generated\b/i },
-  { label: "AI co-author trailer", pattern: /\bco-authored-by:\s*.*\b(?:ai|chatgpt|claude|codex)\b/i },
+  { label: "AI co-author trailer", pattern: new RegExp(`\\bco-authored-by:\\s*.*\\b${aiAuthorTerms}\\b`, "i") },
   {
     label: "AI author wording",
-    pattern: /^\s*(?:authored|created|implemented|written)\s+by\s+(?:ai|chatgpt|claude|codex)\b/i,
+    pattern: new RegExp(`\\b(?:authored|created|implemented|written)\\s+by\\s+${aiAuthorTerms}\\b`, "i"),
   },
-  { label: "AI author branch prefix", pattern: /^(?:ai|chatgpt|claude|codex)(?:[/-]|$)/i },
+  { label: "AI author branch prefix", pattern: new RegExp(`^${aiAuthorTerms}(?:[/-]|$)`, "i") },
 ];
 
 const presentFields = metadataFields.filter(({ value }) => typeof value === "string" && value.trim().length > 0);
@@ -26,7 +45,8 @@ if (presentFields.length === 0) {
 const failures = [];
 for (const { label, value } of presentFields) {
   for (const marker of bannedAuthorshipMarkers) {
-    if (marker.pattern.test(value)) {
+    const markerMatches = typeof marker.matches === "function" ? marker.matches(value) : marker.pattern.test(value);
+    if (markerMatches) {
       failures.push(`${label} contains ${marker.label}: "${value}"`);
     }
   }
