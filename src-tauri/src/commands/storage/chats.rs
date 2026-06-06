@@ -337,6 +337,21 @@ fn should_activate_new_swipe(body: &Value) -> bool {
     !body.get("silent").and_then(Value::as_bool).unwrap_or(false)
 }
 
+fn owned_message_chat_id(message: &Value, route_chat_id: &str) -> AppResult<String> {
+    let message_chat_id = message
+        .get("chatId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .ok_or_else(|| AppError::invalid_input("Message is missing a chat id"))?;
+    if message_chat_id != route_chat_id {
+        return Err(AppError::invalid_input(
+            "Message does not belong to the requested chat",
+        ));
+    }
+    Ok(message_chat_id.to_string())
+}
+
 fn update_chat_metadata(
     state: &AppState,
     chat_id: &str,
@@ -372,12 +387,13 @@ fn merge_chat_metadata(
 pub(crate) fn message_swipes(
     state: &AppState,
     _method: &str,
-    _chat_id: &str,
+    chat_id: &str,
     message_id: &str,
     body: Value,
 ) -> AppResult<Value> {
     let mut message = get_required(state, "messages", message_id)?;
     message_swipe_storage::materialize_message(state, &mut message, true)?;
+    let owner_chat_id = owned_message_chat_id(&message, chat_id)?;
     if body.is_null() {
         return Ok(message.get("swipes").cloned().unwrap_or_else(|| json!([])));
     }
@@ -397,6 +413,7 @@ pub(crate) fn message_swipes(
         .get("content")
         .cloned()
         .unwrap_or_else(|| Value::String(String::new()));
+    let previous_visible_content = current_content.as_str().unwrap_or("").to_string();
     let current_extra = object_extra(object.get("extra"));
     let current_character_id = object.get("characterId").cloned();
     let new_character_id = if body
@@ -463,6 +480,11 @@ pub(crate) fn message_swipes(
             swipes[active_index].get("characterId").cloned(),
         )
     };
+    let visible_content_changed =
+        active_content.as_str() != Some(previous_visible_content.as_str());
+    if visible_content_changed {
+        preflight_chat_memory_mutation(state, &owner_chat_id)?;
+    }
     object.insert("activeSwipeIndex".to_string(), json!(active_index));
     object.insert("swipeCount".to_string(), json!(swipe_count));
     object.insert("content".to_string(), active_content);
@@ -476,6 +498,9 @@ pub(crate) fn message_swipes(
     let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
     let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
     message_swipe_storage::materialize_message(state, &mut updated, true)?;
+    if visible_content_changed {
+        invalidate_chat_memories_from_message_value(state, &owner_chat_id, &updated)?;
+    }
     Ok(updated)
 }
 
@@ -486,6 +511,26 @@ pub(crate) fn update_message_content_if_unchanged(
     expected_content: &str,
     content: &str,
 ) -> AppResult<Value> {
+    let previous_visible_content = state
+        .storage
+        .get("messages", message_id)?
+        .and_then(|message| {
+            if message.get("chatId").and_then(Value::as_str) == Some(chat_id) {
+                message
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            } else {
+                None
+            }
+        });
+    let normalized_content = collapse_excess_blank_lines(content);
+    if previous_visible_content
+        .as_deref()
+        .is_some_and(|previous| previous == expected_content && previous != normalized_content)
+    {
+        preflight_chat_memory_mutation(state, chat_id)?;
+    }
     let updated = message_swipe_storage::update_message_content_if_unchanged(
         state,
         chat_id,
@@ -494,14 +539,20 @@ pub(crate) fn update_message_content_if_unchanged(
         content,
     )?;
     Ok(match updated {
-        Some(message) => json!({ "updated": true, "message": message }),
+        Some(message) => {
+            if message.get("content").and_then(Value::as_str) != previous_visible_content.as_deref()
+            {
+                invalidate_chat_memories_from_message_value(state, chat_id, &message)?;
+            }
+            json!({ "updated": true, "message": message })
+        }
         None => json!({ "updated": false }),
     })
 }
 
 pub(crate) fn set_active_swipe(
     state: &AppState,
-    _chat_id: &str,
+    chat_id: &str,
     message_id: &str,
     body: Value,
 ) -> AppResult<Value> {
@@ -512,6 +563,7 @@ pub(crate) fn set_active_swipe(
         .unwrap_or(0);
     let mut message = get_required(state, "messages", message_id)?;
     message_swipe_storage::materialize_message(state, &mut message, true)?;
+    let owner_chat_id = owned_message_chat_id(&message, chat_id)?;
     let object = message
         .as_object_mut()
         .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
@@ -521,6 +573,11 @@ pub(crate) fn set_active_swipe(
         .and_then(Value::as_u64)
         .map(|value| value as usize)
         .unwrap_or(0);
+    let previous_visible_content = object
+        .get("content")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let Some((active_index, swipe_count, active_content, active_extra, active_character_id)) =
         object
             .get_mut("swipes")
@@ -575,9 +632,17 @@ pub(crate) fn set_active_swipe(
             clear_swipe_scoped_extra(object.get("extra")),
         );
     }
+    let visible_content_changed =
+        object.get("content").and_then(Value::as_str) != Some(previous_visible_content.as_str());
+    if visible_content_changed {
+        preflight_chat_memory_mutation(state, &owner_chat_id)?;
+    }
     let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
     let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
     message_swipe_storage::materialize_message(state, &mut updated, true)?;
+    if visible_content_changed {
+        invalidate_chat_memories_from_message_value(state, &owner_chat_id, &updated)?;
+    }
     Ok(active_swipe_update_response(&updated))
 }
 
@@ -592,6 +657,12 @@ pub(crate) fn delete_swipe(
         .map_err(|_| AppError::invalid_input("Invalid swipe index"))?;
     let mut message = get_required(state, "messages", message_id)?;
     message_swipe_storage::materialize_message(state, &mut message, true)?;
+    let owner_chat_id = owned_message_chat_id(&message, chat_id)?;
+    let previous_visible_content = message
+        .get("content")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     {
         let object = message
             .as_object_mut()
@@ -625,11 +696,24 @@ pub(crate) fn delete_swipe(
         object.insert("activeSwipeIndex".to_string(), json!(next_active_index));
     }
     materialize_message_swipe_fields(&mut message);
+    let visible_content_changed =
+        message.get("content").and_then(Value::as_str) != Some(previous_visible_content.as_str());
+    if visible_content_changed {
+        preflight_chat_memory_mutation(state, &owner_chat_id)?;
+    }
     let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
     let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
     message_swipe_storage::materialize_message(state, &mut updated, true)?;
-    game_state_snapshots::delete_tracker_snapshot_swipe(state, chat_id, message_id, index as i64)?;
-    game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
+    if visible_content_changed {
+        invalidate_chat_memories_from_message_value(state, &owner_chat_id, &updated)?;
+    }
+    game_state_snapshots::delete_tracker_snapshot_swipe(
+        state,
+        &owner_chat_id,
+        message_id,
+        index as i64,
+    )?;
+    game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, &owner_chat_id)?;
     Ok(updated)
 }
 
@@ -1060,6 +1144,81 @@ fn exclude_recent_chat_memories(
         .collect()
 }
 
+fn memory_at_or_after_message(
+    memory: &Value,
+    message_ids: &HashSet<String>,
+    created_at: &str,
+) -> bool {
+    if !message_ids.is_empty() {
+        let chunk_ids = chat_memory_message_ids(memory);
+        if chunk_ids.iter().any(|id| message_ids.contains(id)) {
+            return true;
+        }
+    }
+
+    memory
+        .get("lastMessageAt")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_some_and(|last_message_at| !created_at.is_empty() && last_message_at >= created_at)
+}
+
+fn invalidate_chat_memories_from_message_value(
+    state: &AppState,
+    chat_id: &str,
+    message: &Value,
+) -> AppResult<Value> {
+    let message_id = message
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .unwrap_or("");
+    let created_at = message
+        .get("createdAt")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    invalidate_chat_memories_from_message(state, chat_id, message_id, created_at)
+}
+
+pub(crate) fn preflight_chat_memory_mutation(state: &AppState, chat_id: &str) -> AppResult<()> {
+    if let Some(chat) = state.storage.get("chats", chat_id)? {
+        chat_memory_values_for_mutation(&chat)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn invalidate_chat_memories_from_message(
+    state: &AppState,
+    chat_id: &str,
+    message_id: &str,
+    created_at: &str,
+) -> AppResult<Value> {
+    let Some(chat) = state.storage.get("chats", chat_id)? else {
+        return Ok(json!({}));
+    };
+    let values = chat_memory_values_for_mutation(&chat)?;
+    if values.is_empty() {
+        return Ok(chat);
+    }
+    let message_ids = message_id
+        .trim()
+        .is_empty()
+        .then(HashSet::new)
+        .unwrap_or_else(|| HashSet::from([message_id.trim().to_string()]));
+    let before = values.len();
+    let retained = values
+        .into_iter()
+        .filter(|memory| !memory_at_or_after_message(memory, &message_ids, created_at.trim()))
+        .collect::<Vec<_>>();
+    if retained.len() == before {
+        return Ok(chat);
+    }
+    set_chat_array_field(state, chat_id, "memories", retained)
+}
+
 #[cfg(test)]
 fn list_chat_memories(
     state: &AppState,
@@ -1293,6 +1452,9 @@ pub(crate) async fn refresh_chat_memories(state: &AppState, chat_id: &str) -> Ap
     let now = now_iso();
     let mut chunks = Vec::new();
     for chunk in visible_messages.chunks(MEMORY_CHUNK_SIZE) {
+        if chunk.len() < MEMORY_CHUNK_SIZE {
+            continue;
+        }
         let content = chunk
             .iter()
             .map(|message| {
@@ -2132,6 +2294,203 @@ mod tests {
             &HashSet::new(),
             Some("2026-01-02T00:00:00.000Z")
         ));
+    fn update_message_content_if_unchanged_prunes_stale_and_newer_memories() {
+        let state = test_state("chat-memory-edit-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": [
+                        {
+                            "id": "old",
+                            "messageIds": ["message-old"],
+                            "lastMessageAt": "2026-06-01T09:00:00.000Z"
+                        },
+                        {
+                            "id": "edited",
+                            "messageIds": ["message-2"],
+                            "lastMessageAt": "2026-06-01T10:01:00.000Z"
+                        },
+                        {
+                            "id": "newer",
+                            "lastMessageAt": "2026-06-01T10:02:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-2",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:01:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        update_message_content_if_unchanged(
+            &state,
+            "chat-1",
+            "message-2",
+            "old visible text",
+            "new visible text",
+        )
+        .expect("matching edit should update");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+
+        assert_eq!(memory_ids(&chat["memories"]), vec!["old"]);
+    }
+
+    #[test]
+    fn update_message_content_if_unchanged_noop_preserves_memories() {
+        let state = test_state("chat-memory-edit-noop");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": [
+                        {
+                            "id": "existing",
+                            "messageIds": ["message-1"],
+                            "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "same visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "same visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let result = update_message_content_if_unchanged(
+            &state,
+            "chat-1",
+            "message-1",
+            "same visible text",
+            "same visible text",
+        )
+        .expect("no-op edit should still return updated");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+
+        assert_eq!(result["updated"], json!(true));
+        assert_eq!(memory_ids(&chat["memories"]), vec!["existing"]);
+    }
+
+    #[test]
+    fn update_message_content_if_unchanged_failed_match_preserves_memories() {
+        let state = test_state("chat-memory-edit-failed-match");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "current text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "current text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let result = update_message_content_if_unchanged(
+            &state,
+            "chat-1",
+            "message-1",
+            "stale text",
+            "new text",
+        )
+        .expect("failed expected-content check should not touch malformed memories");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+
+        assert_eq!(result["updated"], json!(false));
+        assert_eq!(message["content"], json!("current text"));
+    }
+
+    #[test]
+    fn update_message_content_if_unchanged_malformed_memories_fail_before_message_write() {
+        let state = test_state("chat-memory-edit-malformed-preflight");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = update_message_content_if_unchanged(
+            &state,
+            "chat-1",
+            "message-1",
+            "old visible text",
+            "new visible text",
+        )
+        .expect_err("malformed memories should fail before message write");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("old visible text"));
     }
 
     #[test]
@@ -3136,6 +3495,34 @@ mod tests {
             materialized["extra"]["reasoning_content"],
             json!("first reasoning")
         );
+    }
+
+    #[test]
+    fn message_swipes_read_rejects_message_from_another_chat() {
+        let state = test_state("swipe-read-cross-chat-owner");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 0,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = message_swipes(&state, "GET", "chat-2", "message-1", Value::Null)
+            .expect_err("cross-chat swipe read should reject");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error
+            .message
+            .contains("Message does not belong to the requested chat"));
     }
 
     #[test]
@@ -4221,6 +4608,184 @@ mod tests {
     }
 
     #[test]
+    fn active_swipe_content_change_prunes_affected_chat_memories() {
+        let state = test_state("chat-memory-swipe-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": [
+                        {
+                            "id": "keep-before",
+                            "messageIds": ["message-before"],
+                            "lastMessageAt": "2026-06-01T09:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-active",
+                            "messageIds": ["message-1"],
+                            "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-newer",
+                            "lastMessageAt": "2026-06-01T10:01:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should seed");
+
+        set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 1 }))
+            .expect("swipe switch should update visible content");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+
+        assert_eq!(memory_ids(&chat["memories"]), vec!["keep-before"]);
+    }
+
+    #[test]
+    fn swipe_mutations_reject_cross_chat_route_before_pruning_memories() {
+        let state = test_state("chat-memory-swipe-cross-chat");
+        for chat_id in ["chat-1", "chat-2"] {
+            state
+                .storage
+                .create(
+                    "chats",
+                    json!({
+                        "id": chat_id,
+                        "name": chat_id,
+                        "memories": [
+                            {
+                                "id": format!("{chat_id}-memory"),
+                                "messageIds": ["message-1"],
+                                "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                            }
+                        ]
+                    }),
+                )
+                .expect("chat should seed");
+        }
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should seed");
+
+        for error in [
+            message_swipes(
+                &state,
+                "POST",
+                "chat-2",
+                "message-1",
+                json!({ "content": "third" }),
+            )
+            .expect_err("add swipe should reject mismatched chat"),
+            set_active_swipe(&state, "chat-2", "message-1", json!({ "index": 1 }))
+                .expect_err("active swipe should reject mismatched chat"),
+            delete_swipe(&state, "chat-2", "message-1", "1")
+                .expect_err("delete swipe should reject mismatched chat"),
+        ] {
+            assert_eq!(error.code, "invalid_input");
+        }
+
+        let chat_1 = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let chat_2 = state
+            .storage
+            .get("chats", "chat-2")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+
+        assert_eq!(memory_ids(&chat_1["memories"]), vec!["chat-1-memory"]);
+        assert_eq!(memory_ids(&chat_2["memories"]), vec!["chat-2-memory"]);
+        assert_eq!(message["content"], json!("first"));
+    }
+
+    #[test]
+    fn active_swipe_malformed_memories_fail_before_message_write() {
+        let state = test_state("chat-memory-swipe-malformed-preflight");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": "{not valid json"
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 1 }))
+            .expect_err("malformed memories should fail before swipe write");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("first"));
+        assert_eq!(message["activeSwipeIndex"], json!(0));
+    }
+
+    #[test]
     fn memory_embedding_context_prefers_dedicated_embedding_connection() {
         let state = test_state("memory-embedding-context");
         let chat = state
@@ -4290,6 +4855,13 @@ mod tests {
                 "createdAt": "2026-06-01T10:00:00.000Z"
             }),
             json!({
+                "id": "visible-2",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "visible reply",
+                "createdAt": "2026-06-01T10:00:30.000Z"
+            }),
+            json!({
                 "id": "legacy-hidden-1",
                 "chatId": "chat-1",
                 "role": "assistant",
@@ -4313,6 +4885,27 @@ mod tests {
                 "createdAt": "2026-06-01T10:03:00.000Z",
                 "extra": { "hiddenFromAi": true }
             }),
+            json!({
+                "id": "visible-3",
+                "chatId": "chat-1",
+                "role": "user",
+                "content": "visible followup",
+                "createdAt": "2026-06-01T10:04:00.000Z"
+            }),
+            json!({
+                "id": "visible-4",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "visible answer",
+                "createdAt": "2026-06-01T10:05:00.000Z"
+            }),
+            json!({
+                "id": "visible-5",
+                "chatId": "chat-1",
+                "role": "user",
+                "content": "visible close",
+                "createdAt": "2026-06-01T10:06:00.000Z"
+            }),
         ] {
             state
                 .storage
@@ -4333,10 +4926,84 @@ mod tests {
             .expect("memories should be an array");
 
         assert_eq!(memories.len(), 1);
-        assert_eq!(memories[0]["content"], json!("user: visible memory"));
-        assert_eq!(memories[0]["messageIds"], json!(["visible-1"]));
+        assert_eq!(
+            memories[0]["messageIds"],
+            json!([
+                "visible-1",
+                "visible-2",
+                "visible-3",
+                "visible-4",
+                "visible-5"
+            ])
+        );
         assert_eq!(memories[0]["firstMessageId"], json!("visible-1"));
-        assert_eq!(memories[0]["lastMessageId"], json!("visible-1"));
+        assert_eq!(memories[0]["lastMessageId"], json!("visible-5"));
+        let content = memories[0]["content"]
+            .as_str()
+            .expect("memory content should be a string");
+        assert!(content.contains("user: visible memory"));
+        assert!(content.contains("assistant: visible reply"));
+        assert!(!content.contains("hidden memory"));
+    }
+
+    #[tokio::test]
+    async fn refresh_chat_memories_stores_only_complete_five_message_chunks() {
+        let state = test_state("memory-complete-chunks-only");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat"
+                }),
+            )
+            .expect("chat should seed");
+        for index in 0..6 {
+            state
+                .storage
+                .create(
+                    "messages",
+                    json!({
+                        "id": format!("message-{index}"),
+                        "chatId": "chat-1",
+                        "role": if index % 2 == 0 { "user" } else { "assistant" },
+                        "content": format!("visible memory {index}"),
+                        "createdAt": format!("2026-06-01T10:0{index}:00.000Z")
+                    }),
+                )
+                .expect("message should seed");
+        }
+
+        let result = refresh_chat_memories(&state, "chat-1")
+            .await
+            .expect("memory refresh should succeed");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let memories = chat["memories"]
+            .as_array()
+            .expect("memories should be an array");
+
+        assert_eq!(result["rebuilt"], json!(1));
+        assert_eq!(memories.len(), 1);
+        assert_eq!(memories[0]["messageCount"], json!(5));
+        assert_eq!(
+            memories[0]["messageIds"],
+            json!([
+                "message-0",
+                "message-1",
+                "message-2",
+                "message-3",
+                "message-4"
+            ])
+        );
+        assert!(!memories[0]["content"]
+            .as_str()
+            .expect("content should be a string")
+            .contains("visible memory 5"));
     }
 
     #[tokio::test]

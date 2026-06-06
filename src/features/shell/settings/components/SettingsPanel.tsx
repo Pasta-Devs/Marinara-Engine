@@ -19,6 +19,7 @@ import {
   type VisualTheme,
 } from "../../../../shared/stores/ui.store";
 import { cn } from "../../../../shared/lib/utils";
+import { stripDangerousCss } from "../../../../shared/lib/chat-css";
 import { TEMPERATURE_UNITS } from "../../../../shared/lib/temperature-units";
 import { QUOTE_FORMATS } from "../../../../shared/lib/dialogue-quotes";
 import { useExtensions, useCreateExtension, useDeleteExtension, useUpdateExtension } from "../hooks/use-extensions";
@@ -2561,7 +2562,9 @@ function ThemesSettings() {
       style = document.createElement("style");
       style.id = "marinara-css-editor-preview";
     }
-    style.textContent = themeCss;
+    // Sanitize the live preview the same way the saved-activation injector does, so editing
+    // (or importing) a malicious theme can't fire url() beacons / scripts during preview (#2365).
+    style.textContent = stripDangerousCss(themeCss);
     // Always (re-)append so it's the last <style> in <head>,
     // overriding the active-theme injector's saved CSS.
     document.head.appendChild(style);

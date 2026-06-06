@@ -1,4 +1,5 @@
 use super::*;
+use super::lorebook_signals::{detect_category, detect_entry_tag};
 
 pub(super) fn string_field(value: &Value, key: &str) -> String {
     value
@@ -300,7 +301,7 @@ pub(crate) fn normalize_lorebook_entry(lorebook_id: &str, entry: &Value, index: 
         "folderId": Value::Null,
         "preventRecursion": bool_field(entry.get("preventRecursion").or_else(|| entry.get("excludeRecursion")), false),
         "locked": bool_field(entry.get("locked"), false),
-        "tag": "",
+        "tag": detect_entry_tag(entry),
         "relationships": {},
         "dynamicState": {},
         "activationConditions": [],
@@ -424,10 +425,11 @@ pub(super) fn normalize_lorebook(
         .and_then(Value::as_str)
         .filter(|name| !name.trim().is_empty())
         .unwrap_or(fallback_name);
+    let entries = lorebook_entries(payload);
     let lorebook = json!({
         "name": name,
         "description": payload.get("description").and_then(Value::as_str).unwrap_or("Imported from SillyTavern"),
-        "category": "uncategorized",
+        "category": detect_category(&entries, name),
         "imagePath": Value::Null,
         "scanDepth": number(payload.get("scan_depth").or_else(|| payload.get("scanDepth")), 2),
         "tokenBudget": number(payload.get("token_budget").or_else(|| payload.get("tokenBudget")), 2048),
@@ -444,6 +446,5 @@ pub(super) fn normalize_lorebook(
         "generatedBy": "import",
         "sourceAgentId": Value::Null,
     });
-    let entries = lorebook_entries(payload);
     (lorebook, entries)
 }

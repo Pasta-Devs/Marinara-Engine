@@ -178,19 +178,8 @@ export function getWorldTimeDisplay(time: string | null | undefined) {
   const text = (time ?? "").trim();
   if (!text) return { main: "--:--", suffix: "", raw: "", hour: null as number | null, minute: null as number | null };
 
-  const twentyFourHour = text.match(/\b([01]?\d|2[0-3])[:.h]([0-5]\d)\b/i);
-  if (twentyFourHour) {
-    const hour = Number(twentyFourHour[1]);
-    const minute = Number(twentyFourHour[2]);
-    return {
-      main: `${twentyFourHour[1]!.padStart(2, "0")}:${twentyFourHour[2]}`,
-      suffix: "",
-      hour,
-      minute,
-      raw: text,
-    };
-  }
-
+  // Try meridiem (12-hour with AM/PM) before the 24-hour pattern: a spaced time like
+  // "6:00 PM" would otherwise match the 24-hour regex on "6:00" and drop the PM suffix.
   const meridiem = text.match(/\b(1[0-2]|0?\d)(?::([0-5]\d))?\s*([ap])\.?m?\.?\b/i);
   if (meridiem) {
     const displayHour = Number(meridiem[1]);
@@ -200,6 +189,19 @@ export function getWorldTimeDisplay(time: string | null | undefined) {
     return {
       main: `${meridiem[1]!.padStart(2, "0")}:${meridiem[2] ?? "00"}`,
       suffix: `${meridiem[3]!.toUpperCase()}M`,
+      hour,
+      minute,
+      raw: text,
+    };
+  }
+
+  const twentyFourHour = text.match(/\b([01]?\d|2[0-3])[:.h]([0-5]\d)\b/i);
+  if (twentyFourHour) {
+    const hour = Number(twentyFourHour[1]);
+    const minute = Number(twentyFourHour[2]);
+    return {
+      main: `${twentyFourHour[1]!.padStart(2, "0")}:${twentyFourHour[2]}`,
+      suffix: "",
       hour,
       minute,
       raw: text,

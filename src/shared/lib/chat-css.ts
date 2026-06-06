@@ -320,17 +320,17 @@ function canonicalizeKeywordEscapes(css: string): string {
 }
 
 /**
- * Remove dangerous constructs from CSS.
+ * Strip the CSS constructs that are dangerous no matter where the CSS is injected:
+ * network exfiltration (url()/@import/@namespace/@font-face), script execution
+ * (expression()/javascript:/vbscript:/behavior/-moz-binding), and browsing-history
+ * probing (:visited).
  *
- * Security model: card CSS is untrusted user content shared between users.
- * A malicious card creator must not be able to:
- * - Make network requests (data exfiltration, IP tracking)
- * - Escape the scoped container to style/probe app UI
- * - Override application theme tokens
- * - Inject phishing content via `content` property
- * - Cause denial-of-service via resource-heavy rules
+ * Unlike scoped card CSS, app-level theme and extension CSS is allowed to override
+ * theme tokens, use !important, and position elements — so it must be run through
+ * THIS function rather than sanitizeChatCss, which additionally applies card-only
+ * scope/theme-protection passes that would neuter a legitimate theme.
  */
-function sanitizeChatCss(css: string): string {
+export function stripDangerousCss(css: string): string {
   let out = stripComments(css);
 
   // ── Escape normalization ──
@@ -373,11 +373,31 @@ function sanitizeChatCss(css: string): string {
   out = out.replace(/behavior\s*:[^;]*/gi, "");
   out = out.replace(/-moz-binding\s*:[^;]*/gi, "");
 
+  // ── History probing ──
+  // Strip :visited — can detect browsing history via style differences
+  out = out.replace(/:visited/gi, ":link");
+
+  return out;
+}
+
+/**
+ * Remove dangerous constructs from CSS and additionally lock it down for use as
+ * scoped card CSS.
+ *
+ * Security model: card CSS is untrusted user content shared between users.
+ * A malicious card creator must not be able to:
+ * - Make network requests (data exfiltration, IP tracking)
+ * - Escape the scoped container to style/probe app UI
+ * - Override application theme tokens
+ * - Inject phishing content via `content` property
+ * - Cause denial-of-service via resource-heavy rules
+ */
+function sanitizeChatCss(css: string): string {
+  let out = stripDangerousCss(css);
+
   // ── Scope escape prevention ──
   // Strip :has() — can probe elements outside the scoped container
   out = out.replace(/:has\s*\([^)]*\)/gi, "");
-  // Strip :visited — can detect browsing history via style differences
-  out = out.replace(/:visited/gi, ":link");
   // Convert position:fixed to position:absolute (prevent viewport overlays)
   out = out.replace(/position\s*:\s*fixed/gi, "position:absolute");
 

@@ -1812,6 +1812,34 @@ fn persona_sprites_dir(state: &AppState, persona_id: &str) -> PathBuf {
         .join(persona_id)
 }
 
+/// Best-effort removal of an owner's entire sprite directory on entity delete.
+/// Mirrors the avatar-cleanup pattern: failures are logged, never propagated, so a
+/// missing or locked sprite dir can't block the delete.
+///
+/// Resolves the canonical sprite directory WITHOUT running legacy migration: destructive
+/// cleanup must not depend on migration succeeding (a migration error would otherwise leak the
+/// namespaced dir), and it must never remove the legacy `sprites/<id>` path for a persona, since
+/// that path can belong to a character that shares the id. The owner id is validated first so a
+/// malformed value can't escape the sprites tree.
+pub(crate) fn remove_owned_sprite_dir(state: &AppState, owner_kind: SpriteOwnerKind, owner_id: &str) {
+    if validate_safe_segment(owner_id, owner_kind.owner_label()).is_err() {
+        return;
+    }
+    let dir = match owner_kind {
+        SpriteOwnerKind::Character => state.data_dir.join("sprites").join(owner_id),
+        SpriteOwnerKind::Persona => persona_sprites_dir(state, owner_id),
+    };
+    if dir.exists() {
+        if let Err(error) = fs::remove_dir_all(&dir) {
+            log::warn!(
+                "could not remove {} sprite directory at {}: {error}",
+                owner_kind.as_str(),
+                dir.display()
+            );
+        }
+    }
+}
+
 fn legacy_persona_sprites_dir(state: &AppState, persona_id: &str) -> PathBuf {
     state.data_dir.join("sprites").join(persona_id)
 }

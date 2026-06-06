@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useThemes } from "../../features/shell/settings/index";
 import { useExtensions } from "../../features/shell/settings/index";
 import { storageApi } from "../../shared/api/storage-api";
+import { stripDangerousCss } from "../../shared/lib/chat-css";
 
 type ExtensionGlobal = typeof globalThis & {
   __marinaraExtensionApis?: Map<string, unknown>;
@@ -61,7 +62,10 @@ export function CustomThemeInjector() {
       style.id = id;
       document.head.appendChild(style);
     }
-    style.textContent = activeTheme.css;
+    // Theme CSS is injected raw into document.head, so it bypasses the card-CSS
+    // sanitizer. Strip the network-exfil and script-injection vectors while leaving
+    // a theme's legitimate token/!important/position overrides intact.
+    style.textContent = stripDangerousCss(activeTheme.css);
 
     return () => {
       style?.remove();
@@ -80,7 +84,7 @@ export function CustomThemeInjector() {
       if (!ext.enabled || !ext.css) continue;
       const style = document.createElement("style");
       style.id = `${prefix}${ext.id}`;
-      style.textContent = ext.css;
+      style.textContent = stripDangerousCss(ext.css);
       document.head.appendChild(style);
     }
 

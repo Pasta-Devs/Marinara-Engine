@@ -451,13 +451,20 @@ function gameStatePatchFromAgentResult(
 
   if (result.agentType === "persona-stats" || result.type === "persona_stats_update") {
     const playerStats = clonePlayerStats(snapshot.playerStats);
-    if (Object.prototype.hasOwnProperty.call(data, "status")) playerStats.status = readString(data.status).trim();
+    if (Object.prototype.hasOwnProperty.call(data, "status")) {
+      const status = readString(data.status).trim();
+      if (status) playerStats.status = status;
+    }
     if (Array.isArray(data.inventory)) {
-      playerStats.inventory = data.inventory.map(parseInventoryItem).filter((item): item is InventoryItem => !!item);
+      const inventory = data.inventory
+        .map(parseInventoryItem)
+        .filter((item): item is InventoryItem => !!item);
+      if (inventory.length > 0) playerStats.inventory = inventory;
     }
     const patch: TrackerStatePatch = { playerStats };
     if (Array.isArray(data.stats)) {
-      patch.personaStats = data.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat);
+      const stats = data.stats.map(parseStat).filter((stat): stat is CharacterStat => !!stat);
+      if (stats.length > 0) patch.personaStats = stats;
     }
     return patch;
   }

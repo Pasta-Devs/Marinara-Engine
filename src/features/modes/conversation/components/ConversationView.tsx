@@ -1492,6 +1492,25 @@ function SplitMessageGroup({
 
   const groupCharacterId = items[0]!.msg.characterId ?? undefined;
 
+  // Memoize the combined single-message view. ConversationView re-renders ~22x/sec
+  // during streaming; rebuilding this object on every render handed ConversationMessage
+  // a fresh `message` reference and defeated its memo, forcing a full re-render of every
+  // split group (#2304). Keyed on a content signature (string-equal across renders) so it
+  // only recomputes when an item's id or content actually changes.
+  const firstMessage = items[0]!.msg;
+  const lastMessageExtra = items[items.length - 1]!.msg.extra;
+  const combinedMessageSignature = items.map((gi) => `${gi.key}:${gi.msg.content}`).join("\n");
+  const combinedMessage = useMemo(
+    () => ({
+      ...firstMessage,
+      content: items.map((gi) => gi.msg.content).join("\n\n"),
+      // The last block carries the real extras (attachments, generationInfo, etc.)
+      extra: lastMessageExtra,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [combinedMessageSignature, firstMessage, lastMessageExtra],
+  );
+
   if (editing) {
     // Show the first message header + a single textarea for the full content
     const firstItem = items[0]!;
@@ -1636,18 +1655,11 @@ function SplitMessageGroup({
         // card CSS can style one seamless container (continuous borders, corners, stickers).
         // The stagger animation still works: as hidden blocks become visible the items
         // array grows and the combined content expands inside the same message body.
-        const lastItem = items[items.length - 1]!;
-        const combinedContent = items.map((gi) => gi.msg.content).join("\n\n");
-        const combinedMsg = {
-          ...firstItem.msg,
-          content: combinedContent,
-          // The last block carries the real extras (attachments, generationInfo, etc.)
-          extra: lastItem.msg.extra,
-        };
+        // combinedMessage is memoized at the top of the component (#2304).
         return (
           <ConversationMessage
             key={firstItem.key}
-            message={combinedMsg}
+            message={combinedMessage}
             isStreaming={false}
             isGrouped={firstItem.isGrouped}
             hideActions={false}
