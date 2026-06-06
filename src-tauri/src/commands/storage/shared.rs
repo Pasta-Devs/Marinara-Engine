@@ -976,6 +976,24 @@ fn insert_character_data_default(object: &mut Map<String, Value>) -> AppResult<(
     Ok(())
 }
 
+fn insert_message_extra_default(object: &mut Map<String, Value>) {
+    let mut extra = json_object_value(object.get("extra"))
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    let is_generated = object.get("role").and_then(Value::as_str) != Some("user");
+    extra
+        .entry("displayText".to_string())
+        .or_insert(Value::Null);
+    extra
+        .entry("isGenerated".to_string())
+        .or_insert(Value::Bool(is_generated));
+    extra.entry("tokenCount".to_string()).or_insert(Value::Null);
+    extra
+        .entry("generationInfo".to_string())
+        .or_insert(Value::Null);
+    object.insert("extra".to_string(), Value::Object(extra));
+}
+
 fn apply_create_default_field(
     collection: &str,
     field: &str,
@@ -999,6 +1017,7 @@ fn apply_create_default_field(
         ("connection-folders", "sortOrder") | ("connection-folders", "order") => {
             insert_default(object, field, json!(0));
         }
+        ("messages", "extra") => insert_message_extra_default(object),
         ("characters", "data") => insert_character_data_default(object)?,
         ("characters", "comment") => insert_default(object, field, Value::String(String::new())),
         ("characters", "avatarPath") => insert_default(object, field, Value::Null),

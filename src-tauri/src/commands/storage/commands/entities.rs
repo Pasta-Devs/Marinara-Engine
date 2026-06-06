@@ -2653,6 +2653,38 @@ mod tests {
     }
 
     #[test]
+    fn storage_create_message_returns_default_extra_and_persists_initial_swipe() {
+        let state = test_state("message-create-default-extra");
+        let created = storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first"
+            }),
+        )
+        .expect("message should create");
+        let expected_extra = json!({
+            "displayText": null,
+            "isGenerated": true,
+            "tokenCount": null,
+            "generationInfo": null
+        });
+
+        assert_eq!(created["activeSwipeIndex"], json!(0));
+        assert_eq!(created["swipeCount"], json!(1));
+        assert_eq!(created["extra"], expected_extra);
+        let sidecars = state
+            .storage
+            .list(message_swipes::COLLECTION)
+            .expect("message swipe sidecars should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["content"], json!("first"));
+        assert_eq!(sidecars[0]["extra"], expected_extra);
+    }
+
+    #[test]
     fn chat_metadata_patch_rejects_invalid_discord_webhook_url() {
         let state = test_state("chat-metadata-invalid-discord-webhook");
         storage_create_inner(

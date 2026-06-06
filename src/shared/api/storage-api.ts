@@ -170,13 +170,24 @@ function normalizeStorageReadResult(entity: StorageEntity, value: unknown): unkn
   return normalizeStorageRecord(entity, value);
 }
 
+function messageExtraDefaults(role: unknown, value: unknown): Record<string, unknown> {
+  return {
+    displayText: null,
+    isGenerated: role !== "user",
+    tokenCount: null,
+    generationInfo: null,
+    ...asRecord(value),
+  };
+}
+
 function chatMessageDefaults(chatId: string, value: Record<string, unknown>): Record<string, unknown> {
+  const role = typeof value.role === "string" ? value.role : "user";
   const content = typeof value.content === "string" ? collapseExcessBlankLines(value.content) : "";
-  const extra = value.extra ?? {};
+  const extra = messageExtraDefaults(role, value.extra);
   return {
     ...value,
     chatId,
-    role: value.role ?? "user",
+    role,
     content,
     extra,
     activeSwipeIndex: value.activeSwipeIndex ?? 0,

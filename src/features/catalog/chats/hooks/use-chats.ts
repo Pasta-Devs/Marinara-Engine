@@ -66,6 +66,15 @@ const MAX_MEMORY_RECALL_IMPORT_BYTES = 25 * 1024 * 1024;
 const scheduledDeleteRefreshTimers = new Map<string, number>();
 let optimisticMessageSequence = 0;
 
+type CreateMessageMutationInput = {
+  role: string;
+  content: string;
+  characterId?: string | null;
+  extra?: Record<string, unknown>;
+  activeSwipeIndex?: number;
+  swipes?: Record<string, unknown>[];
+};
+
 type MessageCountResult = { count: number };
 
 interface RecentMessageContentEdit {
@@ -136,23 +145,25 @@ function appendCachedMessage(
   };
 }
 
-function optimisticChatMessage(
-  chatId: string,
-  data: { role: string; content: string; characterId?: string | null },
-): Message {
+function optimisticChatMessage(chatId: string, data: CreateMessageMutationInput): Message {
   optimisticMessageSequence += 1;
+  const providedExtra =
+    data.extra && typeof data.extra === "object" && !Array.isArray(data.extra)
+      ? (data.extra as Partial<Message["extra"]>)
+      : {};
   return {
     id: `__optimistic_create_${Date.now()}_${optimisticMessageSequence}`,
     chatId,
     role: data.role as Message["role"],
     characterId: data.characterId ?? null,
     content: data.content,
-    activeSwipeIndex: 0,
+    activeSwipeIndex: data.activeSwipeIndex ?? 0,
     extra: {
       displayText: null,
-      isGenerated: false,
+      isGenerated: data.role !== "user",
       tokenCount: null,
       generationInfo: null,
+      ...providedExtra,
     },
     createdAt: new Date().toISOString(),
   };
@@ -504,7 +515,7 @@ export function useBackfillConversationSummaries() {
 export function useCreateMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { role: string; content: string; characterId?: string | null }) => {
+    mutationFn: (data: CreateMessageMutationInput) => {
       const payload = createMessageSchema.parse({ chatId: chatId!, ...data });
       return storageApi.createChatMessage<Message>(payload.chatId, payload);
     },

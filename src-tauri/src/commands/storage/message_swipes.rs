@@ -1,7 +1,7 @@
 use super::shared::{
     collapse_excess_blank_lines, compact_message_swipe_fields_for_storage, json_object_value,
     materialize_message_swipe_fields, normalize_typed_json_fields, swipe_scoped_extra,
-    sync_message_patch_content_to_active_swipe,
+    sync_message_patch_content_to_active_swipe, with_entity_defaults,
 };
 use crate::state::AppState;
 use marinara_core::{ensure_object, new_id, now_iso, AppError, AppResult};
@@ -308,7 +308,7 @@ fn normalize_message_rows_and_sidecars_inner(
 }
 
 fn prepare_message_create_row(state: &AppState, value: Value) -> AppResult<Value> {
-    let mut object = ensure_object(value)?;
+    let mut object = ensure_object(with_entity_defaults("messages", value)?)?;
     let had_id = object
         .get("id")
         .and_then(Value::as_str)
@@ -1665,6 +1665,107 @@ mod tests {
             .expect("sidecar rows should list");
         assert_eq!(sidecars.len(), 2);
         assert_eq!(sidecars[0]["messageId"], message_id);
+    }
+
+    #[test]
+    fn create_message_seeds_legacy_default_extra_on_initial_swipe() {
+        let state = test_state("create-default-extra");
+        let created = create_message(
+            &state,
+            json!({
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first"
+            }),
+        )
+        .expect("message should create");
+        let message_id = created
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("created message should have id")
+            .to_string();
+        let expected_extra = json!({
+            "displayText": null,
+            "isGenerated": true,
+            "tokenCount": null,
+            "generationInfo": null
+        });
+
+        assert_eq!(created["activeSwipeIndex"], json!(0));
+        assert_eq!(created["swipeCount"], json!(1));
+        assert_eq!(created["extra"], expected_extra);
+        assert_eq!(created["swipes"][0]["content"], json!("first"));
+        assert_eq!(created["swipes"][0]["extra"], expected_extra);
+
+        let stored = state
+            .storage
+            .get("messages", &message_id)
+            .expect("stored message lookup should not fail")
+            .expect("stored message should exist");
+        assert_eq!(stored["extra"], expected_extra);
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecar rows should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["extra"], expected_extra);
+
+        let user_created = create_message(
+            &state,
+            json!({
+                "chatId": "chat-1",
+                "role": "user",
+                "content": "user message"
+            }),
+        )
+        .expect("user message should create");
+        assert_eq!(user_created["extra"]["isGenerated"], json!(false));
+        assert_eq!(
+            user_created["swipes"][0]["extra"]["isGenerated"],
+            json!(false)
+        );
+    }
+
+    #[test]
+    fn create_message_preserves_provided_extra_when_defaulting_missing_leaves() {
+        let state = test_state("create-default-extra-preserve");
+        let created = create_message(
+            &state,
+            json!({
+                "chatId": "chat-1",
+                "role": "user",
+                "content": "first",
+                "extra": {
+                    "isGenerated": true,
+                    "generationInfo": { "model": "impersonate" },
+                    "attachments": [{ "galleryId": "gallery-1" }],
+                    "hiddenFromAI": true
+                }
+            }),
+        )
+        .expect("message should create");
+
+        assert_eq!(created["extra"]["displayText"], Value::Null);
+        assert_eq!(created["extra"]["isGenerated"], json!(true));
+        assert_eq!(created["extra"]["tokenCount"], Value::Null);
+        assert_eq!(
+            created["extra"]["generationInfo"]["model"],
+            json!("impersonate")
+        );
+        assert_eq!(
+            created["extra"]["attachments"][0]["galleryId"],
+            json!("gallery-1")
+        );
+        assert_eq!(created["extra"]["hiddenFromAI"], json!(true));
+        assert_eq!(created["swipes"][0]["extra"]["isGenerated"], json!(true));
+        assert_eq!(
+            created["swipes"][0]["extra"]["generationInfo"]["model"],
+            json!("impersonate")
+        );
+        assert_eq!(
+            created["swipes"][0]["extra"]["attachments"][0]["galleryId"],
+            json!("gallery-1")
+        );
     }
 
     #[test]

@@ -11,6 +11,7 @@ export const chatModeSchema = z.preprocess(
 );
 
 const messageRoleSchema = z.enum(["user", "assistant", "system", "narrator"]);
+const jsonObjectSchema = z.record(z.string(), z.unknown());
 
 export const createChatSchema = z.object({
   name: z.string().min(1).max(200),
@@ -27,6 +28,9 @@ export const createMessageSchema = z.object({
   role: messageRoleSchema,
   characterId: z.string().nullable().default(null),
   content: z.string(),
+  extra: jsonObjectSchema.optional(),
+  activeSwipeIndex: z.number().int().nonnegative().optional(),
+  swipes: z.array(jsonObjectSchema).optional(),
 });
 
 // Auto-summarization entries — shape-only validation (no length caps).
