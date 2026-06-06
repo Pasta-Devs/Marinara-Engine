@@ -1822,6 +1822,17 @@ export function useGenerate() {
         await assertChatCanGenerate(queryClient, chatId);
         const agentStore = useAgentStore.getState();
         agentStore.setProcessing(true);
+        // Flush any pending debounced game-state edits before the engine re-reads
+        // storage; otherwise retryGenerationAgents reads a stale snapshot and the
+        // regenerated agent result clobbers the user's just-made manual HUD edit.
+        const flushPatch = useGameStateStore.getState().flushPatch;
+        if (flushPatch) {
+          try {
+            await flushPatch();
+          } catch (cause) {
+            throw new Error("Failed to flush pending game-state edits", { cause });
+          }
+        }
         if (agentTypes && agentTypes.length > 0) {
           // Targeted retry: clear only the entries for agents we're about to re-run, so
           // prior-turn failures for agents that aren't being retried stay visible. If any
