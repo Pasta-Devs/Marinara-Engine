@@ -2216,6 +2216,59 @@ function savedGenerationEventData(saved: unknown): unknown {
   return { ...withoutSwipes, extra: timelineExtra };
 }
 
+/**
+ * Mutable sink the streaming loop fills with the accumulated turn so the caller
+ * can recover the partial assistant text after an abort. The loop writes these
+ * fields in a `finally`, so they are populated even when the stream throws an
+ * `AbortError` before returning.
+ */
+interface StreamPartialSink {
+  content: string;
+  thinking: string;
+  usage: unknown;
+  promptSnapshot: MainGenerationPromptSnapshot | null;
+}
+
+/**
+ * On a Stop mid-stream, persist whatever the model has already produced so the
+ * partial assistant message is not lost. Returns the saved row (so the caller
+ * can emit an `assistant_message` event for it) or null when there is nothing
+ * worth saving. Reuses `saveAssistantMessage`, preserving impersonate and
+ * regenerate routing. Post-save agent / illustration / tracker work is skipped:
+ * the caller rethrows the abort right after this, before any of that runs.
+ */
+async function persistPartialOnAbort(args: {
+  deps: GenerationEngineDeps;
+  chat: JsonRecord;
+  input: StartGenerationInput;
+  connection: JsonRecord;
+  partial: StreamPartialSink;
+  chatSummaryFingerprint: string | null;
+  signal: AbortSignal | undefined;
+  existingExtra?: unknown;
+}): Promise<unknown | null> {
+  if (!args.signal?.aborted) return null;
+  if (!args.partial.content.trim()) return null;
+  try {
+    return await saveAssistantMessage({
+      storage: args.deps.storage,
+      chat: args.chat,
+      input: args.input,
+      connection: args.connection,
+      content: args.partial.content,
+      thinking: args.partial.thinking,
+      agentResults: [],
+      noteCount: 0,
+      chatSummaryFingerprint: args.chatSummaryFingerprint,
+      usage: args.partial.usage,
+      promptSnapshot: args.partial.promptSnapshot,
+      existingExtra: args.existingExtra,
+    });
+  } catch {
+    return null;
+  }
+}
+
 function messageId(saved: unknown): string | null {
   return isRecord(saved) ? readString(saved.id) || null : null;
 }
@@ -2932,26 +2985,52 @@ export async function* startGeneration(
     const baseMessages: LlmMessage[] = [...prompt, generationGuide(input, runtime?.preInjections)].filter(
       (message): message is LlmMessage => !!message,
     );
-    const {
-      content: streamedContent,
-      thinking: streamedThinking,
-      usage,
-      promptSnapshot,
-    } = yield* streamMainGenerationLoop({
-      deps,
-      connection,
-      input,
-      chat: chatForGeneration,
-      parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
-      baseMessages,
-      previewMessages: [...promptPreviewMessages, generationGuide(input, runtime?.preInjections)].filter(
-        (message): message is LlmMessage => !!message,
-      ),
-      promptPresetId: assembly.promptPresetId,
-      mainTools,
-      toolRuntimeInput,
-      signal,
-    });
+    const mainPartial: StreamPartialSink = { content: "", thinking: "", usage: null, promptSnapshot: null };
+    let streamedContent = "";
+    let streamedThinking = "";
+    let usage: unknown = null;
+    let promptSnapshot: MainGenerationPromptSnapshot | null = null;
+    try {
+      ({
+        content: streamedContent,
+        thinking: streamedThinking,
+        usage,
+        promptSnapshot,
+      } = yield* streamMainGenerationLoop({
+        deps,
+        connection,
+        input,
+        chat: chatForGeneration,
+        parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
+        baseMessages,
+        previewMessages: [...promptPreviewMessages, generationGuide(input, runtime?.preInjections)].filter(
+          (message): message is LlmMessage => !!message,
+        ),
+        promptPresetId: assembly.promptPresetId,
+        mainTools,
+        toolRuntimeInput,
+        signal,
+        partial: mainPartial,
+      }));
+    } catch (err) {
+      // On a Stop mid-stream, persist the partial text before the abort
+      // propagates so it is not discarded, and emit its message event so the
+      // client upserts the saved row before clearing the streaming buffer.
+      const savedPartial = await persistPartialOnAbort({
+        deps,
+        chat,
+        input,
+        connection,
+        partial: mainPartial,
+        chatSummaryFingerprint: assembly.chatSummaryFingerprint,
+        signal,
+        existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
+      });
+      if (savedPartial) {
+        yield { type: savedGenerationEventType(input), data: savedGenerationEventData(savedPartial) };
+      }
+      throw err;
+    }
     throwIfAborted(signal);
     let content = streamedContent;
 
@@ -3144,26 +3223,52 @@ export async function* startGeneration(
   const baseMessagesDirect: LlmMessage[] = [...(prompt ?? []), generationGuide(input)].filter(
     (message): message is LlmMessage => !!message,
   );
-  const {
-    content: streamedContentDirect,
-    thinking: streamedThinkingDirect,
-    usage,
-    promptSnapshot: promptSnapshotDirect,
-  } = yield* streamMainGenerationLoop({
-    deps,
-    connection,
-    input,
-    chat: chatForGeneration,
-    parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
-    baseMessages: baseMessagesDirect,
-    previewMessages: [...(promptPreviewMessagesDirect ?? []), generationGuide(input)].filter(
-      (message): message is LlmMessage => !!message,
-    ),
-    promptPresetId: assembly.promptPresetId,
-    mainTools: mainToolsDirect,
-    toolRuntimeInput: toolRuntimeInputDirect,
-    signal,
-  });
+  const directPartial: StreamPartialSink = { content: "", thinking: "", usage: null, promptSnapshot: null };
+  let streamedContentDirect = "";
+  let streamedThinkingDirect = "";
+  let usage: unknown = null;
+  let promptSnapshotDirect: MainGenerationPromptSnapshot | null = null;
+  try {
+    ({
+      content: streamedContentDirect,
+      thinking: streamedThinkingDirect,
+      usage,
+      promptSnapshot: promptSnapshotDirect,
+    } = yield* streamMainGenerationLoop({
+      deps,
+      connection,
+      input,
+      chat: chatForGeneration,
+      parameters: llmParameters(connection, input, chatForGeneration, assembly.parameters),
+      baseMessages: baseMessagesDirect,
+      previewMessages: [...(promptPreviewMessagesDirect ?? []), generationGuide(input)].filter(
+        (message): message is LlmMessage => !!message,
+      ),
+      promptPresetId: assembly.promptPresetId,
+      mainTools: mainToolsDirect,
+      toolRuntimeInput: toolRuntimeInputDirect,
+      signal,
+      partial: directPartial,
+    }));
+  } catch (err) {
+    // On a Stop mid-stream, persist the partial text before the abort
+    // propagates so it is not discarded, and emit its message event so the
+    // client upserts the saved row before clearing the streaming buffer.
+    const savedPartial = await persistPartialOnAbort({
+      deps,
+      chat,
+      input,
+      connection,
+      partial: directPartial,
+      chatSummaryFingerprint: assembly.chatSummaryFingerprint,
+      signal,
+      existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
+    });
+    if (savedPartial) {
+      yield { type: savedGenerationEventType(input), data: savedGenerationEventData(savedPartial) };
+    }
+    throw err;
+  }
   throwIfAborted(signal);
   let content = streamedContentDirect;
   content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
@@ -3369,6 +3474,7 @@ async function* streamMainGenerationLoop(args: {
   mainTools: MainToolDefinitions | null;
   toolRuntimeInput: ToolRuntimeInput;
   signal: AbortSignal | undefined;
+  partial?: StreamPartialSink | null;
 }): AsyncGenerator<
   GenerationEvent,
   { content: string; thinking: string; usage: unknown; promptSnapshot: MainGenerationPromptSnapshot | null }
@@ -3385,6 +3491,7 @@ async function* streamMainGenerationLoop(args: {
     mainTools,
     toolRuntimeInput,
     signal,
+    partial,
   } = args;
   let content = "";
   let thinking = "";
@@ -3392,13 +3499,19 @@ async function* streamMainGenerationLoop(args: {
   const conversation: LlmMessage[] = [...baseMessages];
   let promptSnapshot: MainGenerationPromptSnapshot | null = null;
   let iteration = 0;
+  // Text streamed in the current turn but not yet committed to `content`.
+  // Lets the abort `finally` recover an in-flight turn (the `content +=
+  // turnContent` commit only runs once the turn's stream completes).
+  let inFlightTurn = "";
 
-  while (true) {
+  try {
+    while (true) {
     throwIfAborted(signal);
     iteration++;
     const pendingToolCalls: LLMToolCall[] = [];
     const streamUsages: unknown[] = [];
     let turnContent = "";
+    inFlightTurn = "";
     const thinkingParser = createInlineThinkingStreamParser();
     const emitInlineParts = function* (text: string): Generator<GenerationEvent> {
       for (const part of thinkingParser.push(text)) {
@@ -3408,6 +3521,7 @@ async function* streamMainGenerationLoop(args: {
           yield { type: "thinking", data: part.text };
         } else {
           turnContent += part.text;
+          inFlightTurn = turnContent;
           yield { type: "token", data: part.text };
         }
       }
@@ -3467,12 +3581,14 @@ async function* streamMainGenerationLoop(args: {
         yield { type: "thinking", data: part.text };
       } else {
         turnContent += part.text;
+        inFlightTurn = turnContent;
         yield { type: "token", data: part.text };
       }
     }
 
     throwIfAborted(signal);
     content += turnContent;
+    inFlightTurn = "";
 
     if (!mainTools || pendingToolCalls.length === 0) break;
     if (iteration >= MAX_MAIN_TOOL_ITERATIONS) {
@@ -3519,6 +3635,18 @@ async function* streamMainGenerationLoop(args: {
         tool_call_id: call.id,
         name: toolName,
       });
+    }
+    }
+  } finally {
+    // Expose the accumulated turn to the caller even when the stream is
+    // aborted mid-flight, so a Stop can persist the partial assistant text
+    // instead of discarding it. Runs on the normal return path too, but the
+    // caller only reads `partial` when `signal.aborted` is true.
+    if (partial) {
+      partial.content = content + inFlightTurn;
+      partial.thinking = thinking;
+      partial.usage = mergeTurnUsages(turnUsages);
+      partial.promptSnapshot = promptSnapshot;
     }
   }
 
