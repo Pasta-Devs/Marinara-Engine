@@ -37,9 +37,8 @@ security, or risky-work boundaries.
   user explicitly asked you to post, close, merge, tag, or release.
 - Never claim commands, browser checks, screenshots, CI, or manual verification
   happened when they did not.
-- Do not submit `*.test.ts` or `*.test.tsx` files in PRs as proof. Use existing
-  checks, command output, scratch/local-only harnesses, app/browser/Tauri proof,
-  or manual verification notes instead.
+- Proof is session evidence, not permission to add durable test artifacts.
+  Unless a maintainer explicitly asks for tests, do not add or submit new test artifacts in any language as PR proof, including `*.test.*`, `*.spec.*`, `tests/`, `__tests__/`, Rust `#[test]` or `#[cfg(test)]` modules, snapshots, fixtures, or committed harness files. Temporary tests and harnesses are allowed when they stay local and uncommitted; cite their command output or resulting observation instead of submitting the artifacts. If a durable regression test is the right engineering answer, ask first and explain why existing proof paths are insufficient.
 
 ## Bugfix Lane
 
@@ -78,11 +77,7 @@ plan. Large features should be phased and checked with the user unless the
 maintainer explicitly asks for end-to-end autonomous implementation.
 
 For UI work, define the primary path, mobile expectations, theme expectations,
-empty/error states, and the cheapest proof that exercises the claim. Use static
-inspection, targeted tests, scratch harnesses, route/module repros, or
-jsdom/component proof before Playwright; use browser proof when visual layout,
-interaction, routing, responsive behavior, screenshots, or browser-only behavior
-is the claim.
+empty/error states, and the cheapest proof that exercises the claim. Use static inspection, existing test output, temporary uncommitted tests or harnesses, route/module repros, or jsdom/component proof before Playwright; use browser proof when visual layout, interaction, routing, responsive behavior, screenshots, or browser-only behavior is the claim.
 
 ## Issue Filing Lane
 
@@ -108,8 +103,8 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 - Before pushing, opening, or handing off a PR, run `pnpm check` after the final
   diff. It includes a warning-only unused-code report; review those findings
   because they no longer fail local checks or CI.
-- Do not add or carry `*.test.ts` or `*.test.tsx` files as PR proof artifacts.
-  If a local repro needs one, keep it out of the submitted diff.
+- Do not add or carry new test artifacts in any language as PR proof artifacts.
+  If a local repro needs a test or harness, keep it temporary, local, and out of the submitted diff.
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.
 - After pushing, inspect CI and review feedback when asked to ship or ready a PR.

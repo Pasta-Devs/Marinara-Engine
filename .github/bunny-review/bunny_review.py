@@ -603,7 +603,7 @@ def skeptical_review_pass(client, skill, triage_content, stats):
         "introduced by the diff: data collected in a pre-scan but persisted after later "
         "filters, parent metadata derived from rows that are not imported as children, "
         "fallback behavior that diverges from validation, rollback paths, partial writes, "
-        "contract drift, and tests that prove only the happy path. Report only concrete "
+        "contract drift, and proof that covers only the happy path. Report only concrete "
         "actionable findings that cite added or changed diff lines. If there are no "
         "findings from this specialist lens, return the same JSON schema with empty "
         "findings and nitpicks arrays and mention the skeptical audit in what_i_checked."
@@ -1985,7 +1985,7 @@ def produce_review(args):
             f"Request at most {MAX_CONTEXT_FILES} files and {MAX_CONTEXT_SEARCHES} literal searches."
         )
         triage += (
-            "\n\nFocus on correctness, contracts, failure paths, tests, CI/deployment risks, "
+            "\n\nFocus on correctness, contracts, failure paths, proof, CI/deployment risks, "
             "and architecture. Findings must point to changed diff lines. "
             "If the packet is truncated or missing context for a potential issue, mention that "
             "limitation in what_i_checked rather than inventing certainty."

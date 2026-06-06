@@ -27,12 +27,18 @@ Before push or PR creation:
 10. Draft external text exactly.
 
 `pnpm check` is the general pre-PR gate. It does not replace targeted proof
-such as focused tests, lint, build, size checks, clippy, native Tauri QA, or
-browser checks when the change needs them.
+such as existing test output, lint, build, size checks, clippy, native Tauri QA,
+or browser checks when the change needs them.
 
-Do not submit `*.test.ts` or `*.test.tsx` files as PR proof. If a repro needs
-one locally, keep it out of the submitted diff and cite the command output,
-existing checks, app/browser/Tauri proof, or manual verification notes instead.
+Proof is session evidence, not permission to add durable test artifacts. Unless
+a maintainer explicitly asks for tests, do not add or submit new test artifacts
+in any language as PR proof, including `*.test.*`, `*.spec.*`, `tests/`,
+`__tests__/`, Rust `#[test]` or `#[cfg(test)]` modules, snapshots, fixtures, or
+committed harness files. Temporary tests and harnesses are allowed when they stay
+local and uncommitted; cite their command output or resulting observation
+instead of submitting the artifacts. If a durable regression test is the right
+engineering answer, ask first and explain why existing proof paths are
+insufficient.
 
 If `pnpm check` fails, do not push or mark the PR ready. Classify the failure as
 in-scope or pre-existing/unrelated, fix in-scope failures, and report unrelated

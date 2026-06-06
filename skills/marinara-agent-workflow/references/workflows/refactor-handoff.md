@@ -33,8 +33,10 @@ behavior:
 - `PresetEditor.tsx`: extract tab/section reorder helpers, marker config readers, macro reference data, and textarea commit helpers one cluster at a time.
 - `SettingsPanel.tsx`: extract tracker appearance option helpers, background-library normalization, import button state helpers, and advanced-setting option data one cluster at a time.
 
-Each extraction PR must move one pure helper cluster plus focused tests, preserve
-all UI behavior, and avoid broad component rewrites.
+Each extraction PR must move one pure helper cluster plus focused proof, preserve
+all UI behavior, and avoid broad component rewrites. Use existing tests or
+temporary uncommitted tests/harnesses when useful; do not add durable test
+artifacts unless a maintainer explicitly requested them.
 
 ## Blockers Vs Review Notes
 

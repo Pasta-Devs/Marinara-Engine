@@ -42,7 +42,7 @@ PR-affecting. Reserve workflow-health style checks for nontrivial work, PR work,
 issue selection, and risky workflow changes unless repo policy or visible risk
 requires them.
 
-When a helper is missing, use equivalent direct checks: `git status`, `git remote -v`, focused tests, `pnpm typecheck`, `pnpm build`, `cargo check --manifest-path src-tauri/Cargo.toml`, `pnpm check:docs`, GitHub CLI/API checks, browser automation, or manual verification scripts. Ordinary bugfix language still means local fix and verification; GitHub PR creation, CodeRabbit, CI polling, ready marking, and merge require an explicit shipping request.
+When a helper is missing, use equivalent direct checks: `git status`, `git remote -v`, existing test output, temporary uncommitted tests or harnesses, `pnpm typecheck`, `pnpm build`, `cargo check --manifest-path src-tauri/Cargo.toml`, `pnpm check:docs`, GitHub CLI/API checks, browser automation, or manual verification scripts. Ordinary bugfix language still means local fix and verification; GitHub PR creation, CodeRabbit, CI polling, ready marking, and merge require an explicit shipping request.
 
 Do not treat missing pack automation as a blocker. Treat it as a reason to make the evidence explicit in the final report.
 
@@ -79,8 +79,9 @@ For UI changes, classify UX risk:
 
 For medium/high UX risk, define the primary user path, expected states, mobile/theme proof, and whether an Impeccable critique/polish pass is useful.
 
-Use the proof ladder for UI proof: static inspection, targeted tests, scratch
-harnesses, route/module repros, or jsdom/component proof before Playwright or the
+Use the proof ladder for UI proof: static inspection, existing test output,
+temporary uncommitted tests or harnesses, route/module repros, or
+jsdom/component proof before Playwright or the
 in-app browser. Use browser proof when visual layout, interaction, routing,
 responsive behavior, screenshots, console/network behavior, or browser-only
 behavior is the claim. Name the runtime in every UI/runtime proof: `Chrome web

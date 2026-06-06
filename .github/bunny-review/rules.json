@@ -6,13 +6,13 @@
     "architecture boundaries",
     "mode ownership",
     "failure paths",
-    "missing regression tests",
+    "missing focused proof",
     "CI and deployment failures"
   ],
   "severity_policy": {
     "blocking": "The PR should not merge because the changed behavior is broken, unsafe, or violates a hard architecture boundary.",
     "high": "A likely production or data-loss regression, security/privacy issue, or serious cross-mode/remote-runtime contract risk.",
-    "medium": "A concrete bug, edge case, maintainability trap, or missing test tied directly to changed behavior.",
+    "medium": "A concrete bug, edge case, maintainability trap, or missing proof tied directly to changed behavior.",
     "low": "A small but actionable correctness, proof, or maintainability risk tied to changed behavior.",
     "nitpick": "Optional changed-line polish with no behavior risk, such as readability, naming, tiny duplication, stale comments, dead code, type clarity, or local consistency."
   },

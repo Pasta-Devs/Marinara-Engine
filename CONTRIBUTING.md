@@ -137,12 +137,18 @@ Before opening or updating a PR after the final diff, run `pnpm check`.
 This is the general pre-PR gate for line endings, architecture, TypeScript,
 Rust compile, docs, discovery metadata, agent workflow, and a warning-only
 unused-code report.
-It does not replace targeted proof when the change needs it, such as focused
-tests, lint, build, size checks, clippy, Rust tests, native Tauri QA, or browser
+It does not replace targeted proof when the change needs it, such as existing
+test output, lint, build, size checks, clippy, native Tauri QA, or browser
 checks.
-Do not submit `*.test.ts` or `*.test.tsx` files in a PR as proof; validation
-belongs in existing checks, command output, local-only scratch harnesses,
-app/browser/Tauri verification, or manual verification notes.
+Proof is session evidence, not permission to add durable test artifacts. Unless
+a maintainer explicitly asks for tests, do not add or submit new test artifacts
+in any language as PR proof, including `*.test.*`, `*.spec.*`, `tests/`,
+`__tests__/`, Rust `#[test]` or `#[cfg(test)]` modules, snapshots, fixtures, or
+committed harness files. Temporary tests and harnesses are allowed when they stay
+local and uncommitted; cite their command output or resulting observation
+instead of submitting the artifacts. If a durable regression test is the right
+engineering answer, ask first and explain why existing proof paths are
+insufficient.
 
 Leave PR template checkboxes unchecked until a human has actually verified each item. If an AI agent drafts a PR body, treat the checkboxes as a to-do list, not as proof.
 
