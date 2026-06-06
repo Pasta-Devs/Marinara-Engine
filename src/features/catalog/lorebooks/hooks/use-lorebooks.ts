@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Lorebook hooks
 // ──────────────────────────────────────────────
-import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { lorebookKeys } from "../query-keys";
 import { scanActiveLorebookEntries } from "../../../../engine/generation/active-lorebooks";
 import type { LorebookSemanticScanStatus } from "../../../../engine/generation/active-lorebook-scanner";
@@ -130,6 +130,11 @@ async function bulkUnvectorizeLorebookEntries(
   return { lorebookId, requested: requestedIds.length || entries.length, cleared: targets.length };
 }
 
+function invalidateLinkedCharacterBookQueries(qc: Pick<QueryClient, "invalidateQueries">): void {
+  // Linked lorebook writes mirror into character.data.character_book in native storage.
+  qc.invalidateQueries({ queryKey: characterKeys.all });
+}
+
 // ── Lorebooks ──
 
 export function useLorebooks(category?: string) {
@@ -181,6 +186,7 @@ export function useUpdateLorebook() {
       qc.invalidateQueries({ queryKey: lorebookKeys.list() });
       qc.invalidateQueries({ queryKey: lorebookKeys.detail(variables.id) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -220,7 +226,7 @@ export function useDeleteLorebook() {
       // by this point), so blanket-invalidate character queries —
       // missing this lets the character editor keep rendering stale
       // entries and a broken "Edit Linked Lorebook" button.
-      qc.invalidateQueries({ queryKey: characterKeys.all });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -281,6 +287,7 @@ export function useCreateLorebookEntry() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -304,6 +311,7 @@ export function useDuplicateLorebookEntry() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.entry.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -317,6 +325,7 @@ export function useUpdateLorebookEntry() {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.entry(variables.entryId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -329,6 +338,7 @@ export function useDeleteLorebookEntry() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -341,6 +351,7 @@ export function useBulkUnvectorizeLorebookEntries() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -363,6 +374,7 @@ export function useTransferLorebookEntries() {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.sourceLorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.targetLorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -388,6 +400,7 @@ export function useReorderLorebookEntries() {
       qc.setQueryData(lorebookKeys.entries(variables.lorebookId), entries);
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
@@ -443,6 +456,7 @@ export function useDeleteLorebookFolder() {
       // Removing a folder reparents its entries to root, so the entry list shape changes.
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+      invalidateLinkedCharacterBookQueries(qc);
     },
   });
 }
