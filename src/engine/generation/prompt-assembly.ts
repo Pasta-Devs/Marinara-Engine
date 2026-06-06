@@ -11,7 +11,12 @@ import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
 import { injectAtDepth } from "../generation-core/lorebooks/prompt-injector";
 import { wrapContent, wrapGroup } from "../generation-core/prompt/format-engine";
-import { mergeAdjacentMessages, squashLeadingSystemMessages } from "../generation-core/prompt/merger";
+import {
+  canMergePromptMessages,
+  mergeAdjacentMessages,
+  mergePromptContextKind,
+  squashLeadingSystemMessages,
+} from "../generation-core/prompt/merger";
 import { applyRegexScriptsToPromptMessages } from "../generation-core/regex/regex-application";
 import { stripConversationPromptTimestamps } from "../modes/chat/core/summaries/transcript-sanitize";
 import { resolveMacros, type MacroContext } from "../shared/macros/macro-engine";
@@ -2789,22 +2794,11 @@ function applyReusableGreetingPromptVariables(macros: MacroContext, variables: R
 
 function shouldMergeSameRolePromptMessage(
   previous: ChatMLMessage | undefined,
-  _message: ChatMLMessage,
+  message: ChatMLMessage,
   effectiveRole: "user" | "assistant",
 ): previous is ChatMLMessage {
   if (!previous || previous.role !== effectiveRole) return false;
-  return true;
-}
-
-function mergedPromptContextKind(
-  previous: ChatMLMessage["contextKind"] | undefined,
-  next: ChatMLMessage["contextKind"] | undefined,
-): ChatMLMessage["contextKind"] | undefined {
-  if (previous === next) return previous;
-  if ((previous === "history" && next === "injection") || (previous === "injection" && next === "history")) {
-    return "history";
-  }
-  return undefined;
+  return canMergePromptMessages(previous, { ...message, role: effectiveRole });
 }
 
 function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatMLMessage): void {
@@ -2813,7 +2807,7 @@ function mergeIntoPreviousPromptMessage(previous: ChatMLMessage, message: ChatML
   if ((previous.displayName ?? null) !== (message.displayName ?? null)) {
     delete previous.displayName;
   }
-  const contextKind = mergedPromptContextKind(previous.contextKind, message.contextKind);
+  const contextKind = mergePromptContextKind(previous.contextKind, message.contextKind);
   if (contextKind) {
     previous.contextKind = contextKind;
   } else {
@@ -3000,7 +2994,7 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
     const message = messages[index]!;
     if (message.contextKind === "injection") {
       const previous = result[result.length - 1];
-      if (message.role !== "system" && previous?.role === message.role) {
+      if (message.role !== "system" && previous && canMergePromptMessages(previous, message)) {
         mergeIntoPreviousPromptMessage(previous, message);
         continue;
       }

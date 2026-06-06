@@ -1,10 +1,26 @@
 import type { ChatMLMessage } from "../../contracts/types/prompt";
 
+export function mergePromptContextKind(
+  a?: ChatMLMessage["contextKind"],
+  b?: ChatMLMessage["contextKind"],
+): ChatMLMessage["contextKind"] | undefined {
+  if (a === b) return a;
+  return undefined;
+}
+
+export function canMergePromptMessages(a: ChatMLMessage, b: ChatMLMessage): boolean {
+  if (a.role !== b.role) return false;
+  if ((a.characterId ?? null) !== (b.characterId ?? null)) return false;
+  if (!a.contextKind || !b.contextKind) return true;
+  return a.contextKind === b.contextKind;
+}
+
 /**
  * Merge consecutive messages that share the same role, with a double-newline separator.
  *
  * Rules:
- * - Only merges when adjacent messages have the **exact same** role.
+ * - Only merges when adjacent messages have the **exact same** role and character id.
+ * - Preserves prompt/history/injection context boundaries when both messages carry context.
  * - Preserves the `name` of the first message if set.
  * - Skips empty messages entirely.
  *
@@ -18,34 +34,23 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
   const result: ChatMLMessage[] = [];
   let current: ChatMLMessage | null = null;
 
-  const mergeContextKind = (a?: ChatMLMessage["contextKind"], b?: ChatMLMessage["contextKind"]) => {
-    if (a === b) return a;
-    if ((a === "history" && b === "injection") || (a === "injection" && b === "history")) {
-      return "history";
-    }
-    return undefined;
-  };
-
-  const canMerge = (a: ChatMLMessage, b: ChatMLMessage) => {
-    return a.role === b.role;
-  };
-
   for (const msg of messages) {
     // Skip empty messages
     if (!msg.content.trim()) continue;
 
-    if (current && canMerge(current, msg)) {
+    if (current && canMergePromptMessages(current, msg)) {
       // Same role — merge
       const mergedImages: string[] | undefined =
         current.images || msg.images ? [...(current.images ?? []), ...(msg.images ?? [])] : undefined;
       // Prefer the later message's providerMetadata (most recent thought signature)
       const mergedMeta: Record<string, unknown> | undefined = msg.providerMetadata ?? current.providerMetadata;
-      const mergedContextKind = mergeContextKind(current.contextKind, msg.contextKind);
+      const mergedContextKind = mergePromptContextKind(current.contextKind, msg.contextKind);
       current = {
         role: current.role,
         content: current.content + "\n\n" + msg.content,
         ...(mergedContextKind ? { contextKind: mergedContextKind } : {}),
         name: current.name,
+        ...(current.characterId ? { characterId: current.characterId } : {}),
         ...(mergedImages ? { images: mergedImages } : {}),
         ...(mergedMeta ? { providerMetadata: mergedMeta } : {}),
       };
