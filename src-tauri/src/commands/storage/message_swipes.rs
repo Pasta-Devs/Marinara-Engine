@@ -412,6 +412,90 @@ where
         })
 }
 
+fn materialized_message_from_loaded_rows(
+    message: &Value,
+    message_id: &str,
+    sidecars: &[Value],
+) -> Value {
+    let mut materialized = message.clone();
+    let mut swipes = sidecars
+        .iter()
+        .filter(|row| sidecar_matches_message_id(row, message_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    sort_swipes(&mut swipes);
+    apply_sidecar_swipes(
+        &mut materialized,
+        &swipes,
+        MessageSwipeMaterialization::full(),
+    );
+    materialized
+}
+
+pub(crate) fn replace_message_with_swipes_if_current_and_update_collections<F>(
+    state: &AppState,
+    message: Value,
+    swipes: Vec<Value>,
+    extra_collections: Vec<&str>,
+    expected_chat_id: &str,
+    expected_content: &str,
+    update_collections: F,
+) -> AppResult<Option<Value>>
+where
+    F: FnOnce(&mut [AtomicCollectionRows], &Value) -> AppResult<()>,
+{
+    let (message_id, message) = message_row_for_write(message, true)?;
+    let replacement = swipe_rows_for_message(&message, &swipes)?;
+    let mut collections = vec!["messages", COLLECTION];
+    collections.extend(extra_collections);
+    state
+        .storage
+        .update_collections_atomically(collections, move |collections| {
+            {
+                let current = collections[0]
+                    .rows()
+                    .iter()
+                    .find(|row| row.get("id").and_then(Value::as_str) == Some(message_id.as_str()))
+                    .cloned();
+                let Some(current) = current else {
+                    return Ok(None);
+                };
+                let current = materialized_message_from_loaded_rows(
+                    &current,
+                    &message_id,
+                    collections[1].rows(),
+                );
+                let current = current
+                    .as_object()
+                    .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+                if current.get("chatId").and_then(Value::as_str) != Some(expected_chat_id) {
+                    return Ok(None);
+                }
+                if current.get("content").and_then(Value::as_str).unwrap_or("") != expected_content
+                {
+                    return Ok(None);
+                }
+            }
+
+            let messages = collections[0].rows_mut();
+            let Some(row) = messages
+                .iter_mut()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(message_id.as_str()))
+            else {
+                return Ok(None);
+            };
+            *row = message.clone();
+
+            let sidecars = collections[1].rows_mut();
+            sidecars.retain(|row| !sidecar_matches_message_id(row, &message_id));
+            sidecars.extend(replacement);
+            sort_sidecar_rows(sidecars);
+
+            update_collections(collections, &message)?;
+            Ok(Some(message))
+        })
+}
+
 pub(crate) fn replace_message_with_swipes(
     state: &AppState,
     message: Value,
