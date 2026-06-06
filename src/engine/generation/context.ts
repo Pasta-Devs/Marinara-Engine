@@ -75,12 +75,7 @@ export async function resolveGenerationConnection(
   if (chatConnection === "random") return randomConnection();
   if (chatConnection) return requireRecord(await storage.get("connections", chatConnection), "Chat connection");
 
-  const connections = await storage.list<JsonRecord>("connections");
-  const selected =
-    connections.find((connection) => boolish(connection.isDefault, false) || boolish(connection.default, false)) ??
-    connections[0];
-  if (!selected) throw new Error("No API connection configured for this chat");
-  return selected;
+  throw new Error("No API connection configured for this chat");
 }
 
 export async function loadChatMessages(
