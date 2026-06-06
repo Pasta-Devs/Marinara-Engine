@@ -1,0 +1,7 @@
+{
+  "expected_checks": [
+    { "name": "Frontend, Architecture, and Organization", "required": "always" },
+    { "name": "Rust Capability Layer", "required": "always" },
+    { "name": "Browser Smoke and Performance", "required": "always" }
+  ]
+}
