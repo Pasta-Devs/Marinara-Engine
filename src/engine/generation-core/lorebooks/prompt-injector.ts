@@ -131,10 +131,11 @@ export interface LorebookContentResolver {
 
 function withResolvedContent(entry: ActivatedEntry, resolver?: LorebookContentResolver): ActivatedEntry {
   if (!resolver) return entry;
-  const content = resolver.resolve(entry.entry.content);
+  const rawContent = entry.rawContent ?? entry.entry.content;
+  const content = resolver.resolve(rawContent);
   return {
     ...entry,
-    rawContent: entry.rawContent ?? entry.entry.content,
+    rawContent,
     entry: {
       ...entry.entry,
       content,
