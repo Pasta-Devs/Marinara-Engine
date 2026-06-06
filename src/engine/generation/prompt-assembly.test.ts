@@ -316,6 +316,134 @@ describe("assembleGenerationPrompt character markers", () => {
   });
 });
 
+describe("assembleGenerationPrompt prompt regex scripts", () => {
+  it("applies prompt-only regex scripts to prompt and injection messages", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content: "replace-system",
+          enabled: true,
+        },
+        {
+          id: "history",
+          presetId: "preset-1",
+          identifier: "chat_history",
+          enabled: true,
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [],
+      personas: [],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [
+        {
+          id: "script-1",
+          enabled: true,
+          promptOnly: true,
+          placement: ["ai_output"],
+          findRegex: "replace-system|replace-agent",
+          flags: "g",
+          replaceString: "transformed",
+        },
+      ],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: { id: "chat-1", mode: "roleplay", promptPresetId: "preset-1", metadata: {} },
+      storedMessages: [{ id: "message-1", role: "user", content: "latest user message" }],
+      connection: {},
+      request: {},
+      latestUserInput: "latest user message",
+      agentData: { html: "replace-agent" },
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("transformed");
+    expect(prompt).not.toContain("replace-system");
+    expect(prompt).not.toContain("replace-agent");
+  });
+
+  it("applies prompt-only regex scripts to group turn prompt messages", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content: "system prompt",
+          enabled: true,
+        },
+        {
+          id: "history",
+          presetId: "preset-1",
+          identifier: "chat_history",
+          enabled: true,
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        { id: "char-1", data: { name: "Alice", description: "A careful speaker." } },
+        { id: "char-2", data: { name: "Bob", description: "A quiet listener." } },
+      ],
+      personas: [],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [
+        {
+          id: "script-1",
+          enabled: true,
+          promptOnly: true,
+          placement: ["ai_output"],
+          findRegex: "Respond only as Alice",
+          replaceString: "Only Alice answers",
+        },
+      ],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1", "char-2"],
+        metadata: { groupChatMode: "individual" },
+        promptPresetId: "preset-1",
+      },
+      storedMessages: [{ id: "message-1", role: "user", content: "latest user message" }],
+      connection: {},
+      request: { forCharacterId: "char-1" },
+      latestUserInput: "latest user message",
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Only Alice answers");
+    expect(prompt).not.toContain("Respond only as Alice");
+  });
+});
+
 describe("assembleGenerationPrompt game sprites", () => {
   const visuals: VisualAssetGateway = {
     listSprites: async (ownerId) =>
