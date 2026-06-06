@@ -33,7 +33,7 @@ struct CachedCollection {
 
 struct CachedCollectionIdIndex {
     records_by_id: HashMap<String, CachedCollectionRecord>,
-    stamp: Option<CollectionMetadataStamp>,
+    stamp: Option<CollectionContentStamp>,
 }
 
 #[derive(Clone)]
@@ -61,18 +61,6 @@ struct ProjectionShape {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct CollectionMetadataStamp {
-    len: u64,
-    modified_nanos: u128,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct ProjectedCollectionStamp {
-    len: u64,
-    modified_nanos: u128,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct CollectionContentStamp {
     len: u64,
     modified_nanos: u128,
@@ -81,7 +69,7 @@ struct CollectionContentStamp {
 
 struct CachedProjectedList {
     rows: Vec<Value>,
-    stamp: Option<ProjectedCollectionStamp>,
+    stamp: Option<CollectionContentStamp>,
 }
 
 struct AtomicUpdateGuard {
@@ -1074,7 +1062,7 @@ impl FileStorage {
             return Ok(Vec::new());
         }
 
-        let file = fs::File::open(path)?;
+        let file = fs::File::open(&path)?;
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
         match deserializer.deserialize_seq(FilteredRowsWhereInVisitor {
@@ -1138,7 +1126,7 @@ impl FileStorage {
             shape: projection_shape(fields, &nested_field_sets),
         };
         let path = self.collection_path(collection)?;
-        let stamp = projected_collection_stamp(&path)?;
+        let stamp = collection_content_stamp(&path)?;
         if let Some(rows) = self.cached_projected_list_rows(&cache_key, stamp)? {
             return Ok(rows);
         }
@@ -1147,7 +1135,7 @@ impl FileStorage {
             return Ok(Vec::new());
         }
 
-        let file = fs::File::open(path)?;
+        let file = fs::File::open(&path)?;
         let reader = BufReader::new(file);
         let mut deserializer = serde_json::Deserializer::from_reader(reader);
         match deserializer.deserialize_seq(ProjectedRowsVisitor {
@@ -1155,20 +1143,24 @@ impl FileStorage {
             field_selections: &nested_field_sets,
         }) {
             Ok(rows) => {
-                self.cache_projected_list(&cache_key, &rows, stamp)?;
+                if collection_content_stamp(&path)? == stamp {
+                    self.cache_projected_list(&cache_key, &rows, stamp)?;
+                }
                 Ok(rows)
             }
             Err(_) => {
                 let rows = if recover_on_fallback {
-                    self.read_collection(collection)?
+                    self.read_collection_from_disk(collection)?
                 } else {
-                    self.read_collection_no_recovery(collection)?
+                    self.read_collection_from_disk_no_recovery(collection)?
                 };
                 let projected = rows
                     .into_iter()
                     .map(|row| project_row(row, &field_set, &nested_field_sets))
                     .collect::<Vec<_>>();
-                self.cache_projected_list(&cache_key, &projected, stamp)?;
+                if collection_content_stamp(&path)? == stamp {
+                    self.cache_projected_list(&cache_key, &projected, stamp)?;
+                }
                 Ok(projected)
             }
         }
@@ -1765,7 +1757,7 @@ impl FileStorage {
     fn cached_projected_list_rows(
         &self,
         key: &ProjectionCacheKey,
-        stamp: Option<ProjectedCollectionStamp>,
+        stamp: Option<CollectionContentStamp>,
     ) -> AppResult<Option<Vec<Value>>> {
         let cache = self
             .cache
@@ -1782,7 +1774,7 @@ impl FileStorage {
         &self,
         key: &ProjectionCacheKey,
         rows: &[Value],
-        stamp: Option<ProjectedCollectionStamp>,
+        stamp: Option<CollectionContentStamp>,
     ) -> AppResult<()> {
         let mut cache = self
             .cache
@@ -1835,7 +1827,7 @@ impl FileStorage {
         recover_on_fallback: bool,
     ) -> AppResult<Option<(PathBuf, CachedCollectionRecord)>> {
         let path = self.collection_path(collection)?;
-        let stamp = collection_metadata_stamp(&path)?;
+        let stamp = collection_content_stamp(&path)?;
         if stamp.is_none() {
             return Ok(None);
         }
@@ -1856,7 +1848,13 @@ impl FileStorage {
             };
             records_by_id(&rows)
         };
-        let refreshed_stamp = collection_metadata_stamp(&path)?;
+        let refreshed_stamp = collection_content_stamp(&path)?;
+        if refreshed_stamp != stamp {
+            return Err(AppError::new(
+                "storage_index_unstable",
+                format!("Collection changed while building id index: {collection}"),
+            ));
+        }
         let record = records_by_id.get(id).cloned();
         self.cache_id_index(collection, records_by_id, refreshed_stamp)?;
         Ok(record.map(|record| (path, record)))
@@ -1866,7 +1864,7 @@ impl FileStorage {
         &self,
         collection: &str,
         id: &str,
-        stamp: Option<CollectionMetadataStamp>,
+        stamp: Option<CollectionContentStamp>,
     ) -> AppResult<Option<Option<CachedCollectionRecord>>> {
         validate_collection_name(collection)?;
         let cache = self
@@ -1884,7 +1882,7 @@ impl FileStorage {
         &self,
         collection: &str,
         records_by_id: HashMap<String, CachedCollectionRecord>,
-        stamp: Option<CollectionMetadataStamp>,
+        stamp: Option<CollectionContentStamp>,
     ) -> AppResult<()> {
         validate_collection_name(collection)?;
         let mut cache = self
@@ -2621,7 +2619,8 @@ fn read_pretty_projected_record_range(
     fields: &HashSet<String>,
     field_selections: &HashMap<String, HashSet<String>>,
 ) -> AppResult<Option<Value>> {
-    let bytes = read_file_range(path, range)?;
+    let mut bytes = read_file_range(path, range)?;
+    strip_trailing_json_comma(&mut bytes);
     let mut wrapped = Vec::with_capacity(bytes.len() + 4);
     wrapped.extend_from_slice(b"[\n");
     wrapped.extend_from_slice(&bytes);
@@ -2652,30 +2651,6 @@ fn row_indices_by_id(rows: &[Value]) -> HashMap<String, usize> {
         index.entry(id.to_string()).or_insert(row_index);
     }
     index
-}
-
-fn collection_metadata_stamp(path: &Path) -> AppResult<Option<CollectionMetadataStamp>> {
-    let metadata = match fs::metadata(path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.into()),
-    };
-    Ok(Some(CollectionMetadataStamp {
-        len: metadata.len(),
-        modified_nanos: metadata_modified_nanos(&metadata),
-    }))
-}
-
-fn projected_collection_stamp(path: &Path) -> AppResult<Option<ProjectedCollectionStamp>> {
-    let metadata = match fs::metadata(path) {
-        Ok(metadata) => metadata,
-        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error.into()),
-    };
-    Ok(Some(ProjectedCollectionStamp {
-        len: metadata.len(),
-        modified_nanos: metadata_modified_nanos(&metadata),
-    }))
 }
 
 fn collection_content_stamp(path: &Path) -> AppResult<Option<CollectionContentStamp>> {
@@ -4426,6 +4401,13 @@ mod tests {
             .count()
     }
 
+    fn rewrite_with_modified_time(path: &Path, bytes: &[u8], modified: SystemTime) {
+        fs::write(path, bytes).unwrap();
+        let file = fs::File::options().write(true).open(path).unwrap();
+        file.set_times(std::fs::FileTimes::new().set_modified(modified))
+            .unwrap();
+    }
+
     #[test]
     fn replace_all_many_updates_multiple_collections() {
         let root = temp_storage_root("replace-many");
@@ -5003,6 +4985,56 @@ mod tests {
     }
 
     #[test]
+    fn get_id_index_detects_same_length_rewrite_with_same_mtime() {
+        let root = temp_storage_root("get-id-index-same-metadata-rewrite");
+        let storage = FileStorage::new(&root).unwrap();
+        let collection = root.join("collections").join("characters.json");
+        fs::create_dir_all(collection.parent().unwrap()).unwrap();
+        let initial = br#"[
+  {
+    "id": "target",
+    "name": "Alpha"
+  },
+  {
+    "id": "decoy",
+    "name": "Omega"
+  }
+]"#;
+        let replacement = br#"[
+  {
+    "id": "decoy",
+    "name": "Omega"
+  },
+  {
+    "id": "target",
+    "name": "Bravo"
+  }
+]"#;
+        assert_eq!(initial.len(), replacement.len());
+        fs::write(&collection, initial).unwrap();
+        let original_modified = fs::metadata(&collection).unwrap().modified().unwrap();
+
+        assert_eq!(
+            storage
+                .get("characters", "target")
+                .expect("get should build id index")
+                .expect("target should exist"),
+            json!({ "id": "target", "name": "Alpha" })
+        );
+        rewrite_with_modified_time(&collection, replacement, original_modified);
+
+        assert_eq!(
+            storage
+                .get("characters", "target")
+                .expect("same-metadata rewrite should rebuild id index")
+                .expect("target should still exist"),
+            json!({ "id": "target", "name": "Bravo" })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn get_projected_returns_matching_row_without_unrequested_fields() {
         let root = temp_storage_root("get-projected-skips-unrequested-fields");
         let storage = FileStorage::new(&root).unwrap();
@@ -5297,27 +5329,49 @@ mod tests {
     }
 
     #[test]
-    fn projected_collection_stamp_uses_metadata_without_content_signature() {
-        let root = temp_storage_root("projected-collection-stamp-metadata-only");
-        let collection = root.join("collections").join("characters.json");
-        fs::create_dir_all(collection.parent().unwrap()).unwrap();
+    fn list_projected_cache_detects_same_length_rewrite_with_same_mtime() {
+        let root = temp_storage_root("list-projected-cache-same-metadata-rewrite");
+        let storage = FileStorage::new(&root).unwrap();
 
-        fs::write(&collection, b"alpha").unwrap();
-        let original_modified = fs::metadata(&collection)
-            .unwrap()
-            .modified()
-            .expect("collection mtime should be readable");
-        let first_stamp = projected_collection_stamp(&collection).unwrap();
-
-        fs::write(&collection, b"bravo").unwrap();
-        let file = fs::File::options().write(true).open(&collection).unwrap();
-        file.set_times(std::fs::FileTimes::new().set_modified(original_modified))
+        storage
+            .replace_all(
+                "characters",
+                vec![json!({
+                    "id": "target",
+                    "data": { "name": "Alpha", "description": "large prompt" },
+                    "avatar": "large image payload"
+                })],
+            )
             .unwrap();
 
-        assert_eq!(fs::metadata(&collection).unwrap().len(), 5);
+        let fields = vec!["id".to_string(), "data".to_string()];
+        let mut selections = Map::new();
+        selections.insert("data".to_string(), json!(["name"]));
         assert_eq!(
-            projected_collection_stamp(&collection).unwrap(),
-            first_stamp
+            storage
+                .list_projected("characters", &fields, &selections)
+                .expect("first projected list should cache"),
+            vec![json!({ "id": "target", "data": { "name": "Alpha" } })]
+        );
+
+        let collection = root.join("collections").join("characters.json");
+        let original_modified = fs::metadata(&collection).unwrap().modified().unwrap();
+        let replacement = serde_json::to_vec_pretty(&json!([
+            {
+                "id": "target",
+                "data": { "name": "Bravo", "description": "large prompt" },
+                "avatar": "large image payload"
+            }
+        ]))
+        .unwrap();
+        assert_eq!(replacement.len() as u64, fs::metadata(&collection).unwrap().len());
+        rewrite_with_modified_time(&collection, &replacement, original_modified);
+
+        assert_eq!(
+            storage
+                .list_projected("characters", &fields, &selections)
+                .expect("same-metadata rewrite should invalidate projected cache"),
+            vec![json!({ "id": "target", "data": { "name": "Bravo" } })]
         );
 
         fs::remove_dir_all(root).unwrap();
@@ -5628,6 +5682,100 @@ mod tests {
 
         assert_eq!(
             record,
+            json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn projected_pretty_range_reads_non_final_record_with_trailing_comma() {
+        let root = temp_storage_root("projected-pretty-range-non-final");
+        let collection = root.join("collections").join("characters.json");
+        fs::create_dir_all(collection.parent().unwrap()).unwrap();
+        fs::write(
+            &collection,
+            serde_json::to_vec_pretty(&json!([
+                {
+                    "id": "target",
+                    "data": { "name": "Rina", "description": "large prompt text" },
+                    "avatar": "large image payload"
+                },
+                {
+                    "id": "other",
+                    "data": { "name": "Other", "description": "ignore" },
+                    "avatar": "ignore"
+                }
+            ]))
+            .unwrap(),
+        )
+        .unwrap();
+        let ranges = pretty_record_ranges_by_id(&collection)
+            .expect("range scan should succeed")
+            .expect("pretty ranges should be available");
+        let fields = HashSet::from(["id".to_string(), "data".to_string()]);
+        let field_selections = HashMap::from([(
+            "data".to_string(),
+            HashSet::from(["name".to_string()]),
+        )]);
+
+        assert_eq!(
+            read_pretty_projected_record_range(
+                &collection,
+                *ranges.get("target").expect("target range should exist"),
+                "target",
+                &fields,
+                &field_selections,
+            )
+            .expect("non-final projected range should parse")
+            .expect("target should be projected"),
+            json!({ "id": "target", "data": { "name": "Rina" } })
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn projected_pretty_range_reads_final_record_without_trailing_comma() {
+        let root = temp_storage_root("projected-pretty-range-final");
+        let collection = root.join("collections").join("characters.json");
+        fs::create_dir_all(collection.parent().unwrap()).unwrap();
+        fs::write(
+            &collection,
+            serde_json::to_vec_pretty(&json!([
+                {
+                    "id": "other",
+                    "data": { "name": "Other", "description": "ignore" },
+                    "avatar": "ignore"
+                },
+                {
+                    "id": "target",
+                    "data": { "name": "Rina", "description": "large prompt text" },
+                    "avatar": "large image payload"
+                }
+            ]))
+            .unwrap(),
+        )
+        .unwrap();
+        let ranges = pretty_record_ranges_by_id(&collection)
+            .expect("range scan should succeed")
+            .expect("pretty ranges should be available");
+        let fields = HashSet::from(["id".to_string(), "data".to_string()]);
+        let field_selections = HashMap::from([(
+            "data".to_string(),
+            HashSet::from(["name".to_string()]),
+        )]);
+
+        assert_eq!(
+            read_pretty_projected_record_range(
+                &collection,
+                *ranges.get("target").expect("target range should exist"),
+                "target",
+                &fields,
+                &field_selections,
+            )
+            .expect("final projected range should parse")
+            .expect("target should be projected"),
             json!({ "id": "target", "data": { "name": "Rina" } })
         );
 
