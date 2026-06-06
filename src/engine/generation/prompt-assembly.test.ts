@@ -314,6 +314,385 @@ describe("assembleGenerationPrompt character markers", () => {
     expect(prompt).not.toContain("Bob description references Alice personality");
     expect(prompt).not.toContain("Alice scenario for Bob");
   });
+
+  it("uses the group scenario override for character prompt context", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content: "Macro scenario is {{scenario}}.",
+          enabled: true,
+        },
+        {
+          id: "characters",
+          presetId: "preset-1",
+          identifier: "character",
+          role: "system",
+          enabled: true,
+          markerConfig: { type: "character", characterFields: ["description", "scenario"] },
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice sees {{scenario}}.",
+            scenario: "Alice old scenario",
+          },
+        },
+        {
+          id: "char-2",
+          data: {
+            name: "Bob",
+            description: "Bob sees {{scenario}}.",
+            scenario: "Bob old scenario",
+          },
+        },
+      ],
+      personas: [{ id: "persona-1", isActive: true, data: { name: "Celia" } }],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1", "char-2"],
+        metadata: { groupScenarioOverride: true, groupScenarioText: "Shared stage scenario" },
+      },
+      storedMessages: [],
+      connection: {},
+      request: {},
+      latestUserInput: "",
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Macro scenario is Shared stage scenario.");
+    expect(prompt).toContain("Alice sees Shared stage scenario.");
+    expect(prompt).toContain("Bob sees Shared stage scenario.");
+    expect(prompt).toContain("Scenario: Shared stage scenario");
+    expect(prompt).not.toContain("Alice old scenario");
+    expect(prompt).not.toContain("Bob old scenario");
+  });
+
+  it("suppresses character scenarios when the group scenario override is blank", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content: "Macro scenario is {{scenario}}.",
+          enabled: true,
+        },
+        {
+          id: "characters",
+          presetId: "preset-1",
+          identifier: "character",
+          role: "system",
+          enabled: true,
+          markerConfig: { type: "character", characterFields: ["description", "scenario"] },
+        },
+        {
+          id: "history",
+          presetId: "preset-1",
+          identifier: "chat_history",
+          enabled: true,
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice sees {{scenario}}.",
+            scenario: "Alice old scenario",
+            extensions: {
+              depth_prompt: { prompt: "Depth scenario is {{scenario}}.", depth: 0, role: "system" },
+            },
+          },
+        },
+      ],
+      personas: [{ id: "persona-1", isActive: true, data: { name: "Celia" } }],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1"],
+        metadata: { groupScenarioOverride: true, groupScenarioText: "   " },
+      },
+      storedMessages: [{ id: "message-1", role: "user", content: "hello" }],
+      connection: {},
+      request: {},
+      latestUserInput: "hello",
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Macro scenario is .");
+    expect(prompt).toContain("Alice sees .");
+    expect(prompt).toContain("Depth scenario is .");
+    expect(prompt).not.toContain("Scenario: Alice old scenario");
+    expect(prompt).not.toContain("Alice old scenario");
+
+    const fallbackStorage = storageWithRows({
+      prompts: [],
+      "prompt-sections": [],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice fallback description.",
+            scenario: "Alice old scenario",
+          },
+        },
+      ],
+      personas: [{ id: "persona-1", isActive: true, data: { name: "Celia" } }],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const fallbackAssembly = await assembleGenerationPrompt(fallbackStorage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1"],
+        metadata: { groupScenarioOverride: true, groupScenarioText: "" },
+      },
+      storedMessages: [],
+      connection: {},
+      request: {},
+      latestUserInput: "",
+    });
+
+    const fallbackPrompt = fallbackAssembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(fallbackPrompt).toContain("Alice fallback description.");
+    expect(fallbackPrompt).not.toContain("Scenario:");
+    expect(fallbackPrompt).not.toContain("<scenario>");
+    expect(fallbackPrompt).not.toContain("Alice old scenario");
+  });
+
+  it("resolves group scenario override macros in markers, fallback, and depth prompts", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "characters",
+          presetId: "preset-1",
+          identifier: "character",
+          role: "system",
+          enabled: true,
+          markerConfig: { type: "character", characterFields: ["description", "scenario"] },
+        },
+        {
+          id: "history",
+          presetId: "preset-1",
+          identifier: "chat_history",
+          enabled: true,
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice sees {{scenario}}.",
+            scenario: "Alice old scenario",
+            extensions: {
+              depth_prompt: { prompt: "Depth sees {{scenario}}.", depth: 0, role: "system" },
+            },
+          },
+        },
+        {
+          id: "char-2",
+          data: {
+            name: "Bob",
+            description: "Bob sees {{scenario}}.",
+            scenario: "Bob old scenario",
+          },
+        },
+      ],
+      personas: [{ id: "persona-1", isActive: true, data: { name: "Celia" } }],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1", "char-2"],
+        metadata: {
+          groupScenarioOverride: true,
+          groupScenarioText: "Shared scene for {{user}} and {{char}}.",
+        },
+      },
+      storedMessages: [{ id: "message-1", role: "user", content: "hello" }],
+      connection: {},
+      request: {},
+      latestUserInput: "hello",
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Alice sees Shared scene for Celia and Alice.");
+    expect(prompt).toContain("Bob sees Shared scene for Celia and Bob.");
+    expect(prompt).toContain("Scenario: Shared scene for Celia and Alice.");
+    expect(prompt).toContain("Depth sees Shared scene for Celia and Alice.");
+    expect(prompt).not.toContain("{{user}}");
+    expect(prompt).not.toContain("{{char}}");
+    expect(prompt).not.toContain("Alice old scenario");
+    expect(prompt).not.toContain("Bob old scenario");
+
+    const fallbackStorage = storageWithRows({
+      prompts: [],
+      "prompt-sections": [],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice fallback description.",
+            scenario: "Alice old scenario",
+          },
+        },
+      ],
+      personas: [{ id: "persona-1", isActive: true, data: { name: "Celia" } }],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const fallbackAssembly = await assembleGenerationPrompt(fallbackStorage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1"],
+        metadata: {
+          groupScenarioOverride: true,
+          groupScenarioText: "Fallback scene for {{user}} and {{char}}.",
+        },
+      },
+      storedMessages: [{ id: "message-1", role: "user", content: "hello" }],
+      connection: {},
+      request: {},
+      latestUserInput: "hello",
+    });
+
+    const fallbackPrompt = fallbackAssembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(fallbackPrompt).toContain("Fallback scene for Celia and Alice.");
+    expect(fallbackPrompt).not.toContain("{{user}}");
+    expect(fallbackPrompt).not.toContain("{{char}}");
+    expect(fallbackPrompt).not.toContain("Alice old scenario");
+  });
+
+  it("does not append a group scenario block when a custom character marker excludes scenario", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "characters",
+          presetId: "preset-1",
+          identifier: "character",
+          role: "system",
+          enabled: true,
+          markerConfig: { type: "character", characterFields: ["description"] },
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      characters: [
+        {
+          id: "char-1",
+          data: {
+            name: "Alice",
+            description: "Alice description.",
+            scenario: "Alice old scenario",
+          },
+        },
+      ],
+      personas: [],
+      lorebooks: [],
+      "lorebook-folders": [],
+      "lorebook-entries": [],
+      "regex-scripts": [],
+    });
+
+    const assembly = await assembleGenerationPrompt(storage, {
+      chat: {
+        id: "chat-1",
+        mode: "roleplay",
+        characterIds: ["char-1"],
+        metadata: { groupScenarioOverride: true, groupScenarioText: "Shared stage scenario" },
+      },
+      storedMessages: [],
+      connection: {},
+      request: {},
+      latestUserInput: "",
+    });
+
+    const prompt = assembly.previewMessages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("Description: Alice description.");
+    expect(prompt).not.toContain("Scenario:");
+    expect(prompt).not.toContain("Shared stage scenario");
+    expect(prompt).not.toContain("Alice old scenario");
+  });
 });
 
 describe("assembleGenerationPrompt game sprites", () => {

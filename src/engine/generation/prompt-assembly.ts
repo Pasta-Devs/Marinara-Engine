@@ -161,6 +161,7 @@ interface PromptAssemblyReusableContext {
   promptParameters: StoredGenerationParameters | null;
   maxContext: number | null;
   wrapFormat: WrapFormat;
+  groupScenarioOverride: GroupScenarioOverride;
   promptCharacters: GenerationCharacterContext[];
   baseLorebookIncludedPositions: ActiveLorebookIncludedPositions;
   loreScan: ActiveLorebookScannerResult;
@@ -205,6 +206,13 @@ type PromptAssemblyEntry = ChatMLMessage & {
   promptGroupId?: string | null;
   promptGroupName?: string | null;
 };
+
+type GroupScenarioOverride = {
+  enabled: boolean;
+  text: string;
+};
+
+const NO_GROUP_SCENARIO_OVERRIDE: GroupScenarioOverride = { enabled: false, text: "" };
 
 interface SelectedPromptPreset {
   id: string;
@@ -599,6 +607,11 @@ function characterCardText(character: GenerationCharacterContext, gameCard?: Jso
   if (character.scenario) parts.push(`Scenario: ${character.scenario}`);
   appendGameCardFields(parts, gameCard);
   return parts.join("\n");
+}
+
+function groupScenarioOverride(meta: JsonRecord): GroupScenarioOverride {
+  if (!boolish(meta.groupScenarioOverride, false)) return NO_GROUP_SCENARIO_OVERRIDE;
+  return { enabled: true, text: cleanPromptText(readString(meta.groupScenarioText).trim()) };
 }
 
 function personaCardText(persona: GenerationPersonaContext | null, gameCard?: JsonRecord): string | null {
@@ -1123,8 +1136,11 @@ function macroContext(input: {
   agentData?: Record<string, string>;
   variables?: Record<string, string>;
   request: JsonRecord;
+  groupScenarioOverride: GroupScenarioOverride;
 }): MacroContext {
   const first = input.characters[0];
+  const scenarioValue = (scenario: string | undefined) =>
+    input.groupScenarioOverride.enabled ? input.groupScenarioOverride.text : scenario;
   return {
     user: input.persona?.name || "User",
     char: first?.name || "Character",
@@ -1135,7 +1151,7 @@ function macroContext(input: {
       personality: character.personality,
       backstory: character.backstory,
       appearance: character.appearance,
-      scenario: character.scenario,
+      scenario: scenarioValue(character.scenario),
       example: character.mesExample,
       systemPrompt: character.systemPrompt,
       postHistoryInstructions: character.postHistoryInstructions,
@@ -1152,7 +1168,7 @@ function macroContext(input: {
           personality: first.personality,
           backstory: first.backstory,
           appearance: first.appearance,
-          scenario: first.scenario,
+          scenario: scenarioValue(first.scenario),
           example: first.mesExample,
           systemPrompt: first.systemPrompt,
           postHistoryInstructions: first.postHistoryInstructions,
@@ -1239,9 +1255,13 @@ function characterMarkerFieldValue(
   character: GenerationCharacterContext,
   fieldName: string,
   macros: MacroContext | null,
+  groupScenarioOverride: GroupScenarioOverride,
 ): string {
+  if (fieldName === "scenario" && groupScenarioOverride.enabled) return "";
   const value = characterFieldValue(character, fieldName);
-  return macros ? resolveMacros(value, macroContextForCharacter(macros, character), { trimResult: false }) : value;
+  return macros
+    ? resolveMacros(value, macroContextForCharacter(macros, character, groupScenarioOverride), { trimResult: false })
+    : value;
 }
 
 function characterMarkerFields(marker: MarkerConfig | null): string[] {
@@ -1265,16 +1285,17 @@ function renderCharacters(
   wrapFormat: WrapFormat,
   marker: MarkerConfig | null,
   macros: MacroContext | null = null,
+  groupScenarioOverride: GroupScenarioOverride = NO_GROUP_SCENARIO_OVERRIDE,
 ): string {
   const fields = characterMarkerFields(marker);
-  return characters
+  const characterBlocks = characters
     .map((character) => {
       const content = renderNamedFields(
         [
           ["Name", character.name],
           ...fields.map((fieldName): [string, string] => [
             CHARACTER_FIELD_LABELS[fieldName] ?? fieldName,
-            characterMarkerFieldValue(character, fieldName, macros),
+            characterMarkerFieldValue(character, fieldName, macros, groupScenarioOverride),
           ]),
         ],
         wrapFormat,
@@ -1283,8 +1304,23 @@ function renderCharacters(
       if (!content) return "";
       return wrapFormat === "none" ? content : wrapContent(content, character.name, wrapFormat, 1);
     })
-    .filter(Boolean)
-    .join("\n\n");
+    .filter(Boolean);
+  const groupScenarioBlock =
+    groupScenarioOverride.enabled && groupScenarioOverride.text && fields.includes("scenario")
+      ? renderNamedFields(
+          [
+            [
+              "Scenario",
+              macros
+                ? resolveMacros(groupScenarioOverride.text, macros, { trimResult: false })
+                : groupScenarioOverride.text,
+            ],
+          ],
+          wrapFormat,
+          1,
+        )
+      : "";
+  return [...characterBlocks, groupScenarioBlock].filter(Boolean).join("\n\n");
 }
 
 function renderDialogueExamples(characters: GenerationCharacterContext[]): string {
@@ -1595,12 +1631,13 @@ function fallbackSystemPrompt(
     summary: string | null;
     wrapFormat: WrapFormat;
     macros: MacroContext;
+    groupScenarioOverride: GroupScenarioOverride;
   },
 ): string {
   const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
   const meta = parseRecord(input.chat.metadata);
   const common = [
-    renderCharacters(args.characters, args.wrapFormat, null, args.macros),
+    renderCharacters(args.characters, args.wrapFormat, null, args.macros, args.groupScenarioOverride),
     renderPersona(args.persona, args.wrapFormat),
     args.worldBefore,
     args.worldAfter,
@@ -3003,6 +3040,7 @@ function authorNotesDepthEntry(chat: JsonRecord): { content: string; role: "syst
 
 function macroProfileForCharacter(
   character: GenerationCharacterContext,
+  groupScenarioOverride: GroupScenarioOverride = NO_GROUP_SCENARIO_OVERRIDE,
 ): NonNullable<MacroContext["characterProfiles"]>[number] {
   return {
     name: character.name,
@@ -3010,15 +3048,19 @@ function macroProfileForCharacter(
     personality: character.personality,
     backstory: character.backstory,
     appearance: character.appearance,
-    scenario: character.scenario,
+    scenario: groupScenarioOverride.enabled ? groupScenarioOverride.text : character.scenario,
     example: character.mesExample,
     systemPrompt: character.systemPrompt,
     postHistoryInstructions: character.postHistoryInstructions,
   };
 }
 
-function macroContextForCharacter(base: MacroContext, character: GenerationCharacterContext): MacroContext {
-  const profile = macroProfileForCharacter(character);
+function macroContextForCharacter(
+  base: MacroContext,
+  character: GenerationCharacterContext,
+  groupScenarioOverride: GroupScenarioOverride = NO_GROUP_SCENARIO_OVERRIDE,
+): MacroContext {
+  const profile = macroProfileForCharacter(character, groupScenarioOverride);
   return {
     ...base,
     char: character.name,
@@ -3029,7 +3071,7 @@ function macroContextForCharacter(base: MacroContext, character: GenerationChara
       personality: character.personality,
       backstory: character.backstory,
       appearance: character.appearance,
-      scenario: character.scenario,
+      scenario: groupScenarioOverride.enabled ? groupScenarioOverride.text : character.scenario,
       example: character.mesExample,
       systemPrompt: character.systemPrompt,
       postHistoryInstructions: character.postHistoryInstructions,
@@ -3040,11 +3082,14 @@ function macroContextForCharacter(base: MacroContext, character: GenerationChara
 function characterDepthPromptEntries(
   characters: GenerationCharacterContext[],
   macros: MacroContext,
+  groupScenarioOverride: GroupScenarioOverride,
 ): Array<{ content: string; role: "system" | "user" | "assistant"; depth: number }> {
   return characters.flatMap((character) => {
     const depthPrompt = character.depthPrompt;
     if (!depthPrompt) return [];
-    const content = cleanPromptText(resolveMacros(depthPrompt.prompt, macroContextForCharacter(macros, character)));
+    const content = cleanPromptText(
+      resolveMacros(depthPrompt.prompt, macroContextForCharacter(macros, character, groupScenarioOverride)),
+    );
     if (!content.trim()) return [];
     return [{ content, role: depthPrompt.role, depth: depthPrompt.depth }];
   });
@@ -3061,10 +3106,11 @@ function sectionContent(args: {
   agentData: Record<string, string>;
   wrapFormat: WrapFormat;
   macros: MacroContext | null;
+  groupScenarioOverride: GroupScenarioOverride;
 }) {
   switch (args.marker?.type) {
     case "character":
-      return renderCharacters(args.characters, args.wrapFormat, args.marker, args.macros);
+      return renderCharacters(args.characters, args.wrapFormat, args.marker, args.macros, args.groupScenarioOverride);
     case "persona":
       return renderPersona(args.persona, args.wrapFormat);
     case "dialogue_examples":
@@ -3193,6 +3239,7 @@ export async function assembleGenerationPrompt(
     normalizeWrapFormat(input.chat.wrapFormat) ??
     normalizeWrapFormat(input.connection.wrapFormat) ??
     "xml";
+  const activeGroupScenarioOverride = reusableContext?.groupScenarioOverride ?? groupScenarioOverride(chatMeta);
   const promptCharacters = reusableContext?.promptCharacters ?? promptCharactersForGeneration(input, characters);
   const macros = macroContext({
     chat: input.chat,
@@ -3203,6 +3250,7 @@ export async function assembleGenerationPrompt(
     agentData: input.agentData,
     variables: selectedPreset?.variables,
     request: input.request,
+    groupScenarioOverride: activeGroupScenarioOverride,
   });
   if (selectedPreset) resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames);
   const greetingPromptVariables =
@@ -3246,7 +3294,11 @@ export async function assembleGenerationPrompt(
     reusableContext?.history ??
     historyMessages(
       input.storedMessages,
-      compactedHistoryLimit(chatMeta, historyLimit, shouldCompactHistoryForSummary(input.chat, selectedPreset, summary)),
+      compactedHistoryLimit(
+        chatMeta,
+        historyLimit,
+        shouldCompactHistoryForSummary(input.chat, selectedPreset, summary),
+      ),
       chatMeta.excludePastReasoning === false,
     );
   const agentData = input.agentData ?? {};
@@ -3285,6 +3337,7 @@ export async function assembleGenerationPrompt(
         agentData,
         wrapFormat,
         macros,
+        groupScenarioOverride: activeGroupScenarioOverride,
       });
       const resolvedContent = marker?.type === "character" ? rawContent : resolveMacros(rawContent, macros);
       const resolved = cleanPromptText(resolvedContent);
@@ -3336,6 +3389,7 @@ export async function assembleGenerationPrompt(
         summary,
         wrapFormat,
         macros,
+        groupScenarioOverride: activeGroupScenarioOverride,
       }),
       contextKind: "prompt",
     });
@@ -3410,7 +3464,8 @@ export async function assembleGenerationPrompt(
   ]);
 
   const authorNotesEntry = authorNotesDepthEntry(input.chat);
-  const characterDepthEntries = chatMode === "game" ? [] : characterDepthPromptEntries(promptCharacters, macros);
+  const characterDepthEntries =
+    chatMode === "game" ? [] : characterDepthPromptEntries(promptCharacters, macros, activeGroupScenarioOverride);
   messages = injectAtDepth(
     messages,
     authorNotesEntry
@@ -3464,6 +3519,7 @@ export async function assembleGenerationPrompt(
     promptParameters,
     maxContext,
     wrapFormat,
+    groupScenarioOverride: activeGroupScenarioOverride,
     promptCharacters,
     baseLorebookIncludedPositions,
     loreScan,
