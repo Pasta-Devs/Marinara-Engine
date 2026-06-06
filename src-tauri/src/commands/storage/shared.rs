@@ -1095,6 +1095,15 @@ pub(crate) fn with_entity_defaults(collection: &str, body: Value) -> AppResult<V
     Ok(Value::Object(object))
 }
 
+pub(crate) fn with_message_create_defaults(body: Value) -> AppResult<Value> {
+    let mut object = ensure_object(body)?;
+    normalize_json_array_fields(&mut object, &["swipes", "images", "attachments"])?;
+    normalize_nullable_json_object_fields(&mut object, &["extra"])?;
+    insert_message_extra_default(&mut object);
+    normalize_message_text_fields(&mut object);
+    Ok(Value::Object(object))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

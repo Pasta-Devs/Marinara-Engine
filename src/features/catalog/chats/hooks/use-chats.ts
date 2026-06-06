@@ -16,7 +16,11 @@ import {
   type PromptPreviewInput,
   type PromptPreviewResult,
 } from "../../../../engine/generation/prompt-preview";
-import { createMessageSchema, summariesPatchSchema } from "../../../../engine/contracts/schemas/chat.schema";
+import {
+  createMessageSchema,
+  summariesPatchSchema,
+  type CreateMessageInput,
+} from "../../../../engine/contracts/schemas/chat.schema";
 import { getDefaultAgentPrompt } from "../../../../engine/contracts/constants/agent-prompts";
 import { boolish } from "../../../../engine/generation/runtime-records";
 import { backfillConversationSummaries } from "../../../../engine/modes/chat/core/summaries/auto-summary.service";
@@ -66,14 +70,7 @@ const MAX_MEMORY_RECALL_IMPORT_BYTES = 25 * 1024 * 1024;
 const scheduledDeleteRefreshTimers = new Map<string, number>();
 let optimisticMessageSequence = 0;
 
-type CreateMessageMutationInput = {
-  role: string;
-  content: string;
-  characterId?: string | null;
-  extra?: Record<string, unknown>;
-  activeSwipeIndex?: number;
-  swipes?: Record<string, unknown>[];
-};
+type CreateMessageMutationInput = Omit<CreateMessageInput, "chatId">;
 
 type MessageCountResult = { count: number };
 

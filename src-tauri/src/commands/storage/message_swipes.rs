@@ -1,7 +1,7 @@
 use super::shared::{
     collapse_excess_blank_lines, compact_message_swipe_fields_for_storage, json_object_value,
-    materialize_message_swipe_fields, normalize_typed_json_fields, swipe_scoped_extra,
-    sync_message_patch_content_to_active_swipe, with_entity_defaults,
+    materialize_message_swipe_fields, non_negative_i64_value, normalize_typed_json_fields,
+    swipe_scoped_extra, sync_message_patch_content_to_active_swipe, with_message_create_defaults,
 };
 use crate::state::AppState;
 use marinara_core::{ensure_object, new_id, now_iso, AppError, AppResult};
@@ -308,7 +308,7 @@ fn normalize_message_rows_and_sidecars_inner(
 }
 
 fn prepare_message_create_row(state: &AppState, value: Value) -> AppResult<Value> {
-    let mut object = ensure_object(with_entity_defaults("messages", value)?)?;
+    let mut object = ensure_object(with_message_create_defaults(value)?)?;
     let had_id = object
         .get("id")
         .and_then(Value::as_str)
@@ -335,6 +335,20 @@ fn prepare_message_create_row(state: &AppState, value: Value) -> AppResult<Value
         .or_insert_with(|| Value::String(now));
     normalize_typed_json_fields("messages", &mut object)?;
     Ok(Value::Object(object))
+}
+
+fn clamp_message_active_swipe_index(message: &mut Value, swipe_count: usize) {
+    let Some(object) = message.as_object_mut() else {
+        return;
+    };
+    let requested_index = non_negative_i64_value(object.get("activeSwipeIndex"))
+        .map(|value| value as usize)
+        .unwrap_or(0);
+    let max_index = swipe_count.saturating_sub(1);
+    object.insert(
+        "activeSwipeIndex".to_string(),
+        json!(requested_index.min(max_index)),
+    );
 }
 
 fn message_row_for_write(message: Value, force_updated_at: bool) -> AppResult<(String, Value)> {
@@ -993,12 +1007,17 @@ fn persist_created_message_swipes(state: &AppState, mut message: Value) -> AppRe
     if message.get("swipes").is_some() {
         preserve_embedded_parent_active_extra(&mut message);
         materialize_message_swipe_fields(&mut message);
-        let swipes = take_swipes_for_storage(&mut message)?.unwrap_or_default();
+        let mut swipes = take_swipes_for_storage(&mut message)?.unwrap_or_default();
+        if swipes.is_empty() {
+            swipes.push(initial_swipe_for_message(&message));
+        }
+        clamp_message_active_swipe_index(&mut message, swipes.len());
         let mut updated = write_message_and_swipes(state, message, swipes, false)?;
         materialize_message(state, &mut updated, true)?;
         return Ok(updated);
     }
     let swipes = vec![initial_swipe_for_message(&message)];
+    clamp_message_active_swipe_index(&mut message, swipes.len());
     let mut updated = write_message_and_swipes(state, message, swipes, false)?;
     materialize_message(state, &mut updated, true)?;
     Ok(updated)
@@ -1766,6 +1785,86 @@ mod tests {
             created["swipes"][0]["extra"]["attachments"][0]["galleryId"],
             json!("gallery-1")
         );
+    }
+
+    #[test]
+    fn create_message_clamps_active_index_to_default_initial_swipe() {
+        let state = test_state("create-active-index-default-swipe");
+        let created = create_message(
+            &state,
+            json!({
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 3
+            }),
+        )
+        .expect("message should create");
+        let message_id = created
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("created message should have id")
+            .to_string();
+
+        assert_eq!(created["activeSwipeIndex"], json!(0));
+        assert_eq!(created["swipeCount"], json!(1));
+        assert_eq!(created["swipes"][0]["content"], json!("first"));
+
+        let stored = state
+            .storage
+            .get("messages", &message_id)
+            .expect("stored message lookup should not fail")
+            .expect("stored message should exist");
+        assert_eq!(stored["activeSwipeIndex"], json!(0));
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecar rows should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["index"], json!(0));
+    }
+
+    #[test]
+    fn create_message_clamps_active_index_to_provided_swipes() {
+        let state = test_state("create-active-index-provided-swipes");
+        let created = create_message(
+            &state,
+            json!({
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 5,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should create");
+        let message_id = created
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("created message should have id")
+            .to_string();
+
+        assert_eq!(created["activeSwipeIndex"], json!(1));
+        assert_eq!(created["content"], json!("second"));
+        assert_eq!(created["swipeCount"], json!(2));
+
+        let stored = state
+            .storage
+            .get("messages", &message_id)
+            .expect("stored message lookup should not fail")
+            .expect("stored message should exist");
+        assert_eq!(stored["activeSwipeIndex"], json!(1));
+        assert_eq!(stored["content"], json!("second"));
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecar rows should list");
+        assert_eq!(sidecars.len(), 2);
+        assert_eq!(sidecars[1]["index"], json!(1));
+        assert_eq!(sidecars[1]["content"], json!("second"));
     }
 
     #[test]

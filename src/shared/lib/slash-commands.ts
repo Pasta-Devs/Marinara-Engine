@@ -17,6 +17,9 @@ import {
   buildNarratorInstructionMessage,
   type GenerationGuideSource,
 } from "../../engine/shared/text/generation-guide";
+import type { CreateMessageInput } from "../../engine/contracts/schemas/chat.schema";
+
+type SlashCommandMessageInput = Pick<CreateMessageInput, "role" | "content" | "characterId">;
 
 export interface SlashCommand {
   name: string;
@@ -48,7 +51,7 @@ export interface SlashCommandContext {
     impersonatePromptTemplate?: string;
   }) => Promise<boolean | void>;
   /** Insert a message directly into the chat (no LLM) */
-  createMessage: (data: { role: string; content: string; characterId?: string | null }) => void;
+  createMessage: (data: SlashCommandMessageInput) => void;
   /** Invalidate chat queries to refresh the UI */
   invalidate: () => void;
   /** Character names in the current chat */
