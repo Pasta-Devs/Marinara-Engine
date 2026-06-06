@@ -1675,6 +1675,7 @@ async function persistTrackerSnapshotSafely(
   baseSnapshot?: GameState | null,
   sourceText?: string | null,
   onSavedSnapshot?: TrackerSnapshotSavedHook,
+  autoRemoveFullyCompletedQuests = false,
 ): Promise<void> {
   const target = trackerSnapshotTargetFromMessage(targetMessage);
   if (!target) return;
@@ -1683,6 +1684,7 @@ async function persistTrackerSnapshotSafely(
       baseSnapshot,
       sourceText,
       onSavedSnapshot,
+      autoRemoveFullyCompletedQuests,
     });
   } catch (error) {
     console.warn("[generation] tracker snapshot persist failed", error);
@@ -3079,6 +3081,7 @@ export async function* startGeneration(
         generationTrackerBaseline,
         readString(parseRecord(latestSaved).content),
         deps.onTrackerSnapshotSaved,
+        true,
       );
     }
     throwIfAborted(signal);
