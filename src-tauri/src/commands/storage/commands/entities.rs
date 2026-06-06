@@ -14,6 +14,13 @@ type LorebookFolderDeleteAtomicRows<'a> =
     (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
 type ChatFolderDeleteAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
 
+#[derive(Clone)]
+struct LorebookFolderReorderRow {
+    lorebook_id: Option<String>,
+    parent_id: Option<String>,
+    order: i64,
+}
+
 struct StorageWhereIn {
     field: String,
     values: HashSet<String>,
@@ -1636,18 +1643,25 @@ pub(crate) fn lorebook_folder_reorder_inner(
 }
 
 fn lorebook_folder_reorder_in_rows(
-    folder_rows: &mut Vec<Value>,
+    folder_rows: &mut [Value],
     lorebook_id: &str,
     ordered_ids: Vec<String>,
     parent_folder_id: Option<String>,
 ) -> Result<Value, AppError> {
     let by_id = folder_rows
         .iter()
+        .enumerate()
         .filter_map(|folder| {
-            folder
-                .get("id")
-                .and_then(Value::as_str)
-                .map(|id| (id.to_string(), folder))
+            let (index, folder) = folder;
+            let id = folder.get("id").and_then(Value::as_str)?.to_string();
+            Some((
+                id,
+                LorebookFolderReorderRow {
+                    lorebook_id: lorebook_folder_lorebook_id(folder),
+                    parent_id: lorebook_folder_parent_id(folder),
+                    order: lorebook_folder_order(folder, index),
+                },
+            ))
         })
         .collect::<HashMap<_, _>>();
     let ordered_id_set = ordered_ids.iter().cloned().collect::<HashSet<_>>();
@@ -1659,8 +1673,7 @@ fn lorebook_folder_reorder_in_rows(
     for id in &ordered_ids {
         if by_id
             .get(id)
-            .and_then(|folder| lorebook_folder_lorebook_id(folder))
-            .as_deref()
+            .and_then(|folder| folder.lorebook_id.as_deref())
             != Some(lorebook_id)
         {
             return Err(AppError::invalid_input(format!(
@@ -1677,16 +1690,14 @@ fn lorebook_folder_reorder_in_rows(
         }
     }
 
-    for sibling_id in folder_rows.iter().filter_map(|folder| {
-        let id = folder.get("id").and_then(Value::as_str)?;
-        if lorebook_folder_lorebook_id(folder).as_deref() == Some(lorebook_id)
-            && lorebook_folder_parent_id(folder) == parent_folder_id
-        {
-            Some(id.to_string())
-        } else {
-            None
-        }
-    }) {
+    for sibling_id in by_id
+        .iter()
+        .filter(|(_, folder)| {
+            folder.lorebook_id.as_deref() == Some(lorebook_id)
+                && folder.parent_id.as_deref() == parent_folder_id.as_deref()
+        })
+        .map(|(id, _)| id.clone())
+    {
         if !ordered_id_set.contains(&sibling_id) {
             return Err(AppError::invalid_input(
                 "Lorebook folder reorder must include every existing sibling in the target folder",
@@ -1694,20 +1705,45 @@ fn lorebook_folder_reorder_in_rows(
         }
     }
 
+    let affected_source_parents = ordered_ids
+        .iter()
+        .filter_map(|id| by_id.get(id))
+        .filter(|folder| folder.parent_id.as_deref() != parent_folder_id.as_deref())
+        .map(|folder| folder.parent_id.clone())
+        .collect::<HashSet<_>>();
+    let source_reorders = affected_source_parents
+        .into_iter()
+        .map(|source_parent_id| {
+            let mut siblings = by_id
+                .iter()
+                .filter(|(id, folder)| {
+                    folder.lorebook_id.as_deref() == Some(lorebook_id)
+                        && folder.parent_id.as_deref() == source_parent_id.as_deref()
+                        && !ordered_id_set.contains(*id)
+                })
+                .map(|(id, folder)| (folder.order, id.clone()))
+                .collect::<Vec<_>>();
+            siblings.sort_by(|(left_order, left_id), (right_order, right_id)| {
+                left_order
+                    .cmp(right_order)
+                    .then_with(|| left_id.cmp(right_id))
+            });
+            (
+                source_parent_id,
+                siblings.into_iter().map(|(_, id)| id).collect::<Vec<_>>(),
+            )
+        })
+        .collect::<Vec<_>>();
+
     let parent_patch = parent_folder_id.map(Value::String).unwrap_or(Value::Null);
     let now = now_iso();
     for (index, id) in ordered_ids.iter().enumerate() {
-        let row = folder_rows
-            .iter_mut()
-            .find(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
-            .ok_or_else(|| AppError::not_found(format!("lorebook-folders/{id} was not found")))?;
-        let Some(object) = row.as_object_mut() else {
-            return Err(AppError::invalid_input("Stored record is not an object"));
-        };
-        object.insert("order".to_string(), json!(index));
-        object.insert("sortOrder".to_string(), json!(index));
-        object.insert("parentFolderId".to_string(), parent_patch.clone());
-        object.insert("updatedAt".to_string(), Value::String(now.clone()));
+        patch_lorebook_folder_reorder_row(folder_rows, id, index, Some(&parent_patch), &now)?;
+    }
+    for (_source_parent_id, sibling_ids) in source_reorders {
+        for (index, id) in sibling_ids.iter().enumerate() {
+            patch_lorebook_folder_reorder_row(folder_rows, id, index, None, &now)?;
+        }
     }
 
     Ok(Value::Array(
@@ -1717,6 +1753,29 @@ fn lorebook_folder_reorder_in_rows(
             .cloned()
             .collect(),
     ))
+}
+
+fn patch_lorebook_folder_reorder_row(
+    folder_rows: &mut [Value],
+    id: &str,
+    index: usize,
+    parent_patch: Option<&Value>,
+    now: &str,
+) -> Result<(), AppError> {
+    let row = folder_rows
+        .iter_mut()
+        .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
+        .ok_or_else(|| AppError::not_found(format!("lorebook-folders/{id} was not found")))?;
+    let Some(object) = row.as_object_mut() else {
+        return Err(AppError::invalid_input("Stored record is not an object"));
+    };
+    object.insert("order".to_string(), json!(index));
+    object.insert("sortOrder".to_string(), json!(index));
+    if let Some(parent_patch) = parent_patch {
+        object.insert("parentFolderId".to_string(), parent_patch.clone());
+    }
+    object.insert("updatedAt".to_string(), Value::String(now.to_string()));
+    Ok(())
 }
 
 fn normalize_lorebook_reorder_parent_id(
@@ -1755,7 +1814,7 @@ fn normalize_lorebook_reorder_ids(ordered_ids: Vec<String>) -> Result<Vec<String
 }
 
 fn validate_lorebook_folder_parent_in_rows(
-    by_id: &HashMap<String, &Value>,
+    by_id: &HashMap<String, LorebookFolderReorderRow>,
     lorebook_id: Option<&str>,
     folder_id: Option<&str>,
     parent_id: &str,
@@ -1769,7 +1828,7 @@ fn validate_lorebook_folder_parent_in_rows(
         AppError::invalid_input(format!("lorebook-folders/{parent_id} was not found"))
     })?;
     if let Some(lorebook_id) = lorebook_id {
-        if parent.get("lorebookId").and_then(Value::as_str) != Some(lorebook_id) {
+        if parent.lorebook_id.as_deref() != Some(lorebook_id) {
             return Err(AppError::invalid_input(
                 "A folder can only nest under a folder in the same lorebook.",
             ));
@@ -1792,9 +1851,17 @@ fn validate_lorebook_folder_parent_in_rows(
         }
         cursor = by_id
             .get(&current_id)
-            .and_then(|node| lorebook_folder_parent_id(node));
+            .and_then(|node| node.parent_id.clone());
     }
     Ok(())
+}
+
+fn lorebook_folder_order(folder: &Value, fallback: usize) -> i64 {
+    folder
+        .get("order")
+        .or_else(|| folder.get("sortOrder"))
+        .and_then(Value::as_i64)
+        .unwrap_or(fallback as i64)
 }
 
 fn lorebook_folder_parent_id(folder: &Value) -> Option<String> {
@@ -4177,6 +4244,77 @@ mod tests {
             .expect("folder b should exist");
         assert_eq!(folder_b["order"], 0);
         assert_eq!(folder_a["order"], 1);
+    }
+
+    #[test]
+    fn lorebook_folder_reorder_renumbers_source_and_destination_groups() {
+        let state = test_state("lorebook-folder-reorder-source-destination-groups");
+        state
+            .storage
+            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
+            .expect("lorebook should be created");
+        for (id, order) in [
+            ("folder-a", 0),
+            ("folder-b", 1),
+            ("folder-c", 2),
+            ("parent", 3),
+        ] {
+            state
+                .storage
+                .create(
+                    "lorebook-folders",
+                    json!({ "id": id, "lorebookId": "book", "name": id, "order": order, "sortOrder": order }),
+                )
+                .expect("root folder should be created");
+        }
+        state
+            .storage
+            .create(
+                "lorebook-folders",
+                json!({ "id": "child-a", "lorebookId": "book", "name": "Child A", "parentFolderId": "parent", "order": 0, "sortOrder": 0 }),
+            )
+            .expect("child folder should be created");
+
+        lorebook_folder_reorder_inner(
+            &state,
+            "book",
+            vec!["child-a".to_string(), "folder-b".to_string()],
+            Some("parent".to_string()),
+        )
+        .expect("cross-parent reorder should update both sibling groups");
+
+        let folder_a = state
+            .storage
+            .get("lorebook-folders", "folder-a")
+            .expect("folder a should read")
+            .expect("folder a should exist");
+        let folder_c = state
+            .storage
+            .get("lorebook-folders", "folder-c")
+            .expect("folder c should read")
+            .expect("folder c should exist");
+        let parent = state
+            .storage
+            .get("lorebook-folders", "parent")
+            .expect("parent should read")
+            .expect("parent should exist");
+        let child_a = state
+            .storage
+            .get("lorebook-folders", "child-a")
+            .expect("child a should read")
+            .expect("child a should exist");
+        let folder_b = state
+            .storage
+            .get("lorebook-folders", "folder-b")
+            .expect("folder b should read")
+            .expect("folder b should exist");
+
+        assert_eq!(folder_a["order"], 0);
+        assert_eq!(folder_c["order"], 1);
+        assert_eq!(parent["order"], 2);
+        assert_eq!(child_a["order"], 0);
+        assert_eq!(folder_b["order"], 1);
+        assert_eq!(folder_b["parentFolderId"], "parent");
     }
 
     #[test]
