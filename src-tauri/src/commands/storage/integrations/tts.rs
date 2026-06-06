@@ -422,21 +422,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         .and_then(|value| value.to_str().ok())
         .unwrap_or(fallback_content_type)
         .to_string();
-    let bytes = match read_capped_audio_bytes(response).await {
-        Ok(bytes) => bytes,
-        // An oversized body on a failed-status response is a provider failure, not a
-        // user-input error — classify it as a provider error instead of leaking the
-        // cap's "too large" invalid_input message. (A 2xx body over the cap really is
-        // an oversized audio payload, so that case still propagates the cap error.)
-        Err(_) if !status.is_success() => {
-            return Err(AppError::with_details(
-                "tts_provider_error",
-                format!("TTS provider returned HTTP {status}"),
-                json!({ "detail": "Response body exceeded the maximum size" }),
-            ));
-        }
-        Err(error) => return Err(error),
-    };
+    let bytes = read_capped_audio_bytes(response).await?;
     if !status.is_success() {
         let detail = provider_error_detail(&String::from_utf8_lossy(&bytes), 500);
         return Err(AppError::with_details(
