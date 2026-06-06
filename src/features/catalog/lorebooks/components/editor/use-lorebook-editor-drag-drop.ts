@@ -11,11 +11,11 @@ type ReorderEntriesInput = {
 type ReorderFoldersInput = {
   lorebookId: string;
   folderIds: string[];
-  /** The listed folders adopt this parent (null un-nests to root). */
+  /** The listed folders adopt this parent; null moves them to root. */
   parentFolderId: string | null;
 };
 
-/** Where a dragged folder will land relative to the folder it's hovering. */
+/** Folder row drop zone relative to the hovered folder. */
 export type FolderDropZone = "before" | "inside" | "after";
 export type FolderDropTarget = { id: string; zone: FolderDropZone };
 
@@ -191,7 +191,7 @@ export function useLorebookEditorDragDrop({
         ids.splice(sourceIdx, 1);
         ids.splice(insertAt, 0, moved.id);
         void Promise.resolve(onReorderEntries({ lorebookId, entryIds: ids, folderId: sourceContainer })).catch(() => {
-          /* mutation surfaces errors through React Query */
+          /* mutation errors surface through React Query */
         });
         return;
       }
@@ -206,7 +206,7 @@ export function useLorebookEditorDragDrop({
         }
         await onReorderEntries({ lorebookId, entryIds: targetIds, folderId: targetContainer });
       })().catch(() => {
-        /* mutation surfaces errors through React Query */
+        /* mutation errors surface through React Query */
       });
     },
     [
@@ -235,11 +235,7 @@ export function useLorebookEditorDragDrop({
     [canReorderFolders],
   );
 
-  // Dragging a folder over another folder's header has three zones: the top
-  // edge reorders it as a sibling *before* the target, the bottom edge *after*,
-  // and the middle nests it *inside*. Each zone validates the move it implies
-  // (nest → under the target; before/after → into the target's parent), so an
-  // invalid hover (self, descendant, cross-lorebook) registers no drop target.
+  // Header hover chooses before/inside/after; each zone validates its resulting parent.
   const handleFolderDragOverRow = useCallback(
     (targetFolderId: string, event: ReactDragEvent<HTMLDivElement>) => {
       if (!canReorderFolders || draggingFolderId === null) return;
@@ -269,10 +265,7 @@ export function useLorebookEditorDragDrop({
     [canReorderFolders, draggingFolderId, folders],
   );
 
-  // Dragging a folder into another folder's body (its indented area, including
-  // the empty placeholder) nests it inside — mirroring entry-into-folder. Nested
-  // bodies stop propagation, so hovering the left indent margin lands on the
-  // shallower ancestor body, letting you aim at a more-parent folder.
+  // Body hover nests into the hovered folder.
   const handleFolderBodyNestDragOver = useCallback(
     (targetFolderId: string, event: ReactDragEvent<HTMLDivElement>) => {
       if (!canReorderFolders || draggingFolderId === null) return;
@@ -292,8 +285,7 @@ export function useLorebookEditorDragDrop({
     [canReorderFolders, draggingFolderId, folders],
   );
 
-  // Dragging a folder into the open root area (below the tree, where root-level
-  // entries live) un-nests it to the top level. Un-nesting is always valid.
+  // Open root area un-nests the folder to top level.
   const handleRootFolderDragOver = useCallback(
     (event: ReactDragEvent<HTMLDivElement>) => {
       if (!canReorderFolders || draggingFolderId === null) return;
@@ -315,7 +307,7 @@ export function useLorebookEditorDragDrop({
       if (!lorebookId || !canReorderFolders || !draggedId) return;
 
       if (!drop) {
-        // Dropped in the open root area → un-nest to the end of the top level.
+        // Root drop appends the folder at top level.
         if (!toRoot) return;
         const rootIds = folderForest.roots.map((folder) => folder.id).filter((id) => id !== draggedId);
         rootIds.push(draggedId);
@@ -328,8 +320,7 @@ export function useLorebookEditorDragDrop({
 
       if (drop.zone === "inside") {
         if (!canReparentFolder(folders, draggedId, drop.id).ok) return;
-        // Nest: append to the target's children; each sibling adopts the target
-        // as parent (a no-op for ones already nested there).
+        // Nest drops append to the target's child list.
         const childIds = (folderForest.childrenByParent.get(drop.id) ?? [])
           .map((child) => child.id)
           .filter((id) => id !== draggedId);
@@ -338,8 +329,7 @@ export function useLorebookEditorDragDrop({
         return;
       }
 
-      // before / after: the dragged folder joins the target's sibling group at
-      // that position, adopting the target's parent (null re-homes it to root).
+      // Before/after drops join the target's sibling group.
       const newParentId = target.parentFolderId;
       if (!canReparentFolder(folders, draggedId, newParentId).ok) return;
       const siblings =

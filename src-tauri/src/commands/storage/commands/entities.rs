@@ -1182,12 +1182,7 @@ fn validate_chat_folder_assignment(
     Ok(())
 }
 
-/// Reject a lorebook folder whose `parentFolderId` would break the tree: a
-/// missing parent, a parent in a different lorebook, a self-parent, or a move
-/// that nests a folder inside one of its own descendants (a cycle). Mirrors the
-/// editor's `canReparentFolder` guard, but at the storage write path so imports,
-/// remote callers, or any non-editor write can't persist a malformed tree the
-/// scanner would then have to defend against.
+/// Storage-level guard for malformed lorebook folder ancestry.
 pub(crate) fn validate_lorebook_folder_for_create(
     state: &AppState,
     entity: &str,
@@ -1199,8 +1194,7 @@ pub(crate) fn validate_lorebook_folder_for_create(
     let Some(parent_id) = parse_chat_folder_id(value.get("parentFolderId"))? else {
         return Ok(());
     };
-    // A brand-new folder has no descendants yet, so only parent existence and
-    // same-lorebook can be violated on create; the cycle walk matters on reparent.
+    // New folders have no descendants, so create only checks parent existence and ownership.
     validate_lorebook_folder_parent(state, lorebook_folder_lorebook_id(value), None, &parent_id)
 }
 
@@ -1225,11 +1219,7 @@ pub(crate) fn validate_lorebook_folder_for_patch(
         .storage
         .get("lorebook-folders", id)?
         .ok_or_else(|| AppError::not_found(format!("lorebook-folders/{id} was not found")))?;
-    // A folder's lorebook is an immutable ownership key — the app never moves a
-    // folder between lorebooks. Allowing it would strand the folder's parent
-    // and/or its children across books (a root move leaves the children behind
-    // pointing at a parent that left), so reject any change to a different book
-    // outright rather than trying to validate ever-more-elaborate move shapes.
+    // Cross-book folder moves can strand parent/child links, so ownership is immutable.
     if changes_lorebook
         && lorebook_folder_lorebook_id(patch) != lorebook_folder_lorebook_id(&existing)
     {
@@ -1241,7 +1231,8 @@ pub(crate) fn validate_lorebook_folder_for_patch(
         return Ok(());
     }
     let Some(parent_id) = parse_chat_folder_id(patch.get("parentFolderId"))? else {
-        return Ok(()); // moving to the top level is always allowed
+        // Clearing parentFolderId moves the folder to root.
+        return Ok(());
     };
     validate_lorebook_folder_parent(
         state,
@@ -1284,9 +1275,7 @@ fn validate_lorebook_folder_parent(
             ));
         }
     }
-    // Walk up from the target parent; reaching the folder being moved means the
-    // move would nest it inside its own subtree. The `seen` guard keeps a
-    // pre-existing malformed cycle from looping forever.
+    // Walk target ancestors to reject descendant moves; seen handles pre-existing bad cycles.
     let Some(folder_id) = folder_id else {
         return Ok(());
     };
@@ -2092,11 +2081,7 @@ fn delete_lorebook_folder_with_entry_reparent_sync(
             }
 
             let now = now_iso();
-            // Reparent direct child folders to root so they don't keep a stale
-            // parentFolderId pointing at the now-deleted folder. Later reorder/
-            // reparent logic reads that id and would otherwise reject or misplace
-            // moves; buildFolderForest already renders them at root, so this just
-            // makes storage match what the UI shows.
+            // Deleted parents promote direct children to root so stored ancestry matches the UI.
             for folder in folder_rows.iter_mut() {
                 if folder.get("parentFolderId").and_then(Value::as_str) != Some(folder_id) {
                     continue;
@@ -2763,6 +2748,56 @@ mod tests {
             .expect("connection should read")
             .and_then(|row| row.get("defaultForAgents").and_then(Value::as_bool))
             .unwrap_or(false)
+    }
+
+    fn create_record(state: &AppState, collection: &str, value: Value) {
+        state
+            .storage
+            .create(collection, value)
+            .expect("record should be created");
+    }
+
+    fn read_record(state: &AppState, collection: &str, id: &str) -> Value {
+        state
+            .storage
+            .get(collection, id)
+            .expect("record should read")
+            .expect("record should exist")
+    }
+
+    fn create_lorebook(state: &AppState, id: &str) {
+        create_record(state, "lorebooks", json!({ "id": id, "name": id }));
+    }
+
+    fn create_lorebook_folder(
+        state: &AppState,
+        id: &str,
+        lorebook_id: &str,
+        parent_id: Option<&str>,
+        order: Option<i64>,
+    ) {
+        let mut folder = json!({ "id": id, "lorebookId": lorebook_id, "name": id });
+        let folder_object = folder
+            .as_object_mut()
+            .expect("folder fixture should be an object");
+        if let Some(parent_id) = parent_id {
+            folder_object.insert("parentFolderId".to_string(), json!(parent_id));
+        }
+        if let Some(order) = order {
+            folder_object.insert("order".to_string(), json!(order));
+            folder_object.insert("sortOrder".to_string(), json!(order));
+        }
+        create_record(state, "lorebook-folders", folder);
+    }
+
+    fn lorebook_folder(state: &AppState, id: &str) -> Value {
+        read_record(state, "lorebook-folders", id)
+    }
+
+    fn assert_lorebook_folder_order(state: &AppState, id: &str, order: i64) {
+        let folder = lorebook_folder(state, id);
+        assert_eq!(folder["order"], json!(order));
+        assert_eq!(folder["sortOrder"], json!(order));
     }
 
     #[test]
@@ -3938,115 +3973,43 @@ mod tests {
     #[test]
     fn deleting_lorebook_folder_reparents_entries_with_matching_folder_id() {
         let state = test_state("lorebook-folder-delete-reparent");
-        state
-            .storage
-            .create(
-                "lorebooks",
-                json!({ "id": "book-delete", "name": "Delete folder" }),
-            )
-            .expect("lorebook should be created");
-        state
-            .storage
-            .create("lorebooks", json!({ "id": "book-keep", "name": "Keep" }))
-            .expect("other lorebook should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "folder-delete", "lorebookId": "book-delete", "name": "Delete" }),
-            )
-            .expect("folder should be created");
-        state
-            .storage
-            .create(
-                "lorebook-entries",
-                json!({
-                    "id": "entry-reparent",
-                    "lorebookId": "book-delete",
-                    "folderId": "folder-delete",
-                    "name": "Reparent",
-                    "content": "x"
-                }),
-            )
-            .expect("entry should be created");
-        state
-            .storage
-            .create(
-                "lorebook-entries",
-                json!({
-                    "id": "entry-stale-cross-lorebook",
-                    "lorebookId": "book-keep",
-                    "folderId": "folder-delete",
-                    "name": "Stale",
-                    "content": "x"
-                }),
-            )
-            .expect("stale cross-lorebook entry should be created");
-        state
-            .storage
-            .create(
-                "lorebook-entries",
-                json!({
-                    "id": "entry-other-folder",
-                    "lorebookId": "book-keep",
-                    "folderId": "folder-keep",
-                    "name": "Other",
-                    "content": "x"
-                }),
-            )
-            .expect("negative-control entry should be created");
+        create_lorebook(&state, "book-delete");
+        create_lorebook(&state, "book-keep");
+        create_lorebook_folder(&state, "folder-delete", "book-delete", None, None);
+        create_record(
+            &state,
+            "lorebook-entries",
+            json!({ "id": "entry-reparent", "lorebookId": "book-delete", "folderId": "folder-delete", "name": "Reparent", "content": "x" }),
+        );
+        create_record(
+            &state,
+            "lorebook-entries",
+            json!({ "id": "entry-stale-cross-lorebook", "lorebookId": "book-keep", "folderId": "folder-delete", "name": "Stale", "content": "x" }),
+        );
+        create_record(
+            &state,
+            "lorebook-entries",
+            json!({ "id": "entry-other-folder", "lorebookId": "book-keep", "folderId": "folder-keep", "name": "Other", "content": "x" }),
+        );
 
         delete_entity(&state, "lorebook-folders", "folder-delete", false)
             .expect("folder delete should succeed");
 
-        let reparented = state
-            .storage
-            .get("lorebook-entries", "entry-reparent")
-            .expect("entry should read")
-            .expect("entry should remain");
+        let reparented = read_record(&state, "lorebook-entries", "entry-reparent");
         assert!(reparented.get("folderId").is_none_or(Value::is_null));
-        let stale = state
-            .storage
-            .get("lorebook-entries", "entry-stale-cross-lorebook")
-            .expect("stale cross-lorebook entry should read")
-            .expect("stale cross-lorebook entry should remain");
+        let stale = read_record(&state, "lorebook-entries", "entry-stale-cross-lorebook");
         assert!(stale.get("folderId").is_none_or(Value::is_null));
-        let other_folder = state
-            .storage
-            .get("lorebook-entries", "entry-other-folder")
-            .expect("negative-control entry should read")
-            .expect("negative-control entry should remain");
+        let other_folder = read_record(&state, "lorebook-entries", "entry-other-folder");
         assert_eq!(other_folder["folderId"], "folder-keep");
     }
 
     #[test]
     fn deleting_lorebook_folder_reparents_child_folders_to_root() {
         let state = test_state("lorebook-folder-delete-reparent-children");
-        state
-            .storage
-            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
-            .expect("lorebook should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "parent", "lorebookId": "book", "name": "Parent" }),
-            )
-            .expect("parent folder should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "child", "lorebookId": "book", "name": "Child", "parentFolderId": "parent" }),
-            )
-            .expect("child folder should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "unrelated", "lorebookId": "book", "name": "Unrelated", "parentFolderId": "other" }),
-            )
-            .expect("unrelated folder should be created");
+        create_lorebook(&state, "book");
+        create_lorebook_folder(&state, "parent", "book", None, None);
+        create_lorebook_folder(&state, "child", "book", Some("parent"), None);
+        create_lorebook_folder(&state, "unrelated", "book", Some("other"), None);
 
         delete_entity(&state, "lorebook-folders", "parent", false)
             .expect("folder delete should succeed");
@@ -4056,54 +4019,21 @@ mod tests {
             .get("lorebook-folders", "parent")
             .expect("parent should read")
             .is_none());
-        let child = state
-            .storage
-            .get("lorebook-folders", "child")
-            .expect("child should read")
-            .expect("child should remain");
+        let child = lorebook_folder(&state, "child");
         assert!(child.get("parentFolderId").is_none_or(Value::is_null));
-        let unrelated = state
-            .storage
-            .get("lorebook-folders", "unrelated")
-            .expect("unrelated should read")
-            .expect("unrelated should remain");
+        let unrelated = lorebook_folder(&state, "unrelated");
         assert_eq!(unrelated["parentFolderId"], "other");
     }
 
     #[test]
     fn lorebook_folder_reparent_rejects_cycle_and_cross_lorebook() {
         let state = test_state("lorebook-folder-reparent-validation");
-        state
-            .storage
-            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
-            .expect("lorebook should be created");
-        state
-            .storage
-            .create("lorebooks", json!({ "id": "other", "name": "Other" }))
-            .expect("other lorebook should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "a", "lorebookId": "book", "name": "A" }),
-            )
-            .expect("folder a should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "b", "lorebookId": "book", "name": "B", "parentFolderId": "a" }),
-            )
-            .expect("folder b should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "c", "lorebookId": "other", "name": "C" }),
-            )
-            .expect("folder c should be created");
+        create_lorebook(&state, "book");
+        create_lorebook(&state, "other");
+        create_lorebook_folder(&state, "a", "book", None, None);
+        create_lorebook_folder(&state, "b", "book", Some("a"), None);
+        create_lorebook_folder(&state, "c", "other", None, None);
 
-        // Cycle: nest A under its own descendant B.
         assert!(
             storage_update_inner(
                 &state,
@@ -4115,7 +4045,6 @@ mod tests {
             "nesting a folder under its own descendant should be rejected"
         );
 
-        // Cross-lorebook: nest A under a folder in another lorebook.
         assert!(
             storage_update_inner(
                 &state,
@@ -4127,8 +4056,6 @@ mod tests {
             "nesting under a folder in another lorebook should be rejected"
         );
 
-        // Immutable lorebook: a child folder can't change lorebookId (it would
-        // keep a parent in the old book).
         assert!(
             storage_update_inner(
                 &state,
@@ -4140,8 +4067,6 @@ mod tests {
             "changing a child folder's lorebookId should be rejected"
         );
 
-        // Immutable lorebook: a ROOT folder can't change lorebookId either — that
-        // would strand its children (B) in the old book under a parent that left.
         assert!(
             storage_update_inner(
                 &state,
@@ -4153,7 +4078,6 @@ mod tests {
             "changing a root folder's lorebookId would strand its children and must be rejected"
         );
 
-        // Valid: move B back to the top level.
         assert!(
             storage_update_inner(
                 &state,
@@ -4169,35 +4093,11 @@ mod tests {
     #[test]
     fn lorebook_folder_reorder_rejects_invalid_batch_without_partial_writes() {
         let state = test_state("lorebook-folder-reorder-atomic-validation");
-        state
-            .storage
-            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
-            .expect("lorebook should be created");
-        state
-            .storage
-            .create("lorebooks", json!({ "id": "other", "name": "Other" }))
-            .expect("other lorebook should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "folder-a", "lorebookId": "book", "name": "A", "order": 0, "sortOrder": 0 }),
-            )
-            .expect("folder a should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "folder-b", "lorebookId": "book", "name": "B", "order": 1, "sortOrder": 1 }),
-            )
-            .expect("folder b should be created");
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "foreign", "lorebookId": "other", "name": "Foreign", "order": 0, "sortOrder": 0 }),
-            )
-            .expect("foreign folder should be created");
+        create_lorebook(&state, "book");
+        create_lorebook(&state, "other");
+        create_lorebook_folder(&state, "folder-a", "book", None, Some(0));
+        create_lorebook_folder(&state, "folder-b", "book", None, Some(1));
+        create_lorebook_folder(&state, "foreign", "other", None, Some(0));
 
         let error = lorebook_folder_reorder_inner(
             &state,
@@ -4211,19 +4111,8 @@ mod tests {
         )
         .expect_err("cross-lorebook batch member should reject the reorder");
         assert_eq!(error.code, "invalid_input");
-
-        let folder_a = state
-            .storage
-            .get("lorebook-folders", "folder-a")
-            .expect("folder a should read")
-            .expect("folder a should exist");
-        let folder_b = state
-            .storage
-            .get("lorebook-folders", "folder-b")
-            .expect("folder b should read")
-            .expect("folder b should exist");
-        assert_eq!(folder_a["order"], 0);
-        assert_eq!(folder_b["order"], 1);
+        assert_lorebook_folder_order(&state, "folder-a", 0);
+        assert_lorebook_folder_order(&state, "folder-b", 1);
 
         lorebook_folder_reorder_inner(
             &state,
@@ -4232,48 +4121,23 @@ mod tests {
             None,
         )
         .expect("valid same-lorebook batch should reorder folders");
-        let folder_a = state
-            .storage
-            .get("lorebook-folders", "folder-a")
-            .expect("folder a should read")
-            .expect("folder a should exist");
-        let folder_b = state
-            .storage
-            .get("lorebook-folders", "folder-b")
-            .expect("folder b should read")
-            .expect("folder b should exist");
-        assert_eq!(folder_b["order"], 0);
-        assert_eq!(folder_a["order"], 1);
+        assert_lorebook_folder_order(&state, "folder-b", 0);
+        assert_lorebook_folder_order(&state, "folder-a", 1);
     }
 
     #[test]
     fn lorebook_folder_reorder_renumbers_source_and_destination_groups() {
         let state = test_state("lorebook-folder-reorder-source-destination-groups");
-        state
-            .storage
-            .create("lorebooks", json!({ "id": "book", "name": "Book" }))
-            .expect("lorebook should be created");
+        create_lorebook(&state, "book");
         for (id, order) in [
             ("folder-a", 0),
             ("folder-b", 1),
             ("folder-c", 2),
             ("parent", 3),
         ] {
-            state
-                .storage
-                .create(
-                    "lorebook-folders",
-                    json!({ "id": id, "lorebookId": "book", "name": id, "order": order, "sortOrder": order }),
-                )
-                .expect("root folder should be created");
+            create_lorebook_folder(&state, id, "book", None, Some(order));
         }
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "child-a", "lorebookId": "book", "name": "Child A", "parentFolderId": "parent", "order": 0, "sortOrder": 0 }),
-            )
-            .expect("child folder should be created");
+        create_lorebook_folder(&state, "child-a", "book", Some("parent"), Some(0));
 
         lorebook_folder_reorder_inner(
             &state,
@@ -4283,51 +4147,22 @@ mod tests {
         )
         .expect("cross-parent reorder should update both sibling groups");
 
-        let folder_a = state
-            .storage
-            .get("lorebook-folders", "folder-a")
-            .expect("folder a should read")
-            .expect("folder a should exist");
-        let folder_c = state
-            .storage
-            .get("lorebook-folders", "folder-c")
-            .expect("folder c should read")
-            .expect("folder c should exist");
-        let parent = state
-            .storage
-            .get("lorebook-folders", "parent")
-            .expect("parent should read")
-            .expect("parent should exist");
-        let child_a = state
-            .storage
-            .get("lorebook-folders", "child-a")
-            .expect("child a should read")
-            .expect("child a should exist");
-        let folder_b = state
-            .storage
-            .get("lorebook-folders", "folder-b")
-            .expect("folder b should read")
-            .expect("folder b should exist");
-
-        assert_eq!(folder_a["order"], 0);
-        assert_eq!(folder_c["order"], 1);
-        assert_eq!(parent["order"], 2);
-        assert_eq!(child_a["order"], 0);
-        assert_eq!(folder_b["order"], 1);
-        assert_eq!(folder_b["parentFolderId"], "parent");
+        assert_lorebook_folder_order(&state, "folder-a", 0);
+        assert_lorebook_folder_order(&state, "folder-c", 1);
+        assert_lorebook_folder_order(&state, "parent", 2);
+        assert_lorebook_folder_order(&state, "child-a", 0);
+        assert_lorebook_folder_order(&state, "folder-b", 1);
+        assert_eq!(
+            lorebook_folder(&state, "folder-b")["parentFolderId"],
+            "parent"
+        );
     }
 
     #[test]
     fn deleting_lorebook_folder_reparent_rolls_back_when_character_book_sync_fails() {
         let state = test_state("lorebook-folder-delete-reparent-atomic");
         seed_linked_character_book(&state);
-        state
-            .storage
-            .create(
-                "lorebook-folders",
-                json!({ "id": "folder-linked", "lorebookId": "linked-book", "name": "Linked" }),
-            )
-            .expect("folder should be created");
+        create_lorebook_folder(&state, "folder-linked", "linked-book", None, None);
         storage_create_inner(
             &state,
             "lorebook-entries".to_string(),
@@ -4373,11 +4208,7 @@ mod tests {
             .get("lorebook-folders", "folder-linked")
             .expect("folder should read")
             .is_some());
-        let entry = state
-            .storage
-            .get("lorebook-entries", "entry-linked")
-            .expect("entry should read")
-            .expect("entry should remain");
+        let entry = read_record(&state, "lorebook-entries", "entry-linked");
         assert_eq!(entry["folderId"], "folder-linked");
     }
 

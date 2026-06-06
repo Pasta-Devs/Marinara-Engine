@@ -156,16 +156,9 @@ export function LorebookEntriesTab({
   onToggleEntryExpanded: (entryId: string) => void;
   onToggleEntrySelection: (entryId: string) => void;
 }) {
-  // Render a folder and everything beneath it. Child folders render inside the
-  // parent's indented body, so depth indentation falls out of the DOM nesting.
-  // `renderedFolderIds` ensures each folder is drawn at most once per pass —
-  // a guard against a malformed parent cycle looping the tree (cycles can't be
-  // created through the UI; canReparentFolder blocks them).
+  // Keep malformed cycle data from rendering the same folder more than once.
   const renderedFolderIds = new Set<string>();
   const renderFolder = (folder: LorebookFolder, ancestorDisabled = false): ReactNode => {
-    // `lorebookId` is non-null wherever this renders (the tree only mounts
-    // inside the `lorebookId &&` guard below); the check also narrows the type
-    // for the row props. The cycle guard keeps each folder to a single draw.
     if (!lorebookId || renderedFolderIds.has(folder.id)) return null;
     renderedFolderIds.add(folder.id);
     const folderEntries = entriesByContainer.get(folder.id) ?? [];
@@ -214,10 +207,7 @@ export function LorebookEntriesTab({
                 "bg-amber-400/5 ring-1 ring-amber-400/40",
             )}
             onDragOver={(event) => {
-              // Stop the dragover bubbling to ancestor folder bodies — without
-              // this, a nested target is overwritten by its outermost ancestor,
-              // so the drop lands in the wrong folder. (Hovering the left indent
-              // margin still lands on the shallower ancestor body, by design.)
+              // Prevent ancestor folder bodies from overwriting the intended nested target.
               event.stopPropagation();
               if (draggingFolderId !== null) onFolderBodyNestDragOver(folder.id, event);
               else onFolderBodyDragOver(folder.id, event);
