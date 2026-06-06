@@ -127,14 +127,71 @@ describe("remote runtime cache policy", () => {
     const stream = streamRemoteLlm("stream-1", {} as Parameters<typeof streamRemoteLlm>[1], target);
     await stream.next();
     await cancelRemoteLlmStream("stream-1", target);
+    await cancelRemoteLlmStream("stream-2", target, { keepalive: true });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://runtime.example/api/llm/stream",
       expect.objectContaining({ cache: "no-store", method: "POST" }),
     );
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://runtime.example/api/llm/stream/stream-1/cancel",
-      expect.objectContaining({ cache: "no-store", method: "POST" }),
+    const fetchCalls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const defaultCancelCall = fetchCalls.find(([url]) => url === "http://runtime.example/api/llm/stream/stream-1/cancel");
+    const keepaliveCancelCall = fetchCalls.find(
+      ([url]) => url === "http://runtime.example/api/llm/stream/stream-2/cancel",
     );
+
+    expect(defaultCancelCall?.[1]).toEqual(expect.objectContaining({ cache: "no-store", method: "POST" }));
+    expect(defaultCancelCall?.[1]).not.toHaveProperty("keepalive");
+    expect(keepaliveCancelCall?.[1]).toEqual(
+      expect.objectContaining({ cache: "no-store", method: "POST", keepalive: true }),
+    );
+  });
+
+  it("cancels active LLM API remote streams on pagehide with keepalive", async () => {
+    useUIStore.setState({ remoteRuntimeUrl: "http://runtime.example" });
+    vi.stubGlobal("crypto", { randomUUID: () => "stream-unload" });
+    const listeners = new Map<string, Array<(event: Event) => void>>();
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn((type: string, listener: (event: Event) => void) => {
+        listeners.set(type, [...(listeners.get(type) ?? []), listener]);
+      }),
+    });
+
+    let streamController!: ReadableStreamDefaultController<Uint8Array>;
+    const streamBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        streamController = controller;
+        controller.enqueue(new TextEncoder().encode('data: {"type":"start"}\n\n'));
+      },
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "http://runtime.example/api/llm/stream") {
+        return new Response(streamBody, {
+          headers: { "content-type": "text/event-stream" },
+          status: 200,
+        });
+      }
+      if (url === "http://runtime.example/api/llm/stream/stream-unload/cancel") {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { llmApi } = await import("./llm-api");
+
+    const stream = llmApi.stream({ messages: [] });
+    await expect(stream.next()).resolves.toEqual({ done: false, value: { type: "start" } });
+    for (const listener of listeners.get("pagehide") ?? []) {
+      listener(new Event("pagehide"));
+    }
+
+    const fetchCalls = fetchMock.mock.calls as unknown as Array<[RequestInfo | URL, RequestInit | undefined]>;
+    const cancelCall = fetchCalls.find(
+      ([url]) => String(url) === "http://runtime.example/api/llm/stream/stream-unload/cancel",
+    );
+    expect(cancelCall?.[1]).toEqual(expect.objectContaining({ cache: "no-store", keepalive: true, method: "POST" }));
+
+    streamController.close();
+    await stream.return(undefined);
   });
 });
