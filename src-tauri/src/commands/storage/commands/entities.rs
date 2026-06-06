@@ -1209,17 +1209,32 @@ pub(crate) fn validate_lorebook_folder_for_patch(
     let Some(object) = patch.as_object() else {
         return Err(AppError::invalid_input("Patch must be an object"));
     };
-    if !object.contains_key("parentFolderId") {
+    // Validate when EITHER field that defines the ancestry pair changes — a
+    // lorebookId-only patch could otherwise leave a parent that is now in a
+    // different lorebook, evading a check that only watched parentFolderId.
+    if !object.contains_key("parentFolderId") && !object.contains_key("lorebookId") {
         return Ok(());
     }
-    let Some(parent_id) = parse_chat_folder_id(patch.get("parentFolderId"))? else {
-        return Ok(()); // moving to the top level is always allowed
-    };
     let existing = state
         .storage
         .get("lorebook-folders", id)?
         .ok_or_else(|| AppError::not_found(format!("lorebook-folders/{id} was not found")))?;
-    validate_lorebook_folder_parent(state, lorebook_folder_lorebook_id(&existing), Some(id), &parent_id)
+    // Resolve the effective post-patch pair: the patched value if present, else
+    // whatever is already stored.
+    let effective_parent = if object.contains_key("parentFolderId") {
+        parse_chat_folder_id(patch.get("parentFolderId"))?
+    } else {
+        parse_chat_folder_id(existing.get("parentFolderId"))?
+    };
+    let Some(parent_id) = effective_parent else {
+        return Ok(()); // a root folder has no ancestry to validate
+    };
+    let effective_lorebook = if object.contains_key("lorebookId") {
+        lorebook_folder_lorebook_id(patch)
+    } else {
+        lorebook_folder_lorebook_id(&existing)
+    };
+    validate_lorebook_folder_parent(state, effective_lorebook, Some(id), &parent_id)
 }
 
 fn lorebook_folder_lorebook_id(value: &Value) -> Option<String> {
@@ -3813,6 +3828,19 @@ mod tests {
             )
             .is_err(),
             "nesting under a folder in another lorebook should be rejected"
+        );
+
+        // Evasion: a lorebookId-only patch must not move B into another lorebook
+        // while it keeps a parent (A) that lives in the original one.
+        assert!(
+            storage_update_inner(
+                &state,
+                "lorebook-folders".to_string(),
+                "b".to_string(),
+                json!({ "lorebookId": "other" }),
+            )
+            .is_err(),
+            "changing only lorebookId while keeping a cross-lorebook parent should be rejected"
         );
 
         // Valid: move B back to the top level.

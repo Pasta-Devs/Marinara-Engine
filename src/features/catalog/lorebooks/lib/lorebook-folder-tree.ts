@@ -142,7 +142,20 @@ export function buildFolderForest<T extends ForestNode>(folders: T[]): FolderFor
     for (const child of childrenByParent.get(id) ?? []) stack.push(child.id);
   }
   for (const folder of folders) {
-    if (!reachable.has(folder.id)) roots.push(folder);
+    if (reachable.has(folder.id)) continue;
+    roots.push(folder);
+    // Sever the cyclic child edge so a promoted node appears ONLY as a root, not
+    // also under its (equally unreachable) parent — keeping the result a forest
+    // rather than emitting the node twice and leaning on the renderer to dedupe.
+    const parentId = folder.parentFolderId;
+    if (parentId !== null) {
+      const siblings = childrenByParent.get(parentId);
+      if (siblings) {
+        const remaining = siblings.filter((sibling) => sibling.id !== folder.id);
+        if (remaining.length > 0) childrenByParent.set(parentId, remaining);
+        else childrenByParent.delete(parentId);
+      }
+    }
   }
 
   const byOrder = (a: T, b: T) => a.order - b.order;
