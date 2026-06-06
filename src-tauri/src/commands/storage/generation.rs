@@ -28,6 +28,7 @@ pub(crate) async fn test_message(state: &AppState, id: &str) -> AppResult<Value>
             images: Vec::new(),
             tool_call_id: None,
             tool_calls: None,
+            provider_metadata: None,
         }],
         parameters: stored_generation_parameters(&connection),
         tools: Vec::new(),

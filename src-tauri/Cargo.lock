@@ -3420,10 +3420,13 @@ dependencies = [
 name = "marinara-llm"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "chrono",
  "futures-util",
  "marinara-core",
  "marinara-security",
  "reqwest 0.12.28",
+ "ring",
  "serde",
  "serde_json",
  "tokio",

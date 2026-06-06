@@ -2027,6 +2027,23 @@ function cloneSerializableValue<T>(value: T): T {
   }
 }
 
+function isEncryptedProviderMetadataKey(key: string): boolean {
+  const normalized = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  return normalized.endsWith("encryptedcontent");
+}
+
+function redactProviderMetadataForSnapshot(value: unknown): unknown {
+  const cloned = cloneSerializableValue(value);
+  if (Array.isArray(cloned)) return cloned.map(redactProviderMetadataForSnapshot);
+  if (!isRecord(cloned)) return cloned;
+  return Object.fromEntries(
+    Object.entries(cloned).map(([key, entry]) => [
+      key,
+      isEncryptedProviderMetadataKey(key) ? "[REDACTED]" : redactProviderMetadataForSnapshot(entry),
+    ]),
+  );
+}
+
 function clonePromptMessage(message: LlmMessage): GenerationPromptSnapshotMessage {
   const snapshot = cloneSerializableValue(message) as GenerationPromptSnapshotMessage;
   snapshot.role = message.role;
@@ -2035,7 +2052,50 @@ function clonePromptMessage(message: LlmMessage): GenerationPromptSnapshotMessag
   if (message.images?.length) snapshot.images = [...message.images];
   if (message.tool_call_id) snapshot.tool_call_id = message.tool_call_id;
   if (message.tool_calls != null) snapshot.tool_calls = cloneSerializableValue(message.tool_calls);
+  if (message.providerMetadata != null) {
+    snapshot.providerMetadata = redactProviderMetadataForSnapshot(message.providerMetadata);
+  }
   return snapshot;
+}
+
+function providerMetadataRecord(value: unknown): Record<string, unknown> | null {
+  const record = parseRecord(value);
+  return Object.keys(record).length > 0 ? cloneSerializableValue(record) : null;
+}
+
+function mergeMetadataArray(existing: unknown, next: unknown): unknown[] {
+  const merged: unknown[] = [];
+  const seen = new Set<string>();
+  for (const item of [
+    ...(Array.isArray(existing) ? existing : []),
+    ...(Array.isArray(next) ? next : []),
+  ]) {
+    const key = JSON.stringify(item) ?? String(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(cloneSerializableValue(item));
+  }
+  return merged;
+}
+
+function mergeProviderMetadata(existing: unknown, next: unknown): unknown {
+  if (next == null) return existing ?? null;
+  if (existing == null) return cloneSerializableValue(next);
+  const existingRecord = parseRecord(existing);
+  const nextRecord = parseRecord(next);
+  if (Object.keys(existingRecord).length === 0 || Object.keys(nextRecord).length === 0) {
+    return cloneSerializableValue(next);
+  }
+  const merged: Record<string, unknown> = {
+    ...cloneSerializableValue(existingRecord),
+    ...cloneSerializableValue(nextRecord),
+  };
+  for (const key of ["encryptedReasoningItems", "openaiResponsesEncryptedReasoningItems"]) {
+    if (Array.isArray(existingRecord[key]) || Array.isArray(nextRecord[key])) {
+      merged[key] = mergeMetadataArray(existingRecord[key], nextRecord[key]);
+    }
+  }
+  return merged;
 }
 
 function nullableNumber(value: unknown): number | null {
@@ -2285,6 +2345,7 @@ async function saveAssistantMessage(args: {
   chatSummaryFingerprint: string | null;
   attachments?: JsonRecord[];
   usage?: unknown;
+  providerMetadata?: unknown;
   promptSnapshot?: MainGenerationPromptSnapshot | null;
   spriteExpressions?: Record<string, string> | null;
   contextInjections?: AgentInjectionOverride[] | null;
@@ -2295,6 +2356,7 @@ async function saveAssistantMessage(args: {
   const content = collapseExcessBlankLines(args.content);
   assertVisibleGeneratedContent(content, args.attachments);
   const thinking = collapseExcessBlankLines(readString(args.thinking).trim());
+  const providerMetadata = args.input.impersonate === true ? null : providerMetadataRecord(args.providerMetadata);
   const promptSnapshot = buildSavedGenerationPromptSnapshot({
     connection: args.connection,
     promptSnapshot: args.promptSnapshot,
@@ -2319,6 +2381,7 @@ async function saveAssistantMessage(args: {
         generationReplay,
         chatSummaryFingerprint: args.chatSummaryFingerprint,
         promptSnapshot,
+        providerMetadata,
         spriteExpressions: args.spriteExpressions,
         agentExtra,
       });
@@ -2356,6 +2419,7 @@ async function saveAssistantMessage(args: {
       generationReplay,
       chatSummaryFingerprint: args.chatSummaryFingerprint,
       promptSnapshot,
+      providerMetadata,
       spriteExpressions: args.spriteExpressions,
       agentExtra,
     });
@@ -2370,6 +2434,7 @@ async function saveAssistantMessage(args: {
     extra: {
       ...(args.attachments?.length ? { attachments: args.attachments } : {}),
       ...(thinking ? { thinking } : {}),
+      ...(providerMetadata ? { providerMetadata } : {}),
       ...(generationReplay ? { generationReplay } : {}),
       ...(args.spriteExpressions ? { spriteExpressions: args.spriteExpressions } : {}),
       ...agentExtra,
@@ -2400,6 +2465,7 @@ async function saveRegeneratedMessage(args: {
   generationReplay: GenerationReplay | null;
   chatSummaryFingerprint: string | null;
   promptSnapshot: GenerationPromptSnapshot | null;
+  providerMetadata?: Record<string, unknown> | null;
   spriteExpressions?: Record<string, string> | null;
   agentExtra?: Record<string, unknown> | null;
 }): Promise<unknown | null> {
@@ -2408,6 +2474,7 @@ async function saveRegeneratedMessage(args: {
     chatSummaryFingerprint: args.chatSummaryFingerprint,
     thinking: args.thinking,
     promptSnapshot: args.promptSnapshot,
+    providerMetadata: args.providerMetadata,
     spriteExpressions: args.spriteExpressions,
     agentExtra: args.agentExtra,
   });
@@ -2422,6 +2489,7 @@ async function saveRegeneratedMessage(args: {
     chatSummaryFingerprint: args.chatSummaryFingerprint,
     thinking: args.thinking,
     promptSnapshot: args.promptSnapshot,
+    providerMetadata: args.providerMetadata,
     spriteExpressions: args.spriteExpressions,
     agentExtra: args.agentExtra,
   });
@@ -2444,6 +2512,7 @@ function swipeScopedGenerationExtra(args: {
   chatSummaryFingerprint: string | null;
   thinking?: string | null;
   promptSnapshot?: GenerationPromptSnapshot | null;
+  providerMetadata?: Record<string, unknown> | null;
   spriteExpressions?: Record<string, string> | null;
   agentExtra?: Record<string, unknown> | null;
 }): Record<string, unknown> {
@@ -2452,6 +2521,9 @@ function swipeScopedGenerationExtra(args: {
   extra.chatSummaryFingerprint = args.chatSummaryFingerprint;
   const trimmedThinking = collapseExcessBlankLines(readString(args.thinking).trim());
   if (trimmedThinking) extra.thinking = trimmedThinking;
+  if (args.providerMetadata && Object.keys(args.providerMetadata).length > 0) {
+    extra.providerMetadata = args.providerMetadata;
+  }
   if (args.spriteExpressions && Object.keys(args.spriteExpressions).length > 0) {
     extra.spriteExpressions = args.spriteExpressions;
   }
@@ -2465,6 +2537,7 @@ function generationReplayExtraPatch(args: {
   chatSummaryFingerprint: string | null;
   thinking?: string | null;
   promptSnapshot?: GenerationPromptSnapshot | null;
+  providerMetadata?: Record<string, unknown> | null;
   spriteExpressions?: Record<string, string> | null;
   agentExtra?: Record<string, unknown> | null;
 }): Record<string, unknown> {
@@ -2473,6 +2546,9 @@ function generationReplayExtraPatch(args: {
   extraPatch.chatSummaryFingerprint = args.chatSummaryFingerprint;
   const trimmedThinking = collapseExcessBlankLines(readString(args.thinking).trim());
   if (trimmedThinking) extraPatch.thinking = trimmedThinking;
+  if (args.providerMetadata && Object.keys(args.providerMetadata).length > 0) {
+    extraPatch.providerMetadata = args.providerMetadata;
+  }
   if (args.spriteExpressions && Object.keys(args.spriteExpressions).length > 0) {
     extraPatch.spriteExpressions = args.spriteExpressions;
   }
@@ -2505,6 +2581,7 @@ interface StreamPartialSink {
   content: string;
   thinking: string;
   usage: unknown;
+  providerMetadata: unknown;
   promptSnapshot: MainGenerationPromptSnapshot | null;
 }
 
@@ -2540,6 +2617,7 @@ async function persistPartialOnAbort(args: {
       noteCount: 0,
       chatSummaryFingerprint: args.chatSummaryFingerprint,
       usage: args.partial.usage,
+      providerMetadata: args.partial.providerMetadata,
       promptSnapshot: args.partial.promptSnapshot,
       existingExtra: args.existingExtra,
     });
@@ -3275,16 +3353,24 @@ export async function* startGeneration(
     const baseMessages: LlmMessage[] = [...prompt, generationGuide(input, runtime?.preInjections)].filter(
       (message): message is LlmMessage => !!message,
     );
-    const mainPartial: StreamPartialSink = { content: "", thinking: "", usage: null, promptSnapshot: null };
+    const mainPartial: StreamPartialSink = {
+      content: "",
+      thinking: "",
+      usage: null,
+      providerMetadata: null,
+      promptSnapshot: null,
+    };
     let streamedContent = "";
     let streamedThinking = "";
     let usage: unknown = null;
+    let providerMetadata: unknown = null;
     let promptSnapshot: MainGenerationPromptSnapshot | null = null;
     try {
       ({
         content: streamedContent,
         thinking: streamedThinking,
         usage,
+        providerMetadata,
         promptSnapshot,
       } = yield* streamMainGenerationLoop({
         deps,
@@ -3361,6 +3447,7 @@ export async function* startGeneration(
           chatSummaryFingerprint: assembly.chatSummaryFingerprint,
           attachments: connected.assistantAttachments,
           usage,
+          providerMetadata,
           promptSnapshot,
           spriteExpressions: preSaveSpriteExpressions,
           contextInjections: runtime?.preInjections ?? null,
@@ -3521,16 +3608,24 @@ export async function* startGeneration(
   const baseMessagesDirect: LlmMessage[] = [...(prompt ?? []), generationGuide(input)].filter(
     (message): message is LlmMessage => !!message,
   );
-  const directPartial: StreamPartialSink = { content: "", thinking: "", usage: null, promptSnapshot: null };
+  const directPartial: StreamPartialSink = {
+    content: "",
+    thinking: "",
+    usage: null,
+    providerMetadata: null,
+    promptSnapshot: null,
+  };
   let streamedContentDirect = "";
   let streamedThinkingDirect = "";
   let usage: unknown = null;
+  let providerMetadata: unknown = null;
   let promptSnapshotDirect: MainGenerationPromptSnapshot | null = null;
   try {
     ({
       content: streamedContentDirect,
       thinking: streamedThinkingDirect,
       usage,
+      providerMetadata,
       promptSnapshot: promptSnapshotDirect,
     } = yield* streamMainGenerationLoop({
       deps,
@@ -3601,6 +3696,7 @@ export async function* startGeneration(
         chatSummaryFingerprint: assembly.chatSummaryFingerprint,
         attachments: connected.assistantAttachments,
         usage,
+        providerMetadata,
         promptSnapshot: promptSnapshotDirect,
         existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
       });
@@ -3782,7 +3878,13 @@ async function* streamMainGenerationLoop(args: {
   partial?: StreamPartialSink | null;
 }): AsyncGenerator<
   GenerationEvent,
-  { content: string; thinking: string; usage: unknown; promptSnapshot: MainGenerationPromptSnapshot | null }
+  {
+    content: string;
+    thinking: string;
+    usage: unknown;
+    providerMetadata: unknown;
+    promptSnapshot: MainGenerationPromptSnapshot | null;
+  }
 > {
   const {
     deps,
@@ -3800,6 +3902,7 @@ async function* streamMainGenerationLoop(args: {
   } = args;
   let content = "";
   let thinking = "";
+  let providerMetadata: unknown = null;
   const turnUsages: unknown[] = [];
   const conversation: LlmMessage[] = [...baseMessages];
   let promptSnapshot: MainGenerationPromptSnapshot | null = null;
@@ -3815,6 +3918,7 @@ async function* streamMainGenerationLoop(args: {
     iteration++;
     const pendingToolCalls: LLMToolCall[] = [];
     const streamUsages: unknown[] = [];
+    let turnProviderMetadata: unknown = null;
     let turnContent = "";
     inFlightTurn = "";
     const thinkingParser = createInlineThinkingStreamParser();
@@ -3861,6 +3965,12 @@ async function* streamMainGenerationLoop(args: {
       signal,
     )) {
       throwIfAborted(signal);
+      const chunkProviderMetadata =
+        chunk.type === "provider_metadata" ? (chunk.data ?? chunk.providerMetadata) : chunk.providerMetadata;
+      if (chunkProviderMetadata != null) {
+        turnProviderMetadata = mergeProviderMetadata(turnProviderMetadata, chunkProviderMetadata);
+        providerMetadata = mergeProviderMetadata(providerMetadata, chunkProviderMetadata);
+      }
       if (chunk.type === "token") {
         const text = llmChunkText(chunk);
         if (text) yield* emitInlineParts(text);
@@ -3875,6 +3985,8 @@ async function* streamMainGenerationLoop(args: {
         if (normalized) pendingToolCalls.push(normalized);
       } else if (chunk.type === "usage" && chunk.data != null) {
         streamUsages.push(chunk.data);
+      } else if (chunk.type === "provider_metadata") {
+        continue;
       } else if (chunk.type === "error") {
         throw new Error(llmStreamErrorMessage(chunk));
       }
@@ -3906,10 +4018,12 @@ async function* streamMainGenerationLoop(args: {
       break;
     }
 
+    const turnMetadataRecord = providerMetadataRecord(turnProviderMetadata);
     conversation.push({
       role: "assistant",
       content: turnContent,
       tool_calls: pendingToolCalls,
+      ...(turnMetadataRecord ? { providerMetadata: turnMetadataRecord } : {}),
     });
 
     for (const call of pendingToolCalls) {
@@ -3953,11 +4067,12 @@ async function* streamMainGenerationLoop(args: {
       partial.content = content + inFlightTurn;
       partial.thinking = thinking;
       partial.usage = mergeTurnUsages(turnUsages);
+      partial.providerMetadata = providerMetadata;
       partial.promptSnapshot = promptSnapshot;
     }
   }
 
-  return { content, thinking, usage: mergeTurnUsages(turnUsages), promptSnapshot };
+  return { content, thinking, usage: mergeTurnUsages(turnUsages), providerMetadata, promptSnapshot };
 }
 
 /**

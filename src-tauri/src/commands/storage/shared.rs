@@ -26,6 +26,94 @@ impl ParsedPath {
     }
 }
 
+pub(crate) fn provider_local_urls_enabled(flag: &str) -> bool {
+    std::env::var(flag).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+pub(crate) async fn validate_provider_url_for_request(
+    raw: &str,
+    allow_private_or_reserved: bool,
+    allow_flag: &str,
+) -> AppResult<reqwest::Url> {
+    let url = reqwest::Url::parse(raw).map_err(|error| {
+        AppError::invalid_input(format!(
+            "Outbound URL is invalid: {}",
+            marinara_security::redact_sensitive_text(&error.to_string())
+        ))
+    })?;
+    if !marinara_security::is_allowed_provider_url(url.as_str(), allow_private_or_reserved) {
+        return Err(provider_url_not_allowed_error(url.as_str(), allow_flag));
+    }
+    validate_provider_url_resolution(&url, allow_private_or_reserved, allow_flag).await?;
+    Ok(url)
+}
+
+async fn validate_provider_url_resolution(
+    url: &reqwest::Url,
+    allow_private_or_reserved: bool,
+    allow_flag: &str,
+) -> AppResult<()> {
+    if allow_private_or_reserved {
+        return Ok(());
+    }
+    let Some(host) = url.host_str() else {
+        return Err(provider_url_not_allowed_error(url.as_str(), allow_flag));
+    };
+    if marinara_security::is_loopback_provider_host(host) {
+        return Ok(());
+    }
+    if let Ok(address) = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host)
+        .parse::<std::net::IpAddr>()
+    {
+        if marinara_security::is_forbidden_provider_resolved_ip(address, allow_private_or_reserved)
+        {
+            return Err(provider_url_not_allowed_error(url.as_str(), allow_flag));
+        }
+        return Ok(());
+    }
+    let port = url.port_or_known_default().unwrap_or(443);
+    let addresses = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|error| {
+            AppError::invalid_input(format!(
+                "Outbound URL host '{}' did not resolve: {}",
+                marinara_security::redact_sensitive_text(host),
+                marinara_security::redact_sensitive_text(&error.to_string())
+            ))
+        })?
+        .collect::<Vec<_>>();
+    if addresses.is_empty() {
+        return Err(AppError::invalid_input(format!(
+            "Outbound URL host '{}' did not resolve",
+            marinara_security::redact_sensitive_text(host)
+        )));
+    }
+    if addresses.iter().any(|address| {
+        marinara_security::is_forbidden_provider_resolved_ip(
+            address.ip(),
+            allow_private_or_reserved,
+        )
+    }) {
+        return Err(provider_url_not_allowed_error(url.as_str(), allow_flag));
+    }
+    Ok(())
+}
+
+fn provider_url_not_allowed_error(url: &str, allow_flag: &str) -> AppError {
+    AppError::invalid_input(format!(
+        "Outbound URL points to a private, LAN, metadata, or reserved target: {}. Set {allow_flag}=true only if you trust that provider target.",
+        marinara_security::redact_sensitive_text(url)
+    ))
+}
+
 pub(crate) fn list_collection(
     state: &AppState,
     collection: &str,

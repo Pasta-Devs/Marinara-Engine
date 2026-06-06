@@ -1,3 +1,5 @@
+use base64::{engine::general_purpose, Engine as _};
+use chrono::{DateTime, SecondsFormat, Utc};
 use futures_util::StreamExt;
 use marinara_core::{AppError, AppResult};
 use marinara_security::{
@@ -11,8 +13,9 @@ use std::{
     env, fs,
     io::Write,
     net::{IpAddr, SocketAddr},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::{Mutex, OnceLock},
     time::Duration,
 };
 use uuid::Uuid;
@@ -20,12 +23,27 @@ use uuid::Uuid;
 const OPENAI_CHATGPT_CODEX_BASE_URL: &str = "https://chatgpt.com/backend-api/codex";
 const OPENAI_CHATGPT_REFRESH_URL: &str = "https://auth.openai.com/oauth/token";
 const OPENAI_CHATGPT_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
+const OPENAI_CHATGPT_TOKEN_REFRESH_INTERVAL_DAYS: i64 = 8;
+const OPENAI_CHATGPT_EXPIRY_REFRESH_SKEW_SECONDS: i64 = 60;
 const APP_VERSION: &str = "1.6.1";
 const CLAUDE_SUBSCRIPTION_1M_SUFFIX: &str = "[1m]";
 const CLAUDE_SUBSCRIPTION_1M_BETA: &str = "context-1m-2025-08-07";
 const PROVIDER_LOCAL_URLS_ENABLED_FLAG: &str = "PROVIDER_LOCAL_URLS_ENABLED";
 const PROVIDER_RESPONSE_MAX_BYTES: usize = 5 * 1024 * 1024;
 const PROVIDER_RESPONSE_HEADERS_TIMEOUT_SECS: u64 = 5 * 60;
+const GOOGLE_CLOUD_PLATFORM_SCOPE: &str = "https://www.googleapis.com/auth/cloud-platform";
+const GOOGLE_OAUTH_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
+const GOOGLE_JWT_BEARER_GRANT_TYPE: &str = "urn:ietf:params:oauth:grant-type:jwt-bearer";
+const GOOGLE_VERTEX_TOKEN_REFRESH_SKEW_SECONDS: i64 = 60;
+
+#[derive(Debug, Clone)]
+struct GoogleVertexCachedToken {
+    access_token: String,
+    expires_at: i64,
+}
+
+static GOOGLE_VERTEX_TOKEN_CACHE: OnceLock<Mutex<BTreeMap<String, GoogleVertexCachedToken>>> =
+    OnceLock::new();
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SseBlockStatus {
@@ -45,6 +63,13 @@ pub struct LlmMessage {
     pub tool_call_id: Option<String>,
     #[serde(default)]
     pub tool_calls: Option<Value>,
+    #[serde(
+        rename = "providerMetadata",
+        alias = "provider_metadata",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub provider_metadata: Option<Value>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -82,6 +107,21 @@ pub struct LlmCompletion {
     pub content: String,
     #[serde(rename = "toolCalls")]
     pub tool_calls: Vec<Value>,
+    #[serde(
+        rename = "finishReason",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub finish_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usage: Option<Value>,
+    #[serde(
+        rename = "providerMetadata",
+        alias = "provider_metadata",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub provider_metadata: Option<Value>,
 }
 
 pub async fn complete(request: LlmRequest) -> AppResult<String> {
@@ -90,24 +130,9 @@ pub async fn complete(request: LlmRequest) -> AppResult<String> {
 
 pub async fn complete_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
     match request.connection.provider.as_str() {
-        "anthropic" => complete_anthropic(request)
-            .await
-            .map(|content| LlmCompletion {
-                content,
-                tool_calls: Vec::new(),
-            }),
-        "google" | "google_vertex" => complete_google(request).await.map(|content| LlmCompletion {
-            content,
-            tool_calls: Vec::new(),
-        }),
-        "claude_subscription" => {
-            complete_claude_subscription(request)
-                .await
-                .map(|content| LlmCompletion {
-                    content,
-                    tool_calls: Vec::new(),
-                })
-        }
+        "anthropic" => complete_anthropic_rich(request).await,
+        "google" | "google_vertex" => complete_google_rich(request).await,
+        "claude_subscription" => complete_claude_subscription_rich(request).await,
         "cohere" if should_use_cohere_compatibility(&request) => {
             complete_openai_compatible_rich(request).await
         }
@@ -142,6 +167,9 @@ pub async fn stream_events(
         }
         for tool_call in result.tool_calls {
             emit(json!({ "type": "tool_call", "data": tool_call }))?;
+        }
+        if let Some(provider_metadata) = result.provider_metadata {
+            emit(json!({ "type": "provider_metadata", "data": provider_metadata }))?;
         }
     }
     emit(json!({ "type": "done" }))?;
@@ -204,7 +232,7 @@ fn log_prompt_connection_request(kind: &str, endpoint: &str, request: &LlmReques
         redacted_endpoint(endpoint),
         messages.len(),
         request.tools.len(),
-        compact_json(&request.parameters),
+        compact_json(&redact_sensitive_json(request.parameters.clone())),
     );
     for (index, message) in messages.iter().enumerate() {
         eprintln!(
@@ -218,10 +246,13 @@ fn log_prompt_connection_request(kind: &str, endpoint: &str, request: &LlmReques
     if !request.tools.is_empty() {
         eprintln!(
             "[prompt-connections] tools={}",
-            compact_json(&json!(&request.tools))
+            compact_json(&redact_sensitive_json(json!(&request.tools)))
         );
     }
-    eprintln!("[prompt-connections] body={}", compact_json(body));
+    eprintln!(
+        "[prompt-connections] body={}",
+        compact_json(&redact_sensitive_json(body.clone()))
+    );
 }
 
 pub fn unavailable_payload(message: impl Into<String>) -> Value {
@@ -1472,6 +1503,7 @@ fn request_messages(request: &LlmRequest) -> Vec<LlmMessage> {
             images: Vec::new(),
             tool_call_id: None,
             tool_calls: None,
+            provider_metadata: None,
         });
     }
     messages
@@ -1521,10 +1553,9 @@ async fn load_openai_chatgpt_auth() -> AppResult<ChatGptAuth> {
     })?;
     let mut auth_json: Value = serde_json::from_str(&raw)
         .map_err(|error| AppError::new("openai_chatgpt_auth_error", error.to_string()))?;
-    let should_refresh = openai_chatgpt_auth_is_stale(&auth_json);
     let tokens = auth_json
-        .get_mut("tokens")
-        .and_then(Value::as_object_mut)
+        .get("tokens")
+        .and_then(Value::as_object)
         .ok_or_else(|| {
             AppError::new(
                 "openai_chatgpt_auth_error",
@@ -1538,34 +1569,25 @@ async fn load_openai_chatgpt_auth() -> AppResult<ChatGptAuth> {
         )
     })?;
     let account_id = string_value(tokens.get("account_id"));
+    let should_refresh = openai_chatgpt_auth_should_refresh(&auth_json, &access_token);
     if should_refresh {
-        if let Some(refresh_token) = string_value(tokens.get("refresh_token")) {
-            let refreshed = refresh_openai_chatgpt_auth(&refresh_token).await?;
-            if let Some(next_access_token) = string_value(refreshed.get("access_token")) {
-                tokens.insert(
-                    "access_token".to_string(),
-                    Value::String(next_access_token.clone()),
-                );
-                access_token = next_access_token;
-            }
-            if let Some(next_refresh_token) = string_value(refreshed.get("refresh_token")) {
-                tokens.insert(
-                    "refresh_token".to_string(),
-                    Value::String(next_refresh_token),
-                );
-            }
-            if let Some(next_id_token) = string_value(refreshed.get("id_token")) {
-                tokens.insert("id_token".to_string(), Value::String(next_id_token));
-            }
-            auth_json["last_refresh"] = Value::String(chrono_like_now_iso());
-            let _ = fs::write(
-                &path,
-                format!(
-                    "{}\n",
-                    serde_json::to_string_pretty(&auth_json).unwrap_or(raw)
-                ),
-            );
+        let tokens = auth_json
+            .get_mut("tokens")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| {
+                AppError::new(
+                    "openai_chatgpt_auth_error",
+                    "Codex auth is not ChatGPT OAuth. Run `codex login`.",
+                )
+            })?;
+        let refresh_token = string_value(tokens.get("refresh_token"))
+            .ok_or_else(openai_chatgpt_refresh_token_error)?;
+        let refreshed = refresh_openai_chatgpt_auth(&refresh_token).await?;
+        if let Some(next_access_token) = apply_openai_chatgpt_refreshed_tokens(tokens, &refreshed) {
+            access_token = next_access_token;
         }
+        auth_json["last_refresh"] = Value::String(chrono_like_now_iso());
+        persist_openai_chatgpt_auth(&path, &auth_json)?;
     }
     Ok(ChatGptAuth {
         access_token,
@@ -1589,14 +1611,88 @@ pub async fn check_openai_chatgpt_auth() -> AppResult<String> {
     ))
 }
 
-fn openai_chatgpt_auth_is_stale(auth_json: &Value) -> bool {
-    let Some(last_refresh) = auth_json.get("last_refresh").and_then(Value::as_str) else {
+fn decode_jwt_payload_json(token: &str) -> Option<Value> {
+    let payload = token.split('.').nth(1).filter(|value| !value.is_empty())?;
+    let decoded = general_purpose::URL_SAFE_NO_PAD
+        .decode(payload)
+        .or_else(|_| general_purpose::URL_SAFE.decode(payload))
+        .ok()?;
+    serde_json::from_slice::<Value>(&decoded).ok()
+}
+
+fn openai_chatgpt_access_token_expires_soon(access_token: &str) -> bool {
+    let Some(payload) = decode_jwt_payload_json(access_token) else {
         return false;
     };
-    // Keep the same refresh cadence as the original provider without pulling in a date crate:
-    // if the timestamp string is present but old parsing is unavailable, provider requests will
-    // still work until the access token expires and the user can refresh through `codex login`.
-    last_refresh.trim().is_empty()
+    let Some(exp) = payload.get("exp").and_then(Value::as_f64) else {
+        return false;
+    };
+    if !exp.is_finite() {
+        return false;
+    }
+    let now = Utc::now().timestamp() as f64;
+    exp <= now + OPENAI_CHATGPT_EXPIRY_REFRESH_SKEW_SECONDS as f64
+}
+
+fn openai_chatgpt_last_refresh_is_stale(last_refresh: Option<&Value>) -> bool {
+    let Some(raw) = string_value(last_refresh) else {
+        return false;
+    };
+    let Ok(parsed) = DateTime::parse_from_rfc3339(&raw) else {
+        return false;
+    };
+    let age = Utc::now().signed_duration_since(parsed.with_timezone(&Utc));
+    age > chrono::Duration::days(OPENAI_CHATGPT_TOKEN_REFRESH_INTERVAL_DAYS)
+}
+
+fn openai_chatgpt_auth_should_refresh(auth_json: &Value, access_token: &str) -> bool {
+    openai_chatgpt_access_token_expires_soon(access_token)
+        || openai_chatgpt_last_refresh_is_stale(auth_json.get("last_refresh"))
+}
+
+fn openai_chatgpt_refresh_token_error() -> AppError {
+    AppError::new(
+        "openai_chatgpt_auth_error",
+        "Codex ChatGPT access token is stale, but no refresh token is available. Run `codex login`.",
+    )
+}
+
+fn apply_openai_chatgpt_refreshed_tokens(
+    tokens: &mut serde_json::Map<String, Value>,
+    refreshed: &Value,
+) -> Option<String> {
+    let next_access_token = string_value(refreshed.get("access_token"));
+    if let Some(next_access_token) = next_access_token.clone() {
+        tokens.insert(
+            "access_token".to_string(),
+            Value::String(next_access_token.clone()),
+        );
+    }
+    if let Some(next_refresh_token) = string_value(refreshed.get("refresh_token")) {
+        tokens.insert(
+            "refresh_token".to_string(),
+            Value::String(next_refresh_token),
+        );
+    }
+    if let Some(next_id_token) = string_value(refreshed.get("id_token")) {
+        tokens.insert("id_token".to_string(), Value::String(next_id_token));
+    }
+    next_access_token
+}
+
+fn persist_openai_chatgpt_auth(path: &Path, auth_json: &Value) -> AppResult<()> {
+    let serialized = serde_json::to_string_pretty(auth_json).map_err(|error| {
+        AppError::new(
+            "openai_chatgpt_auth_error",
+            format!("Failed to serialize Codex ChatGPT auth refresh: {error}"),
+        )
+    })?;
+    fs::write(path, format!("{serialized}\n")).map_err(|error| {
+        AppError::new(
+            "openai_chatgpt_auth_error",
+            format!("Failed to update local Codex auth.json credential file: {error}"),
+        )
+    })
 }
 
 async fn refresh_openai_chatgpt_auth(refresh_token: &str) -> AppResult<Value> {
@@ -1622,7 +1718,7 @@ async fn refresh_openai_chatgpt_auth(refresh_token: &str) -> AppResult<Value> {
 }
 
 fn chrono_like_now_iso() -> String {
-    format!("{:?}", std::time::SystemTime::now())
+    Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
 }
 
 fn apply_openai_auth_headers(
@@ -1645,18 +1741,83 @@ async fn apply_chatgpt_auth_headers(
     req: reqwest::RequestBuilder,
 ) -> AppResult<reqwest::RequestBuilder> {
     let auth = load_openai_chatgpt_auth().await?;
+    Ok(apply_chatgpt_auth_headers_with_auth(req, &auth))
+}
+
+fn apply_chatgpt_auth_headers_with_auth(
+    req: reqwest::RequestBuilder,
+    auth: &ChatGptAuth,
+) -> reqwest::RequestBuilder {
     let mut req = req
-        .bearer_auth(auth.access_token)
+        .bearer_auth(auth.access_token.as_str())
         .header("version", APP_VERSION)
         .header("originator", "Marinara-Engine")
         .header("User-Agent", format!("MarinaraEngine/{APP_VERSION}"));
-    if let Some(account_id) = auth.account_id {
+    if let Some(account_id) = auth.account_id.as_deref() {
         req = req.header("ChatGPT-Account-ID", account_id);
     }
     if auth.is_fedramp {
         req = req.header("X-OpenAI-Fedramp", "true");
     }
-    Ok(req)
+    req
+}
+
+fn openai_chatgpt_models_url() -> String {
+    format!("{OPENAI_CHATGPT_CODEX_BASE_URL}/models?client_version={APP_VERSION}")
+}
+
+fn normalize_openai_chatgpt_models(json: &Value) -> Vec<Value> {
+    json.get("models")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| {
+            let id = string_value(item.get("slug")).or_else(|| string_value(item.get("id")))?;
+            let name = string_value(item.get("display_name"))
+                .or_else(|| string_value(item.get("name")))
+                .unwrap_or_else(|| id.clone());
+            Some(json!({ "id": id, "name": name, "provider": "openai_chatgpt" }))
+        })
+        .collect()
+}
+
+async fn fetch_openai_chatgpt_models_from_url(
+    url: &str,
+    auth: &ChatGptAuth,
+) -> AppResult<Vec<Value>> {
+    let response = send_provider_request_with_error_code(
+        apply_chatgpt_auth_headers_with_auth(
+            provider_http_client_for_url(url).await?.get(url),
+            auth,
+        ),
+        "models_network_error",
+    )
+    .await?;
+    let (status, json) = read_json_response(response).await?;
+    if !status.is_success() {
+        let details = redact_sensitive_json(json);
+        let message = provider_error_text(&details)
+            .map(|detail| format!("ChatGPT model catalog returned HTTP {status}: {detail}"))
+            .unwrap_or_else(|| format!("ChatGPT model catalog returned HTTP {status}"));
+        return Err(AppError::with_details(
+            "models_provider_error",
+            message,
+            details,
+        ));
+    }
+    let models = normalize_openai_chatgpt_models(&json);
+    if models.is_empty() {
+        return Err(AppError::new(
+            "models_provider_error",
+            "ChatGPT model catalog returned no models",
+        ));
+    }
+    Ok(models)
+}
+
+pub async fn list_openai_chatgpt_models() -> AppResult<Vec<Value>> {
+    let auth = load_openai_chatgpt_auth().await?;
+    fetch_openai_chatgpt_models_from_url(&openai_chatgpt_models_url(), &auth).await
 }
 
 fn cohere_message(message: &LlmMessage) -> Value {
@@ -1998,40 +2159,228 @@ fn take_sse_block(buffer: &mut String) -> Option<String> {
     Some(block)
 }
 
-fn responses_input(messages: &[LlmMessage]) -> Value {
-    Value::Array(
-        messages
+const OPENAI_RESPONSES_ENCRYPTED_REASONING_INCLUDE: &str = "reasoning.encrypted_content";
+
+fn openai_responses_preserve_encrypted_reasoning(request: &LlmRequest) -> bool {
+    request.connection.provider != "openai_chatgpt"
+}
+
+fn encrypted_reasoning_items_from_metadata(metadata: &Value) -> Vec<Value> {
+    [
+        "encryptedReasoningItems",
+        "openaiResponsesEncryptedReasoningItems",
+    ]
+    .into_iter()
+    .filter_map(|key| metadata.get(key).and_then(Value::as_array))
+    .flat_map(|items| items.iter())
+    .filter(|item| {
+        item.get("type").and_then(Value::as_str) == Some("reasoning")
+            && item
+                .get("encrypted_content")
+                .and_then(Value::as_str)
+                .is_some_and(|value| !value.trim().is_empty())
+    })
+    .cloned()
+    .collect()
+}
+
+fn encrypted_reasoning_items_from_messages(messages: &[LlmMessage]) -> Vec<Value> {
+    messages
+        .iter()
+        .filter(|message| message.role == "assistant")
+        .filter_map(|message| message.provider_metadata.as_ref())
+        .flat_map(encrypted_reasoning_items_from_metadata)
+        .collect()
+}
+
+fn encrypted_reasoning_items_from_responses_output(json: &Value) -> Vec<Value> {
+    json.get("output")
+        .or_else(|| json.pointer("/response/output"))
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|item| {
+            item.get("type").and_then(Value::as_str) == Some("reasoning")
+                && item
+                    .get("encrypted_content")
+                    .and_then(Value::as_str)
+                    .is_some_and(|value| !value.trim().is_empty())
+        })
+        .cloned()
+        .collect()
+}
+
+fn openai_responses_provider_metadata(json: &Value) -> Option<Value> {
+    let encrypted_reasoning_items = encrypted_reasoning_items_from_responses_output(json);
+    if encrypted_reasoning_items.is_empty() {
+        None
+    } else {
+        Some(json!({ "encryptedReasoningItems": encrypted_reasoning_items }))
+    }
+}
+
+fn ensure_openai_responses_include(body: &mut Value, include: &str) {
+    if let Some(items) = body.get_mut("include").and_then(Value::as_array_mut) {
+        if !items
             .iter()
-            .map(|message| {
-                let role = if message.role == "assistant" {
-                    "assistant"
-                } else if message.role == "system" {
-                    "system"
-                } else {
-                    "user"
-                };
-                if message.images.is_empty() {
-                    json!({ "role": role, "content": message.content })
-                } else {
-                    let mut content = Vec::new();
-                    if !message.content.is_empty() {
-                        content.push(json!({ "type": "input_text", "text": message.content }));
-                    }
-                    for image in &message.images {
-                        content.push(json!({ "type": "input_image", "image_url": image }));
-                    }
-                    json!({ "role": role, "content": content })
-                }
+            .any(|item| item.as_str().is_some_and(|value| value == include))
+        {
+            items.push(Value::String(include.to_string()));
+        }
+        return;
+    }
+    body["include"] = json!([include]);
+}
+
+#[derive(Default)]
+struct ResponsesToolCallIdMapper {
+    ids: BTreeMap<String, String>,
+    counter: usize,
+}
+
+impl ResponsesToolCallIdMapper {
+    fn ensure(&mut self, id: &str) -> String {
+        if id.starts_with("fc_") {
+            return id.to_string();
+        }
+        if let Some(mapped) = self.ids.get(id) {
+            return mapped.clone();
+        }
+        self.counter += 1;
+        let mapped = format!("fc_mapped_{}", self.counter);
+        self.ids.insert(id.to_string(), mapped.clone());
+        mapped
+    }
+}
+
+fn tool_call_raw_id(call: &Value) -> Option<&str> {
+    call.get("id")
+        .or_else(|| call.get("call_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn tool_call_function_name(call: &Value) -> Option<&str> {
+    call.pointer("/function/name")
+        .or_else(|| call.get("name"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn tool_call_arguments(call: &Value) -> String {
+    let value = call
+        .pointer("/function/arguments")
+        .or_else(|| call.get("arguments"));
+    match value {
+        Some(Value::String(arguments)) => arguments.clone(),
+        Some(value) => compact_json(value),
+        None => "{}".to_string(),
+    }
+}
+
+fn responses_tool_call_input_items(
+    message: &LlmMessage,
+    id_mapper: &mut ResponsesToolCallIdMapper,
+) -> Vec<Value> {
+    let Some(tool_calls) = message.tool_calls.as_ref().and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    tool_calls
+        .iter()
+        .enumerate()
+        .map(|(index, call)| {
+            let raw_id = tool_call_raw_id(call)
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("call_{}", index + 1));
+            let fc_id = id_mapper.ensure(&raw_id);
+            json!({
+                "type": "function_call",
+                "id": fc_id,
+                "call_id": fc_id,
+                "name": tool_call_function_name(call).unwrap_or(""),
+                "arguments": tool_call_arguments(call),
             })
-            .collect(),
-    )
+        })
+        .collect()
+}
+
+fn responses_message_input(
+    message: &LlmMessage,
+    id_mapper: &mut ResponsesToolCallIdMapper,
+) -> Vec<Value> {
+    if message.role == "tool" {
+        let call_id = message
+            .tool_call_id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(|id| id_mapper.ensure(id))
+            .unwrap_or_default();
+        return vec![json!({
+            "type": "function_call_output",
+            "call_id": call_id,
+            "output": message.content,
+        })];
+    }
+
+    let role = if message.role == "assistant" {
+        "assistant"
+    } else if message.role == "system" {
+        "system"
+    } else {
+        "user"
+    };
+    let mut items = Vec::new();
+    if message.images.is_empty() {
+        if !message.content.trim().is_empty() || message.role != "assistant" {
+            items.push(json!({ "role": role, "content": message.content }));
+        }
+    } else {
+        let mut content = Vec::new();
+        if !message.content.is_empty() {
+            content.push(json!({ "type": "input_text", "text": message.content }));
+        }
+        for image in &message.images {
+            content.push(json!({ "type": "input_image", "image_url": image }));
+        }
+        items.push(json!({ "role": role, "content": content }));
+    }
+    if message.role == "assistant" {
+        items.extend(responses_tool_call_input_items(message, id_mapper));
+    }
+    items
+}
+
+fn is_responses_assistant_input_item(item: &Value) -> bool {
+    item.get("role").and_then(Value::as_str) == Some("assistant")
+        || item.get("type").and_then(Value::as_str) == Some("function_call")
+}
+
+fn responses_input(messages: &[LlmMessage], replay_encrypted_reasoning: bool) -> Value {
+    let mut id_mapper = ResponsesToolCallIdMapper::default();
+    let mut input = messages
+        .iter()
+        .flat_map(|message| responses_message_input(message, &mut id_mapper))
+        .collect::<Vec<_>>();
+    if replay_encrypted_reasoning {
+        let encrypted_reasoning_items = encrypted_reasoning_items_from_messages(messages);
+        if !encrypted_reasoning_items.is_empty() {
+            if let Some(index) = input.iter().rposition(is_responses_assistant_input_item) {
+                input.splice(index..index, encrypted_reasoning_items);
+            }
+        }
+    }
+    Value::Array(input)
 }
 
 fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
     let messages = request_messages(request);
+    let preserve_encrypted_reasoning = openai_responses_preserve_encrypted_reasoning(request);
     let mut body = json!({
         "model": request.connection.model,
-        "input": responses_input(&messages),
+        "input": responses_input(&messages, preserve_encrypted_reasoning),
         "stream": stream,
         "max_output_tokens": request_max_tokens(request, 1024),
     });
@@ -2081,6 +2430,9 @@ fn build_openai_responses_body(request: &LlmRequest, stream: bool) -> Value {
         false,
         OPENAI_RESPONSES_UNSUPPORTED_CUSTOM_PARAMETER_KEYS,
     );
+    if preserve_encrypted_reasoning {
+        ensure_openai_responses_include(&mut body, OPENAI_RESPONSES_ENCRYPTED_REASONING_INCLUDE);
+    }
     body
 }
 
@@ -2128,6 +2480,19 @@ async fn complete_openai_responses_rich(request: LlmRequest) -> AppResult<LlmCom
         }
     }
     let tool_calls = responses_tool_calls(&json);
+    let provider_metadata = openai_responses_provider_metadata(&json);
+    let usage = json.get("usage").cloned();
+    let finish_reason = if !tool_calls.is_empty() {
+        Some("tool_calls".to_string())
+    } else {
+        json.get("status").and_then(Value::as_str).map(|status| {
+            if status.eq_ignore_ascii_case("incomplete") {
+                "length".to_string()
+            } else {
+                status.to_string()
+            }
+        })
+    };
     if content.trim().is_empty() && tool_calls.is_empty() {
         return Err(AppError::with_details(
             "llm_response_error",
@@ -2138,6 +2503,9 @@ async fn complete_openai_responses_rich(request: LlmRequest) -> AppResult<LlmCom
     Ok(LlmCompletion {
         content,
         tool_calls,
+        finish_reason,
+        usage,
+        provider_metadata,
     })
 }
 
@@ -2174,6 +2542,7 @@ async fn stream_openai_responses(
     }
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
+    let mut tool_calls = ResponsesToolCallAccumulator::default();
     let mut completed = false;
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| {
@@ -2181,7 +2550,9 @@ async fn stream_openai_responses(
         })?;
         buffer.push_str(&String::from_utf8_lossy(&chunk));
         while let Some(block) = take_sse_block(&mut buffer) {
-            if process_openai_responses_sse_block(&block, emit)? == SseBlockStatus::Complete {
+            if process_openai_responses_sse_block(&block, emit, &mut tool_calls)?
+                == SseBlockStatus::Complete
+            {
                 completed = true;
                 break;
             }
@@ -2191,7 +2562,10 @@ async fn stream_openai_responses(
         }
     }
     if !completed && !buffer.trim().is_empty() {
-        process_openai_responses_sse_block(&buffer, emit)?;
+        process_openai_responses_sse_block(&buffer, emit, &mut tool_calls)?;
+    }
+    for tool_call in tool_calls.into_tool_calls() {
+        emit(json!({ "type": "tool_call", "data": tool_call }))?;
     }
     Ok(())
 }
@@ -2199,6 +2573,7 @@ async fn stream_openai_responses(
 fn process_openai_responses_sse_block(
     block: &str,
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
+    tool_calls: &mut ResponsesToolCallAccumulator,
 ) -> AppResult<SseBlockStatus> {
     let event_name = block
         .lines()
@@ -2242,15 +2617,40 @@ fn process_openai_responses_sse_block(
                 emit(json!({ "type": "thinking", "text": delta, "data": delta }))?;
             }
         }
+        "response.output_item.added" => {
+            if let Some(item) = value.get("item") {
+                tool_calls.ingest_output_item(item);
+            }
+        }
         "response.function_call_arguments.delta" => {
-            emit(json!({ "type": "tool_call", "data": value }))?;
+            tool_calls.ingest_arguments_delta(&value);
+        }
+        "response.function_call_arguments.done" => {
+            tool_calls.ingest_arguments_done(&value);
+        }
+        "response.output_item.done" => {
+            if let Some(item) = value.get("item") {
+                tool_calls.ingest_output_item(item);
+            }
         }
         "response.completed" => {
+            if let Some(output) = value
+                .pointer("/response/output")
+                .or_else(|| value.get("output"))
+                .and_then(Value::as_array)
+            {
+                for item in output {
+                    tool_calls.ingest_output_item(item);
+                }
+            }
             if let Some(usage) = value
                 .pointer("/response/usage")
                 .or_else(|| value.get("usage"))
             {
                 emit(json!({ "type": "usage", "data": usage }))?;
+            }
+            if let Some(provider_metadata) = openai_responses_provider_metadata(&value) {
+                emit(json!({ "type": "provider_metadata", "data": provider_metadata }))?;
             }
             return Ok(SseBlockStatus::Complete);
         }
@@ -2327,6 +2727,98 @@ impl OpenAiToolCallAccumulator {
                 };
                 Some(json!({
                     "id": parts.id.unwrap_or_else(|| format!("call-{index}")),
+                    "name": name.clone(),
+                    "arguments": arguments.clone(),
+                    "function": {
+                        "name": name,
+                        "arguments": arguments
+                    }
+                }))
+            })
+            .collect()
+    }
+}
+
+#[derive(Default)]
+struct ResponsesToolCallAccumulator {
+    calls: BTreeMap<String, ResponsesToolCallParts>,
+}
+
+#[derive(Default)]
+struct ResponsesToolCallParts {
+    name: Option<String>,
+    arguments: String,
+}
+
+impl ResponsesToolCallAccumulator {
+    fn call_id(value: &Value) -> Option<String> {
+        value
+            .get("call_id")
+            .or_else(|| value.get("id"))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    }
+
+    fn entry_mut(&mut self, call_id: String) -> &mut ResponsesToolCallParts {
+        self.calls.entry(call_id).or_default()
+    }
+
+    fn ingest_output_item(&mut self, item: &Value) {
+        if item.get("type").and_then(Value::as_str) != Some("function_call") {
+            return;
+        }
+        let Some(call_id) = Self::call_id(item) else {
+            return;
+        };
+        let entry = self.entry_mut(call_id);
+        if let Some(name) = item
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+        {
+            entry.name = Some(name.to_string());
+        }
+        if let Some(arguments) = item.get("arguments").and_then(Value::as_str) {
+            entry.arguments = arguments.to_string();
+        }
+    }
+
+    fn ingest_arguments_delta(&mut self, value: &Value) {
+        let Some(call_id) = Self::call_id(value) else {
+            return;
+        };
+        let Some(delta) = value.get("delta").and_then(Value::as_str) else {
+            return;
+        };
+        self.entry_mut(call_id).arguments.push_str(delta);
+    }
+
+    fn ingest_arguments_done(&mut self, value: &Value) {
+        let Some(call_id) = Self::call_id(value) else {
+            return;
+        };
+        if let Some(arguments) = value.get("arguments").and_then(Value::as_str) {
+            self.entry_mut(call_id).arguments = arguments.to_string();
+        }
+    }
+
+    fn into_tool_calls(self) -> Vec<Value> {
+        self.calls
+            .into_iter()
+            .filter_map(|(call_id, parts)| {
+                let name = parts.name.unwrap_or_default();
+                if name.trim().is_empty() && parts.arguments.trim().is_empty() {
+                    return None;
+                }
+                let arguments = if parts.arguments.trim().is_empty() {
+                    "{}".to_string()
+                } else {
+                    parts.arguments
+                };
+                Some(json!({
+                    "id": call_id,
                     "name": name.clone(),
                     "arguments": arguments.clone(),
                     "function": {
@@ -2991,6 +3483,46 @@ fn claude_subscription_scratch_cwd() -> Option<PathBuf> {
     Some(dir)
 }
 
+fn render_claude_subscription_history_turn(message: &LlmMessage) -> Option<String> {
+    let content = message.content.trim();
+    if content.is_empty() && message.images.is_empty() {
+        return None;
+    }
+    let content = if content.is_empty() {
+        format!("[{} image attachment(s)]", message.images.len())
+    } else {
+        content.to_string()
+    };
+    let label = match message.role.as_str() {
+        "assistant" => "Assistant",
+        "tool" => "Tool result",
+        _ => "User",
+    };
+    Some(format!("{label}: {content}"))
+}
+
+fn render_claude_subscription_history_context(history: &[&LlmMessage]) -> Option<String> {
+    let turns = history
+        .iter()
+        .filter_map(|message| render_claude_subscription_history_turn(message))
+        .collect::<Vec<_>>();
+    (!turns.is_empty()).then(|| turns.join("\n\n"))
+}
+
+fn claude_subscription_session_prompt_with_history(
+    history: &[&LlmMessage],
+    current_prompt: &str,
+    current_label: Option<&str>,
+) -> String {
+    let Some(history) = render_claude_subscription_history_context(history) else {
+        return current_prompt.to_string();
+    };
+    let current = current_label
+        .map(|label| format!("{label}: {current_prompt}"))
+        .unwrap_or_else(|| current_prompt.to_string());
+    format!("Previous Marinara conversation:\n{history}\n\nCurrent turn:\n{current}")
+}
+
 fn render_claude_subscription_current_prompt(
     messages: &[LlmMessage],
 ) -> (Option<String>, String, &'static str) {
@@ -3018,19 +3550,28 @@ fn render_claude_subscription_current_prompt(
         );
     };
     if trailing.role == "assistant" {
+        let prompt =
+            claude_subscription_session_prompt_with_history(&non_system, "(continue)", None);
         return (
             (!system.is_empty()).then(|| system.join("\n\n")),
-            "(continue)".to_string(),
+            prompt,
             "trailing-assistant-continue",
         );
     }
+    let history = &non_system[..non_system.len().saturating_sub(1)];
+    let current_prompt = if trailing.role == "tool" {
+        format!("Tool result: {}", trailing.content.trim())
+    } else {
+        trailing.content.trim().to_string()
+    };
+    let prompt = claude_subscription_session_prompt_with_history(
+        history,
+        &current_prompt,
+        (trailing.role != "tool").then_some("User"),
+    );
     (
         (!system.is_empty()).then(|| system.join("\n\n")),
-        if trailing.role == "tool" {
-            format!("Tool result: {}", trailing.content.trim())
-        } else {
-            trailing.content.trim().to_string()
-        },
+        prompt,
         if trailing.role == "tool" {
             "trailing-tool"
         } else {
@@ -3251,7 +3792,43 @@ fn log_claude_subscription_status(value: &Value, requested_model: &str) {
     }
 }
 
-fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResult<String> {
+fn claude_subscription_usage_from_json(value: &Value) -> Option<Value> {
+    let mut usage = value.get("usage").cloned().unwrap_or_else(|| json!({}));
+    let Some(usage_object) = usage.as_object_mut() else {
+        return Some(usage);
+    };
+    if let Some(model_usage) = value.get("modelUsage") {
+        usage_object.insert("modelUsage".to_string(), model_usage.clone());
+    }
+    if let Some(fast_mode_state) = value.get("fast_mode_state") {
+        usage_object.insert("fastModeState".to_string(), fast_mode_state.clone());
+    }
+    (!usage_object.is_empty()).then_some(usage)
+}
+
+fn claude_subscription_completion_from_json(
+    value: &Value,
+    requested_model: &str,
+) -> Option<LlmCompletion> {
+    let content = claude_subscription_text_from_json(value)?;
+    log_claude_subscription_status(value, requested_model);
+    Some(LlmCompletion {
+        content,
+        tool_calls: Vec::new(),
+        finish_reason: value
+            .get("subtype")
+            .or_else(|| value.get("finish_reason"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        usage: claude_subscription_usage_from_json(value),
+        provider_metadata: None,
+    })
+}
+
+fn parse_claude_subscription_output_rich(
+    raw: &str,
+    requested_model: &str,
+) -> AppResult<LlmCompletion> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Err(AppError::new(
@@ -3260,9 +3837,9 @@ fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResu
         ));
     }
     if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
-        if let Some(text) = claude_subscription_text_from_json(&value) {
-            log_claude_subscription_status(&value, requested_model);
-            return Ok(text);
+        if let Some(completion) = claude_subscription_completion_from_json(&value, requested_model)
+        {
+            return Ok(completion);
         }
         if claude_subscription_json_declares_empty_result(&value) {
             let diagnostic = claude_subscription_output_diagnostic(&value)
@@ -3274,7 +3851,13 @@ fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResu
             ));
         }
     }
-    let mut text = String::new();
+    let mut completion = LlmCompletion {
+        content: String::new(),
+        tool_calls: Vec::new(),
+        finish_reason: None,
+        usage: None,
+        provider_metadata: None,
+    };
     let mut empty_result_diagnostic: Option<Value> = None;
     for line in trimmed.lines() {
         let line = line.trim();
@@ -3282,16 +3865,21 @@ fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResu
             continue;
         }
         if let Ok(value) = serde_json::from_str::<Value>(line) {
-            if let Some(piece) = claude_subscription_text_from_json(&value) {
-                log_claude_subscription_status(&value, requested_model);
-                text.push_str(&piece);
+            if let Some(piece) = claude_subscription_completion_from_json(&value, requested_model) {
+                completion.content.push_str(&piece.content);
+                if piece.finish_reason.is_some() {
+                    completion.finish_reason = piece.finish_reason;
+                }
+                if piece.usage.is_some() {
+                    completion.usage = piece.usage;
+                }
             } else if claude_subscription_json_declares_empty_result(&value) {
                 empty_result_diagnostic = Some(value);
             }
         }
     }
-    if !text.trim().is_empty() {
-        return Ok(text);
+    if !completion.content.trim().is_empty() {
+        return Ok(completion);
     }
     if let Some(value) = empty_result_diagnostic {
         let diagnostic = claude_subscription_output_diagnostic(&value)
@@ -3302,7 +3890,13 @@ fn parse_claude_subscription_output(raw: &str, requested_model: &str) -> AppResu
             redact_sensitive_json(value),
         ));
     }
-    Ok(trimmed.to_string())
+    Ok(LlmCompletion {
+        content: trimmed.to_string(),
+        tool_calls: Vec::new(),
+        finish_reason: None,
+        usage: None,
+        provider_metadata: None,
+    })
 }
 
 fn parse_claude_subscription_json_output(raw: &str) -> Option<Value> {
@@ -3424,7 +4018,7 @@ pub fn diagnose_claude_subscription_model(model: &str, fast_mode: bool) -> AppRe
     }))
 }
 
-async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> {
+async fn complete_claude_subscription_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
     let prompt_selection = claude_subscription_prompt(&request);
     let model_selection = claude_subscription_model_selection(&request.connection.model);
     let mut command = Command::new(claude_subscription_command());
@@ -3512,7 +4106,7 @@ async fn complete_claude_subscription(request: LlmRequest) -> AppResult<String> 
             })),
         ));
     }
-    parse_claude_subscription_output(&stdout, &model_selection.cli_model)
+    parse_claude_subscription_output_rich(&stdout, &model_selection.cli_model)
 }
 
 fn build_anthropic_body(request: &LlmRequest, stream: bool) -> Value {
@@ -3634,21 +4228,40 @@ async fn anthropic_request(
     .await
 }
 
-async fn complete_anthropic(request: LlmRequest) -> AppResult<String> {
+async fn complete_anthropic_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
     let body = build_anthropic_body(&request, false);
     let response = anthropic_request(&request, &body, "anthropic.messages").await?;
-    parse_json_response(response, |json| {
-        json.get("content")
-            .and_then(Value::as_array)
-            .and_then(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| item.get("text").and_then(Value::as_str))
-                    .find(|text| !text.trim().is_empty())
-            })
-            .map(ToOwned::to_owned)
+    let (status, json) = read_json_response(response).await?;
+    if !status.is_success() {
+        return Err(provider_http_error(status, json));
+    }
+    let content = json
+        .get("content")
+        .and_then(Value::as_array)
+        .and_then(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.get("text").and_then(Value::as_str))
+                .find(|text| !text.trim().is_empty())
+        })
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            AppError::with_details(
+                "llm_response_error",
+                "Provider response did not contain assistant text",
+                redact_sensitive_json(json.clone()),
+            )
+        })?;
+    Ok(LlmCompletion {
+        content,
+        tool_calls: Vec::new(),
+        finish_reason: json
+            .get("stop_reason")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        usage: json.get("usage").cloned(),
+        provider_metadata: None,
     })
-    .await
 }
 
 async fn stream_anthropic(
@@ -3823,6 +4436,262 @@ fn google_vertex_endpoint(base: &str, model: &str, endpoint: &str) -> String {
         .trim_end_matches("/publishers/google/models")
         .to_string();
     format!("{base}/publishers/google/models/{model}:{endpoint}")
+}
+
+#[derive(Debug, Clone)]
+struct GoogleServiceAccountKey {
+    client_email: String,
+    private_key: String,
+    private_key_id: Option<String>,
+    token_uri: String,
+}
+
+fn google_vertex_token_cache() -> &'static Mutex<BTreeMap<String, GoogleVertexCachedToken>> {
+    GOOGLE_VERTEX_TOKEN_CACHE.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+fn parse_google_service_account_key(
+    credential: &str,
+) -> AppResult<Option<GoogleServiceAccountKey>> {
+    let trimmed = credential.trim();
+    if !trimmed.starts_with('{') {
+        return Ok(None);
+    }
+    let value = serde_json::from_str::<Value>(trimmed).map_err(|error| {
+        AppError::invalid_input(format!(
+            "Google Vertex service account credential is invalid JSON: {error}"
+        ))
+    })?;
+    let client_email = value
+        .get("client_email")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            AppError::invalid_input(
+                "Google Vertex service account credential is missing client_email",
+            )
+        })?
+        .to_string();
+    let private_key = value
+        .get("private_key")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            AppError::invalid_input(
+                "Google Vertex service account credential is missing private_key",
+            )
+        })?
+        .replace("\\n", "\n");
+    let private_key_id = value
+        .get("private_key_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let token_uri = value
+        .get("token_uri")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(GOOGLE_OAUTH_TOKEN_URL)
+        .to_string();
+    Ok(Some(GoogleServiceAccountKey {
+        client_email,
+        private_key,
+        private_key_id,
+        token_uri,
+    }))
+}
+
+fn looks_like_google_bearer_token(credential: &str) -> bool {
+    let credential = credential.trim();
+    credential.starts_with("ya29.")
+        || credential.split('.').count() == 3
+            && credential
+                .chars()
+                .all(|item| item.is_ascii_alphanumeric() || matches!(item, '-' | '_' | '.'))
+}
+
+fn google_vertex_cache_key(service_account: &GoogleServiceAccountKey) -> String {
+    format!(
+        "{}:{}:{}",
+        service_account.client_email,
+        service_account.token_uri,
+        service_account.private_key_id.as_deref().unwrap_or("")
+    )
+}
+
+fn cached_google_vertex_access_token(cache_key: &str) -> Option<String> {
+    let now = Utc::now().timestamp();
+    let cache = google_vertex_token_cache().lock().ok()?;
+    cache
+        .get(cache_key)
+        .filter(|token| token.expires_at - now > GOOGLE_VERTEX_TOKEN_REFRESH_SKEW_SECONDS)
+        .map(|token| token.access_token.clone())
+}
+
+fn store_google_vertex_access_token(cache_key: String, access_token: String, expires_in: i64) {
+    let expires_in = expires_in.max(60);
+    let token = GoogleVertexCachedToken {
+        access_token,
+        expires_at: Utc::now().timestamp() + expires_in,
+    };
+    if let Ok(mut cache) = google_vertex_token_cache().lock() {
+        cache.insert(cache_key, token);
+    }
+}
+
+fn base64_url_json(value: &Value) -> AppResult<String> {
+    let serialized = serde_json::to_vec(value)
+        .map_err(|error| AppError::new("google_vertex_auth_error", error.to_string()))?;
+    Ok(general_purpose::URL_SAFE_NO_PAD.encode(serialized))
+}
+
+fn google_service_account_private_key_der(private_key: &str) -> AppResult<Vec<u8>> {
+    let pem_body = private_key
+        .replace("\\n", "\n")
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.starts_with("-----"))
+        .collect::<String>();
+    general_purpose::STANDARD.decode(pem_body).map_err(|_| {
+        AppError::invalid_input(
+            "Google Vertex service account private_key is not a valid PEM private key",
+        )
+    })
+}
+
+fn sign_google_service_account_jwt(service_account: &GoogleServiceAccountKey) -> AppResult<String> {
+    let mut header = json!({ "alg": "RS256", "typ": "JWT" });
+    if let Some(private_key_id) = service_account.private_key_id.as_deref() {
+        header["kid"] = json!(private_key_id);
+    }
+    let now = Utc::now().timestamp();
+    let claims = json!({
+        "iss": service_account.client_email,
+        "scope": GOOGLE_CLOUD_PLATFORM_SCOPE,
+        "aud": service_account.token_uri,
+        "exp": now + 3600,
+        "iat": now,
+    });
+    let unsigned_jwt = format!(
+        "{}.{}",
+        base64_url_json(&header)?,
+        base64_url_json(&claims)?
+    );
+    let der = google_service_account_private_key_der(&service_account.private_key)?;
+    let key_pair = ring::rsa::KeyPair::from_pkcs8(&der)
+        .or_else(|_| ring::rsa::KeyPair::from_der(&der))
+        .map_err(|_| {
+            AppError::invalid_input(
+                "Google Vertex service account private_key could not be used for RS256 signing",
+            )
+        })?;
+    let rng = ring::rand::SystemRandom::new();
+    let mut signature_bytes = vec![0; key_pair.public().modulus_len()];
+    key_pair
+        .sign(
+            &ring::signature::RSA_PKCS1_SHA256,
+            &rng,
+            unsigned_jwt.as_bytes(),
+            &mut signature_bytes,
+        )
+        .map_err(|_| {
+            AppError::new(
+                "google_vertex_auth_error",
+                "Failed to sign Google Vertex service account JWT",
+            )
+        })?;
+    Ok(format!(
+        "{unsigned_jwt}.{}",
+        general_purpose::URL_SAFE_NO_PAD.encode(signature_bytes)
+    ))
+}
+
+fn google_vertex_auth_error(status: reqwest::StatusCode, details: Value) -> AppError {
+    let details = redact_sensitive_json(details);
+    let message = provider_error_text(&details)
+        .map(|detail| format!("Google Vertex service account auth failed HTTP {status}: {detail}"))
+        .unwrap_or_else(|| format!("Google Vertex service account auth failed HTTP {status}"));
+    AppError::with_details("google_vertex_auth_error", message, details)
+}
+
+async fn fetch_google_vertex_access_token(
+    service_account: &GoogleServiceAccountKey,
+) -> AppResult<String> {
+    let cache_key = google_vertex_cache_key(service_account);
+    if let Some(access_token) = cached_google_vertex_access_token(&cache_key) {
+        return Ok(access_token);
+    }
+    let assertion = sign_google_service_account_jwt(service_account)?;
+    let response = send_provider_request_with_error_code(
+        provider_http_client_for_url(&service_account.token_uri)
+            .await?
+            .post(&service_account.token_uri)
+            .form(&[
+                ("grant_type", GOOGLE_JWT_BEARER_GRANT_TYPE),
+                ("assertion", assertion.as_str()),
+            ]),
+        "google_vertex_auth_network_error",
+    )
+    .await?;
+    let (status, json) = read_json_response(response).await?;
+    if !status.is_success() {
+        return Err(google_vertex_auth_error(status, json));
+    }
+    let access_token = json
+        .get("access_token")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            AppError::with_details(
+                "google_vertex_auth_error",
+                "Google Vertex service account auth response did not contain access_token",
+                redact_sensitive_json(json.clone()),
+            )
+        })?
+        .to_string();
+    let expires_in = json
+        .get("expires_in")
+        .and_then(Value::as_i64)
+        .unwrap_or(3600);
+    store_google_vertex_access_token(cache_key, access_token.clone(), expires_in);
+    Ok(access_token)
+}
+
+pub async fn google_vertex_auth_headers_for_credential(
+    credential: &str,
+) -> AppResult<BTreeMap<String, String>> {
+    let credential = credential.trim();
+    let mut headers = BTreeMap::new();
+    if credential.is_empty() {
+        return Ok(headers);
+    }
+    if let Some(service_account) = parse_google_service_account_key(credential)? {
+        let access_token = fetch_google_vertex_access_token(&service_account).await?;
+        headers.insert(
+            "Authorization".to_string(),
+            format!("Bearer {access_token}"),
+        );
+    } else if looks_like_google_bearer_token(credential) {
+        headers.insert("Authorization".to_string(), format!("Bearer {credential}"));
+    } else {
+        headers.insert("x-goog-api-key".to_string(), credential.to_string());
+    }
+    Ok(headers)
+}
+
+async fn apply_google_vertex_auth_headers(
+    mut request: reqwest::RequestBuilder,
+    credential: &str,
+) -> AppResult<reqwest::RequestBuilder> {
+    for (name, value) in google_vertex_auth_headers_for_credential(credential).await? {
+        request = request.header(name, value);
+    }
+    Ok(request)
 }
 
 fn normalize_google_base_url(base: String) -> String {
@@ -4033,40 +4902,69 @@ fn google_generate_body(request: &LlmRequest) -> Value {
     body
 }
 
-async fn complete_google(request: LlmRequest) -> AppResult<String> {
+async fn complete_google_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
     let url = google_endpoint(&request, "generateContent", false);
     let body = google_generate_body(&request);
     log_prompt_connection_request("google.generateContent", &url, &request, &body);
-    let response = send_provider_request(
-        provider_http_client_for_url(&url)
-            .await?
-            .post(url)
-            .json(&body),
-    )
-    .await?;
-    parse_json_response(response, |json| {
-        json.get("candidates")
-            .and_then(Value::as_array)
-            .and_then(|items| items.first())
-            .and_then(|candidate| candidate.get("content"))
-            .and_then(|content| content.get("parts"))
-            .and_then(Value::as_array)
-            .and_then(|parts| {
-                parts.iter().find_map(|part| {
-                    if part
-                        .get("thought")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false)
-                    {
-                        None
-                    } else {
-                        part.get("text").and_then(Value::as_str)
-                    }
-                })
+    let mut request_builder = provider_http_client_for_url(&url)
+        .await?
+        .post(url)
+        .json(&body);
+    if request.connection.provider == "google_vertex" {
+        request_builder =
+            apply_google_vertex_auth_headers(request_builder, &request.connection.api_key).await?;
+    }
+    let response = send_provider_request(request_builder).await?;
+    let (status, json) = read_json_response(response).await?;
+    if !status.is_success() {
+        return Err(provider_http_error(status, json));
+    }
+    let candidate = json
+        .get("candidates")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .ok_or_else(|| {
+            AppError::with_details(
+                "llm_response_error",
+                "Provider response did not contain a completion candidate",
+                redact_sensitive_json(json.clone()),
+            )
+        })?;
+    let content = candidate
+        .get("content")
+        .and_then(|content| content.get("parts"))
+        .and_then(Value::as_array)
+        .and_then(|parts| {
+            parts.iter().find_map(|part| {
+                if part
+                    .get("thought")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
+                {
+                    None
+                } else {
+                    part.get("text").and_then(Value::as_str)
+                }
             })
-            .map(ToOwned::to_owned)
+        })
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| {
+            AppError::with_details(
+                "llm_response_error",
+                "Provider response did not contain assistant text",
+                redact_sensitive_json(json.clone()),
+            )
+        })?;
+    Ok(LlmCompletion {
+        content,
+        tool_calls: Vec::new(),
+        finish_reason: candidate
+            .get("finishReason")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        usage: json.get("usageMetadata").cloned(),
+        provider_metadata: None,
     })
-    .await
 }
 
 async fn stream_google(
@@ -4076,13 +4974,15 @@ async fn stream_google(
     let url = google_endpoint(&request, "streamGenerateContent", true);
     let body = google_generate_body(&request);
     log_prompt_connection_request("google.streamGenerateContent", &url, &request, &body);
-    let response = send_provider_request(
-        provider_http_client_for_url(&url)
-            .await?
-            .post(url)
-            .json(&body),
-    )
-    .await?;
+    let mut request_builder = provider_http_client_for_url(&url)
+        .await?
+        .post(url)
+        .json(&body);
+    if request.connection.provider == "google_vertex" {
+        request_builder =
+            apply_google_vertex_auth_headers(request_builder, &request.connection.api_key).await?;
+    }
+    let response = send_provider_request(request_builder).await?;
     let status = response.status();
     if !status.is_success() {
         let error_body = read_error_response_details(response).await?;
@@ -4424,6 +5324,13 @@ async fn parse_cohere_response_rich(response: reqwest::Response) -> AppResult<Ll
     Ok(LlmCompletion {
         content,
         tool_calls,
+        finish_reason: message
+            .get("finish_reason")
+            .or_else(|| json.get("finish_reason"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        usage: json.get("usage").cloned(),
+        provider_metadata: None,
     })
 }
 
@@ -4485,6 +5392,13 @@ async fn parse_json_response_rich(response: reqwest::Response) -> AppResult<LlmC
     Ok(LlmCompletion {
         content,
         tool_calls,
+        finish_reason: choice
+            .get("finish_reason")
+            .or_else(|| message.get("finish_reason"))
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        usage: json.get("usage").cloned(),
+        provider_metadata: None,
     })
 }
 
@@ -4552,6 +5466,24 @@ mod tests {
         }
     }
 
+    fn test_message(role: &str, content: &str) -> LlmMessage {
+        LlmMessage {
+            role: role.to_string(),
+            content: content.to_string(),
+            name: None,
+            images: Vec::new(),
+            tool_call_id: None,
+            tool_calls: None,
+            provider_metadata: None,
+        }
+    }
+
+    fn unsigned_jwt_with_exp(exp: i64) -> String {
+        let header = general_purpose::URL_SAFE_NO_PAD.encode(r#"{"alg":"none","typ":"JWT"}"#);
+        let payload = general_purpose::URL_SAFE_NO_PAD.encode(format!(r#"{{"exp":{exp}}}"#));
+        format!("{header}.{payload}.signature")
+    }
+
     async fn serve_response(
         status: &'static str,
         content_type: &'static str,
@@ -4587,6 +5519,51 @@ mod tests {
                 .expect("test LLM server should write response body");
         });
         format!("http://{address}")
+    }
+
+    async fn serve_chatgpt_models_response(
+        status: &'static str,
+        body: &'static str,
+        assert_headers: bool,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test ChatGPT model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test ChatGPT model server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test ChatGPT model server should accept one request");
+            let mut buffer = [0_u8; 4096];
+            let bytes = stream
+                .read(&mut buffer)
+                .await
+                .expect("test ChatGPT model server should read request");
+            let request = String::from_utf8_lossy(&buffer[..bytes]);
+            assert!(request
+                .lines()
+                .next()
+                .is_some_and(|line| line.starts_with("GET /models?client_version=1.6.1 ")));
+            if assert_headers {
+                let headers = request.to_ascii_lowercase();
+                assert!(headers.contains("authorization: bearer access-secret"));
+                assert!(headers.contains("chatgpt-account-id: account-1"));
+                assert!(headers.contains("x-openai-fedramp: true"));
+                assert!(headers.contains("originator: marinara-engine"));
+            }
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test ChatGPT model server should write response");
+        });
+        format!("http://{address}/models?client_version=1.6.1")
     }
 
     async fn serve_chunked_response(
@@ -4789,6 +5766,7 @@ mod tests {
     #[test]
     fn openai_responses_completed_event_is_terminal() {
         let mut emitted = Vec::new();
+        let mut tool_calls = ResponsesToolCallAccumulator::default();
         let mut emit = |value: Value| {
             emitted.push(value);
             Ok(())
@@ -4798,6 +5776,7 @@ mod tests {
             r#"event: response.completed
 data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":2}}}"#,
             &mut emit,
+            &mut tool_calls,
         )
         .expect("response.completed should parse");
 
@@ -4806,11 +5785,379 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
     }
 
     #[test]
+    fn openai_responses_completed_event_emits_encrypted_reasoning_metadata() {
+        let mut emitted = Vec::new();
+        let mut tool_calls = ResponsesToolCallAccumulator::default();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        let status = process_openai_responses_sse_block(
+            r#"event: response.completed
+data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output_tokens":2},"output":[{"type":"reasoning","id":"rs_1","encrypted_content":"encrypted-payload"},{"type":"message","content":[{"type":"output_text","text":"done"}]}]}}"#,
+            &mut emit,
+            &mut tool_calls,
+        )
+        .expect("response.completed should parse");
+
+        assert_eq!(status, SseBlockStatus::Complete);
+        assert_eq!(
+            emitted[0],
+            json!({ "type": "usage", "data": { "input_tokens": 1, "output_tokens": 2 } })
+        );
+        assert_eq!(emitted[1]["type"], json!("provider_metadata"));
+        assert_eq!(
+            emitted[1]["data"]["encryptedReasoningItems"][0],
+            json!({ "type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted-payload" })
+        );
+    }
+
+    #[test]
+    fn openai_responses_body_requests_and_replays_encrypted_reasoning() {
+        let mut request = request_for(
+            "openai",
+            "gpt-5",
+            json!({ "customParameters": { "include": ["web_search_call.action.sources"] } }),
+        );
+        let mut assistant = test_message("assistant", "Earlier answer.");
+        assistant.provider_metadata = Some(json!({
+            "encryptedReasoningItems": [
+                { "type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted-payload" }
+            ]
+        }));
+        request.messages = vec![
+            test_message("user", "Earlier question."),
+            assistant,
+            test_message("user", "Next question."),
+        ];
+
+        let body = build_openai_responses_body(&request, false);
+        let includes = body["include"]
+            .as_array()
+            .expect("include should be an array");
+        assert!(includes
+            .iter()
+            .any(|item| item.as_str() == Some("web_search_call.action.sources")));
+        assert!(includes
+            .iter()
+            .any(|item| { item.as_str() == Some(OPENAI_RESPONSES_ENCRYPTED_REASONING_INCLUDE) }));
+        let input = body["input"].as_array().expect("input should be an array");
+        assert_eq!(input[0]["role"], json!("user"));
+        assert_eq!(
+            input[1],
+            json!({ "type": "reasoning", "id": "rs_1", "encrypted_content": "encrypted-payload" })
+        );
+        assert_eq!(input[2]["role"], json!("assistant"));
+        assert_eq!(input[3]["role"], json!("user"));
+    }
+
+    #[test]
+    fn openai_responses_body_preserves_tool_roundtrip_shape() {
+        let mut request = request_for("openai", "gpt-5", json!({}));
+        let mut assistant = test_message("assistant", "I should use a tool.");
+        assistant.tool_calls = Some(json!([
+            {
+                "id": "call_roll",
+                "function": {
+                    "name": "roll_dice",
+                    "arguments": "{\"notation\":\"1d20\"}"
+                }
+            }
+        ]));
+        let mut tool = test_message("tool", "17");
+        tool.tool_call_id = Some("call_roll".to_string());
+        request.messages = vec![
+            test_message("user", "Roll please."),
+            assistant,
+            tool,
+            test_message("user", "What happened?"),
+        ];
+
+        let body = build_openai_responses_body(&request, false);
+        let input = body["input"].as_array().expect("input should be an array");
+
+        assert_eq!(
+            input[0],
+            json!({ "role": "user", "content": "Roll please." })
+        );
+        assert_eq!(
+            input[1],
+            json!({ "role": "assistant", "content": "I should use a tool." })
+        );
+        assert_eq!(
+            input[2],
+            json!({
+                "type": "function_call",
+                "id": "fc_mapped_1",
+                "call_id": "fc_mapped_1",
+                "name": "roll_dice",
+                "arguments": "{\"notation\":\"1d20\"}"
+            })
+        );
+        assert_eq!(
+            input[3],
+            json!({ "type": "function_call_output", "call_id": "fc_mapped_1", "output": "17" })
+        );
+        assert_eq!(
+            input[4],
+            json!({ "role": "user", "content": "What happened?" })
+        );
+    }
+
+    #[test]
+    fn openai_responses_stream_accumulates_function_call_deltas() {
+        let mut emitted = Vec::new();
+        let mut tool_calls = ResponsesToolCallAccumulator::default();
+        let mut emit = |value: Value| {
+            emitted.push(value);
+            Ok(())
+        };
+
+        process_openai_responses_sse_block(
+            r#"event: response.output_item.added
+data: {"type":"response.output_item.added","item":{"type":"function_call","call_id":"fc_1","name":"roll_dice","arguments":""}}"#,
+            &mut emit,
+            &mut tool_calls,
+        )
+        .expect("function_call item should parse");
+        process_openai_responses_sse_block(
+            r#"event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","call_id":"fc_1","delta":"{\"notation\""}"#,
+            &mut emit,
+            &mut tool_calls,
+        )
+        .expect("function_call argument delta should parse");
+        process_openai_responses_sse_block(
+            r#"event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","call_id":"fc_1","delta":":\"1d20\"}"}"#,
+            &mut emit,
+            &mut tool_calls,
+        )
+        .expect("function_call argument delta should parse");
+        process_openai_responses_sse_block(
+            r#"event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","call_id":"fc_1","arguments":"{\"notation\":\"1d20\"}"}"#,
+            &mut emit,
+            &mut tool_calls,
+        )
+        .expect("function_call arguments done should parse");
+        process_openai_responses_sse_block(
+            r#"event: response.output_item.done
+data: {"type":"response.output_item.done","item":{"type":"function_call","call_id":"fc_1","name":"roll_dice"}}"#,
+            &mut emit,
+            &mut tool_calls,
+        )
+        .expect("function_call item done should parse");
+
+        assert!(emitted.is_empty());
+        assert_eq!(
+            tool_calls.into_tool_calls(),
+            vec![json!({
+                "id": "fc_1",
+                "name": "roll_dice",
+                "arguments": "{\"notation\":\"1d20\"}",
+                "function": {
+                    "name": "roll_dice",
+                    "arguments": "{\"notation\":\"1d20\"}"
+                }
+            })]
+        );
+    }
+
+    #[test]
+    fn openai_chatgpt_responses_body_does_not_replay_encrypted_reasoning() {
+        let mut request = request_for("openai_chatgpt", "gpt-5-codex", json!({}));
+        let mut assistant = test_message("assistant", "Earlier answer.");
+        assistant.provider_metadata = Some(json!({
+            "encryptedReasoningItems": [
+                { "type": "reasoning", "encrypted_content": "encrypted-payload" }
+            ]
+        }));
+        request.messages = vec![test_message("user", "Earlier question."), assistant];
+
+        let body = build_openai_responses_body(&request, false);
+        assert!(body.get("include").is_none());
+        let input = body["input"].as_array().expect("input should be an array");
+        assert!(input
+            .iter()
+            .all(|item| item.get("encrypted_content").is_none()));
+    }
+
+    #[test]
     fn openai_chatgpt_base_url_ignores_configured_endpoint() {
         assert_eq!(
             base_url("openai_chatgpt", "https://api.example.com/v1"),
             OPENAI_CHATGPT_CODEX_BASE_URL
         );
+    }
+
+    #[tokio::test]
+    async fn openai_chatgpt_models_live_success_normalizes_slug_and_name() {
+        let url = serve_chatgpt_models_response(
+            "200 OK",
+            r#"{"models":[{"slug":"gpt-5-codex","display_name":"GPT-5 Codex"},{"id":"o3","name":"o3"}]}"#,
+            true,
+        )
+        .await;
+        let auth = ChatGptAuth {
+            access_token: "access-secret".to_string(),
+            account_id: Some("account-1".to_string()),
+            is_fedramp: true,
+        };
+
+        let models = fetch_openai_chatgpt_models_from_url(&url, &auth)
+            .await
+            .expect("live ChatGPT model discovery should succeed");
+
+        assert_eq!(models.len(), 2);
+        assert_eq!(models[0]["id"], "gpt-5-codex");
+        assert_eq!(models[0]["name"], "GPT-5 Codex");
+        assert_eq!(models[0]["provider"], "openai_chatgpt");
+        assert_eq!(models[1]["id"], "o3");
+        assert_eq!(models[1]["name"], "o3");
+    }
+
+    #[tokio::test]
+    async fn openai_chatgpt_models_empty_live_result_returns_fallback_error() {
+        let url = serve_chatgpt_models_response("200 OK", r#"{"models":[]}"#, false).await;
+        let auth = ChatGptAuth {
+            access_token: "access-secret".to_string(),
+            account_id: None,
+            is_fedramp: false,
+        };
+
+        let error = fetch_openai_chatgpt_models_from_url(&url, &auth)
+            .await
+            .expect_err("empty live ChatGPT catalog should trigger curated fallback");
+
+        assert_eq!(error.code, "models_provider_error");
+        assert!(error.message.contains("returned no models"));
+    }
+
+    #[tokio::test]
+    async fn openai_chatgpt_models_provider_error_returns_fallback_error() {
+        let url = serve_chatgpt_models_response(
+            "401 Unauthorized",
+            r#"{"error":{"message":"bad key sk-test-secret"}}"#,
+            false,
+        )
+        .await;
+        let auth = ChatGptAuth {
+            access_token: "access-secret".to_string(),
+            account_id: None,
+            is_fedramp: false,
+        };
+
+        let error = fetch_openai_chatgpt_models_from_url(&url, &auth)
+            .await
+            .expect_err("provider error should trigger curated fallback");
+
+        assert_eq!(error.code, "models_provider_error");
+        assert!(error
+            .message
+            .contains("ChatGPT model catalog returned HTTP 401 Unauthorized"));
+        assert!(!error.message.contains("sk-test-secret"));
+        let details = serde_json::to_string(&error.details).expect("details should serialize");
+        assert!(!details.contains("sk-test-secret"));
+    }
+
+    #[test]
+    fn openai_chatgpt_auth_skips_fresh_recent_token() {
+        let token = unsigned_jwt_with_exp(Utc::now().timestamp() + 3600);
+        let auth = json!({
+            "tokens": { "access_token": token },
+            "last_refresh": Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
+        });
+
+        assert!(!openai_chatgpt_auth_should_refresh(
+            &auth,
+            auth.pointer("/tokens/access_token")
+                .and_then(Value::as_str)
+                .expect("token should be present")
+        ));
+    }
+
+    #[test]
+    fn openai_chatgpt_auth_refreshes_for_near_expiry_token() {
+        let token = unsigned_jwt_with_exp(
+            Utc::now().timestamp() + OPENAI_CHATGPT_EXPIRY_REFRESH_SKEW_SECONDS,
+        );
+        let auth = json!({
+            "tokens": { "access_token": token },
+            "last_refresh": Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true)
+        });
+
+        assert!(openai_chatgpt_auth_should_refresh(
+            &auth,
+            auth.pointer("/tokens/access_token")
+                .and_then(Value::as_str)
+                .expect("token should be present")
+        ));
+    }
+
+    #[test]
+    fn openai_chatgpt_auth_refreshes_for_stale_last_refresh() {
+        let token = unsigned_jwt_with_exp(Utc::now().timestamp() + 3600);
+        let auth = json!({
+            "tokens": { "access_token": token },
+            "last_refresh": (Utc::now()
+                - chrono::Duration::days(OPENAI_CHATGPT_TOKEN_REFRESH_INTERVAL_DAYS + 1))
+            .to_rfc3339_opts(SecondsFormat::Millis, true)
+        });
+
+        assert!(openai_chatgpt_auth_should_refresh(
+            &auth,
+            auth.pointer("/tokens/access_token")
+                .and_then(Value::as_str)
+                .expect("token should be present")
+        ));
+    }
+
+    #[test]
+    fn openai_chatgpt_missing_refresh_token_error_is_secret_safe() {
+        let error = openai_chatgpt_refresh_token_error();
+
+        assert_eq!(error.code, "openai_chatgpt_auth_error");
+        assert!(error.message.contains("no refresh token is available"));
+        assert!(!error.message.contains("sk-"));
+        assert!(!error.message.contains("refresh-secret"));
+    }
+
+    #[test]
+    fn openai_chatgpt_refresh_response_updates_tokens_for_persistence() {
+        let mut auth = json!({
+            "tokens": {
+                "access_token": "old-access-secret",
+                "refresh_token": "old-refresh-secret",
+                "id_token": "old-id-secret"
+            },
+            "last_refresh": "2026-01-01T00:00:00.000Z"
+        });
+        let tokens = auth
+            .get_mut("tokens")
+            .and_then(Value::as_object_mut)
+            .expect("tokens should be mutable");
+
+        let access = apply_openai_chatgpt_refreshed_tokens(
+            tokens,
+            &json!({
+                "access_token": "new-access-secret",
+                "refresh_token": "new-refresh-secret",
+                "id_token": "new-id-secret"
+            }),
+        )
+        .expect("refreshed access token should be returned");
+        auth["last_refresh"] = Value::String("2026-06-06T00:00:00.000Z".to_string());
+        let serialized = serde_json::to_string_pretty(&auth).expect("auth should serialize");
+
+        assert_eq!(access, "new-access-secret");
+        assert!(serialized.contains("new-access-secret"));
+        assert!(serialized.contains("new-refresh-secret"));
+        assert!(serialized.contains("new-id-secret"));
+        assert!(!serialized.contains("old-access-secret"));
+        assert!(!serialized.contains("old-refresh-secret"));
+        assert!(!serialized.contains("old-id-secret"));
     }
 
     #[test]
@@ -5027,6 +6374,54 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert_eq!(error.code, "llm_network_error");
         assert!(error.message.contains("timed out"));
         assert!(error.message.contains("response headers"));
+    }
+
+    #[tokio::test]
+    async fn openai_compatible_complete_rich_preserves_result_metadata() {
+        let url = serve_response(
+            "200 OK",
+            "application/json",
+            br#"{"choices":[{"finish_reason":"tool_calls","message":{"content":"Need a roll.","tool_calls":[{"id":"call_1","function":{"name":"roll_dice","arguments":"{\"notation\":\"1d20\"}"}}]}}],"usage":{"prompt_tokens":11,"completion_tokens":7}}"#.to_vec(),
+        )
+        .await;
+        let mut request = request_for("openai", "gpt-4o", json!({}));
+        request.connection.base_url = url;
+        request.messages = vec![test_message("user", "Roll.")];
+
+        let completion = complete_openai_compatible_rich(request)
+            .await
+            .expect("rich completion should parse");
+
+        assert_eq!(completion.content, "Need a roll.");
+        assert_eq!(completion.finish_reason.as_deref(), Some("tool_calls"));
+        assert_eq!(
+            completion.usage.as_ref().unwrap()["prompt_tokens"],
+            json!(11)
+        );
+        assert_eq!(completion.tool_calls[0]["id"], json!("call_1"));
+        assert_eq!(
+            completion.tool_calls[0]["function"]["name"],
+            json!("roll_dice")
+        );
+    }
+
+    #[test]
+    fn claude_subscription_output_rich_preserves_usage_metadata() {
+        let completion = parse_claude_subscription_output_rich(
+            r#"{"type":"result","subtype":"success","result":"OK","usage":{"input_tokens":10,"output_tokens":2},"fast_mode_state":"off","modelUsage":{"claude-sonnet-4-5":{"input_tokens":10,"output_tokens":2}}}"#,
+            "claude-sonnet-4-5",
+        )
+        .expect("Claude subscription result should parse");
+
+        assert_eq!(completion.content, "OK");
+        assert_eq!(completion.finish_reason.as_deref(), Some("success"));
+        let usage = completion.usage.expect("usage should be preserved");
+        assert_eq!(usage["input_tokens"], json!(10));
+        assert_eq!(
+            usage["modelUsage"]["claude-sonnet-4-5"]["output_tokens"],
+            json!(2)
+        );
+        assert_eq!(usage["fastModeState"], json!("off"));
     }
 
     #[test]
@@ -5646,6 +7041,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
                     images: Vec::new(),
                     tool_call_id: None,
                     tool_calls: None,
+                    provider_metadata: None,
                 },
                 LlmMessage {
                     role: "user".to_string(),
@@ -5654,6 +7050,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
                     images: Vec::new(),
                     tool_call_id: None,
                     tool_calls: None,
+                    provider_metadata: None,
                 },
             ],
             parameters: json!({}),
@@ -5678,6 +7075,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
                     images: Vec::new(),
                     tool_call_id: None,
                     tool_calls: None,
+                    provider_metadata: None,
                 },
                 LlmMessage {
                     role: "assistant".to_string(),
@@ -5686,6 +7084,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
                     images: Vec::new(),
                     tool_call_id: None,
                     tool_calls: None,
+                    provider_metadata: None,
                 },
                 LlmMessage {
                     role: "user".to_string(),
@@ -5694,6 +7093,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
                     images: Vec::new(),
                     tool_call_id: None,
                     tool_calls: None,
+                    provider_metadata: None,
                 },
             ],
             parameters: json!({ "_marinara": { "chatId": "chat-1", "mode": "roleplay" } }),
@@ -5701,7 +7101,10 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
         };
         let prompt = claude_subscription_prompt(&request);
         assert_eq!(prompt.system_prompt.as_deref(), Some("Rules."));
-        assert_eq!(prompt.prompt, "Next turn.");
+        assert!(prompt
+            .prompt
+            .contains("Previous Marinara conversation:\nAssistant: Earlier reply."));
+        assert!(prompt.prompt.contains("Current turn:\nUser: Next turn."));
         assert_eq!(prompt.prompt_shape, "trailing-user");
         let expected_session_id = claude_subscription_session_id("chat-1");
         assert_eq!(
@@ -5722,6 +7125,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
                 images: Vec::new(),
                 tool_call_id: None,
                 tool_calls: None,
+                provider_metadata: None,
             }],
             parameters: json!({
                 "_marinara": {
@@ -5733,6 +7137,45 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
         };
         let prompt = claude_subscription_prompt(&request);
         assert_eq!(prompt.prompt, "User: Regenerate from here.");
+        assert_eq!(prompt.session_id, None);
+        assert_eq!(prompt.prompt_shape, "transcript-fold");
+    }
+
+    #[test]
+    fn claude_subscription_impersonation_uses_transcript_fold() {
+        let request = LlmRequest {
+            connection: test_connection(),
+            messages: vec![
+                LlmMessage {
+                    role: "assistant".to_string(),
+                    content: "Existing reply.".to_string(),
+                    name: None,
+                    images: Vec::new(),
+                    tool_call_id: None,
+                    tool_calls: None,
+                    provider_metadata: None,
+                },
+                LlmMessage {
+                    role: "user".to_string(),
+                    content: "Impersonated turn.".to_string(),
+                    name: None,
+                    images: Vec::new(),
+                    tool_call_id: None,
+                    tool_calls: None,
+                    provider_metadata: None,
+                },
+            ],
+            parameters: json!({
+                "_marinara": {
+                    "chatId": "chat-1",
+                    "impersonate": true
+                }
+            }),
+            tools: Vec::new(),
+        };
+        let prompt = claude_subscription_prompt(&request);
+        assert!(prompt.prompt.contains("Assistant: Existing reply."));
+        assert!(prompt.prompt.contains("User: Impersonated turn."));
         assert_eq!(prompt.session_id, None);
         assert_eq!(prompt.prompt_shape, "transcript-fold");
     }
@@ -5769,7 +7212,7 @@ data: {"type":"content_block_delta","index":0,"delta":{"thinking":"summary witho
 
     #[test]
     fn claude_subscription_empty_json_result_is_an_error() {
-        let error = parse_claude_subscription_output(
+        let error = parse_claude_subscription_output_rich(
             r#"{"type":"result","subtype":"success","result":"","usage":{"input_tokens":10,"output_tokens":0},"fast_mode_state":"off","modelUsage":{"claude-sonnet-4-5":{}}}"#,
             "claude-sonnet-4-5",
         )

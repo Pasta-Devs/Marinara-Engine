@@ -1,4 +1,4 @@
-import type { LlmChunk, LlmGateway, LlmRequest } from "../../engine/capabilities/llm";
+import type { LlmChunk, LlmCompletion, LlmGateway, LlmRequest } from "../../engine/capabilities/llm";
 import { Channel } from "@tauri-apps/api/core";
 import { ApiError } from "./api-errors";
 import { ignoreLlmStreamCancelFailure } from "./llm-cancel-logging";
@@ -33,8 +33,36 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function readContent(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 function readNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeLlmCompletion(value: unknown): LlmCompletion {
+  if (typeof value === "string") return { content: value };
+  if (!isRecord(value)) return { content: "" };
+  return {
+    content: readContent(value.content),
+    toolCalls: Array.isArray(value.toolCalls)
+      ? value.toolCalls
+      : Array.isArray(value.tool_calls)
+        ? value.tool_calls
+        : [],
+    finishReason: readString(value.finishReason ?? value.finish_reason) || null,
+    usage: value.usage ?? null,
+    providerMetadata: value.providerMetadata ?? value.provider_metadata ?? null,
+  };
+}
+
+async function completeRich(request: LlmRequest): Promise<LlmCompletion> {
+  return normalizeLlmCompletion(
+    await invokeTauri("llm_complete", {
+      request,
+    }),
+  );
 }
 
 function chunkText(event: LlmChunk): string | undefined {
@@ -119,10 +147,8 @@ function installUnloadCancellation() {
 }
 
 export const llmApi: LlmGateway = {
-  complete: (request: LlmRequest) =>
-    invokeTauri("llm_complete", {
-      request,
-    }),
+  complete: async (request: LlmRequest) => (await completeRich(request)).content,
+  completeRich,
   embed: async (request) => {
     const body = {
       input: request.texts,

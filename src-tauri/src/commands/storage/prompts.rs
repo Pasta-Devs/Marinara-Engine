@@ -645,12 +645,35 @@ async fn embed_google(connection: &Value, model: &str, text: &str) -> AppResult<
         .get("apiKey")
         .and_then(Value::as_str)
         .unwrap_or("");
-    let base = embedding_base_url(connection, "https://generativelanguage.googleapis.com");
-    let url = format!("{base}/v1beta/models/{model}:embedContent?key={api_key}");
+    let provider = connection
+        .get("provider")
+        .and_then(Value::as_str)
+        .unwrap_or("google");
+    let base = embedding_base_url(
+        connection,
+        if provider == "google_vertex" {
+            "https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1"
+        } else {
+            "https://generativelanguage.googleapis.com"
+        },
+    );
+    let url = if provider == "google_vertex" {
+        let base = base.trim_end_matches("/publishers/google/models");
+        format!("{base}/publishers/google/models/{model}:embedContent")
+    } else {
+        format!("{base}/v1beta/models/{model}:embedContent?key={api_key}")
+    };
     ensure_embedding_url_allowed(&url)?;
-    let response = reqwest::Client::new()
+    let mut request = reqwest::Client::new()
         .post(url)
-        .json(&json!({ "content": { "parts": [{ "text": text }] } }))
+        .json(&json!({ "content": { "parts": [{ "text": text }] } }));
+    if provider == "google_vertex" {
+        for (name, value) in marinara_llm::google_vertex_auth_headers_for_credential(api_key).await?
+        {
+            request = request.header(name, value);
+        }
+    }
+    let response = request
         .send()
         .await
         .map_err(|error| AppError::new("embedding_network_error", error.to_string()))?;

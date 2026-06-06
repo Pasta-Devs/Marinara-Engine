@@ -5,6 +5,7 @@ export interface LlmMessage {
   images?: string[];
   tool_call_id?: string;
   tool_calls?: unknown;
+  providerMetadata?: unknown;
 }
 
 export interface LlmToolDefinition {
@@ -22,6 +23,14 @@ export interface LlmRequest {
   tools?: LlmToolDefinition[];
 }
 
+export interface LlmCompletion {
+  content: string;
+  toolCalls?: unknown[];
+  finishReason?: string | null;
+  usage?: unknown;
+  providerMetadata?: unknown;
+}
+
 export interface LlmEmbeddingRequest {
   texts: string[];
   connectionId?: string | null;
@@ -29,7 +38,7 @@ export interface LlmEmbeddingRequest {
 }
 
 export interface LlmChunk {
-  type: "start" | "token" | "thinking" | "tool_call" | "usage" | "done" | "error";
+  type: "start" | "token" | "thinking" | "tool_call" | "usage" | "provider_metadata" | "done" | "error";
   text?: string;
   data?: unknown;
   finishReason?: string;
@@ -38,6 +47,7 @@ export interface LlmChunk {
 
 export interface LlmGateway {
   complete(request: LlmRequest, signal?: AbortSignal): Promise<string>;
+  completeRich?(request: LlmRequest, signal?: AbortSignal): Promise<LlmCompletion>;
   stream(request: LlmRequest, signal?: AbortSignal): AsyncGenerator<LlmChunk>;
   listModels(connectionId?: string | null): Promise<Array<{ id: string; name?: string; provider?: string }>>;
   embed?(request: LlmEmbeddingRequest, signal?: AbortSignal): Promise<number[][] | null>;

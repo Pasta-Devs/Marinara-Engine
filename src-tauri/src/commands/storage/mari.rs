@@ -564,6 +564,7 @@ fn autoagents_message_to_marinara(message: &ChatMessage) -> marinara_llm::LlmMes
         images: Vec::new(),
         tool_call_id: first_tool_result.map(|call| call.id.clone()),
         tool_calls,
+        provider_metadata: None,
     }
 }
 

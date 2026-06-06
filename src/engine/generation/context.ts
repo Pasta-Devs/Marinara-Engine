@@ -59,17 +59,27 @@ export async function resolveGenerationConnection(
   chat: JsonRecord,
   input: { connectionId?: string | null },
 ): Promise<JsonRecord> {
+  async function randomConnection(): Promise<JsonRecord> {
+    const connections = await storage.list<JsonRecord>("connections");
+    const pool = connections.filter((connection) => boolish(connection.useForRandom, false));
+    const selected = pool[Math.floor(Math.random() * pool.length)];
+    if (!selected) throw new Error("No connections are marked for the random pool");
+    return selected;
+  }
+
   const requested = readString(input.connectionId).trim();
+  if (requested === "random") return randomConnection();
   if (requested) return requireRecord(await storage.get("connections", requested), "Connection");
 
   const chatConnection = readString(chat.connectionId).trim();
+  if (chatConnection === "random") return randomConnection();
   if (chatConnection) return requireRecord(await storage.get("connections", chatConnection), "Chat connection");
 
   const connections = await storage.list<JsonRecord>("connections");
   const selected =
     connections.find((connection) => boolish(connection.isDefault, false) || boolish(connection.default, false)) ??
     connections[0];
-  if (!selected) throw new Error("No LLM connection is configured");
+  if (!selected) throw new Error("No API connection configured for this chat");
   return selected;
 }
 
