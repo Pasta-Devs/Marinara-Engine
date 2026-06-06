@@ -78,6 +78,8 @@ Prioritize correctness, user-visible regressions, security/privacy, architecture
 
 Report every actionable code risk you find, not only blockers. Concision must remove repetition, not distinct defects. Use `blocking`, `high`, `medium`, or `low` for defect findings. Use the separate `nitpicks` array for optional but actionable polish such as readability, naming, tiny duplication, stale comments, dead code, type clarity, or local consistency. Low severity means small correctness, proof, or maintainability risk. Nitpick means no behavior risk. Do not invent issues from naming alone. Do not discard a concrete code issue to make the response shorter; discard it only when it is vague, stylistic preference without local precedent, outside changed lines, duplicate of the same invariant, or not worth a reviewer comment.
 
+Enumerate every distinct actionable finding visible in this packet that you would flag in a production code review. Do not defer known findings to later review rounds, and do not manufacture marginal findings to appear comprehensive.
+
 Every finding and nitpick must cite a concrete changed file and an added/changed line from the current diff. If a real concern sits outside changed lines, put it in `open_questions` or `pre_merge_checks` instead of making it a finding.
 
 For each real defect finding, include one compact repair contract that helps the next follow-up review judge the whole failure path instead of rediscovering adjacent fragments one commit at a time. Keep the theatrical clinical voice, but do not repeat the same diagnosis in the body, fix hint, and contract:
