@@ -382,6 +382,135 @@ describe("assembleGenerationPrompt character markers", () => {
     expect(prompt).not.toContain("Nested other");
     expect(prompt).not.toContain("MARINARA_DEFERRED_CHARACTER");
   });
+
+  it("rebuilds reusable macro-sensitive lore and variables for a targeted individual group turn", async () => {
+    const storage = storageWithRows({
+      prompts: [
+        {
+          id: "preset-1",
+          isDefault: true,
+          defaultChoices: { choiceSpeaker: "Choice says {{char}} has {{description}}" },
+          wrapFormat: "none",
+          parameters: { strictRoleFormatting: false },
+        },
+      ],
+      "prompt-sections": [
+        {
+          id: "system",
+          presetId: "preset-1",
+          role: "system",
+          content: "system prompt {{fromGreeting}} {{choiceSpeaker}}",
+          enabled: true,
+        },
+        {
+          id: "world-before",
+          presetId: "preset-1",
+          identifier: "world_info_before",
+          role: "system",
+          enabled: true,
+        },
+        {
+          id: "history",
+          presetId: "preset-1",
+          identifier: "chat_history",
+          enabled: true,
+        },
+        {
+          id: "world-after",
+          presetId: "preset-1",
+          identifier: "world_info_after",
+          role: "system",
+          enabled: true,
+        },
+      ],
+      "prompt-groups": [],
+      "prompt-choice-blocks": [],
+      "prompt-variables": [
+        {
+          id: "choice-speaker",
+          presetId: "preset-1",
+          variableName: "choiceSpeaker",
+          options: ["Choice says {{char}} has {{description}}"],
+        },
+      ],
+      characters: [
+        { id: "char-1", data: { name: "Alice", description: "Alice description" } },
+        { id: "char-2", data: { name: "Bob", description: "Bob description" } },
+      ],
+      personas: [],
+      lorebooks: [{ id: "lorebook-1", name: "Macro lore", enabled: true, isGlobal: true }],
+      "lorebook-folders": [],
+      "lorebook-entries": [
+        {
+          id: "entry-before",
+          lorebookId: "lorebook-1",
+          name: "Before",
+          content: "before {{char}} {{description}}",
+          constant: true,
+          position: 0,
+          enabled: true,
+        },
+        {
+          id: "entry-after",
+          lorebookId: "lorebook-1",
+          name: "After",
+          content: "after {{char}} {{description}}",
+          constant: true,
+          position: 1,
+          enabled: true,
+        },
+        {
+          id: "entry-depth",
+          lorebookId: "lorebook-1",
+          name: "Depth",
+          content: "depth {{char}} {{description}}",
+          constant: true,
+          position: 2,
+          depth: 0,
+          role: "system",
+          enabled: true,
+        },
+      ],
+      "regex-scripts": [],
+    });
+
+    const chat = {
+      id: "chat-1",
+      mode: "roleplay",
+      characterIds: ["char-1", "char-2"],
+      metadata: { groupChatMode: "individual" },
+    };
+    const storedMessages = [
+      { id: "greeting", role: "assistant", characterId: "char-1", content: "{{setvar::fromGreeting::Greeting {{char}}}}" },
+      { id: "latest", role: "user", content: "trigger" },
+    ];
+    const shared = await assembleGenerationPrompt(storage, {
+      chat,
+      storedMessages,
+      connection: {},
+      request: {},
+      latestUserInput: "trigger",
+    });
+
+    const targeted = await assembleGenerationPrompt(storage, {
+      chat,
+      storedMessages,
+      connection: {},
+      request: { forCharacterId: "char-2" },
+      latestUserInput: "trigger",
+      reusableContext: shared.reusableContext,
+    });
+
+    const prompt = targeted.messages.map((message) => message.content).join("\n\n");
+    expect(prompt).toContain("before Bob Bob description");
+    expect(prompt).toContain("after Bob Bob description");
+    expect(prompt).toContain("depth Bob Bob description");
+    expect(prompt).toContain("Greeting Bob");
+    expect(prompt).toContain("Choice says Bob has Bob description");
+    expect(prompt).not.toContain("Alice description");
+    expect(prompt).not.toContain("Greeting Alice");
+    expect(prompt).not.toContain("MARINARA_DEFERRED_CHARACTER");
+  });
 });
 
 describe("assembleGenerationPrompt game sprites", () => {

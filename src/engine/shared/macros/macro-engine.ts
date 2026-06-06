@@ -584,17 +584,23 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext, state: MacroR
   }
 }
 
-function isCharacterConditionalOperand(raw: string): boolean {
+function isNameConditionalOperand(raw: string): boolean {
+  if (/\{\{\s*(?:char|charName)\s*\}\}/i.test(raw)) {
+    return true;
+  }
+  return /^(char|charname|character|speaker)$/.test(normalizeConditionKey(raw));
+}
+
+function isFieldConditionalOperand(raw: string): boolean {
   if (
-    /\{\{\s*(?:char|charName|description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\s*\}\}/i.test(
+    /\{\{\s*(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\s*\}\}/i.test(
       raw,
     )
   ) {
     return true;
   }
-  const normalized = normalizeConditionKey(raw);
-  return /^(char|charname|character|speaker|description|personality|backstory|appearance|scenario|example|charsysinfo|charposthistory)$/.test(
-    normalized,
+  return /^(description|personality|backstory|appearance|scenario|example|charsysinfo|charposthistory)$/.test(
+    normalizeConditionKey(raw),
   );
 }
 
@@ -610,11 +616,14 @@ function parseConditionExpression(condition: string): { left: string; operator: 
   };
 }
 
-function conditionDependsOnCharacter(condition: string): boolean {
+function conditionDependsOnDeferredCharacter(
+  condition: string,
+  deferCharacterMacros: NonNullable<MacroResolutionState["deferCharacterMacros"]>,
+): boolean {
   const parsed = parseConditionExpression(condition);
-  return (
-    isCharacterConditionalOperand(parsed.left) || (parsed.right ? isCharacterConditionalOperand(parsed.right) : false)
-  );
+  const operands = [parsed.left, parsed.right ?? ""];
+  if (operands.some(isNameConditionalOperand)) return true;
+  return deferCharacterMacros === "all" && operands.some(isFieldConditionalOperand);
 }
 
 function compareConditionValues(left: string, operator: string, right: string): boolean {
@@ -743,7 +752,11 @@ function resolveConditionalBlocks(
     const truthy = input.slice(contentStart, blockEnd.elseStart ?? blockEnd.endStart);
     const falsy =
       blockEnd.elseStart === null ? "" : input.slice(blockEnd.elseEnd ?? blockEnd.endStart, blockEnd.endStart);
-    if (state.deferCharacterMacros && state.characterFieldDepth === 0 && conditionDependsOnCharacter(condition)) {
+    if (
+      state.deferCharacterMacros &&
+      state.characterFieldDepth === 0 &&
+      conditionDependsOnDeferredCharacter(condition, state.deferCharacterMacros)
+    ) {
       result += input.slice(index, blockStart);
       result += encodeDeferredConditional({ condition, truthy, falsy });
       index = blockEnd.endEnd;

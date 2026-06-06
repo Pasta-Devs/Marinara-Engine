@@ -174,6 +174,10 @@ interface PromptAssemblyReusableContext {
   memoryRecallBlock: string | null;
   history: ChatMLMessage[];
   greetingPromptVariables: Record<string, string>;
+  macroSensitiveScope: {
+    deferCharacterMacros: boolean;
+    targetCharacterId: string | null;
+  };
 }
 
 type PromptSectionRecord = JsonRecord & {
@@ -3068,6 +3072,18 @@ function finalizeDeferredCharacterMessages(
   );
 }
 
+function reusableContextMacroScopeMatches(
+  reusableContext: PromptAssemblyReusableContext | undefined,
+  deferCharacterMacros: boolean,
+  targetCharacterId: string | null,
+): boolean {
+  if (!reusableContext) return false;
+  return (
+    reusableContext.macroSensitiveScope.deferCharacterMacros === deferCharacterMacros &&
+    reusableContext.macroSensitiveScope.targetCharacterId === targetCharacterId
+  );
+}
+
 function characterDepthPromptEntries(
   characters: GenerationCharacterContext[],
   macros: MacroContext,
@@ -3203,7 +3219,6 @@ export async function assembleGenerationPrompt(
 
   const characters = reusableContext?.characters ?? (await loadCharacters(storage, input.chat));
   const persona = reusableContext?.persona ?? (await loadPersona(storage, input.chat));
-  const embeddingSource = reusableContext ? null : memoizedEmbeddingSource(input.embeddingSource);
   const selectedPreset =
     reusableContext?.selectedPreset ??
     (await loadSelectedPromptPreset(storage, {
@@ -3230,6 +3245,13 @@ export async function assembleGenerationPrompt(
     ? (characters.find((character) => character.id === individualGroupTarget) ?? null)
     : null;
   const deferCharacterMacros = !!individualGroupTargetCharacter;
+  const canReuseMacroSensitiveContext = reusableContextMacroScopeMatches(
+    reusableContext,
+    deferCharacterMacros,
+    individualGroupTarget,
+  );
+  const embeddingSource =
+    reusableContext && canReuseMacroSensitiveContext ? null : memoizedEmbeddingSource(input.embeddingSource);
   const macros = macroContext({
     chat: input.chat,
     connection: input.connection,
@@ -3243,8 +3265,9 @@ export async function assembleGenerationPrompt(
   if (selectedPreset)
     resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames, deferCharacterMacros);
   const greetingPromptVariables =
-    reusableContext?.greetingPromptVariables ??
-    (await seedPromptVariablesFromGreeting(storage, input, macros, deferCharacterMacros));
+    canReuseMacroSensitiveContext && reusableContext
+      ? reusableContext.greetingPromptVariables
+      : await seedPromptVariablesFromGreeting(storage, input, macros, deferCharacterMacros);
   if (reusableContext) applyReusableGreetingPromptVariables(macros, greetingPromptVariables);
   const baseLorebookIncludedPositions =
     reusableContext?.baseLorebookIncludedPositions ?? lorebookIncludedPositionsForPrompt(selectedPreset, chatMode);
@@ -3264,8 +3287,12 @@ export async function assembleGenerationPrompt(
         snapshotVariables: () => snapshotMacroVariables(macros),
       },
     });
-  let loreScan = reusableContext?.loreScan ?? (await scanLorebooksForPositions(baseLorebookIncludedPositions));
-  let processedLore = reusableContext?.processedLore ?? loreScan.processedLore;
+  let loreScan =
+    canReuseMacroSensitiveContext && reusableContext
+      ? reusableContext.loreScan
+      : await scanLorebooksForPositions(baseLorebookIncludedPositions);
+  let processedLore =
+    canReuseMacroSensitiveContext && reusableContext ? reusableContext.processedLore : loreScan.processedLore;
   const summary = reusableContext?.summary ?? chatSummaryForGeneration(input.chat);
   const memoryRecallBlock =
     reusableContext?.memoryRecallBlock ??
@@ -3518,6 +3545,10 @@ export async function assembleGenerationPrompt(
     memoryRecallBlock,
     history,
     greetingPromptVariables,
+    macroSensitiveScope: {
+      deferCharacterMacros,
+      targetCharacterId: individualGroupTarget,
+    },
   };
 
   return {
