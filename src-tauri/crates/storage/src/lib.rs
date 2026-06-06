@@ -1319,9 +1319,8 @@ impl FileStorage {
         if !path.exists() || fs::metadata(&path)?.len() == 0 {
             return Ok(None);
         }
-        match self.indexed_row_by_id_from_disk(collection, id, recover_on_fallback) {
-            Ok(row) => return Ok(row),
-            Err(_) => {}
+        if let Ok(row) = self.indexed_row_by_id_from_disk(collection, id, recover_on_fallback) {
+            return Ok(row);
         }
         match read_pretty_record_by_id_from_file(&path, id) {
             Ok(Some(row)) => return Ok(Some(row)),
@@ -1369,15 +1368,14 @@ impl FileStorage {
             return Ok(None);
         }
 
-        match self.indexed_projected_row_by_id_from_disk(
+        if let Ok(row) = self.indexed_projected_row_by_id_from_disk(
             collection,
             id,
             &field_set,
             &nested_field_sets,
             recover_on_fallback,
         ) {
-            Ok(row) => return Ok(row),
-            Err(_) => {}
+            return Ok(row);
         }
         match read_pretty_projected_record_by_id_from_file(
             &path,
