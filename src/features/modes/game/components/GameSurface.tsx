@@ -8095,6 +8095,8 @@ export function GameSurface({
     if (!mainGameUiActive || !isMobileViewport) {
       setMoreSheetOpen(false);
       setToolsSheetOpen(false);
+      setRetryMenuOpen(false);
+      setVolumePopoverOpen(false);
       setRightSlot(null);
       return;
     }
@@ -8835,7 +8837,12 @@ export function GameSurface({
 
               {/* Mobile volume popover */}
               {volumePopoverOpen && (
-                <div ref={mobileVolumePopoverRef} data-game-skip-bg-nav="true" className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
+                <div
+                  ref={mobileVolumePopoverRef}
+                  data-game-skip-bg-nav="true"
+                  className="pointer-events-auto fixed right-3 z-[9999] md:hidden"
+                  style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
+                >
                   <GameVolumeMixer
                     audioMuted={audioMuted || masterVolume === 0}
                     masterVolume={masterVolume}
@@ -8860,7 +8867,12 @@ export function GameSurface({
 
               {/* Mobile retry menu */}
               {retryMenuOpen && (
-                <div ref={retryMenuMobileRef} data-game-skip-bg-nav="true" className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
+                <div
+                  ref={retryMenuMobileRef}
+                  data-game-skip-bg-nav="true"
+                  className="pointer-events-auto fixed right-3 z-[9999] md:hidden"
+                  style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
+                >
                   <div className="flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-xl border border-white/15 bg-black/85 p-1.5 shadow-xl backdrop-blur-xl">
                     <button
                       onClick={() => {
