@@ -20,7 +20,11 @@ import {
 import { persistSecretPlotAgentMemory, type SecretPlotRerollMode } from "./agent-memory-runtime";
 import { createGenerationAgentRuntime } from "./agent-runner";
 import { buildBuiltInAgentFallback, canonicalAgentActiveIdSet } from "./built-in-agent-fallback";
-import { consumePendingConnectedInfluences, persistConnectedCommandTags } from "./connected-commands";
+import {
+  consumePendingConnectedInfluences,
+  persistConnectedCommandTags,
+  type ConnectedCommandResult,
+} from "./connected-commands";
 import { fitMessagesToContextWindow } from "./context-window";
 import type { LLMToolCall } from "../generation-core/llm/base-provider";
 import { createInlineThinkingStreamParser } from "../generation-core/llm/inline-thinking";
@@ -1351,6 +1355,17 @@ function regenerationTargetFromMessages(
 
 function isUserRegenerationTarget(target: JsonRecord | null): target is JsonRecord {
   return readString(target?.role).trim() === "user";
+}
+
+function connectedCommandPassthrough(content: string): ConnectedCommandResult {
+  return {
+    displayContent: content,
+    createdNotes: [],
+    executedCommands: [],
+    events: [],
+    assistantAttachments: [],
+    suppressAssistantMessage: false,
+  };
 }
 
 async function loadFullRegenerationTarget(
@@ -3323,6 +3338,7 @@ export async function* startGeneration(
       yield { type: "typing", data: { characters: characterNames } };
     }
   }
+  const isUserMessageRegeneration = isUserRegenerationTarget(regenerationTarget);
   const agentEvents: AgentResult[] = [];
   const continueAssistantResponse = shouldContinueAssistantResponse(input, preparedUserInput, generationMessages);
   const agentInjectionOverrides = normalizedAgentInjectionOverrides(input);
@@ -3522,16 +3538,18 @@ export async function* startGeneration(
     );
     content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
     throwIfAborted(signal);
-    const connected = await persistConnectedCommandTags(
-      deps.storage,
-      chat,
-      content,
-      deps.integrations,
-      deps.llm,
-      readString(connection.id) || input.connectionId || null,
-      input.imagePromptSettings,
-      deps.visuals,
-    );
+    const connected = isUserMessageRegeneration
+      ? connectedCommandPassthrough(content)
+      : await persistConnectedCommandTags(
+          deps.storage,
+          chat,
+          content,
+          deps.integrations,
+          deps.llm,
+          readString(connection.id) || input.connectionId || null,
+          input.imagePromptSettings,
+          deps.visuals,
+        );
     throwIfAborted(signal);
     for (const event of connected.events) yield event;
     const displayContent = finalAssistantContent(input, connected.displayContent);
@@ -3559,8 +3577,7 @@ export async function* startGeneration(
           existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
           regenerationTarget,
         });
-    const savedAssistantGeneration =
-      !!saved && input.impersonate !== true && !isUserRegenerationTarget(regenerationTarget);
+    const savedAssistantGeneration = !!saved && input.impersonate !== true && !isUserMessageRegeneration;
     let latestSaved = saved;
     if (saved) {
       await persistLorebookTimingStatesSafely(
@@ -3780,16 +3797,18 @@ export async function* startGeneration(
   let content = streamedContentDirect;
   content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
   throwIfAborted(signal);
-  const connected = await persistConnectedCommandTags(
-    deps.storage,
-    chat,
-    content,
-    deps.integrations,
-    deps.llm,
-    readString(connection.id) || input.connectionId || null,
-    input.imagePromptSettings,
-    deps.visuals,
-  );
+  const connected = isUserMessageRegeneration
+    ? connectedCommandPassthrough(content)
+    : await persistConnectedCommandTags(
+        deps.storage,
+        chat,
+        content,
+        deps.integrations,
+        deps.llm,
+        readString(connection.id) || input.connectionId || null,
+        input.imagePromptSettings,
+        deps.visuals,
+      );
   throwIfAborted(signal);
   for (const event of connected.events) yield event;
   const displayContentDirect = finalAssistantContent(input, connected.displayContent);
@@ -3815,8 +3834,7 @@ export async function* startGeneration(
         existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
         regenerationTarget,
       });
-  const savedAssistantGeneration =
-    !!saved && input.impersonate !== true && !isUserRegenerationTarget(regenerationTarget);
+  const savedAssistantGeneration = !!saved && input.impersonate !== true && !isUserMessageRegeneration;
   if (saved) {
     await persistLorebookTimingStatesSafely(
       deps.storage,

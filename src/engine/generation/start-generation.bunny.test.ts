@@ -16,6 +16,14 @@ async function drain(generator: AsyncGenerator<unknown>): Promise<void> {
   }
 }
 
+async function collect(generator: AsyncGenerator<unknown>): Promise<unknown[]> {
+  const events: unknown[] = [];
+  for await (const event of generator) {
+    events.push(event);
+  }
+  return events;
+}
+
 function asStorageValue<T>(value: unknown): T {
   return value as T;
 }
@@ -33,7 +41,7 @@ function recordList<T = JsonRecord>(records: JsonRecord[], options?: StorageList
   return rows as T[];
 }
 
-function llmThatStreams(onStream: () => void): LlmGateway {
+function llmThatStreams(onStream: () => void, text = "rewrite"): LlmGateway {
   return {
     async complete() {
       return "";
@@ -43,7 +51,7 @@ function llmThatStreams(onStream: () => void): LlmGateway {
     },
     async *stream() {
       onStream();
-      yield { type: "token", text: "rewrite" };
+      yield { type: "token", text };
     },
   };
 }
@@ -144,7 +152,7 @@ function baseGenerationRecords() {
 
 function generationStorage(args: {
   getTarget: (call: number, target: JsonRecord) => JsonRecord | null | Promise<JsonRecord | null>;
-  onSwipe?: () => void;
+  onSwipe?: (content: string) => void;
 }): StorageGateway {
   const records = baseGenerationRecords();
   let targetGetCalls = 0;
@@ -195,8 +203,8 @@ function generationStorage(args: {
     async patchChatMessageExtra<T = unknown>() {
       return asStorageValue<T>(records.target);
     },
-    async addChatMessageSwipe<T = unknown>() {
-      args.onSwipe?.();
+    async addChatMessageSwipe<T = unknown>(_chatId: string, _messageId: string, content: string) {
+      args.onSwipe?.(content);
       return asStorageValue<T>(records.target);
     },
     async patchChatMetadata<T = unknown>() {
@@ -344,6 +352,73 @@ describe("user-message regeneration review guards", () => {
 
     expect(modelCalls).toBe(0);
     expect(swipeCalls).toBe(0);
+  });
+
+  it("saves assembled user-message regeneration text without running connected command tags", async () => {
+    let modelCalls = 0;
+    const savedSwipes: string[] = [];
+    const storage = generationStorage({
+      getTarget: (_call, target) => target,
+      onSwipe: (content) => {
+        savedSwipes.push(content);
+      },
+    });
+    const connectedCommandText = "<note>do not persist this</note>\nrewritten user text";
+
+    const events = await collect(
+      startGeneration(
+        {
+          storage,
+          llm: llmThatStreams(() => {
+            modelCalls += 1;
+          }, connectedCommandText),
+          integrations: noopIntegrations,
+        },
+        { chatId: "chat-1", regenerateMessageId: "message-target", connectionId: "conn-1" },
+      ),
+    );
+
+    expect(modelCalls).toBe(1);
+    expect(savedSwipes).toEqual([connectedCommandText]);
+    expect(events).toEqual(expect.arrayContaining([expect.objectContaining({ type: "user_message" })]));
+    expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ type: "command_error" })]));
+    expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ type: "assistant_action" })]));
+  });
+
+  it("saves direct user-message regeneration text without running connected command tags", async () => {
+    let modelCalls = 0;
+    const savedSwipes: string[] = [];
+    const storage = generationStorage({
+      getTarget: (_call, target) => target,
+      onSwipe: (content) => {
+        savedSwipes.push(content);
+      },
+    });
+    const connectedCommandText = "<note>do not persist this direct rewrite</note>\nrewritten direct user text";
+
+    const events = await collect(
+      startGeneration(
+        {
+          storage,
+          llm: llmThatStreams(() => {
+            modelCalls += 1;
+          }, connectedCommandText),
+          integrations: noopIntegrations,
+        },
+        {
+          chatId: "chat-1",
+          regenerateMessageId: "message-target",
+          connectionId: "conn-1",
+          messages: [{ role: "user", content: "Direct rewrite request" }],
+        },
+      ),
+    );
+
+    expect(modelCalls).toBe(1);
+    expect(savedSwipes).toEqual([connectedCommandText]);
+    expect(events).toEqual(expect.arrayContaining([expect.objectContaining({ type: "user_message" })]));
+    expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ type: "command_error" })]));
+    expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ type: "assistant_action" })]));
   });
 
   it("recomputes source-sensitive lore when reusable context receives a regeneration source", async () => {
