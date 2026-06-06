@@ -427,6 +427,44 @@ where
         })
 }
 
+fn append_created_message_and_swipes_if_uncached(
+    state: &AppState,
+    message: &Value,
+    swipes: &[Value],
+) -> AppResult<Option<Value>> {
+    let (_, stored_message) = message_row_for_write(message.clone(), false)?;
+    let sidecars = swipe_rows_for_message(&stored_message, swipes)?;
+    if !state.storage.append_many_uncached(vec![
+        ("messages", vec![stored_message.clone()]),
+        (COLLECTION, sidecars.clone()),
+    ])? {
+        return Ok(None);
+    }
+
+    let mut materialized = stored_message;
+    apply_sidecar_swipes(
+        &mut materialized,
+        &sidecars,
+        MessageSwipeMaterialization::full(),
+    );
+    Ok(Some(materialized))
+}
+
+fn persist_created_message_with_swipes(
+    state: &AppState,
+    mut message: Value,
+    swipes: Vec<Value>,
+) -> AppResult<Value> {
+    clamp_message_active_swipe_index(&mut message, swipes.len());
+    if let Some(updated) = append_created_message_and_swipes_if_uncached(state, &message, &swipes)? {
+        return Ok(updated);
+    }
+
+    let mut updated = write_message_and_swipes(state, message, swipes, false)?;
+    materialize_message(state, &mut updated, true)?;
+    Ok(updated)
+}
+
 fn materialized_message_from_loaded_rows(
     message: &Value,
     message_id: &str,
@@ -1017,16 +1055,10 @@ fn persist_created_message_swipes(state: &AppState, mut message: Value) -> AppRe
         if swipes.is_empty() {
             swipes.push(initial_swipe_for_message(&message));
         }
-        clamp_message_active_swipe_index(&mut message, swipes.len());
-        let mut updated = write_message_and_swipes(state, message, swipes, false)?;
-        materialize_message(state, &mut updated, true)?;
-        return Ok(updated);
+        return persist_created_message_with_swipes(state, message, swipes);
     }
     let swipes = vec![initial_swipe_for_message(&message)];
-    clamp_message_active_swipe_index(&mut message, swipes.len());
-    let mut updated = write_message_and_swipes(state, message, swipes, false)?;
-    materialize_message(state, &mut updated, true)?;
-    Ok(updated)
+    persist_created_message_with_swipes(state, message, swipes)
 }
 
 #[cfg(test)]
