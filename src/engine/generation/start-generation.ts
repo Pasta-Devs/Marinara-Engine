@@ -3361,7 +3361,7 @@ export async function* startGeneration(
   mirrorSavedUserMessageToDiscord({ deps, chat, input, prepared: preparedUserInput, persona: assembly.persona });
 
   if (!directMessages) {
-    const agentsEnabled = input.impersonateBlockAgents !== true;
+    const agentsEnabled = input.impersonateBlockAgents !== true && !isUserMessageRegeneration;
     yield { type: "phase", data: agentsEnabled ? "Running pre-generation agents..." : "Calling model..." };
     const runtime = agentsEnabled
       ? await createGenerationAgentRuntime(
@@ -3429,8 +3429,10 @@ export async function* startGeneration(
       });
       throwIfAborted(signal);
     }
-    await consumePendingConnectedInfluences(deps.storage, chatForGeneration);
-    throwIfAborted(signal);
+    if (!isUserMessageRegeneration) {
+      await consumePendingConnectedInfluences(deps.storage, chatForGeneration);
+      throwIfAborted(signal);
+    }
     const generationDirectiveMessages = directiveMessages(
       input,
       chat,
@@ -3531,11 +3533,10 @@ export async function* startGeneration(
     throwIfAborted(signal);
     let content = streamedContent;
 
-    const preSaveAgentResults = uniqueAgentResults(runtime?.preResults ?? []);
-    const preSaveSpriteExpressions = spriteExpressionsFromAgentResults(
-      preSaveAgentResults,
-      runtime?.availableSprites ?? [],
-    );
+    const preSaveAgentResults = isUserMessageRegeneration ? [] : uniqueAgentResults(runtime?.preResults ?? []);
+    const preSaveSpriteExpressions = isUserMessageRegeneration
+      ? null
+      : spriteExpressionsFromAgentResults(preSaveAgentResults, runtime?.availableSprites ?? []);
     content = await applyRuntimeRegexScripts(deps.storage, "ai_output", content);
     throwIfAborted(signal);
     const connected = isUserMessageRegeneration
@@ -3573,7 +3574,7 @@ export async function* startGeneration(
           providerMetadata,
           promptSnapshot,
           spriteExpressions: preSaveSpriteExpressions,
-          contextInjections: runtime?.preInjections ?? null,
+          contextInjections: isUserMessageRegeneration ? null : runtime?.preInjections ?? null,
           existingExtra: await regenerationTargetExtra(deps.storage, chatId, storedMessages, input.regenerateMessageId),
           regenerationTarget,
         });
@@ -3605,77 +3606,79 @@ export async function* startGeneration(
     }
     throwIfAborted(signal);
 
-    const parallelResults = await parallelAgents;
-    throwIfAborted(signal);
-    const postResults = runtime && savedAssistantGeneration ? await runtime.runPost(content) : [];
-    throwIfAborted(signal);
-    let emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
-    emittedAgentResults = await generateTrackerAvatarsForResults({
-      deps,
-      chat: chatForGeneration,
-      results: emittedAgentResults,
-      baseline: generationTrackerBaseline,
-      signal,
-    });
-    for (const result of emittedAgentResults) {
-      yield { type: "agent_result", data: result };
-    }
-    agentEvents.length = 0;
-    const allAgentResults = uniqueAgentResults([...preSaveAgentResults, ...emittedAgentResults]);
-    const spriteExpressions = spriteExpressionsFromAgentResults(allAgentResults, runtime?.availableSprites ?? []);
-    if (saved) {
-      const patched = await patchSavedMessageAgentExtra({
-        storage: deps.storage,
-        saved: latestSaved,
-        results: allAgentResults,
-        contextInjections: runtime?.preInjections ?? null,
-        spriteExpressions,
-      });
-      if (patched) {
-        latestSaved = patched;
-        yield { type: savedGenerationEventType(input, regenerationTarget), data: savedGenerationEventData(patched) };
-      }
-    }
-
-    const hasIllustrationRequest = emittedAgentResults.some((result) => illustratorPromptData(result) !== null);
-    if (savedAssistantGeneration && hasIllustrationRequest) {
-      yield { type: "phase", data: "Generating illustration..." };
-      const illustration = await generateIllustrationAttachments({
+    if (!isUserMessageRegeneration) {
+      const parallelResults = await parallelAgents;
+      throwIfAborted(signal);
+      const postResults = runtime && savedAssistantGeneration ? await runtime.runPost(content) : [];
+      throwIfAborted(signal);
+      let emittedAgentResults = uniqueAgentResults([...parallelResults, ...postResults, ...agentEvents]);
+      emittedAgentResults = await generateTrackerAvatarsForResults({
         deps,
-        chat,
+        chat: chatForGeneration,
         results: emittedAgentResults,
+        baseline: generationTrackerBaseline,
         signal,
       });
-      throwIfAborted(signal);
-      for (const event of illustration.events) yield event;
-      const patched = await appendSavedMessageAttachments({
-        storage: deps.storage,
-        saved: latestSaved,
-        attachments: illustration.attachments,
-      });
-      if (patched) {
-        latestSaved = patched;
-        yield { type: savedGenerationEventType(input, regenerationTarget), data: savedGenerationEventData(patched) };
+      for (const result of emittedAgentResults) {
+        yield { type: "agent_result", data: result };
       }
+      agentEvents.length = 0;
+      const allAgentResults = uniqueAgentResults([...preSaveAgentResults, ...emittedAgentResults]);
+      const spriteExpressions = spriteExpressionsFromAgentResults(allAgentResults, runtime?.availableSprites ?? []);
+      if (saved) {
+        const patched = await patchSavedMessageAgentExtra({
+          storage: deps.storage,
+          saved: latestSaved,
+          results: allAgentResults,
+          contextInjections: runtime?.preInjections ?? null,
+          spriteExpressions,
+        });
+        if (patched) {
+          latestSaved = patched;
+          yield { type: savedGenerationEventType(input, regenerationTarget), data: savedGenerationEventData(patched) };
+        }
+      }
+
+      const hasIllustrationRequest = emittedAgentResults.some((result) => illustratorPromptData(result) !== null);
+      if (savedAssistantGeneration && hasIllustrationRequest) {
+        yield { type: "phase", data: "Generating illustration..." };
+        const illustration = await generateIllustrationAttachments({
+          deps,
+          chat,
+          results: emittedAgentResults,
+          signal,
+        });
+        throwIfAborted(signal);
+        for (const event of illustration.events) yield event;
+        const patched = await appendSavedMessageAttachments({
+          storage: deps.storage,
+          saved: latestSaved,
+          attachments: illustration.attachments,
+        });
+        if (patched) {
+          latestSaved = patched;
+          yield { type: savedGenerationEventType(input, regenerationTarget), data: savedGenerationEventData(patched) };
+        }
+      }
+      throwIfAborted(signal);
+      if (savedAssistantGeneration) {
+        await persistTrackerSnapshotSafely(
+          deps.storage,
+          chatId,
+          latestSaved,
+          allAgentResults,
+          generationTrackerBaseline,
+          readString(parseRecord(latestSaved).content),
+          deps.onTrackerSnapshotSaved,
+          true,
+        );
+      }
+      throwIfAborted(signal);
+      await persistSecretPlotAgentMemorySafely(deps.storage, chatId, allAgentResults);
+      throwIfAborted(signal);
+      await persistAgentResults(deps.storage, chatId, messageId(latestSaved), allAgentResults);
+      throwIfAborted(signal);
     }
-    throwIfAborted(signal);
-    if (savedAssistantGeneration) {
-      await persistTrackerSnapshotSafely(
-        deps.storage,
-        chatId,
-        latestSaved,
-        allAgentResults,
-        generationTrackerBaseline,
-        readString(parseRecord(latestSaved).content),
-        deps.onTrackerSnapshotSaved,
-        true,
-      );
-    }
-    throwIfAborted(signal);
-    await persistSecretPlotAgentMemorySafely(deps.storage, chatId, allAgentResults);
-    throwIfAborted(signal);
-    await persistAgentResults(deps.storage, chatId, messageId(latestSaved), allAgentResults);
-    throwIfAborted(signal);
     if (savedAssistantGeneration) {
       const autoLorebookBackfill = await runLorebookKeeperBackfill(
         deps,

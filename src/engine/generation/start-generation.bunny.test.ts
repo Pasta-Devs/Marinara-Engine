@@ -152,14 +152,22 @@ function baseGenerationRecords() {
 
 function generationStorage(args: {
   getTarget: (call: number, target: JsonRecord) => JsonRecord | null | Promise<JsonRecord | null>;
-  onSwipe?: (content: string) => void;
+  chatMetadata?: JsonRecord;
+  agentRows?: JsonRecord[];
+  onSwipe?: (content: string, options: unknown) => void;
+  onPatchExtra?: (messageId: string, patch: Record<string, unknown>) => void;
 }): StorageGateway {
   const records = baseGenerationRecords();
+  const chatMetadata =
+    records.chat.metadata && typeof records.chat.metadata === "object" && !Array.isArray(records.chat.metadata)
+      ? (records.chat.metadata as JsonRecord)
+      : {};
+  records.chat.metadata = { ...chatMetadata, ...args.chatMetadata };
   let targetGetCalls = 0;
   return {
     async list<T = unknown>(entity: StorageEntity): Promise<T[]> {
       if (entity === "connections") return asStorageValue<T[]>([records.connection]);
-      if (entity === "agents") return [];
+      if (entity === "agents") return asStorageValue<T[]>(args.agentRows ?? []);
       if (entity === "lorebooks") return [];
       if (entity === "prompts") return [];
       if (entity === "regex-scripts") return [];
@@ -200,11 +208,17 @@ function generationStorage(args: {
     async deleteChatMessage() {
       return { deleted: false };
     },
-    async patchChatMessageExtra<T = unknown>() {
+    async patchChatMessageExtra<T = unknown>(messageId: string, patch: Record<string, unknown>) {
+      args.onPatchExtra?.(messageId, patch);
       return asStorageValue<T>(records.target);
     },
-    async addChatMessageSwipe<T = unknown>(_chatId: string, _messageId: string, content: string) {
-      args.onSwipe?.(content);
+    async addChatMessageSwipe<T = unknown>(
+      _chatId: string,
+      _messageId: string,
+      content: string,
+      options?: unknown,
+    ) {
+      args.onSwipe?.(content, options);
       return asStorageValue<T>(records.target);
     },
     async patchChatMetadata<T = unknown>() {
@@ -419,6 +433,63 @@ describe("user-message regeneration review guards", () => {
     expect(events).toEqual(expect.arrayContaining([expect.objectContaining({ type: "user_message" })]));
     expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ type: "command_error" })]));
     expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ type: "assistant_action" })]));
+  });
+
+  it("saves assembled user-message regeneration without assistant agent metadata", async () => {
+    let modelCalls = 0;
+    const savedSwipes: string[] = [];
+    const swipeOptions: unknown[] = [];
+    const extraPatches: Array<Record<string, unknown>> = [];
+    const storage = generationStorage({
+      chatMetadata: { activeAgentIds: ["html"] },
+      agentRows: [
+        {
+          id: "html",
+          type: "html",
+          name: "Immersive HTML",
+          enabled: true,
+          phase: "pre_generation",
+          promptTemplate: "Assistant-only HTML context should not decorate user rewrites.",
+        },
+      ],
+      getTarget: (_call, target) => target,
+      onSwipe: (content, options) => {
+        savedSwipes.push(content);
+        swipeOptions.push(options);
+      },
+      onPatchExtra: (_messageId, patch) => {
+        extraPatches.push(patch);
+      },
+    });
+
+    const events = await collect(
+      startGeneration(
+        {
+          storage,
+          llm: llmThatStreams(() => {
+            modelCalls += 1;
+          }),
+          integrations: noopIntegrations,
+        },
+        { chatId: "chat-1", regenerateMessageId: "message-target", connectionId: "conn-1" },
+      ),
+    );
+
+    const savedSwipeExtra = ((swipeOptions[0] as { extra?: Record<string, unknown> } | undefined)?.extra ?? {}) as Record<
+      string,
+      unknown
+    >;
+
+    expect(modelCalls).toBe(1);
+    expect(savedSwipes).toEqual(["rewrite"]);
+    expect(events).not.toEqual(expect.arrayContaining([expect.objectContaining({ type: "agent_result" })]));
+    expect(savedSwipeExtra).not.toHaveProperty("contextInjections");
+    expect(savedSwipeExtra).not.toHaveProperty("spriteExpressions");
+    expect(savedSwipeExtra).not.toHaveProperty("cyoaChoices");
+    expect(extraPatches).toHaveLength(1);
+    expect(extraPatches[0]).not.toHaveProperty("contextInjections");
+    expect(extraPatches[0]).not.toHaveProperty("spriteExpressions");
+    expect(extraPatches[0]).not.toHaveProperty("cyoaChoices");
   });
 
   it("recomputes source-sensitive lore when reusable context receives a regeneration source", async () => {
