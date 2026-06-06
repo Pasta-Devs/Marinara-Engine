@@ -491,6 +491,7 @@ fn legacy_profile_import_plan(
         let processed_rows = rows.len();
         match *collection {
             "app-settings" => normalize_legacy_app_settings(&mut rows),
+            "regex-scripts" => super::drop_unsafe_regex_scripts(&mut rows),
             "characters" => normalize_legacy_character_data(&mut rows),
             "prompt-overrides" => {
                 unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows)

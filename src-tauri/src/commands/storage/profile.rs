@@ -971,6 +971,9 @@ fn profile_collections_import_plan(
         if collection == "extensions" {
             disable_imported_extension_rows(&mut rows);
         }
+        if collection == "regex-scripts" {
+            drop_unsafe_regex_scripts(&mut rows);
+        }
         imported.insert(collection.to_string(), json!(rows.len()));
         if mode == ProfileImportMode::Commit {
             progress.advance_counted(
@@ -1113,6 +1116,267 @@ pub(super) fn disable_imported_extension_rows(rows: &mut [Value]) {
             object.insert("enabled".to_string(), Value::Bool(false));
         }
     }
+}
+
+/// Drop regex-script rows whose `findRegex` is prone to catastrophic backtracking
+/// (ReDoS). The profile-import path (modern `.marinara` envelopes and the legacy
+/// SQLite path) writes rows verbatim, so this is the only guard before they reach
+/// the runtime executors. Mirrors the TypeScript `isPatternSafe` chokepoint in
+/// `regex-script-import.ts` (which already protects the ST character-card path).
+pub(super) fn drop_unsafe_regex_scripts(rows: &mut Vec<Value>) {
+    rows.retain(|row| match row.get("findRegex") {
+        // Non-string or absent findRegex: leave the row alone; downstream
+        // normalization / the editor handles malformed scripts. Only reject
+        // string patterns that fail the safety heuristic.
+        Some(Value::String(pattern)) => is_pattern_safe(pattern),
+        _ => true,
+    });
+}
+
+// Static ReDoS safety heuristic for user-supplied regex sources, ported from
+// `src/engine/shared/regex/regex-safety.ts`. Catches the common catastrophic
+// backtracking shapes — nested quantifiers like `(a+)+`, pathological `{n,m}`
+// counts, and oversized sources — before the pattern is ever compiled.
+const REGEX_SAFETY_MAX_LENGTH: usize = 1000;
+const REGEX_SAFETY_MAX_STAR_HEIGHT: u32 = 1;
+const REGEX_SAFETY_MAX_REPETITION: f64 = 100.0;
+
+fn is_pattern_safe(source: &str) -> bool {
+    if source.is_empty() {
+        return true;
+    }
+    let chars: Vec<char> = source.chars().collect();
+    if chars.len() > REGEX_SAFETY_MAX_LENGTH {
+        return false;
+    }
+
+    let mut i = 0usize;
+    let mut group_depth = 0i32;
+    let mut group_inner_height: Vec<u32> = Vec::new();
+    let mut top_level_height = 0u32;
+
+    let record_atom_height = |height: u32,
+                              group_depth: i32,
+                              group_inner_height: &mut Vec<u32>,
+                              top_level_height: &mut u32| {
+        if group_depth > 0 {
+            if let Some(last) = group_inner_height.last_mut() {
+                if height > *last {
+                    *last = height;
+                }
+            }
+        } else if height > *top_level_height {
+            *top_level_height = height;
+        }
+    };
+
+    while i < chars.len() {
+        let c = chars[i];
+
+        if c == '\\' {
+            // Escape: skip the next char (counts as one atom).
+            if i + 1 >= chars.len() {
+                return false; // Trailing backslash.
+            }
+            let after = chars.get(i + 2).copied();
+            let quant_height = if is_quantifier_start(after) { 1 } else { 0 };
+            record_atom_height(
+                quant_height,
+                group_depth,
+                &mut group_inner_height,
+                &mut top_level_height,
+            );
+            i += 2;
+            if quant_height > 0 {
+                match consume_quantifier(&chars, i) {
+                    Some(next) => i = next,
+                    None => return false,
+                }
+            }
+            continue;
+        }
+
+        if c == '[' {
+            let close_idx = match find_char_class_close(&chars, i) {
+                Some(idx) => idx,
+                None => return false,
+            };
+            let after = chars.get(close_idx + 1).copied();
+            let quant_height = if is_quantifier_start(after) { 1 } else { 0 };
+            record_atom_height(
+                quant_height,
+                group_depth,
+                &mut group_inner_height,
+                &mut top_level_height,
+            );
+            i = close_idx + 1;
+            if quant_height > 0 {
+                match consume_quantifier(&chars, i) {
+                    Some(next) => i = next,
+                    None => return false,
+                }
+            }
+            continue;
+        }
+
+        if c == '(' {
+            group_depth += 1;
+            group_inner_height.push(0);
+            if chars.get(i + 1).copied() == Some('?') {
+                if chars.get(i + 2).copied() == Some('<')
+                    && chars.get(i + 3).copied() != Some('=')
+                    && chars.get(i + 3).copied() != Some('!')
+                {
+                    // Named capture (?<name>...).
+                    match char_index_of(&chars, '>', i + 3) {
+                        Some(close) => i = close + 1,
+                        None => return false,
+                    }
+                } else {
+                    i += 3; // (?: (?= (?! (?<= (?<!
+                    if chars.get(i.wrapping_sub(1)).copied() == Some('<') {
+                        i += 1;
+                    }
+                }
+            } else {
+                i += 1;
+            }
+            continue;
+        }
+
+        if c == ')' {
+            let inner_height = group_inner_height.pop().unwrap_or(0);
+            group_depth -= 1;
+            let after = chars.get(i + 1).copied();
+            let quantified = is_quantifier_start(after);
+            let group_height = inner_height + if quantified { 1 } else { 0 };
+            if group_height > REGEX_SAFETY_MAX_STAR_HEIGHT {
+                return false;
+            }
+            record_atom_height(
+                group_height,
+                group_depth,
+                &mut group_inner_height,
+                &mut top_level_height,
+            );
+            i += 1;
+            if quantified {
+                match consume_quantifier(&chars, i) {
+                    Some(next) => i = next,
+                    None => return false,
+                }
+            }
+            continue;
+        }
+
+        // Plain literal character: atom of height 0 unless quantified, then 1.
+        let after = chars.get(i + 1).copied();
+        let quant_height = if is_quantifier_start(after) { 1 } else { 0 };
+        record_atom_height(
+            quant_height,
+            group_depth,
+            &mut group_inner_height,
+            &mut top_level_height,
+        );
+        i += 1;
+        if quant_height > 0 {
+            match consume_quantifier(&chars, i) {
+                Some(next) => i = next,
+                None => return false,
+            }
+        }
+    }
+
+    if group_depth != 0 {
+        return false; // Unbalanced.
+    }
+    if top_level_height > REGEX_SAFETY_MAX_STAR_HEIGHT {
+        return false;
+    }
+    true
+}
+
+fn is_quantifier_start(ch: Option<char>) -> bool {
+    matches!(ch, Some('*') | Some('+') | Some('?') | Some('{'))
+}
+
+fn char_index_of(chars: &[char], needle: char, from: usize) -> Option<usize> {
+    chars
+        .iter()
+        .enumerate()
+        .skip(from)
+        .find(|(_, c)| **c == needle)
+        .map(|(idx, _)| idx)
+}
+
+/// Advance past a quantifier starting at `i`, validating `{n,m}` bounds.
+/// Returns the new index, or `None` if invalid / over budget.
+fn consume_quantifier(chars: &[char], i: usize) -> Option<usize> {
+    match chars.get(i).copied() {
+        Some('*') | Some('+') | Some('?') => {
+            let next = chars.get(i + 1).copied();
+            if next == Some('?') || next == Some('+') {
+                Some(i + 2)
+            } else {
+                Some(i + 1)
+            }
+        }
+        Some('{') => {
+            let close = char_index_of(chars, '}', i + 1)?;
+            let body: String = chars[i + 1..close].iter().collect();
+            let (lo_str, upper_part) = match body.split_once(',') {
+                Some((lo, hi)) => (lo, Some(hi)),
+                None => (body.as_str(), None),
+            };
+            if lo_str.is_empty() || !lo_str.chars().all(|c| c.is_ascii_digit()) {
+                return None;
+            }
+            let lo: f64 = lo_str.parse().ok()?;
+            let hi: f64 = match upper_part {
+                None => lo,
+                Some("") => f64::INFINITY,
+                Some(upper) => {
+                    if !upper.chars().all(|c| c.is_ascii_digit()) {
+                        return None;
+                    }
+                    upper.parse().ok()?
+                }
+            };
+            if !lo.is_finite() || lo > REGEX_SAFETY_MAX_REPETITION {
+                return None;
+            }
+            if !hi.is_finite() || hi > REGEX_SAFETY_MAX_REPETITION {
+                return None;
+            }
+            let mut next = close + 1;
+            if matches!(chars.get(next).copied(), Some('?') | Some('+')) {
+                next += 1;
+            }
+            Some(next)
+        }
+        _ => Some(i),
+    }
+}
+
+fn find_char_class_close(chars: &[char], open_idx: usize) -> Option<usize> {
+    let mut j = open_idx + 1;
+    if chars.get(j).copied() == Some('^') {
+        j += 1;
+    }
+    if chars.get(j).copied() == Some(']') {
+        j += 1; // Leading ] is literal.
+    }
+    while j < chars.len() {
+        match chars[j] {
+            '\\' => {
+                j += 2;
+                continue;
+            }
+            ']' => return Some(j),
+            _ => j += 1,
+        }
+    }
+    None
 }
 
 pub(super) fn normalize_profile_prompt_overrides(rows: &mut Vec<Value>) -> usize {
