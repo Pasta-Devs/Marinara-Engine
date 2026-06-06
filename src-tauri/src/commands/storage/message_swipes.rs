@@ -307,9 +307,14 @@ fn normalize_message_rows_and_sidecars_inner(
     Ok((messages, sidecars, changed))
 }
 
-fn prepare_message_create_row(state: &AppState, value: Value) -> AppResult<Value> {
+struct PreparedMessageCreate {
+    message: Value,
+    caller_supplied_id: bool,
+}
+
+fn prepare_message_create_row(state: &AppState, value: Value) -> AppResult<PreparedMessageCreate> {
     let mut object = ensure_object(with_message_create_defaults(value)?)?;
-    let had_id = object
+    let caller_supplied_id = object
         .get("id")
         .and_then(Value::as_str)
         .is_some_and(|id| !id.trim().is_empty());
@@ -320,7 +325,7 @@ fn prepare_message_create_row(state: &AppState, value: Value) -> AppResult<Value
         .filter(|id| !id.is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or_else(new_id);
-    if had_id && state.storage.get("messages", &id)?.is_some() {
+    if caller_supplied_id && state.storage.get("messages", &id)?.is_some() {
         return Err(AppError::invalid_input(format!(
             "messages/{id} already exists"
         )));
@@ -334,7 +339,10 @@ fn prepare_message_create_row(state: &AppState, value: Value) -> AppResult<Value
         .entry("updatedAt".to_string())
         .or_insert_with(|| Value::String(now));
     normalize_typed_json_fields("messages", &mut object)?;
-    Ok(Value::Object(object))
+    Ok(PreparedMessageCreate {
+        message: Value::Object(object),
+        caller_supplied_id,
+    })
 }
 
 fn clamp_message_active_swipe_index(message: &mut Value, swipe_count: usize) {
@@ -454,10 +462,15 @@ fn persist_created_message_with_swipes(
     state: &AppState,
     mut message: Value,
     swipes: Vec<Value>,
+    caller_supplied_id: bool,
 ) -> AppResult<Value> {
     clamp_message_active_swipe_index(&mut message, swipes.len());
-    if let Some(updated) = append_created_message_and_swipes_if_uncached(state, &message, &swipes)? {
-        return Ok(updated);
+    if !caller_supplied_id {
+        if let Some(updated) =
+            append_created_message_and_swipes_if_uncached(state, &message, &swipes)?
+        {
+            return Ok(updated);
+        }
     }
 
     let mut updated = write_message_and_swipes(state, message, swipes, false)?;
@@ -1037,11 +1050,15 @@ pub(crate) fn delete_message_rows_for_chats_with_swipes(
 }
 
 pub(crate) fn create_message(state: &AppState, message: Value) -> AppResult<Value> {
-    let message = prepare_message_create_row(state, message)?;
-    persist_created_message_swipes(state, message)
+    let prepared = prepare_message_create_row(state, message)?;
+    persist_created_message_swipes(state, prepared.message, prepared.caller_supplied_id)
 }
 
-fn persist_created_message_swipes(state: &AppState, mut message: Value) -> AppResult<Value> {
+fn persist_created_message_swipes(
+    state: &AppState,
+    mut message: Value,
+    caller_supplied_id: bool,
+) -> AppResult<Value> {
     if message.get("swipes").is_some() {
         let embedded_swipe_count = message
             .get("swipes")
@@ -1055,10 +1072,10 @@ fn persist_created_message_swipes(state: &AppState, mut message: Value) -> AppRe
         if swipes.is_empty() {
             swipes.push(initial_swipe_for_message(&message));
         }
-        return persist_created_message_with_swipes(state, message, swipes);
+        return persist_created_message_with_swipes(state, message, swipes, caller_supplied_id);
     }
     let swipes = vec![initial_swipe_for_message(&message)];
-    persist_created_message_with_swipes(state, message, swipes)
+    persist_created_message_with_swipes(state, message, swipes, caller_supplied_id)
 }
 
 #[cfg(test)]
@@ -1081,6 +1098,49 @@ mod tests {
     fn test_state(label: &str) -> AppState {
         AppState::from_data_dir(temp_root(label), Vec::new())
             .expect("test app state should initialize")
+    }
+
+    fn value_id(value: &Value) -> String {
+        value
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("value should have an id")
+            .to_string()
+    }
+
+    fn strip_generated_shape_fields(value: &mut Value) {
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
+        for key in ["id", "messageId", "createdAt", "updatedAt"] {
+            object.remove(key);
+        }
+    }
+
+    fn persisted_message_shape(state: &AppState, message_id: &str) -> Value {
+        let mut message = state
+            .storage
+            .get("messages", message_id)
+            .expect("message lookup should not fail")
+            .expect("message should exist");
+        strip_generated_shape_fields(&mut message);
+
+        let mut sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecars should list")
+            .into_iter()
+            .filter(|row| sidecar_matches_message_id(row, message_id))
+            .collect::<Vec<_>>();
+        sort_sidecar_rows(&mut sidecars);
+        for sidecar in &mut sidecars {
+            strip_generated_shape_fields(sidecar);
+        }
+
+        json!({
+            "message": message,
+            "sidecars": sidecars
+        })
     }
 
     #[test]
@@ -1675,6 +1735,197 @@ mod tests {
     }
 
     #[test]
+    fn create_message_with_caller_id_replaces_stale_sidecars() {
+        let state = test_state("create-caller-id-stale-sidecars");
+        state
+            .storage
+            .replace_all(
+                COLLECTION,
+                vec![
+                    json!({
+                        "id": "message-1::swipe::0",
+                        "messageId": "message-1",
+                        "chatId": "chat-1",
+                        "index": 0,
+                        "content": "stale"
+                    }),
+                    json!({
+                        "id": "message-2::swipe::0",
+                        "messageId": "message-2",
+                        "chatId": "chat-1",
+                        "index": 0,
+                        "content": "unrelated"
+                    }),
+                ],
+            )
+            .expect("sidecars should seed");
+
+        let created = create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 1,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should create");
+
+        assert_eq!(created["id"], json!("message-1"));
+        assert_eq!(created["content"], json!("second"));
+
+        let messages = state
+            .storage
+            .list("messages")
+            .expect("messages should list");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["id"], json!("message-1"));
+
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecars should list");
+        let replacement_sidecars = sidecars
+            .iter()
+            .filter(|row| sidecar_matches_message_id(row, "message-1"))
+            .collect::<Vec<_>>();
+        assert_eq!(replacement_sidecars.len(), 2);
+        assert_eq!(replacement_sidecars[0]["content"], json!("first"));
+        assert_eq!(replacement_sidecars[1]["content"], json!("second"));
+        assert!(!replacement_sidecars
+            .iter()
+            .any(|row| row.get("content") == Some(&json!("stale"))));
+        assert_eq!(
+            sidecars
+                .iter()
+                .filter(|row| sidecar_matches_message_id(row, "message-2"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn caller_id_persistence_replaces_existing_rows_after_precheck_window() {
+        let state = test_state("caller-id-post-precheck-collision");
+        state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "message-1",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "old",
+                    "activeSwipeIndex": 0
+                })],
+            )
+            .expect("messages should seed");
+        state
+            .storage
+            .replace_all(
+                COLLECTION,
+                vec![json!({
+                    "id": "message-1::swipe::0",
+                    "messageId": "message-1",
+                    "chatId": "chat-1",
+                    "index": 0,
+                    "content": "old"
+                })],
+            )
+            .expect("sidecars should seed");
+
+        let updated = persist_created_message_swipes(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "new",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "new" }]
+            }),
+            true,
+        )
+        .expect("post-precheck persistence should replace existing rows");
+
+        assert_eq!(updated["id"], json!("message-1"));
+        assert_eq!(updated["content"], json!("new"));
+
+        let messages = state
+            .storage
+            .list("messages")
+            .expect("messages should list");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["id"], json!("message-1"));
+        assert_eq!(messages[0]["content"], json!("new"));
+
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecars should list");
+        assert_eq!(sidecars.len(), 1);
+        assert_eq!(sidecars[0]["messageId"], json!("message-1"));
+        assert_eq!(sidecars[0]["content"], json!("new"));
+    }
+
+    #[test]
+    fn fast_append_and_dirty_cache_fallback_persist_same_generated_message_shape() {
+        let input = json!({
+            "chatId": "chat-shape",
+            "role": "assistant",
+            "content": "first",
+            "activeSwipeIndex": 3,
+            "extra": {
+                "hiddenFromAI": true,
+                "generationInfo": { "model": "shape-model" }
+            }
+        });
+
+        let fast_state = test_state("create-shape-fast");
+        let prepared =
+            prepare_message_create_row(&fast_state, input.clone()).expect("message should prepare");
+        let mut fast_message = prepared.message;
+        let fast_swipes = vec![initial_swipe_for_message(&fast_message)];
+        clamp_message_active_swipe_index(&mut fast_message, fast_swipes.len());
+        let fast_created =
+            append_created_message_and_swipes_if_uncached(&fast_state, &fast_message, &fast_swipes)
+                .expect("fast append should not fail")
+                .expect("clean generated message should use append fast path");
+        let fast_id = value_id(&fast_created);
+
+        let dirty_state = test_state("create-shape-dirty");
+        dirty_state
+            .storage
+            .replace_all(
+                "messages",
+                vec![json!({
+                    "id": "dirty-seed",
+                    "chatId": "chat-shape",
+                    "role": "user",
+                    "content": "seed"
+                })],
+            )
+            .expect("dirty seed should write");
+        dirty_state
+            .storage
+            .patch("messages", "dirty-seed", json!({ "content": "dirty seed" }))
+            .expect("dirty seed should patch");
+        let dirty_created =
+            create_message(&dirty_state, input).expect("dirty fallback should create message");
+        let dirty_id = value_id(&dirty_created);
+
+        assert_eq!(
+            persisted_message_shape(&fast_state, &fast_id),
+            persisted_message_shape(&dirty_state, &dirty_id)
+        );
+    }
+
+    #[test]
     fn create_message_keeps_response_compatible_but_persists_sidecar_swipes() {
         let state = test_state("create");
         let created = create_message(
@@ -1922,20 +2173,16 @@ mod tests {
 
         assert_eq!(error.code, "invalid_input");
         assert_eq!(error.message, "Message swipe content is required");
-        assert!(
-            state
-                .storage
-                .list("messages")
-                .expect("messages should list")
-                .is_empty()
-        );
-        assert!(
-            state
-                .storage
-                .list(COLLECTION)
-                .expect("sidecars should list")
-                .is_empty()
-        );
+        assert!(state
+            .storage
+            .list("messages")
+            .expect("messages should list")
+            .is_empty());
+        assert!(state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecars should list")
+            .is_empty());
     }
 
     #[test]
