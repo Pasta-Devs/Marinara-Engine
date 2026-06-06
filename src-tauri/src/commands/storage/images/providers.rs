@@ -20,6 +20,9 @@ const DEFAULT_RUNPOD_BASE_URL: &str = "https://api.runpod.ai/v2";
 const DEFAULT_GOOGLE_IMAGE_BASE_URL: &str = "https://generativelanguage.googleapis.com/v1beta";
 const NOVELAI_V4_PROMPT_HINT: &str = "NovelAI V4/V4.5 prompts support roughly 512 T5 tokens and reject most Unicode prompt characters; try a shorter ASCII prompt without emoji or non-Latin text.";
 const NOVELAI_V4_PROMPT_CHAR_LIMIT: usize = 1800;
+const IMAGE_PROVIDER_ERROR_MAX_BYTES: usize = 256 * 1024;
+const IMAGE_PROVIDER_JSON_ENVELOPE_MAX_BYTES: usize = 48 * 1024 * 1024;
+const IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES: usize = 32 * 1024 * 1024;
 const COMFYUI_PLACEHOLDER_REFERENCE_BASE64: &str =
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 
@@ -440,10 +443,8 @@ fn bearer(request: reqwest::RequestBuilder, api_key: &str) -> reqwest::RequestBu
 
 async fn response_json(response: reqwest::Response, provider: &str) -> AppResult<Value> {
     let status = response.status();
-    let text = response.text().await.map_err(|error| {
-        AppError::new("image_response_error", image_transport_error_message(error))
-    })?;
     if !status.is_success() {
+        let text = read_capped_error_body(response).await?;
         return Err(AppError::new(
             "image_provider_error",
             format!(
@@ -452,7 +453,9 @@ async fn response_json(response: reqwest::Response, provider: &str) -> AppResult
             ),
         ));
     }
-    serde_json::from_str::<Value>(&text).map_err(|error| {
+    let bytes =
+        read_limited_response_bytes(response, IMAGE_PROVIDER_JSON_ENVELOPE_MAX_BYTES).await?;
+    serde_json::from_slice::<Value>(&bytes).map_err(|error| {
         AppError::new(
             "image_response_error",
             format!("{provider} returned invalid JSON: {error}"),
@@ -471,11 +474,8 @@ async fn image_response_base64(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("image/png")
         .to_string();
-    let bytes = response.bytes().await.map_err(|error| {
-        AppError::new("image_response_error", image_transport_error_message(error))
-    })?;
     if !status.is_success() {
-        let text = String::from_utf8_lossy(&bytes);
+        let text = read_capped_error_body(response).await?;
         return Err(AppError::new(
             "image_provider_error",
             format!(
@@ -484,6 +484,7 @@ async fn image_response_base64(
             ),
         ));
     }
+    let bytes = read_limited_response_bytes(response, IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES).await?;
     Ok((general_purpose::STANDARD.encode(bytes), content_type))
 }
 
@@ -513,6 +514,35 @@ fn strip_data_url(value: &str) -> (&str, &str) {
         }
     }
     (value, "image/png")
+}
+
+fn ensure_base64_image_within_limit(base64: &str) -> AppResult<()> {
+    let normalized_len = base64
+        .as_bytes()
+        .iter()
+        .filter(|byte| !byte.is_ascii_whitespace())
+        .count();
+    let padding = base64
+        .trim_end()
+        .as_bytes()
+        .iter()
+        .rev()
+        .take_while(|byte| **byte == b'=')
+        .count()
+        .min(2);
+    let decoded_len = normalized_len.saturating_mul(3) / 4;
+    let decoded_len = decoded_len.saturating_sub(padding);
+    if decoded_len > IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES {
+        return Err(image_response_too_large_error(
+            IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES,
+        ));
+    }
+    Ok(())
+}
+
+fn validated_base64_image(base64: &str, mime: &str) -> AppResult<(String, String)> {
+    ensure_base64_image_within_limit(base64)?;
+    Ok((base64.to_string(), mime.to_string()))
 }
 
 fn detect_image_mime_type(bytes: &[u8]) -> &'static str {
@@ -610,15 +640,8 @@ async fn response_bytes(
         .and_then(|value| value.to_str().ok())
         .unwrap_or("application/octet-stream")
         .to_string();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| {
-            AppError::new("image_response_error", image_transport_error_message(error))
-        })?
-        .to_vec();
     if !status.is_success() {
-        let text = String::from_utf8_lossy(&bytes);
+        let text = read_capped_error_body(response).await?;
         return Err(AppError::new(
             "image_provider_error",
             format!(
@@ -627,7 +650,61 @@ async fn response_bytes(
             ),
         ));
     }
+    let bytes = read_limited_response_bytes(response, IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES).await?;
     Ok((bytes, content_type))
+}
+
+async fn read_limited_response_bytes(
+    mut response: reqwest::Response,
+    max_bytes: usize,
+) -> AppResult<Vec<u8>> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > max_bytes as u64)
+    {
+        return Err(image_response_too_large_error(max_bytes));
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        AppError::new("image_response_error", image_transport_error_message(error))
+    })? {
+        if body.len().saturating_add(chunk.len()) > max_bytes {
+            return Err(image_response_too_large_error(max_bytes));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
+}
+
+async fn read_capped_error_body(mut response: reqwest::Response) -> AppResult<String> {
+    let mut body = Vec::new();
+    let mut truncated = false;
+
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        AppError::new("image_response_error", image_transport_error_message(error))
+    })? {
+        let remaining = IMAGE_PROVIDER_ERROR_MAX_BYTES.saturating_sub(body.len());
+        if chunk.len() > remaining {
+            body.extend_from_slice(&chunk[..remaining]);
+            truncated = true;
+            break;
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    let mut text = String::from_utf8_lossy(&body).into_owned();
+    if truncated {
+        text.push_str(" [truncated]");
+    }
+    Ok(text)
+}
+
+fn image_response_too_large_error(max_bytes: usize) -> AppError {
+    AppError::new(
+        "image_response_error",
+        format!("Image provider response exceeds {max_bytes} bytes"),
+    )
 }
 
 async fn fetch_image_url(client: &reqwest::Client, url: &str) -> AppResult<(String, String)> {
@@ -719,7 +796,7 @@ async fn generate_openai_compatible_image(
             AppError::new("image_network_error", image_transport_error_message(error))
         })?;
         let json = response_json(response, source).await?;
-        return parse_image_json(&client, &json).await.ok_or_else(|| {
+        return parse_image_json(&client, &json).await?.ok_or_else(|| {
             AppError::new(
                 "image_response_error",
                 format!("{source} returned no image data"),
@@ -762,7 +839,7 @@ async fn generate_openai_compatible_image(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, source).await?;
-    parse_image_json(&client, &json).await.ok_or_else(|| {
+    parse_image_json(&client, &json).await?.ok_or_else(|| {
         AppError::new(
             "image_response_error",
             format!("{source} returned no image data"),
@@ -876,7 +953,7 @@ async fn generate_xai(
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "xai").await?;
     parse_image_json(&client, &json)
-        .await
+        .await?
         .ok_or_else(|| AppError::new("image_response_error", "xAI returned no image data"))
 }
 
@@ -1009,7 +1086,7 @@ async fn generate_nanogpt_image(
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "nanogpt").await?;
     parse_image_json(&client, &json)
-        .await
+        .await?
         .ok_or_else(|| AppError::new("image_response_error", "NanoGPT returned no image data"))
 }
 
@@ -1055,7 +1132,7 @@ async fn generate_together_image(
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, "togetherai").await?;
     parse_image_json(&client, &json)
-        .await
+        .await?
         .ok_or_else(|| AppError::new("image_response_error", "Together AI returned no image data"))
 }
 
@@ -1104,7 +1181,7 @@ async fn generate_chat_image(
     .await
     .map_err(|error| AppError::new("image_network_error", image_transport_error_message(error)))?;
     let json = response_json(response, &source).await?;
-    parse_image_json(&client, &json).await.ok_or_else(|| {
+    parse_image_json(&client, &json).await?.ok_or_else(|| {
         AppError::new(
             "image_response_error",
             format!("{source} returned no image data"),
@@ -1175,7 +1252,7 @@ async fn generate_google_image(
                 AppError::new("image_network_error", image_transport_error_message(error))
             })?;
         let json = response_json(response, GOOGLE_IMAGE_PROVIDER).await?;
-        return parse_google_predict_image(&json).ok_or_else(|| {
+        return parse_google_predict_image(&json)?.ok_or_else(|| {
             AppError::new(
                 "image_response_error",
                 "Google Imagen returned no image data",
@@ -1216,7 +1293,7 @@ async fn generate_google_image(
             AppError::new("image_network_error", image_transport_error_message(error))
         })?;
     let json = response_json(response, GOOGLE_IMAGE_PROVIDER).await?;
-    parse_google_generate_content_image(&json).ok_or_else(|| {
+    parse_google_generate_content_image(&json)?.ok_or_else(|| {
         // No inline image part — surface why (e.g. a SAFETY block or a text-only reply)
         // instead of a generic message, since Gemini returns 200 OK in these cases.
         let reason = json
@@ -1284,8 +1361,13 @@ fn closest_google_aspect_ratio(width: u64, height: u64) -> &'static str {
     .unwrap_or("1:1")
 }
 
-fn parse_google_generate_content_image(json: &Value) -> Option<(String, String)> {
-    let parts = json.pointer("/candidates/0/content/parts")?.as_array()?;
+fn parse_google_generate_content_image(json: &Value) -> AppResult<Option<(String, String)>> {
+    let Some(parts) = json
+        .pointer("/candidates/0/content/parts")
+        .and_then(Value::as_array)
+    else {
+        return Ok(None);
+    };
     for part in parts {
         // v1beta REST emits camelCase, but accept snake_case defensively.
         for key in ["inlineData", "inline_data"] {
@@ -1303,25 +1385,30 @@ fn parse_google_generate_content_image(json: &Value) -> Option<(String, String)>
                     .and_then(Value::as_str)
                     .unwrap_or("image/png")
                     .to_string();
-                return Some((data.to_string(), mime));
+                return validated_base64_image(data, &mime).map(Some);
             }
         }
     }
-    None
+    Ok(None)
 }
 
-fn parse_google_predict_image(json: &Value) -> Option<(String, String)> {
-    let prediction = json.pointer("/predictions/0")?;
-    let data = prediction
+fn parse_google_predict_image(json: &Value) -> AppResult<Option<(String, String)>> {
+    let Some(prediction) = json.pointer("/predictions/0") else {
+        return Ok(None);
+    };
+    let Some(data) = prediction
         .get("bytesBase64Encoded")
         .and_then(Value::as_str)
-        .filter(|value| !value.is_empty())?;
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(None);
+    };
     let mime = prediction
         .get("mimeType")
         .and_then(Value::as_str)
         .unwrap_or("image/png")
         .to_string();
-    Some((data.to_string(), mime))
+    validated_base64_image(data, &mime).map(Some)
 }
 
 /// Imagen only accepts a fixed set of aspect ratios; snap the requested
@@ -1372,13 +1459,16 @@ fn chat_completions_url(base: &str) -> String {
     format!("{trimmed}/chat/completions")
 }
 
-async fn parse_image_json(client: &reqwest::Client, json: &Value) -> Option<(String, String)> {
+async fn parse_image_json(
+    client: &reqwest::Client,
+    json: &Value,
+) -> AppResult<Option<(String, String)>> {
     if let Some(base64) = json
         .pointer("/data/0/b64_json")
         .and_then(Value::as_str)
         .filter(|value| !value.is_empty())
     {
-        return Some((base64.to_string(), "image/png".to_string()));
+        return validated_base64_image(base64, "image/png").map(Some);
     }
     if let Some(url) = json
         .pointer("/data/0/url")
@@ -1387,20 +1477,20 @@ async fn parse_image_json(client: &reqwest::Client, json: &Value) -> Option<(Str
     {
         if url.starts_with("data:image/") {
             let (base64, mime) = strip_data_url(url);
-            return Some((base64.to_string(), mime.to_string()));
+            return validated_base64_image(base64, mime).map(Some);
         }
-        return fetch_image_url(client, url).await.ok();
+        return fetch_image_url(client, url).await.map(Some);
     }
     if let Some(value) = find_image_string(json) {
         if value.starts_with("data:image/") {
             let (base64, mime) = strip_data_url(value);
-            return Some((base64.to_string(), mime.to_string()));
+            return validated_base64_image(base64, mime).map(Some);
         }
         if is_http_image_url(value) {
-            return fetch_image_url(client, value).await.ok();
+            return fetch_image_url(client, value).await.map(Some);
         }
     }
-    None
+    Ok(None)
 }
 
 fn find_image_string(value: &Value) -> Option<&str> {
@@ -1721,7 +1811,7 @@ async fn generate_stability_v1(
                 .find_map(|item| item.get("base64").and_then(Value::as_str))
         })
         .ok_or_else(|| AppError::new("image_response_error", "Stability returned no image data"))?;
-    Ok((base64.to_string(), "image/png".to_string()))
+    validated_base64_image(base64, "image/png")
 }
 
 fn stability_url(base: &str, target_path: &str) -> String {
@@ -2444,9 +2534,9 @@ fn extract_runpod_image(status: &Value) -> AppResult<(String, String)> {
         if let Some(value) = candidate {
             if value.starts_with("data:") {
                 let (base64, mime) = strip_data_url(value);
-                return Ok((base64.to_string(), mime.to_string()));
+                return validated_base64_image(base64, mime);
             }
-            return Ok((value.to_string(), detect_base64_mime_type(value)));
+            return validated_base64_image(value, &detect_base64_mime_type(value));
         }
     }
     Err(AppError::new(
@@ -2669,8 +2759,20 @@ async fn parse_novelai_image_response(
                 continue;
             }
             let mut image = Vec::new();
-            file.read_to_end(&mut image)
+            if file.size() > IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES as u64 {
+                return Err(image_response_too_large_error(
+                    IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES,
+                ));
+            }
+            let mut limited = (&mut file).take((IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES as u64) + 1);
+            limited
+                .read_to_end(&mut image)
                 .map_err(|error| AppError::new("image_response_error", error.to_string()))?;
+            if image.len() > IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES {
+                return Err(image_response_too_large_error(
+                    IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES,
+                ));
+            }
             let mime = detect_image_mime_type(&image).to_string();
             return Ok((general_purpose::STANDARD.encode(image), mime));
         }
@@ -2683,7 +2785,7 @@ async fn parse_novelai_image_response(
         return Ok((general_purpose::STANDARD.encode(bytes), mime));
     }
     if let Ok(json) = serde_json::from_slice::<Value>(&bytes) {
-        if let Some(result) = parse_image_json(client, &json).await {
+        if let Some(result) = parse_image_json(client, &json).await? {
             return Ok(result);
         }
         if let Some(error) = image_provider_json_error(&json) {
@@ -2717,6 +2819,7 @@ fn find_comfyui_image<'a>(history: &'a Value, prompt_id: &str) -> Option<&'a Val
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
@@ -2834,6 +2937,121 @@ mod tests {
         (format!("http://{address}"), handle)
     }
 
+    async fn serve_bytes_response(
+        status: &'static str,
+        content_type: &'static str,
+        body: Vec<u8>,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test image server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test image server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test image server should accept one request");
+            let mut buffer = [0_u8; 1024];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test image server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test image server should write response headers");
+            stream
+                .write_all(&body)
+                .await
+                .expect("test image server should write response body");
+        });
+        format!("http://{address}")
+    }
+
+    async fn serve_chunked_response(
+        status: &'static str,
+        content_type: &'static str,
+        chunks: Vec<Vec<u8>>,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test image server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test image server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test image server should accept one request");
+            let mut buffer = [0_u8; 1024];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test image server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test image server should write response headers");
+            for chunk in chunks {
+                let header = format!("{:x}\r\n", chunk.len());
+                stream
+                    .write_all(header.as_bytes())
+                    .await
+                    .expect("test image server should write chunk header");
+                stream
+                    .write_all(&chunk)
+                    .await
+                    .expect("test image server should write chunk body");
+                stream
+                    .write_all(b"\r\n")
+                    .await
+                    .expect("test image server should write chunk terminator");
+            }
+            stream
+                .write_all(b"0\r\n\r\n")
+                .await
+                .expect("test image server should write final chunk");
+        });
+        format!("http://{address}")
+    }
+
+    async fn response_from_body(
+        status: &'static str,
+        content_type: &'static str,
+        body: Vec<u8>,
+    ) -> reqwest::Response {
+        let url = serve_bytes_response(status, content_type, body).await;
+        http_client(1)
+            .expect("client should build")
+            .get(url)
+            .send()
+            .await
+            .expect("test image response should arrive")
+    }
+
+    fn zip_with_image(name: &str, image: &[u8]) -> Vec<u8> {
+        let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+        writer
+            .start_file(
+                name,
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Deflated),
+            )
+            .expect("zip entry should start");
+        writer.write_all(image).expect("zip image should write");
+        writer.finish().expect("zip should finish").into_inner()
+    }
+
     #[test]
     fn image_provider_error_sanitizer_redacts_secrets() {
         let sanitized = sanitize_error(
@@ -2844,6 +3062,240 @@ mod tests {
         assert!(sanitized.contains("[REDACTED_URL]"));
         assert!(!sanitized.contains("sk-test-secret"));
         assert!(!sanitized.contains("retrieve/session"));
+    }
+
+    #[tokio::test]
+    async fn image_provider_response_body_is_capped() {
+        let response = response_from_body(
+            "500 Internal Server Error",
+            "text/plain",
+            vec![b'x'; IMAGE_PROVIDER_ERROR_MAX_BYTES + 1024],
+        )
+        .await;
+
+        let error = response_json(response, "test-provider")
+            .await
+            .expect_err("oversized image provider error should stay status-bearing");
+
+        assert_eq!(error.code, "image_provider_error");
+        assert!(error
+            .message
+            .contains("test-provider returned HTTP 500 Internal Server Error"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 600);
+    }
+
+    #[tokio::test]
+    async fn image_provider_chunked_error_body_is_bounded_status_bearing() {
+        let url = serve_chunked_response(
+            "502 Bad Gateway",
+            "text/html",
+            vec![
+                b"<html>bad upstream sk-test-secret ".to_vec(),
+                vec![b'x'; IMAGE_PROVIDER_ERROR_MAX_BYTES + 1024],
+            ],
+        )
+        .await;
+        let response = http_client(1)
+            .expect("client should build")
+            .get(url)
+            .send()
+            .await
+            .expect("chunked test image response should arrive");
+        let error = image_response_base64(response, "chunked-provider")
+            .await
+            .expect_err("chunked oversized error should stay status-bearing");
+
+        assert_eq!(error.code, "image_provider_error");
+        assert!(error
+            .message
+            .contains("chunked-provider returned HTTP 502 Bad Gateway"));
+        assert!(error.message.contains("[REDACTED]"));
+        assert!(!error.message.contains("sk-test-secret"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 600);
+    }
+
+    #[tokio::test]
+    async fn image_json_base64_envelope_can_exceed_legacy_five_mib_cap() {
+        let mut image = vec![0_u8; 6 * 1024 * 1024];
+        image[..8].copy_from_slice(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']);
+        let base64 = general_purpose::STANDARD.encode(&image);
+        let body = format!(r#"{{"data":[{{"b64_json":"{base64}"}}]}}"#);
+        assert!(body.len() > 5 * 1024 * 1024);
+        let response = response_from_body("200 OK", "application/json", body.into_bytes()).await;
+        let json = response_json(response, "test-provider")
+            .await
+            .expect("large JSON envelope should parse within envelope cap");
+        let result = parse_image_json(&http_client(1).expect("client should build"), &json)
+            .await
+            .expect("decoded image should be within raw image cap")
+            .expect("image data should be found");
+
+        assert_eq!(result.0, base64);
+    }
+
+    #[tokio::test]
+    async fn direct_binary_image_can_exceed_legacy_five_mib_cap() {
+        let mut image = vec![0_u8; 6 * 1024 * 1024];
+        image[..8].copy_from_slice(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']);
+        let response = response_from_body("200 OK", "image/png", image).await;
+        let (base64, mime) = image_response_base64(response, "test-provider")
+            .await
+            .expect("raw image within product cap should succeed");
+
+        assert_eq!(mime, "image/png");
+        assert!(base64.len() > 5 * 1024 * 1024);
+    }
+
+    #[tokio::test]
+    async fn image_json_decoded_image_over_raw_cap_is_rejected() {
+        let image = vec![0_u8; IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES + 1];
+        let base64 = general_purpose::STANDARD.encode(&image);
+        let json = json!({ "data": [{ "b64_json": base64 }] });
+
+        let error = parse_image_json(&http_client(1).expect("client should build"), &json)
+            .await
+            .expect_err("decoded image above raw cap should fail");
+
+        assert_eq!(error.code, "image_response_error");
+        assert!(error.message.contains("exceeds"));
+    }
+
+    #[test]
+    fn google_inline_data_rejects_decoded_image_over_raw_cap() {
+        let base64 =
+            general_purpose::STANDARD.encode(vec![0_u8; IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES + 1]);
+        let json = json!({
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "inlineData": { "mimeType": "image/png", "data": base64 }
+                    }]
+                }
+            }]
+        });
+        let error = parse_google_generate_content_image(&json)
+            .expect_err("oversized Gemini inline data should fail");
+
+        assert_eq!(error.code, "image_response_error");
+        assert!(error.message.contains("exceeds"));
+    }
+
+    #[test]
+    fn google_inline_data_accepts_image_within_raw_cap() {
+        let base64 = general_purpose::STANDARD.encode(vec![0_u8; 1024]);
+        let json = json!({
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "inlineData": { "mimeType": "image/png", "data": base64 }
+                    }]
+                }
+            }]
+        });
+        let result = parse_google_generate_content_image(&json)
+            .expect("Gemini inline data should parse")
+            .expect("Gemini inline image should exist");
+
+        assert_eq!(result.1, "image/png");
+    }
+
+    #[test]
+    fn google_predict_rejects_decoded_image_over_raw_cap() {
+        let base64 =
+            general_purpose::STANDARD.encode(vec![0_u8; IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES + 1]);
+        let json = json!({
+            "predictions": [{
+                "bytesBase64Encoded": base64,
+                "mimeType": "image/png"
+            }]
+        });
+        let error = parse_google_predict_image(&json)
+            .expect_err("oversized Imagen inline data should fail");
+
+        assert_eq!(error.code, "image_response_error");
+        assert!(error.message.contains("exceeds"));
+    }
+
+    #[tokio::test]
+    async fn image_json_explicit_url_reports_oversized_fetch_error() {
+        let url = serve_bytes_response(
+            "200 OK",
+            "image/png",
+            vec![0_u8; IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES + 1],
+        )
+        .await;
+        let json = json!({ "data": [{ "url": url }] });
+        let error = parse_image_json(&http_client(1).expect("client should build"), &json)
+            .await
+            .expect_err("oversized fetched image should surface");
+
+        assert_eq!(error.code, "image_response_error");
+        assert!(error.message.contains("exceeds"));
+    }
+
+    #[tokio::test]
+    async fn image_json_nested_url_reports_oversized_fetch_error() {
+        let url = format!(
+            "{}/image.png",
+            serve_bytes_response(
+                "200 OK",
+                "image/png",
+                vec![0_u8; IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES + 1],
+            )
+            .await
+        );
+        let json = json!({ "message": format!("image at {url}") });
+        let error = parse_image_json(&http_client(1).expect("client should build"), &json)
+            .await
+            .expect_err("oversized nested fetched image should surface");
+
+        assert_eq!(error.code, "image_response_error");
+        assert!(error.message.contains("exceeds"));
+    }
+
+    #[tokio::test]
+    async fn image_json_explicit_url_success_still_returns_image() {
+        let mut image = vec![0_u8; 1024];
+        image[..8].copy_from_slice(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']);
+        let url = serve_bytes_response("200 OK", "image/png", image).await;
+        let json = json!({ "data": [{ "url": url }] });
+        let result = parse_image_json(&http_client(1).expect("client should build"), &json)
+            .await
+            .expect("image URL fetch should succeed")
+            .expect("image URL should return image data");
+
+        assert_eq!(result.1, "image/png");
+    }
+
+    #[tokio::test]
+    async fn novelai_zip_entry_over_raw_cap_is_rejected_before_base64() {
+        let client = http_client(1).expect("client should build");
+        let archive = zip_with_image(
+            "image.png",
+            &vec![0_u8; IMAGE_PROVIDER_RAW_IMAGE_MAX_BYTES + 1],
+        );
+        assert!(archive.len() < IMAGE_PROVIDER_JSON_ENVELOPE_MAX_BYTES);
+        let error = parse_novelai_image_response(&client, archive, "application/zip")
+            .await
+            .expect_err("oversized zipped image should fail");
+
+        assert_eq!(error.code, "image_response_error");
+        assert!(error.message.contains("exceeds"));
+    }
+
+    #[tokio::test]
+    async fn novelai_zip_small_png_still_parses() {
+        let client = http_client(1).expect("client should build");
+        let mut image = vec![0_u8; 1024];
+        image[..8].copy_from_slice(&[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n']);
+        let archive = zip_with_image("image.png", &image);
+        let (_base64, mime) = parse_novelai_image_response(&client, archive, "application/zip")
+            .await
+            .expect("small zipped image should parse");
+
+        assert_eq!(mime, "image/png");
     }
 
     #[test]

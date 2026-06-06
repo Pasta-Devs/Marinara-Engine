@@ -1,6 +1,14 @@
 use super::prompts;
 use super::*;
-use marinara_security::{is_allowed_outbound_url, redact_sensitive_text};
+use marinara_security::{
+    is_allowed_provider_url, is_forbidden_provider_resolved_ip, is_loopback_provider_host,
+    redact_sensitive_text,
+};
+use std::net::{IpAddr, SocketAddr};
+
+const PROVIDER_LOCAL_URLS_ENABLED_FLAG: &str = "PROVIDER_LOCAL_URLS_ENABLED";
+const IMAGE_LOCAL_URLS_ENABLED_FLAG: &str = "IMAGE_LOCAL_URLS_ENABLED";
+const PROVIDER_CONFIG_MAX_RESPONSE_BYTES: usize = 5 * 1024 * 1024;
 
 pub(crate) fn resolve_llm_connection_for_request(
     state: &AppState,
@@ -492,15 +500,15 @@ async fn check_openrouter_key(connection: &Value) -> AppResult<String> {
     let api_key = connection_api_key(connection)?;
     let base = connection_base_url(connection);
     let url = format!("{}/key", base.trim_end_matches('/'));
-    ensure_model_url_allowed(&url)?;
-    let client = connection_test_client()?;
-    let request = client
-        .get(&url)
-        .header("accept", "application/json")
-        .bearer_auth(api_key)
-        .header("HTTP-Referer", "https://marinara.local")
-        .header("X-Title", "Marinara Engine");
-    let json = send_connection_test_request(request, "OpenRouter").await?;
+    let policy = provider_url_policy_for_connection(connection);
+    let json = send_connection_test_get(&url, policy, "OpenRouter", |request| {
+        request
+            .header("accept", "application/json")
+            .bearer_auth(&api_key)
+            .header("HTTP-Referer", "https://marinara.local")
+            .header("X-Title", "Marinara Engine")
+    })
+    .await?;
     let remaining = json
         .pointer("/data/limit_remaining")
         .and_then(Value::as_f64)
@@ -537,21 +545,22 @@ async fn check_image_generation_connection(connection: &Value) -> AppResult<Stri
         }
         "horde" => {
             let url = build_horde_url(&base, "status/heartbeat");
-            ensure_model_url_allowed(&url)?;
+            let policy = provider_url_policy_for_connection(connection);
             let api_key = connection_api_key_optional(connection);
-            let request = connection_test_client()?
-                .get(&url)
-                .header("accept", "application/json")
-                .header(
-                    "apikey",
-                    if api_key.trim().is_empty() {
-                        "0000000000"
-                    } else {
-                        api_key.trim()
-                    },
-                )
-                .header("Client-Agent", "Marinara-Engine");
-            send_connection_test_request(request, "Stable Horde").await?;
+            send_connection_test_get(&url, policy, "Stable Horde", |request| {
+                request
+                    .header("accept", "application/json")
+                    .header(
+                        "apikey",
+                        if api_key.trim().is_empty() {
+                            "0000000000"
+                        } else {
+                            api_key.trim()
+                        },
+                    )
+                    .header("Client-Agent", "Marinara-Engine")
+            })
+            .await?;
             Ok("Stable Horde endpoint is reachable.".to_string())
         }
         "stability" => {
@@ -585,25 +594,27 @@ async fn check_image_generation_connection(connection: &Value) -> AppResult<Stri
 async fn check_openrouter_key_for_base(connection: &Value, base: &str) -> AppResult<String> {
     let api_key = connection_api_key(connection)?;
     let url = format!("{}/key", base.trim_end_matches('/'));
-    ensure_model_url_allowed(&url)?;
-    let request = connection_test_client()?
-        .get(&url)
-        .header("accept", "application/json")
-        .bearer_auth(api_key)
-        .header("HTTP-Referer", "https://marinara.local")
-        .header("X-Title", "Marinara Engine");
-    send_connection_test_request(request, "OpenRouter").await?;
+    let policy = provider_url_policy_for_connection(connection);
+    send_connection_test_get(&url, policy, "OpenRouter", |request| {
+        request
+            .header("accept", "application/json")
+            .bearer_auth(&api_key)
+            .header("HTTP-Referer", "https://marinara.local")
+            .header("X-Title", "Marinara Engine")
+    })
+    .await?;
     Ok("OpenRouter API key is valid.".to_string())
 }
 
 async fn check_bearer_get(url: &str, connection: &Value, label: &str) -> AppResult<Value> {
     let api_key = connection_api_key(connection)?;
-    ensure_model_url_allowed(url)?;
-    let request = connection_test_client()?
-        .get(url)
-        .header("accept", "application/json")
-        .bearer_auth(api_key);
-    send_connection_test_request(request, label).await
+    let policy = provider_url_policy_for_connection(connection);
+    send_connection_test_get(url, policy, label, |request| {
+        request
+            .header("accept", "application/json")
+            .bearer_auth(&api_key)
+    })
+    .await
 }
 
 /// Like `check_bearer_get`, but authenticates with Google's `x-goog-api-key`
@@ -611,42 +622,55 @@ async fn check_bearer_get(url: &str, connection: &Value, label: &str) -> AppResu
 /// "Expected OAuth 2 access token" error, so the API key must travel this way.
 async fn check_google_api_key_get(url: &str, connection: &Value, label: &str) -> AppResult<Value> {
     let api_key = connection_api_key(connection)?;
-    ensure_model_url_allowed(url)?;
-    let request = connection_test_client()?
-        .get(url)
-        .header("accept", "application/json")
-        .header("x-goog-api-key", api_key);
-    send_connection_test_request(request, label).await
+    let policy = provider_url_policy_for_connection(connection);
+    send_connection_test_get(url, policy, label, |request| {
+        request
+            .header("accept", "application/json")
+            .header("x-goog-api-key", &api_key)
+    })
+    .await
 }
 
 async fn check_optional_bearer_get(url: &str, connection: &Value, label: &str) -> AppResult<Value> {
-    ensure_model_url_allowed(url)?;
-    let mut request = connection_test_client()?
-        .get(url)
-        .header("accept", "application/json");
+    let policy = provider_url_policy_for_connection(connection);
     let api_key = connection_api_key_optional(connection);
-    if !api_key.trim().is_empty() {
-        request = request.bearer_auth(api_key.trim().to_string());
-    }
-    send_connection_test_request(request, label).await
+    send_connection_test_get(url, policy, label, |request| {
+        let request = request.header("accept", "application/json");
+        if api_key.trim().is_empty() {
+            request
+        } else {
+            request.bearer_auth(api_key.trim())
+        }
+    })
+    .await
 }
 
-async fn send_connection_test_request(
-    request: reqwest::RequestBuilder,
+async fn send_connection_test_get(
+    url: &str,
+    policy: ProviderUrlPolicy,
+    label: &str,
+    configure: impl Fn(reqwest::RequestBuilder) -> reqwest::RequestBuilder,
+) -> AppResult<Value> {
+    let response = send_provider_get(
+        url,
+        policy,
+        Duration::from_secs(30),
+        "connection_client_error",
+        "connection_network_error",
+        "connection_redirect_error",
+        configure,
+    )
+    .await?;
+    read_connection_test_response(response, label).await
+}
+
+async fn read_connection_test_response(
+    response: reqwest::Response,
     label: &str,
 ) -> AppResult<Value> {
-    let response = request.send().await.map_err(|error| {
-        AppError::new(
-            "connection_network_error",
-            provider_transport_error_message(error),
-        )
-    })?;
     let status = response.status();
-    let text = response
-        .text()
-        .await
-        .map_err(|error| AppError::new("connection_response_error", error.to_string()))?;
     if !status.is_success() {
+        let text = read_capped_provider_error_text(response, "connection_response_error").await?;
         return Err(AppError::new(
             "connection_provider_error",
             format!(
@@ -655,14 +679,66 @@ async fn send_connection_test_request(
             ),
         ));
     }
+    let text = read_limited_provider_text(response, "connection_response_error").await?;
     Ok(serde_json::from_str::<Value>(&text).unwrap_or(Value::Null))
 }
 
-fn connection_test_client() -> AppResult<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|error| AppError::new("connection_client_error", error.to_string()))
+async fn send_provider_get(
+    url: &str,
+    policy: ProviderUrlPolicy,
+    timeout: Duration,
+    client_error_code: &str,
+    network_error_code: &str,
+    redirect_error_code: &str,
+    configure: impl Fn(reqwest::RequestBuilder) -> reqwest::RequestBuilder,
+) -> AppResult<reqwest::Response> {
+    let mut current_url = reqwest::Url::parse(url).map_err(|error| {
+        AppError::invalid_input(format!("Outbound model URL is invalid: {error}"))
+    })?;
+    let original_url = current_url.clone();
+    for redirect_count in 0..=10 {
+        let allow_loopback = redirect_count == 0 || same_origin(&original_url, &current_url);
+        let resolved =
+            ensure_model_url_allowed(current_url.as_str(), policy, allow_loopback).await?;
+        let client = provider_http_client(
+            timeout,
+            client_error_code,
+            current_url.host_str(),
+            resolved.as_deref(),
+        )?;
+        let request = client.get(current_url.clone());
+        let request = if same_origin(&original_url, &current_url) {
+            configure(request)
+        } else {
+            request
+        };
+        let response = request.send().await.map_err(|error| {
+            AppError::new(network_error_code, provider_transport_error_message(error))
+        })?;
+        let status = response.status();
+        if !(status.is_redirection() && response.headers().contains_key(reqwest::header::LOCATION))
+        {
+            return Ok(response);
+        }
+        if redirect_count == 10 {
+            return Err(AppError::new(
+                redirect_error_code,
+                "Outbound request exceeded redirect limit",
+            ));
+        }
+        let location = response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .ok_or_else(|| AppError::new(redirect_error_code, "Provider redirect is invalid"))?;
+        current_url = current_url
+            .join(location)
+            .map_err(|error| AppError::new(redirect_error_code, error.to_string()))?;
+    }
+    Err(AppError::new(
+        redirect_error_code,
+        "Outbound request exceeded redirect limit",
+    ))
 }
 
 fn connection_api_key(connection: &Value) -> AppResult<String> {
@@ -882,38 +958,37 @@ async fn fetch_provider_models(connection: &Value) -> AppResult<Vec<Value>> {
         return Ok(provider_model_catalog(provider));
     }
     let url = model_endpoint(provider, &base, connection);
-    ensure_model_url_allowed(&url)?;
-    let mut request = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|error| AppError::new("models_client_error", error.to_string()))?
-        .get(url)
-        .header("accept", "application/json");
+    let policy = provider_url_policy_for_connection(connection);
     let api_key = connection
         .get("apiKey")
         .and_then(Value::as_str)
         .unwrap_or("")
         .trim()
         .to_string();
-    if provider == "anthropic" {
-        request = request
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01");
-    } else if !api_key.is_empty() && provider != "google" {
-        request = request.bearer_auth(api_key);
-    }
-    let response = request.send().await.map_err(|error| {
-        AppError::new(
-            "models_network_error",
-            provider_transport_error_message(error),
-        )
-    })?;
+    let response = send_provider_get(
+        &url,
+        policy,
+        Duration::from_secs(30),
+        "models_client_error",
+        "models_network_error",
+        "models_redirect_error",
+        |request| {
+            let request = request.header("accept", "application/json");
+            if provider == "anthropic" {
+                request
+                    .header("x-api-key", &api_key)
+                    .header("anthropic-version", "2023-06-01")
+            } else if !api_key.is_empty() && provider != "google" {
+                request.bearer_auth(&api_key)
+            } else {
+                request
+            }
+        },
+    )
+    .await?;
     let status = response.status();
-    let text = response
-        .text()
-        .await
-        .map_err(|error| AppError::new("models_response_error", error.to_string()))?;
     if !status.is_success() {
+        let text = read_capped_provider_error_text(response, "models_response_error").await?;
         return Err(AppError::new(
             "models_provider_error",
             format!(
@@ -922,6 +997,7 @@ async fn fetch_provider_models(connection: &Value) -> AppResult<Vec<Value>> {
             ),
         ));
     }
+    let text = read_limited_provider_text(response, "models_response_error").await?;
     let json = serde_json::from_str::<Value>(&text)
         .map_err(|error| AppError::new("models_json_error", error.to_string()))?;
     Ok(normalize_models_response(provider, &json))
@@ -930,22 +1006,30 @@ async fn fetch_provider_models(connection: &Value) -> AppResult<Vec<Value>> {
 async fn fetch_ollama_models(connection: &Value) -> AppResult<Vec<Value>> {
     let base = connection_base_url(connection);
     let url = format!("{base}/api/tags");
-    ensure_model_url_allowed(&url)?;
-    let json = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-        .map_err(|error| AppError::new("models_client_error", error.to_string()))?
-        .get(url)
-        .send()
-        .await
-        .map_err(|error| {
-            AppError::new(
-                "models_network_error",
-                provider_transport_error_message(error),
-            )
-        })?
-        .json::<Value>()
-        .await
+    let policy = provider_url_policy_for_connection(connection);
+    let response = send_provider_get(
+        &url,
+        policy,
+        Duration::from_secs(15),
+        "models_client_error",
+        "models_network_error",
+        "models_redirect_error",
+        |request| request,
+    )
+    .await?;
+    let status = response.status();
+    if !status.is_success() {
+        let text = read_capped_provider_error_text(response, "models_response_error").await?;
+        return Err(AppError::new(
+            "models_provider_error",
+            format!(
+                "Ollama returned HTTP {status}: {}",
+                sanitize_provider_body(&text)
+            ),
+        ));
+    }
+    let text = read_limited_provider_text(response, "models_response_error").await?;
+    let json = serde_json::from_str::<Value>(&text)
         .map_err(|error| AppError::new("models_json_error", error.to_string()))?;
     Ok(json
         .get("models")
@@ -1066,32 +1150,33 @@ async fn fetch_json_models<F>(
 where
     F: Fn(&Value) -> Vec<Value>,
 {
-    ensure_model_url_allowed(url)?;
-    let mut request = reqwest::Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|error| AppError::new("models_client_error", error.to_string()))?
-        .get(url)
-        .header("accept", "application/json");
-    if let Some(api_key) = connection
+    let policy = provider_url_policy_for_connection(connection);
+    let api_key = connection
         .get("apiKey")
         .and_then(Value::as_str)
-        .filter(|key| !key.trim().is_empty())
-    {
-        request = request.bearer_auth(api_key.trim());
-    }
-    let response = request.send().await.map_err(|error| {
-        AppError::new(
-            "models_network_error",
-            provider_transport_error_message(error),
-        )
-    })?;
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .map(str::to_string);
+    let response = send_provider_get(
+        url,
+        policy,
+        Duration::from_secs(30),
+        "models_client_error",
+        "models_network_error",
+        "models_redirect_error",
+        |request| {
+            let request = request.header("accept", "application/json");
+            if let Some(api_key) = api_key.as_deref() {
+                request.bearer_auth(api_key)
+            } else {
+                request
+            }
+        },
+    )
+    .await?;
     let status = response.status();
-    let text = response
-        .text()
-        .await
-        .map_err(|error| AppError::new("models_response_error", error.to_string()))?;
     if !status.is_success() {
+        let text = read_capped_provider_error_text(response, "models_response_error").await?;
         return Err(AppError::new(
             "models_provider_error",
             format!(
@@ -1100,6 +1185,7 @@ where
             ),
         ));
     }
+    let text = read_limited_provider_text(response, "models_response_error").await?;
     let json = serde_json::from_str::<Value>(&text)
         .map_err(|error| AppError::new("models_json_error", error.to_string()))?;
     Ok(normalize(&json))
@@ -1384,15 +1470,221 @@ fn provider_default_base_url(provider: &str) -> &'static str {
     }
 }
 
-fn ensure_model_url_allowed(url: &str) -> AppResult<()> {
-    if is_allowed_outbound_url(url, true) {
-        Ok(())
-    } else {
-        Err(AppError::invalid_input(format!(
-            "Outbound model URL is not allowed: {}",
-            redact_sensitive_text(url)
-        )))
+#[derive(Clone, Copy)]
+struct ProviderUrlPolicy {
+    allow_private_or_reserved: bool,
+    flag_name: &'static str,
+}
+
+fn provider_url_policy_for_connection(connection: &Value) -> ProviderUrlPolicy {
+    let provider = connection
+        .get("provider")
+        .and_then(Value::as_str)
+        .unwrap_or("openai");
+    if provider == "image_generation" {
+        let source = super::images::image_generation_source(connection);
+        let is_local_image_backend =
+            matches!(source.as_str(), "comfyui" | "automatic1111" | "drawthings");
+        return ProviderUrlPolicy {
+            allow_private_or_reserved: is_local_image_backend
+                || local_url_flag_enabled(IMAGE_LOCAL_URLS_ENABLED_FLAG),
+            flag_name: IMAGE_LOCAL_URLS_ENABLED_FLAG,
+        };
     }
+    ProviderUrlPolicy {
+        allow_private_or_reserved: local_url_flag_enabled(PROVIDER_LOCAL_URLS_ENABLED_FLAG),
+        flag_name: PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+    }
+}
+
+fn local_url_flag_enabled(flag_name: &str) -> bool {
+    std::env::var(flag_name).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+async fn ensure_model_url_allowed(
+    url: &str,
+    policy: ProviderUrlPolicy,
+    allow_loopback: bool,
+) -> AppResult<Option<Vec<SocketAddr>>> {
+    let parsed = reqwest::Url::parse(url).map_err(|error| {
+        AppError::invalid_input(format!(
+            "Outbound model URL is invalid: {}",
+            redact_sensitive_text(&error.to_string())
+        ))
+    })?;
+    if !is_allowed_provider_url(parsed.as_str(), policy.allow_private_or_reserved) {
+        return Err(provider_url_not_allowed_error(url, policy.flag_name));
+    }
+    validate_model_url_resolution(&parsed, policy, allow_loopback).await
+}
+
+async fn validate_model_url_resolution(
+    url: &reqwest::Url,
+    policy: ProviderUrlPolicy,
+    allow_loopback: bool,
+) -> AppResult<Option<Vec<SocketAddr>>> {
+    if policy.allow_private_or_reserved {
+        return Ok(None);
+    }
+    let Some(host) = url.host_str() else {
+        return Err(provider_url_not_allowed_error(
+            url.as_str(),
+            policy.flag_name,
+        ));
+    };
+    if allow_loopback && is_loopback_provider_host(host) {
+        return Ok(None);
+    }
+    if let Some(address) = provider_host_ip(host) {
+        if is_forbidden_provider_resolved_ip(address, policy.allow_private_or_reserved) {
+            return Err(provider_url_not_allowed_error(
+                url.as_str(),
+                policy.flag_name,
+            ));
+        }
+        return Ok(None);
+    }
+    let port = url.port_or_known_default().unwrap_or(443);
+    let addresses = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|error| {
+            AppError::invalid_input(format!(
+                "Outbound model URL host '{}' did not resolve: {}",
+                redact_sensitive_text(host),
+                redact_sensitive_text(&error.to_string())
+            ))
+        })?;
+    let validated_addresses = addresses.collect::<Vec<_>>();
+    validate_provider_resolved_addresses(url, policy, validated_addresses)
+}
+
+fn validate_provider_resolved_addresses(
+    url: &reqwest::Url,
+    policy: ProviderUrlPolicy,
+    addresses: Vec<SocketAddr>,
+) -> AppResult<Option<Vec<SocketAddr>>> {
+    if addresses.is_empty() {
+        Err(AppError::invalid_input(format!(
+            "Outbound model URL host '{}' did not resolve",
+            redact_sensitive_text(url.host_str().unwrap_or("<missing>"))
+        )))
+    } else if addresses.iter().any(|address| {
+        is_forbidden_provider_resolved_ip(address.ip(), policy.allow_private_or_reserved)
+    }) {
+        Err(provider_url_not_allowed_error(
+            url.as_str(),
+            policy.flag_name,
+        ))
+    } else {
+        Ok(Some(addresses))
+    }
+}
+
+fn provider_host_ip(host: &str) -> Option<IpAddr> {
+    let unbracketed = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
+    unbracketed.parse::<IpAddr>().ok()
+}
+
+fn same_origin(left: &reqwest::Url, right: &reqwest::Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str().map(str::to_ascii_lowercase)
+            == right.host_str().map(str::to_ascii_lowercase)
+        && left.port_or_known_default() == right.port_or_known_default()
+}
+
+fn provider_url_not_allowed_error(url: &str, flag_name: &str) -> AppError {
+    AppError::invalid_input(format!(
+        "Outbound model URL points to a private, LAN, metadata, or reserved target: {}. Set {flag_name}=true only if you trust that provider target.",
+        redact_sensitive_text(url)
+    ))
+}
+
+fn provider_http_client(
+    timeout: Duration,
+    error_code: &str,
+    host: Option<&str>,
+    resolved_addresses: Option<&[SocketAddr]>,
+) -> AppResult<reqwest::Client> {
+    let mut builder = reqwest::Client::builder()
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::none());
+    if let (Some(host), Some(addresses)) = (host, resolved_addresses) {
+        builder = builder.resolve_to_addrs(host, addresses);
+    }
+    builder
+        .build()
+        .map_err(|error| AppError::new(error_code, error.to_string()))
+}
+
+async fn read_limited_provider_text(
+    mut response: reqwest::Response,
+    error_code: &str,
+) -> AppResult<String> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > PROVIDER_CONFIG_MAX_RESPONSE_BYTES as u64)
+    {
+        return Err(provider_response_too_large_error(error_code));
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::new(error_code, provider_transport_error_message(error)))?
+    {
+        if body.len().saturating_add(chunk.len()) > PROVIDER_CONFIG_MAX_RESPONSE_BYTES {
+            return Err(provider_response_too_large_error(error_code));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
+async fn read_capped_provider_error_text(
+    mut response: reqwest::Response,
+    error_code: &str,
+) -> AppResult<String> {
+    let mut body = Vec::new();
+    let mut truncated = false;
+
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::new(error_code, provider_transport_error_message(error)))?
+    {
+        let remaining = PROVIDER_CONFIG_MAX_RESPONSE_BYTES.saturating_sub(body.len());
+        if chunk.len() > remaining {
+            body.extend_from_slice(&chunk[..remaining]);
+            truncated = true;
+            break;
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    let mut text = String::from_utf8_lossy(&body).into_owned();
+    if truncated {
+        text.push_str(" [truncated]");
+    }
+    Ok(text)
+}
+
+fn provider_response_too_large_error(error_code: &str) -> AppError {
+    AppError::new(
+        error_code,
+        format!(
+            "Provider response exceeds {} bytes",
+            PROVIDER_CONFIG_MAX_RESPONSE_BYTES
+        ),
+    )
 }
 
 fn provider_transport_error_message(error: impl std::fmt::Display) -> String {
@@ -1412,6 +1704,10 @@ fn sanitize_provider_body(body: &str) -> String {
 mod tests {
     use super::*;
     use crate::state::AppState;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
     use std::time::{SystemTime, UNIX_EPOCH};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
@@ -1428,7 +1724,8 @@ mod tests {
         AppState::from_data_dir(path, Vec::new()).expect("test app state should initialize")
     }
 
-    async fn serve_model_failure(status: &'static str, body: &'static str) -> String {
+    async fn serve_model_failure(status: &'static str, body: impl Into<String>) -> String {
+        let body = body.into();
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("test model server should bind");
@@ -1453,6 +1750,78 @@ mod tests {
                 .write_all(response.as_bytes())
                 .await
                 .expect("test model server should write response");
+        });
+        format!("http://{address}/v1")
+    }
+
+    async fn serve_chunked_failure(status: &'static str, chunks: Vec<Vec<u8>>) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept one request");
+            let mut buffer = [0_u8; 2048];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test model server should write response headers");
+            for chunk in chunks {
+                let header = format!("{:x}\r\n", chunk.len());
+                stream
+                    .write_all(header.as_bytes())
+                    .await
+                    .expect("test model server should write chunk header");
+                stream
+                    .write_all(&chunk)
+                    .await
+                    .expect("test model server should write chunk body");
+                stream
+                    .write_all(b"\r\n")
+                    .await
+                    .expect("test model server should write chunk terminator");
+            }
+            stream
+                .write_all(b"0\r\n\r\n")
+                .await
+                .expect("test model server should write final chunk");
+        });
+        format!("http://{address}/v1")
+    }
+
+    async fn serve_redirect_loop(location: &'static str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut stream, _)) = listener.accept().await else {
+                    break;
+                };
+                tokio::spawn(async move {
+                    let mut buffer = [0_u8; 2048];
+                    let _ = stream.read(&mut buffer).await;
+                    let response = format!(
+                        "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                });
+            }
         });
         format!("http://{address}/v1")
     }
@@ -1494,6 +1863,158 @@ mod tests {
                 .expect("test model server should write response");
         });
         format!("http://{address}")
+    }
+
+    async fn serve_model_redirect(location: &'static str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept one request");
+            let mut buffer = [0_u8; 2048];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read request");
+            let response = format!(
+                "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test model server should write response");
+        });
+        format!("http://{address}/v1")
+    }
+
+    async fn serve_model_success(body: &'static str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept one request");
+            let mut buffer = [0_u8; 2048];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read request");
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test model server should write response");
+        });
+        format!("http://{address}/v1")
+    }
+
+    async fn serve_recording_target() -> (String, Arc<AtomicBool>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        let contacted = Arc::new(AtomicBool::new(false));
+        let contacted_for_task = Arc::clone(&contacted);
+        tokio::spawn(async move {
+            if let Ok((mut stream, _)) = listener.accept().await {
+                contacted_for_task.store(true, Ordering::SeqCst);
+                let response =
+                    "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}";
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+        (format!("http://{address}/blocked"), contacted)
+    }
+
+    async fn serve_request_recording_target() -> (String, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        let handle = tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept one request");
+            let mut buffer = [0_u8; 4096];
+            let read = stream
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read request");
+            let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}";
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test model server should write response");
+            String::from_utf8_lossy(&buffer[..read]).to_string()
+        });
+        (format!("http://{address}/redirected"), handle)
+    }
+
+    async fn serve_same_origin_authenticated_redirect() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test model server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test model server address should be readable");
+        tokio::spawn(async move {
+            let (mut first, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept redirect request");
+            let mut buffer = [0_u8; 2048];
+            let _ = first
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read redirect request");
+            first
+                .write_all(
+                    b"HTTP/1.1 302 Found\r\nLocation: /v1/models2\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )
+                .await
+                .expect("test model server should write redirect");
+
+            let (mut second, _) = listener
+                .accept()
+                .await
+                .expect("test model server should accept follow-up request");
+            let mut buffer = [0_u8; 4096];
+            let read = second
+                .read(&mut buffer)
+                .await
+                .expect("test model server should read follow-up request");
+            let request = String::from_utf8_lossy(&buffer[..read]).to_ascii_lowercase();
+            assert!(request.contains("\r\nauthorization: bearer sk-test-key\r\n"));
+            let body = r#"{"data":[{"id":"same-origin-model"}]}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            second
+                .write_all(response.as_bytes())
+                .await
+                .expect("test model server should write model body");
+        });
+        format!("http://{address}/v1/models")
     }
 
     #[test]
@@ -1596,15 +2117,312 @@ mod tests {
         );
     }
 
-    #[test]
-    fn model_url_rejection_redacts_query_secret() {
-        let error =
-            ensure_model_url_allowed("ftp://example.test/v1beta/models?key=AIzaSecretValue123")
-                .expect_err("disallowed model URL should fail");
+    #[tokio::test]
+    async fn model_url_rejection_redacts_query_secret() {
+        let error = ensure_model_url_allowed(
+            "ftp://example.test/v1beta/models?key=AIzaSecretValue123",
+            ProviderUrlPolicy {
+                allow_private_or_reserved: false,
+                flag_name: PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+            },
+            true,
+        )
+        .await
+        .expect_err("disallowed model URL should fail");
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("[REDACTED]"));
         assert!(!error.message.contains("AIzaSecretValue123"));
+    }
+
+    #[tokio::test]
+    async fn provider_model_url_policy_allows_loopback_but_blocks_private_targets() {
+        let policy = ProviderUrlPolicy {
+            allow_private_or_reserved: false,
+            flag_name: PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+        };
+
+        for url in [
+            "http://127.0.0.1:11434/api/tags",
+            "http://localhost:11434/api/tags",
+            "http://[::ffff:127.0.0.1]:11434/api/tags",
+        ] {
+            ensure_model_url_allowed(url, policy, true)
+                .await
+                .expect("loopback provider URL should remain allowed");
+        }
+        let error =
+            ensure_model_url_allowed("http://169.254.169.254/latest/meta-data", policy, true)
+                .await
+                .expect_err("metadata target should be blocked without provider opt-in");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+        assert!(error.message.contains("private"));
+    }
+
+    #[tokio::test]
+    async fn provider_model_url_policy_blocks_private_dns_answers() {
+        let policy = ProviderUrlPolicy {
+            allow_private_or_reserved: false,
+            flag_name: PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+        };
+        let url = reqwest::Url::parse("https://public-looking.example.test/v1/models")
+            .expect("test URL should parse");
+        let error = validate_provider_resolved_addresses(
+            &url,
+            policy,
+            vec![
+                "10.0.0.1:443".parse().expect("private address parses"),
+                "[::ffff:10.0.0.1]:443"
+                    .parse()
+                    .expect("mapped private address parses"),
+            ],
+        )
+        .expect_err("private DNS answers should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+    }
+
+    #[tokio::test]
+    async fn provider_model_url_policy_blocks_public_host_resolving_to_loopback() {
+        let policy = ProviderUrlPolicy {
+            allow_private_or_reserved: false,
+            flag_name: PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+        };
+        let url = reqwest::Url::parse("https://public-looking.example.test/v1/models")
+            .expect("test URL should parse");
+        let error = validate_provider_resolved_addresses(
+            &url,
+            policy,
+            vec![
+                "127.0.0.1:443".parse().expect("loopback address parses"),
+                "[::1]:443".parse().expect("IPv6 loopback address parses"),
+                "[::ffff:127.0.0.1]:443"
+                    .parse()
+                    .expect("mapped loopback address parses"),
+            ],
+        )
+        .expect_err("loopback DNS answers should be rejected for public-looking hosts");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+    }
+
+    #[tokio::test]
+    async fn provider_config_success_response_body_is_capped() {
+        let body = "x".repeat(PROVIDER_CONFIG_MAX_RESPONSE_BYTES + 1);
+        let base_url = serve_model_failure("200 OK", body).await;
+        let error = fetch_provider_models(&json!({
+            "provider": "openai",
+            "baseUrl": base_url,
+            "apiKey": "sk-test-key",
+            "model": "gpt-custom"
+        }))
+        .await
+        .expect_err("oversized successful model lookup response should fail");
+
+        assert_eq!(error.code, "models_response_error");
+        assert!(error.message.contains("exceeds"));
+    }
+
+    #[tokio::test]
+    async fn oversized_provider_config_error_preserves_status() {
+        let body = "x".repeat(PROVIDER_CONFIG_MAX_RESPONSE_BYTES + 1024);
+        let base_url = serve_model_failure("500 Internal Server Error", body).await;
+        let error = fetch_provider_models(&json!({
+            "provider": "openai",
+            "baseUrl": base_url,
+            "apiKey": "sk-test-key",
+            "model": "gpt-custom"
+        }))
+        .await
+        .expect_err("oversized model lookup error should stay status-bearing");
+
+        assert_eq!(error.code, "models_provider_error");
+        assert!(error
+            .message
+            .contains("Provider returned HTTP 500 Internal Server Error"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 600);
+    }
+
+    #[tokio::test]
+    async fn chunked_connection_error_is_bounded_sanitized_and_status_bearing() {
+        let base_url = serve_chunked_failure(
+            "429 Too Many Requests",
+            vec![
+                b"rate limited sk-test-secret ".to_vec(),
+                vec![b'x'; PROVIDER_CONFIG_MAX_RESPONSE_BYTES + 1024],
+            ],
+        )
+        .await;
+        let error = check_connection_without_generation(&json!({
+            "provider": "image_generation",
+            "baseUrl": base_url,
+            "imageGenerationSource": "pollinations",
+            "apiKey": "sk-test-key",
+            "model": "test-image-model"
+        }))
+        .await
+        .expect_err("chunked connection error should stay status-bearing");
+
+        assert_eq!(error.code, "connection_provider_error");
+        assert!(error
+            .message
+            .contains("Pollinations returned HTTP 429 Too Many Requests"));
+        assert!(error.message.contains("[REDACTED]"));
+        assert!(!error.message.contains("sk-test-secret"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 600);
+    }
+
+    #[tokio::test]
+    async fn connection_redirect_limit_uses_connection_error_code() {
+        let base_url = serve_redirect_loop("/v1/key").await;
+        let error = check_connection_without_generation(&json!({
+            "provider": "openrouter",
+            "baseUrl": base_url,
+            "apiKey": "sk-test-key",
+            "model": "openai/gpt-4o-mini"
+        }))
+        .await
+        .expect_err("connection redirect loop should fail");
+
+        assert_eq!(error.code, "connection_redirect_error");
+        assert!(error.message.contains("redirect limit"));
+    }
+
+    #[tokio::test]
+    async fn model_redirect_limit_keeps_models_error_code() {
+        let base_url = serve_redirect_loop("/v1/models").await;
+        let error = fetch_provider_models(&json!({
+            "provider": "openai",
+            "baseUrl": base_url,
+            "apiKey": "sk-test-key",
+            "model": "gpt-custom"
+        }))
+        .await
+        .expect_err("model redirect loop should fail");
+
+        assert_eq!(error.code, "models_redirect_error");
+        assert!(error.message.contains("redirect limit"));
+    }
+
+    #[tokio::test]
+    async fn provider_model_redirect_revalidates_private_target() {
+        let base_url = serve_model_redirect("http://169.254.169.254/latest/meta-data").await;
+        let error = fetch_provider_models(&json!({
+            "provider": "openai",
+            "baseUrl": base_url,
+            "apiKey": "sk-test-key",
+            "model": "gpt-custom"
+        }))
+        .await
+        .expect_err("private redirect target should be blocked before follow");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+    }
+
+    #[tokio::test]
+    async fn provider_model_redirect_rejects_loopback_before_contacting_target() {
+        let (target_url, contacted) = serve_recording_target().await;
+        let target_url: &'static str = Box::leak(target_url.into_boxed_str());
+        let base_url = serve_model_redirect(target_url).await;
+        let error = fetch_provider_models(&json!({
+            "provider": "openai",
+            "baseUrl": base_url,
+            "apiKey": "sk-test-key",
+            "model": "gpt-custom"
+        }))
+        .await
+        .expect_err("loopback redirect target should be blocked before follow");
+
+        assert_eq!(error.code, "invalid_input");
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(!contacted.load(Ordering::SeqCst));
+    }
+
+    #[tokio::test]
+    async fn provider_model_redirect_allows_loopback_when_local_opt_in_allows_it() {
+        let target_url = serve_model_success(r#"{"data":[{"id":"redirected-model"}]}"#).await;
+        let target_url: &'static str = Box::leak(target_url.into_boxed_str());
+        let base_url = serve_model_redirect(target_url).await;
+        let response = send_provider_get(
+            &base_url,
+            ProviderUrlPolicy {
+                allow_private_or_reserved: true,
+                flag_name: PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+            },
+            Duration::from_secs(5),
+            "models_client_error",
+            "models_network_error",
+            "models_redirect_error",
+            |request| request,
+        )
+        .await
+        .expect("local image provider opt-in should allow redirect through manual loop");
+
+        assert!(response.status().is_success());
+        let text = read_limited_provider_text(response, "models_response_error")
+            .await
+            .expect("redirect response body should read");
+        assert!(text.contains("redirected-model"));
+    }
+
+    #[tokio::test]
+    async fn provider_model_redirect_strips_credentials_on_cross_origin_follow() {
+        let (target_url, target_request) = serve_request_recording_target().await;
+        let target_url: &'static str = Box::leak(target_url.into_boxed_str());
+        let base_url = serve_model_redirect(target_url).await;
+        let response = send_provider_get(
+            &base_url,
+            ProviderUrlPolicy {
+                allow_private_or_reserved: true,
+                flag_name: PROVIDER_LOCAL_URLS_ENABLED_FLAG,
+            },
+            Duration::from_secs(5),
+            "models_client_error",
+            "models_network_error",
+            "models_redirect_error",
+            |request| {
+                request
+                    .header("accept", "application/json")
+                    .header("authorization", "Bearer sk-test-key")
+                    .header("x-api-key", "sk-test-key")
+                    .header("x-goog-api-key", "AIzaSecretValue")
+                    .header("apikey", "horde-secret")
+            },
+        )
+        .await
+        .expect("cross-origin redirect target is network-allowed");
+
+        assert!(response.status().is_success());
+        let request = target_request
+            .await
+            .expect("target request should be captured")
+            .to_ascii_lowercase();
+        assert!(!request.contains("\r\nauthorization:"));
+        assert!(!request.contains("\r\nx-api-key:"));
+        assert!(!request.contains("\r\nx-goog-api-key:"));
+        assert!(!request.contains("\r\napikey:"));
+    }
+
+    #[tokio::test]
+    async fn provider_model_redirect_keeps_credentials_on_same_origin_follow() {
+        let base_url = serve_same_origin_authenticated_redirect().await;
+        let models = fetch_provider_models(&json!({
+            "provider": "openai",
+            "baseUrl": base_url.trim_end_matches("/v1/models"),
+            "apiKey": "sk-test-key",
+            "model": "same-origin-model"
+        }))
+        .await
+        .expect("same-origin redirect should retain model auth");
+
+        assert_eq!(models[0]["id"], "same-origin-model");
     }
 
     #[test]

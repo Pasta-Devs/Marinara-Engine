@@ -1,12 +1,16 @@
 use futures_util::StreamExt;
 use marinara_core::{AppError, AppResult};
-use marinara_security::{is_allowed_outbound_url, redact_sensitive_json, redact_sensitive_text};
+use marinara_security::{
+    is_allowed_provider_url, is_forbidden_provider_resolved_ip, is_loopback_provider_host,
+    redact_sensitive_json, redact_sensitive_text,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     env, fs,
     io::Write,
+    net::{IpAddr, SocketAddr},
     path::PathBuf,
     process::{Command, Stdio},
 };
@@ -18,6 +22,8 @@ const OPENAI_CHATGPT_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const APP_VERSION: &str = "1.6.1";
 const CLAUDE_SUBSCRIPTION_1M_SUFFIX: &str = "[1m]";
 const CLAUDE_SUBSCRIPTION_1M_BETA: &str = "context-1m-2025-08-07";
+const PROVIDER_LOCAL_URLS_ENABLED_FLAG: &str = "PROVIDER_LOCAL_URLS_ENABLED";
+const PROVIDER_RESPONSE_MAX_BYTES: usize = 5 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SseBlockStatus {
@@ -377,15 +383,109 @@ fn request_max_tokens(request: &LlmRequest, fallback: u64) -> u64 {
         .unwrap_or(value)
 }
 
-fn ensure_url_allowed(url: &str) -> AppResult<()> {
-    if is_allowed_outbound_url(url, true) {
-        Ok(())
-    } else {
-        Err(AppError::invalid_input(format!(
-            "Outbound URL is not allowed: {}",
-            redact_sensitive_text(url)
-        )))
+fn provider_local_urls_enabled() -> bool {
+    std::env::var(PROVIDER_LOCAL_URLS_ENABLED_FLAG).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+async fn provider_http_client_for_url(url: &str) -> AppResult<reqwest::Client> {
+    let parsed = reqwest::Url::parse(url).map_err(|error| {
+        AppError::invalid_input(format!(
+            "Outbound URL is invalid: {}",
+            redact_sensitive_text(&error.to_string())
+        ))
+    })?;
+    let allow_private_or_reserved = provider_local_urls_enabled();
+    if !is_allowed_provider_url(parsed.as_str(), allow_private_or_reserved) {
+        return Err(provider_url_not_allowed_error(url));
     }
+    let resolved = validate_provider_url_resolution(&parsed, allow_private_or_reserved).await?;
+    provider_http_client(parsed.host_str(), resolved.as_deref())
+}
+
+async fn validate_provider_url_resolution(
+    url: &reqwest::Url,
+    allow_private_or_reserved: bool,
+) -> AppResult<Option<Vec<SocketAddr>>> {
+    if allow_private_or_reserved {
+        return Ok(None);
+    }
+    let Some(host) = url.host_str() else {
+        return Err(provider_url_not_allowed_error(url.as_str()));
+    };
+    if is_loopback_provider_host(host) {
+        return Ok(None);
+    }
+    if let Some(address) = provider_host_ip(host) {
+        if is_forbidden_provider_resolved_ip(address, allow_private_or_reserved) {
+            return Err(provider_url_not_allowed_error(url.as_str()));
+        }
+        return Ok(None);
+    }
+    let port = url.port_or_known_default().unwrap_or(443);
+    let addresses = tokio::net::lookup_host((host, port))
+        .await
+        .map_err(|error| {
+            AppError::invalid_input(format!(
+                "Outbound URL host '{}' did not resolve: {}",
+                redact_sensitive_text(host),
+                redact_sensitive_text(&error.to_string())
+            ))
+        })?
+        .collect::<Vec<_>>();
+    validate_provider_resolved_addresses(url, allow_private_or_reserved, addresses)
+}
+
+fn validate_provider_resolved_addresses(
+    url: &reqwest::Url,
+    allow_private_or_reserved: bool,
+    addresses: Vec<SocketAddr>,
+) -> AppResult<Option<Vec<SocketAddr>>> {
+    if addresses.is_empty() {
+        Err(AppError::invalid_input(format!(
+            "Outbound URL host '{}' did not resolve",
+            redact_sensitive_text(url.host_str().unwrap_or("<missing>"))
+        )))
+    } else if addresses
+        .iter()
+        .any(|address| is_forbidden_provider_resolved_ip(address.ip(), allow_private_or_reserved))
+    {
+        Err(provider_url_not_allowed_error(url.as_str()))
+    } else {
+        Ok(Some(addresses))
+    }
+}
+
+fn provider_host_ip(host: &str) -> Option<IpAddr> {
+    let unbracketed = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
+    unbracketed.parse::<IpAddr>().ok()
+}
+
+fn provider_url_not_allowed_error(url: &str) -> AppError {
+    AppError::invalid_input(format!(
+        "Outbound URL points to a private, LAN, metadata, or reserved target: {}. Set {PROVIDER_LOCAL_URLS_ENABLED_FLAG}=true only if you trust that provider target.",
+        redact_sensitive_text(url)
+    ))
+}
+
+fn provider_http_client(
+    host: Option<&str>,
+    resolved_addresses: Option<&[SocketAddr]>,
+) -> AppResult<reqwest::Client> {
+    let mut builder = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none());
+    if let (Some(host), Some(addresses)) = (host, resolved_addresses) {
+        builder = builder.resolve_to_addrs(host, addresses);
+    }
+    builder
+        .build()
+        .map_err(|error| AppError::new("llm_client_error", error.to_string()))
 }
 
 fn provider_transport_error_message(error: impl std::fmt::Display) -> String {
@@ -1449,8 +1549,8 @@ fn openai_chatgpt_auth_is_stale(auth_json: &Value) -> bool {
 }
 
 async fn refresh_openai_chatgpt_auth(refresh_token: &str) -> AppResult<Value> {
-    ensure_url_allowed(OPENAI_CHATGPT_REFRESH_URL)?;
-    let response = reqwest::Client::new()
+    let response = provider_http_client_for_url(OPENAI_CHATGPT_REFRESH_URL)
+        .await?
         .post(OPENAI_CHATGPT_REFRESH_URL)
         .json(&json!({
             "client_id": OPENAI_CHATGPT_CLIENT_ID,
@@ -1643,10 +1743,9 @@ fn build_cohere_body(request: &LlmRequest, stream: bool) -> Value {
 
 async fn complete_cohere_rich(request: LlmRequest) -> AppResult<LlmCompletion> {
     let url = cohere_chat_endpoint(&request.connection.base_url);
-    ensure_url_allowed(&url)?;
     let body = build_cohere_body(&request, false);
     log_prompt_connection_request("cohere.v2.chat", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
@@ -1662,10 +1761,9 @@ async fn stream_cohere(
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
     let url = cohere_chat_endpoint(&request.connection.base_url);
-    ensure_url_allowed(&url)?;
     let body = build_cohere_body(&request, true);
     log_prompt_connection_request("cohere.v2.chat.stream", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
@@ -1675,7 +1773,7 @@ async fn stream_cohere(
     })?;
     let status = response.status();
     if !status.is_success() {
-        let error_body = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
+        let error_body = read_error_response_details(response).await?;
         return Err(provider_http_error(status, error_body));
     }
 
@@ -1714,7 +1812,6 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
         return complete_openai_responses_rich(request).await;
     }
     let url = openai_compatible_chat_endpoint(&request);
-    ensure_url_allowed(&url)?;
     let messages: Vec<Value> = request_messages(&request)
         .iter()
         .map(openai_message)
@@ -1742,7 +1839,7 @@ async fn complete_openai_compatible_rich(request: LlmRequest) -> AppResult<LlmCo
     }
     apply_openai_parameters(&mut body, &request);
     log_prompt_connection_request("openai.chat.completions", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
@@ -1763,7 +1860,6 @@ async fn stream_openai_compatible(
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
     let url = openai_compatible_chat_endpoint(&request);
-    ensure_url_allowed(&url)?;
     let messages: Vec<Value> = request_messages(&request)
         .iter()
         .map(openai_message)
@@ -1791,7 +1887,7 @@ async fn stream_openai_compatible(
     }
     apply_openai_parameters(&mut body, &request);
     log_prompt_connection_request("openai.chat.completions.stream", &url, &request, &body);
-    let client = reqwest::Client::new();
+    let client = provider_http_client_for_url(&url).await?;
     let mut req = client.post(url).json(&body);
     if !request.connection.api_key.trim().is_empty() {
         req = req.bearer_auth(request.connection.api_key.trim());
@@ -1806,7 +1902,7 @@ async fn stream_openai_compatible(
     })?;
     let status = response.status();
     if !status.is_success() {
-        let error_body = response.json::<Value>().await.unwrap_or_else(|_| json!({}));
+        let error_body = read_error_response_details(response).await?;
         return Err(provider_http_error(status, error_body));
     }
 
@@ -1950,9 +2046,8 @@ async fn openai_responses_request(
 ) -> AppResult<reqwest::Response> {
     let base = base_url(&request.connection.provider, &request.connection.base_url);
     let url = format!("{base}/responses");
-    ensure_url_allowed(&url)?;
     log_prompt_connection_request("openai.responses", &url, request, body);
-    let req = reqwest::Client::new().post(url).json(body);
+    let req = provider_http_client_for_url(&url).await?.post(url).json(body);
     let req = if request.connection.provider == "openai_chatgpt" {
         apply_chatgpt_auth_headers(req).await?
     } else {
@@ -3478,9 +3573,9 @@ async fn anthropic_request(
 ) -> AppResult<reqwest::Response> {
     let base = base_url(&request.connection.provider, &request.connection.base_url);
     let url = anthropic_endpoint(&base, "messages");
-    ensure_url_allowed(&url)?;
     log_prompt_connection_request(kind, &url, request, body);
-    reqwest::Client::new()
+    provider_http_client_for_url(&url)
+        .await?
         .post(url)
         .header("x-api-key", request.connection.api_key.trim())
         .header("anthropic-version", "2023-06-01")
@@ -3891,10 +3986,10 @@ fn google_generate_body(request: &LlmRequest) -> Value {
 
 async fn complete_google(request: LlmRequest) -> AppResult<String> {
     let url = google_endpoint(&request, "generateContent", false);
-    ensure_url_allowed(&url)?;
     let body = google_generate_body(&request);
     log_prompt_connection_request("google.generateContent", &url, &request, &body);
-    let response = reqwest::Client::new()
+    let response = provider_http_client_for_url(&url)
+        .await?
         .post(url)
         .json(&body)
         .send()
@@ -3932,10 +4027,10 @@ async fn stream_google(
     emit: &mut (impl FnMut(Value) -> AppResult<()> + Send),
 ) -> AppResult<()> {
     let url = google_endpoint(&request, "streamGenerateContent", true);
-    ensure_url_allowed(&url)?;
     let body = google_generate_body(&request);
     log_prompt_connection_request("google.streamGenerateContent", &url, &request, &body);
-    let response = reqwest::Client::new()
+    let response = provider_http_client_for_url(&url)
+        .await?
         .post(url)
         .json(&body)
         .send()
@@ -4067,12 +4162,7 @@ fn ensure_google_finish_reason_allows_complete(reason: &str) -> AppResult<()> {
 }
 
 async fn read_error_response_details(response: reqwest::Response) -> AppResult<Value> {
-    let text = response.text().await.map_err(|error| {
-        AppError::new(
-            "llm_response_error",
-            provider_transport_error_message(error),
-        )
-    })?;
+    let text = read_capped_provider_error_text(response).await?;
     Ok(provider_error_details_from_text(&text))
 }
 
@@ -4080,15 +4170,11 @@ async fn read_json_response(
     response: reqwest::Response,
 ) -> AppResult<(reqwest::StatusCode, Value)> {
     let status = response.status();
-    let text = response.text().await.map_err(|error| {
-        AppError::new(
-            "llm_response_error",
-            provider_transport_error_message(error),
-        )
-    })?;
     if !status.is_success() {
+        let text = read_capped_provider_error_text(response).await?;
         return Ok((status, provider_error_details_from_text(&text)));
     }
+    let text = read_limited_provider_text(response).await?;
     let json = serde_json::from_str::<Value>(&text).map_err(|error| {
         AppError::with_details(
             "llm_response_error",
@@ -4097,6 +4183,56 @@ async fn read_json_response(
         )
     })?;
     Ok((status, json))
+}
+
+async fn read_limited_provider_text(mut response: reqwest::Response) -> AppResult<String> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > PROVIDER_RESPONSE_MAX_BYTES as u64)
+    {
+        return Err(provider_response_too_large_error());
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        AppError::new("llm_response_error", provider_transport_error_message(error))
+    })? {
+        if body.len().saturating_add(chunk.len()) > PROVIDER_RESPONSE_MAX_BYTES {
+            return Err(provider_response_too_large_error());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
+async fn read_capped_provider_error_text(mut response: reqwest::Response) -> AppResult<String> {
+    let mut body = Vec::new();
+    let mut truncated = false;
+
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        AppError::new("llm_response_error", provider_transport_error_message(error))
+    })? {
+        let remaining = PROVIDER_RESPONSE_MAX_BYTES.saturating_sub(body.len());
+        if chunk.len() > remaining {
+            body.extend_from_slice(&chunk[..remaining]);
+            truncated = true;
+            break;
+        }
+        body.extend_from_slice(&chunk);
+    }
+
+    let mut text = String::from_utf8_lossy(&body).into_owned();
+    if truncated {
+        text.push_str(" [truncated]");
+    }
+    Ok(text)
+}
+
+fn provider_response_too_large_error() -> AppError {
+    AppError::new(
+        "llm_response_error",
+        format!("Provider response exceeds {PROVIDER_RESPONSE_MAX_BYTES} bytes"),
+    )
 }
 
 async fn parse_json_response<F>(response: reqwest::Response, extract: F) -> AppResult<String>
@@ -4331,6 +4467,8 @@ fn normalize_tool_call(call: Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
 
     fn test_connection() -> LlmConnection {
         LlmConnection {
@@ -4363,6 +4501,102 @@ mod tests {
             parameters,
             tools: Vec::new(),
         }
+    }
+
+    async fn serve_response(
+        status: &'static str,
+        content_type: &'static str,
+        body: Vec<u8>,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test LLM server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test LLM server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test LLM server should accept one request");
+            let mut buffer = [0_u8; 1024];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test LLM server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test LLM server should write response headers");
+            stream
+                .write_all(&body)
+                .await
+                .expect("test LLM server should write response body");
+        });
+        format!("http://{address}")
+    }
+
+    async fn serve_chunked_response(
+        status: &'static str,
+        content_type: &'static str,
+        chunks: Vec<Vec<u8>>,
+    ) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("test LLM server should bind");
+        let address = listener
+            .local_addr()
+            .expect("test LLM server address should be readable");
+        tokio::spawn(async move {
+            let (mut stream, _) = listener
+                .accept()
+                .await
+                .expect("test LLM server should accept one request");
+            let mut buffer = [0_u8; 1024];
+            let _ = stream
+                .read(&mut buffer)
+                .await
+                .expect("test LLM server should read request");
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
+            );
+            stream
+                .write_all(response.as_bytes())
+                .await
+                .expect("test LLM server should write response headers");
+            for chunk in chunks {
+                let header = format!("{:x}\r\n", chunk.len());
+                stream
+                    .write_all(header.as_bytes())
+                    .await
+                    .expect("test LLM server should write chunk header");
+                stream
+                    .write_all(&chunk)
+                    .await
+                    .expect("test LLM server should write chunk body");
+                stream
+                    .write_all(b"\r\n")
+                    .await
+                    .expect("test LLM server should write chunk terminator");
+            }
+            stream
+                .write_all(b"0\r\n\r\n")
+                .await
+                .expect("test LLM server should write final chunk");
+        });
+        format!("http://{address}")
+    }
+
+    async fn response_from_url(url: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .get(url)
+            .send()
+            .await
+            .expect("test LLM response should arrive")
     }
 
     #[test]
@@ -4634,14 +4868,72 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert_eq!(body["reasoning"], json!({ "effort": "xhigh" }));
     }
 
-    #[test]
-    fn ensure_url_allowed_redacts_query_secret() {
-        let error = ensure_url_allowed("ftp://example.test/models?key=sk-test-secret")
+    #[tokio::test]
+    async fn provider_http_client_redacts_query_secret() {
+        let error = provider_http_client_for_url("ftp://example.test/models?key=sk-test-secret")
+            .await
             .expect_err("disallowed URL should fail");
 
         assert_eq!(error.code, "invalid_input");
         assert!(error.message.contains("[REDACTED]"));
         assert!(!error.message.contains("sk-test-secret"));
+    }
+
+    #[test]
+    fn provider_http_client_policy_blocks_private_dns_answers() {
+        let url = reqwest::Url::parse("https://public-looking.example.test/v1/chat/completions")
+            .expect("test URL should parse");
+        let error = validate_provider_resolved_addresses(
+            &url,
+            false,
+            vec![
+                "10.0.0.1:443".parse().expect("private address parses"),
+                "[::ffff:10.0.0.1]:443"
+                    .parse()
+                    .expect("mapped private address parses"),
+            ],
+        )
+        .expect_err("private DNS answers should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+    }
+
+    #[test]
+    fn provider_http_client_policy_blocks_loopback_dns_answers() {
+        let url = reqwest::Url::parse("https://public-looking.example.test/v1/chat/completions")
+            .expect("test URL should parse");
+        let error = validate_provider_resolved_addresses(
+            &url,
+            false,
+            vec![
+                "127.0.0.1:443".parse().expect("loopback address parses"),
+                "[::1]:443".parse().expect("IPv6 loopback address parses"),
+                "[::ffff:127.0.0.1]:443"
+                    .parse()
+                    .expect("mapped loopback address parses"),
+            ],
+        )
+        .expect_err("loopback DNS answers should be rejected");
+
+        assert_eq!(error.code, "invalid_input");
+        assert!(error.message.contains(PROVIDER_LOCAL_URLS_ENABLED_FLAG));
+    }
+
+    #[tokio::test]
+    async fn provider_http_client_policy_keeps_literal_loopback_allowed() {
+        for url in [
+            "http://127.0.0.1:11434/api/chat",
+            "http://localhost:11434/api/chat",
+            "http://[::ffff:127.0.0.1]:11434/api/chat",
+        ] {
+            let url = reqwest::Url::parse(url).expect("test URL should parse");
+            let allowed = validate_provider_url_resolution(&url, false)
+                .await
+                .expect("literal loopback host should keep local provider allowance");
+
+            assert!(allowed.is_none());
+        }
     }
 
     #[test]
@@ -4719,6 +5011,54 @@ data: {"type":"response.completed","response":{"usage":{"input_tokens":1,"output
         assert_eq!(details["api_key"], "[REDACTED]");
         assert_eq!(details["usage"]["input_tokens"], 12);
         assert!(!details.to_string().contains("sk-test-secret"));
+    }
+
+    #[tokio::test]
+    async fn oversized_llm_error_body_preserves_provider_status() {
+        let url = serve_response(
+            "429 Too Many Requests",
+            "text/plain",
+            vec![b'x'; PROVIDER_RESPONSE_MAX_BYTES + 1024],
+        )
+        .await;
+        let response = response_from_url(url).await;
+        let error = parse_json_response(response, |json| Some(json.to_string()))
+            .await
+            .expect_err("oversized provider error should stay status-bearing");
+
+        assert_eq!(error.code, "llm_provider_error");
+        assert!(error
+            .message
+            .contains("Provider returned HTTP 429 Too Many Requests"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 700);
+    }
+
+    #[tokio::test]
+    async fn chunked_llm_error_body_is_bounded_redacted_and_status_bearing() {
+        let url = serve_chunked_response(
+            "401 Unauthorized",
+            "text/plain",
+            vec![
+                b"bad key sk-test-secret ".to_vec(),
+                vec![b'x'; PROVIDER_RESPONSE_MAX_BYTES + 1024],
+            ],
+        )
+        .await;
+        let response = response_from_url(url).await;
+        let error_body = read_error_response_details(response)
+            .await
+            .expect("chunked provider error details should read bounded diagnostic");
+        let error = provider_http_error(reqwest::StatusCode::UNAUTHORIZED, error_body);
+
+        assert_eq!(error.code, "llm_provider_error");
+        assert!(error
+            .message
+            .contains("Provider returned HTTP 401 Unauthorized"));
+        assert!(error.message.contains("[REDACTED]"));
+        assert!(!error.message.contains("sk-test-secret"));
+        assert!(!error.message.contains("exceeds"));
+        assert!(error.message.len() < 700);
     }
 
     #[test]
