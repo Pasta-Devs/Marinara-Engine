@@ -122,6 +122,7 @@ export interface PromptAssemblyResult {
   promptPresetId: string | null;
   parameters: StoredGenerationParameters | null;
   wrapFormat: WrapFormat;
+  userRegenerationSourceMessage: ChatMLMessage | null;
   characters: GenerationCharacterContext[];
   persona: GenerationPersonaContext | null;
   activatedLorebookEntries: Array<{
@@ -148,6 +149,7 @@ export interface PromptAssemblyInput {
   connection: JsonRecord;
   request: JsonRecord;
   latestUserInput: string;
+  userRegenerationSourceMessage?: ChatMLMessage | null;
   agentData?: Record<string, string>;
   embeddingSource?: {
     embed(
@@ -3344,6 +3346,11 @@ export async function assembleGenerationPrompt(
   rawInput: PromptAssemblyInput,
 ): Promise<PromptAssemblyResult> {
   let input = rawInput;
+  let promptRegexScripts: JsonRecord[] | null = null;
+  const loadPromptRegexScripts = async () => {
+    promptRegexScripts ??= (await storage.list<JsonRecord>("regex-scripts")).sort(bySortOrder);
+    return promptRegexScripts;
+  };
   const reusableContext = input.reusableContext;
   const chatMeta = reusableContext?.chatMeta ?? parseRecord(input.chat.metadata);
   const chatMode = reusableContext?.chatMode ?? readString(input.chat.mode || input.chat.chatMode, "conversation");
@@ -3402,6 +3409,28 @@ export async function assembleGenerationPrompt(
   });
   if (selectedPreset)
     resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames, deferCharacterMacros);
+  let userRegenerationSourceMessage: ChatMLMessage | null = input.userRegenerationSourceMessage
+    ? {
+        ...input.userRegenerationSourceMessage,
+        role: "user",
+        content: readString(input.userRegenerationSourceMessage.content),
+        contextKind: "history",
+      }
+    : null;
+  if (userRegenerationSourceMessage) {
+    applyRegexScriptsToPromptMessages([userRegenerationSourceMessage], await loadPromptRegexScripts(), {
+      resolveMacros: (value) => resolveMacros(value, macros, { trimResult: false }),
+    });
+    userRegenerationSourceMessage.content = collapseExcessBlankLines(
+      stripPromptComments(userRegenerationSourceMessage.content),
+    ).trim();
+    if (userRegenerationSourceMessage.content || userRegenerationSourceMessage.images?.length) {
+      input = { ...input, latestUserInput: userRegenerationSourceMessage.content };
+      macros.lastInput = userRegenerationSourceMessage.content;
+    } else {
+      userRegenerationSourceMessage = null;
+    }
+  }
   const greetingPromptVariables =
     canReuseMacroSensitiveContext && reusableContext
       ? reusableContext.greetingPromptVariables
@@ -3415,7 +3444,16 @@ export async function assembleGenerationPrompt(
       chat: input.chat,
       characters,
       persona,
-      storedMessages: input.storedMessages,
+      storedMessages: userRegenerationSourceMessage
+        ? [
+            ...input.storedMessages,
+            {
+              role: "user",
+              content: userRegenerationSourceMessage.content,
+              ...(userRegenerationSourceMessage.images?.length ? { images: userRegenerationSourceMessage.images } : {}),
+            },
+          ]
+        : input.storedMessages,
       request: input.request,
       latestUserInput: input.latestUserInput,
       embeddingSource,
@@ -3633,7 +3671,7 @@ export async function assembleGenerationPrompt(
       : [...processedLore.depthEntries, ...characterDepthEntries],
     chatHistoryDepthInjectionBounds(messages),
   );
-  const regexScripts = (await storage.list<JsonRecord>("regex-scripts")).sort(bySortOrder);
+  const regexScripts = await loadPromptRegexScripts();
   applyRegexScriptsToPromptMessages(messages, regexScripts, {
     resolveMacros: (value) => resolvePromptMacros(value, macros, deferCharacterMacros),
   });
@@ -3703,6 +3741,7 @@ export async function assembleGenerationPrompt(
     promptPresetId: presetId,
     parameters: selectedPreset?.parameters ?? null,
     wrapFormat,
+    userRegenerationSourceMessage,
     characters: promptCharacters,
     persona,
     activatedLorebookEntries: processedLore.includedEntries.map(lorebookActivatedEntryForEvent),

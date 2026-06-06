@@ -7,6 +7,8 @@ export type StoredGenerationParameters = Partial<GenerationParameters>;
 export type { PromptAttachment };
 export { getAttachmentFilename };
 
+export type SimplePromptMessage = { role: "system" | "user" | "assistant"; content: string; images?: string[] };
+
 const TEXT_ATTACHMENT_CHAR_LIMIT = 60_000;
 const IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
@@ -101,6 +103,17 @@ export function resolveRegenerationGameStateFallbackMessageIds(
     }
   }
   return Array.from(targets.values());
+}
+
+function isPromptAttachment(value: unknown): value is PromptAttachment {
+  return isPlainRecord(value);
+}
+
+export function promptAttachmentsFromExtra(extra: unknown): PromptAttachment[] | undefined {
+  const rawAttachments = parseRecord(extra).attachments;
+  if (!Array.isArray(rawAttachments)) return undefined;
+  const attachments = rawAttachments.filter(isPromptAttachment);
+  return attachments.length ? attachments : undefined;
 }
 
 export function extractImageAttachmentDataUrls(attachments: PromptAttachment[] | undefined): string[] {
@@ -210,6 +223,51 @@ export function appendReadableAttachmentsToContent(
   const blocks = buildReadableAttachmentBlocks(attachments);
   if (blocks.length === 0) return content;
   return `${content}${content.trim() ? "\n\n" : ""}${blocks.join("\n\n")}`;
+}
+
+function contentAlreadyHasReadableAttachmentBlock(content: string): boolean {
+  return /<attached_file\b/i.test(content);
+}
+
+function userRegenerationContentWithAttachments(content: string, attachments: PromptAttachment[] | undefined): string {
+  if (contentAlreadyHasReadableAttachmentBlock(content)) return content;
+  return appendReadableAttachmentsToContent(content, attachments);
+}
+
+export function buildUserMessageRegenerationInstruction(message: { content?: unknown; extra?: unknown }): string {
+  const original = readString(message.content).trim();
+  const attachments = promptAttachmentsFromExtra(message.extra);
+  const originalWithAttachments = userRegenerationContentWithAttachments(original, attachments);
+  return [
+    "Regenerate the user's previous message as an alternate swipe.",
+    "Write only the replacement user message text.",
+    "Do not answer as the assistant, continue the assistant side, or describe what the assistant does next.",
+    "",
+    "<original_user_message>",
+    originalWithAttachments,
+    "</original_user_message>",
+  ].join("\n");
+}
+
+export function buildUserMessageRegenerationPromptFromSource(source: SimplePromptMessage): SimplePromptMessage {
+  return {
+    role: "user",
+    content: buildUserMessageRegenerationInstruction({ content: source.content }),
+    ...(source.images?.length ? { images: source.images } : {}),
+  };
+}
+
+export function buildUserMessageRegenerationSourceMessage(
+  message: { content?: unknown; extra?: unknown },
+  images?: string[],
+): SimplePromptMessage {
+  const attachments = promptAttachmentsFromExtra(message.extra);
+  const promptImages = images ?? extractImageAttachmentDataUrls(attachments);
+  return {
+    role: "user",
+    content: userRegenerationContentWithAttachments(readString(message.content), attachments),
+    ...(promptImages.length ? { images: promptImages } : {}),
+  };
 }
 
 /** Parse connection/chat stored generation parameters without injecting schema defaults. */
