@@ -4153,6 +4153,35 @@ mod tests {
     }
 
     #[test]
+    fn deleting_persona_removes_namespaced_sprites_and_leaves_legacy_dir() {
+        // When both a legacy sprites/<id> and the namespaced sprites/personas/<id> exist, deleting
+        // the persona must still remove the namespaced dir (no dependence on legacy migration) and
+        // must NOT touch the legacy path, which can belong to a same-id character.
+        let state = test_state("persona-delete-sprites-conflict");
+        let legacy_dir = state.data_dir.join("sprites").join("persona-1");
+        let namespaced_dir = state.data_dir.join("sprites").join("personas").join("persona-1");
+        std::fs::create_dir_all(&legacy_dir).expect("legacy sprite dir should be created");
+        std::fs::write(legacy_dir.join("happy.png"), b"legacy").expect("legacy sprite should write");
+        std::fs::create_dir_all(&namespaced_dir).expect("namespaced sprite dir should be created");
+        std::fs::write(namespaced_dir.join("happy.png"), b"namespaced").expect("sprite should write");
+        state
+            .storage
+            .create("personas", json!({ "id": "persona-1" }))
+            .expect("persona row should be created");
+
+        delete_entity(&state, "personas", "persona-1", false).expect("persona delete should succeed");
+
+        assert!(
+            !namespaced_dir.exists(),
+            "deleted persona should remove its namespaced sprite directory even with a legacy dir present"
+        );
+        assert!(
+            legacy_dir.exists(),
+            "deleted persona must not remove the legacy sprite path (it can belong to a same-id character)"
+        );
+    }
+
+    #[test]
     fn deleting_character_version_preserves_avatar_still_used_by_character() {
         let state = test_state("character-version-delete-live-avatar");
         let avatar_dir = state.data_dir.join("avatars").join("characters");
