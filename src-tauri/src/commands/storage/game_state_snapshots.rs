@@ -121,36 +121,6 @@ pub(crate) fn copy_bootstrap_tracker_snapshot(
     ))
 }
 
-pub(crate) fn delete_tracker_snapshot_swipe(
-    state: &AppState,
-    chat_id: &str,
-    message_id: &str,
-    deleted_swipe_index: i64,
-) -> AppResult<()> {
-    let rows = tracker_snapshots_for_message(state, chat_id, message_id)?;
-    let deleted_swipe_index = deleted_swipe_index.max(0);
-
-    for row in rows {
-        let Some(id) = non_empty_string(&row, "id").map(ToOwned::to_owned) else {
-            continue;
-        };
-        let Some(swipe_index) = non_negative_i64_value(row.get("swipeIndex")) else {
-            continue;
-        };
-        if swipe_index == deleted_swipe_index {
-            state.storage.delete(SNAPSHOT_COLLECTION, &id)?;
-        } else if swipe_index > deleted_swipe_index {
-            state.storage.patch(
-                SNAPSHOT_COLLECTION,
-                &id,
-                json!({ "swipeIndex": swipe_index - 1 }),
-            )?;
-        }
-    }
-
-    Ok(())
-}
-
 pub(crate) fn delete_tracker_snapshots_for_message(
     state: &AppState,
     chat_id: &str,

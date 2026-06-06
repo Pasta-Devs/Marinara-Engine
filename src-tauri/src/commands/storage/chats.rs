@@ -6,6 +6,7 @@ use super::prompts;
 use super::shared::*;
 use super::*;
 use crate::builtins::is_protected_record;
+use marinara_storage::AtomicCollectionRows;
 use std::collections::HashSet;
 
 const MEMORY_CHUNK_SIZE: usize = 5;
@@ -384,6 +385,119 @@ fn merge_chat_metadata(
     })
 }
 
+fn apply_deleted_swipe_tracker_cleanup_in_collections(
+    collections: &mut [AtomicCollectionRows],
+    chat_id: &str,
+    message_id: &str,
+    deleted_swipe_index: i64,
+) -> AppResult<()> {
+    let deleted_swipe_index = deleted_swipe_index.max(0);
+    {
+        let snapshots = collections
+            .get_mut(3)
+            .ok_or_else(|| AppError::new("storage_error", "Snapshot collection missing"))?
+            .rows_mut();
+        let mut retained = Vec::with_capacity(snapshots.len());
+        for mut row in std::mem::take(snapshots) {
+            if game_state_snapshots::row_matches_tracker_message(&row, chat_id, message_id) {
+                let Some(swipe_index) = non_negative_i64_value(row.get("swipeIndex")) else {
+                    retained.push(row);
+                    continue;
+                };
+                if swipe_index == deleted_swipe_index {
+                    continue;
+                }
+                if swipe_index > deleted_swipe_index {
+                    if let Some(object) = row.as_object_mut() {
+                        object.insert("swipeIndex".to_string(), json!(swipe_index - 1));
+                    }
+                }
+            }
+            retained.push(row);
+        }
+        #[cfg(test)]
+        if retained.iter().any(|row| {
+            row.get("id").and_then(Value::as_str) == Some("__fail_after_swipe_tracker_mutation__")
+        }) {
+            return Err(AppError::invalid_input(
+                "injected swipe tracker cleanup failure",
+            ));
+        }
+        *snapshots = retained;
+    }
+
+    let visible_tracker = {
+        let messages = collections
+            .first()
+            .ok_or_else(|| AppError::new("storage_error", "Message collection missing"))?
+            .rows();
+        let snapshots = collections
+            .get(3)
+            .ok_or_else(|| AppError::new("storage_error", "Snapshot collection missing"))?
+            .rows();
+        game_state_snapshots::visible_tracker_snapshot_from_rows(messages, snapshots, chat_id)
+            .unwrap_or(Value::Null)
+    };
+    let chat = collections
+        .get_mut(2)
+        .and_then(|collection| {
+            collection
+                .rows_mut()
+                .iter_mut()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(chat_id))
+        })
+        .ok_or_else(|| AppError::not_found(format!("chats/{chat_id} was not found")))?;
+    if let Some(object) = chat.as_object_mut() {
+        object.insert("gameState".to_string(), visible_tracker);
+    }
+    Ok(())
+}
+
+fn replace_message_with_swipes_and_chat_cleanup(
+    state: &AppState,
+    chat_id: &str,
+    message_id: &str,
+    message: Value,
+    swipes: Vec<Value>,
+    prune_memories: bool,
+    deleted_swipe_index: Option<i64>,
+) -> AppResult<Value> {
+    let mut updated = if prune_memories || deleted_swipe_index.is_some() {
+        let mut extra_collections = vec!["chats"];
+        if deleted_swipe_index.is_some() {
+            extra_collections.push("game-state-snapshots");
+        }
+        message_swipe_storage::replace_message_with_swipes_and_update_collections(
+            state,
+            message,
+            swipes,
+            extra_collections,
+            |collections, written_message| {
+                if prune_memories {
+                    apply_message_memory_invalidation_in_collections(
+                        collections,
+                        chat_id,
+                        written_message,
+                    )?;
+                }
+                if let Some(index) = deleted_swipe_index {
+                    apply_deleted_swipe_tracker_cleanup_in_collections(
+                        collections,
+                        chat_id,
+                        message_id,
+                        index,
+                    )?;
+                }
+                Ok(())
+            },
+        )?
+    } else {
+        message_swipe_storage::replace_message_with_swipes(state, message, swipes)?
+    };
+    message_swipe_storage::materialize_message(state, &mut updated, true)?;
+    Ok(updated)
+}
+
 pub(crate) fn message_swipes(
     state: &AppState,
     _method: &str,
@@ -482,9 +596,6 @@ pub(crate) fn message_swipes(
     };
     let visible_content_changed =
         active_content.as_str() != Some(previous_visible_content.as_str());
-    if visible_content_changed {
-        preflight_chat_memory_mutation(state, &owner_chat_id)?;
-    }
     object.insert("activeSwipeIndex".to_string(), json!(active_index));
     object.insert("swipeCount".to_string(), json!(swipe_count));
     object.insert("content".to_string(), active_content);
@@ -496,11 +607,15 @@ pub(crate) fn message_swipes(
         object.insert("characterId".to_string(), character_id);
     }
     let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
-    let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
-    message_swipe_storage::materialize_message(state, &mut updated, true)?;
-    if visible_content_changed {
-        invalidate_chat_memories_from_message_value(state, &owner_chat_id, &updated)?;
-    }
+    let updated = replace_message_with_swipes_and_chat_cleanup(
+        state,
+        &owner_chat_id,
+        message_id,
+        message,
+        swipes,
+        visible_content_changed,
+        None,
+    )?;
     Ok(updated)
 }
 
@@ -511,43 +626,99 @@ pub(crate) fn update_message_content_if_unchanged(
     expected_content: &str,
     content: &str,
 ) -> AppResult<Value> {
-    let previous_visible_content = state
-        .storage
-        .get("messages", message_id)?
-        .and_then(|message| {
-            if message.get("chatId").and_then(Value::as_str) == Some(chat_id) {
-                message
-                    .get("content")
-                    .and_then(Value::as_str)
-                    .map(str::to_string)
-            } else {
-                None
-            }
-        });
     let normalized_content = collapse_excess_blank_lines(content);
-    if previous_visible_content
-        .as_deref()
-        .is_some_and(|previous| previous == expected_content && previous != normalized_content)
-    {
-        preflight_chat_memory_mutation(state, chat_id)?;
-    }
-    let updated = message_swipe_storage::update_message_content_if_unchanged(
+    let mut message = get_required(state, "messages", message_id)?;
+    message_swipe_storage::materialize_message(state, &mut message, true)?;
+    let previous_visible_content = {
+        let object = message
+            .as_object_mut()
+            .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+        if object.get("chatId").and_then(Value::as_str) != Some(chat_id) {
+            return Ok(json!({ "updated": false }));
+        }
+        let current_content = object
+            .get("content")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if current_content != expected_content {
+            return Ok(json!({ "updated": false }));
+        }
+        let mut patch = Map::new();
+        patch.insert(
+            "content".to_string(),
+            Value::String(normalized_content.clone()),
+        );
+        object.insert(
+            "content".to_string(),
+            Value::String(normalized_content.clone()),
+        );
+        sync_message_patch_content_to_active_swipe(object, &patch);
+        current_content
+    };
+    materialize_message_swipe_fields(&mut message);
+    let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
+    let visible_content_changed = previous_visible_content != normalized_content;
+    let message = replace_message_with_swipes_and_chat_cleanup(
         state,
         chat_id,
         message_id,
-        expected_content,
-        content,
+        message,
+        swipes,
+        visible_content_changed,
+        None,
     )?;
-    Ok(match updated {
-        Some(message) => {
-            if message.get("content").and_then(Value::as_str) != previous_visible_content.as_deref()
-            {
-                invalidate_chat_memories_from_message_value(state, chat_id, &message)?;
-            }
-            json!({ "updated": true, "message": message })
+    Ok(json!({ "updated": true, "message": message }))
+}
+
+pub(crate) fn patch_message_update_with_memory_prune(
+    state: &AppState,
+    message_id: &str,
+    patch: Value,
+) -> AppResult<Value> {
+    let normalized = normalize_update_patch("messages", patch)?;
+    let patch_object = normalized.as_object().cloned().unwrap_or_default();
+    let mut message = get_required(state, "messages", message_id)?;
+    message_swipe_storage::materialize_message(state, &mut message, true)?;
+    let previous_visible_content = message
+        .get("content")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    {
+        let object = message
+            .as_object_mut()
+            .ok_or_else(|| AppError::invalid_input("Message is not an object"))?;
+        for (key, value) in patch_object.clone() {
+            object.insert(key, value);
         }
-        None => json!({ "updated": false }),
-    })
+        sync_message_patch_content_to_active_swipe(object, &patch_object);
+    }
+    materialize_message_swipe_fields(&mut message);
+    let next_visible_content = message
+        .get("content")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let owner_chat_id = message
+        .get("chatId")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .map(ToOwned::to_owned);
+    let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
+    if let Some(chat_id) = owner_chat_id {
+        return replace_message_with_swipes_and_chat_cleanup(
+            state,
+            &chat_id,
+            message_id,
+            message,
+            swipes,
+            previous_visible_content != next_visible_content,
+            None,
+        );
+    }
+    let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
+    message_swipe_storage::materialize_message(state, &mut updated, true)?;
+    Ok(updated)
 }
 
 pub(crate) fn set_active_swipe(
@@ -634,15 +805,16 @@ pub(crate) fn set_active_swipe(
     }
     let visible_content_changed =
         object.get("content").and_then(Value::as_str) != Some(previous_visible_content.as_str());
-    if visible_content_changed {
-        preflight_chat_memory_mutation(state, &owner_chat_id)?;
-    }
     let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
-    let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
-    message_swipe_storage::materialize_message(state, &mut updated, true)?;
-    if visible_content_changed {
-        invalidate_chat_memories_from_message_value(state, &owner_chat_id, &updated)?;
-    }
+    let updated = replace_message_with_swipes_and_chat_cleanup(
+        state,
+        &owner_chat_id,
+        message_id,
+        message,
+        swipes,
+        visible_content_changed,
+        None,
+    )?;
     Ok(active_swipe_update_response(&updated))
 }
 
@@ -698,22 +870,16 @@ pub(crate) fn delete_swipe(
     materialize_message_swipe_fields(&mut message);
     let visible_content_changed =
         message.get("content").and_then(Value::as_str) != Some(previous_visible_content.as_str());
-    if visible_content_changed {
-        preflight_chat_memory_mutation(state, &owner_chat_id)?;
-    }
     let swipes = message_swipe_storage::take_swipes_for_storage(&mut message)?.unwrap_or_default();
-    let mut updated = message_swipe_storage::replace_message_with_swipes(state, message, swipes)?;
-    message_swipe_storage::materialize_message(state, &mut updated, true)?;
-    if visible_content_changed {
-        invalidate_chat_memories_from_message_value(state, &owner_chat_id, &updated)?;
-    }
-    game_state_snapshots::delete_tracker_snapshot_swipe(
+    let updated = replace_message_with_swipes_and_chat_cleanup(
         state,
         &owner_chat_id,
         message_id,
-        index as i64,
+        message,
+        swipes,
+        visible_content_changed,
+        Some(index as i64),
     )?;
-    game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, &owner_chat_id)?;
     Ok(updated)
 }
 
@@ -1156,52 +1322,18 @@ fn memory_at_or_after_message(
         }
     }
 
-    memory
-        .get("lastMessageAt")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .is_some_and(|last_message_at| !created_at.is_empty() && last_message_at >= created_at)
+    chat_memory_timestamp(memory)
+        .is_some_and(|timestamp| !created_at.is_empty() && timestamp >= created_at)
 }
 
-fn invalidate_chat_memories_from_message_value(
-    state: &AppState,
-    chat_id: &str,
-    message: &Value,
-) -> AppResult<Value> {
-    let message_id = message
-        .get("id")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|id| !id.is_empty())
-        .unwrap_or("");
-    let created_at = message
-        .get("createdAt")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .unwrap_or("");
-    invalidate_chat_memories_from_message(state, chat_id, message_id, created_at)
-}
-
-pub(crate) fn preflight_chat_memory_mutation(state: &AppState, chat_id: &str) -> AppResult<()> {
-    if let Some(chat) = state.storage.get("chats", chat_id)? {
-        chat_memory_values_for_mutation(&chat)?;
-    }
-    Ok(())
-}
-
-pub(crate) fn invalidate_chat_memories_from_message(
-    state: &AppState,
-    chat_id: &str,
+fn retained_chat_memories_after_message_change(
+    chat: &Value,
     message_id: &str,
     created_at: &str,
-) -> AppResult<Value> {
-    let Some(chat) = state.storage.get("chats", chat_id)? else {
-        return Ok(json!({}));
-    };
-    let values = chat_memory_values_for_mutation(&chat)?;
+) -> AppResult<Option<Vec<Value>>> {
+    let values = chat_memory_values_for_mutation(chat)?;
     if values.is_empty() {
-        return Ok(chat);
+        return Ok(None);
     }
     let message_ids = message_id
         .trim()
@@ -1214,9 +1346,56 @@ pub(crate) fn invalidate_chat_memories_from_message(
         .filter(|memory| !memory_at_or_after_message(memory, &message_ids, created_at.trim()))
         .collect::<Vec<_>>();
     if retained.len() == before {
-        return Ok(chat);
+        return Ok(None);
     }
-    set_chat_array_field(state, chat_id, "memories", retained)
+    #[cfg(test)]
+    if retained.iter().any(|memory| {
+        memory.get("id").and_then(Value::as_str) == Some("__fail_after_message_mutation__")
+    }) {
+        return Err(AppError::invalid_input(
+            "injected message memory cleanup failure",
+        ));
+    }
+    Ok(Some(retained))
+}
+
+fn apply_chat_memory_invalidation_from_message(chat: &mut Value, message: &Value) -> AppResult<()> {
+    let message_id = message
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .unwrap_or("");
+    let created_at = message
+        .get("createdAt")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    if let Some(retained) =
+        retained_chat_memories_after_message_change(chat, message_id, created_at)?
+    {
+        let object = chat
+            .as_object_mut()
+            .ok_or_else(|| AppError::invalid_input("Chat is not an object"))?;
+        object.insert("memories".to_string(), Value::Array(retained));
+    }
+    Ok(())
+}
+
+fn apply_message_memory_invalidation_in_collections(
+    collections: &mut [AtomicCollectionRows],
+    chat_id: &str,
+    message: &Value,
+) -> AppResult<()> {
+    let Some(chat) = collections.get_mut(2).and_then(|collection| {
+        collection
+            .rows_mut()
+            .iter_mut()
+            .find(|row| row.get("id").and_then(Value::as_str) == Some(chat_id))
+    }) else {
+        return Ok(());
+    };
+    apply_chat_memory_invalidation_from_message(chat, message)
 }
 
 #[cfg(test)]
@@ -2085,6 +2264,83 @@ mod tests {
             .collect()
     }
 
+    fn seed_memory_cleanup_failure_chat(
+        state: &AppState,
+        content: &str,
+        active_swipe_index: usize,
+        swipes: Value,
+    ) {
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory failure chat",
+                    "memories": [
+                        {
+                            "id": "keep-before",
+                            "messageIds": ["message-before"],
+                            "lastMessageAt": "2026-06-01T09:00:00.000Z"
+                        },
+                        {
+                            "id": "__fail_after_message_mutation__",
+                            "messageIds": ["message-before"],
+                            "lastMessageAt": "2026-06-01T09:30:00.000Z"
+                        },
+                        {
+                            "id": "drop-edited",
+                            "messageIds": ["message-1"],
+                            "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-newer",
+                            "lastMessageAt": "2026-06-01T10:01:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": content,
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "activeSwipeIndex": active_swipe_index,
+                "swipes": swipes
+            }),
+        )
+        .expect("message should seed");
+    }
+
+    fn stored_chat(state: &AppState) -> Value {
+        state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist")
+    }
+
+    fn stored_message(state: &AppState) -> Value {
+        state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist")
+    }
+
+    fn memory_cleanup_failure_ids() -> Vec<String> {
+        vec![
+            "keep-before".to_string(),
+            "__fail_after_message_mutation__".to_string(),
+            "drop-edited".to_string(),
+            "drop-newer".to_string(),
+        ]
+    }
+
     #[test]
     fn list_chat_memories_accepts_string_serialized_chunks() {
         let state = test_state("chat-memory-list-string");
@@ -2294,6 +2550,9 @@ mod tests {
             &HashSet::new(),
             Some("2026-01-02T00:00:00.000Z")
         ));
+    }
+
+    #[test]
     fn update_message_content_if_unchanged_prunes_stale_and_newer_memories() {
         let state = test_state("chat-memory-edit-prune");
         state
@@ -2317,6 +2576,10 @@ mod tests {
                         {
                             "id": "newer",
                             "lastMessageAt": "2026-06-01T10:02:00.000Z"
+                        },
+                        {
+                            "id": "created-only-newer",
+                            "createdAt": "2026-06-01T10:03:00.000Z"
                         }
                     ]
                 }),
@@ -2491,6 +2754,34 @@ mod tests {
 
         assert_eq!(error.code, "invalid_input");
         assert_eq!(message["content"], json!("old visible text"));
+    }
+
+    #[test]
+    fn update_message_content_if_unchanged_rolls_back_when_memory_cleanup_fails() {
+        let state = test_state("chat-memory-edit-atomic-failure");
+        seed_memory_cleanup_failure_chat(
+            &state,
+            "old visible text",
+            0,
+            json!([
+                { "content": "old visible text" }
+            ]),
+        );
+
+        let error = update_message_content_if_unchanged(
+            &state,
+            "chat-1",
+            "message-1",
+            "old visible text",
+            "new visible text",
+        )
+        .expect_err("cleanup failure should abort the conditional edit");
+        let message = stored_message(&state);
+        let chat = stored_chat(&state);
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("old visible text"));
+        assert_eq!(memory_ids(&chat["memories"]), memory_cleanup_failure_ids());
     }
 
     #[test]
@@ -4662,6 +4953,164 @@ mod tests {
             .expect("chat should exist");
 
         assert_eq!(memory_ids(&chat["memories"]), vec!["keep-before"]);
+    }
+
+    #[test]
+    fn message_swipes_rolls_back_when_memory_cleanup_fails() {
+        let state = test_state("chat-memory-append-swipe-atomic-failure");
+        seed_memory_cleanup_failure_chat(
+            &state,
+            "first",
+            0,
+            json!([
+                { "content": "first" }
+            ]),
+        );
+
+        let error = message_swipes(
+            &state,
+            "POST",
+            "chat-1",
+            "message-1",
+            json!({ "content": "second" }),
+        )
+        .expect_err("cleanup failure should abort swipe append");
+        let message = stored_message(&state);
+        let swipes = message_swipe_storage::swipes_for_message(&state, "message-1")
+            .expect("swipes should read");
+        let chat = stored_chat(&state);
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("first"));
+        assert_eq!(swipes.len(), 1);
+        assert_eq!(memory_ids(&chat["memories"]), memory_cleanup_failure_ids());
+    }
+
+    #[test]
+    fn set_active_swipe_rolls_back_when_memory_cleanup_fails() {
+        let state = test_state("chat-memory-set-active-atomic-failure");
+        seed_memory_cleanup_failure_chat(
+            &state,
+            "first",
+            0,
+            json!([
+                { "content": "first" },
+                { "content": "second" }
+            ]),
+        );
+
+        let error = set_active_swipe(&state, "chat-1", "message-1", json!({ "index": 1 }))
+            .expect_err("cleanup failure should abort active swipe switch");
+        let message = stored_message(&state);
+        let swipes = message_swipe_storage::swipes_for_message(&state, "message-1")
+            .expect("swipes should read");
+        let chat = stored_chat(&state);
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("first"));
+        assert_eq!(message["activeSwipeIndex"], json!(0));
+        assert_eq!(swipes.len(), 2);
+        assert_eq!(memory_ids(&chat["memories"]), memory_cleanup_failure_ids());
+    }
+
+    #[test]
+    fn delete_swipe_rolls_back_when_memory_cleanup_fails() {
+        let state = test_state("chat-memory-delete-swipe-atomic-failure");
+        seed_memory_cleanup_failure_chat(
+            &state,
+            "first",
+            0,
+            json!([
+                { "content": "first" },
+                { "content": "second" }
+            ]),
+        );
+
+        let error = delete_swipe(&state, "chat-1", "message-1", "0")
+            .expect_err("cleanup failure should abort active swipe delete");
+        let message = stored_message(&state);
+        let swipes = message_swipe_storage::swipes_for_message(&state, "message-1")
+            .expect("swipes should read");
+        let chat = stored_chat(&state);
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("first"));
+        assert_eq!(message["activeSwipeIndex"], json!(0));
+        assert_eq!(swipes.len(), 2);
+        assert_eq!(memory_ids(&chat["memories"]), memory_cleanup_failure_ids());
+    }
+
+    #[test]
+    fn delete_swipe_rolls_back_when_tracker_cleanup_fails() {
+        let state = test_state("chat-memory-delete-swipe-tracker-failure");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Tracker failure chat",
+                    "gameState": { "id": "visible-before" },
+                    "memories": [
+                        {
+                            "id": "drop-active",
+                            "messageIds": ["message-1"],
+                            "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should seed");
+        state
+            .storage
+            .create(
+                "game-state-snapshots",
+                json!({
+                    "id": "__fail_after_swipe_tracker_mutation__",
+                    "kind": "tracker",
+                    "chatId": "chat-1",
+                    "messageId": "message-1",
+                    "swipeIndex": 1,
+                    "createdAt": "2026-06-01T10:01:00.000Z"
+                }),
+            )
+            .expect("tracker snapshot should seed");
+
+        let error = delete_swipe(&state, "chat-1", "message-1", "0")
+            .expect_err("tracker cleanup failure should abort active swipe delete");
+        let message = stored_message(&state);
+        let swipes = message_swipe_storage::swipes_for_message(&state, "message-1")
+            .expect("swipes should read");
+        let chat = stored_chat(&state);
+        let snapshots = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should read");
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("first"));
+        assert_eq!(message["activeSwipeIndex"], json!(0));
+        assert_eq!(swipes.len(), 2);
+        assert_eq!(memory_ids(&chat["memories"]), vec!["drop-active"]);
+        assert_eq!(chat["gameState"], json!({ "id": "visible-before" }));
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0]["swipeIndex"], json!(1));
     }
 
     #[test]

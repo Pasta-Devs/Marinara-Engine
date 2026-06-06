@@ -740,45 +740,7 @@ pub(crate) fn storage_update_inner(
     validate_storage_entity(&entity)?;
     reject_message_swipe_mutation(&entity)?;
     if entity == "messages" {
-        let next_content = patch
-            .as_object()
-            .and_then(|object| object.get("content"))
-            .and_then(Value::as_str)
-            .map(shared::collapse_excess_blank_lines);
-        let previous_message = if next_content.is_some() {
-            state.storage.get("messages", &id)?
-        } else {
-            None
-        };
-        let previous_content = previous_message.as_ref().and_then(|message| {
-            message
-                .get("content")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-        });
-        if next_content.as_deref() != previous_content.as_deref() {
-            if let Some(chat_id) = previous_message
-                .as_ref()
-                .and_then(|message| message.get("chatId"))
-                .and_then(Value::as_str)
-            {
-                chats::preflight_chat_memory_mutation(state, chat_id)?;
-            }
-        }
-        let updated = message_swipes::patch_message_update(state, &id, patch)?;
-        if next_content.as_deref() != previous_content.as_deref() {
-            if let Some(chat_id) = updated.get("chatId").and_then(Value::as_str) {
-                chats::invalidate_chat_memories_from_message(
-                    state,
-                    chat_id,
-                    updated.get("id").and_then(Value::as_str).unwrap_or(&id),
-                    updated
-                        .get("createdAt")
-                        .and_then(Value::as_str)
-                        .unwrap_or(""),
-                )?;
-            }
-        }
+        let updated = chats::patch_message_update_with_memory_prune(state, &id, patch)?;
         return Ok(shared::project_timeline_message(updated));
     }
     if entity == "characters" {
@@ -2833,6 +2795,91 @@ mod tests {
         assert_eq!(message["content"], json!("old visible text"));
     }
 
+    #[test]
+    fn generic_message_content_update_rolls_back_when_memory_cleanup_fails() {
+        let state = test_state("generic-message-edit-atomic-failure");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Memory chat",
+                    "memories": [
+                        {
+                            "id": "keep-before",
+                            "messageIds": ["message-before"],
+                            "lastMessageAt": "2026-06-01T09:00:00.000Z"
+                        },
+                        {
+                            "id": "__fail_after_message_mutation__",
+                            "messageIds": ["message-before"],
+                            "lastMessageAt": "2026-06-01T09:30:00.000Z"
+                        },
+                        {
+                            "id": "drop-edited",
+                            "messageIds": ["message-1"],
+                            "lastMessageAt": "2026-06-01T10:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-newer",
+                            "lastMessageAt": "2026-06-01T10:01:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        storage_create_inner(
+            &state,
+            "messages".to_string(),
+            json!({
+                "id": "message-1",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "old visible text",
+                "createdAt": "2026-06-01T10:00:00.000Z",
+                "swipes": [{ "content": "old visible text" }]
+            }),
+        )
+        .expect("message should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "messages".to_string(),
+            "message-1".to_string(),
+            json!({ "content": "new visible text" }),
+        )
+        .expect_err("cleanup failure should abort generic message edit");
+        let message = state
+            .storage
+            .get("messages", "message-1")
+            .expect("message should read")
+            .expect("message should exist");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should be an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+
+        assert_eq!(error.code, "invalid_input");
+        assert_eq!(message["content"], json!("old visible text"));
+        assert_eq!(
+            memory_ids,
+            vec![
+                "keep-before",
+                "__fail_after_message_mutation__",
+                "drop-edited",
+                "drop-newer"
+            ]
+        );
+    }
+
     fn seed_linked_character_book(state: &AppState) {
         state
             .storage
@@ -4277,13 +4324,15 @@ mod tests {
         let state = test_state("character-delete-sprites");
         let sprite_dir = state.data_dir.join("sprites").join("char-1");
         std::fs::create_dir_all(&sprite_dir).expect("sprite dir should be created");
-        std::fs::write(sprite_dir.join("neutral.png"), b"sprite").expect("sprite should be written");
+        std::fs::write(sprite_dir.join("neutral.png"), b"sprite")
+            .expect("sprite should be written");
         state
             .storage
             .create("characters", json!({ "id": "char-1" }))
             .expect("character row should be created");
 
-        delete_entity(&state, "characters", "char-1", false).expect("character delete should succeed");
+        delete_entity(&state, "characters", "char-1", false)
+            .expect("character delete should succeed");
 
         assert!(
             !sprite_dir.exists(),
@@ -4294,7 +4343,11 @@ mod tests {
     #[test]
     fn deleting_persona_removes_its_sprite_directory() {
         let state = test_state("persona-delete-sprites");
-        let sprite_dir = state.data_dir.join("sprites").join("personas").join("persona-1");
+        let sprite_dir = state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("persona-1");
         std::fs::create_dir_all(&sprite_dir).expect("persona sprite dir should be created");
         std::fs::write(sprite_dir.join("happy.png"), b"sprite").expect("sprite should be written");
         state
@@ -4302,7 +4355,8 @@ mod tests {
             .create("personas", json!({ "id": "persona-1" }))
             .expect("persona row should be created");
 
-        delete_entity(&state, "personas", "persona-1", false).expect("persona delete should succeed");
+        delete_entity(&state, "personas", "persona-1", false)
+            .expect("persona delete should succeed");
 
         assert!(
             !sprite_dir.exists(),
@@ -4317,17 +4371,24 @@ mod tests {
         // must NOT touch the legacy path, which can belong to a same-id character.
         let state = test_state("persona-delete-sprites-conflict");
         let legacy_dir = state.data_dir.join("sprites").join("persona-1");
-        let namespaced_dir = state.data_dir.join("sprites").join("personas").join("persona-1");
+        let namespaced_dir = state
+            .data_dir
+            .join("sprites")
+            .join("personas")
+            .join("persona-1");
         std::fs::create_dir_all(&legacy_dir).expect("legacy sprite dir should be created");
-        std::fs::write(legacy_dir.join("happy.png"), b"legacy").expect("legacy sprite should write");
+        std::fs::write(legacy_dir.join("happy.png"), b"legacy")
+            .expect("legacy sprite should write");
         std::fs::create_dir_all(&namespaced_dir).expect("namespaced sprite dir should be created");
-        std::fs::write(namespaced_dir.join("happy.png"), b"namespaced").expect("sprite should write");
+        std::fs::write(namespaced_dir.join("happy.png"), b"namespaced")
+            .expect("sprite should write");
         state
             .storage
             .create("personas", json!({ "id": "persona-1" }))
             .expect("persona row should be created");
 
-        delete_entity(&state, "personas", "persona-1", false).expect("persona delete should succeed");
+        delete_entity(&state, "personas", "persona-1", false)
+            .expect("persona delete should succeed");
 
         assert!(
             !namespaced_dir.exists(),
