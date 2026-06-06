@@ -2187,43 +2187,6 @@ export function GameSurface({
     pendingInventoryUseRef.current = pendingInventoryUse;
   }, [pendingInventoryUse]);
 
-  // TopBar action buttons for mobile
-  useEffect(() => {
-    setRightSlot(
-      <>
-        <button
-          type="button"
-          onClick={() => {
-            setToolsSheetOpen(false);
-            setMoreSheetOpen((v) => !v);
-          }}
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
-            moreSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
-          )}
-          title="More options"
-        >
-          <MoreVertical size="1.15rem" />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMoreSheetOpen(false);
-            setToolsSheetOpen((v) => !v);
-          }}
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
-            toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
-          )}
-          title="Tools"
-        >
-          <LayoutGrid size="1.15rem" />
-        </button>
-      </>,
-    );
-    return () => { setRightSlot(null); };
-  }, [moreSheetOpen, toolsSheetOpen, setRightSlot]);
-
   const recruitPartyMember = useRecruitPartyMember();
   const regeneratePartyCard = useRegeneratePartyCard();
   const removePartyMember = useRemovePartyMember();
@@ -2378,6 +2341,7 @@ export function GameSurface({
   const volumePopoverRef = useRef<HTMLDivElement>(null);
   const mobileVolumePopoverRef = useRef<HTMLDivElement>(null);
   const retryMenuRef = useRef<HTMLDivElement>(null);
+  const retryMenuMobileRef = useRef<HTMLDivElement>(null);
   const hudSurfaceRef = useRef<HTMLDivElement>(null);
   const compactHudWidgetsRef = useRef(compactHudWidgets);
   const compactHudReleaseWidthRef = useRef<number | null>(null);
@@ -7514,6 +7478,10 @@ export function GameSurface({
     setCombatItemEffects([]);
     setCombatMechanics([]);
     setCombatDialogueCues([]);
+    setMoreSheetOpen(false);
+    setToolsSheetOpen(false);
+    setVolumePopoverOpen(false);
+    setRetryMenuOpen(false);
   }, [activeChatId]);
 
   useEffect(() => {
@@ -7827,7 +7795,10 @@ export function GameSurface({
   useEffect(() => {
     if (!retryMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (retryMenuRef.current && !retryMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inDesktopMenu = retryMenuRef.current?.contains(target) ?? false;
+      const inMobileMenu = retryMenuMobileRef.current?.contains(target) ?? false;
+      if (!inDesktopMenu && !inMobileMenu) {
         setRetryMenuOpen(false);
       }
     };
@@ -8111,10 +8082,60 @@ export function GameSurface({
 
   // Does this chat need initial game creation?
   const needsCreation = !chatMeta.gameId;
+  const awaitingFirstTurn = sessionStatus === "active" && !introPresented;
+  const loadingMainGame = isMessagesLoading && !needsCreation && sessionStatus !== "setup" && !isSetupActive;
+  const setupMainGame = isSetupActive || needsCreation || sessionStatus === "setup";
+  const startScreenActive =
+    (sessionStatus === "ready" && !introPresented) || startGame.isPending || startGameRequested || awaitingFirstTurn;
+  const mainGameUiActive = !loadingMainGame && !setupMainGame && !startScreenActive;
+
+  // TopBar action buttons for mobile
+  useEffect(() => {
+    if (!mainGameUiActive) {
+      setMoreSheetOpen(false);
+      setToolsSheetOpen(false);
+      setRightSlot(null);
+      return;
+    }
+
+    setRightSlot(
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            setToolsSheetOpen(false);
+            setMoreSheetOpen((v) => !v);
+          }}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            moreSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="More options"
+        >
+          <MoreVertical size="1.15rem" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMoreSheetOpen(false);
+            setToolsSheetOpen((v) => !v);
+          }}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-[var(--accent)]/30 hover:text-[var(--foreground)]",
+            toolsSheetOpen && "bg-[var(--accent)]/30 text-[var(--foreground)]",
+          )}
+          title="Tools"
+        >
+          <LayoutGrid size="1.15rem" />
+        </button>
+      </>,
+    );
+    return () => { setRightSlot(null); };
+  }, [mainGameUiActive, moreSheetOpen, toolsSheetOpen, setRightSlot]);
 
   // While messages are still loading for an existing active game, show a loading
   // indicator instead of flashing the setup/start screens.
-  if (isMessagesLoading && !needsCreation && sessionStatus !== "setup" && !isSetupActive) {
+  if (loadingMainGame) {
     return (
       <>
         <div className="flex h-full items-center justify-center bg-[var(--background)] dark:bg-black/80">
@@ -8126,7 +8147,7 @@ export function GameSurface({
   }
 
   // Setup wizard — show when explicitly active, when game needs creation, or when status is still "setup" (e.g. previous setup failed)
-  if (isSetupActive || needsCreation || sessionStatus === "setup") {
+  if (setupMainGame) {
     return (
       <>
         <GameSetupWizard
@@ -8196,13 +8217,7 @@ export function GameSurface({
     hasEverHadPlayableContent && !isStreaming && sceneProcessed && !assetGenerationBlocksScene;
   // Don't auto-dismiss: wait for user to click Continue after typewriter finishes.
 
-  const awaitingFirstTurn = sessionStatus === "active" && !introPresented;
-  if (
-    (sessionStatus === "ready" && !introPresented) ||
-    startGame.isPending ||
-    startGameRequested ||
-    awaitingFirstTurn
-  ) {
+  if (startScreenActive) {
     const worldOverview = (chatMeta.gameWorldOverview as string) || null;
     const setupConfig = chatMeta.gameSetupConfig as Record<string, unknown> | undefined;
     // Phase: "idle" = show Start button over overview, "intro" = typewriter reveal after clicking Start
@@ -8824,7 +8839,7 @@ export function GameSurface({
 
               {/* Mobile retry menu */}
               {retryMenuOpen && (
-                <div className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
+                <div ref={retryMenuMobileRef} className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
                   <div className="flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-xl border border-white/15 bg-black/85 p-1.5 shadow-xl backdrop-blur-xl">
                     <button
                       onClick={() => {

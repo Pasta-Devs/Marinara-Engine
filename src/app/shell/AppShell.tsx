@@ -751,7 +751,7 @@ export function AppShell() {
           ? "sidebar"
           : null
     : null;
-  const activeMobileOverlayPanel = activeMobilePanel === "tracker" ? null : activeMobilePanel;
+  const activeMobileOverlayPanel = activeMobilePanel;
 
   const closeActiveMobilePanel = useCallback(() => {
     if (activeMobilePanel === "right") closeRightPanel();
@@ -842,6 +842,7 @@ export function AppShell() {
 
     const getPanel = () => {
       if (activeMobileOverlayPanel === "right") return mobileRightPanelRef.current;
+      if (activeMobileOverlayPanel === "tracker") return mobileTrackerPanelRef.current;
       return sidebarPanelRef.current;
     };
 
@@ -864,8 +865,7 @@ export function AppShell() {
 
       if (event.key === "Escape") {
         event.preventDefault();
-        if (activeMobileOverlayPanel === "right") closeRightPanel();
-        else setSidebarOpen(false);
+        closeActiveMobilePanel();
         return;
       }
 
@@ -906,7 +906,7 @@ export function AppShell() {
         previous.focus();
       }
     };
-  }, [activeMobileOverlayPanel, closeRightPanel, hasCompletedOnboarding, isMobile, setSidebarOpen]);
+  }, [activeMobileOverlayPanel, closeActiveMobilePanel, hasCompletedOnboarding, isMobile]);
 
   const trackerPanelDesktop = (side: "left" | "right") =>
     trackerPanelVisible && trackerPanelSide === side ? (

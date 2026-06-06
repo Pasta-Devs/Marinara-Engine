@@ -908,6 +908,8 @@ export function ChatRoleplaySurface({
   useEffect(() => {
     setAddonsReady(false);
     setTranscriptWindowStart(null);
+    setToolsSheetOpen(false);
+    setMoreMenuOpen(false);
     const id = window.setTimeout(() => setAddonsReady(true), 180);
     return () => window.clearTimeout(id);
   }, [activeChatId]);
@@ -1308,11 +1310,17 @@ export function ChatRoleplaySurface({
         {/* More options top sheet */}
         {moreMenuOpen &&
           createPortal(
-            <div
-              ref={moreMenuRef}
-              className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down"
-              style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
-            >
+            <>
+              <div
+                className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+                onPointerDown={() => setMoreMenuOpen(false)}
+                onClick={(event) => event.stopPropagation()}
+              />
+              <div
+                ref={moreMenuRef}
+                className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down"
+                style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
+              >
               <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
                 Chat Options
               </p>
@@ -1426,7 +1434,8 @@ export function ChatRoleplaySurface({
                   <span className="text-sm font-medium text-[var(--foreground)]">Chat Settings</span>
                 </button>
               </div>
-            </div>,
+              </div>
+            </>,
             document.body,
           )}
 

@@ -30,7 +30,7 @@ export function TopBar({
 
   // Load chat directly so TopBar doesn't have to wait for the chat surface to hydrate the store.
   const { data: queriedChat } = useChat(activeChatId);
-  const chat = activeChat ?? queriedChat ?? null;
+  const chat = activeChat && activeChat.id === activeChatId ? activeChat : (queriedChat ?? null);
 
   const characterIds = useMemo(() => normalizeChatCharacterIds(chat?.characterIds), [chat?.characterIds]);
   const { data: characters } = useCharacterSummariesByIds(characterIds, characterIds.length > 0);

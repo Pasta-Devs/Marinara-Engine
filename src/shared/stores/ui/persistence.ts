@@ -231,6 +231,7 @@ export function migrateUiState(persistedState: unknown): Partial<UIState> {
   persisted.customNotificationSound = normalizeCustomNotificationSound(persisted.customNotificationSound);
   persisted.textBlipMode = normalizeTextBlipMode(persisted.textBlipMode);
   persisted.customTextBlipSound = normalizeCustomTextBlipSound(persisted.customTextBlipSound);
+  persisted.mobileChatToolsOpen = false;
   delete persisted.trackerPanelWidth;
 
   return persisted;

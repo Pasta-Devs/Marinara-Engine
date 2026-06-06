@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, GitBranch, Loader2, MessageSquare } from "lucide-react";
 import { useChatGroup } from "../../../../catalog/chats/index";
 import { useChatStore } from "../../../../../shared/stores/chat.store";
@@ -14,14 +14,23 @@ interface ChatBranchSelectorProps {
   className?: string;
 }
 
-export function ChatBranchSelector({
-  activeChatId,
-  activeChatName,
-  groupId,
-  variant = "conversation",
-  compact = false,
-  className,
-}: ChatBranchSelectorProps) {
+export interface ChatBranchSelectorHandle {
+  open: () => void;
+  toggle: () => void;
+  close: () => void;
+}
+
+export const ChatBranchSelector = forwardRef<ChatBranchSelectorHandle, ChatBranchSelectorProps>(function ChatBranchSelector(
+  {
+    activeChatId,
+    activeChatName,
+    groupId,
+    variant = "conversation",
+    compact = false,
+    className,
+  },
+  ref,
+) {
   const { data: groupChats, isLoading } = useChatGroup(groupId ?? null);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const [open, setOpen] = useState(false);
@@ -32,6 +41,16 @@ export function ChatBranchSelector({
     left: 0,
     width: 280,
   });
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      open: () => setOpen(true),
+      toggle: () => setOpen((value) => !value),
+      close: () => setOpen(false),
+    }),
+    [],
+  );
 
   const branches = useMemo(() => {
     const rows = [...(groupChats ?? [])];
@@ -208,4 +227,4 @@ export function ChatBranchSelector({
         )}
     </>
   );
-}
+});

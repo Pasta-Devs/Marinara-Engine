@@ -30,6 +30,7 @@ import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "../../shared/scene-ui";
 import {
   ChatBranchSelector,
+  type ChatBranchSelectorHandle,
   getTranscriptRenderWindow,
   isNearTranscriptBottom,
   preserveTranscriptScrollAfterPrepend,
@@ -47,7 +48,7 @@ import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../../../shared
 import { TOOLS_PANELS, useTopBarActions } from "../../../../shared/components/mobile-shell-actions";
 import { usePageActivity } from "../../../../shared/hooks/use-page-activity";
 import { ActiveWorldInfoButton, ActiveWorldInfoModal } from "../../../runtime/visuals/index";
-import { invalidateCharacterCollectionQueries, characterKeys } from "../../../catalog/characters/index";
+import { invalidateCharacterCollectionQueries } from "../../../catalog/characters/index";
 
 import { getConversationStatus } from "../../../../engine/modes/chat/autonomous/autonomous.service";
 import { storageApi } from "../../../../shared/api/storage-api";
@@ -480,7 +481,6 @@ export function ConversationView({
         }
         if (changed) {
           invalidateCharacterCollectionQueries(qc);
-          qc.invalidateQueries({ queryKey: characterKeys.all });
         }
       } catch {
         /* non-critical */
@@ -517,6 +517,7 @@ export function ConversationView({
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const [charActivityPopup, setCharActivityPopup] = useState<string | null>(null);
+  const mobileBranchSelectorRef = useRef<ChatBranchSelectorHandle>(null);
   const updateMeta = useUpdateChatMetadata();
   const summaryContextSize =
     typeof chatMeta.summaryContextSize === "number" && Number.isFinite(chatMeta.summaryContextSize)
@@ -536,6 +537,21 @@ export function ConversationView({
     messageId: undefined,
     isStreaming: false,
   });
+
+  useEffect(() => {
+    if (!charActivityPopup) return;
+    let removeClickListener = () => {};
+    const timer = window.setTimeout(() => {
+      const handleDocumentClick = () => setCharActivityPopup(null);
+      document.addEventListener("click", handleDocumentClick);
+      removeClickListener = () => document.removeEventListener("click", handleDocumentClick);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+      removeClickListener();
+    };
+  }, [charActivityPopup]);
 
   // ── Scroll tracking ──
   useEffect(() => {
@@ -1085,7 +1101,10 @@ export function ConversationView({
                       <div key={i} className="absolute top-0" style={{ left: i * 12, zIndex: isOpen ? 10 : 3 - i }}>
                         <button
                           type="button"
-                          onClick={() => setCharActivityPopup(isOpen ? null : c.name)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setCharActivityPopup(isOpen ? null : c.name);
+                          }}
                           className="relative block transition-transform active:scale-90"
                           aria-label={c.name}
                         >
@@ -1491,14 +1510,23 @@ export function ConversationView({
               {chatGroupId && (
                 <div
                   className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
-                  onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector("button")?.click(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    mobileBranchSelectorRef.current?.toggle();
+                  }}
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
                     <GitBranch size="0.9rem" />
                   </div>
                   <span className="text-sm font-medium text-[var(--foreground)]">Branches</span>
                   <div className="absolute inset-0 opacity-0 pointer-events-auto">
-                    <ChatBranchSelector activeChatId={chatId} activeChatName={chatName} groupId={chatGroupId} compact />
+                    <ChatBranchSelector
+                      ref={mobileBranchSelectorRef}
+                      activeChatId={chatId}
+                      activeChatName={chatName}
+                      groupId={chatGroupId}
+                      compact
+                    />
                   </div>
                 </div>
               )}
