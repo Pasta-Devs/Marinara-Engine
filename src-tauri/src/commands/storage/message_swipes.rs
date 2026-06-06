@@ -1005,6 +1005,12 @@ pub(crate) fn create_message(state: &AppState, message: Value) -> AppResult<Valu
 
 fn persist_created_message_swipes(state: &AppState, mut message: Value) -> AppResult<Value> {
     if message.get("swipes").is_some() {
+        let embedded_swipe_count = message
+            .get("swipes")
+            .and_then(Value::as_array)
+            .map(|swipes| swipes.len())
+            .unwrap_or(0);
+        clamp_message_active_swipe_index(&mut message, embedded_swipe_count);
         preserve_embedded_parent_active_extra(&mut message);
         materialize_message_swipe_fields(&mut message);
         let mut swipes = take_swipes_for_storage(&mut message)?.unwrap_or_default();
@@ -1865,6 +1871,68 @@ mod tests {
         assert_eq!(sidecars.len(), 2);
         assert_eq!(sidecars[1]["index"], json!(1));
         assert_eq!(sidecars[1]["content"], json!("second"));
+    }
+
+    #[test]
+    fn create_message_clamps_active_index_before_parent_extra_inheritance() {
+        let state = test_state("create-active-index-extra-inheritance");
+        let created = create_message(
+            &state,
+            json!({
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "first",
+                "activeSwipeIndex": 5,
+                "extra": {
+                    "thinking": "parent thought",
+                    "generationInfo": { "model": "parent-model" },
+                    "hiddenFromAI": true
+                },
+                "swipes": [
+                    { "content": "first" },
+                    { "content": "second" }
+                ]
+            }),
+        )
+        .expect("message should create");
+        let message_id = created
+            .get("id")
+            .and_then(Value::as_str)
+            .expect("created message should have id")
+            .to_string();
+
+        assert_eq!(created["activeSwipeIndex"], json!(1));
+        assert_eq!(created["content"], json!("second"));
+        assert_eq!(created["extra"]["thinking"], json!("parent thought"));
+        assert_eq!(
+            created["extra"]["generationInfo"]["model"],
+            json!("parent-model")
+        );
+
+        let stored = state
+            .storage
+            .get("messages", &message_id)
+            .expect("stored message lookup should not fail")
+            .expect("stored message should exist");
+        assert_eq!(stored["activeSwipeIndex"], json!(1));
+        assert_eq!(stored["content"], json!("second"));
+        assert_eq!(stored["extra"]["hiddenFromAI"], json!(true));
+        assert!(stored["extra"].get("thinking").is_none());
+        assert!(stored["extra"].get("generationInfo").is_none());
+
+        let sidecars = state
+            .storage
+            .list(COLLECTION)
+            .expect("sidecar rows should list");
+        assert_eq!(sidecars.len(), 2);
+        assert_eq!(sidecars[1]["index"], json!(1));
+        assert_eq!(sidecars[1]["content"], json!("second"));
+        assert_eq!(
+            sidecars[1]["extra"]["generationInfo"]["model"],
+            json!("parent-model")
+        );
+        assert_eq!(sidecars[1]["extra"]["thinking"], json!("parent thought"));
+        assert!(sidecars[0].get("extra").is_none());
     }
 
     #[test]
