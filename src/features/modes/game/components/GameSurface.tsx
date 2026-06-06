@@ -8105,6 +8105,8 @@ export function GameSurface({
           type="button"
           onClick={() => {
             setToolsSheetOpen(false);
+            setRetryMenuOpen(false);
+            setVolumePopoverOpen(false);
             setMoreSheetOpen((v) => !v);
           }}
           className={cn(
@@ -8121,6 +8123,8 @@ export function GameSurface({
           type="button"
           onClick={() => {
             setMoreSheetOpen(false);
+            setRetryMenuOpen(false);
+            setVolumePopoverOpen(false);
             setToolsSheetOpen((v) => !v);
           }}
           className={cn(
@@ -8483,7 +8487,12 @@ export function GameSurface({
                   </button>
                   <div className="relative" ref={volumePopoverRef}>
                     <button
-                      onClick={() => setVolumePopoverOpen((v) => !v)}
+                      onClick={() => {
+                        setMoreSheetOpen(false);
+                        setToolsSheetOpen(false);
+                        setRetryMenuOpen(false);
+                        setVolumePopoverOpen((v) => !v);
+                      }}
                       className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/80 backdrop-blur-md transition-colors hover:bg-black/60 hover:text-white"
                       title="Volume"
                     >
@@ -8526,7 +8535,12 @@ export function GameSurface({
                   </button>
                   <div className="relative" ref={retryMenuRef}>
                     <button
-                      onClick={() => setRetryMenuOpen((open) => !open)}
+                      onClick={() => {
+                        setMoreSheetOpen(false);
+                        setToolsSheetOpen(false);
+                        setVolumePopoverOpen(false);
+                        setRetryMenuOpen((open) => !open);
+                      }}
                       className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/45 text-white/80 backdrop-blur-md transition-colors hover:bg-black/60 hover:text-white"
                       title="Retry..."
                       aria-label="Retry..."
@@ -8598,10 +8612,12 @@ export function GameSurface({
                   <>
                     <div
                       className="pointer-events-auto fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+                      data-game-skip-bg-nav="true"
                       onClick={() => setToolsSheetOpen(false)}
                     />
                     <div
                       className="pointer-events-auto fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down md:hidden"
+                      data-game-skip-bg-nav="true"
                       style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
                     >
                       <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
@@ -8641,10 +8657,12 @@ export function GameSurface({
                   <>
                     <div
                       className="pointer-events-auto fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm md:hidden"
+                      data-game-skip-bg-nav="true"
                       onClick={() => setMoreSheetOpen(false)}
                     />
                     <div
                       className="pointer-events-auto fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down md:hidden"
+                      data-game-skip-bg-nav="true"
                       style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
                     >
                       <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
@@ -8769,7 +8787,7 @@ export function GameSurface({
                         {/* Volume */}
                         <button
                           type="button"
-                          onClick={() => { setMoreSheetOpen(false); setVolumePopoverOpen(true); }}
+                          onClick={() => { setMoreSheetOpen(false); setToolsSheetOpen(false); setRetryMenuOpen(false); setVolumePopoverOpen(true); }}
                           className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
@@ -8783,7 +8801,7 @@ export function GameSurface({
                         {/* Retry */}
                         <button
                           type="button"
-                          onClick={() => { setMoreSheetOpen(false); setRetryMenuOpen(true); }}
+                          onClick={() => { setMoreSheetOpen(false); setToolsSheetOpen(false); setVolumePopoverOpen(false); setRetryMenuOpen(true); }}
                           className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                         >
                           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-500 to-gray-500 text-white shadow-sm">
@@ -8817,7 +8835,7 @@ export function GameSurface({
 
               {/* Mobile volume popover */}
               {volumePopoverOpen && (
-                <div ref={mobileVolumePopoverRef} className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
+                <div ref={mobileVolumePopoverRef} data-game-skip-bg-nav="true" className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
                   <GameVolumeMixer
                     audioMuted={audioMuted || masterVolume === 0}
                     masterVolume={masterVolume}
@@ -8842,7 +8860,7 @@ export function GameSurface({
 
               {/* Mobile retry menu */}
               {retryMenuOpen && (
-                <div ref={retryMenuMobileRef} className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
+                <div ref={retryMenuMobileRef} data-game-skip-bg-nav="true" className="pointer-events-auto fixed top-16 right-3 z-[9999] md:hidden">
                   <div className="flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-xl border border-white/15 bg-black/85 p-1.5 shadow-xl backdrop-blur-xl">
                     <button
                       onClick={() => {

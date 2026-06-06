@@ -872,8 +872,18 @@ export function ChatRoleplaySurface({
   useEffect(() => {
     if (!moreMenuOpen) return;
     const onDown = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (moreMenuBtnRef.current?.contains(target) || moreMenuRef.current?.contains(target)) return;
+      const path = e.composedPath();
+      const insideMoreMenu = path.some((entry) => {
+        if (!(entry instanceof HTMLElement)) return false;
+        return (
+          entry === moreMenuBtnRef.current ||
+          entry === moreMenuRef.current ||
+          moreMenuBtnRef.current?.contains(entry) ||
+          moreMenuRef.current?.contains(entry) ||
+          entry.dataset.chatBranchPopover !== undefined
+        );
+      });
+      if (insideMoreMenu) return;
       setMoreMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {

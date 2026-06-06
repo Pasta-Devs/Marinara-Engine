@@ -1284,6 +1284,7 @@ export function AppShell() {
       professorMariOpen={professorMariOpen}
       toolsSheetOpen={mobileToolsSheetOpen}
       toolsSheetRef={mobileToolsPanelRef}
+      trackerPanelVisible={trackerPanelVisible}
       onToolsSheetOpenChange={setMobileToolsSheetOpen}
       onToggleProfessorMari={() => setProfessorMariOpen((v) => !v)}
       onGoHome={() => setProfessorMariOpen(false)}

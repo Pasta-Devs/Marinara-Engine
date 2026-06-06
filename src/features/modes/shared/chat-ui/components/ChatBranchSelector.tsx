@@ -13,6 +13,8 @@ interface ChatBranchSelectorProps {
   variant?: "conversation" | "roleplay";
   compact?: boolean;
   className?: string;
+  triggerAriaHidden?: boolean;
+  triggerTabIndex?: number;
 }
 
 export interface ChatBranchSelectorHandle {
@@ -29,6 +31,8 @@ export const ChatBranchSelector = forwardRef<ChatBranchSelectorHandle, ChatBranc
     variant = "conversation",
     compact = false,
     className,
+    triggerAriaHidden,
+    triggerTabIndex,
   },
   ref,
 ) {
@@ -136,6 +140,8 @@ export const ChatBranchSelector = forwardRef<ChatBranchSelectorHandle, ChatBranc
           className,
         )}
         title="Switch branch"
+        aria-hidden={triggerAriaHidden}
+        tabIndex={triggerTabIndex}
       >
         <GitBranch size="0.8125rem" className="shrink-0" />
         {compact ? (

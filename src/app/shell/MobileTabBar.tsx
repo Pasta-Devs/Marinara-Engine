@@ -9,6 +9,7 @@ export function MobileTabBar({
   professorMariOpen,
   toolsSheetOpen,
   toolsSheetRef,
+  trackerPanelVisible,
   onToolsSheetOpenChange,
   onToggleProfessorMari,
   onGoHome,
@@ -16,6 +17,7 @@ export function MobileTabBar({
   professorMariOpen: boolean;
   toolsSheetOpen: boolean;
   toolsSheetRef: RefObject<HTMLDivElement | null>;
+  trackerPanelVisible: boolean;
   onToolsSheetOpenChange: (open: boolean | ((open: boolean) => boolean)) => void;
   onToggleProfessorMari: () => void;
   onGoHome: () => void;
@@ -61,9 +63,9 @@ export function MobileTabBar({
     if (!wasThisPanel) openRightPanel(panel);
   };
 
-  const isChats = sidebarOpen;
+  const isTools = rightPanelOpen || toolsSheetOpen;
+  const isChats = sidebarOpen && !rightPanelOpen && !toolsSheetOpen && !trackerPanelVisible;
   const isMari = professorMariOpen;
-  const isTools = rightPanelOpen && !sidebarOpen;
 
   return (
     <>
@@ -148,7 +150,7 @@ export function MobileTabBar({
         <TabButton
           icon={<LayoutGrid size="1.15rem" />}
           label="Tools"
-          active={isTools || toolsSheetOpen}
+          active={isTools}
           onClick={() => {
             if (rightPanelOpen) {
               closeRightPanel();

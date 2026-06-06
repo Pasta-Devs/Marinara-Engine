@@ -541,6 +541,7 @@ export function ConversationView({
   const toolsSheetRef = useRef<HTMLDivElement>(null);
   const moreSheetRef = useRef<HTMLDivElement>(null);
   const lastSheetFocusRef = useRef<HTMLElement | null>(null);
+  const skipSheetFocusRestoreRef = useRef(false);
   const { setRightSlot } = useTopBarActions();
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
@@ -600,6 +601,7 @@ export function ConversationView({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        skipSheetFocusRestoreRef.current = false;
         setToolsSheetOpen(false);
         setMoreMenuOpen(false);
         return;
@@ -634,7 +636,8 @@ export function ConversationView({
       document.removeEventListener("keydown", handleKeyDown, true);
       setElementInert(content, false);
       const previous = lastSheetFocusRef.current;
-      if (previous?.isConnected) previous.focus();
+      if (!skipSheetFocusRestoreRef.current && previous?.isConnected) previous.focus();
+      skipSheetFocusRestoreRef.current = false;
     };
   }, [toolsSheetOpen, moreMenuOpen]);
 
@@ -1576,6 +1579,7 @@ export function ConversationView({
                   key={panel}
                   type="button"
                   onClick={() => {
+                    skipSheetFocusRestoreRef.current = true;
                     setToolsSheetOpen(false);
                     setSidebarOpen(false);
                     closeAllDetails();
@@ -1617,31 +1621,36 @@ export function ConversationView({
           >
             <div className="flex flex-col py-3">
               {chatGroupId && (
-                <div
-                  className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    mobileBranchSelectorRef.current?.toggle();
-                  }}
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
-                    <GitBranch size="0.9rem" />
-                  </div>
-                  <span className="text-sm font-medium text-[var(--foreground)]">Branches</span>
-                  <div className="absolute inset-0 opacity-0 pointer-events-auto">
+                <div className="relative">
+                  <button
+                    type="button"
+                    className="relative flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      mobileBranchSelectorRef.current?.toggle();
+                    }}
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                      <GitBranch size="0.9rem" />
+                    </div>
+                    <span className="text-sm font-medium text-[var(--foreground)]">Branches</span>
+                  </button>
+                  <div className="pointer-events-none absolute inset-0 opacity-0" aria-hidden="true">
                     <ChatBranchSelector
                       ref={mobileBranchSelectorRef}
                       activeChatId={chatId}
                       activeChatName={chatName}
                       groupId={chatGroupId}
                       compact
+                      triggerAriaHidden
+                      triggerTabIndex={-1}
                     />
                   </div>
                 </div>
               )}
               <button
                 type="button"
-                onClick={() => { setMoreMenuOpen(false); setSummaryOpen(true); }}
+                onClick={() => { skipSheetFocusRestoreRef.current = true; setMoreMenuOpen(false); setSummaryOpen(true); }}
                 className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
@@ -1651,7 +1660,7 @@ export function ConversationView({
               </button>
               <button
                 type="button"
-                onClick={() => { setMoreMenuOpen(false); setMobileWorldInfoOpen(true); }}
+                onClick={() => { skipSheetFocusRestoreRef.current = true; setMoreMenuOpen(false); setMobileWorldInfoOpen(true); }}
                 className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-500 text-white shadow-sm">
@@ -1661,7 +1670,7 @@ export function ConversationView({
               </button>
               <button
                 type="button"
-                onClick={() => { setMoreMenuOpen(false); onOpenGallery(); }}
+                onClick={() => { skipSheetFocusRestoreRef.current = true; setMoreMenuOpen(false); onOpenGallery(); }}
                 className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-sm">
@@ -1671,7 +1680,7 @@ export function ConversationView({
               </button>
               <button
                 type="button"
-                onClick={() => { setMoreMenuOpen(false); onOpenFiles(); }}
+                onClick={() => { skipSheetFocusRestoreRef.current = true; setMoreMenuOpen(false); onOpenFiles(); }}
                 className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-sm">
@@ -1682,7 +1691,7 @@ export function ConversationView({
               <div className="mx-5 my-1 h-px bg-[var(--border)]/30" />
               <button
                 type="button"
-                onClick={() => { setMoreMenuOpen(false); onOpenSettings(); }}
+                onClick={() => { skipSheetFocusRestoreRef.current = true; setMoreMenuOpen(false); onOpenSettings(); }}
                 className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
               >
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
