@@ -357,9 +357,6 @@ async function executeAgentWithTools(
     // Execute each tool call and append results
     for (const tc of result.toolCalls) {
       logger.info("[agent-tools] %s calling: %s", config.type, tc.function.name);
-      if (config.type === "spotify" && tc.function.name === "spotify_play") {
-        spotifyPlayCalled = true;
-      }
       emit({
         level: "info",
         phase: config.phase,
@@ -370,18 +367,35 @@ async function executeAgentWithTools(
         logger.debug("[agent-tools] %s args: %s", config.type, formatToolPayloadForLog(tc.function.arguments));
       }
       let toolResult: string;
+      let toolSucceeded = true;
       try {
         toolResult = await toolContext.executeToolCall(tc);
       } catch (err) {
+        // Cancellation must abort the whole turn — re-throw so the outer
+        // makeError(...) path is skipped and the run unwinds cleanly.
+        if (isAgentCancellation(err, signal)) throw err;
+        // Any other tool failure is recoverable: feed the error back to the
+        // model as a role:"tool" result so it can self-correct within the
+        // remaining tool rounds, mirroring the main loop in start-generation.ts.
         logger.error(err, "[agent-tools] %s %s failed", config.type, tc.function.name);
-        throw err;
+        toolSucceeded = false;
+        toolResult = JSON.stringify({ error: extractErrorMessage(err, `Tool ${tc.function.name} failed`) });
       }
-      logger.info("[agent-tools] %s %s completed", config.type, tc.function.name);
+      if (toolSucceeded) {
+        logger.info("[agent-tools] %s %s completed", config.type, tc.function.name);
+        // Only mark spotify_play as called once it actually succeeded. A thrown
+        // call is recovered above (fed back to the model), so leaving the flag
+        // unset lets applySpotifyPlaybackFallback retry the real playback instead
+        // of suppressing it and reporting success with no audio.
+        if (config.type === "spotify" && tc.function.name === "spotify_play") {
+          spotifyPlayCalled = true;
+        }
+      }
       emit({
         level: "info",
         phase: config.phase,
         message: "tool-result",
-        toolResult: { name: tc.function.name, result: formatToolPayloadForLog(toolResult), success: true },
+        toolResult: { name: tc.function.name, result: formatToolPayloadForLog(toolResult), success: toolSucceeded },
       });
       if (debugAgentsEnabled) {
         logger.debug("[agent-tools] %s result: %s", config.type, formatToolPayloadForLog(toolResult));
@@ -1330,6 +1344,12 @@ function buildExpressionAgentMessages(template: string, context: AgentContext): 
 }
 
 /** Extract a useful message from fetch/network errors (preserves err.cause). */
+/** True when an error represents user/host cancellation (vs. a recoverable tool failure). */
+function isAgentCancellation(err: unknown, signal?: AbortSignal): boolean {
+  if (signal?.aborted) return true;
+  return err instanceof Error && err.name === "AbortError";
+}
+
 function extractErrorMessage(err: unknown, fallback = "Agent execution failed"): string {
   if (!(err instanceof Error)) return fallback;
   const cause = (err as { cause?: unknown }).cause;

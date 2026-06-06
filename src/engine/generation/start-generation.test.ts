@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { IntegrationGateway } from "../capabilities/integrations";
-import type { LlmGateway } from "../capabilities/llm";
+import type { LlmChunk, LlmGateway } from "../capabilities/llm";
 import type { StorageEntity, StorageGateway } from "../capabilities/storage";
 import type { WeekSchedule } from "../modes/chat/schedules/schedule.service";
 import { retryGenerationAgents, startGeneration, type StartGenerationInput } from "./start-generation";
@@ -316,6 +316,7 @@ function createDeps(
       extraPatches?: Array<{ messageId: string; patch: Record<string, unknown> }>;
       streamParameters?: Record<string, unknown>[];
     };
+    streamChunks?: LlmChunk[];
   } = {},
 ) {
   const llm: LlmGateway = {
@@ -324,7 +325,9 @@ function createDeps(
     },
     async *stream(request) {
       options.capture?.streamParameters?.push(request.parameters ?? {});
-      yield { type: "token" as const, text: "Hello." };
+      for (const chunk of options.streamChunks ?? [{ type: "token" as const, text: "Hello." }]) {
+        yield chunk;
+      }
     },
     async listModels() {
       return [];
@@ -473,6 +476,12 @@ async function collectLorebookKeeperBackfillEvents() {
   });
 }
 
+async function drainGeneration(stream: AsyncGenerator<unknown>): Promise<void> {
+  for await (const _event of stream) {
+    void _event;
+  }
+}
+
 describe("startGeneration conversation availability delays", () => {
   it("uses short legacy mention delays for explicit conversation mentions and manual targets", async () => {
     const random = vi.spyOn(Math, "random").mockReturnValue(0);
@@ -522,6 +531,19 @@ describe("startGeneration conversation availability delays", () => {
     } finally {
       random.mockRestore();
     }
+  });
+});
+
+describe("startGeneration LLM stream errors", () => {
+  it("throws the provider message from terminal stream error chunks", async () => {
+    const deps = createDeps("idle", {
+      mode: "roleplay",
+      streamChunks: [{ type: "error", data: { message: "Provider failed" } }],
+    });
+
+    await expect(drainGeneration(startGeneration(deps, { chatId: "chat-1", message: "Hi Mira" }))).rejects.toThrow(
+      "Provider failed",
+    );
   });
 });
 

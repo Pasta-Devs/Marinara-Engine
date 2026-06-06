@@ -70,7 +70,7 @@ If ownership, callers, contract shape, or dependency direction cannot be named c
 3. Name the owner and expected impact before editing.
 4. Reproduce or inspect enough evidence to avoid patching the wrong layer.
 5. Make the smallest coherent change in the owning module.
-6. Verify the claim with the cheapest proof that exercises it: targeted command, focused test, scratch harness, route/module repro, jsdom/component proof, browser proof, or manual script.
+6. Verify the claim with the cheapest proof that exercises it: targeted command, existing test output, temporary uncommitted test or harness, route/module repro, jsdom/component proof, browser proof, or manual script.
 7. Review the diff for ownership, duplication, coupling, bloat, repeated conditionals, and hidden fallbacks.
 8. Report verification gaps as gaps, not confidence.
 
@@ -92,16 +92,44 @@ full workflow as soon as the bug is nontrivial, PR-affecting, cross-boundary,
 storage/import/export/prompt/provider/security-sensitive,
 browser-evidence-dependent, or uncertain.
 
-Use a proof ladder before browser automation: static inspection, targeted tests,
-scratch harnesses, route/module repros, and jsdom/component proof first; use
+Use a proof ladder before browser automation: static inspection, existing test
+output, temporary uncommitted tests or harnesses, route/module repros, and
+jsdom/component proof first; use
 Playwright/browser proof when visual layout, interaction, routing, responsive
 behavior, screenshots, console/network behavior, or browser-only behavior is the
 claim.
 
-Do not submit `*.test.ts` or `*.test.tsx` files in PRs as proof. Existing tests
-and local-only scratch harnesses can still inform a fix, but submitted PR proof
-must cite checks, command output, app/browser/Tauri verification, or manual
-verification notes instead.
+Proof is session evidence, not permission to add durable test artifacts by
+reflex.
+
+Temporary tests and harnesses are allowed when they stay local and uncommitted.
+Cite their command output or resulting observation instead of submitting the
+artifacts.
+
+New committed test artifacts are allowed only when at least one condition
+applies:
+
+- A maintainer explicitly asks for tests.
+- The change fixes a known regression that needs a small focused guard.
+- The behavior is risky and easy to break silently.
+- The touched area already has a nearby narrow/stable test pattern that is
+  cheaper than repeated manual proof.
+
+Before adding a durable test artifact, state `Durable test rationale` with:
+
+- The regression or risky invariant.
+- Why existing proof is insufficient.
+- Why this test is narrow.
+
+Prefer the smallest stable test near the owner:
+
+- Pure helper test.
+- Focused integration test.
+- Component test.
+- Browser/e2e only when browser behavior is the claim.
+
+Do not add broad fixture suites, snapshots, large e2e tests, or Rust inline
+tests merely to satisfy proof wording.
 
 ## Risky Work
 

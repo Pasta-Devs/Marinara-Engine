@@ -424,6 +424,17 @@ interface AutomaticIntervalGate {
   runInterval: number;
 }
 
+function llmChunkText(chunk: { text?: unknown; data?: unknown; error?: unknown; message?: unknown }): string {
+  if (typeof chunk.text === "string") return chunk.text;
+  if (typeof chunk.data === "string") return chunk.data;
+  const data = isRecord(chunk.data) ? chunk.data : {};
+  return readString(chunk.message) || readString(chunk.error) || readString(data.message) || readString(data.error);
+}
+
+function llmStreamErrorMessage(chunk: { text?: unknown; data?: unknown; error?: unknown; message?: unknown }): string {
+  return llmChunkText(chunk).trim() || "LLM stream failed";
+}
+
 function llmProvider(
   llm: LlmGateway,
   connectionId: string | null,
@@ -458,12 +469,17 @@ function llmProvider(
         },
         options.signal,
       )) {
-        if (chunk.type === "token" && chunk.text) {
-          content += chunk.text;
-          options.onToken?.(chunk.text);
+        if (chunk.type === "token") {
+          const text = llmChunkText(chunk);
+          if (text) {
+            content += text;
+            options.onToken?.(text);
+          }
         } else if (chunk.type === "tool_call") {
           const toolCall = normalizeToolCall(chunk.data);
           if (toolCall) toolCalls.push(toolCall);
+        } else if (chunk.type === "error") {
+          throw new Error(llmStreamErrorMessage(chunk));
         }
       }
       return { content, toolCalls };

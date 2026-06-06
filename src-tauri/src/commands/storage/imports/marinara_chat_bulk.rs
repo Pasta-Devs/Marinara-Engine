@@ -115,7 +115,8 @@ pub(super) fn import_marinara_chat_bulk(state: &AppState, payload: Value) -> App
                 chat.insert("groupId".to_string(), Value::Null);
             }
             chat.insert("folderId".to_string(), Value::Null);
-            let chat_record = state.storage.create("chats", Value::Object(chat))?;
+            let chat = with_entity_defaults("chats", Value::Object(chat))?;
+            let chat_record = state.storage.create("chats", chat)?;
             let chat_id = created_record_id(&chat_record, "chat")?;
             created_chat_ids.push(chat_id.clone());
 
@@ -128,6 +129,10 @@ pub(super) fn import_marinara_chat_bulk(state: &AppState, payload: Value) -> App
                 message.remove("id");
                 message.remove("rowid");
                 message.insert("chatId".to_string(), Value::String(chat_id.clone()));
+                let role = super::super::bulk_imports::imported_jsonl_message_role(&Value::Object(
+                    message.clone(),
+                ));
+                message.insert("role".to_string(), Value::String(role.to_string()));
                 let created = crate::storage_commands::message_swipes::create_message(
                     state,
                     Value::Object(message),

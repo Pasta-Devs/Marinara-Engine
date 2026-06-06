@@ -10,6 +10,7 @@ use std::collections::HashSet;
 use tauri::State;
 
 type LorebookEntryAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
+type LorebookMetadataAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
 type LorebookFolderDeleteAtomicRows<'a> =
     (&'a mut Vec<Value>, &'a mut Vec<Value>, &'a mut Vec<Value>);
 type ChatFolderDeleteAtomicRows<'a> = (&'a mut Vec<Value>, &'a mut Vec<Value>);
@@ -690,6 +691,9 @@ pub(crate) fn storage_create_inner(
     if entity == "chat-folders" {
         return create_chat_folder(state, value);
     }
+    if entity == "connection-folders" {
+        return create_connection_folder(state, value);
+    }
     let should_remove_prepared_gallery_file = gallery_create_persists_inline_image(&entity, &value);
     let prepared = prepare_entity_for_create(state, &entity, value)?;
     if entity == "lorebook-entries" {
@@ -761,6 +765,9 @@ pub(crate) fn storage_update_inner(
     }
     if entity == "lorebook-entries" {
         return update_lorebook_entry_with_character_book_sync(state, &id, normalized_patch);
+    }
+    if entity == "lorebooks" {
+        return update_lorebook_with_character_book_sync(state, &id, normalized_patch);
     }
     let updated = if entity == "connections" {
         connection_secrets::patch_connection(state, &id, normalized_patch)?
@@ -1063,6 +1070,99 @@ fn connection_folder_defaults_for_create(
         object.insert("order".to_string(), json!(next_order));
     }
     Ok(Value::Object(object))
+}
+
+fn create_connection_folder(state: &AppState, value: Value) -> Result<Value, AppError> {
+    let explicit_order = explicit_positive_connection_folder_order(&value);
+    let mut prepared = prepare_entity_for_create(state, "connection-folders", value)?;
+    if let Some(order) = explicit_order {
+        let Some(object) = prepared.as_object_mut() else {
+            return Err(AppError::invalid_input(
+                "Connection folder must be an object",
+            ));
+        };
+        object.insert("sortOrder".to_string(), json!(order));
+        object.insert("order".to_string(), json!(order));
+        return state.storage.create("connection-folders", prepared);
+    }
+
+    state
+        .storage
+        .update_collections_atomically(vec!["connection-folders"], move |collections| {
+            let [folders] = collections else {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Connection folder create expected connection-folder collection",
+                ));
+            };
+            if folders.collection() != "connection-folders" {
+                return Err(AppError::new(
+                    "storage_error",
+                    "Connection folder create received unexpected collection",
+                ));
+            }
+            create_connection_folder_in_rows(folders.rows_mut(), prepared)
+        })
+}
+
+fn explicit_positive_connection_folder_order(value: &Value) -> Option<i64> {
+    ["sortOrder", "order"].into_iter().find_map(|field| {
+        value
+            .get(field)
+            .and_then(Value::as_i64)
+            .filter(|order| *order > 0)
+    })
+}
+
+fn create_connection_folder_in_rows(
+    rows: &mut Vec<Value>,
+    value: Value,
+) -> Result<Value, AppError> {
+    let mut object = ensure_object(value)?;
+    let id = object
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(new_id);
+    if rows
+        .iter()
+        .any(|row| row.get("id").and_then(Value::as_str) == Some(id.as_str()))
+    {
+        return Err(AppError::invalid_input(format!(
+            "connection-folders/{id} already exists"
+        )));
+    }
+
+    let now = now_iso();
+    object.insert("id".to_string(), Value::String(id));
+    object
+        .entry("createdAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object
+        .entry("updatedAt".to_string())
+        .or_insert_with(|| Value::String(now.clone()));
+    object.insert("sortOrder".to_string(), json!(0));
+    object.insert("order".to_string(), json!(0));
+
+    for folder in rows.iter_mut() {
+        let Some(folder) = folder.as_object_mut() else {
+            return Err(AppError::invalid_input("Stored record is not an object"));
+        };
+        let next_order = folder
+            .get("sortOrder")
+            .or_else(|| folder.get("order"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            + 1;
+        folder.insert("sortOrder".to_string(), json!(next_order));
+        folder.insert("order".to_string(), json!(next_order));
+        folder.insert("updatedAt".to_string(), Value::String(now.clone()));
+    }
+
+    let record = Value::Object(object);
+    rows.push(record.clone());
+    Ok(record)
 }
 
 pub(crate) fn validate_connection_folder_for_create(
@@ -1693,6 +1793,39 @@ fn delete_lorebook_entry_with_character_book_sync(
     )
 }
 
+fn update_lorebook_with_character_book_sync(
+    state: &AppState,
+    id: &str,
+    patch: Value,
+) -> Result<Value, AppError> {
+    let patch = ensure_object(patch)?;
+    state.storage.update_collections_atomically(
+        vec!["lorebooks", "lorebook-entries", "characters"],
+        move |collections| {
+            let (lorebook_rows, entry_rows, character_rows) =
+                lorebook_metadata_atomic_rows(collections)?;
+            let row = lorebook_rows
+                .iter_mut()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(id))
+                .ok_or_else(|| AppError::not_found(format!("lorebooks/{id} was not found")))?;
+            let Some(object) = row.as_object_mut() else {
+                return Err(AppError::invalid_input("Stored record is not an object"));
+            };
+            for (key, value) in patch {
+                object.insert(key, value);
+            }
+            object.insert("updatedAt".to_string(), Value::String(now_iso()));
+            let updated = Value::Object(object.clone());
+            sync_linked_character_books_for_lorebook_record_in_place(
+                character_rows,
+                entry_rows,
+                &updated,
+            )?;
+            Ok(updated)
+        },
+    )
+}
+
 fn delete_lorebook_folder_with_entry_reparent_sync(
     state: &AppState,
     folder_id: &str,
@@ -1809,6 +1942,32 @@ fn lorebook_entry_atomic_rows(
     }
 }
 
+fn lorebook_metadata_atomic_rows(
+    collections: &mut [marinara_storage::AtomicCollectionRows],
+) -> Result<LorebookMetadataAtomicRows<'_>, AppError> {
+    let [lorebooks, entries, characters] = collections else {
+        return Err(AppError::new(
+            "storage_error",
+            "Lorebook metadata sync expected lorebook, entry, and character collections",
+        ));
+    };
+    match (
+        lorebooks.collection(),
+        entries.collection(),
+        characters.collection(),
+    ) {
+        ("lorebooks", "lorebook-entries", "characters") => Ok((
+            lorebooks.rows_mut(),
+            entries.rows_mut(),
+            characters.rows_mut(),
+        )),
+        _ => Err(AppError::new(
+            "storage_error",
+            "Lorebook metadata sync received unexpected collections",
+        )),
+    }
+}
+
 fn lorebook_folder_delete_atomic_rows(
     collections: &mut [marinara_storage::AtomicCollectionRows],
 ) -> Result<LorebookFolderDeleteAtomicRows<'_>, AppError> {
@@ -1920,6 +2079,123 @@ fn sync_linked_character_books_for_lorebook_in_place(
         character_object.insert("updatedAt".to_string(), Value::String(now_iso()));
     }
     Ok(())
+}
+
+fn sync_linked_character_books_for_lorebook_record_in_place(
+    character_rows: &mut [Value],
+    all_entry_rows: &[Value],
+    lorebook: &Value,
+) -> Result<(), AppError> {
+    let Some(lorebook_id) = lorebook.get("id").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let mut entries = all_entry_rows
+        .iter()
+        .filter(|entry| lorebook_entry_lorebook_id(entry) == Some(lorebook_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| {
+        compare_json_values(
+            left.get("sortOrder").or_else(|| left.get("order")),
+            right.get("sortOrder").or_else(|| right.get("order")),
+        )
+        .then_with(|| compare_json_values(left.get("createdAt"), right.get("createdAt")))
+    });
+
+    for character in character_rows {
+        let Some(character_id) = character.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let mut data = character.get("data").cloned().unwrap_or_else(|| json!({}));
+        if embedded_lorebook_id(&data) != Some(lorebook_id) {
+            continue;
+        }
+        let Some(data_object) = data.as_object_mut() else {
+            continue;
+        };
+        let mut book = match data_object.get("character_book") {
+            Some(Value::Null) | None => Map::new(),
+            Some(Value::Object(book)) => book.clone(),
+            Some(_) => {
+                return Err(AppError::invalid_input(format!(
+                    "Character {character_id} has a malformed embedded lorebook"
+                )));
+            }
+        };
+        sync_linked_character_book_fields(&mut book, lorebook, &entries);
+        data_object.insert("character_book".to_string(), Value::Object(book));
+
+        if let Some(import_metadata) = data
+            .pointer_mut("/extensions/importMetadata/embeddedLorebook")
+            .and_then(Value::as_object_mut)
+        {
+            import_metadata.insert("entriesImported".to_string(), json!(entries.len()));
+            import_metadata.insert("hasEmbeddedLorebook".to_string(), Value::Bool(true));
+        }
+        let Some(character_object) = character.as_object_mut() else {
+            return Err(AppError::invalid_input(
+                "Stored character record is not an object",
+            ));
+        };
+        character_object.insert("data".to_string(), data);
+        character_object.insert("updatedAt".to_string(), Value::String(now_iso()));
+    }
+    Ok(())
+}
+
+fn sync_linked_character_book_fields(
+    book: &mut Map<String, Value>,
+    lorebook: &Value,
+    entries: &[Value],
+) {
+    book.insert(
+        "name".to_string(),
+        json!(lorebook
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("Character Lorebook")),
+    );
+    book.insert(
+        "description".to_string(),
+        json!(lorebook
+            .get("description")
+            .and_then(Value::as_str)
+            .unwrap_or("")),
+    );
+    book.insert(
+        "scan_depth".to_string(),
+        linked_character_book_number(lorebook.get("scanDepth"), 2),
+    );
+    book.insert(
+        "token_budget".to_string(),
+        linked_character_book_number(lorebook.get("tokenBudget"), 2048),
+    );
+    book.insert(
+        "recursive_scanning".to_string(),
+        json!(lorebook
+            .get("recursiveScanning")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)),
+    );
+    if !book.contains_key("extensions") {
+        book.insert("extensions".to_string(), json!({}));
+    }
+    book.insert(
+        "entries".to_string(),
+        json!(entries
+            .iter()
+            .enumerate()
+            .map(|(index, entry)| linked_character_book_entry(entry, index))
+            .collect::<Vec<_>>()),
+    );
+}
+
+fn linked_character_book_number(value: Option<&Value>, fallback: i64) -> Value {
+    match value {
+        Some(Value::Number(number)) => Value::Number(number.clone()),
+        _ => json!(fallback),
+    }
 }
 
 fn linked_character_book_entry(entry: &Value, index: usize) -> Value {
@@ -2891,6 +3167,12 @@ mod tests {
                     "data": {
                         "name": "Mira",
                         "character_book": {
+                            "extensions": {
+                                "sillytavern": {
+                                    "source": "card",
+                                    "preserved": true
+                                }
+                            },
                             "entries": [
                                 {
                                     "name": "Old",
@@ -2947,6 +3229,22 @@ mod tests {
             .into_iter()
             .next()
             .expect("character book should have an entry")
+    }
+
+    fn character_book_header(state: &AppState) -> Value {
+        let mut book = state
+            .storage
+            .get("characters", "character-1")
+            .expect("character should read")
+            .and_then(|character| {
+                character
+                    .pointer("/data/character_book")
+                    .and_then(Value::as_object)
+                    .cloned()
+            })
+            .expect("character book should exist");
+        book.remove("entries");
+        Value::Object(book)
     }
 
     fn entry_exists(state: &AppState, id: &str) -> bool {
@@ -3072,6 +3370,55 @@ mod tests {
     }
 
     #[test]
+    fn linked_lorebook_metadata_update_is_atomic_when_character_book_sync_fails() {
+        let state = test_state("linked-character-book-metadata-update-atomic");
+        seed_linked_character_book(&state);
+        state
+            .storage
+            .patch(
+                "characters",
+                "character-1",
+                json!({
+                    "data": {
+                        "name": "Mira",
+                        "character_book": "malformed",
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "linked-book",
+                                    "entriesImported": 1
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("malformed linked character book should seed");
+
+        let error = storage_update_inner(
+            &state,
+            "lorebooks".to_string(),
+            "linked-book".to_string(),
+            json!({
+                "name": "Should Roll Back"
+            }),
+        )
+        .expect_err("malformed linked character book should reject the metadata update");
+
+        assert_eq!(error.code, "invalid_input");
+        let lorebook = state
+            .storage
+            .get("lorebooks", "linked-book")
+            .expect("lorebook should read")
+            .expect("lorebook should still exist");
+        assert_eq!(
+            lorebook.get("name").and_then(Value::as_str),
+            Some("Mira Lorebook")
+        );
+    }
+
+    #[test]
     fn updating_linked_lorebook_entry_syncs_character_book() {
         let state = test_state("linked-character-book-entry-update");
         seed_linked_character_book(&state);
@@ -3109,6 +3456,99 @@ mod tests {
         );
         assert_eq!(entry["keys"], json!(["sun"]));
         assert_eq!(entry.get("enabled").and_then(Value::as_bool), Some(false));
+    }
+
+    #[test]
+    fn updating_linked_lorebook_metadata_syncs_character_book_header() {
+        let state = test_state("linked-character-book-metadata-update");
+        seed_linked_character_book(&state);
+        state
+            .storage
+            .create(
+                "lorebook-entries",
+                json!({
+                    "id": "entry-1",
+                    "lorebookId": "linked-book",
+                    "name": "Moon",
+                    "content": "moon text",
+                    "keys": ["moon"]
+                }),
+            )
+            .expect("entry should seed");
+        state
+            .storage
+            .create(
+                "characters",
+                json!({
+                    "id": "character-other",
+                    "name": "Other",
+                    "data": {
+                        "name": "Other",
+                        "character_book": {
+                            "name": "Other Header",
+                            "entries": []
+                        },
+                        "extensions": {
+                            "importMetadata": {
+                                "embeddedLorebook": {
+                                    "hasEmbeddedLorebook": true,
+                                    "lorebookId": "other-book",
+                                    "entriesImported": 0
+                                }
+                            }
+                        }
+                    }
+                }),
+            )
+            .expect("unrelated linked character should seed");
+
+        storage_update_inner(
+            &state,
+            "lorebooks".to_string(),
+            "linked-book".to_string(),
+            json!({
+                "name": "Updated Mira Lorebook",
+                "description": "Fresh linked header",
+                "scanDepth": 7,
+                "tokenBudget": 333,
+                "recursiveScanning": true
+            }),
+        )
+        .expect("lorebook metadata update should sync");
+
+        assert_eq!(
+            character_book_header(&state),
+            json!({
+                "name": "Updated Mira Lorebook",
+                "description": "Fresh linked header",
+                "scan_depth": 7,
+                "token_budget": 333,
+                "recursive_scanning": true,
+                "extensions": {
+                    "sillytavern": {
+                        "source": "card",
+                        "preserved": true
+                    }
+                }
+            })
+        );
+        let entry = first_character_book_entry(&state);
+        assert_eq!(entry.get("name").and_then(Value::as_str), Some("Moon"));
+        assert_eq!(
+            entry.get("content").and_then(Value::as_str),
+            Some("moon text")
+        );
+        let other = state
+            .storage
+            .get("characters", "character-other")
+            .expect("other character should read")
+            .expect("other character should exist");
+        assert_eq!(
+            other
+                .pointer("/data/character_book/name")
+                .and_then(Value::as_str),
+            Some("Other Header")
+        );
     }
 
     #[test]
@@ -5851,6 +6291,118 @@ mod tests {
     }
 
     #[test]
+    fn creating_connection_folder_defaults_and_shifts_existing_folders() {
+        let state = test_state("connection-folder-create-defaults");
+        storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "New folder"
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["color"], "#38bdf8");
+        assert_eq!(created["collapsed"], false);
+        assert_eq!(created["sortOrder"], 0);
+        assert_eq!(created["order"], 0);
+        assert!(created.get("createdAt").is_some());
+        assert!(created.get("updatedAt").is_some());
+
+        let shifted = state
+            .storage
+            .get("connection-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(shifted["sortOrder"], 1);
+        assert_eq!(shifted["order"], 1);
+    }
+
+    #[test]
+    fn creating_connection_folder_with_explicit_order_does_not_shift_existing_folders() {
+        let state = test_state("connection-folder-create-explicit-order");
+        storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "New folder",
+                "sortOrder": 4,
+                "order": 4
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["sortOrder"], 4);
+        assert_eq!(created["order"], 4);
+
+        let existing = state
+            .storage
+            .get("connection-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(existing["sortOrder"], 0);
+        assert_eq!(existing["order"], 0);
+    }
+
+    #[test]
+    fn creating_connection_folder_with_explicit_legacy_order_preserves_order() {
+        let state = test_state("connection-folder-create-legacy-order");
+        storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-old",
+                "name": "Old"
+            }),
+        )
+        .expect("existing folder should be created");
+
+        let created = storage_create_inner(
+            &state,
+            "connection-folders".to_string(),
+            json!({
+                "id": "folder-new",
+                "name": "New folder",
+                "order": 3
+            }),
+        )
+        .expect("new folder should be created");
+
+        assert_eq!(created["sortOrder"], 3);
+        assert_eq!(created["order"], 3);
+
+        let existing = state
+            .storage
+            .get("connection-folders", "folder-old")
+            .expect("folder should read")
+            .expect("folder should remain");
+        assert_eq!(existing["sortOrder"], 0);
+        assert_eq!(existing["order"], 0);
+    }
+
+    #[test]
     fn creating_chat_folder_defaults_and_shifts_existing_folders() {
         let state = test_state("chat-folder-create-defaults");
         storage_create_inner(
@@ -6608,6 +7160,7 @@ mod tests {
             .get("connection-folders", "folder-b")
             .expect("folder should read")
             .expect("folder should exist");
-        assert_eq!(folder_b["sortOrder"], 1);
+        assert_eq!(folder_b["sortOrder"], 0);
+        assert_eq!(folder_b["order"], 0);
     }
 }

@@ -9,6 +9,9 @@ const MAX_TTS_AUDIO_BYTES: usize = 20 * 1024 * 1024;
 const DEFAULT_TTS_REQUEST_TIMEOUT_MS: u64 = 60_000;
 const MIN_TTS_REQUEST_TIMEOUT_MS: u64 = 1_000;
 const MAX_TTS_REQUEST_TIMEOUT_MS: u64 = 30 * 60_000;
+const ELEVENLABS_VOICE_PAGE_SIZE: &str = "100";
+const ELEVENLABS_VOICE_PAGE_LIMIT: usize = 20;
+const ELEVENLABS_VOICE_TYPES: &[&str] = &["default", "non-default"];
 
 const OPENAI_FALLBACK_VOICES: &[&str] = &[
     "alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer",
@@ -422,10 +425,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         .and_then(|value| value.to_str().ok())
         .unwrap_or(fallback_content_type)
         .to_string();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| AppError::new("tts_response_error", error.to_string()))?;
+    let bytes = read_capped_audio_bytes(response).await?;
     if !status.is_success() {
         let detail = provider_error_detail(&String::from_utf8_lossy(&bytes), 500);
         return Err(AppError::with_details(
@@ -442,13 +442,38 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
             json!({ "contentType": content_type, "detail": detail }),
         ));
     }
-    if bytes.len() > MAX_TTS_AUDIO_BYTES {
-        return Err(AppError::invalid_input("TTS audio response is too large"));
-    }
     Ok(json!({
         "audioBase64": general_purpose::STANDARD.encode(bytes),
         "contentType": if content_type.starts_with("audio/") { content_type } else { fallback_content_type.to_string() }
     }))
+}
+
+/// Streams the TTS provider response body while enforcing `MAX_TTS_AUDIO_BYTES`.
+///
+/// Mirrors `read_limited_webhook_text` in `custom_tools.rs`: a `content_length()`
+/// pre-check rejects oversized bodies before download, then a `.chunk()` loop with
+/// a saturating running counter aborts as soon as the cap is exceeded, so a hostile
+/// or misconfigured endpoint cannot OOM the process by streaming a multi-GB body.
+async fn read_capped_audio_bytes(mut response: reqwest::Response) -> AppResult<Vec<u8>> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_TTS_AUDIO_BYTES as u64)
+    {
+        return Err(AppError::invalid_input("TTS audio response is too large"));
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::new("tts_response_error", error.to_string()))?
+    {
+        if body.len().saturating_add(chunk.len()) > MAX_TTS_AUDIO_BYTES {
+            return Err(AppError::invalid_input("TTS audio response is too large"));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 fn normalized_audio_format(config: &Value) -> &'static str {
@@ -598,14 +623,84 @@ async fn elevenlabs_voices(config: &Value, base: &str) -> AppResult<Value> {
     if api_key.is_empty() {
         return Ok(fallback_voices("elevenlabs"));
     }
-    let url = format!(
-        "{}/v2/voices?page_size=100&include_total_count=false",
-        elevenlabs_api_root(base)
-    );
-    let response = reqwest::Client::builder()
+    let root = elevenlabs_api_root(base);
+    let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
-        .map_err(|error| AppError::new("tts_client_error", error.to_string()))?
+        .map_err(|error| AppError::new("tts_client_error", error.to_string()))?;
+    let mut parsed = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for voice_type in ELEVENLABS_VOICE_TYPES {
+        for data in elevenlabs_voice_pages(&client, &root, api_key, Some(*voice_type)).await? {
+            for voice in parse_voice_options(&data) {
+                push_unique_voice_option(&mut parsed, &mut seen, voice);
+            }
+        }
+    }
+    if parsed.is_empty() {
+        Err(AppError::new(
+            "tts_provider_error",
+            "TTS provider returned no voices",
+        ))
+    } else {
+        Ok(
+            json!({ "voices": parsed.iter().filter_map(|voice| voice.get("id").cloned()).collect::<Vec<_>>(), "voiceOptions": parsed, "fromProvider": true, "fallback": false, "source": "elevenlabs" }),
+        )
+    }
+}
+
+async fn elevenlabs_voice_pages(
+    client: &reqwest::Client,
+    root: &str,
+    api_key: &str,
+    voice_type: Option<&str>,
+) -> AppResult<Vec<Value>> {
+    let mut pages = Vec::new();
+    let mut next_page_token: Option<String> = None;
+    let mut seen_page_tokens = std::collections::HashSet::new();
+    for _ in 0..ELEVENLABS_VOICE_PAGE_LIMIT {
+        let data = elevenlabs_voice_page(
+            client,
+            root,
+            api_key,
+            voice_type,
+            next_page_token.as_deref(),
+        )
+        .await?;
+        let has_more = data
+            .get("has_more")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let next = data
+            .get("next_page_token")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|token| !token.is_empty())
+            .map(str::to_string);
+        pages.push(data);
+        if !has_more {
+            break;
+        }
+        let Some(next) = next else {
+            break;
+        };
+        if !seen_page_tokens.insert(next.clone()) {
+            break;
+        }
+        next_page_token = Some(next);
+    }
+    Ok(pages)
+}
+
+async fn elevenlabs_voice_page(
+    client: &reqwest::Client,
+    root: &str,
+    api_key: &str,
+    voice_type: Option<&str>,
+    next_page_token: Option<&str>,
+) -> AppResult<Value> {
+    let url = elevenlabs_voice_page_url(root, voice_type, next_page_token)?;
+    let response = client
         .get(url)
         .headers(elevenlabs_headers(api_key)?)
         .send()
@@ -621,20 +716,58 @@ async fn elevenlabs_voices(config: &Value, base: &str) -> AppResult<Value> {
             json!({ "detail": detail }),
         ));
     }
-    let data = response
+    response
         .json::<Value>()
         .await
-        .map_err(|error| AppError::new("tts_response_error", error.to_string()))?;
-    let parsed = parse_voice_options(&data);
-    if parsed.is_empty() {
-        Err(AppError::new(
-            "tts_provider_error",
-            "TTS provider returned no voices",
-        ))
-    } else {
-        Ok(
-            json!({ "voices": parsed.iter().filter_map(|voice| voice.get("id").cloned()).collect::<Vec<_>>(), "voiceOptions": parsed, "fromProvider": true, "fallback": false, "source": "elevenlabs" }),
+        .map_err(|error| AppError::new("tts_response_error", error.to_string()))
+}
+
+fn elevenlabs_voice_page_url(
+    root: &str,
+    voice_type: Option<&str>,
+    next_page_token: Option<&str>,
+) -> AppResult<String> {
+    let mut url = reqwest::Url::parse(&format!("{}/v2/voices", root)).map_err(|error| {
+        AppError::new(
+            "tts_client_error",
+            format!("Invalid ElevenLabs voice URL: {error}"),
         )
+    })?;
+    {
+        let mut query = url.query_pairs_mut();
+        query.append_pair("page_size", ELEVENLABS_VOICE_PAGE_SIZE);
+        query.append_pair("include_total_count", "false");
+        if let Some(voice_type) = voice_type.map(str::trim).filter(|value| !value.is_empty()) {
+            query.append_pair("voice_type", voice_type);
+        }
+        if let Some(next_page_token) = next_page_token
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            query.append_pair("next_page_token", next_page_token);
+        }
+    }
+    Ok(url.to_string())
+}
+
+fn push_unique_voice_option(
+    voices: &mut Vec<Value>,
+    seen: &mut std::collections::HashSet<String>,
+    voice: Value,
+) {
+    let Some(id) = voice
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+    else {
+        return;
+    };
+    if seen.insert(id.clone()) {
+        let mut voice = voice;
+        voice["id"] = json!(id);
+        voices.push(voice);
     }
 }
 

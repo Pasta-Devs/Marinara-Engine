@@ -5,7 +5,22 @@ use super::super::*;
 use super::spotify_callback::start_callback_listener;
 use super::spotify_query::parse_query;
 use sha2::{Digest, Sha256};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
+
+static SPOTIFY_REFRESH_LOCKS: OnceLock<
+    Mutex<std::collections::HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
+> = OnceLock::new();
+
+fn spotify_refresh_lock(agent_id: &str) -> Arc<tokio::sync::Mutex<()>> {
+    let map = SPOTIFY_REFRESH_LOCKS.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    let mut guard = map
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    guard
+        .entry(agent_id.to_string())
+        .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+        .clone()
+}
 
 const SPOTIFY_SCOPES: &str = "streaming user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-private playlist-read-private playlist-modify-public playlist-modify-private user-library-read";
 const SPOTIFY_REDIRECT_URI: &str = "http://127.0.0.1:8754/spotify/callback";
@@ -75,6 +90,11 @@ pub(crate) async fn spotify_call(
         ("POST", ["refresh"]) => {
             let agent_id = string_param(route, &body, "agentId")
                 .ok_or_else(|| AppError::invalid_input("agentId is required"))?;
+            // Serialize the explicit refresh route on the SAME per-agent lock as the
+            // proactive refresh in resolve_credentials, so the two refresh entrances
+            // cannot both POST grant_type=refresh_token with the same rotating token.
+            let lock = spotify_refresh_lock(&agent_id);
+            let _refresh_guard = lock.lock().await;
             refresh_agent_token(state, &agent_id)
                 .await
                 .map(|_| json!({ "success": true }))
@@ -2595,24 +2615,60 @@ async fn resolve_credentials(
     if access_token.is_empty()
         || (expires_at > 0 && now_millis() > expires_at.saturating_sub(60_000))
     {
-        let token = refresh_agent_token(state, &agent_id).await?;
-        access_token = token
-            .get("access_token")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        expires_at = token
-            .get("expiresAt")
+        // Serialize proactive refreshes per agent so two concurrent requests do
+        // not both POST grant_type=refresh_token. Spotify rotates the refresh
+        // token, so a second concurrent grant would use an already-invalidated
+        // token and last-writer-wins persistence would clobber the good one.
+        let lock = spotify_refresh_lock(&agent_id);
+        let _refresh_guard = lock.lock().await;
+        // Double-checked locking: re-read the stored token after acquiring the
+        // lock. If another task already refreshed while we waited, the stored
+        // token is now valid and we reuse it instead of issuing a second grant.
+        let fresh_agent = get_required(state, "agents", &agent_id)?;
+        let fresh_settings = agent_settings(&fresh_agent);
+        let fresh_access = spotify_stored_token(
+            state,
+            &fresh_settings,
+            "spotifyAccessToken",
+            SPOTIFY_ACCESS_TOKEN_ENCRYPTED_KEY,
+        )?
+        .unwrap_or_default();
+        let fresh_expires_at = fresh_settings
+            .get("spotifyExpiresAt")
             .and_then(Value::as_u64)
-            .map(u128::from)
-            .or_else(|| {
-                token
-                    .get("expires_in")
-                    .and_then(Value::as_u64)
-                    .map(|expires_in| now_millis() + (u128::from(expires_in) * 1000))
-            })
-            .unwrap_or(0);
-        scopes = scope_list(token.get("scope").and_then(Value::as_str).unwrap_or(""));
+            .unwrap_or(0) as u128;
+        if !fresh_access.is_empty()
+            && fresh_expires_at > 0
+            && now_millis() <= fresh_expires_at.saturating_sub(60_000)
+        {
+            access_token = fresh_access;
+            expires_at = fresh_expires_at;
+            scopes = scope_list(
+                fresh_settings
+                    .get("spotifyScope")
+                    .and_then(Value::as_str)
+                    .unwrap_or(""),
+            );
+        } else {
+            let token = refresh_agent_token(state, &agent_id).await?;
+            access_token = token
+                .get("access_token")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            expires_at = token
+                .get("expiresAt")
+                .and_then(Value::as_u64)
+                .map(u128::from)
+                .or_else(|| {
+                    token
+                        .get("expires_in")
+                        .and_then(Value::as_u64)
+                        .map(|expires_in| now_millis() + (u128::from(expires_in) * 1000))
+                })
+                .unwrap_or(0);
+            scopes = scope_list(token.get("scope").and_then(Value::as_str).unwrap_or(""));
+        }
     }
     if access_token.is_empty() || (expires_at > 0 && now_millis() > expires_at) {
         return Err(AppError::new(

@@ -1473,9 +1473,19 @@ function assetTagFromPath(path: string): string {
 }
 
 function imageExt(mimeType: string): string {
-  if (mimeType.includes("png")) return "png";
-  if (mimeType.includes("webp")) return "webp";
+  const normalized = mimeType.toLowerCase();
+  if (normalized.includes("png")) return "png";
+  if (normalized.includes("webp")) return "webp";
+  if (normalized.includes("gif")) return "gif";
   return "jpg";
+}
+
+function generatedImageExt(ext: unknown, mimeType: string): string {
+  const normalized = readTrimmed(ext).toLowerCase().replace(/^\./, "");
+  if (["png", "jpg", "jpeg", "webp", "gif"].includes(normalized)) {
+    return normalized === "jpeg" ? "jpg" : normalized;
+  }
+  return imageExt(mimeType);
 }
 
 function base64File(base64: string, name: string, type: string): File {
@@ -1728,11 +1738,12 @@ async function uploadGeneratedAsset(
   slug: string,
   base64: string,
   mimeType: string,
+  ext?: string,
 ): Promise<string> {
   const uploaded = (await gameAssetsApi.upload({
     category,
     subcategory,
-    file: base64File(base64, `${slug}.${imageExt(mimeType)}`, mimeType),
+    file: base64File(base64, `${slug}.${generatedImageExt(ext, mimeType)}`, mimeType),
   })) as { item?: { path?: string } };
   const path = uploaded.item?.path;
   if (!path) throw new Error("Generated asset path missing.");
@@ -3211,12 +3222,13 @@ export const gameApi = {
 
     for (const item of preview.items) {
       if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
-      let image: { base64: string; mimeType: string; image?: string; provider?: string; model?: string };
+      let image: { base64: string; mimeType: string; image?: string; ext?: string; provider?: string; model?: string };
       try {
         image = await imageGenerationApi.generate<{
           base64: string;
           mimeType: string;
           image?: string;
+          ext?: string;
           provider?: string;
           model?: string;
         }>(gameImageGenerationRequest(imageConnectionId, item));
@@ -3235,6 +3247,7 @@ export const gameApi = {
           generatedAssetSlug(key),
           image.base64,
           image.mimeType,
+          image.ext,
         );
         generatedBackground = tag;
         sessionChat = await patchChatMetadata(chatId, { gameSceneBackground: tag });
@@ -3248,6 +3261,7 @@ export const gameApi = {
           generatedAssetSlug(key),
           image.base64,
           image.mimeType,
+          image.ext,
         );
         generatedIllustration = {
           tag,
@@ -3255,7 +3269,7 @@ export const gameApi = {
         };
         const mimeType = image.mimeType || "image/png";
         const imageUrl = imageUrlFromGeneration(image);
-        const filename = `${generatedAssetSlug(key)}.${imageExt(mimeType)}`;
+        const filename = `${generatedAssetSlug(key)}.${generatedImageExt(image.ext, mimeType)}`;
         const gallery = await storageApi.create<{ id?: string }>("gallery", {
           chatId,
           filePath: filename,
@@ -3284,7 +3298,7 @@ export const gameApi = {
         const mimeType = image.mimeType || "image/png";
         const imageUrl = imageUrlFromGeneration(image);
         if (!imageUrl) throw new Error("Image provider returned no image data.");
-        const filename = `${generatedAssetSlug(npcName)}.${imageExt(mimeType)}`;
+        const filename = `${generatedAssetSlug(npcName)}.${generatedImageExt(image.ext, mimeType)}`;
         const gallery = await storageApi.create<{ id?: string; url?: string }>("gallery", {
           chatId,
           filePath: filename,

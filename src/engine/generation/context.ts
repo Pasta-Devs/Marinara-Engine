@@ -27,6 +27,7 @@ const GENERATION_MESSAGE_EXTRA_FIELDS = [
   "contextInjections",
   "cyoaChoices",
   "spriteExpressions",
+  "isConversationStart",
 ];
 
 function uniqueStrings(values: readonly string[]): string[] {

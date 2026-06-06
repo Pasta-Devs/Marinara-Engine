@@ -491,6 +491,7 @@ fn legacy_profile_import_plan(
         let processed_rows = rows.len();
         match *collection {
             "app-settings" => normalize_legacy_app_settings(&mut rows),
+            "regex-scripts" => super::drop_unsafe_regex_scripts(&mut rows),
             "characters" => normalize_legacy_character_data(&mut rows),
             "prompt-overrides" => {
                 unsupported_prompt_overrides = normalize_profile_prompt_overrides(&mut rows)
@@ -509,6 +510,7 @@ fn legacy_profile_import_plan(
             "gallery" | "character-gallery" => {
                 normalize_legacy_gallery_rows(state, staging_root, &mut rows)
             }
+            "extensions" => super::disable_imported_extension_rows(&mut rows),
             _ => {}
         }
         normalize_legacy_profile_json_fields(collection, &mut rows)?;

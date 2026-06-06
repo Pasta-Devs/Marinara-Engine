@@ -610,7 +610,12 @@ impl FileStorage {
         F: FnOnce(&mut [AtomicCollectionRows]) -> AppResult<T>,
     {
         let _atomic_update = self.begin_atomic_update()?;
-        let mut entries = {
+        // Load the rows and capture each collection's file stamp under the SAME
+        // write lock, so the conflict baseline reflects exactly the bytes the rows
+        // were read from. Sampling the stamp after the lock is released would let a
+        // concurrent writer slip in between the read and the stamp, baking its change
+        // into the baseline and hiding it from the commit-time conflict check.
+        let (mut entries, original_stamps) = {
             let _guard = self
                 .lock
                 .write()
@@ -618,10 +623,11 @@ impl FileStorage {
             self.flush_dirty_collections_locked()?;
 
             let mut loaded = Vec::with_capacity(collections.len());
+            let mut original_stamps = Vec::with_capacity(collections.len());
             let mut seen_paths = HashSet::new();
             for collection in collections {
                 let path = self.collection_path(collection)?;
-                if !seen_paths.insert(path) {
+                if !seen_paths.insert(path.clone()) {
                     return Err(AppError::invalid_input(format!(
                         "Duplicate collection update: {collection}"
                     )));
@@ -630,14 +636,10 @@ impl FileStorage {
                     collection: collection.to_string(),
                     rows: self.read_collection_no_recovery(collection)?,
                 });
+                original_stamps.push((collection.to_string(), collection_file_stamp(&path)?));
             }
-            loaded
+            (loaded, original_stamps)
         };
-
-        let original_rows = entries
-            .iter()
-            .map(|entry| (entry.collection.clone(), entry.rows.clone()))
-            .collect::<Vec<_>>();
 
         let output = update(&mut entries)?;
 
@@ -646,8 +648,9 @@ impl FileStorage {
             .write()
             .map_err(|_| AppError::new("lock_error", "Storage lock poisoned"))?;
         self.flush_dirty_collections_locked()?;
-        for (collection, rows) in &original_rows {
-            if self.read_collection_no_recovery(collection)? != *rows {
+        for (collection, original_stamp) in &original_stamps {
+            let path = self.collection_path(collection)?;
+            if collection_file_stamp(&path)? != *original_stamp {
                 return Err(AppError::new(
                     "storage_conflict",
                     format!("Collection changed during atomic update: {collection}"),

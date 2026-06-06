@@ -70,7 +70,9 @@ export const createLorebookSchema = z.object({
   imagePath: z.string().nullable().default(null),
   scanDepth: z.number().int().min(0).default(2),
   tokenBudget: z.number().int().min(0).default(2048),
+  // Scan-level enabler: any active lorebook with this enabled starts recursion.
   recursiveScanning: z.boolean().default(false),
+  // When multiple active lorebooks enable recursion, the scanner uses the highest active depth.
   maxRecursionDepth: z.number().int().min(1).max(10).default(3),
   characterId: z.string().nullable().default(null),
   characterIds: z.array(z.string()).default([]),
@@ -93,7 +95,9 @@ export const updateLorebookSchema = z
     imagePath: z.string().nullable().optional(),
     scanDepth: z.number().int().min(0).optional(),
     tokenBudget: z.number().int().min(0).optional(),
+    // Scan-level enabler: any active lorebook with this enabled starts recursion.
     recursiveScanning: z.boolean().optional(),
+    // When multiple active lorebooks enable recursion, the scanner uses the highest active depth.
     maxRecursionDepth: z.number().int().min(1).max(10).optional(),
     characterId: z.string().nullable().optional(),
     characterIds: z.array(z.string()).optional(),

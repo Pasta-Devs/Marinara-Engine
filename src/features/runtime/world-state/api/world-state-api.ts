@@ -201,6 +201,25 @@ async function resolveVisibleTarget(chatId: string, fallback: unknown): Promise<
   return (await latestAssistantTarget(chatId).catch(() => null)) ?? readTarget(fallback);
 }
 
+// Determines whether a patch may persist chat.gameState. Patches without an explicit
+// requestedTarget (per-turn snapshot writes, clearManualState) always own chat.gameState.
+// A patch that pinned a specific message target at edit time (debounced manual edits) may
+// only write chat.gameState when that target is still the current visible assistant target;
+// if a newer turn has advanced the visible target during the debounce window the stale write
+// is skipped so it cannot clobber the current turn's persisted state.
+async function canPersistChatGameState(
+  chatId: string,
+  requestedTarget: ResolvedWorldStateTarget | null,
+): Promise<boolean> {
+  if (!requestedTarget) return true;
+  const visibleTarget = await latestAssistantTarget(chatId).catch(() => null);
+  if (!visibleTarget?.messageId) return true;
+  return (
+    visibleTarget.messageId === requestedTarget.messageId &&
+    visibleTarget.swipeIndex === requestedTarget.swipeIndex
+  );
+}
+
 async function getWorldState(chatId: string, target: WorldStateTarget, init?: RequestInit): Promise<WorldState | null>;
 async function getWorldState(chatId: string, init?: RequestInit): Promise<WorldState | null>;
 async function getWorldState(
@@ -276,7 +295,17 @@ export const worldStateApi: WorldStateApi = {
     );
     const saved = target ? await trackerSnapshotApi.save(chatId, next) : null;
     throwIfAborted(init);
-    await storageApi.update("chats", chatId, { gameState: saved ?? next });
+    // Guard against a stale debounced manual patch clobbering chat.gameState. When an
+    // explicit requestedTarget was captured at edit time (only use-world-state-patcher does
+    // this), a concurrent assistant turn may have advanced the visible target during the
+    // debounce window. Re-resolve the current visible target at flush time and only persist
+    // chat.gameState when the requested target is still visible; otherwise keep the
+    // per-message snapshot only and let the visible-read path own chat.gameState.
+    const shouldWriteChatGameState = await canPersistChatGameState(chatId, requestedTarget);
+    throwIfAborted(init);
+    if (shouldWriteChatGameState) {
+      await storageApi.update("chats", chatId, { gameState: saved ?? next });
+    }
     return applyManualOverrides(saved ?? next);
   },
 };

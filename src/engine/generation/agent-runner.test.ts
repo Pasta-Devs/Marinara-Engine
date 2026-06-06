@@ -73,6 +73,15 @@ function llmWithJsonAgentResponse(calls: { count: number }): LlmGateway {
   } as unknown as LlmGateway;
 }
 
+function llmWithStreamError(calls: { count: number }): LlmGateway {
+  return {
+    async *stream() {
+      calls.count += 1;
+      yield { type: "error", data: { message: "Agent provider failed" } };
+    },
+  } as unknown as LlmGateway;
+}
+
 const integrations = {} as IntegrationGateway;
 const chat = {
   id: "chat-1",
@@ -174,6 +183,37 @@ describe("createGenerationAgentRuntime regeneration cadence", () => {
 
     expect(calls.count).toBe(0);
     expect(runtime.preInjections).toEqual([]);
+  });
+
+  it("records LLM stream error chunks as pre-generation agent failures", async () => {
+    const calls = { count: 0 };
+    const runtime = await createGenerationAgentRuntime(
+      {
+        storage: storageWithAgentRuns([]),
+        llm: llmWithStreamError(calls),
+        integrations,
+      },
+      {
+        chat,
+        connection,
+        storedMessages: storedMessages.slice(0, 1),
+        cadenceMessages: storedMessages.slice(0, 1),
+        characters: [],
+        persona: null,
+        activatedLorebookEntries: [],
+        chatSummary: null,
+      },
+    );
+
+    expect(calls.count).toBe(1);
+    expect(runtime.preInjections).toEqual([]);
+    expect(runtime.preResults).toEqual([
+      expect.objectContaining({
+        agentType: "director",
+        error: "Agent provider failed",
+        success: false,
+      }),
+    ]);
   });
 });
 

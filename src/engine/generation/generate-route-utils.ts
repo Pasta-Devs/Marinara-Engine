@@ -314,10 +314,10 @@ export function generationParameterSources(
   const mode = readString(chat?.mode || chat?.chatMode);
   const setupConfig = parseRecord(meta.gameSetupConfig);
   return [
-    connection?.defaultParameters,
     promptPresetParameters,
     mode === "game" ? setupConfig.generationParameters : null,
     mode === "game" ? meta.gameGenerationParameters : null,
+    connection?.defaultParameters,
     meta.chatParameters,
     input?.parameters,
   ];

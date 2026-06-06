@@ -307,6 +307,7 @@ function cloneQuest(quest: QuestProgress): QuestProgress {
 export function applyQuestUpdatesToPlayerStats(
   value: unknown,
   updatesValue: unknown,
+  options: { autoRemoveFullyCompleted?: boolean } = {},
 ): { playerStats: PlayerStats; changed: boolean } {
   const updates = Array.isArray(updatesValue)
     ? updatesValue.map(normalizeQuestUpdate).filter((update): update is NormalizedQuestUpdate => !!update)
@@ -340,13 +341,15 @@ export function applyQuestUpdatesToPlayerStats(
     }
   }
 
-  for (let index = quests.length - 1; index >= 0; index -= 1) {
-    const quest = quests[index]!;
-    if (
-      quest.completed &&
-      (quest.objectives.length === 0 || quest.objectives.every((objective) => objective.completed))
-    ) {
-      quests.splice(index, 1);
+  if (options.autoRemoveFullyCompleted === true) {
+    for (let index = quests.length - 1; index >= 0; index -= 1) {
+      const quest = quests[index]!;
+      if (
+        quest.completed &&
+        (quest.objectives.length === 0 || quest.objectives.every((objective) => objective.completed))
+      ) {
+        quests.splice(index, 1);
+      }
     }
   }
 

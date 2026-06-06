@@ -7,12 +7,10 @@ import { TRACKER_AGENT_TYPE_IDS } from "../../world-state/index";
 export function useTrackerRerun({
   activeChatId,
   enabledAgentTypes,
-  flushPatch,
   gameStateRefreshing,
 }: {
   activeChatId: string | null;
   enabledAgentTypes: Set<string>;
-  flushPatch: () => Promise<void>;
   gameStateRefreshing: boolean;
 }) {
   const streamingChatId = useChatStore((s) => s.streamingChatId);
@@ -33,17 +31,12 @@ export function useTrackerRerun({
         return;
       }
       try {
-        await flushPatch();
-      } catch {
-        return;
-      }
-      try {
         await retryAgents(activeChatId, [agentType]);
       } catch (error) {
         console.warn("Failed to re-run tracker agents.", error);
       }
     },
-    [activeChatId, enabledAgentTypes, flushPatch, retryAgents, trackerRetryBusy],
+    [activeChatId, enabledAgentTypes, retryAgents, trackerRetryBusy],
   );
 
   return { rerunTracker, trackerRetryBusy };

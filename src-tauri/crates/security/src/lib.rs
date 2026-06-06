@@ -96,17 +96,43 @@ pub fn is_allowed_outbound_url(raw: &str, allow_local: bool) -> bool {
     !is_local_or_reserved_host(host)
 }
 
-fn is_local_or_reserved_host(host: &str) -> bool {
-    let normalized = host
-        .trim()
-        .trim_matches(['[', ']'])
-        .trim_end_matches('.')
-        .to_ascii_lowercase();
+pub fn is_allowed_provider_url(raw: &str, allow_private_or_reserved: bool) -> bool {
+    let Ok(url) = Url::parse(raw) else {
+        return false;
+    };
+    if !matches!(url.scheme(), "http" | "https") {
+        return false;
+    }
+    if allow_private_or_reserved {
+        return true;
+    }
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    !is_private_or_reserved_provider_host(host)
+}
+
+fn is_private_or_reserved_provider_host(host: &str) -> bool {
+    let normalized = normalize_host(host);
     if normalized.is_empty()
-        || matches!(
-            normalized.as_str(),
-            "localhost" | "localhost.localdomain" | "ip6-localhost" | "ip6-loopback"
-        )
+        || normalized.ends_with(".local")
+        || normalized.ends_with(".internal")
+        || normalized.ends_with(".onion")
+    {
+        return true;
+    }
+    if is_loopback_host(&normalized) {
+        return false;
+    }
+    normalized
+        .parse::<IpAddr>()
+        .is_ok_and(is_local_or_reserved_ip)
+}
+
+fn is_local_or_reserved_host(host: &str) -> bool {
+    let normalized = normalize_host(host);
+    if normalized.is_empty()
+        || is_loopback_host(&normalized)
         || normalized.ends_with(".localhost")
         || normalized.ends_with(".local")
         || normalized.ends_with(".internal")
@@ -119,11 +145,50 @@ fn is_local_or_reserved_host(host: &str) -> bool {
         .is_ok_and(is_local_or_reserved_ip)
 }
 
+fn normalize_host(host: &str) -> String {
+    host.trim()
+        .trim_matches(['[', ']'])
+        .trim_end_matches('.')
+        .to_ascii_lowercase()
+}
+
+pub fn is_loopback_provider_host(host: &str) -> bool {
+    let normalized = normalize_host(host);
+    is_loopback_host(&normalized)
+}
+
+fn is_loopback_host(normalized: &str) -> bool {
+    matches!(
+        normalized,
+        "localhost" | "localhost.localdomain" | "ip6-localhost" | "ip6-loopback"
+    ) || normalized.ends_with(".localhost")
+        || normalized
+            .parse::<IpAddr>()
+            .is_ok_and(is_loopback_ip)
+}
+
+fn is_loopback_ip(address: IpAddr) -> bool {
+    match address {
+        IpAddr::V4(address) => address.is_loopback(),
+        IpAddr::V6(address) => {
+            address.is_loopback()
+                || embedded_ipv4(address).is_some_and(|address| address.is_loopback())
+        }
+    }
+}
+
 pub fn is_local_or_reserved_ip(address: IpAddr) -> bool {
     match address {
         IpAddr::V4(address) => is_local_or_reserved_ipv4(address),
         IpAddr::V6(address) => is_local_or_reserved_ipv6(address),
     }
+}
+
+pub fn is_forbidden_provider_resolved_ip(
+    address: IpAddr,
+    allow_private_or_reserved: bool,
+) -> bool {
+    !allow_private_or_reserved && is_local_or_reserved_ip(address)
 }
 
 fn is_local_or_reserved_ipv4(address: Ipv4Addr) -> bool {
@@ -464,5 +529,73 @@ mod tests {
         assert!(is_allowed_outbound_url("https://example.com/hook", false));
         assert!(is_allowed_outbound_url("http://example.com/hook", false));
         assert!(!is_allowed_outbound_url("file:///etc/passwd", true));
+    }
+
+    #[test]
+    fn provider_url_policy_allows_loopback_but_blocks_private_without_opt_in() {
+        for url in [
+            "http://localhost:11434/api/tags",
+            "http://localhost./api/tags",
+            "http://127.0.0.1:11434/api/tags",
+            "http://[::1]:11434/api/tags",
+            "http://[::ffff:127.0.0.1]:11434/api/tags",
+        ] {
+            assert!(
+                is_allowed_provider_url(url, false),
+                "provider policy should allow loopback target {url}"
+            );
+        }
+
+        for url in [
+            "http://10.1.2.3/models",
+            "http://172.16.0.5/models",
+            "http://192.168.1.5/models",
+            "http://169.254.169.254/latest/meta-data",
+            "http://[fc00::1]/models",
+            "http://[::ffff:10.0.0.1]/models",
+            "https://hidden-service.onion/models",
+        ] {
+            assert!(
+                !is_allowed_provider_url(url, false),
+                "provider policy should reject private/reserved target {url}"
+            );
+            assert!(
+                is_allowed_provider_url(url, true),
+                "provider local opt-in should accept {url}"
+            );
+        }
+    }
+
+    #[test]
+    fn provider_resolved_ip_policy_blocks_private_metadata_and_mapped_addresses() {
+        for address in [
+            "10.0.0.1",
+            "169.254.169.254",
+            "127.0.0.1",
+            "::1",
+            "fc00::1",
+            "::ffff:10.0.0.1",
+            "::ffff:127.0.0.1",
+        ] {
+            let address = address
+                .parse::<IpAddr>()
+                .expect("test address should parse");
+            assert!(
+                is_forbidden_provider_resolved_ip(address, false),
+                "provider policy should reject resolved target {address}"
+            );
+            assert!(
+                !is_forbidden_provider_resolved_ip(address, true),
+                "provider local opt-in should accept resolved target {address}"
+            );
+        }
+    }
+
+    #[test]
+    fn provider_literal_loopback_policy_covers_mapped_ipv6() {
+        assert!(is_loopback_provider_host("127.0.0.1"));
+        assert!(is_loopback_provider_host("[::1]"));
+        assert!(is_loopback_provider_host("[::ffff:127.0.0.1]"));
+        assert!(!is_loopback_provider_host("[::ffff:10.0.0.1]"));
     }
 }

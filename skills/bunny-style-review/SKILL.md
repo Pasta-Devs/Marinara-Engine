@@ -1,6 +1,6 @@
 ---
 name: bunny-style-review
-description: "Repo-local branch/PR review workflow with failure-path and nitpick lenses. Use when the user says Bunny, Bunny review, Bunny style review, PR-style review, second reviewer pass, or asks an agent to inspect a branch, PR, or diff for bugs, regressions, edge cases, tests, security, migration, performance, maintainability, realistic failure modes, or small review comments."
+description: "Repo-local branch/PR review workflow with failure-path and nitpick lenses. Use when the user says Bunny, Bunny review, Bunny style review, PR-style review, second reviewer pass, or asks an agent to inspect a branch, PR, or diff for bugs, regressions, edge cases, proof gaps, existing tests, security, migration, performance, maintainability, realistic failure modes, or small review comments."
 ---
 
 # Bunny Style Review
@@ -16,20 +16,20 @@ Default behavior: review only. Do not edit files, create commits, push branches,
 ## Setup
 
 1. Identify the review surface:
-    - Run `git status --short --branch`, `git diff --stat`, `git diff --numstat`, `git diff --name-only`, and `git diff --check`.
-    - If untracked files exist, run `git ls-files --others --exclude-standard`; classify them as intentional or unrelated.
+   - Run `git status --short --branch`, `git diff --stat`, `git diff --numstat`, `git diff --name-only`, and `git diff --check`.
+   - If untracked files exist, run `git ls-files --others --exclude-standard`; classify them as intentional or unrelated.
 2. For local uncommitted work:
-    - Review staged and unstaged tracked changes from the diff.
-    - Review intentional untracked files directly, since `git diff` does not show their contents until they are staged.
-    - Keep unrelated dirty or untracked files out of scope and name them only if they affect review confidence.
-    - If the user asks for a commit before review, follow the repo workflow for intentional files and protected-branch safety, then review the resulting commit or diff.
+   - Review staged and unstaged tracked changes from the diff.
+   - Review intentional untracked files directly, since `git diff` does not show their contents until they are staged.
+   - Keep unrelated dirty or untracked files out of scope and name them only if they affect review confidence.
+   - If the user asks for a commit before review, follow the repo workflow for intentional files and protected-branch safety, then review the resulting commit or diff.
 3. For PR or committed branch review, identify the base branch and inspect `git diff <base>...HEAD`.
 4. Build the review context stack before deciding findings:
    - Active repo/team rules: root `AGENTS.md`, relevant repo-local skills, `.coderabbit.yaml`, `CLAUDE.md`, `.cursorrules`, GitHub Copilot instructions, or path-scoped docs when present.
    - Changed reviewer/config files that alter future review behavior, checks, filters, path instructions, or coding guidelines.
-   - Touched diffs, nearby callers, contracts, tests, schemas, routes, hooks, storage, docs, and consumers.
+   - Touched diffs, nearby callers, contracts, existing tests/proof, schemas, routes, hooks, storage, docs, and consumers.
    - Existing analyzer output or check failures when available; treat them as evidence to verify, not as final findings.
-5. For standard or large diffs, review in logical order: entrypoint/config, shared contracts, data flow, UI/runtime consumers, tests/docs.
+5. For standard or large diffs, review in logical order: entrypoint/config, shared contracts, data flow, UI/runtime consumers, proof/docs.
 
 ## Marinara Context
 
@@ -86,7 +86,7 @@ Use only lenses relevant to the diff:
 - Prompt/provider/continuity: prompt/schema/parser mismatch, empty or malformed model output, provider quirks, token growth, fallback behavior, memory systems conflated.
 - Reviewer/config behavior: changed review rules, path filters, generated-file exclusions, guideline scoping, custom checks, CI commands, PR templates, changelog/release gates.
 - UX/performance: loading, empty, disabled, error, rollback, accessibility, mobile/touch, light/dark, clipped text, startup/bundle cost, cleanup.
-- Tests/docs/PR readiness: missing focused proof, unrealistic tests, overbroad validation, manual QA gaps, docs drift, release/version drift, PR template misuse.
+- Proof/docs/PR readiness: missing focused proof, unrealistic proof, overbroad validation, manual QA gaps, docs drift, release/version drift, PR template misuse.
 - Nitpick polish: small readability, naming, duplication, dead code, comments, local consistency, or tiny maintainability improvements.
 
 Flag pre-existing issues only when the diff worsens or unsafely relies on them. Otherwise omit them or label them as context, not findings.
@@ -137,7 +137,10 @@ Apply these filters before output:
 - Do not inflate severity or hide merge-blocking risk as medium/low.
 - Report only issues with a clear, actionable cause in current code and the diff.
 - Move plausible but unverified concerns to Residual Risk or Open Questions.
-- Make missing tests findings only when the diff adds meaningful behavior risk, breaks an expected contract, or leaves a realistic regression unproved.
+- Make missing-proof findings only when the diff adds meaningful behavior risk, breaks an expected contract, or leaves a realistic regression unproved.
+- Suggest durable tests only when:
+  - A known regression or risky silent-break invariant needs a small focused guard.
+  - The owner already has a nearby narrow/stable test pattern that is cheaper than repeated manual proof.
 - Prefer one root-cause finding over multiple symptom findings; name affected surfaces in the evidence.
 - For repeated local issues, cite the clearest representative line; mention recurrence only when it changes impact or fix scope.
 - Drop speculative findings, pre-existing unrelated issues, and taste-only comments that are not useful nitpicks.

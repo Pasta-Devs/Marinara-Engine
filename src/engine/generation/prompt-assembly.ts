@@ -2,6 +2,10 @@ import type { LorebookEntryTimingState } from "../contracts/types/lorebook";
 import type { ChatMLMessage, MarkerConfig, WrapFormat } from "../contracts/types/prompt";
 import type { CharacterData } from "../contracts/types/character";
 import { BUILT_IN_AGENTS } from "../contracts/types/agent";
+import {
+  DEFAULT_CONVERSATION_SYSTEM_PROMPT,
+  DEFAULT_GROUP_CONVERSATION_SYSTEM_PROMPT,
+} from "../contracts/constants/conversation-prompt";
 import type { ListChatMemoriesOptions, StorageGateway } from "../capabilities/storage";
 import type { VisualAssetGateway } from "../capabilities/visual-assets";
 import { getCharacterDescriptionWithExtensions } from "../generation-core/prompt/character-description-extensions";
@@ -35,6 +39,7 @@ import {
   mergeStoredGenerationParameters,
   type StoredGenerationParameters,
 } from "./generate-route-utils";
+import { effectiveMaxContext } from "./context-window";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection";
 import {
   bySortOrder,
@@ -52,6 +57,7 @@ import {
   lorebookActivatedEntryForEvent,
   scanActiveLorebooks,
   type ActiveLorebookIncludedPositions,
+  type ActiveLorebookScannerResult,
   type BudgetSkippedLorebookEntry,
 } from "./active-lorebook-scanner";
 
@@ -123,6 +129,7 @@ export interface PromptAssemblyResult {
   budgetSkippedLorebookEntries: BudgetSkippedLorebookEntry[];
   chatSummary: string | null;
   chatSummaryFingerprint: string | null;
+  reusableContext: PromptAssemblyReusableContext;
 }
 
 export interface PromptAssemblyInput {
@@ -140,6 +147,28 @@ export interface PromptAssemblyInput {
   } | null;
   visuals?: VisualAssetGateway;
   persistPromptVariables?: boolean;
+  reusableContext?: PromptAssemblyReusableContext;
+}
+
+interface PromptAssemblyReusableContext {
+  chatMeta: JsonRecord;
+  chatMode: string;
+  storedMessages: JsonRecord[];
+  characters: GenerationCharacterContext[];
+  persona: GenerationPersonaContext | null;
+  selectedPreset: SelectedPromptPreset | null;
+  presetId: string | null;
+  promptParameters: StoredGenerationParameters | null;
+  maxContext: number | null;
+  wrapFormat: WrapFormat;
+  promptCharacters: GenerationCharacterContext[];
+  baseLorebookIncludedPositions: ActiveLorebookIncludedPositions;
+  loreScan: ActiveLorebookScannerResult;
+  processedLore: ActiveLorebookScannerResult["processedLore"];
+  summary: string | null;
+  memoryRecallBlock: string | null;
+  history: ChatMLMessage[];
+  greetingPromptVariables: Record<string, string>;
 }
 
 type PromptSectionRecord = JsonRecord & {
@@ -279,7 +308,11 @@ function hasOwnChoice(record: JsonRecord, name: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, name);
 }
 
-function normalizedSelectionValue(value: unknown, block: PromptChoiceBlockRecord, hasSelection: boolean): string | null {
+function normalizedSelectionValue(
+  value: unknown,
+  block: PromptChoiceBlockRecord,
+  hasSelection: boolean,
+): string | null {
   const optionValues = promptChoiceOptionValues(block);
   if (optionValues.length === 0) return null;
 
@@ -1107,7 +1140,7 @@ function macroContext(input: {
       systemPrompt: character.systemPrompt,
       postHistoryInstructions: character.postHistoryInstructions,
     })),
-    variables: input.variables ?? chatPromptVariables(input.chat),
+    variables: { ...(input.variables ?? chatPromptVariables(input.chat)) },
     lastInput: input.latestUserInput,
     chatId: readString(input.chat.id),
     model: readString(input.connection.model),
@@ -1507,21 +1540,67 @@ function committedTrackerStatePromptMessage(input: PromptAssemblyInput, wrapForm
   };
 }
 
+function conversationCharacterNames(characters: GenerationCharacterContext[]): string[] {
+  return characters.map((character) => character.name.trim()).filter(Boolean);
+}
+
+function resolveConversationSystemPrompt(
+  template: string,
+  macros: MacroContext,
+  characters: GenerationCharacterContext[],
+): string {
+  const names = conversationCharacterNames(characters);
+  if (names.length <= 1) return resolveMacros(template, macros);
+  const characterList = names.join(", ");
+  const groupTemplate = template
+    .replace(/\{\{charName\}\}/gi, characterList)
+    .replace(/\{\{characters\}\}/gi, characterList);
+  return resolveMacros(groupTemplate, macros);
+}
+
+function groupConversationReplyGuidance(input: PromptAssemblyInput, characters: GenerationCharacterContext[]): string {
+  const names = conversationCharacterNames(characters);
+  if (names.length <= 1) return "";
+  const metadata = parseRecord(input.chat.metadata);
+  if (readString(metadata.groupResponseOrder, "sequential") === "manual") {
+    return [
+      "This is a group DM. Each character responds in their own voice and personality.",
+      "You will be told which character to respond as. Do NOT prefix your message with the character name - just respond naturally as that character.",
+    ].join("\n");
+  }
+
+  const first = names[0] ?? "Alice";
+  const second = names[1] ?? "Bob";
+  return [
+    "This is a group DM. Each character responds in their own voice and personality. Not every character needs to respond every time - only those who would naturally react.",
+    "IMPORTANT: Prefix each character's line with their name. Example:",
+    `${first}: hey whats up`,
+    `${second}: not much lol`,
+    "",
+    "If a character sends multiple lines in a row, only prefix the first line:",
+    `${first}: so anyway`,
+    "i was thinking about that",
+    `${second}: yeah?`,
+  ].join("\n");
+}
+
 function fallbackSystemPrompt(
   input: PromptAssemblyInput,
   args: {
     characters: GenerationCharacterContext[];
+    conversationCharacters: GenerationCharacterContext[];
     persona: GenerationPersonaContext | null;
     worldBefore: string;
     worldAfter: string;
     summary: string | null;
     wrapFormat: WrapFormat;
+    macros: MacroContext;
   },
 ): string {
   const mode = readString(input.chat.mode || input.chat.chatMode, "conversation");
   const meta = parseRecord(input.chat.metadata);
   const common = [
-    renderCharacters(args.characters, args.wrapFormat, null),
+    renderCharacters(args.characters, args.wrapFormat, null, args.macros),
     renderPersona(args.persona, args.wrapFormat),
     args.worldBefore,
     args.worldAfter,
@@ -1550,11 +1629,15 @@ function fallbackSystemPrompt(
       .join("\n\n");
   }
 
-  return [
-    "You are participating in a Marinara Engine conversation. Reply as the appropriate assistant character or narrator for this chat.",
-    "Treat this as the conversation path: keep the exchange conversational, respect character cards and memory, and do not introduce roleplay HUD or game mechanics unless the user explicitly asks.",
-    ...common,
-  ]
+  const groupConversation = conversationCharacterNames(args.conversationCharacters).length > 1;
+  const defaultConversationPrompt = groupConversation
+    ? DEFAULT_GROUP_CONVERSATION_SYSTEM_PROMPT
+    : DEFAULT_CONVERSATION_SYSTEM_PROMPT;
+  const rawConversationPrompt = readString(meta.customSystemPrompt).trim() || defaultConversationPrompt;
+  const conversationPrompt = cleanPromptText(
+    resolveConversationSystemPrompt(rawConversationPrompt, args.macros, args.conversationCharacters),
+  );
+  return [conversationPrompt, groupConversationReplyGuidance(input, args.conversationCharacters), ...common]
     .filter((part) => part.trim().length > 0)
     .join("\n\n");
 }
@@ -1724,7 +1807,7 @@ function compactedHistoryLimit(meta: JsonRecord, fallbackLimit: number, shouldCo
   return Math.min(fallbackLimit, tail);
 }
 
-const MEMORY_EMBEDDING_DIMS = 256;
+const MEMORY_EMBEDDING_DIMS = 512;
 const DEFAULT_MEMORY_RECALL_BUDGET_TOKENS = 1024;
 const MIN_MEMORY_RECALL_BUDGET_TOKENS = 256;
 const MAX_MEMORY_RECALL_BUDGET_TOKENS = 2048;
@@ -1789,26 +1872,73 @@ function estimateTextTokens(text: string): number {
   return trimmed ? Math.max(1, Math.ceil(trimmed.length / 4)) : 0;
 }
 
+function lexicalMemoryTokens(text: string): string[] {
+  return Array.from(text.toLowerCase().matchAll(/[\p{Letter}\p{Number}]{2,}/gu), (match) => match[0]);
+}
+
+function lexicalFeatureHash(feature: string): number {
+  let hash = 2166136261;
+  for (const char of Array.from(feature)) {
+    hash ^= char.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash;
+}
+
+function addLexicalFeature(vector: number[], feature: string, weight: number): void {
+  if (!feature || weight <= 0) return;
+  const hash = lexicalFeatureHash(feature);
+  const sign = (hash & 0x80000000) === 0 ? 1 : -1;
+  vector[hash % MEMORY_EMBEDDING_DIMS] += weight * sign;
+}
+
+function tokenCharLength(token: string): number {
+  return Array.from(token).length;
+}
+
+function memoryRecallMeaningfulToken(token: string): boolean {
+  return !MEMORY_RECALL_QUERY_STOPWORDS.has(token);
+}
+
+function memoryRecallTokenWeight(token: string): number {
+  if (!memoryRecallMeaningfulToken(token)) return 0;
+  return 1 + Math.min(0.75, Math.max(0, tokenCharLength(token) - 4) * 0.05);
+}
+
+function addMemoryRecallTokenFeatures(vector: number[], token: string): void {
+  const weight = memoryRecallTokenWeight(token);
+  if (weight <= 0) return;
+  const chars = Array.from(token);
+  addLexicalFeature(vector, `w:${token}`, weight);
+  if (chars.length >= 5) {
+    addLexicalFeature(vector, `p:${chars.slice(0, 4).join("")}`, 0.25);
+    addLexicalFeature(vector, `s:${chars.slice(-4).join("")}`, 0.25);
+  }
+  for (let index = 0; index + 3 <= chars.length; index += 1) {
+    addLexicalFeature(vector, `g:${chars.slice(index, index + 3).join("")}`, 0.15);
+  }
+}
+
 function lexicalMemoryEmbedding(text: string): number[] {
   const vector = Array.from({ length: MEMORY_EMBEDDING_DIMS }, () => 0);
-  for (const match of text.toLowerCase().matchAll(/[a-z0-9]{2,}/g)) {
-    let hash = 2166136261;
-    for (let index = 0; index < match[0].length; index += 1) {
-      hash ^= match[0].charCodeAt(index);
-      hash = Math.imul(hash, 16777619) >>> 0;
-    }
-    vector[hash % MEMORY_EMBEDDING_DIMS] += 1;
+  const meaningfulTokens: string[] = [];
+  for (const token of lexicalMemoryTokens(text)) {
+    addMemoryRecallTokenFeatures(vector, token);
+    if (memoryRecallMeaningfulToken(token)) meaningfulTokens.push(token);
+  }
+  for (let index = 0; index + 1 < meaningfulTokens.length; index += 1) {
+    addLexicalFeature(vector, `b:${meaningfulTokens[index]} ${meaningfulTokens[index + 1]}`, 1.4);
   }
   const magnitude = Math.sqrt(vector.reduce((sum, value) => sum + value * value, 0));
   return magnitude > 0 ? vector.map((value) => value / magnitude) : vector;
 }
 
 function memoryRecallTokenSet(text: string): Set<string> {
-  return new Set(text.toLowerCase().match(/[a-z0-9]{2,}/g) ?? []);
+  return new Set(lexicalMemoryTokens(text));
 }
 
 function memoryRecallQueryTokens(text: string): string[] {
-  return Array.from(memoryRecallTokenSet(text)).filter((token) => !MEMORY_RECALL_QUERY_STOPWORDS.has(token));
+  return Array.from(memoryRecallTokenSet(text)).filter(memoryRecallMeaningfulToken);
 }
 
 function memoryRecallLexicalOverlap(queryTokens: string[], contentTokens: Set<string>): number {
@@ -2507,7 +2637,15 @@ function historyMessageContent(message: JsonRecord, includePastReasoning: boolea
 
 function historyMessages(storedMessages: JsonRecord[], limit: number, includePastReasoning = false): ChatMLMessage[] {
   if (limit <= 0) return [];
-  return storedMessages
+  let conversationStartIndex = 0;
+  for (let index = storedMessages.length - 1; index >= 0; index -= 1) {
+    if (boolish(parseRecord(storedMessages[index]!.extra).isConversationStart, false)) {
+      conversationStartIndex = index;
+      break;
+    }
+  }
+  const scopedMessages = conversationStartIndex > 0 ? storedMessages.slice(conversationStartIndex) : storedMessages;
+  return scopedMessages
     .filter((message) => !hiddenFromAi(message))
     .slice(-limit)
     .map((message) => ({
@@ -2579,6 +2717,12 @@ async function seedPromptVariablesFromGreeting(
   input.chat.variableValues = variableValues;
 
   return discovered;
+}
+
+function applyReusableGreetingPromptVariables(macros: MacroContext, variables: Record<string, string>): void {
+  for (const [name, value] of Object.entries(variables)) {
+    macros.variables[name] = value;
+  }
 }
 
 function shouldMergeSameRolePromptMessage(
@@ -2684,8 +2828,12 @@ function promptCharactersForGeneration(
   characters: GenerationCharacterContext[],
 ): GenerationCharacterContext[] {
   const targetId = scopedIndividualGroupTarget(input, characters);
-  if (!targetId) return characters;
-  return characters.filter((character) => character.id === targetId);
+  if (targetId) return characters.filter((character) => character.id === targetId);
+  const conversationTargetId = scopedConversationGroupTarget(input, characters);
+  if (!conversationTargetId) return characters;
+  const target = characters.find((character) => character.id === conversationTargetId);
+  if (!target) return characters;
+  return [target, ...characters.filter((character) => character.id !== conversationTargetId)];
 }
 
 function individualGroupTurnPromptMessage(
@@ -2998,35 +3146,54 @@ function chatHistoryDepthInjectionBounds(
   return { minIndex, anchorIndex: lastHistoryIndex + 1 };
 }
 
+function snapshotMacroVariables(macros: MacroContext): () => void {
+  const before = { ...macros.variables };
+  return () => {
+    for (const name of Object.keys(macros.variables)) {
+      if (before[name] === undefined) delete macros.variables[name];
+    }
+    Object.assign(macros.variables, before);
+  };
+}
+
 export async function assembleGenerationPrompt(
   storage: StorageGateway,
   rawInput: PromptAssemblyInput,
 ): Promise<PromptAssemblyResult> {
   let input = rawInput;
-  const chatMeta = parseRecord(input.chat.metadata);
-  const chatMode = readString(input.chat.mode || input.chat.chatMode, "conversation");
-  if (chatMode === "game") {
+  const reusableContext = input.reusableContext;
+  const chatMeta = reusableContext?.chatMeta ?? parseRecord(input.chat.metadata);
+  const chatMode = reusableContext?.chatMode ?? readString(input.chat.mode || input.chat.chatMode, "conversation");
+  if (reusableContext) {
+    input = { ...input, storedMessages: reusableContext.storedMessages };
+  } else if (chatMode === "game") {
     input = { ...input, storedMessages: applyAllSegmentEdits(input.storedMessages, chatMeta) };
   }
 
-  const characters = await loadCharacters(storage, input.chat);
-  const persona = await loadPersona(storage, input.chat);
-  const embeddingSource = memoizedEmbeddingSource(input.embeddingSource);
-  const selectedPreset = await loadSelectedPromptPreset(storage, {
-    chat: input.chat,
-    connection: input.connection,
-    request: input.request,
-  });
-  const presetId = selectedPreset?.id ?? null;
-  const promptParameters = mergeStoredGenerationParameters(
-    ...generationParameterSources(input.connection, input.request, input.chat, selectedPreset?.parameters),
-  );
+  const characters = reusableContext?.characters ?? (await loadCharacters(storage, input.chat));
+  const persona = reusableContext?.persona ?? (await loadPersona(storage, input.chat));
+  const embeddingSource = reusableContext ? null : memoizedEmbeddingSource(input.embeddingSource);
+  const selectedPreset =
+    reusableContext?.selectedPreset ??
+    (await loadSelectedPromptPreset(storage, {
+      chat: input.chat,
+      connection: input.connection,
+      request: input.request,
+    }));
+  const presetId = reusableContext?.presetId ?? selectedPreset?.id ?? null;
+  const promptParameters =
+    reusableContext?.promptParameters ??
+    mergeStoredGenerationParameters(
+      ...generationParameterSources(input.connection, input.request, input.chat, selectedPreset?.parameters),
+    );
+  const maxContext = reusableContext?.maxContext ?? effectiveMaxContext(input.connection, promptParameters);
   const wrapFormat =
+    reusableContext?.wrapFormat ??
     selectedPreset?.wrapFormat ??
     normalizeWrapFormat(input.chat.wrapFormat) ??
     normalizeWrapFormat(input.connection.wrapFormat) ??
     "xml";
-  const promptCharacters = promptCharactersForGeneration(input, characters);
+  const promptCharacters = reusableContext?.promptCharacters ?? promptCharactersForGeneration(input, characters);
   const macros = macroContext({
     chat: input.chat,
     connection: input.connection,
@@ -3038,8 +3205,11 @@ export async function assembleGenerationPrompt(
     request: input.request,
   });
   if (selectedPreset) resolvePromptChoiceVariableMacros(macros, selectedPreset.choiceVariableNames);
-  await seedPromptVariablesFromGreeting(storage, input, macros);
-  const baseLorebookIncludedPositions = lorebookIncludedPositionsForPrompt(selectedPreset, chatMode);
+  const greetingPromptVariables =
+    reusableContext?.greetingPromptVariables ?? (await seedPromptVariablesFromGreeting(storage, input, macros));
+  if (reusableContext) applyReusableGreetingPromptVariables(macros, greetingPromptVariables);
+  const baseLorebookIncludedPositions =
+    reusableContext?.baseLorebookIncludedPositions ?? lorebookIncludedPositionsForPrompt(selectedPreset, chatMode);
   const scanLorebooksForPositions = (includedPositions: ActiveLorebookIncludedPositions) =>
     scanActiveLorebooks({
       storage,
@@ -3053,27 +3223,32 @@ export async function assembleGenerationPrompt(
       includedPositions,
       contentResolver: {
         resolve: (content) => cleanPromptText(resolveMacros(content, macros)),
+        snapshotVariables: () => snapshotMacroVariables(macros),
       },
     });
-  let loreScan = await scanLorebooksForPositions(baseLorebookIncludedPositions);
-  let processedLore = loreScan.processedLore;
-  const summary = chatSummaryForGeneration(input.chat);
-  const memoryRecallBlock = await buildMemoryRecallBlock(
-    storage,
-    input.chat,
-    input.storedMessages,
-    input.latestUserInput,
-    readNumber(input.connection.maxContext, 0) || undefined,
-    embeddingSource,
-  );
+  let loreScan = reusableContext?.loreScan ?? (await scanLorebooksForPositions(baseLorebookIncludedPositions));
+  let processedLore = reusableContext?.processedLore ?? loreScan.processedLore;
+  const summary = reusableContext?.summary ?? chatSummaryForGeneration(input.chat);
+  const memoryRecallBlock =
+    reusableContext?.memoryRecallBlock ??
+    (await buildMemoryRecallBlock(
+      storage,
+      input.chat,
+      input.storedMessages,
+      input.latestUserInput,
+      maxContext || undefined,
+      embeddingSource,
+    ));
   const metadataHistoryLimit = readNumber(chatMeta.contextMessageLimit, 0);
   const requestedHistoryLimit = readNumber(input.request.historyLimit, metadataHistoryLimit || 300);
   const historyLimit = Math.max(1, Math.min(300, metadataHistoryLimit || requestedHistoryLimit || 300));
-  const history = historyMessages(
-    input.storedMessages,
-    compactedHistoryLimit(chatMeta, historyLimit, shouldCompactHistoryForSummary(input.chat, selectedPreset, summary)),
-    chatMeta.excludePastReasoning === false,
-  );
+  const history =
+    reusableContext?.history ??
+    historyMessages(
+      input.storedMessages,
+      compactedHistoryLimit(chatMeta, historyLimit, shouldCompactHistoryForSummary(input.chat, selectedPreset, summary)),
+      chatMeta.excludePastReasoning === false,
+    );
   const agentData = input.agentData ?? {};
   let messages: ChatMLMessage[] = [];
   let insertedHistory = false;
@@ -3138,7 +3313,10 @@ export async function assembleGenerationPrompt(
   }
 
   if (messages.length === 0) {
-    if (!baseLorebookIncludedPositions.worldInfoBefore || !baseLorebookIncludedPositions.worldInfoAfter) {
+    if (
+      !reusableContext &&
+      (!baseLorebookIncludedPositions.worldInfoBefore || !baseLorebookIncludedPositions.worldInfoAfter)
+    ) {
       loreScan = await scanLorebooksForPositions({
         ...baseLorebookIncludedPositions,
         worldInfoBefore: true,
@@ -3151,11 +3329,13 @@ export async function assembleGenerationPrompt(
       role: "system",
       content: fallbackSystemPrompt(input, {
         characters: promptCharacters,
+        conversationCharacters: characters,
         persona,
         worldBefore: processedLore.worldInfoBefore,
         worldAfter: processedLore.worldInfoAfter,
         summary,
         wrapFormat,
+        macros,
       }),
       contextKind: "prompt",
     });
@@ -3264,8 +3444,7 @@ export async function assembleGenerationPrompt(
     messages = scopeIndividualGroupHistoryRoles(messages, conversationGroupTarget);
   }
   const previewMessages = previewMessagesForPrompt(messages);
-  const shouldEnforceStrictRoles =
-    boolish(promptParameters?.strictRoleFormatting, true) && chatMode === "roleplay" && !individualGroupTarget;
+  const shouldEnforceStrictRoles = boolish(promptParameters?.strictRoleFormatting, true) && !individualGroupTarget;
   messages = shouldEnforceStrictRoles ? enforceStrictRoles(messages) : mergeAdjacentMessages(messages);
   if (!shouldEnforceStrictRoles && boolish(promptParameters?.squashSystemMessages, false)) {
     messages = squashLeadingSystemMessages(messages);
@@ -3274,6 +3453,26 @@ export async function assembleGenerationPrompt(
     messages = collapseToSingleUserMessage(messages);
   }
   const summaryFingerprint = fingerprintChatSummary(summary);
+  const nextReusableContext: PromptAssemblyReusableContext = reusableContext ?? {
+    chatMeta,
+    chatMode,
+    storedMessages: input.storedMessages,
+    characters,
+    persona,
+    selectedPreset,
+    presetId,
+    promptParameters,
+    maxContext,
+    wrapFormat,
+    promptCharacters,
+    baseLorebookIncludedPositions,
+    loreScan,
+    processedLore,
+    summary,
+    memoryRecallBlock,
+    history,
+    greetingPromptVariables,
+  };
 
   return {
     messages,
@@ -3289,5 +3488,6 @@ export async function assembleGenerationPrompt(
     budgetSkippedLorebookEntries: loreScan.budgetSkippedLorebookEntries,
     chatSummary: summary,
     chatSummaryFingerprint: summaryFingerprint,
+    reusableContext: nextReusableContext,
   };
 }

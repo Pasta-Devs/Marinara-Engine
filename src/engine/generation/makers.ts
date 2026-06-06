@@ -386,16 +386,32 @@ async function* runMakerRequest(
   for await (const chunk of llm.stream(request, signal)) {
     if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
     if (chunk.type === "token") {
-      const token = typeof chunk.text === "string" ? chunk.text : typeof chunk.data === "string" ? chunk.data : "";
+      const token = llmChunkText(chunk);
       if (token) {
         raw += token;
         yield { type: "token", data: token };
       }
     } else if (chunk.type === "error") {
-      throw new Error(typeof chunk.data === "string" ? chunk.data : "Generation failed");
+      throw new Error(llmStreamErrorMessage(chunk));
     }
   }
   return raw;
+}
+
+function llmChunkText(chunk: { text?: unknown; data?: unknown; error?: unknown; message?: unknown }): string {
+  if (typeof chunk.text === "string") return chunk.text;
+  if (typeof chunk.data === "string") return chunk.data;
+  const data = chunk.data && typeof chunk.data === "object" && !Array.isArray(chunk.data) ? chunk.data : {};
+  return (
+    stringOrEmpty(chunk.message).trim() ||
+    stringOrEmpty(chunk.error).trim() ||
+    stringOrEmpty((data as { message?: unknown }).message).trim() ||
+    stringOrEmpty((data as { error?: unknown }).error).trim()
+  );
+}
+
+function llmStreamErrorMessage(chunk: { text?: unknown; data?: unknown; error?: unknown; message?: unknown }): string {
+  return llmChunkText(chunk).trim() || "Generation failed";
 }
 
 function buildContinuationLorebookPrompt(

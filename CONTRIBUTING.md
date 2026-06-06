@@ -137,12 +137,40 @@ Before opening or updating a PR after the final diff, run `pnpm check`.
 This is the general pre-PR gate for line endings, architecture, TypeScript,
 Rust compile, docs, discovery metadata, agent workflow, and a warning-only
 unused-code report.
-It does not replace targeted proof when the change needs it, such as focused
-tests, lint, build, size checks, clippy, Rust tests, native Tauri QA, or browser
+It does not replace targeted proof when the change needs it, such as existing
+test output, lint, build, size checks, clippy, native Tauri QA, or browser
 checks.
-Do not submit `*.test.ts` or `*.test.tsx` files in a PR as proof; validation
-belongs in existing checks, command output, local-only scratch harnesses,
-app/browser/Tauri verification, or manual verification notes.
+Proof is session evidence, not permission to add durable test artifacts by
+reflex.
+
+Temporary tests and harnesses are allowed when they stay local and uncommitted.
+Cite their command output or resulting observation instead of submitting the
+artifacts.
+
+New committed test artifacts are allowed only when at least one condition
+applies:
+
+- A maintainer explicitly asks for tests.
+- The change fixes a known regression that needs a small focused guard.
+- The behavior is risky and easy to break silently.
+- The touched area already has a nearby narrow/stable test pattern that is
+  cheaper than repeated manual proof.
+
+Before adding a durable test artifact, state `Durable test rationale` with:
+
+- The regression or risky invariant.
+- Why existing proof is insufficient.
+- Why this test is narrow.
+
+Prefer the smallest stable test near the owner:
+
+- Pure helper test.
+- Focused integration test.
+- Component test.
+- Browser/e2e only when browser behavior is the claim.
+
+Do not add broad fixture suites, snapshots, large e2e tests, or Rust inline
+tests merely to satisfy proof wording.
 
 Leave PR template checkboxes unchecked until a human has actually verified each item. If an AI agent drafts a PR body, treat the checkboxes as a to-do list, not as proof.
 

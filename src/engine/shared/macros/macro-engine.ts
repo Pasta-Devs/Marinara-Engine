@@ -64,6 +64,8 @@ export interface ResolveMacroOptions {
 
 interface MacroResolutionState {
   characterFieldDepth: number;
+  /** Recursion depth of setvar/addvar value re-expansion (billion-laughs guard). */
+  variableExpansionDepth?: number;
 }
 
 export interface SupportedMacroDefinition {
@@ -77,6 +79,24 @@ const CHARACTER_MACRO_PATTERN =
 const CHARACTER_FIELD_MACRO_PATTERN =
   /\{\{(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\}\}|\{\{\s*#if\s+[^}]*\b(?:description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\b/i;
 const MAX_CHARACTER_FIELD_RESOLUTION_DEPTH = 4;
+// Resource bounds for content-driven macro expansion (see issue #2363).
+// Generous so legitimate Celia-style {{cb1}}..{{cbN}} variable assembly keeps working.
+/** Max recursion depth for setvar/addvar value re-expansion. */
+const MAX_VARIABLE_EXPANSION_DEPTH = 8;
+/** Max cumulative byte length across all ctx.variables values before variable writes bail out. */
+const MAX_TOTAL_VARIABLE_SIZE = 1_000_000;
+/** Max dice count for {{roll:NdM}} so a hostile N cannot spin the renderer. */
+const MAX_DICE_ROLL_COUNT = 10_000;
+/** Max dice sides for {{roll:NdM}}. */
+const MAX_DICE_SIDES = 1_000_000;
+/** Max span for {{random:X:Y}}. */
+const MAX_RANDOM_RANGE = 1_000_000;
+
+function totalVariableSize(variables: Record<string, string>): number {
+  let total = 0;
+  for (const value of Object.values(variables)) total += value.length;
+  return total;
+}
 
 type CharacterMacroProfile = NonNullable<MacroContext["characterProfiles"]>[number];
 type CharacterFieldMacroName = keyof NonNullable<MacroContext["characterFields"]>;
@@ -824,14 +844,16 @@ function resolveMacrosWithState(
   });
   result = result.replace(/\{\{random:(\d+):(\d+)\}\}/gi, (_, min, max) => {
     const lo = parseInt(min, 10);
-    const hi = parseInt(max, 10);
+    const rawHi = parseInt(max, 10);
+    // Guard inverted ranges and clamp the span so a hostile literal stays bounded.
+    const hi = Math.max(lo, Math.min(rawHi, lo + MAX_RANDOM_RANGE));
     return String(Math.floor(Math.random() * (hi - lo + 1)) + lo);
   });
 
   // ── Dice rolls: {{roll:2d6}} ──
   result = result.replace(/\{\{roll:(\d+)d(\d+)\}\}/gi, (_, count, sides) => {
-    const n = parseInt(count, 10);
-    const s = parseInt(sides, 10);
+    const n = Math.min(parseInt(count, 10), MAX_DICE_ROLL_COUNT);
+    const s = Math.min(parseInt(sides, 10), MAX_DICE_SIDES);
     let total = 0;
     for (let i = 0; i < n; i++) total += Math.floor(Math.random() * s) + 1;
     return String(total);
@@ -844,23 +866,34 @@ function resolveMacrosWithState(
     const op = String(readMatch?.[1] ?? writeMatch?.[1] ?? "").toLowerCase();
     const name = readMatch?.[2] ?? writeMatch?.[2];
     if (!op || !name) return undefined;
+    // Billion-laughs guard: refuse further setvar/addvar re-expansion past the recursion cap.
+    if ((op === "setvar" || op === "addvar") && (state.variableExpansionDepth ?? 0) >= MAX_VARIABLE_EXPANSION_DEPTH) {
+      return "";
+    }
 
     switch (op) {
       case "getvar":
         return ctx.variables[name] ?? "";
-      case "setvar":
+      case "setvar": {
+        if (totalVariableSize(ctx.variables) >= MAX_TOTAL_VARIABLE_SIZE) return "";
         ctx.variables[name] = resolveMacrosWithState(
           writeMatch?.[3] ?? "",
           ctx,
           { ...options, trimResult: false },
-          state,
+          { ...state, variableExpansionDepth: (state.variableExpansionDepth ?? 0) + 1 },
         );
         return "";
-      case "addvar":
+      }
+      case "addvar": {
+        if (totalVariableSize(ctx.variables) >= MAX_TOTAL_VARIABLE_SIZE) return "";
         ctx.variables[name] =
           (ctx.variables[name] ?? "") +
-          resolveMacrosWithState(writeMatch?.[3] ?? "", ctx, { ...options, trimResult: false }, state);
+          resolveMacrosWithState(writeMatch?.[3] ?? "", ctx, { ...options, trimResult: false }, {
+            ...state,
+            variableExpansionDepth: (state.variableExpansionDepth ?? 0) + 1,
+          });
         return "";
+      }
       case "incvar":
         ctx.variables[name] = String((parseInt(ctx.variables[name] ?? "0", 10) || 0) + 1);
         return "";

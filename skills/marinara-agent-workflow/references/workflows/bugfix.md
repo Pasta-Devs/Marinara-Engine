@@ -45,8 +45,9 @@ The maintainer review must also check shape. A passing repro is not enough if th
 
 ## Common Evidence
 
-- UI bug: cheapest proof that exercises the claim. Use targeted tests, scratch
-  harnesses, route/module repros, or jsdom/component proof before Playwright;
+- UI bug: cheapest proof that exercises the claim. Use existing test output,
+  temporary uncommitted tests or harnesses, route/module repros, or
+  jsdom/component proof before Playwright;
   capture real-app before/after screenshots when visual/browser state is the
   claim or when an explicit shipping flow needs reviewer-visible UI evidence.
 - Backend, engine, or logic bug: focused repro output before and after.

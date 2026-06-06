@@ -27,7 +27,16 @@ function imageExtension(mimeType: string | null | undefined): string {
   const normalized = mimeType?.toLowerCase() ?? "";
   if (normalized.includes("jpeg") || normalized.includes("jpg")) return "jpg";
   if (normalized.includes("webp")) return "webp";
+  if (normalized.includes("gif")) return "gif";
   return "png";
+}
+
+function generatedImageExtension(ext: unknown, mimeType: string | null | undefined): string {
+  const normalized = readTrimmed(ext).toLowerCase().replace(/^\./, "");
+  if (["png", "jpg", "jpeg", "webp", "gif"].includes(normalized)) {
+    return normalized === "jpeg" ? "jpg" : normalized;
+  }
+  return imageExtension(mimeType);
 }
 
 function imageDimension(value: number | null | undefined, fallback: number): number {
@@ -158,6 +167,7 @@ export function useRegenerateGalleryImage(chat: Chat | null) {
         base64?: string;
         mimeType?: string;
         image?: string;
+        ext?: string;
         provider?: string;
         model?: string;
       }>({
@@ -172,7 +182,7 @@ export function useRegenerateGalleryImage(chat: Chat | null) {
         (readTrimmed(generated.base64) ? `data:${mimeType};base64,${readTrimmed(generated.base64)}` : "");
       if (!imageUrl) throw new Error("Image provider returned no image data.");
 
-      const filename = `regenerated_${Date.now()}.${imageExtension(mimeType)}`;
+      const filename = `regenerated_${Date.now()}.${generatedImageExtension(generated.ext, mimeType)}`;
       return storageApi.create<ChatImage>("gallery", {
         chatId: chat.id,
         filePath: filename,

@@ -84,6 +84,9 @@ type AgentResultEffectOptions = {
   skipTrackerSync?: boolean;
   cacheBackgroundResults?: boolean;
   showTrackerBubbles?: boolean;
+  // Per-turn quest updates remove fully-completed quests; the single-tracker
+  // re-run path leaves them visible (mirrors the engine persist split).
+  autoRemoveFullyCompletedQuests?: boolean;
 };
 const HAPTIC_COMMAND_INTERVAL_MS = 225;
 const TYPEWRITER_MAX_FRAME_MS = 120;
@@ -787,11 +790,12 @@ async function applyBackgroundChoice(chatId: string, chosen: unknown) {
   }
 }
 
-function applyQuestUpdates(rawData: unknown) {
+function applyQuestUpdates(rawData: unknown, autoRemoveFullyCompleted: boolean) {
   const current = useGameStateStore.getState().current;
   const { playerStats, changed } = applyQuestUpdatesToPlayerStats(
     current?.playerStats,
     parseMaybeRecord(rawData).updates,
+    { autoRemoveFullyCompleted },
   );
   if (!changed) return;
 
@@ -1151,7 +1155,7 @@ async function applyAgentResultEffects(
   if (result.type === "background_change" || result.agentType === "background") {
     await applyBackgroundChoice(chatId, data.chosen);
   }
-  if (result.agentType === "quest") applyQuestUpdates(result.data);
+  if (result.agentType === "quest") applyQuestUpdates(result.data, options.autoRemoveFullyCompletedQuests === true);
   if (!options.skipTrackerSync) await applyTrackerResultToGameState(queryClient, chatId, result);
 }
 
@@ -1175,8 +1179,8 @@ export async function runGenerationWithUi(
   const controller = new AbortController();
   chatStore.setAbortController(chatId, controller);
   chatStore.setStreaming(true, chatId);
-  chatStore.setRegenerateMessageId(regenerateMessageId);
-  chatStore.setStreamingCharacterId(requestedCharacterId);
+  chatStore.setRegenerateMessageId(regenerateMessageId, chatId);
+  chatStore.setStreamingCharacterId(requestedCharacterId, chatId);
   chatStore.setGenerationPhase("Starting generation...");
   chatStore.setStreamBuffer("", chatId);
   chatStore.setThinkingBuffer("", chatId);
@@ -1412,6 +1416,7 @@ export async function runGenerationWithUi(
         await applyAgentResultEffects(queryClient, chatId, rawResult, {
           cacheBackgroundResults: false,
           showTrackerBubbles: false,
+          autoRemoveFullyCompletedQuests: true,
         });
       }
       if (pendingAgentResultEffects.length > 0) drainAgentResultEffects();
@@ -1432,11 +1437,14 @@ export async function runGenerationWithUi(
     state.setAbortController(chatId, null);
     state.setMariPhase(chatId, "idle");
     clearChatAvailabilityState();
+    // Clear this chat's own regenerate/streaming-character ids regardless of
+    // whether it's the foreground chat, so a background chat's generation
+    // doesn't leave stale per-chat ids that leak when it's next opened.
+    state.setRegenerateMessageId(null, chatId);
+    state.setStreamingCharacterId(null, chatId);
     if (state.streamingChatId === chatId) {
       state.setStreaming(false, chatId);
-      state.setRegenerateMessageId(null);
       state.setGenerationPhase(null);
-      state.setStreamingCharacterId(null);
     }
     if (useChatStore.getState().abortControllers.size === 0) {
       useAgentStore.getState().setProcessing(false);
@@ -1535,9 +1543,7 @@ export async function runGenerationWithUi(
           const characterName = readString(data.characterName).trim();
           groupTurnIndex = typeof data.index === "number" && Number.isFinite(data.index) ? data.index : 0;
           groupTurnTotal = typeof data.total === "number" && Number.isFinite(data.total) ? Math.max(1, data.total) : 1;
-          if (useChatStore.getState().activeChatId === chatId) {
-            useChatStore.getState().setStreamingCharacterId(characterId || null);
-          }
+          useChatStore.getState().setStreamingCharacterId(characterId || null, chatId);
           if (characterName) {
             const state = useChatStore.getState();
             state.setPerChatTyping(chatId, characterName);
@@ -1822,6 +1828,17 @@ export function useGenerate() {
         await assertChatCanGenerate(queryClient, chatId);
         const agentStore = useAgentStore.getState();
         agentStore.setProcessing(true);
+        // Flush any pending debounced game-state edits before the engine re-reads
+        // storage; otherwise retryGenerationAgents reads a stale snapshot and the
+        // regenerated agent result clobbers the user's just-made manual HUD edit.
+        const flushPatch = useGameStateStore.getState().flushPatch;
+        if (flushPatch) {
+          try {
+            await flushPatch();
+          } catch (cause) {
+            throw new Error("Failed to flush pending game-state edits", { cause });
+          }
+        }
         if (agentTypes && agentTypes.length > 0) {
           // Targeted retry: clear only the entries for agents we're about to re-run, so
           // prior-turn failures for agents that aren't being retried stay visible. If any

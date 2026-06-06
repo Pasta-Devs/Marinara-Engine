@@ -6,7 +6,7 @@ mod providers;
 
 pub(crate) use providers::{
     automatic1111_sdapi_url as image_sdapi_url, connection_base_url as image_connection_base_url,
-    generate_image_with_connection, generate_image_with_options,
+    generate_image_with_connection, generate_image_with_options, image_extension_from_mime_type,
     image_model as image_generation_model, image_source as image_generation_source,
     is_openai_gpt_image_model, ImageGenerationOptions,
 };
@@ -177,8 +177,12 @@ pub(crate) async fn avatar_generation(state: &AppState, body: Value) -> AppResul
         image_generation_options(&body),
     )
     .await?;
+    let ext = image_extension_from_mime_type(&mime_type);
     Ok(json!({
         "image": format!("data:{mime_type};base64,{base64}"),
+        "base64": base64,
+        "mimeType": mime_type,
+        "ext": ext,
         "prompt": prompt
     }))
 }
@@ -199,9 +203,11 @@ pub(crate) async fn generate_image(state: &AppState, body: Value) -> AppResult<V
         image_generation_options(&body),
     )
     .await?;
+    let ext = image_extension_from_mime_type(&mime_type);
     Ok(json!({
         "base64": base64,
         "mimeType": mime_type,
+        "ext": ext,
         "image": format!("data:{mime_type};base64,{base64}"),
         "provider": provider,
         "model": model
@@ -222,6 +228,7 @@ pub(crate) async fn test_image_generation(state: &AppState, id: &str) -> AppResu
             "success": true,
             "base64": base64,
             "mimeType": mime_type,
+            "ext": image_extension_from_mime_type(&mime_type),
             "latencyMs": now_millis() - start,
             "prompt": prompt
         })),

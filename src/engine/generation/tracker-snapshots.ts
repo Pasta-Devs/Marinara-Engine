@@ -419,6 +419,7 @@ function gameStatePatchFromAgentResult(
   previousWorldState: GameState,
   persona?: TrackerPersonaIdentity | null,
   sourceText?: string | null,
+  autoRemoveFullyCompletedQuests = false,
 ): TrackerStatePatch | null {
   if (!result.success) return null;
   if (result.agentType === "world-state" || result.type === "game_state_update") {
@@ -480,7 +481,9 @@ function gameStatePatchFromAgentResult(
   }
 
   if (result.agentType === "quest" || result.type === "quest_update") {
-    const questMerge = applyQuestUpdatesToPlayerStats(snapshot.playerStats, data.updates);
+    const questMerge = applyQuestUpdatesToPlayerStats(snapshot.playerStats, data.updates, {
+      autoRemoveFullyCompleted: autoRemoveFullyCompletedQuests,
+    });
     return questMerge.changed ? { playerStats: questMerge.playerStats } : null;
   }
 
@@ -496,6 +499,7 @@ export async function persistTrackerSnapshotForTurn(
     baseSnapshot?: GameState | null;
     sourceText?: string | null;
     onSavedSnapshot?: TrackerSnapshotSavedHook;
+    autoRemoveFullyCompletedQuests?: boolean;
   } = {},
 ): Promise<GameState | null> {
   if (!target || !target.messageId || results.length === 0) return null;
@@ -515,7 +519,14 @@ export async function persistTrackerSnapshotForTurn(
 
   for (const result of results) {
     const previousWorldState = options.baseSnapshot ?? snapshot;
-    const patch = gameStatePatchFromAgentResult(result, snapshot, previousWorldState, persona, options.sourceText);
+    const patch = gameStatePatchFromAgentResult(
+      result,
+      snapshot,
+      previousWorldState,
+      persona,
+      options.sourceText,
+      options.autoRemoveFullyCompletedQuests === true,
+    );
     if (!patch) continue;
     snapshot = normalizeGameState({ ...snapshot, ...patch }, chatId, target, persona);
     changed = true;
