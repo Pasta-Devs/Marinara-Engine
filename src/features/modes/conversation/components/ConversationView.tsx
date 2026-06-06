@@ -455,9 +455,9 @@ export function ConversationView({
   useEffect(() => {
     if (!chatId || !isPageActive) return;
     const refreshStatus = async () => {
+      let changed = false;
       try {
         const statusResult = await getConversationStatus(storageApi, chatId);
-        let changed = false;
         for (const [characterId, info] of Object.entries(statusResult.statuses)) {
           const row = await storageApi.get<{ data?: { extensions?: Record<string, unknown> } }>("characters", characterId);
           if (row?.data) {
@@ -479,11 +479,12 @@ export function ConversationView({
             }
           }
         }
+      } catch {
+        /* non-critical */
+      } finally {
         if (changed) {
           invalidateCharacterCollectionQueries(qc);
         }
-      } catch {
-        /* non-critical */
       }
     };
     void refreshStatus();
@@ -516,7 +517,7 @@ export function ConversationView({
   const closeAllDetails = useUIStore((s) => s.closeAllDetails);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
-  const [charActivityPopup, setCharActivityPopup] = useState<string | null>(null);
+  const [charActivityPopupId, setCharActivityPopupId] = useState<string | null>(null);
   const mobileBranchSelectorRef = useRef<ChatBranchSelectorHandle>(null);
   const updateMeta = useUpdateChatMetadata();
   const summaryContextSize =
@@ -539,10 +540,10 @@ export function ConversationView({
   });
 
   useEffect(() => {
-    if (!charActivityPopup) return;
+    if (!charActivityPopupId) return;
     let removeClickListener = () => {};
     const timer = window.setTimeout(() => {
-      const handleDocumentClick = () => setCharActivityPopup(null);
+      const handleDocumentClick = () => setCharActivityPopupId(null);
       document.addEventListener("click", handleDocumentClick);
       removeClickListener = () => document.removeEventListener("click", handleDocumentClick);
     }, 0);
@@ -551,7 +552,7 @@ export function ConversationView({
       window.clearTimeout(timer);
       removeClickListener();
     };
-  }, [charActivityPopup]);
+  }, [charActivityPopupId]);
 
   // ── Scroll tracking ──
   useEffect(() => {
@@ -1031,7 +1032,13 @@ export function ConversationView({
         <div className="sticky top-0 z-10 hidden min-w-0 items-center justify-between px-4 py-2 md:flex">
           {/* Character identity pill */}
           {(() => {
-            const chars = chatCharIds.map((id) => characterMap.get(id)).filter(Boolean) as Array<{
+            const chars = chatCharIds
+              .map((id) => {
+                const character = characterMap.get(id);
+                return character ? { id, ...character } : null;
+              })
+              .filter(Boolean) as Array<{
+              id: string;
               name: string;
               avatarUrl: string | null;
               avatarCrop?: AvatarCropValue | null;
@@ -1096,14 +1103,14 @@ export function ConversationView({
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
                 >
                   {chars.slice(0, 3).map((c, i) => {
-                    const isOpen = charActivityPopup === c.name;
+                    const isOpen = charActivityPopupId === c.id;
                     return (
-                      <div key={i} className="absolute top-0" style={{ left: i * 12, zIndex: isOpen ? 10 : 3 - i }}>
+                      <div key={c.id} className="absolute top-0" style={{ left: i * 12, zIndex: isOpen ? 10 : 3 - i }}>
                         <button
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setCharActivityPopup(isOpen ? null : c.name);
+                            setCharActivityPopupId(isOpen ? null : c.id);
                           }}
                           className="relative block transition-transform active:scale-90"
                           aria-label={c.name}

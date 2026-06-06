@@ -1,5 +1,5 @@
 import { LayoutGrid, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import { TOOLS_PANELS, type MobileToolsPanel } from "../../shared/components/mobile-shell-actions";
 import { useChatStore } from "../../shared/stores/chat.store";
 import { useUIStore } from "../../shared/stores/ui.store";
@@ -7,14 +7,19 @@ import { cn } from "../../shared/lib/utils";
 
 export function MobileTabBar({
   professorMariOpen,
+  toolsSheetOpen,
+  toolsSheetRef,
+  onToolsSheetOpenChange,
   onToggleProfessorMari,
   onGoHome,
 }: {
   professorMariOpen: boolean;
+  toolsSheetOpen: boolean;
+  toolsSheetRef: RefObject<HTMLDivElement | null>;
+  onToolsSheetOpenChange: (open: boolean | ((open: boolean) => boolean)) => void;
   onToggleProfessorMari: () => void;
   onGoHome: () => void;
 }) {
-  const [toolsSheet, setToolsSheet] = useState(false);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
@@ -28,7 +33,7 @@ export function MobileTabBar({
   if (activeChatId !== null) return null;
 
   const closeAll = () => {
-    setToolsSheet(false);
+    onToolsSheetOpenChange(false);
     setSidebarOpen(false);
     closeRightPanel();
     closeAllDetails();
@@ -63,7 +68,7 @@ export function MobileTabBar({
   return (
     <>
       {/* Scrim for tools sheet */}
-      {toolsSheet && (
+      {toolsSheetOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm md:hidden"
           style={{ zIndex: 65 }}
@@ -72,8 +77,13 @@ export function MobileTabBar({
       )}
 
       {/* Tools bottom sheet */}
-      {toolsSheet && (
+      {toolsSheetOpen && (
         <div
+          ref={toolsSheetRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tools panels"
+          tabIndex={-1}
           className="fixed left-0 right-0 max-h-[70dvh] overflow-y-auto rounded-t-3xl border-t border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-up md:hidden"
           style={{ zIndex: 70, bottom: "calc(3.5rem + env(safe-area-inset-bottom))", paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
         >
@@ -138,12 +148,16 @@ export function MobileTabBar({
         <TabButton
           icon={<LayoutGrid size="1.15rem" />}
           label="Tools"
-          active={isTools || toolsSheet}
+          active={isTools || toolsSheetOpen}
           onClick={() => {
             if (rightPanelOpen) {
               closeRightPanel();
+            } else if (toolsSheetOpen) {
+              onToolsSheetOpenChange(false);
             } else {
-              setToolsSheet((v) => !v);
+              setSidebarOpen(false);
+              closeAllDetails();
+              onToolsSheetOpenChange(true);
             }
           }}
         />
@@ -158,7 +172,7 @@ function TabButton({
   active,
   onClick,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   active: boolean;
   onClick: () => void;

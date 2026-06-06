@@ -391,12 +391,16 @@ function SummaryButton({
   summaryContextSize,
   totalMessageCount,
   onContextSizeChange,
+  buttonClassName,
+  children,
 }: {
   chatId: string | null;
   summary: string | null;
   summaryContextSize: number;
   totalMessageCount: number;
   onContextSizeChange: (size: number) => void;
+  buttonClassName?: string;
+  children?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const compact = useUIStore((s) => s.centerCompact);
@@ -406,19 +410,23 @@ function SummaryButton({
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className={cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : summary
-              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
-              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        )}
+        className={
+          buttonClassName ??
+          cn(
+            "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
+            compact ? "p-1" : "p-1.5",
+            open
+              ? "bg-foreground/15 border-foreground/20 text-foreground/90"
+              : summary
+                ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
+                : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
+          )
+        }
         title="Chat Summary"
       >
-        <ScrollText size="0.875rem" />
+        {children ?? <ScrollText size="0.875rem" />}
       </button>
       {open && (
         <Suspense fallback={null}>
@@ -1318,7 +1326,7 @@ export function ChatRoleplaySurface({
               />
               <div
                 ref={moreMenuRef}
-                className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down"
+                className="fixed left-0 right-0 z-[9999] max-h-[70dvh] overflow-y-auto rounded-b-3xl border-b border-[var(--border)]/50 bg-[var(--card)] shadow-2xl backdrop-blur-2xl animate-fade-in-down md:hidden"
                 style={{ top: "calc(3.25rem + env(safe-area-inset-top))" }}
               >
               <p className="px-5 pt-4 pb-3 text-[0.7rem] font-semibold uppercase tracking-widest text-[var(--muted-foreground)]/60">
@@ -1348,25 +1356,40 @@ export function ChatRoleplaySurface({
                   </div>
                 )}
 
+                {/* Connected Chat */}
+                {chat?.connectedChatId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!chat.connectedChatId) return;
+                      setMoreMenuOpen(false);
+                      useChatStore.getState().setActiveChatId(chat.connectedChatId);
+                    }}
+                    className="flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 text-white shadow-sm">
+                      <ArrowRightLeft size="0.9rem" />
+                    </div>
+                    <span className="text-sm font-medium text-[var(--foreground)]">
+                      {linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
+                    </span>
+                  </button>
+                )}
+
                 {/* Summary */}
-                <div
-                  className="relative flex w-full items-center gap-3 px-5 py-3 transition-all active:bg-[var(--accent)]/30 cursor-pointer"
-                  onClick={(e) => { e.stopPropagation(); e.currentTarget.querySelector('button')?.click(); }}
+                <SummaryButton
+                  chatId={chat?.id ?? null}
+                  summary={metadataString(chatMeta.summary) || null}
+                  summaryContextSize={summaryContextSize}
+                  totalMessageCount={totalMessageCount}
+                  onContextSizeChange={onSummaryContextSizeChange}
+                  buttonClassName="relative flex w-full items-center gap-3 px-5 py-3 text-left transition-all active:bg-[var(--accent)]/30 hover:bg-[var(--accent)]/20"
                 >
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white shadow-sm">
                     <ScrollText size="0.9rem" />
                   </div>
                   <span className="text-sm font-medium text-[var(--foreground)]">Summary</span>
-                  <div className="absolute inset-0 opacity-0 pointer-events-auto">
-                    <SummaryButton
-                      chatId={chat?.id ?? null}
-                      summary={metadataString(chatMeta.summary) || null}
-                      summaryContextSize={summaryContextSize}
-                      totalMessageCount={totalMessageCount}
-                      onContextSizeChange={onSummaryContextSizeChange}
-                    />
-                  </div>
-                </div>
+                </SummaryButton>
 
                 {/* World Info */}
                 <div

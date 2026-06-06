@@ -292,6 +292,7 @@ export function AppShell() {
   const sidebarPanelRef = useRef<HTMLElement>(null);
   const mobileTrackerPanelRef = useRef<HTMLElement>(null);
   const mobileRightPanelRef = useRef<HTMLElement>(null);
+  const mobileToolsPanelRef = useRef<HTMLDivElement>(null);
   const lastFocusedBeforeMobilePanelRef = useRef<HTMLElement | null>(null);
   const mobilePanelHistoryTokenRef = useRef<string | null>(null);
   const closingMobilePanelFromPopRef = useRef(false);
@@ -742,14 +743,22 @@ export function AppShell() {
         ? "var(--tracker-panel-mobile-width)"
         : `${trackerPanelWidth + TRACKER_PANEL_HUD_GAP}px`
       : "0px";
+  const [mobileToolsSheetOpen, setMobileToolsSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (activeChatId !== null) setMobileToolsSheetOpen(false);
+  }, [activeChatId]);
+
   const activeMobilePanel = isMobile
     ? rightPanelOpen
       ? "right"
       : trackerPanelVisible
         ? "tracker"
-        : sidebarOpen
-          ? "sidebar"
-          : null
+        : mobileToolsSheetOpen
+          ? "tools"
+          : sidebarOpen
+            ? "sidebar"
+            : null
     : null;
   const activeMobileOverlayPanel = activeMobilePanel;
 
@@ -757,6 +766,7 @@ export function AppShell() {
     if (activeMobilePanel === "right") closeRightPanel();
     else if (activeMobilePanel === "tracker") setTrackerPanelOpen(false);
     else if (activeMobilePanel === "sidebar") setSidebarOpen(false);
+    else if (activeMobilePanel === "tools") setMobileToolsSheetOpen(false);
   }, [activeMobilePanel, closeRightPanel, setSidebarOpen, setTrackerPanelOpen]);
 
   useEffect(() => {
@@ -807,6 +817,7 @@ export function AppShell() {
       setInert(sidebarPanelRef.current, false);
       setInert(mobileTrackerPanelRef.current, false);
       setInert(mobileRightPanelRef.current, false);
+      setInert(mobileToolsPanelRef.current, false);
       setInert(headerRef.current, false);
       setInert(mainRef.current, false);
       return;
@@ -815,6 +826,7 @@ export function AppShell() {
     setInert(sidebarPanelRef.current, activeMobilePanel !== "sidebar");
     setInert(mobileTrackerPanelRef.current, activeMobilePanel !== "tracker");
     setInert(mobileRightPanelRef.current, activeMobilePanel !== "right");
+    setInert(mobileToolsPanelRef.current, activeMobilePanel !== "tools");
     setInert(headerRef.current, activeMobileOverlayPanel !== null);
     setInert(mainRef.current, activeMobileOverlayPanel !== null);
   }, [activeMobileOverlayPanel, activeMobilePanel, isMobile]);
@@ -824,6 +836,7 @@ export function AppShell() {
     const sidebarPanel = sidebarPanelRef.current;
     const mobileTrackerPanel = mobileTrackerPanelRef.current;
     const mobileRightPanel = mobileRightPanelRef.current;
+    const mobileToolsPanel = mobileToolsPanelRef.current;
     const header = headerRef.current;
     const main = mainRef.current;
 
@@ -832,6 +845,7 @@ export function AppShell() {
       setInert(sidebarPanel, false);
       setInert(mobileTrackerPanel, false);
       setInert(mobileRightPanel, false);
+      setInert(mobileToolsPanel, false);
       setInert(header, false);
       setInert(main, false);
     };
@@ -843,6 +857,7 @@ export function AppShell() {
     const getPanel = () => {
       if (activeMobileOverlayPanel === "right") return mobileRightPanelRef.current;
       if (activeMobileOverlayPanel === "tracker") return mobileTrackerPanelRef.current;
+      if (activeMobileOverlayPanel === "tools") return mobileToolsPanelRef.current;
       return sidebarPanelRef.current;
     };
 
@@ -1266,6 +1281,9 @@ export function AppShell() {
     </div>
     <MobileTabBar
       professorMariOpen={professorMariOpen}
+      toolsSheetOpen={mobileToolsSheetOpen}
+      toolsSheetRef={mobileToolsPanelRef}
+      onToolsSheetOpenChange={setMobileToolsSheetOpen}
       onToggleProfessorMari={() => setProfessorMariOpen((v) => !v)}
       onGoHome={() => setProfessorMariOpen(false)}
     />
