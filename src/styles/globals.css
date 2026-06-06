@@ -584,10 +584,8 @@ body,
 #root {
   width: 100%;
   min-width: 100%;
-  max-width: 100%;
   height: 100%;
   min-height: 100%;
-  overflow-x: hidden;
   background: var(--background);
 }
 
@@ -609,7 +607,6 @@ body,
 body {
   background: var(--background);
   color: var(--foreground);
-  overflow: hidden;
   font-family: var(--font-y2k);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -2820,7 +2817,6 @@ summary[class*="cursor-pointer"],
     inset: 0 !important;
     z-index: 45;
     width: 100% !important;
-    max-width: 100% !important;
   }
 
   .topbar-panel-buttons {

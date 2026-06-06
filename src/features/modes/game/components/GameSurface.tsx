@@ -8092,7 +8092,7 @@ export function GameSurface({
 
   // TopBar action buttons for mobile
   useEffect(() => {
-    if (!mainGameUiActive) {
+    if (!mainGameUiActive || !isMobileViewport) {
       setMoreSheetOpen(false);
       setToolsSheetOpen(false);
       setRightSlot(null);
@@ -8132,7 +8132,7 @@ export function GameSurface({
       </>,
     );
     return () => { setRightSlot(null); };
-  }, [mainGameUiActive, moreSheetOpen, toolsSheetOpen, setRightSlot]);
+  }, [mainGameUiActive, isMobileViewport, moreSheetOpen, toolsSheetOpen, setRightSlot]);
 
   // While messages are still loading for an existing active game, show a loading
   // indicator instead of flashing the setup/start screens.
