@@ -67,7 +67,13 @@ struct CollectionMetadataStamp {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct CollectionFileStamp {
+struct ProjectedCollectionStamp {
+    len: u64,
+    modified_nanos: u128,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct CollectionContentStamp {
     len: u64,
     modified_nanos: u128,
     content_signature: u64,
@@ -75,7 +81,7 @@ struct CollectionFileStamp {
 
 struct CachedProjectedList {
     rows: Vec<Value>,
-    stamp: Option<CollectionFileStamp>,
+    stamp: Option<ProjectedCollectionStamp>,
 }
 
 struct AtomicUpdateGuard {
@@ -661,7 +667,7 @@ impl FileStorage {
                     collection: collection.to_string(),
                     rows: self.read_collection_no_recovery(collection)?,
                 });
-                original_stamps.push((collection.to_string(), collection_file_stamp(&path)?));
+                original_stamps.push((collection.to_string(), collection_content_stamp(&path)?));
             }
             (loaded, original_stamps)
         };
@@ -675,7 +681,7 @@ impl FileStorage {
         self.flush_dirty_collections_locked()?;
         for (collection, original_stamp) in &original_stamps {
             let path = self.collection_path(collection)?;
-            if collection_file_stamp(&path)? != *original_stamp {
+            if collection_content_stamp(&path)? != *original_stamp {
                 return Err(AppError::new(
                     "storage_conflict",
                     format!("Collection changed during atomic update: {collection}"),
@@ -1132,7 +1138,7 @@ impl FileStorage {
             shape: projection_shape(fields, &nested_field_sets),
         };
         let path = self.collection_path(collection)?;
-        let stamp = collection_file_stamp(&path)?;
+        let stamp = projected_collection_stamp(&path)?;
         if let Some(rows) = self.cached_projected_list_rows(&cache_key, stamp)? {
             return Ok(rows);
         }
@@ -1761,7 +1767,7 @@ impl FileStorage {
     fn cached_projected_list_rows(
         &self,
         key: &ProjectionCacheKey,
-        stamp: Option<CollectionFileStamp>,
+        stamp: Option<ProjectedCollectionStamp>,
     ) -> AppResult<Option<Vec<Value>>> {
         let cache = self
             .cache
@@ -1778,7 +1784,7 @@ impl FileStorage {
         &self,
         key: &ProjectionCacheKey,
         rows: &[Value],
-        stamp: Option<CollectionFileStamp>,
+        stamp: Option<ProjectedCollectionStamp>,
     ) -> AppResult<()> {
         let mut cache = self
             .cache
@@ -2662,13 +2668,25 @@ fn collection_metadata_stamp(path: &Path) -> AppResult<Option<CollectionMetadata
     }))
 }
 
-fn collection_file_stamp(path: &Path) -> AppResult<Option<CollectionFileStamp>> {
+fn projected_collection_stamp(path: &Path) -> AppResult<Option<ProjectedCollectionStamp>> {
     let metadata = match fs::metadata(path) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.into()),
     };
-    Ok(Some(CollectionFileStamp {
+    Ok(Some(ProjectedCollectionStamp {
+        len: metadata.len(),
+        modified_nanos: metadata_modified_nanos(&metadata),
+    }))
+}
+
+fn collection_content_stamp(path: &Path) -> AppResult<Option<CollectionContentStamp>> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error.into()),
+    };
+    Ok(Some(CollectionContentStamp {
         len: metadata.len(),
         modified_nanos: metadata_modified_nanos(&metadata),
         content_signature: collection_content_signature(path, metadata.len())?,
@@ -5216,8 +5234,8 @@ mod tests {
     }
 
     #[test]
-    fn list_projected_cache_detects_same_length_rewrite() {
-        let root = temp_storage_root("list-projected-cache-same-length-rewrite");
+    fn list_projected_cache_detects_same_length_rewrite_when_mtime_changes() {
+        let root = temp_storage_root("list-projected-cache-same-length-rewrite-mtime");
         let storage = FileStorage::new(&root).unwrap();
 
         storage
@@ -5244,6 +5262,10 @@ mod tests {
         );
 
         let collection = root.join("collections").join("characters.json");
+        let original_modified = fs::metadata(&collection)
+            .unwrap()
+            .modified()
+            .expect("collection mtime should be readable");
         let replacement = serde_json::to_vec_pretty(&json!([
             {
                 "id": "target",
@@ -5259,13 +5281,45 @@ mod tests {
                 .len()
         );
         fs::write(&collection, replacement).unwrap();
+        let file = fs::File::options().write(true).open(&collection).unwrap();
+        file.set_times(
+            std::fs::FileTimes::new().set_modified(original_modified + Duration::from_secs(1)),
+        )
+        .unwrap();
 
         let changed = storage
             .list_projected("characters", &fields, &selections)
-            .expect("projected list should notice same-length file rewrite");
+            .expect("projected list should notice same-length file rewrite with changed mtime");
         assert_eq!(
             changed,
             vec![json!({ "id": "target", "data": { "name": "Bravo" } })]
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn projected_collection_stamp_uses_metadata_without_content_signature() {
+        let root = temp_storage_root("projected-collection-stamp-metadata-only");
+        let collection = root.join("collections").join("characters.json");
+        fs::create_dir_all(collection.parent().unwrap()).unwrap();
+
+        fs::write(&collection, b"alpha").unwrap();
+        let original_modified = fs::metadata(&collection)
+            .unwrap()
+            .modified()
+            .expect("collection mtime should be readable");
+        let first_stamp = projected_collection_stamp(&collection).unwrap();
+
+        fs::write(&collection, b"bravo").unwrap();
+        let file = fs::File::options().write(true).open(&collection).unwrap();
+        file.set_times(std::fs::FileTimes::new().set_modified(original_modified))
+            .unwrap();
+
+        assert_eq!(fs::metadata(&collection).unwrap().len(), 5);
+        assert_eq!(
+            projected_collection_stamp(&collection).unwrap(),
+            first_stamp
         );
 
         fs::remove_dir_all(root).unwrap();
