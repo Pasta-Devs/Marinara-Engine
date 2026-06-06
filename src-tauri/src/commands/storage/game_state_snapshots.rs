@@ -413,6 +413,65 @@ fn is_tracker_snapshot(row: &Value) -> bool {
     row.get("kind").and_then(Value::as_str) == Some(TRACKER_KIND)
 }
 
+pub(crate) fn row_matches_tracker_message(row: &Value, chat_id: &str, message_id: &str) -> bool {
+    is_tracker_snapshot(row)
+        && row.get("chatId").and_then(Value::as_str) == Some(chat_id)
+        && row.get("messageId").and_then(Value::as_str) == Some(message_id)
+}
+
+pub(crate) fn row_matches_tracker_chat(row: &Value, chat_id: &str) -> bool {
+    is_tracker_snapshot(row) && row.get("chatId").and_then(Value::as_str) == Some(chat_id)
+}
+
+pub(crate) fn visible_tracker_snapshot_from_rows(
+    messages: &[Value],
+    snapshots: &[Value],
+    chat_id: &str,
+) -> Option<Value> {
+    let chat_id = required_chat_id(chat_id).ok()?;
+    let mut messages = messages
+        .iter()
+        .filter(|message| message.get("chatId").and_then(Value::as_str) == Some(chat_id))
+        .cloned()
+        .collect::<Vec<_>>();
+    messages.sort_by(|a, b| {
+        let a_time = a.get("createdAt").and_then(Value::as_str).unwrap_or("");
+        let b_time = b.get("createdAt").and_then(Value::as_str).unwrap_or("");
+        a_time.cmp(b_time)
+    });
+    for message in messages.into_iter().rev() {
+        if message.get("role").and_then(Value::as_str) != Some("assistant") {
+            continue;
+        }
+        let Some(message_id) = non_empty_string(&message, "id") else {
+            continue;
+        };
+        let swipe_index = swipe_index_value(&message);
+        if let Some(snapshot) = snapshots
+            .iter()
+            .filter(|row| row_matches_tracker_message(row, chat_id, message_id))
+            .filter(|row| non_negative_i64_value(row.get("swipeIndex")) == Some(swipe_index))
+            .max_by(|a, b| {
+                timestamp_millis(a)
+                    .cmp(&timestamp_millis(b))
+                    .then_with(|| non_empty_string(a, "id").cmp(&non_empty_string(b, "id")))
+            })
+        {
+            return Some(snapshot.clone());
+        }
+    }
+    snapshots
+        .iter()
+        .filter(|row| row_matches_tracker_chat(row, chat_id))
+        .filter(|row| is_bootstrap_tracker_snapshot(row))
+        .max_by(|a, b| {
+            timestamp_millis(a)
+                .cmp(&timestamp_millis(b))
+                .then_with(|| non_empty_string(a, "id").cmp(&non_empty_string(b, "id")))
+        })
+        .cloned()
+}
+
 fn is_bootstrap_tracker_snapshot(row: &Value) -> bool {
     row.get("messageId")
         .and_then(Value::as_str)

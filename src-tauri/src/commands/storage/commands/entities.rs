@@ -1415,6 +1415,9 @@ fn apply_delete_cleanup(
                 delete_lorebook_children(state, id)?
             }
             contracts::DeleteCleanup::DeleteMessageTrackerSnapshots => {
+                if entity == "messages" {
+                    continue;
+                }
                 if let Some(chat_id) = message_chat_id {
                     game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
                     game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
@@ -4328,6 +4331,73 @@ mod tests {
     }
 
     #[test]
+    fn deleting_message_prunes_mixed_timestamp_memory_by_shared_precedence() {
+        let state = test_state("message-delete-mixed-timestamp-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Mixed timestamp memory delete chat",
+                    "memories": [
+                        {
+                            "id": "drop-created-inside-window",
+                            "createdAt": "2026-01-03T00:00:00.000Z",
+                            "firstMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "keep-created-before-window",
+                            "createdAt": "2026-01-01T00:00:00.000Z",
+                            "firstMessageAt": "2026-01-04T00:00:00.000Z"
+                        },
+                        {
+                            "id": "keep-last-message-before-window",
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z",
+                            "createdAt": "2026-01-04T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should use shared memory timestamp precedence");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            memory_ids,
+            vec![
+                "keep-created-before-window",
+                "keep-last-message-before-window"
+            ]
+        );
+    }
+
+    #[test]
     fn deleting_message_keeps_rows_and_memories_when_memory_prune_fails() {
         let state = test_state("message-delete-prune-fails");
         state
@@ -4369,6 +4439,168 @@ mod tests {
             .expect("chat should read")
             .expect("chat should remain");
         assert_eq!(chat["memories"], json!("{not valid json"));
+    }
+
+    #[test]
+    fn deleting_message_rolls_back_rows_memories_and_trackers_when_cleanup_fails() {
+        let state = test_state("message-delete-tracker-cleanup-fails");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Tracker rollback delete chat",
+                    "gameState": { "location": "before" },
+                    "memories": [
+                        {
+                            "id": "drop-memory",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        },
+                        {
+                            "id": "__fail_after_delete_mutation__",
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        state
+            .storage
+            .create(
+                "messages",
+                json!({
+                    "id": "message-delete",
+                    "chatId": "chat-1",
+                    "role": "assistant",
+                    "content": "delete me",
+                    "createdAt": "2026-01-02T00:00:00.000Z"
+                }),
+            )
+            .expect("message should be created");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "message-delete",
+                "location": "delete target"
+            }),
+        )
+        .expect("tracker snapshot should seed");
+
+        let error = delete_entity(&state, "messages", "message-delete", false)
+            .expect_err("injected cleanup failure should abort atomic delete");
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_some());
+        let snapshots = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should read");
+        assert_eq!(snapshots.len(), 1);
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            memory_ids,
+            vec!["drop-memory", "__fail_after_delete_mutation__"]
+        );
+        assert_eq!(chat["gameState"]["location"], "before");
+    }
+
+    #[test]
+    fn deleting_message_converges_rows_snapshots_visible_tracker_and_memories() {
+        let state = test_state("message-delete-tracker-success");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Tracker success delete chat",
+                    "gameState": { "location": "delete target" },
+                    "memories": [
+                        {
+                            "id": "keep-memory",
+                            "messageIds": ["message-keep"],
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "drop-memory",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should be created");
+        for (id, created_at) in [
+            ("message-keep", "2026-01-01T00:00:00.000Z"),
+            ("message-delete", "2026-01-02T00:00:00.000Z"),
+        ] {
+            state
+                .storage
+                .create(
+                    "messages",
+                    json!({
+                        "id": id,
+                        "chatId": "chat-1",
+                        "role": "assistant",
+                        "content": id,
+                        "createdAt": created_at
+                    }),
+                )
+                .expect("message should be created");
+            game_state_snapshots::save_tracker_snapshot(
+                &state,
+                "chat-1",
+                json!({
+                    "messageId": id,
+                    "location": id
+                }),
+            )
+            .expect("tracker snapshot should seed");
+        }
+
+        delete_entity(&state, "messages", "message-delete", false)
+            .expect("message delete should converge cleanup");
+
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_none());
+        let snapshots = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should read");
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0]["messageId"], "message-keep");
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should remain");
+        let memory_ids = chat["memories"]
+            .as_array()
+            .expect("memories should stay an array")
+            .iter()
+            .filter_map(|memory| memory.get("id").and_then(Value::as_str))
+            .collect::<Vec<_>>();
+        assert_eq!(memory_ids, vec!["keep-memory"]);
+        assert_eq!(chat["gameState"]["location"], "message-keep");
     }
 
     #[test]

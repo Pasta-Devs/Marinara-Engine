@@ -677,14 +677,7 @@ pub(crate) fn bulk_delete_messages(
     deleted_messages.dedup_by(|a, b| {
         a.get("id").and_then(Value::as_str) == b.get("id").and_then(Value::as_str)
     });
-    let (deleted, deleted_ids) =
-        delete_message_rows_with_memory_prune(state, chat_id, &deleted_messages)?;
-    if deleted > 0 {
-        for id in &deleted_ids {
-            game_state_snapshots::delete_tracker_snapshots_for_message(state, chat_id, id)?;
-        }
-        game_state_snapshots::sync_chat_game_state_to_visible_tracker(state, chat_id)?;
-    }
+    let (deleted, _) = delete_message_rows_with_memory_prune(state, chat_id, &deleted_messages)?;
     Ok(json!({ "deleted": deleted }))
 }
 
@@ -791,23 +784,7 @@ pub(crate) fn chat_array_field(state: &AppState, chat_id: &str, field: &str) -> 
 }
 
 fn chat_memory_recency_key(memory: &Value) -> &str {
-    memory
-        .get("lastMessageAt")
-        .and_then(Value::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| {
-            memory
-                .get("createdAt")
-                .and_then(Value::as_str)
-                .filter(|value| !value.trim().is_empty())
-        })
-        .or_else(|| {
-            memory
-                .get("firstMessageAt")
-                .and_then(Value::as_str)
-                .filter(|value| !value.trim().is_empty())
-        })
-        .unwrap_or("")
+    chat_memory_timestamp(memory).unwrap_or("")
 }
 
 fn chat_memory_values(chat: &Value) -> Vec<Value> {
@@ -866,7 +843,7 @@ fn chat_memory_message_ids(memory: &Value) -> HashSet<String> {
     ids
 }
 
-fn chat_memory_last_message_at(memory: &Value) -> Option<&str> {
+fn chat_memory_timestamp(memory: &Value) -> Option<&str> {
     memory
         .get("lastMessageAt")
         .and_then(Value::as_str)
@@ -874,14 +851,14 @@ fn chat_memory_last_message_at(memory: &Value) -> Option<&str> {
         .filter(|value| !value.is_empty())
         .or_else(|| {
             memory
-                .get("firstMessageAt")
+                .get("createdAt")
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
         })
         .or_else(|| {
             memory
-                .get("createdAt")
+                .get("firstMessageAt")
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
@@ -900,8 +877,7 @@ fn memory_overlaps_deleted_messages(
     let Some(deleted_start_at) = deleted_start_at else {
         return false;
     };
-    chat_memory_last_message_at(memory)
-        .is_some_and(|last_message_at| last_message_at >= deleted_start_at)
+    chat_memory_timestamp(memory).is_some_and(|timestamp| timestamp >= deleted_start_at)
 }
 
 fn prune_chat_memory_values_for_deleted_messages(
@@ -951,7 +927,12 @@ pub(crate) fn delete_message_rows_with_memory_prune(
 
     let now = now_iso();
     state.storage.update_collections_atomically(
-        vec!["messages", message_swipe_storage::COLLECTION, "chats"],
+        vec![
+            "messages",
+            message_swipe_storage::COLLECTION,
+            "chats",
+            "game-state-snapshots",
+        ],
         move |collections| {
             let messages = collections[0].rows_mut();
             let mut deleted_messages = Vec::new();
@@ -976,11 +957,25 @@ pub(crate) fn delete_message_rows_with_memory_prune(
                 return Ok((0, Vec::new()));
             }
 
+            let remaining_messages = messages.clone();
             collections[1].rows_mut().retain(|row| {
                 row.get("messageId")
                     .and_then(Value::as_str)
                     .is_none_or(|message_id| !deleted_ids.contains(message_id))
             });
+
+            let snapshots = collections[3].rows_mut();
+            snapshots.retain(|row| {
+                !deleted_ids.iter().any(|message_id| {
+                    game_state_snapshots::row_matches_tracker_message(row, chat_id, message_id)
+                })
+            });
+            let visible_tracker = game_state_snapshots::visible_tracker_snapshot_from_rows(
+                &remaining_messages,
+                snapshots,
+                chat_id,
+            )
+            .unwrap_or(Value::Null);
 
             let Some(chat) = collections[2]
                 .rows_mut()
@@ -995,6 +990,15 @@ pub(crate) fn delete_message_rows_with_memory_prune(
             if let Some(retained) =
                 prune_chat_memory_values_for_deleted_messages(memories, &deleted_messages)
             {
+                #[cfg(test)]
+                if retained.iter().any(|memory| {
+                    memory.get("id").and_then(Value::as_str)
+                        == Some("__fail_after_delete_mutation__")
+                }) {
+                    return Err(AppError::invalid_input(
+                        "injected message delete cleanup failure",
+                    ));
+                }
                 let object = chat
                     .as_object_mut()
                     .ok_or_else(|| AppError::invalid_input("Chat is not an object"))?;
@@ -1002,6 +1006,7 @@ pub(crate) fn delete_message_rows_with_memory_prune(
             }
             if let Some(object) = chat.as_object_mut() {
                 object.insert("lastMessageAt".to_string(), Value::String(now.clone()));
+                object.insert("gameState".to_string(), visible_tracker);
             }
 
             let mut ids = deleted_ids.into_iter().collect::<Vec<_>>();
@@ -2107,6 +2112,26 @@ mod tests {
         let invalid = list_chat_memories(&state, "chat-1", None, Some("popular"))
             .expect_err("unsupported ordering should be rejected");
         assert_eq!(invalid.code, "invalid_input");
+    }
+
+    #[test]
+    fn chat_memory_timestamp_order_matches_recency_and_pruning() {
+        let memory = json!({
+            "lastMessageAt": "   ",
+            "createdAt": "2026-01-03T00:00:00.000Z",
+            "firstMessageAt": "2026-01-01T00:00:00.000Z"
+        });
+
+        assert_eq!(
+            chat_memory_recency_key(&memory),
+            chat_memory_timestamp(&memory).expect("timestamp should resolve")
+        );
+        assert_eq!(chat_memory_recency_key(&memory), "2026-01-03T00:00:00.000Z");
+        assert!(memory_overlaps_deleted_messages(
+            &memory,
+            &HashSet::new(),
+            Some("2026-01-02T00:00:00.000Z")
+        ));
     }
 
     #[test]
@@ -3791,6 +3816,71 @@ mod tests {
     }
 
     #[test]
+    fn bulk_delete_messages_prunes_mixed_timestamp_memory_by_shared_precedence() {
+        let state = test_state("bulk-delete-mixed-timestamp-memory-prune");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Mixed timestamp memory prune chat",
+                    "memories": [
+                        {
+                            "id": "drop-created-inside-window",
+                            "createdAt": "2026-01-03T00:00:00.000Z",
+                            "firstMessageAt": "2026-01-01T00:00:00.000Z"
+                        },
+                        {
+                            "id": "keep-created-before-window",
+                            "createdAt": "2026-01-01T00:00:00.000Z",
+                            "firstMessageAt": "2026-01-04T00:00:00.000Z"
+                        },
+                        {
+                            "id": "keep-last-message-before-window",
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z",
+                            "createdAt": "2026-01-04T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-delete",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "delete me",
+                "createdAt": "2026-01-02T00:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "delete me" }]
+            }),
+        )
+        .expect("message should seed");
+
+        bulk_delete_messages(
+            &state,
+            "chat-1",
+            json!({ "messageIds": ["message-delete"] }),
+        )
+        .expect("bulk delete should use shared memory timestamp precedence");
+
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(
+            memory_ids(&chat["memories"]),
+            vec![
+                "keep-created-before-window",
+                "keep-last-message-before-window"
+            ]
+        );
+    }
+
+    #[test]
     fn bulk_delete_messages_prunes_only_confirmed_deleted_rows() {
         let state = test_state("bulk-delete-confirmed-memory-prune");
         state
@@ -3896,6 +3986,89 @@ mod tests {
             .expect("chat should read")
             .expect("chat should exist");
         assert_eq!(chat["memories"], json!("{not valid json"));
+    }
+
+    #[test]
+    fn bulk_delete_messages_rolls_back_rows_memories_and_trackers_when_cleanup_fails() {
+        let state = test_state("bulk-delete-tracker-cleanup-fails");
+        state
+            .storage
+            .create(
+                "chats",
+                json!({
+                    "id": "chat-1",
+                    "name": "Tracker rollback chat",
+                    "gameState": { "location": "before" },
+                    "memories": [
+                        {
+                            "id": "drop-memory",
+                            "messageIds": ["message-delete"],
+                            "lastMessageAt": "2026-01-02T00:00:00.000Z"
+                        },
+                        {
+                            "id": "__fail_after_delete_mutation__",
+                            "lastMessageAt": "2026-01-01T00:00:00.000Z"
+                        }
+                    ]
+                }),
+            )
+            .expect("chat should seed");
+        message_swipe_storage::create_message(
+            &state,
+            json!({
+                "id": "message-delete",
+                "chatId": "chat-1",
+                "role": "assistant",
+                "content": "delete me",
+                "createdAt": "2026-01-02T00:00:00.000Z",
+                "activeSwipeIndex": 0,
+                "swipes": [{ "content": "delete me" }]
+            }),
+        )
+        .expect("message should seed");
+        game_state_snapshots::save_tracker_snapshot(
+            &state,
+            "chat-1",
+            json!({
+                "messageId": "message-delete",
+                "location": "delete target"
+            }),
+        )
+        .expect("tracker snapshot should seed");
+
+        let error = bulk_delete_messages(
+            &state,
+            "chat-1",
+            json!({ "messageIds": ["message-delete"] }),
+        )
+        .expect_err("injected cleanup failure should abort atomic delete");
+        assert_eq!(error.code, "invalid_input");
+        assert!(state
+            .storage
+            .get("messages", "message-delete")
+            .expect("message should read")
+            .is_some());
+        assert_eq!(
+            message_swipe_storage::swipes_for_message(&state, "message-delete")
+                .expect("swipes should read")
+                .len(),
+            1
+        );
+        let snapshots = state
+            .storage
+            .list("game-state-snapshots")
+            .expect("snapshots should read");
+        assert_eq!(snapshots.len(), 1);
+        let chat = state
+            .storage
+            .get("chats", "chat-1")
+            .expect("chat should read")
+            .expect("chat should exist");
+        assert_eq!(
+            memory_ids(&chat["memories"]),
+            vec!["drop-memory", "__fail_after_delete_mutation__"]
+        );
+        assert_eq!(chat["gameState"]["location"], "before");
     }
 
     #[test]
