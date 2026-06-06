@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { LlmChunk, LlmRequest } from "../../engine/capabilities/llm";
 import { ApiError } from "./api-errors";
 import { apiQueryRetryDelay, shouldRetryApiQuery } from "./query-retry";
 import {
@@ -136,5 +137,137 @@ describe("remote runtime cache policy", () => {
       "http://runtime.example/api/llm/stream/stream-1/cancel",
       expect.objectContaining({ cache: "no-store", method: "POST" }),
     );
+  });
+});
+
+describe("remote LLM stream events", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("yields SSE error events instead of throwing them", async () => {
+    const target: RuntimeTarget = { baseUrl: "http://runtime.example" };
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        'data: {"type":"error","code":"llm_provider_error","message":"Provider failed","data":{"safe":true}}\n\n',
+        {
+          headers: { "content-type": "text/event-stream" },
+          status: 200,
+        },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stream = streamRemoteLlm("stream-1", {} as Parameters<typeof streamRemoteLlm>[1], target);
+
+    await expect(stream.next()).resolves.toMatchObject({
+      done: false,
+      value: {
+        type: "error",
+        code: "llm_provider_error",
+        message: "Provider failed",
+        text: "Provider failed",
+        data: { safe: true },
+      },
+    });
+    await expect(stream.next()).resolves.toMatchObject({ done: true });
+  });
+});
+
+const llmRequest: LlmRequest = {
+  messages: [{ role: "user", content: "Hello" }],
+};
+
+async function collectLlmChunks(stream: AsyncGenerator<LlmChunk>): Promise<LlmChunk[]> {
+  const chunks: LlmChunk[] = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+  return chunks;
+}
+
+async function loadMockedLlmApi() {
+  const mocks = {
+    cancelRemoteLlmStream: vi.fn(),
+    invokeTauri: vi.fn(),
+    remoteRuntimeTarget: vi.fn().mockReturnValue(null),
+    streamRemoteLlm: vi.fn(),
+  };
+
+  vi.resetModules();
+  vi.doMock("@tauri-apps/api/core", () => ({
+    Channel: class<T> {
+      private readonly handler: (event: T) => void;
+
+      constructor(handler: (event: T) => void) {
+        this.handler = handler;
+      }
+
+      send(event: T): void {
+        this.handler(event);
+      }
+    },
+  }));
+  vi.doMock("./tauri-client", () => ({
+    invokeTauri: mocks.invokeTauri,
+  }));
+  vi.doMock("./remote-runtime", () => ({
+    cancelRemoteLlmStream: mocks.cancelRemoteLlmStream,
+    remoteRuntimeTarget: mocks.remoteRuntimeTarget,
+    streamRemoteLlm: mocks.streamRemoteLlm,
+  }));
+
+  const [{ ApiError: MockedApiError }, { llmApi }] = await Promise.all([import("./api-errors"), import("./llm-api")]);
+  return { ApiError: MockedApiError, llmApi, mocks };
+}
+
+describe("embedded LLM stream events", () => {
+  afterEach(() => {
+    vi.doUnmock("@tauri-apps/api/core");
+    vi.doUnmock("./tauri-client");
+    vi.doUnmock("./remote-runtime");
+    vi.resetModules();
+  });
+
+  it("yields a stream error chunk when the native stream command rejects", async () => {
+    const { ApiError: MockedApiError, llmApi, mocks } = await loadMockedLlmApi();
+    mocks.invokeTauri.mockImplementation((command: string) => {
+      if (command === "llm_stream_channel") {
+        return Promise.reject(
+          new MockedApiError("Provider failed", 500, {
+            code: "llm_provider_error",
+            safe: true,
+          }),
+        );
+      }
+      return Promise.resolve(null);
+    });
+
+    await expect(collectLlmChunks(llmApi.stream(llmRequest))).resolves.toEqual([
+      {
+        type: "error",
+        text: "Provider failed",
+        data: {
+          code: "llm_provider_error",
+          message: "Provider failed",
+          safe: true,
+          status: 500,
+        },
+      },
+    ]);
+  });
+
+  it("keeps cancellation as a thrown AbortError", async () => {
+    const { llmApi, mocks } = await loadMockedLlmApi();
+    const controller = new AbortController();
+    controller.abort();
+    mocks.invokeTauri.mockImplementation((command: string) => {
+      if (command === "llm_stream_cancel") return Promise.resolve({ cancelled: true });
+      return new Promise(() => {});
+    });
+
+    await expect(llmApi.stream(llmRequest, controller.signal).next()).rejects.toMatchObject({
+      name: "AbortError",
+    });
   });
 });

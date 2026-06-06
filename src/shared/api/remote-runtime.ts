@@ -339,10 +339,6 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function readNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
@@ -438,26 +434,23 @@ export async function readRemoteError(response: Response): Promise<ApiError> {
   }
 }
 
-function remoteStreamError(event: LlmChunk): ApiError {
-  const record = event as LlmChunk & { code?: unknown; message?: unknown };
-  const data = event.data;
-  const dataRecord = isRecord(data) ? data : {};
-  const message =
-    readString(record.message) ||
-    readString(event.text) ||
-    readString(data) ||
-    readString(dataRecord.message) ||
-    "LLM stream failed";
-  const status = readNumber(dataRecord.status) ?? readNumber(dataRecord.statusCode) ?? 0;
-  const code = readString(record.code) || readString(dataRecord.code);
-  return new ApiError(message, status, {
-    ...(code ? { code } : {}),
-    event,
-  });
-}
-
 function normalizeRemoteLlmChunk(event: LlmChunk): LlmChunk {
-  const text = typeof event.text === "string" ? event.text : typeof event.data === "string" ? event.data : undefined;
+  const record = event as LlmChunk & { error?: unknown; message?: unknown };
+  const data = isRecord(event.data) ? event.data : {};
+  const text =
+    typeof event.text === "string"
+      ? event.text
+      : typeof event.data === "string"
+        ? event.data
+        : typeof record.message === "string"
+          ? record.message
+          : typeof record.error === "string"
+            ? record.error
+            : typeof data.message === "string"
+              ? data.message
+              : typeof data.error === "string"
+                ? data.error
+                : undefined;
   return text === undefined ? event : { ...event, text };
 }
 
@@ -606,8 +599,8 @@ export async function* streamRemoteLlm(
       buffer = parsed.rest;
       for (const data of parsed.events) {
         const event = normalizeRemoteLlmChunk(JSON.parse(data) as LlmChunk);
-        if (event.type === "error") throw remoteStreamError(event);
         yield event;
+        if (event.type === "error") return;
       }
     }
   } finally {

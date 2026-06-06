@@ -1,5 +1,6 @@
 import type { LlmChunk, LlmGateway, LlmRequest } from "../../engine/capabilities/llm";
 import { Channel } from "@tauri-apps/api/core";
+import { ApiError } from "./api-errors";
 import { ignoreLlmStreamCancelFailure } from "./llm-cancel-logging";
 import { invokeTauri } from "./tauri-client";
 import { cancelRemoteLlmStream, remoteRuntimeTarget, streamRemoteLlm } from "./remote-runtime";
@@ -17,6 +18,51 @@ function wait(ms: number): Promise<false> {
   return new Promise((resolve) => {
     globalThis.setTimeout(() => resolve(false), ms);
   });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isAbortError(error: unknown): boolean {
+  return isRecord(error) && error.name === "AbortError";
+}
+
+function readString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function chunkText(event: LlmChunk): string | undefined {
+  if (typeof event.text === "string") return event.text;
+  if (typeof event.data === "string") return event.data;
+  const record = event as LlmChunk & { error?: unknown; message?: unknown };
+  const data = isRecord(event.data) ? event.data : {};
+  return (
+    readString(record.message) ||
+    readString(record.error) ||
+    readString(data.message) ||
+    readString(data.error) ||
+    undefined
+  );
+}
+
+function streamErrorChunk(error: unknown): LlmChunk {
+  const message = error instanceof Error ? error.message : String(error ?? "LLM stream failed");
+  const details =
+    error instanceof ApiError && isRecord(error.details)
+      ? error.details
+      : error instanceof ApiError && error.details !== undefined
+        ? { details: error.details }
+        : {};
+  return {
+    type: "error",
+    text: message || "LLM stream failed",
+    data: {
+      ...details,
+      message: message || "LLM stream failed",
+      ...(error instanceof ApiError ? { status: error.status } : {}),
+    },
+  };
 }
 
 function cancelActiveTauriStreams() {
@@ -64,6 +110,7 @@ export const llmApi: LlmGateway = {
         for await (const event of streamRemoteLlm(streamId, request, remoteTarget, signal)) {
           if (event.type === "done") continue;
           yield event;
+          if (event.type === "error") return;
         }
       } finally {
         signal?.removeEventListener("abort", abort);
@@ -99,8 +146,7 @@ export const llmApi: LlmGateway = {
     signal?.addEventListener("abort", abort, { once: true });
 
     const onEvent = new Channel<LlmChunk>((event) => {
-      const text =
-        typeof event.text === "string" ? event.text : typeof event.data === "string" ? event.data : undefined;
+      const text = chunkText(event);
       const normalized = text === undefined ? event : { ...event, text };
       if (normalized.type === "done" || normalized.type === "error") {
         terminalEventReceived = true;
@@ -119,9 +165,12 @@ export const llmApi: LlmGateway = {
         commandSettled = true;
       },
       (error) => {
-        // A native command rejection is fatal; prefer surfacing it over yielding already-buffered partial tokens.
         commandSettled = true;
-        failure = error;
+        if (cancelRequested || isAbortError(error)) {
+          failure ??= error;
+        } else {
+          queue.push(streamErrorChunk(error));
+        }
         completed = true;
         notify();
       },
@@ -137,7 +186,6 @@ export const llmApi: LlmGateway = {
           continue;
         }
         const event = queue.shift()!;
-        if (event.type === "error") throw new Error(String(event.text ?? event.data ?? "LLM stream failed"));
         if (event.type === "done") continue;
         yield event;
       }

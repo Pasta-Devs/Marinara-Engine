@@ -3338,8 +3338,15 @@ function rerollSeedParameters(input: StartGenerationInput, parameters: Record<st
  */
 const MAX_MAIN_TOOL_ITERATIONS = 8;
 
-function llmChunkText(chunk: { text?: unknown; data?: unknown }): string {
-  return typeof chunk.text === "string" ? chunk.text : typeof chunk.data === "string" ? chunk.data : "";
+function llmChunkText(chunk: { text?: unknown; data?: unknown; error?: unknown; message?: unknown }): string {
+  if (typeof chunk.text === "string") return chunk.text;
+  if (typeof chunk.data === "string") return chunk.data;
+  const data = isRecord(chunk.data) ? chunk.data : {};
+  return readString(chunk.message) || readString(chunk.error) || readString(data.message) || readString(data.error);
+}
+
+function llmStreamErrorMessage(chunk: { text?: unknown; data?: unknown }): string {
+  return llmChunkText(chunk).trim() || "LLM stream failed";
 }
 
 /**
@@ -3456,6 +3463,8 @@ async function* streamMainGenerationLoop(args: {
         if (normalized) pendingToolCalls.push(normalized);
       } else if (chunk.type === "usage" && chunk.data != null) {
         streamUsages.push(chunk.data);
+      } else if (chunk.type === "error") {
+        throw new Error(llmStreamErrorMessage(chunk));
       }
     }
     const streamUsage = mergeStreamUsageChunks(streamUsages);
