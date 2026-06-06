@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { IntegrationGateway } from "../capabilities/integrations";
 import type { LlmGateway } from "../capabilities/llm";
 import type { StorageEntity, StorageGateway, StorageListOptions } from "../capabilities/storage";
+import {
+  buildUserMessageRegenerationPromptFromSource,
+  buildUserMessageRegenerationSourceMessage,
+} from "./generate-route-utils";
 import { assembleGenerationPrompt } from "./prompt-assembly";
 import { startGeneration } from "./start-generation";
 import type { JsonRecord } from "./runtime-records";
@@ -226,6 +230,61 @@ function generationStorage(args: {
 }
 
 describe("user-message regeneration review guards", () => {
+  it("keeps stored text attachments when literal user text mentions attached_file tags", () => {
+    const source = buildUserMessageRegenerationSourceMessage({
+      content: "The quoted docs mention <attached_file but that is not a stored attachment.",
+      extra: {
+        attachments: [
+          {
+            filename: "notes.txt",
+            type: "text/plain",
+            data: "data:text/plain,Stored%20attachment%20body",
+          },
+        ],
+      },
+    });
+
+    expect(source.content).toContain("The quoted docs mention <attached_file");
+    expect(source.content).toContain('<attached_file name="notes.txt" type="text/plain">');
+    expect(source.content).toContain("Stored attachment body");
+  });
+
+  it("keeps stored text attachments when literal user text copies a helper-shaped block", () => {
+    const attachment = {
+      filename: "notes.txt",
+      type: "text/plain",
+      data: "data:text/plain,Stored%20attachment%20body",
+    };
+    const copiedBlock = [
+      '<attached_file name="notes.txt" type="text/plain">',
+      "Stored attachment body",
+      "</attached_file>",
+    ].join("\n");
+    const source = buildUserMessageRegenerationSourceMessage({
+      content: `The user quoted this block:\n${copiedBlock}`,
+      extra: { attachments: [attachment] },
+    });
+
+    expect(source.content.split('<attached_file name="notes.txt" type="text/plain">')).toHaveLength(3);
+    expect(source.content).toContain("The user quoted this block:");
+  });
+
+  it("does not duplicate a helper-generated readable attachment block when building the rewrite prompt", () => {
+    const attachment = {
+      filename: "notes.txt",
+      type: "text/plain",
+      data: "data:text/plain,Stored%20attachment%20body",
+    };
+    const normalized = buildUserMessageRegenerationSourceMessage({
+      content: "Original source.",
+      extra: { attachments: [attachment] },
+    });
+    const prompt = buildUserMessageRegenerationPromptFromSource(normalized);
+
+    expect(prompt.content.split('<attached_file name="notes.txt" type="text/plain">')).toHaveLength(2);
+    expect(prompt.content).toContain("Stored attachment body");
+  });
+
   it("aborts before model call or saved swipe when the full source row load fails", async () => {
     let modelCalls = 0;
     let swipeCalls = 0;

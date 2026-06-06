@@ -225,12 +225,7 @@ export function appendReadableAttachmentsToContent(
   return `${content}${content.trim() ? "\n\n" : ""}${blocks.join("\n\n")}`;
 }
 
-function contentAlreadyHasReadableAttachmentBlock(content: string): boolean {
-  return /<attached_file\b/i.test(content);
-}
-
 function userRegenerationContentWithAttachments(content: string, attachments: PromptAttachment[] | undefined): string {
-  if (contentAlreadyHasReadableAttachmentBlock(content)) return content;
   return appendReadableAttachmentsToContent(content, attachments);
 }
 
