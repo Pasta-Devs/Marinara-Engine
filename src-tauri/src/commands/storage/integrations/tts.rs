@@ -422,10 +422,7 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
         .and_then(|value| value.to_str().ok())
         .unwrap_or(fallback_content_type)
         .to_string();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| AppError::new("tts_response_error", error.to_string()))?;
+    let bytes = read_capped_audio_bytes(response).await?;
     if !status.is_success() {
         let detail = provider_error_detail(&String::from_utf8_lossy(&bytes), 500);
         return Err(AppError::with_details(
@@ -442,13 +439,38 @@ async fn speak(state: &AppState, body: Value) -> AppResult<Value> {
             json!({ "contentType": content_type, "detail": detail }),
         ));
     }
-    if bytes.len() > MAX_TTS_AUDIO_BYTES {
-        return Err(AppError::invalid_input("TTS audio response is too large"));
-    }
     Ok(json!({
         "audioBase64": general_purpose::STANDARD.encode(bytes),
         "contentType": if content_type.starts_with("audio/") { content_type } else { fallback_content_type.to_string() }
     }))
+}
+
+/// Streams the TTS provider response body while enforcing `MAX_TTS_AUDIO_BYTES`.
+///
+/// Mirrors `read_limited_webhook_text` in `custom_tools.rs`: a `content_length()`
+/// pre-check rejects oversized bodies before download, then a `.chunk()` loop with
+/// a saturating running counter aborts as soon as the cap is exceeded, so a hostile
+/// or misconfigured endpoint cannot OOM the process by streaming a multi-GB body.
+async fn read_capped_audio_bytes(mut response: reqwest::Response) -> AppResult<Vec<u8>> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_TTS_AUDIO_BYTES as u64)
+    {
+        return Err(AppError::invalid_input("TTS audio response is too large"));
+    }
+
+    let mut body = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| AppError::new("tts_response_error", error.to_string()))?
+    {
+        if body.len().saturating_add(chunk.len()) > MAX_TTS_AUDIO_BYTES {
+            return Err(AppError::invalid_input("TTS audio response is too large"));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 fn normalized_audio_format(config: &Value) -> &'static str {
