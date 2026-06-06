@@ -637,6 +637,39 @@ function sameActivatedEntrySet(a: ActivatedEntry[], b: ActivatedEntry[]): boolea
   return a.every((entry) => bIds.has(entry.entry.id));
 }
 
+function recordBudgetSelectionPass(
+  skippedById: Map<string, BudgetSkippedLorebookEntry>,
+  selectedEntries: ActivatedEntry[],
+  skippedEntries: BudgetSkippedLorebookEntry[],
+): void {
+  for (const selected of selectedEntries) {
+    skippedById.delete(selected.entry.id);
+  }
+  for (const skipped of skippedEntries) {
+    skippedById.set(skipped.id, skipped);
+  }
+}
+
+function applySkippedBudgetExhaustion(
+  state: LorebookBudgetSelectionState,
+  skippedEntries: Iterable<BudgetSkippedLorebookEntry>,
+): void {
+  for (const skipped of skippedEntries) {
+    if (skipped.blockedBy === "lorebook" || skipped.blockedBy === "both") {
+      state.exhaustedLorebookIds.add(skipped.lorebookId);
+    }
+    if (skipped.blockedBy === "chat" || skipped.blockedBy === "both") {
+      state.chatBudgetExhausted = true;
+    }
+  }
+}
+
+function sortedBudgetSkippedEntries(
+  skippedById: ReadonlyMap<string, BudgetSkippedLorebookEntry>,
+): BudgetSkippedLorebookEntry[] {
+  return [...skippedById.values()].sort((a, b) => a.id.localeCompare(b.id));
+}
+
 function budgetSkipReason(exceedsLorebookBudget: boolean, exceedsChatBudget: boolean): "lorebook" | "chat" | "both" {
   if (exceedsLorebookBudget && exceedsChatBudget) return "both";
   if (exceedsLorebookBudget) return "lorebook";
@@ -703,7 +736,7 @@ function selectBudgetedLorebookEntries(
   if (candidates.length === 0) return { selectedFromCandidates: [], budgetSkippedEntries: [] };
 
   let pool = candidates;
-  let lastSkippedBudgetEntries: BudgetSkippedLorebookEntry[] = [];
+  const skippedById = new Map<string, BudgetSkippedLorebookEntry>();
   const maxPasses = Math.max(1, candidates.length + 1);
 
   for (let passIndex = 0; passIndex < maxPasses; passIndex += 1) {
@@ -722,23 +755,25 @@ function selectBudgetedLorebookEntries(
     }
 
     selectedFromCandidates.sort(lorebookInjectionOrder);
+    recordBudgetSelectionPass(skippedById, selectedFromCandidates, skippedFromCandidates);
 
     if (sameActivatedEntrySet(pool, selectedFromCandidates)) {
+      applySkippedBudgetExhaustion(nextState, skippedById.values());
       applyLorebookBudgetSelectionState(state, nextState);
       return {
         selectedFromCandidates,
-        budgetSkippedEntries: lastSkippedBudgetEntries.sort((a, b) => a.id.localeCompare(b.id)),
+        budgetSkippedEntries: sortedBudgetSkippedEntries(skippedById),
       };
     }
 
     rollbackLorebookCandidatePass(pass);
-    lastSkippedBudgetEntries = skippedFromCandidates;
     pool = selectedFromCandidates;
   }
 
+  applySkippedBudgetExhaustion(state, skippedById.values());
   return {
     selectedFromCandidates: [],
-    budgetSkippedEntries: lastSkippedBudgetEntries.sort((a, b) => a.id.localeCompare(b.id)),
+    budgetSkippedEntries: sortedBudgetSkippedEntries(skippedById),
   };
 }
 
