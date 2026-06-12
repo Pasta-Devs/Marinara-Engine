@@ -66,7 +66,7 @@ export function RecentChats() {
           No chats yet
         </p>
       ) : (
-        <div className="flex w-full items-center justify-center gap-1.5">
+        <div className="flex w-full items-center justify-center gap-1.5 overflow-x-auto">
           {recentChats.map((chat) => (
             <RecentChatChip
               key={chat.id}

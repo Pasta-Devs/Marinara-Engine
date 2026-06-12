@@ -319,13 +319,15 @@ export function HomeProfessorMariChat() {
   };
 
   return (
-    <section className="w-full max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--card)]/85 shadow-lg shadow-black/10">
+    <section className="w-full max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--card)]/85 shadow-lg shadow-black/10 mt-10 sm:mt-0">
       <div className="grid gap-2.5 p-2 sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.45fr)] sm:p-2.5">
         <div className="flex min-w-0 flex-col items-center justify-start gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-2.5">
           <div className="w-full max-w-[14rem] [--mari-professor-sprite-bottom:5%]">
             <ProfessorMariPixelScene active={isBusy || mariPhase !== null} />
           </div>
-          <HomeFaq compact />
+          <div className="hidden sm:block w-full">
+            <HomeFaq compact />
+          </div>
         </div>
 
         <div className="flex h-[clamp(24rem,70dvh,31rem)] min-w-0 flex-col rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/70">
@@ -466,6 +468,9 @@ export function HomeProfessorMariChat() {
             </div>
           </form>
         </div>
+      </div>
+      <div className="sm:hidden px-2 pb-2">
+        <HomeFaq compact />
       </div>
     </section>
   );
