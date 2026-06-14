@@ -28,9 +28,12 @@ import {
 } from "../../hooks/use-agents";
 import {
   BUILT_IN_AGENTS,
+  DEFAULT_AGENT_TOOLS,
   createFolderEntry,
+  getDefaultBuiltInAgentSettings,
   getFolderImportEntries,
   getFolderManifestConfig,
+  isAgentConfigDeleted,
   type AgentCategory,
 } from "@marinara-engine/shared";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -38,6 +41,7 @@ import { cn } from "../../lib/utils";
 import { downloadJsonFile } from "../../lib/download-json";
 
 type JsonRecord = Record<string, unknown>;
+const BUILT_IN_AGENT_TYPE_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 
 function isJsonRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -96,6 +100,30 @@ function serializeAgentFolderEntry(agent: AgentConfigRow) {
   });
 }
 
+function createBuiltInAgentConfigRow(
+  agent: (typeof BUILT_IN_AGENTS)[number],
+  config: AgentConfigRow | null | undefined,
+): AgentConfigRow {
+  const defaultSettings = {
+    ...getDefaultBuiltInAgentSettings(agent.id),
+    ...(DEFAULT_AGENT_TOOLS[agent.id]?.length ? { enabledTools: DEFAULT_AGENT_TOOLS[agent.id] } : {}),
+  };
+  return {
+    id: agent.id,
+    type: agent.id,
+    name: agent.name,
+    description: config?.description ?? agent.description,
+    phase: config?.phase ?? agent.phase,
+    enabled: config?.enabled ?? String(agent.enabledByDefault),
+    connectionId: config?.connectionId ?? null,
+    imagePath: config?.imagePath ?? null,
+    promptTemplate: config?.promptTemplate ?? "",
+    settings: config?.settings ?? JSON.stringify(defaultSettings),
+    createdAt: config?.createdAt ?? "",
+    updatedAt: config?.updatedAt ?? "",
+  };
+}
+
 function normalizeAgentImportEntry(entry: unknown) {
   const source = getFolderManifestConfig(entry);
   if (!isJsonRecord(source)) return null;
@@ -151,15 +179,39 @@ export function AgentsPanel() {
   const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
 
+  const agentConfigRows = useMemo(() => ((agentConfigs ?? []) as AgentConfigRow[]), [agentConfigs]);
+  const visibleAgentConfigs = useMemo(
+    () => agentConfigRows.filter((config) => !isAgentConfigDeleted(config.settings)),
+    [agentConfigRows],
+  );
+  const deletedBuiltInTypes = useMemo(
+    () =>
+      new Set(
+        agentConfigRows
+          .filter((config) => BUILT_IN_AGENT_TYPE_SET.has(config.type))
+          .filter((config) => isAgentConfigDeleted(config.settings))
+          .map((config) => config.type),
+      ),
+    [agentConfigRows],
+  );
+  const visibleBuiltInAgents = useMemo(
+    () => BUILT_IN_AGENTS.filter((agent) => !deletedBuiltInTypes.has(agent.id)),
+    [deletedBuiltInTypes],
+  );
   // Custom agents = DB entries whose type doesn't match any built-in
   const customAgents = useMemo(
-    () => ((agentConfigs ?? []) as AgentConfigRow[]).filter((c) => !BUILT_IN_AGENTS.some((b) => b.id === c.type)),
-    [agentConfigs],
+    () => visibleAgentConfigs.filter((config) => !BUILT_IN_AGENT_TYPE_SET.has(config.type)),
+    [visibleAgentConfigs],
   );
   const configByType = useMemo(
-    () => new Map(((agentConfigs ?? []) as AgentConfigRow[]).map((config) => [config.type, config])),
-    [agentConfigs],
+    () => new Map(visibleAgentConfigs.map((config) => [config.type, config])),
+    [visibleAgentConfigs],
   );
+  const builtInExportRows = useMemo(
+    () => visibleBuiltInAgents.map((agent) => createBuiltInAgentConfigRow(agent, configByType.get(agent.id))),
+    [configByType, visibleBuiltInAgents],
+  );
+  const selectableAgents = useMemo(() => [...builtInExportRows, ...customAgents], [builtInExportRows, customAgents]);
 
   const agentSearchQuery = agentSearch.trim().toLowerCase();
   const matchesAgentSearch = (agent: { name: string; description: string; category: string }) =>
@@ -181,13 +233,17 @@ export function AgentsPanel() {
       }),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
+  const visibleSelectableAgentIds = [
+    ...visibleBuiltInAgents.filter((agent) => matchesAgentSearch(agent)).map((agent) => agent.id),
+    ...visibleCustomAgents.map((agent) => agent.id),
+  ];
   const hasVisibleAgents =
     agentCategorySections.some((section) =>
-      BUILT_IN_AGENTS.some((agent) => agent.category === section.category && matchesAgentSearch(agent)),
+      visibleBuiltInAgents.some((agent) => agent.category === section.category && matchesAgentSearch(agent)),
     ) || visibleCustomAgents.length > 0;
-  const selectedCustomAgents = useMemo(
-    () => customAgents.filter((agent) => selectedAgentIds.has(agent.id)),
-    [customAgents, selectedAgentIds],
+  const selectedAgents = useMemo(
+    () => selectableAgents.filter((agent) => selectedAgentIds.has(agent.id)),
+    [selectableAgents, selectedAgentIds],
   );
 
   const handleCreateAgent = () => {
@@ -210,8 +266,8 @@ export function AgentsPanel() {
   }, []);
 
   const handleExportSelectedAgents = useCallback(async () => {
-    if (selectedCustomAgents.length === 0) {
-      toast.error("Select at least one custom agent to export");
+    if (selectedAgents.length === 0) {
+      toast.error("Select at least one agent to export");
       return;
     }
 
@@ -223,28 +279,30 @@ export function AgentsPanel() {
           version: 1,
           exportedAt: new Date().toISOString(),
           folderName: "Agents",
-          agents: selectedCustomAgents.map(serializeAgentFolderEntry),
+          agents: selectedAgents.map(serializeAgentFolderEntry),
         },
         "marinara-agents.json",
       );
-      toast.success(
-        `Exported ${selectedCustomAgents.length} custom agent${selectedCustomAgents.length === 1 ? "" : "s"}`,
-      );
+      toast.success(`Exported ${selectedAgents.length} agent${selectedAgents.length === 1 ? "" : "s"}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to export agents");
     } finally {
       setExportingSelected(false);
     }
-  }, [selectedCustomAgents]);
+  }, [selectedAgents]);
 
   const handleDeleteSelectedAgents = useCallback(async () => {
-    const ids = selectedCustomAgents.map((agent) => agent.id);
+    const ids = selectedAgents.map((agent) => agent.id);
     if (ids.length === 0) return;
+    const agentNoun = ids.length === 1 ? "agent" : "agents";
+    const deleteMessage =
+      `Delete ${ids.length} selected ${agentNoun}? ` +
+      "Basic agents will be hidden from the library and pickers.";
 
     if (
       !(await showConfirmDialog({
         title: "Delete Agents",
-        message: `Delete ${ids.length} custom agent${ids.length === 1 ? "" : "s"}?`,
+        message: deleteMessage,
         confirmLabel: "Delete",
         tone: "destructive",
       }))
@@ -257,16 +315,16 @@ export function AgentsPanel() {
     const deletedCount = ids.length - failedIds.length;
 
     if (deletedCount > 0) {
-      toast.success(`Deleted ${deletedCount} custom agent${deletedCount === 1 ? "" : "s"}`);
+      toast.success(`Deleted ${deletedCount} agent${deletedCount === 1 ? "" : "s"}`);
     }
     if (failedIds.length > 0) {
       setSelectedAgentIds(new Set(failedIds));
-      toast.error(`Failed to delete ${failedIds.length} custom agent${failedIds.length === 1 ? "" : "s"}`);
+      toast.error(`Failed to delete ${failedIds.length} agent${failedIds.length === 1 ? "" : "s"}`);
       return;
     }
 
     exitSelectionMode();
-  }, [deleteAgent, exitSelectionMode, selectedCustomAgents]);
+  }, [deleteAgent, exitSelectionMode, selectedAgents]);
 
   const handleImportAgents = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -395,14 +453,14 @@ export function AgentsPanel() {
             if (selectionMode) exitSelectionMode();
             else setSelectionMode(true);
           }}
-          disabled={customAgents.length === 0}
+          disabled={selectableAgents.length === 0}
           className={cn(
             "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40",
             selectionMode
               ? "bg-violet-400/15 text-violet-400 ring-1 ring-violet-400/30"
               : "bg-[var(--secondary)] text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
           )}
-          title="Select custom agents"
+          title="Select agents"
         >
           <Check size="0.8125rem" /> <span className="md:hidden">Select</span>
         </button>
@@ -418,25 +476,25 @@ export function AgentsPanel() {
       {selectionMode && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-3 py-2">
           <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {selectedCustomAgents.length} selected
+            {selectedAgents.length} selected
           </span>
           <button
-            onClick={() => setSelectedAgentIds(new Set(visibleCustomAgents.map((agent) => agent.id)))}
-            disabled={visibleCustomAgents.length === 0}
+            onClick={() => setSelectedAgentIds(new Set(visibleSelectableAgentIds))}
+            disabled={visibleSelectableAgentIds.length === 0}
             className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-violet-400 transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
           >
             Select visible
           </button>
           <button
             onClick={() => setSelectedAgentIds(new Set())}
-            disabled={selectedCustomAgents.length === 0}
+            disabled={selectedAgents.length === 0}
             className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
           >
             Clear
           </button>
           <button
             onClick={handleDeleteSelectedAgents}
-            disabled={selectedCustomAgents.length === 0}
+            disabled={selectedAgents.length === 0}
             className="inline-flex items-center gap-1 rounded-lg bg-[var(--destructive)]/12 px-2.5 py-1 text-[0.625rem] font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/20 disabled:opacity-40"
           >
             <Trash2 size="0.6875rem" />
@@ -444,7 +502,7 @@ export function AgentsPanel() {
           </button>
           <button
             onClick={handleExportSelectedAgents}
-            disabled={selectedCustomAgents.length === 0 || exportingSelected}
+            disabled={selectedAgents.length === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-violet-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
             <Upload size="0.6875rem" />
@@ -479,7 +537,7 @@ export function AgentsPanel() {
       )}
 
       {agentCategorySections.map((section) => {
-        const visibleAgents = BUILT_IN_AGENTS.filter(
+        const visibleAgents = visibleBuiltInAgents.filter(
           (agent) => agent.category === section.category && matchesAgentSearch(agent),
         );
         if (visibleAgents.length === 0 && agentSearchQuery) return null;
@@ -501,7 +559,23 @@ export function AgentsPanel() {
                   custom: false,
                   openAgentDetail,
                   onImagePick: () => handlePickAgentImage(agent.id),
-                  selectionMode: false,
+                  selectionMode,
+                  selected: selectedAgentIds.has(agent.id),
+                  onToggleSelected: () => toggleAgentSelection(agent.id),
+                  onDelete: async () => {
+                    const deleteMessage =
+                      `Delete "${agent.name}"? ` + "This basic agent will be hidden from the library and pickers.";
+                    if (
+                      await showConfirmDialog({
+                        title: "Delete Agent",
+                        message: deleteMessage,
+                        confirmLabel: "Delete",
+                        tone: "destructive",
+                      })
+                    ) {
+                      deleteAgent.mutate(agent.id);
+                    }
+                  },
                 }),
               )
             )}

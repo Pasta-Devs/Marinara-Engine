@@ -8,6 +8,7 @@ import { newId, now } from "../../utils/id-generator.js";
 import {
   BUILT_IN_AGENTS,
   getDefaultBuiltInAgentSettings,
+  markAgentConfigDeletedSettings,
   type CreateAgentConfigInput,
   type AgentResult,
 } from "@marinara-engine/shared";
@@ -142,6 +143,11 @@ export function createAgentsStorage(db: DB) {
     return config?.id ?? agentConfigId;
   }
 
+  async function removeRuntimeData(id: string) {
+    await db.delete(agentRuns).where(eq(agentRuns.agentConfigId, id));
+    await db.delete(agentMemory).where(eq(agentMemory.agentConfigId, id));
+  }
+
   return {
     // ── Config CRUD ──
 
@@ -216,9 +222,34 @@ export function createAgentsStorage(db: DB) {
     },
 
     async remove(id: string) {
-      await db.delete(agentRuns).where(eq(agentRuns.agentConfigId, id));
-      await db.delete(agentMemory).where(eq(agentMemory.agentConfigId, id));
+      await removeRuntimeData(id);
       await db.delete(agentConfigs).where(eq(agentConfigs.id, id));
+    },
+
+    async softDeleteBuiltIn(type: string) {
+      const builtIn = BUILT_IN_AGENTS.find((agent) => agent.id === type);
+      if (!builtIn) return null;
+
+      const existing = await getByType(type);
+      if (existing) {
+        await removeRuntimeData(existing.id);
+        return this.update(existing.id, {
+          enabled: false,
+          settings: markAgentConfigDeletedSettings(existing.settings),
+        });
+      }
+
+      return this.create({
+        type: builtIn.id,
+        name: builtIn.name,
+        description: builtIn.description,
+        phase: builtIn.phase,
+        enabled: false,
+        connectionId: null,
+        imagePath: null,
+        promptTemplate: "",
+        settings: markAgentConfigDeletedSettings(getDefaultBuiltInAgentSettings(builtIn.id)),
+      });
     },
 
     // ── Agent Runs ──

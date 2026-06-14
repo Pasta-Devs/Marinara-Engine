@@ -8,6 +8,7 @@ import {
   applyQuestUpdatesToPlayerStats,
   getDefaultBuiltInAgentSettings,
   isAgentAvailableInChatMode,
+  isAgentConfigDeleted,
   normalizeAgentPromptTemplateSelectionMap,
   resolveAgentPromptTemplate,
   stripMacroComments,
@@ -637,7 +638,18 @@ async function resolveRetryAgents(args: {
     ),
   );
   const configs = await agentsStore.list();
-  const enabledConfigs = configs.filter((config: any) => agentTypeSet.has(config.type));
+  const deletedBuiltInTypes = new Set(
+    configs
+      .filter((config: any) => BUILT_IN_AGENTS.some((agent) => agent.id === config.type))
+      .filter((config: any) => isAgentConfigDeleted(config.settings))
+      .map((config: any) => config.type as string),
+  );
+  for (const agentType of deletedBuiltInTypes) {
+    agentTypeSet.delete(agentType);
+  }
+  const enabledConfigs = configs.filter(
+    (config: any) => !isAgentConfigDeleted(config.settings) && agentTypeSet.has(config.type),
+  );
   const resolvedTypeSet = new Set(enabledConfigs.map((config: any) => config.type));
   const builtInFallbackConfigs = BUILT_IN_AGENTS.filter(
     (agent) => agentTypeSet.has(agent.id) && !resolvedTypeSet.has(agent.id),

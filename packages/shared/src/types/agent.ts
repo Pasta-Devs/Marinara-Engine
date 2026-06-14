@@ -99,6 +99,19 @@ export function parseAgentSettingsRecord(value: unknown): Record<string, unknown
   return isRecord(value) ? value : {};
 }
 
+export const AGENT_CONFIG_DELETED_SETTING_KEY = "deletedFromLibrary";
+
+export function isAgentConfigDeleted(settings: unknown): boolean {
+  return parseAgentSettingsRecord(settings)[AGENT_CONFIG_DELETED_SETTING_KEY] === true;
+}
+
+export function markAgentConfigDeletedSettings(settings: unknown): Record<string, unknown> {
+  return {
+    ...parseAgentSettingsRecord(settings),
+    [AGENT_CONFIG_DELETED_SETTING_KEY]: true,
+  };
+}
+
 function normalizePromptTemplateId(value: unknown, fallback: string): string {
   const raw = typeof value === "string" ? value.trim() : "";
   const normalized = raw

@@ -3,6 +3,7 @@ import {
   DEFAULT_AGENT_TOOLS,
   getDefaultAgentPrompt,
   getDefaultBuiltInAgentSettings,
+  isAgentConfigDeleted,
   LOCAL_SIDECAR_CONNECTION_ID,
   resolveAgentPromptTemplate,
 } from "@marinara-engine/shared";
@@ -148,7 +149,13 @@ export async function resolveAgentPipelineAgents({
   chatMaxParallelJobs,
   resolveBaseUrl,
 }: ResolveAgentPipelineAgentsArgs): Promise<ResolvedAgentPipelineAgents> {
-  const enabledConfigs = configuredAgents;
+  const deletedBuiltInTypes = new Set(
+    configuredAgents
+      .filter((agent) => BUILT_IN_AGENTS.some((builtIn) => builtIn.id === agent.type))
+      .filter((agent) => isAgentConfigDeleted(agent.settings))
+      .map((agent) => agent.type as string),
+  );
+  const enabledConfigs = configuredAgents.filter((agent) => !isAgentConfigDeleted(agent.settings));
   const resolvedAgents: ResolvedAgent[] = [];
   const agentProviderCache = new Map<string, AgentProviderCacheEntry>();
   const localSidecarAvailableForTrackers =
@@ -255,6 +262,7 @@ export async function resolveAgentPipelineAgents({
     chatEnableAgents && hasPerChatAgentList
       ? BUILT_IN_AGENTS.filter((agent) => {
           if (resolvedTypes.has(agent.id)) return false;
+          if (deletedBuiltInTypes.has(agent.id)) return false;
           if (agent.id === "chat-summary") return false;
           return perChatAgentSet.has(agent.id);
         })

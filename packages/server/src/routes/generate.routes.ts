@@ -20,6 +20,7 @@ import {
   buildQuestJournalData,
   isClaudeAdaptiveOnlyNoSamplingModel,
   isAgentAvailableInChatMode,
+  isAgentConfigDeleted,
   normalizeAgentPromptTemplateSelectionMap,
   normalizeThinkingTagPairs,
   customAgentHasCapability,
@@ -1027,15 +1028,23 @@ export async function generateRoutes(app: FastifyInstance) {
         const persistedChatActiveAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds)
           ? (chatMeta.activeAgentIds as string[])
           : [];
-        const chatActiveAgentIds: string[] = filterGameInternalAgentIds(chatMode, persistedChatActiveAgentIds)
+        const rawChatActiveAgentIds: string[] = filterGameInternalAgentIds(chatMode, persistedChatActiveAgentIds)
           .filter((agentId) => isAgentAvailableInChatMode(chatMode, agentId))
           .filter((agentId) => !(gameSpotifyMusicEnabled && agentId === "spotify"));
+        const configuredPromptAgents =
+          chatEnableAgents && rawChatActiveAgentIds.length > 0 ? await agentsStore.list() : [];
+        const deletedBuiltInAgentTypes = new Set(
+          configuredPromptAgents
+            .filter((agent) => BUILT_IN_AGENTS.some((builtIn) => builtIn.id === agent.type))
+            .filter((agent) => isAgentConfigDeleted(agent.settings))
+            .map((agent) => agent.type as string),
+        );
+        const chatActiveAgentIds = rawChatActiveAgentIds.filter((agentId) => !deletedBuiltInAgentTypes.has(agentId));
         const agentPromptTemplateSelections = normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds);
         const hasPerChatAgentList = chatActiveAgentIds.length > 0;
         const perChatAgentSet = new Set(chatActiveAgentIds);
         const chatSummaryAgentActive = chatEnableAgents && perChatAgentSet.has("chat-summary");
         const activeChatSummary = chatSummaryAgentActive ? ((chatMeta.summary as string) ?? "").trim() || null : null;
-        const configuredPromptAgents = chatEnableAgents && hasPerChatAgentList ? await agentsStore.list() : [];
         const runtimeSectionEligibleAgentTypes = buildRuntimeAgentSectionEligibleTypes({
           enableAgents: chatEnableAgents,
           activeAgentIds: chatActiveAgentIds,

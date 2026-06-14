@@ -143,6 +143,7 @@ import {
   AGENT_COST_HIGH_TOKENS,
   getDefaultBuiltInAgentSettings,
   isAgentAvailableInChatMode,
+  isAgentConfigDeleted,
   isAgentHiddenFromChatSettingsPicker,
   normalizeAgentPromptTemplateSelectionMap,
   resolveAgentPromptTemplate,
@@ -450,7 +451,30 @@ export function ChatSettingsDrawer({
     typeof metadata.lorebookTokenBudget === "number" && Number.isFinite(metadata.lorebookTokenBudget)
       ? Math.max(0, Math.floor(metadata.lorebookTokenBudget))
       : LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
-  const activeAgentIds = useMemo<string[]>(() => metadata.activeAgentIds ?? [], [metadata.activeAgentIds]);
+  const agentConfigsByType = useMemo(() => {
+    const map = new Map<string, AgentConfigRow>();
+    for (const config of (agentConfigs ?? []) as AgentConfigRow[]) {
+      map.set(config.type, config);
+    }
+    return map;
+  }, [agentConfigs]);
+  const deletedBuiltInAgentTypes = useMemo(
+    () =>
+      new Set(
+        ((agentConfigs ?? []) as AgentConfigRow[])
+          .filter((config) => BUILT_IN_AGENTS.some((agent) => agent.id === config.type))
+          .filter((config) => isAgentConfigDeleted(config.settings))
+          .map((config) => config.type),
+      ),
+    [agentConfigs],
+  );
+  const activeAgentIds = useMemo<string[]>(
+    () =>
+      (Array.isArray(metadata.activeAgentIds) ? metadata.activeAgentIds : []).filter(
+        (id: unknown): id is string => typeof id === "string" && !deletedBuiltInAgentTypes.has(id),
+      ),
+    [deletedBuiltInAgentTypes, metadata.activeAgentIds],
+  );
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
   const spotifyActive = activeAgentIds.includes("spotify");
   const gameLorebookKeeperLorebook = gameLorebookKeeperLorebookId
@@ -508,13 +532,6 @@ export function ChatSettingsDrawer({
     setSpriteOpacityPercent(Math.round(spriteOpacity * 100));
   }, [spriteOpacity]);
 
-  const agentConfigsByType = useMemo(() => {
-    const map = new Map<string, AgentConfigRow>();
-    for (const config of (agentConfigs ?? []) as AgentConfigRow[]) {
-      map.set(config.type, config);
-    }
-    return map;
-  }, [agentConfigs]);
   const agentPromptTemplateSelections = useMemo(
     () => normalizeAgentPromptTemplateSelectionMap(metadata.agentPromptTemplateIds),
     [metadata.agentPromptTemplateIds],
@@ -557,6 +574,7 @@ export function ChatSettingsDrawer({
       if (!isAgentAvailableInChatMode(chatMode, a.id)) continue;
       if (isAgentHiddenFromChatSettingsPicker(chatMode, a.id)) continue;
       const existing = agentConfigsByType.get(a.id);
+      if (existing && isAgentConfigDeleted(existing.settings)) continue;
       agents.push({
         id: a.id,
         name: a.name,
@@ -569,6 +587,7 @@ export function ChatSettingsDrawer({
     // Custom agents from DB
     if (agentConfigs && modeCapabilities.agentPolicy.kind === "all") {
       for (const c of agentConfigs as AgentConfigRow[]) {
+        if (isAgentConfigDeleted(c.settings)) continue;
         if (!BUILT_IN_AGENTS.some((b) => b.id === c.type)) {
           agents.push({
             id: c.type,
@@ -1026,7 +1045,8 @@ export function ChatSettingsDrawer({
   const toggleAgent = async (agentId: string) => {
     const readLatestActiveAgentIds = () => {
       const latestChat = qc.getQueryData<Chat>(chatKeys.detail(chat.id));
-      return latestChat ? getChatActiveAgentIds(latestChat) : [...activeAgentIds];
+      const ids = latestChat ? getChatActiveAgentIds(latestChat) : [...activeAgentIds];
+      return ids.filter((id) => !deletedBuiltInAgentTypes.has(id));
     };
     const wasRemoving = readLatestActiveAgentIds().includes(agentId);
     if (wasRemoving && agentId === "secret-plot-driver") {
