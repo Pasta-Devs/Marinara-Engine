@@ -20,8 +20,22 @@ function YouTubeGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={className}>
       <rect x="3" y="6.5" width="18" height="11" rx="3" fill="currentColor" />
-      <path d="M10.5 9.4v5.2l4.6-2.6-4.6-2.6Z" fill="var(--music-glyph-stroke, #fff)" />
+      <path d="M10.5 9.4v5.2l4.6-2.6-4.6-2.6Z" fill="var(--music-glyph-stroke, #f7f3ef)" />
     </svg>
+  );
+}
+
+export function MusicSourceGlyph({
+  source,
+  className,
+}: {
+  source: MusicPlayerSource;
+  className?: string;
+}) {
+  return source === "spotify" ? (
+    <SpotifyGlyph className={cn("h-4 w-4 [--music-glyph-stroke:#06110a]", className)} />
+  ) : (
+    <YouTubeGlyph className={cn("h-4 w-4 [--music-glyph-stroke:#f7f3ef]", className)} />
   );
 }
 
@@ -45,16 +59,12 @@ export function MusicSourceButton({
       className={cn(
         "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10 active:scale-95",
         className,
-        source === "spotify" ? "text-[#1DB954]" : "text-[#ff0033]",
+        source === "spotify" ? "text-[#1DB954]" : "text-[oklch(0.62_0.16_25)]",
       )}
       title={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}
       aria-label={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}
     >
-      {source === "spotify" ? (
-        <SpotifyGlyph className="h-4 w-4 [--music-glyph-stroke:#06110a]" />
-      ) : (
-        <YouTubeGlyph className="h-4 w-4 [--music-glyph-stroke:#ffffff]" />
-      )}
+      <MusicSourceGlyph source={source} />
     </button>
   );
 }

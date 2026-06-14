@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Pause, Play, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { ChevronDown, ChevronUp, GripVertical, Loader2, Pause, Play, X } from "lucide-react";
 import { useAgentStore } from "@/stores/agent.store";
 import { useUIStore } from "@/stores/ui.store";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-import { MusicSourceButton } from "@/components/music/MusicSourceButton";
+import { MusicSourceButton, MusicSourceGlyph } from "@/components/music/MusicSourceButton";
 
 // The YouTube IFrame API attaches itself to window; it has no bundled types.
 type YTPlayer = {
@@ -25,6 +33,75 @@ interface SearchResult {
 }
 
 let ytApiPromise: Promise<void> | null = null;
+
+const MUSIC_NEUTRAL_BORDER_CLASS = "border-[oklch(0.30_0.012_145)]";
+const MUSIC_NEUTRAL_BG_CLASS = "bg-[oklch(0.16_0.006_145)]";
+const MUSIC_NEUTRAL_BUTTON_BG_CLASS = "bg-[oklch(0.20_0.008_145)]";
+const MUSIC_NEUTRAL_TILE_BG_CLASS = "bg-[oklch(0.23_0.006_145)]";
+const MUSIC_NEUTRAL_TEXT_CLASS = "text-[oklch(0.96_0.006_145)]";
+const MUSIC_NEUTRAL_MUTED_CLASS = "text-[oklch(0.72_0.012_145)]";
+const MUSIC_NEUTRAL_ICON_CLASS = "text-[oklch(0.70_0.012_145)]";
+const MUSIC_NEUTRAL_PROGRESS_BG_CLASS = "bg-[oklch(0.28_0.01_145)]";
+const MUSIC_NEUTRAL_PROGRESS_FILL_CLASS = "bg-[oklch(0.96_0.006_145)]";
+const YOUTUBE_LOGO_CLASS = "text-[oklch(0.62_0.16_25)]";
+const MOBILE_WIDGET_COLLAPSED_SIZE = 48;
+const MOBILE_WIDGET_EXPANDED_MAX_WIDTH = 320;
+const MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER = 24;
+const MOBILE_WIDGET_EXPANDED_HEIGHT = 132;
+const MOBILE_WIDGET_VIEWPORT_PADDING = 8;
+
+function clampMobilePosition(x: number, y: number, collapsed: boolean) {
+  if (typeof window === "undefined") return { x, y };
+  const width = collapsed
+    ? MOBILE_WIDGET_COLLAPSED_SIZE
+    : Math.min(MOBILE_WIDGET_EXPANDED_MAX_WIDTH, window.innerWidth - MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER);
+  const height = collapsed ? MOBILE_WIDGET_COLLAPSED_SIZE : MOBILE_WIDGET_EXPANDED_HEIGHT;
+  return {
+    x: Math.max(
+      MOBILE_WIDGET_VIEWPORT_PADDING,
+      Math.min(window.innerWidth - width - MOBILE_WIDGET_VIEWPORT_PADDING, x),
+    ),
+    y: Math.max(
+      MOBILE_WIDGET_VIEWPORT_PADDING,
+      Math.min(window.innerHeight - height - MOBILE_WIDGET_VIEWPORT_PADDING, y),
+    ),
+  };
+}
+
+function getMobileWidgetStyle(
+  position: { x: number; y: number },
+  collapsed: boolean,
+): Pick<CSSProperties, "left" | "top"> {
+  if (typeof window === "undefined") {
+    return { left: position.x, top: position.y };
+  }
+
+  return {
+    left: Math.max(
+      MOBILE_WIDGET_VIEWPORT_PADDING,
+      Math.min(window.innerWidth - MOBILE_WIDGET_COLLAPSED_SIZE - MOBILE_WIDGET_VIEWPORT_PADDING, position.x),
+    ),
+    top: collapsed
+      ? position.y
+      : Math.max(
+          MOBILE_WIDGET_VIEWPORT_PADDING,
+          Math.min(window.innerHeight - MOBILE_WIDGET_EXPANDED_HEIGHT - MOBILE_WIDGET_VIEWPORT_PADDING, position.y),
+        ),
+  };
+}
+
+function getMobileExpandedPanelStyle(position: { x: number; y: number }): CSSProperties {
+  if (typeof window === "undefined") return {};
+  const width = Math.min(MOBILE_WIDGET_EXPANDED_MAX_WIDTH, window.innerWidth - MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER);
+  return {
+    width,
+    maxWidth: `calc(100vw - ${MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER}px)`,
+    transform:
+      position.x + width > window.innerWidth - MOBILE_WIDGET_VIEWPORT_PADDING
+        ? `translateX(-${Math.max(0, width - MOBILE_WIDGET_COLLAPSED_SIZE)}px)`
+        : undefined,
+  };
+}
 
 /** Load the YouTube IFrame Player API script exactly once. */
 function loadYouTubeApi(): Promise<void> {
@@ -49,17 +126,29 @@ function loadYouTubeApi(): Promise<void> {
  * intent in the agent store, resolves the search query to a video server-side,
  * and plays it in an in-app IFrame player. No OAuth, no external device.
  */
-export function YouTubePlayer() {
+export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   const youtubePlay = useAgentStore((s) => s.youtubePlay);
   const youtubeVolume = useAgentStore((s) => s.youtubeVolume);
   const clearYoutube = useAgentStore((s) => s.clearYoutube);
   const musicPlayerActive = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "youtube");
+  const collapsed = useUIStore((s) => s.spotifyMobileWidgetCollapsed);
+  const setCollapsed = useUIStore((s) => s.setSpotifyMobileWidgetCollapsed);
+  const mobilePosition = useUIStore((s) => s.spotifyMobileWidgetPosition);
+  const setMobilePosition = useUIStore((s) => s.setSpotifyMobileWidgetPosition);
+  const desktopViewport = useMediaQuery("(min-width: 768px)");
 
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const lastNonceRef = useRef(0);
   const lastQueryRef = useRef("");
   const volumeRef = useRef<number | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
 
   const [nowPlaying, setNowPlaying] = useState<{
     title: string;
@@ -73,6 +162,7 @@ export function YouTubePlayer() {
   const [showVideo, setShowVideo] = useState(false);
 
   volumeRef.current = youtubeVolume;
+  const active = musicPlayerActive && (mobile || desktopViewport);
 
   /** Create the IFrame player on first use (idempotent). */
   const ensurePlayer = useCallback(async () => {
@@ -109,7 +199,7 @@ export function YouTubePlayer() {
 
   // React to a new "play" intent.
   useEffect(() => {
-    if (!musicPlayerActive) return; // player disabled in Settings — don't fetch or play
+    if (!active) return; // player disabled or handled by the other viewport instance
     if (!youtubePlay) return;
     if (youtubePlay.nonce === lastNonceRef.current) return;
     lastNonceRef.current = youtubePlay.nonce;
@@ -151,11 +241,11 @@ export function YouTubePlayer() {
     return () => {
       cancelled = true;
     };
-  }, [youtubePlay, ensurePlayer, musicPlayerActive]);
+  }, [youtubePlay, ensurePlayer, active]);
 
   // Stop playback immediately if the user disables the player mid-track.
   useEffect(() => {
-    if (musicPlayerActive) return;
+    if (active) return;
     try {
       playerRef.current?.stopVideo();
     } catch {
@@ -163,7 +253,7 @@ export function YouTubePlayer() {
     }
     lastQueryRef.current = "";
     setNowPlaying(null);
-  }, [musicPlayerActive]);
+  }, [active]);
 
   // Apply DJ volume changes without changing the track.
   useEffect(() => {
@@ -201,7 +291,46 @@ export function YouTubePlayer() {
     clearYoutube();
   };
 
-  const active = musicPlayerActive;
+  const startDrag = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!mobile) return;
+      dragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: mobilePosition.x,
+        originY: mobilePosition.y,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [mobile, mobilePosition.x, mobilePosition.y],
+  );
+
+  const moveDrag = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const next = clampMobilePosition(
+        drag.originX + event.clientX - drag.startX,
+        drag.originY + event.clientY - drag.startY,
+        collapsed,
+      );
+      setMobilePosition(next);
+    },
+    [collapsed, setMobilePosition],
+  );
+
+  const endDrag = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      const moved = Math.abs(event.clientX - drag.startX) + Math.abs(event.clientY - drag.startY);
+      dragRef.current = null;
+      if (moved < 6 && mobile && collapsed) setCollapsed(false);
+    },
+    [collapsed, mobile, setCollapsed],
+  );
+
   const hasPlayerContent = !!nowPlaying || loading || !!error;
   const displayTitle = loading ? "Finding a track..." : error ? error : (nowPlaying?.title ?? "YouTube");
   const displaySubtitle = loading
@@ -209,69 +338,201 @@ export function YouTubePlayer() {
     : error
       ? "Playback needs attention"
       : (nowPlaying?.channel ?? nowPlaying?.mood ?? "Ready for Music DJ");
+  const mobileWidgetStyle = useMemo(() => getMobileWidgetStyle(mobilePosition, collapsed), [collapsed, mobilePosition]);
+  const mobileExpandedPanelStyle = useMemo(() => getMobileExpandedPanelStyle(mobilePosition), [mobilePosition]);
+
+  const compactBody = (
+    <>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <MusicSourceButton
+          source="youtube"
+          className={cn(MUSIC_NEUTRAL_BORDER_CLASS, MUSIC_NEUTRAL_BUTTON_BG_CLASS)}
+        />
+        <div
+          className={cn(
+            "flex h-7 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] ring-1",
+            MUSIC_NEUTRAL_TILE_BG_CLASS,
+            "ring-[oklch(0.34_0.01_145)]",
+          )}
+        >
+          {loading ? (
+            <Loader2 size="0.875rem" className={cn("animate-spin", MUSIC_NEUTRAL_MUTED_CLASS)} />
+          ) : nowPlaying?.thumbnail ? (
+            <img src={nowPlaying.thumbnail} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <Play size="0.875rem" className={cn("translate-x-px", MUSIC_NEUTRAL_MUTED_CLASS)} />
+          )}
+        </div>
+        <div className="min-w-0">
+          <p
+            className={cn("truncate text-[0.6875rem] font-semibold leading-tight", MUSIC_NEUTRAL_TEXT_CLASS)}
+            title={displayTitle}
+          >
+            {displayTitle}
+          </p>
+          <p className={cn("truncate text-[0.5625rem] leading-tight", MUSIC_NEUTRAL_MUTED_CLASS)}>
+            {displaySubtitle}
+          </p>
+        </div>
+      </div>
+      {nowPlaying && (
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[oklch(0.96_0.006_145)] text-[oklch(0.16_0.006_145)] shadow-[0_1px_8px_rgba(255,255,255,0.10)] transition-transform hover:scale-105 active:scale-95"
+          aria-label={paused ? "Play" : "Pause"}
+        >
+          {paused ? <Play size="0.8125rem" className="translate-x-px" /> : <Pause size="0.8125rem" />}
+        </button>
+      )}
+      {hasPlayerContent && (
+        <button
+          type="button"
+          onClick={() => setShowVideo((v) => !v)}
+          className={cn(
+            "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:text-[oklch(0.96_0.006_145)] active:scale-90",
+            MUSIC_NEUTRAL_ICON_CLASS,
+          )}
+          aria-label={showVideo ? "Hide video" : "Show video"}
+        >
+          {showVideo ? <ChevronUp size="0.8125rem" /> : <ChevronDown size="0.8125rem" />}
+        </button>
+      )}
+      {hasPlayerContent && (
+        <button
+          type="button"
+          onClick={close}
+          className={cn(
+            "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:text-[oklch(0.96_0.006_145)] active:scale-90",
+            MUSIC_NEUTRAL_ICON_CLASS,
+          )}
+          aria-label="Stop"
+        >
+          <X size="0.8125rem" />
+        </button>
+      )}
+    </>
+  );
+
+  const videoPanel = (
+    <div
+      className={cn(
+        "fixed top-14 z-40 w-[calc(100vw-1rem)] max-w-80 overflow-hidden rounded-xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-opacity",
+        MUSIC_NEUTRAL_BORDER_CLASS,
+        MUSIC_NEUTRAL_BG_CLASS,
+        active && hasPlayerContent && showVideo
+          ? "left-2 opacity-100"
+          : "pointer-events-none -left-[9999px] opacity-0",
+      )}
+    >
+      {/* The IFrame player lives here; YT injects the iframe into this host. */}
+      <div ref={hostRef} className="aspect-video w-full bg-black [&_iframe]:size-full" />
+      {(nowPlaying || error) && (
+        <div className="px-3 py-2">
+          {error ? (
+            <div className="text-xs text-[var(--destructive)]">{error}</div>
+          ) : (
+            <div className="min-w-0">
+              <div className={cn("truncate text-xs font-medium", MUSIC_NEUTRAL_TEXT_CLASS)} title={nowPlaying?.title}>
+                {nowPlaying?.title}
+              </div>
+              {nowPlaying?.mood && (
+                <div className={cn("truncate text-[11px]", MUSIC_NEUTRAL_MUTED_CLASS)}>{nowPlaying.mood}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  if (mobile) {
+    return (
+      <>
+        {active && (
+          <div
+            className="fixed z-[60] md:hidden"
+            style={mobileWidgetStyle}
+            onPointerDown={startDrag}
+            onPointerMove={moveDrag}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          >
+            {collapsed ? (
+              <div
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl",
+                  MUSIC_NEUTRAL_BORDER_CLASS,
+                  MUSIC_NEUTRAL_BG_CLASS,
+                )}
+              >
+                <MusicSourceGlyph source="youtube" className={cn("h-5 w-5", YOUTUBE_LOGO_CLASS)} />
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "rounded-xl border p-2 shadow-2xl backdrop-blur-xl",
+                  MUSIC_NEUTRAL_BORDER_CLASS,
+                  MUSIC_NEUTRAL_BG_CLASS,
+                )}
+                style={mobileExpandedPanelStyle}
+              >
+                <div className="mb-1 flex items-center gap-1">
+                  <GripVertical size="0.875rem" className={MUSIC_NEUTRAL_ICON_CLASS} />
+                  <span className={cn("flex-1 truncate text-[0.625rem] font-medium", MUSIC_NEUTRAL_ICON_CLASS)}>
+                    YouTube
+                  </span>
+                  <button
+                    type="button"
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onPointerMove={(event) => event.stopPropagation()}
+                    onPointerUp={(event) => event.stopPropagation()}
+                    onPointerCancel={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setCollapsed(true);
+                    }}
+                    className={cn(
+                      "rounded-full p-1 transition-colors hover:text-[oklch(0.96_0.006_145)]",
+                      MUSIC_NEUTRAL_ICON_CLASS,
+                    )}
+                    title="Close player"
+                  >
+                    <X size="0.875rem" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">{compactBody}</div>
+              </div>
+            )}
+          </div>
+        )}
+        {videoPanel}
+      </>
+    );
+  }
 
   return (
     <>
       {/* Compact mini-player pill — lives in the top bar (upper-left), like Spotify's. */}
       {active && (
-        <div className="relative flex h-10 min-w-0 max-w-[31rem] flex-1 items-center gap-2 overflow-hidden rounded-full border border-[#ff0033]/25 bg-[oklch(0.16_0.006_29)] px-2.5 shadow-[0_1px_10px_rgba(255,0,51,0.10)]">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <MusicSourceButton source="youtube" className="border-[#ff0033]/30 bg-[#ff0033]/10 hover:bg-[#ff0033]/15" />
-            <div className="flex h-7 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] bg-[oklch(0.23_0.006_29)] ring-1 ring-[#ff0033]/25">
-              {loading ? (
-                <Loader2 size="0.875rem" className="animate-spin text-[#ff0033]" />
-              ) : nowPlaying?.thumbnail ? (
-                <img src={nowPlaying.thumbnail} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Play size="0.875rem" className="translate-x-px text-[#ff0033]" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p
-                className="truncate text-[0.6875rem] font-semibold leading-tight text-[oklch(0.96_0.006_29)]"
-                title={displayTitle}
-              >
-                {displayTitle}
-              </p>
-              <p className="truncate text-[0.5625rem] leading-tight text-[oklch(0.72_0.012_29)]">
-                {displaySubtitle}
-              </p>
-            </div>
-          </div>
-          {nowPlaying && (
-            <button
-              type="button"
-              onClick={togglePlay}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#ff0033] text-[oklch(0.98_0.006_29)] shadow-[0_1px_8px_rgba(255,0,51,0.20)] transition-transform hover:scale-105 active:scale-95"
-              aria-label={paused ? "Play" : "Pause"}
-            >
-              {paused ? <Play size="0.8125rem" className="translate-x-px" /> : <Pause size="0.8125rem" />}
-            </button>
+        <div
+          className={cn(
+            "relative hidden h-10 min-w-0 max-w-[31rem] flex-1 items-center gap-2 overflow-hidden rounded-full border px-2.5 md:flex",
+            MUSIC_NEUTRAL_BORDER_CLASS,
+            MUSIC_NEUTRAL_BG_CLASS,
           )}
-          {hasPlayerContent && (
-            <button
-              type="button"
-              onClick={() => setShowVideo((v) => !v)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.72_0.012_29)] transition-colors hover:text-[oklch(0.96_0.006_29)] active:scale-90"
-              aria-label={showVideo ? "Hide video" : "Show video"}
-            >
-              {showVideo ? <ChevronUp size="0.8125rem" /> : <ChevronDown size="0.8125rem" />}
-            </button>
-          )}
-          {hasPlayerContent && (
-            <button
-              type="button"
-              onClick={close}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.72_0.012_29)] transition-colors hover:text-[#ff6b6b] active:scale-90"
-              aria-label="Stop"
-            >
-              <X size="0.8125rem" />
-            </button>
-          )}
-          <div className="pointer-events-none absolute bottom-0 left-3 right-3 h-px overflow-hidden rounded-full bg-[oklch(0.28_0.01_29)]">
+        >
+          {compactBody}
+          <div
+            className={cn(
+              "pointer-events-none absolute bottom-0 left-3 right-3 h-px overflow-hidden rounded-full",
+              MUSIC_NEUTRAL_PROGRESS_BG_CLASS,
+            )}
+          >
             <div
               className={cn(
-                "h-full rounded-full bg-[#ff0033]",
+                "h-full rounded-full",
+                MUSIC_NEUTRAL_PROGRESS_FILL_CLASS,
                 hasPlayerContent && !paused ? "w-full opacity-80" : "w-8 opacity-50",
               )}
             />
@@ -279,39 +540,33 @@ export function YouTubePlayer() {
         </div>
       )}
 
-      {/* Video panel anchored under the top bar. ALWAYS mounted so the IFrame keeps
-          playing; when collapsed it is parked offscreen (full size, never display:none)
-          so audio never stops. */}
-      <div
-        className={cn(
-          "fixed top-14 z-40 w-80 overflow-hidden rounded-xl border border-[#ff0033]/25 bg-[oklch(0.16_0.006_29)] shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-opacity",
-          active && hasPlayerContent && showVideo
-            ? "left-2 opacity-100"
-            : "pointer-events-none -left-[9999px] opacity-0",
-        )}
-      >
-        {/* The IFrame player lives here; YT injects the iframe into this host. */}
-        <div ref={hostRef} className="aspect-video w-full bg-black [&_iframe]:size-full" />
-        {(nowPlaying || error) && (
-          <div className="px-3 py-2">
-            {error ? (
-              <div className="text-xs text-[#ff6b6b]">{error}</div>
-            ) : (
-              <div className="min-w-0">
-                <div
-                  className="truncate text-xs font-medium text-[oklch(0.96_0.006_29)]"
-                  title={nowPlaying?.title}
-                >
-                  {nowPlaying?.title}
-                </div>
-                {nowPlaying?.mood && (
-                  <div className="truncate text-[11px] text-[oklch(0.72_0.012_29)]">{nowPlaying.mood}</div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {videoPanel}
     </>
   );
+}
+
+export function YouTubeMobileWidget() {
+  const enabled = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "youtube");
+  const isMobileViewport = useMediaQuery("(max-width: 767px)");
+
+  if (!enabled || !isMobileViewport) return null;
+
+  return <YouTubePlayer mobile />;
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia(query).matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
 }
