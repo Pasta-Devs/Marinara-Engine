@@ -83,6 +83,7 @@ export function ConversationPromptSection({
         value={promptDraft}
         onChange={setPromptDraft}
         placeholder="Enter your custom system prompt..."
+        surface="chat"
       />
     </>
   );
