@@ -202,8 +202,8 @@ export function QuickSwitcherMobile() {
         key={persona.id}
         onClick={() => handleSwitchPersona(persona.id)}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-foreground/10",
-          isActive && "text-foreground",
+          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+          isActive ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15" : "hover:bg-foreground/10",
           indented && "pl-6",
         )}
       >
@@ -353,8 +353,10 @@ export function QuickSwitcherMobile() {
                 <button
                   onClick={() => handleSwitchPersona(null)}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-foreground/10",
-                    !activePersonaId && "text-foreground",
+                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+                    !activePersonaId
+                      ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15"
+                      : "hover:bg-foreground/10",
                   )}
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
@@ -366,7 +368,7 @@ export function QuickSwitcherMobile() {
                   </div>
                   {!activePersonaId && <span className="ml-auto text-[0.6875rem]">✓</span>}
                 </button>
-                <div className="mx-2 my-1 h-px bg-[var(--border)]" />
+                <div className="mx-2 my-1 h-px bg-foreground/10" />
                 {groups.map((group) => {
                   const isExpanded = expandedGroups.has(group.id);
                   const firstMember = group.members[0];
@@ -376,8 +378,10 @@ export function QuickSwitcherMobile() {
                       <button
                         onClick={() => toggleGroup(group.id)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-foreground/10",
-                          hasActiveInGroup && "text-foreground",
+                          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+                          hasActiveInGroup
+                            ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15"
+                            : "hover:bg-foreground/10",
                         )}
                       >
                         {firstMember?.avatarPath ? (

@@ -13,7 +13,7 @@ export async function gifsRoutes(app: FastifyInstance) {
   }>("/search", async (req, reply) => {
     const apiKey = getGifApiKey();
     if (!apiKey) {
-      return reply.status(503).send({ error: "GIF search unavailable — no GIPHY_API_KEY configured" });
+      return reply.status(503).send({ code: "missing_giphy_api_key", error: "GIF search needs a GIPHY_API_KEY." });
     }
 
     const q = (req.query.q ?? "").trim();
