@@ -10,7 +10,6 @@ import {
   type ComponentProps,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
-  type ReactNode,
   type RefObject,
 } from "react";
 import {
@@ -24,7 +23,6 @@ import {
   FileText,
   Image,
   Loader2,
-  MoreHorizontal,
   PenLine,
   ScrollText,
   Settings2,
@@ -46,6 +44,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
 import { ChatBranchSelector } from "./ChatBranchSelector";
+import { ChatToolbarButton, ChatToolbarMenu } from "./ChatToolbarControls";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
@@ -286,92 +285,6 @@ function RegeneratingMessageContent({
 function isHiddenFromUser(message: MessageWithSwipes) {
   const extra = typeof message.extra === "string" ? JSON.parse(message.extra) : (message.extra ?? {});
   return extra.hiddenFromUser === true;
-}
-
-function RpToolbarButton({
-  icon,
-  title,
-  onClick,
-  size,
-}: {
-  icon: ReactNode;
-  title: string;
-  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
-  size?: "sm";
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-center rounded-full border bg-foreground/5 text-foreground/60 backdrop-blur-md transition-all hover:bg-foreground/10 hover:text-foreground",
-        size === "sm" ? "p-1" : "p-1.5",
-        "border-foreground/10",
-      )}
-      title={title}
-    >
-      {icon}
-    </button>
-  );
-}
-
-function ToolbarMenu({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const compact = useUIStore((s) => s.centerCompact);
-  const btnRef = useRef<HTMLDivElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    setPos({
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (target instanceof Element && target.closest("[data-chat-branch-popover]")) return;
-      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  return (
-    <>
-      <div className={cn("items-center gap-1.5 max-md:hidden", compact ? "hidden" : "flex")}>{children}</div>
-      <div className={cn("relative shrink-0", compact ? "block" : "block md:hidden")} ref={btnRef}>
-        <button
-          onClick={() => setOpen(!open)}
-          className={cn(
-            "flex w-9 items-center justify-center rounded-xl border bg-[var(--card)] p-1.5 text-foreground/60 backdrop-blur-md transition-all hover:bg-[var(--accent)] hover:text-foreground",
-            "border-foreground/10",
-            open && "bg-[var(--accent)] border-foreground/20 text-foreground",
-          )}
-          title="More options"
-        >
-          <MoreHorizontal size="0.9375rem" />
-        </button>
-        {open &&
-          createPortal(
-            <div
-              ref={popRef}
-              className={cn(ROLEPLAY_POPOVER_SHELL, "fixed z-[9999] flex w-9 flex-col items-center gap-0.5 p-1")}
-              style={{ top: pos.top, right: pos.right }}
-              onClick={() => setOpen(false)}
-            >
-              {children}
-            </div>,
-            document.body,
-          )}
-      </div>
-    </>
-  );
 }
 
 function readStringArray(value: unknown): string[] {
@@ -1153,7 +1066,7 @@ export function ChatRoleplaySurface({
                     groupId={chat?.groupId ?? null}
                     variant="roleplay"
                   />
-                  <ToolbarMenu>
+                  <ChatToolbarMenu>
                     <SummaryButton
                       chatId={chat?.id ?? null}
                       summary={chatMeta.summary ?? null}
@@ -1178,20 +1091,20 @@ export function ChatRoleplaySurface({
                       characterMap={characterMap}
                     />
                     <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                    <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
+                    <ChatToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                     {chat?.connectedChatId && (
-                      <RpToolbarButton
+                      <ChatToolbarButton
                         icon={<ArrowRightLeft size="0.875rem" />}
                         title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
                         onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
                       />
                     )}
-                    <RpToolbarButton
+                    <ChatToolbarButton
                       icon={<Settings2 size="0.875rem" />}
                       title="Chat Settings"
                       onClick={onOpenSettings}
                     />
-                  </ToolbarMenu>
+                  </ChatToolbarMenu>
                 </div>
               </div>
               <div
@@ -1225,7 +1138,7 @@ export function ChatRoleplaySurface({
                       />
                     </Suspense>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <ToolbarMenu>
+                      <ChatToolbarMenu>
                         <ChatBranchSelector
                           activeChatId={activeChatId}
                           activeChatName={chat?.name}
@@ -1259,26 +1172,26 @@ export function ChatRoleplaySurface({
                           characterMap={characterMap}
                         />
                         <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                        <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
+                        <ChatToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                         {chat?.connectedChatId && (
-                          <RpToolbarButton
+                          <ChatToolbarButton
                             icon={<ArrowRightLeft size="0.875rem" />}
                             title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
                             onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
                           />
                         )}
-                        <RpToolbarButton
+                        <ChatToolbarButton
                           icon={<Settings2 size="0.875rem" />}
                           title="Chat Settings"
                           onClick={onOpenSettings}
                         />
-                      </ToolbarMenu>
+                      </ChatToolbarMenu>
                     </div>
                   </div>
                 )}
                 {chat && !chatMeta.enableAgents && (
                   <div className="flex w-full items-center justify-end gap-1.5 px-2 pb-1 pt-2">
-                    <ToolbarMenu>
+                    <ChatToolbarMenu>
                       <ChatBranchSelector
                         activeChatId={activeChatId}
                         activeChatName={chat?.name}
@@ -1310,20 +1223,20 @@ export function ChatRoleplaySurface({
                         characterMap={characterMap}
                       />
                       <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                      <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
+                      <ChatToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                       {chat?.connectedChatId && (
-                        <RpToolbarButton
+                        <ChatToolbarButton
                           icon={<ArrowRightLeft size="0.875rem" />}
                           title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
                           onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
                         />
                       )}
-                      <RpToolbarButton
+                      <ChatToolbarButton
                         icon={<Settings2 size="0.875rem" />}
                         title="Chat Settings"
                         onClick={onOpenSettings}
                       />
-                    </ToolbarMenu>
+                    </ChatToolbarMenu>
                   </div>
                 )}
               </div>

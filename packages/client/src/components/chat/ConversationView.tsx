@@ -1,7 +1,6 @@
 // ──────────────────────────────────────────────
 // Chat: Conversation View — Discord-style composite
 // ──────────────────────────────────────────────
-import { createPortal } from "react-dom";
 import {
   Fragment,
   Suspense,
@@ -12,24 +11,16 @@ import {
   useCallback,
   useMemo,
   useState,
-  type ReactNode,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  BookOpen,
-  Loader2,
-  ChevronUp,
-  Settings2,
-  Image as ImageIcon,
-  ArrowRightLeft,
-  MoreHorizontal,
-} from "lucide-react";
+import { Loader2, ChevronUp, Settings2, Image as ImageIcon, ArrowRightLeft } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "./SceneBanner";
 import { ChatBranchSelector } from "./ChatBranchSelector";
-import { ActiveLorebookEntriesButton, ActiveLorebookEntriesModal } from "./ActiveLorebookEntriesButton";
+import { ActiveLorebookEntriesButton } from "./ActiveLorebookEntriesButton";
+import { ChatToolbarButton, ChatToolbarMenu } from "./ChatToolbarControls";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -242,68 +233,6 @@ function splitAssistantContentLines(content: string, charName?: string | null): 
 // from replaying when the user navigates away from a chat and comes back.
 const globalSeenKeys = new Set<string>();
 
-const HEADER_BTN =
-  "flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50";
-const MOBILE_MENU_BTN =
-  "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-[var(--accent)] hover:text-foreground";
-
-function ConversationToolbarMenu({
-  desktopChildren,
-  mobileChildren,
-}: {
-  desktopChildren: ReactNode;
-  mobileChildren: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLDivElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    setPos({
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (target instanceof Element && target.closest("[data-chat-branch-popover]")) return;
-      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  return (
-    <>
-      <div className="hidden items-center gap-1.5 md:flex">{desktopChildren}</div>
-      <div className="relative shrink-0 md:hidden" ref={btnRef}>
-        <button onClick={() => setOpen(!open)} className={HEADER_BTN} title="More options" aria-label="More options">
-          <MoreHorizontal size="0.875rem" />
-        </button>
-        {open &&
-          createPortal(
-            <div
-              ref={popRef}
-              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
-              style={{ top: pos.top, right: pos.right }}
-              onClick={() => setOpen(false)}
-            >
-              {mobileChildren}
-            </div>,
-            document.body,
-          )}
-      </div>
-    </>
-  );
-}
-
 export function ConversationView({
   chatId,
   messages,
@@ -422,7 +351,6 @@ export function ConversationView({
     return { background: `linear-gradient(135deg, ${g.from}, ${g.to})` };
   }, [convoGradient, theme]);
   const hasAutonomousMessaging = !!chatMeta.autonomousMessages || !!chatMeta.characterExchanges;
-  const [mobileActiveContextOpen, setMobileActiveContextOpen] = useState(false);
   const renderToolbarActions = (compact = false) => (
     <>
       <ChatBranchSelector
@@ -431,37 +359,17 @@ export function ConversationView({
         groupId={chatGroupId}
         variant="roleplay"
         compact={compact}
-        className={
-          compact ? "bg-transparent text-foreground/80 hover:bg-[var(--accent)] hover:text-foreground" : undefined
-        }
       />
-      {compact ? (
-        <button
-          onClick={() => setMobileActiveContextOpen(true)}
-          className={MOBILE_MENU_BTN}
-          title="Active Context"
-          aria-label="Active Context"
-        >
-          <BookOpen size="0.875rem" />
-        </button>
-      ) : (
-        <ActiveLorebookEntriesButton chatId={chatId} buttonClassName={HEADER_BTN} />
-      )}
-      <button onClick={onOpenGallery} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Gallery">
-        <ImageIcon size="0.875rem" />
-      </button>
+      <ActiveLorebookEntriesButton chatId={chatId} />
+      <ChatToolbarButton icon={<ImageIcon size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
       {onSwitchChat && (
-        <button
-          onClick={onSwitchChat}
-          className={compact ? MOBILE_MENU_BTN : HEADER_BTN}
+        <ChatToolbarButton
+          icon={<ArrowRightLeft size="0.875rem" />}
           title={connectedChatName ? `Switch to ${connectedChatName}` : "Switch to connected chat"}
-        >
-          <ArrowRightLeft size="0.875rem" />
-        </button>
+          onClick={onSwitchChat}
+        />
       )}
-      <button onClick={onOpenSettings} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Chat Settings">
-        <Settings2 size="0.875rem" />
-      </button>
+      <ChatToolbarButton icon={<Settings2 size="0.875rem" />} title="Chat Settings" onClick={onOpenSettings} />
     </>
   );
 
@@ -972,14 +880,19 @@ export function ConversationView({
                     ? "bg-red-500"
                     : "bg-gray-400";
             };
+            const identityPillClass =
+              "flex items-center gap-2 rounded-full border border-foreground/10 bg-foreground/5 px-2.5 py-1.5 text-foreground/80 backdrop-blur-md";
+            const avatarShellClass = "relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-foreground/10";
+            const avatarFallbackClass =
+              "flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 text-[0.5rem] font-bold text-foreground/70 ring-1 ring-foreground/10";
 
             if (chars.length === 1) {
               const c = chars[0]!;
               return (
-                <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
+                <div className={identityPillClass}>
                   <div className="relative flex-shrink-0">
                     {c.avatarUrl ? (
-                      <span className="relative block h-5 w-5 overflow-hidden rounded-full">
+                      <span className={avatarShellClass}>
                         <img
                           src={c.avatarUrl}
                           alt={c.name}
@@ -988,12 +901,10 @@ export function ConversationView({
                         />
                       </span>
                     ) : (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground">
-                        {c.name[0]}
-                      </div>
+                      <div className={avatarFallbackClass}>{c.name[0]}</div>
                     )}
                     <span
-                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
+                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--card)] ${statusColor(c.conversationStatus)}`}
                     />
                   </div>
                   <div className="flex flex-col leading-tight">
@@ -1008,7 +919,7 @@ export function ConversationView({
 
             // Multiple characters — show stacked avatars + names
             return (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
+              <div className={identityPillClass}>
                 <div
                   className="relative flex-shrink-0"
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
@@ -1017,7 +928,7 @@ export function ConversationView({
                     <div key={i} className="absolute top-0" style={{ left: i * 12 }}>
                       <div className="relative">
                         {c.avatarUrl ? (
-                          <span className="relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]">
+                          <span className={avatarShellClass}>
                             <img
                               src={c.avatarUrl}
                               alt={c.name}
@@ -1026,12 +937,10 @@ export function ConversationView({
                             />
                           </span>
                         ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-[var(--border)]">
-                            {c.name[0]}
-                          </div>
+                          <div className={avatarFallbackClass}>{c.name[0]}</div>
                         )}
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
+                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--card)] ${statusColor(c.conversationStatus)}`}
                         />
                       </div>
                     </div>
@@ -1044,15 +953,7 @@ export function ConversationView({
             );
           })()}
 
-          <ConversationToolbarMenu
-            desktopChildren={renderToolbarActions()}
-            mobileChildren={renderToolbarActions(true)}
-          />
-          <ActiveLorebookEntriesModal
-            chatId={chatId}
-            open={mobileActiveContextOpen}
-            onClose={() => setMobileActiveContextOpen(false)}
-          />
+          <ChatToolbarMenu desktopChildren={renderToolbarActions()} mobileChildren={renderToolbarActions(true)} />
         </div>
 
         {/* Load More */}
