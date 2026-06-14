@@ -423,6 +423,7 @@ export function AgentEditor() {
   const [localEnabledTools, setLocalEnabledTools] = useState<string[]>([]);
   const [localLorebookWriteEnabled, setLocalLorebookWriteEnabled] = useState(false);
   const [localWritableLorebookId, setLocalWritableLorebookId] = useState("");
+  const [localMusicProvider, setLocalMusicProvider] = useState<"spotify" | "youtube">("spotify");
   const [localSpotifyClientId, setLocalSpotifyClientId] = useState("");
   const [localSourceLorebookIds, setLocalSourceLorebookIds] = useState<string[]>([]);
   const [localUseChatActiveLorebooks, setLocalUseChatActiveLorebooks] = useState(false);
@@ -451,6 +452,8 @@ export function AgentEditor() {
   const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
+  const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
   useEffect(() => {
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
@@ -507,6 +510,7 @@ export function AgentEditor() {
       setLocalEnabledTools(enabledTools);
       setLocalLorebookWriteEnabled(settings.lorebookWriteEnabled === true || enabledTools.includes(LOREBOOK_WRITE_TOOL_NAME));
       setLocalWritableLorebookId(writableLorebookId);
+      setLocalMusicProvider(settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube" ? "youtube" : "spotify");
       setLocalSpotifyClientId(typeof settings.spotifyClientId === "string" ? settings.spotifyClientId : "");
       setLocalSourceLorebookIds(normalizeStringArray(settings.sourceLorebookIds));
       setLocalUseChatActiveLorebooks(
@@ -556,6 +560,7 @@ export function AgentEditor() {
       setLocalIncludeParallelResults(false);
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
+      setLocalMusicProvider(defaultSettings.musicProvider === "youtube" ? "youtube" : "spotify");
       setLocalPrompt("");
     } else {
       // Brand new custom agent — start empty
@@ -589,17 +594,20 @@ export function AgentEditor() {
       setLocalIncludeParallelResults(false);
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
+      setLocalMusicProvider("spotify");
       setLocalPrompt("");
     }
     setDirty(false);
     setSaveError(null);
   }, [agentDetailId, dbConfig, builtIn, connections, customRunIntervalMeta?.defaultValue, isCustomAgent]);
 
-  // Fetch Spotify connection status when viewing a Spotify agent
+  // Fetch music connection status when viewing Music DJ.
   const isSpotifyAgent = agentDetailId === "spotify" || dbConfig?.type === "spotify";
+  const isMusicAgent = isSpotifyAgent;
 
-  // YouTube DJ agent — free Data API key, in-app embedded player
+  // Legacy YouTube DJ agent — free Data API key, in-app embedded player
   const isYoutubeAgent = agentDetailId === "youtube" || dbConfig?.type === "youtube";
+  const showsYoutubeSettings = isMusicAgent || isYoutubeAgent;
 
   // Lorebook Keeper agent — run interval setting
   const isLorebookKeeperAgent = agentDetailId === "lorebook-keeper" || dbConfig?.type === "lorebook-keeper";
@@ -661,7 +669,7 @@ export function AgentEditor() {
   const deleteSource = useDeleteKnowledgeSource();
   const fileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (!isSpotifyAgent || !dbConfig?.id) {
+    if (!isMusicAgent || !dbConfig?.id) {
       setSpotifyStatus(null);
       return;
     }
@@ -678,11 +686,11 @@ export function AgentEditor() {
     return () => {
       cancelled = true;
     };
-  }, [isSpotifyAgent, dbConfig?.id]);
+  }, [isMusicAgent, dbConfig?.id]);
 
-  // Fetch YouTube DJ key-configured status when viewing a YouTube agent
+  // Fetch YouTube key-configured status when viewing Music DJ or a legacy YouTube agent.
   useEffect(() => {
-    if (!isYoutubeAgent || !dbConfig?.id) {
+    if (!showsYoutubeSettings || !dbConfig?.id) {
       setYoutubeConfigured(false);
       return;
     }
@@ -698,7 +706,7 @@ export function AgentEditor() {
     return () => {
       cancelled = true;
     };
-  }, [isYoutubeAgent, dbConfig?.id]);
+  }, [showsYoutubeSettings, dbConfig?.id]);
 
   // Clean up Spotify polling timers on unmount
   useEffect(() => {
@@ -784,7 +792,7 @@ export function AgentEditor() {
       "spotifyRefreshToken",
       "spotifyExpiresAt",
       "spotifyScope",
-      // YouTube DJ key is encrypted server-side and not exposed by the form — preserve it
+      // YouTube key is encrypted server-side and not exposed by the form — preserve it
       // so a normal agent Save (e.g. toggling Enabled) doesn't wipe the stored key.
       "youtubeApiKey",
     ]) {
@@ -816,7 +824,8 @@ export function AgentEditor() {
         ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
         ...(localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
         ...(localInjectAsSection ? { injectAsSection: true } : {}),
-        enabledTools: effectiveEnabledTools,
+        ...(isMusicAgent ? { musicProvider: localMusicProvider } : {}),
+        enabledTools: isMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
         ...(lorebookWriterEnabled
           ? { lorebookWriteEnabled: true, writableLorebookId, writableLorebookIds: [writableLorebookId] }
           : {}),
@@ -885,6 +894,7 @@ export function AgentEditor() {
     localEnabledTools,
     localLorebookWriteEnabled,
     localWritableLorebookId,
+    localMusicProvider,
     localSpotifyClientId,
     localUseChatActiveLorebooks,
     localSourceLorebookIds,
@@ -899,6 +909,7 @@ export function AgentEditor() {
     isCustomAgent,
     isNewCustomAgent,
     isIllustratorAgent,
+    isMusicAgent,
     isKnowledgeRetrievalAgent,
     isKnowledgeRouterAgent,
     updateAgent,
@@ -941,6 +952,7 @@ export function AgentEditor() {
     const savedAuthor = localAuthor.trim() || (builtIn ? DEFAULT_AGENT_AUTHOR : "Unknown");
     const savedPromptTemplates = normalizeAgentPromptTemplateOptions(localPromptTemplates);
     const agentType = dbConfig?.type ?? builtIn?.id ?? createCustomAgentType(localName);
+    const exportingMusicAgent = agentType === "spotify";
     const settings = {
       author: savedAuthor,
       promptTemplates: savedPromptTemplates,
@@ -953,7 +965,8 @@ export function AgentEditor() {
       ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
       ...(localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
       ...(localInjectAsSection ? { injectAsSection: true } : {}),
-      enabledTools: effectiveEnabledTools,
+      ...(exportingMusicAgent ? { musicProvider: localMusicProvider } : {}),
+      enabledTools: exportingMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
       ...(lorebookWriterEnabled
         ? { lorebookWriteEnabled: true, writableLorebookId, writableLorebookIds: [writableLorebookId] }
         : {}),
@@ -1012,6 +1025,18 @@ export function AgentEditor() {
   }, [defaultPrompt]);
 
   const markDirty = useCallback(() => setDirty(true), []);
+
+  const handleMusicProviderChange = useCallback(
+    (provider: "spotify" | "youtube") => {
+      setLocalMusicProvider(provider);
+      setMusicPlayerSource(provider);
+      if (provider === "spotify" && localEnabledTools.length === 0) {
+        setLocalEnabledTools(DEFAULT_AGENT_TOOLS.spotify ?? []);
+      }
+      setDirty(true);
+    },
+    [localEnabledTools.length, setMusicPlayerSource],
+  );
 
   const toggleCustomCapability = useCallback(
     (capability: CustomAgentCapability) => {
@@ -2074,8 +2099,43 @@ export function AgentEditor() {
             </button>
           </FieldGroup>
 
+          {isMusicAgent && (
+            <FieldGroup
+              label="Music Player"
+              icon={<Music size="0.875rem" className="text-[var(--muted-foreground)]" />}
+              help="Choose which service Music DJ should use for future music picks. The same choice switches the visible player surface."
+            >
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+                  {(["spotify", "youtube"] as const).map((provider) => {
+                    const active = localMusicProvider === provider;
+                    return (
+                      <button
+                        key={provider}
+                        type="button"
+                        onClick={() => handleMusicProviderChange(provider)}
+                        className={cn(
+                          "rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                          active
+                            ? "bg-white/12 text-white shadow-sm"
+                            : "text-white/45 hover:bg-white/8 hover:text-white/75",
+                        )}
+                      >
+                        {provider === "spotify" ? "Spotify" : "YouTube"}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[0.625rem] text-white/40">
+                  Visible player: {musicPlayerSource === "spotify" ? "Spotify" : "YouTube"}. Saved provider:{" "}
+                  {localMusicProvider === "spotify" ? "Spotify" : "YouTube"}.
+                </p>
+              </div>
+            </FieldGroup>
+          )}
+
           {/* ── Spotify Settings (only shown for Spotify agent) ── */}
-          {(agentDetailId === "spotify" || dbConfig?.type === "spotify") && (
+          {isMusicAgent && (
             <FieldGroup
               label="Spotify Connection"
               icon={<Music size="0.875rem" className="text-green-400" />}
@@ -2376,10 +2436,10 @@ export function AgentEditor() {
             </FieldGroup>
           )}
 
-          {/* ── YouTube DJ Settings (only shown for YouTube agent) ── */}
-          {isYoutubeAgent && (
+          {/* ── YouTube Settings (shown for Music DJ and legacy YouTube agent) ── */}
+          {showsYoutubeSettings && (
             <FieldGroup
-              label="YouTube DJ"
+              label="YouTube Connection"
               icon={<Music size="0.875rem" className="text-red-400" />}
               help="Plays mood-matched music from YouTube in an embedded in-app player. Needs a free YouTube Data API key — no Premium, no account login."
             >
@@ -2406,7 +2466,7 @@ export function AgentEditor() {
                       setYoutubeSaving(true);
                       setYoutubeError(null);
                       try {
-                        // agentId is optional — the server creates the built-in YouTube DJ
+                        // agentId is optional — the server creates the built-in Music DJ
                         // config if it doesn't exist yet, so the user never has to hit the
                         // top-right Save first.
                         const res = await fetch("/api/youtube/save-key", {

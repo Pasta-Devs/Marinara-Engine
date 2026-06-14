@@ -571,6 +571,7 @@ export function ChatSettingsDrawer({
   const availableAgents = useMemo(() => {
     const agents: AvailableAgent[] = [];
     for (const a of BUILT_IN_AGENTS) {
+      if (a.libraryHidden) continue;
       if (!isAgentAvailableInChatMode(chatMode, a.id)) continue;
       if (isAgentHiddenFromChatSettingsPicker(chatMode, a.id)) continue;
       const existing = agentConfigsByType.get(a.id);
@@ -1420,7 +1421,7 @@ export function ChatSettingsDrawer({
 
   const ensureSpotifyAgent = useCallback(async () => {
     const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === "spotify");
-    if (!builtInMeta) throw new Error("Spotify DJ agent metadata is missing.");
+    if (!builtInMeta) throw new Error("Music DJ agent metadata is missing.");
     const config = agentConfigsByType.get("spotify") ?? null;
     const nextSettings: Record<string, unknown> = {
       ...getDefaultBuiltInAgentSettings("spotify"),
@@ -1462,23 +1463,23 @@ export function ChatSettingsDrawer({
         enableAgents: true,
         gameUseSpotifyMusic: true,
         gameSpotifySourceType,
-        // Mutually exclusive with YouTube DJ — only one music source at a time.
+        // Mutually exclusive with legacy YouTube music — only one music source at a time.
         activeAgentIds: Array.from(new Set([...activeAgentIds.filter((id) => id !== "youtube"), "spotify"])),
       });
     } catch (error) {
       await showAlertDialog({
-        title: "Couldn't Enable Spotify DJ",
+        title: "Couldn't Enable Music DJ",
         message:
           error instanceof Error
             ? error.message
-            : "Spotify DJ could not be enabled for this game. Check the Spotify agent setup and try again.",
+            : "Music DJ could not be enabled for this game. Check the Spotify setup and try again.",
       });
     }
   }, [activeAgentIds, chat.id, ensureSpotifyAgent, gameSpotifySourceType, gameUseSpotifyMusic, updateMeta]);
 
   const ensureYoutubeAgent = useCallback(async () => {
     const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === "youtube");
-    if (!builtInMeta) throw new Error("YouTube DJ agent metadata is missing.");
+    if (!builtInMeta) throw new Error("YouTube music metadata is missing.");
     const config = agentConfigsByType.get("youtube") ?? null;
     const nextSettings: Record<string, unknown> = {
       ...getDefaultBuiltInAgentSettings("youtube"),
@@ -1517,17 +1518,17 @@ export function ChatSettingsDrawer({
       await updateMeta.mutateAsync({
         id: chat.id,
         enableAgents: true,
-        // Mutually exclusive with Spotify DJ — only one music source at a time.
+        // Mutually exclusive with Spotify Music DJ — only one music source at a time.
         gameUseSpotifyMusic: false,
         activeAgentIds: Array.from(new Set([...activeAgentIds.filter((id) => id !== "spotify"), "youtube"])),
       });
     } catch (error) {
       await showAlertDialog({
-        title: "Couldn't Enable YouTube DJ",
+        title: "Couldn't Enable Music DJ",
         message:
           error instanceof Error
             ? error.message
-            : "YouTube DJ could not be enabled for this game. Check the YouTube agent setup and try again.",
+            : "Music DJ could not be enabled for this game. Check the YouTube setup and try again.",
       });
     }
   }, [activeAgentIds, chat.id, ensureYoutubeAgent, updateMeta]);
@@ -3726,7 +3727,7 @@ export function ChatSettingsDrawer({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 text-xs font-medium">
                           <Music2 size="0.75rem" className="text-[var(--primary)]" />
-                          <span>Spotify DJ Music</span>
+                          <span>Music DJ: Spotify</span>
                         </div>
                         <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
                           Use Spotify instead of the built-in Game Mode music library.
@@ -3760,7 +3761,7 @@ export function ChatSettingsDrawer({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 text-xs font-medium">
                           <Music2 size="0.75rem" className="text-[var(--primary)]" />
-                          <span>YouTube DJ Music</span>
+                          <span>Music DJ: YouTube</span>
                         </div>
                         <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
                           Use YouTube (in-app player) instead of the built-in Game Mode music library.
@@ -3867,7 +3868,7 @@ export function ChatSettingsDrawer({
                             )}
                             {spotifyPlaylistsQuery.isError && (
                               <span className="text-[0.5625rem] text-amber-400/90">
-                                Connect Spotify in the Spotify DJ agent to load playlist names.
+                                Connect Spotify in the Music DJ agent to load playlist names.
                               </span>
                             )}
                           </label>
@@ -4210,7 +4211,7 @@ export function ChatSettingsDrawer({
                     <div className="flex items-start gap-2">
                       <Music2 size="0.75rem" className="mt-0.5 text-[var(--primary)]" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-[0.6875rem] font-medium">Spotify DJ</div>
+                        <div className="text-[0.6875rem] font-medium">Music DJ</div>
                         <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                           Choose where the DJ should look for roleplay music when it reacts to the scene.
                         </p>
@@ -4298,7 +4299,7 @@ export function ChatSettingsDrawer({
                         )}
                         {spotifyPlaylistsQuery.isError && (
                           <span className="text-[0.5625rem] text-amber-400/90">
-                            Connect Spotify in the Spotify DJ agent to load playlist names.
+                            Connect Spotify in the Music DJ agent to load playlist names.
                           </span>
                         )}
                       </label>

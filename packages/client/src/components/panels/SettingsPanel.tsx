@@ -1144,10 +1144,8 @@ function GeneralSettings() {
   const setSpeechToTextEnabled = useUIStore((s) => s.setSpeechToTextEnabled);
   const chibiProfessorMariEnabled = useUIStore((s) => s.chibiProfessorMariEnabled);
   const setChibiProfessorMariEnabled = useUIStore((s) => s.setChibiProfessorMariEnabled);
-  const spotifyPlayerEnabled = useUIStore((s) => s.spotifyPlayerEnabled);
-  const setSpotifyPlayerEnabled = useUIStore((s) => s.setSpotifyPlayerEnabled);
-  const youtubePlayerEnabled = useUIStore((s) => s.youtubePlayerEnabled);
-  const setYoutubePlayerEnabled = useUIStore((s) => s.setYoutubePlayerEnabled);
+  const musicPlayerEnabled = useUIStore((s) => s.musicPlayerEnabled);
+  const setMusicPlayerEnabled = useUIStore((s) => s.setMusicPlayerEnabled);
   const intuitiveSwipeNavigation = useUIStore((s) => s.intuitiveSwipeNavigation);
   const setIntuitiveSwipeNavigation = useUIStore((s) => s.setIntuitiveSwipeNavigation);
   const intuitiveSwipeRerollLatest = useUIStore((s) => s.intuitiveSwipeRerollLatest);
@@ -1196,16 +1194,10 @@ function GeneralSettings() {
             help="Shows a confirmation dialog before permanently deleting chats, characters, or other items. Recommended to keep on."
           />
           <ToggleSetting
-            label="Spotify mini player"
-            checked={spotifyPlayerEnabled}
-            onChange={setSpotifyPlayerEnabled}
-            help="Shows a compact Spotify player in the top bar on desktop and as a draggable floating widget on mobile. Requires the Spotify DJ agent to be connected."
-          />
-          <ToggleSetting
-            label="YouTube DJ mini player"
-            checked={youtubePlayerEnabled}
-            onChange={setYoutubePlayerEnabled}
-            help="Shows a floating YouTube player when the YouTube DJ agent plays a track. When off, the player never appears and no music plays, but the agent can still pick tracks."
+            label="Music Player"
+            checked={musicPlayerEnabled}
+            onChange={setMusicPlayerEnabled}
+            help="Shows the compact Music Player. Switch between Spotify and YouTube from the player itself or the Music DJ agent settings."
           />
           <ToggleSetting
             label="Mini Mari surprise visits"

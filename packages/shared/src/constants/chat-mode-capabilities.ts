@@ -85,11 +85,11 @@ export const ROLEPLAY_AGENT_PICKER_HIDDEN_IDS = [
   "schedule-planner",
   "response-orchestrator",
   "autonomous-messenger",
+  "youtube",
 ] as const;
 
 export const CONVERSATION_AGENT_IDS = [
   "schedule-planner",
-  "response-orchestrator",
   "autonomous-messenger",
 ] as const;
 
@@ -183,8 +183,8 @@ export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
     agentPolicy: {
       kind: "allowlist",
       defaultAgentIds: GAME_AGENT_IDS,
-      // YouTube DJ is allowed (opt-in via the game music toggle) but not on by default.
-      allowedAgentIds: [...GAME_AGENT_IDS, "youtube"],
+      // Music DJ is allowed (opt-in via the game music toggle) but not on by default.
+      allowedAgentIds: [...GAME_AGENT_IDS, "spotify", "youtube"],
     },
     sharedSections: SHARED_CHAT_SETTINGS_SECTIONS,
     modeSections: ["extra-prompt", "conversation-notes"],

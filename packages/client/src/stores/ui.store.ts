@@ -28,6 +28,7 @@ export type ConversationMessageStyle = "classic" | "bubble";
 export type HudPosition = "top" | "left" | "right";
 export type TrackerPanelSide = "left" | "right";
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
+export type MusicPlayerSource = "spotify" | "youtube";
 export const TRACKER_TEMPERATURE_UNITS = ["celsius", "fahrenheit"] as const;
 export type TrackerTemperatureUnit = (typeof TRACKER_TEMPERATURE_UNITS)[number];
 export const TRACKER_PANEL_SIZE_PROFILES = ["compact", "standard", "expanded"] as const;
@@ -377,6 +378,10 @@ interface UIState {
   speechToTextEnabled: boolean;
   /** When true, allow the rare Chibi Professor Mari scroll toast. */
   chibiProfessorMariEnabled: boolean;
+  /** When true, show the global Music Player surface. */
+  musicPlayerEnabled: boolean;
+  /** Which Music Player surface to show. */
+  musicPlayerSource: MusicPlayerSource;
   /** When true, show the global Spotify mini player in the app chrome. */
   spotifyPlayerEnabled: boolean;
   /** When true, show the YouTube DJ mini player when the agent plays a track. */
@@ -605,6 +610,8 @@ interface UIState {
   setTrimIncompleteModelOutput: (v: boolean) => void;
   setSpeechToTextEnabled: (v: boolean) => void;
   setChibiProfessorMariEnabled: (v: boolean) => void;
+  setMusicPlayerEnabled: (v: boolean) => void;
+  setMusicPlayerSource: (v: MusicPlayerSource) => void;
   setSpotifyPlayerEnabled: (v: boolean) => void;
   setYoutubePlayerEnabled: (v: boolean) => void;
   setSpotifyMobileWidgetCollapsed: (v: boolean) => void;
@@ -752,6 +759,8 @@ export function pickSyncedSettings(state: UIState) {
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     speechToTextEnabled: state.speechToTextEnabled,
     chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
+    musicPlayerEnabled: state.musicPlayerEnabled,
+    musicPlayerSource: state.musicPlayerSource,
     spotifyPlayerEnabled: state.spotifyPlayerEnabled,
     youtubePlayerEnabled: state.youtubePlayerEnabled,
     spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
@@ -885,6 +894,8 @@ export const useUIStore = create<UIState>()(
       trimIncompleteModelOutput: false,
       speechToTextEnabled: false,
       chibiProfessorMariEnabled: true,
+      musicPlayerEnabled: true,
+      musicPlayerSource: "youtube" as MusicPlayerSource,
       spotifyPlayerEnabled: false,
       youtubePlayerEnabled: true,
       spotifyMobileWidgetCollapsed: true,
@@ -1346,6 +1357,18 @@ export const useUIStore = create<UIState>()(
       setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
       setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
       setChibiProfessorMariEnabled: (v) => set({ chibiProfessorMariEnabled: v }),
+      setMusicPlayerEnabled: (v) =>
+        set((state) => ({
+          musicPlayerEnabled: v,
+          spotifyPlayerEnabled: v && state.musicPlayerSource === "spotify",
+          youtubePlayerEnabled: v && state.musicPlayerSource === "youtube",
+        })),
+      setMusicPlayerSource: (v) =>
+        set((state) => ({
+          musicPlayerSource: v,
+          spotifyPlayerEnabled: state.musicPlayerEnabled && v === "spotify",
+          youtubePlayerEnabled: state.musicPlayerEnabled && v === "youtube",
+        })),
       setSpotifyPlayerEnabled: (v) => set({ spotifyPlayerEnabled: v }),
       setYoutubePlayerEnabled: (v) => set({ youtubePlayerEnabled: v }),
       setSpotifyMobileWidgetCollapsed: (v) => set({ spotifyMobileWidgetCollapsed: v }),
@@ -1469,7 +1492,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 44,
+      version: 45,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -1828,6 +1851,18 @@ export const useUIStore = create<UIState>()(
         persisted.trackerPanelBackgroundColor = normalizeTrackerPanelBackgroundColor(
           persisted.trackerPanelBackgroundColor,
         );
+        if (version <= 44) {
+          const spotifyEnabled = persisted.spotifyPlayerEnabled === true;
+          const youtubeEnabled = persisted.youtubePlayerEnabled !== false;
+          if (persisted.musicPlayerSource !== "spotify" && persisted.musicPlayerSource !== "youtube") {
+            persisted.musicPlayerSource = spotifyEnabled ? "spotify" : "youtube";
+          }
+          if (persisted.musicPlayerEnabled === undefined) {
+            persisted.musicPlayerEnabled = spotifyEnabled || youtubeEnabled;
+          }
+          persisted.spotifyPlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "spotify";
+          persisted.youtubePlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "youtube";
+        }
         delete persisted.trackerPanelWidth;
         return persisted;
       },
@@ -1891,6 +1926,8 @@ export const useUIStore = create<UIState>()(
         trimIncompleteModelOutput: state.trimIncompleteModelOutput,
         speechToTextEnabled: state.speechToTextEnabled,
         chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
+        musicPlayerEnabled: state.musicPlayerEnabled,
+        musicPlayerSource: state.musicPlayerSource,
         spotifyPlayerEnabled: state.spotifyPlayerEnabled,
         youtubePlayerEnabled: state.youtubePlayerEnabled,
         spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,

@@ -4692,14 +4692,14 @@ export function GameSurface({
     setMobileActionsOpen(false);
     setYoutubeRetryPending(true);
     try {
-      // YouTube DJ needs no scene-candidate flow — re-running the agent (with the
+      // Music DJ YouTube mode needs no scene-candidate flow — re-running the agent (with the
       // manualRetry constraint the server injects) emits a fresh play intent that
       // the in-app player swaps in.
       await retryAgents(activeChatId, ["youtube"]);
-      toast.success("YouTube DJ picking a fresh track…", { duration: 1800 });
+      toast.success("Music DJ picking a fresh YouTube track…", { duration: 1800 });
     } catch (error) {
       console.warn("[youtube/game] Retry failed:", error);
-      toast.error("YouTube DJ retry failed.");
+      toast.error("Music DJ retry failed.");
     } finally {
       setYoutubeRetryPending(false);
     }
@@ -8227,7 +8227,7 @@ export function GameSurface({
                             ) : (
                               <Volume2 size={13} />
                             )}
-                            <span>Retry Spotify DJ Music Generation</span>
+                            <span>Retry Music DJ: Spotify</span>
                           </button>
                         )}
                         {useYoutubeGameMusic && (
@@ -8241,7 +8241,7 @@ export function GameSurface({
                             ) : (
                               <Volume2 size={13} />
                             )}
-                            <span>Retry YouTube DJ Music</span>
+                            <span>Retry Music DJ: YouTube</span>
                           </button>
                         )}
                         <button
@@ -8455,7 +8455,7 @@ export function GameSurface({
                                   ) : (
                                     <Volume2 size={13} />
                                   )}
-                                  <span>Retry Spotify DJ Music Generation</span>
+                                  <span>Retry Music DJ: Spotify</span>
                                 </button>
                               )}
                               {useYoutubeGameMusic && (
@@ -8469,7 +8469,7 @@ export function GameSurface({
                                   ) : (
                                     <Volume2 size={13} />
                                   )}
-                                  <span>Retry YouTube DJ Music</span>
+                                  <span>Retry Music DJ: YouTube</span>
                                 </button>
                               )}
                               <button

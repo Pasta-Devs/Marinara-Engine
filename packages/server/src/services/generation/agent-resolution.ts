@@ -3,6 +3,7 @@ import {
   DEFAULT_AGENT_TOOLS,
   getDefaultAgentPrompt,
   getDefaultBuiltInAgentSettings,
+  isBuiltInAgentRuntimeDisabled,
   isAgentConfigDeleted,
   LOCAL_SIDECAR_CONNECTION_ID,
   resolveAgentPromptTemplate,
@@ -25,24 +26,14 @@ type ConnectionsStore = {
   getDefaultForAgents(): Promise<any | null>;
 };
 
-type AgentsStore = {
-  getByType(type: string): Promise<any | null>;
-};
-
 type ResolveAgentPipelineAgentsArgs = {
-  agentsStore: AgentsStore;
   connections: ConnectionsStore;
   configuredAgents: any[];
   chatId: string;
-  chatMode: string;
-  chatMetadata: Record<string, unknown>;
   chatEnableAgents: boolean;
   hasPerChatAgentList: boolean;
   perChatAgentSet: Set<string>;
   agentPromptTemplateSelections: Record<string, string>;
-  characterIds: string[];
-  impersonate: boolean;
-  regenerateMessageId?: string | null;
   chatProvider: BaseLLMProvider;
   chatModel: string;
   chatMaxParallelJobs: number;
@@ -59,8 +50,6 @@ export type ResolvedAgentPipelineAgents = {
   enabledConfigs: any[];
   resolvedAgents: ResolvedAgent[];
   agentConnectionWarnings: AgentConnectionWarning[];
-  responseOrchestratorSelectorAgent: ResolvedAgent | null;
-  responseOrchestratorSelectorUnavailable: boolean;
 };
 
 function resolveAgentRuntimePhase(agentType: string, configuredPhase: string): string {
@@ -131,19 +120,13 @@ async function resolveAgentConnectionProvider(args: {
 }
 
 export async function resolveAgentPipelineAgents({
-  agentsStore,
   connections,
   configuredAgents,
   chatId,
-  chatMode,
-  chatMetadata,
   chatEnableAgents,
   hasPerChatAgentList,
   perChatAgentSet,
   agentPromptTemplateSelections,
-  characterIds,
-  impersonate,
-  regenerateMessageId,
   chatProvider,
   chatModel,
   chatMaxParallelJobs,
@@ -155,7 +138,9 @@ export async function resolveAgentPipelineAgents({
       .filter((agent) => isAgentConfigDeleted(agent.settings))
       .map((agent) => agent.type as string),
   );
-  const enabledConfigs = configuredAgents.filter((agent) => !isAgentConfigDeleted(agent.settings));
+  const enabledConfigs = configuredAgents.filter(
+    (agent) => !isAgentConfigDeleted(agent.settings) && !isBuiltInAgentRuntimeDisabled(agent.type as string),
+  );
   const resolvedAgents: ResolvedAgent[] = [];
   const agentProviderCache = new Map<string, AgentProviderCacheEntry>();
   const localSidecarAvailableForTrackers =
@@ -191,9 +176,6 @@ export async function resolveAgentPipelineAgents({
   const agentConnectionWarnings: AgentConnectionWarning[] = [];
   const skippedLocalSidecarAgents: string[] = [];
   const defaultAgentConnectionAgents: string[] = [];
-  let responseOrchestratorSelectorAgent: ResolvedAgent | null = null;
-  let responseOrchestratorSelectorUnavailable = false;
-
   for (const cfg of enabledConfigs) {
     if (hasPerChatAgentList && !perChatAgentSet.has(cfg.type)) continue;
 
@@ -263,6 +245,7 @@ export async function resolveAgentPipelineAgents({
       ? BUILT_IN_AGENTS.filter((agent) => {
           if (resolvedTypes.has(agent.id)) return false;
           if (deletedBuiltInTypes.has(agent.id)) return false;
+          if (isBuiltInAgentRuntimeDisabled(agent.id)) return false;
           if (agent.id === "chat-summary") return false;
           return perChatAgentSet.has(agent.id);
         })
@@ -302,88 +285,8 @@ export async function resolveAgentPipelineAgents({
     });
   }
 
-  const selectorGroupResponseOrder = (chatMetadata.groupResponseOrder as string) ?? "sequential";
-  const selectorGroupChatMode =
-    chatMode === "conversation"
-      ? selectorGroupResponseOrder === "manual"
-        ? "individual"
-        : "merged"
-      : ((chatMetadata.groupChatMode as string) ?? "merged");
-  const shouldResolveResponseOrchestratorSelector =
-    !impersonate &&
-    !regenerateMessageId &&
-    characterIds.length > 1 &&
-    selectorGroupChatMode === "individual" &&
-    selectorGroupResponseOrder === "smart";
-
-  if (shouldResolveResponseOrchestratorSelector) {
-    const resolvedResponseOrchestratorAgent = resolvedAgents.find((agent) => agent.type === "response-orchestrator");
-    if (resolvedResponseOrchestratorAgent) {
-      responseOrchestratorSelectorAgent = resolvedResponseOrchestratorAgent;
-    } else {
-      const storedResponseOrchestratorConfig = await agentsStore.getByType("response-orchestrator");
-      const cfg =
-        storedResponseOrchestratorConfig ??
-        (defaultAgentConn ? (BUILT_IN_AGENTS.find((agent) => agent.id === "response-orchestrator") ?? null) : null);
-
-      if (cfg) {
-        const settings =
-          "settings" in cfg && cfg.settings
-            ? parseAgentSettings(cfg.settings)
-            : getDefaultBuiltInAgentSettings("response-orchestrator");
-        const selectedPromptTemplate = resolveAgentPromptTemplate({
-          agentType: "response-orchestrator",
-          promptTemplate: "promptTemplate" in cfg ? String(cfg.promptTemplate ?? "") : "",
-          fallbackPromptTemplate: getDefaultAgentPrompt("response-orchestrator"),
-          settings,
-          selectedPromptTemplateId: agentPromptTemplateSelections["response-orchestrator"] ?? null,
-        });
-        const requestedConnectionId = "connectionId" in cfg ? (cfg.connectionId as string | null) : null;
-        const effectiveConnectionId = resolveAgentConnectionId({
-          requestedConnectionId,
-          defaultAgentConnectionId: defaultAgentConn?.id ?? null,
-          localSidecarAvailable: localSidecarAvailableForTrackers,
-        });
-
-        if (effectiveConnectionId === "skip-local-sidecar") {
-          responseOrchestratorSelectorUnavailable = true;
-          if (!skippedLocalSidecarAgents.some((agentName) => agentName === "Response Orchestrator")) {
-            agentConnectionWarnings.push(buildLocalSidecarUnavailableWarning(["Response Orchestrator"]));
-          }
-          logger.warn(
-            "[group-smart] Skipping Response Orchestrator Local Model override for chat %s because the sidecar is unavailable",
-            chatId,
-          );
-        } else {
-          if (defaultAgentConn && effectiveConnectionId === defaultAgentConn.id) {
-            defaultAgentConnectionAgents.push("Response Orchestrator");
-          }
-          const resolvedProvider = await resolveAgentConnectionProvider({
-            connections,
-            agentProviderCache,
-            connectionId: effectiveConnectionId,
-            fallbackProvider: chatProvider,
-            fallbackModel: chatModel,
-            fallbackMaxParallelJobs: chatMaxParallelJobs,
-            resolveBaseUrl,
-          });
-
-          responseOrchestratorSelectorAgent = {
-            id: "id" in cfg ? String(cfg.id) : "builtin:response-orchestrator",
-            type: "response-orchestrator",
-            name: "name" in cfg ? String(cfg.name) : "Response Orchestrator",
-            phase: "phase" in cfg ? String(cfg.phase) : "pre_generation",
-            promptTemplate: selectedPromptTemplate,
-            connectionId: effectiveConnectionId,
-            settings,
-            provider: resolvedProvider.provider,
-            model: resolvedProvider.model,
-            maxParallelJobs: resolvedProvider.maxParallelJobs,
-          };
-        }
-      }
-    }
-  }
+  // Smart group response selection is hidden runtime infrastructure now. It uses
+  // the main generation provider directly instead of resolving a public agent.
 
   if (defaultAgentConn && defaultAgentConnectionAgents.length > 0) {
     agentConnectionWarnings.push(
@@ -409,7 +312,5 @@ export async function resolveAgentPipelineAgents({
     enabledConfigs,
     resolvedAgents,
     agentConnectionWarnings,
-    responseOrchestratorSelectorAgent,
-    responseOrchestratorSelectorUnavailable,
   };
 }

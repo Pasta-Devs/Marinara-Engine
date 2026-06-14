@@ -8,5 +8,7 @@ export const promptReviewerAgentManifest = {
   phase: "pre_generation",
   enabledByDefault: false,
   category: "writer",
+  libraryHidden: true,
+  runtimeDisabled: true,
   defaultTools: [],
 } satisfies BuiltInAgentManifest;

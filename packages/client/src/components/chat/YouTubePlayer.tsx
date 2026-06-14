@@ -4,6 +4,7 @@ import { useAgentStore } from "@/stores/agent.store";
 import { useUIStore } from "@/stores/ui.store";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { MusicSourceButton } from "@/components/music/MusicSourceButton";
 
 // The YouTube IFrame API attaches itself to window; it has no bundled types.
 type YTPlayer = {
@@ -44,7 +45,7 @@ function loadYouTubeApi(): Promise<void> {
 }
 
 /**
- * Embedded player for the YouTube DJ agent. Listens for the agent's "play"
+ * Embedded player for Music DJ's YouTube mode. Listens for the agent's "play"
  * intent in the agent store, resolves the search query to a video server-side,
  * and plays it in an in-app IFrame player. No OAuth, no external device.
  */
@@ -52,7 +53,7 @@ export function YouTubePlayer() {
   const youtubePlay = useAgentStore((s) => s.youtubePlay);
   const youtubeVolume = useAgentStore((s) => s.youtubeVolume);
   const clearYoutube = useAgentStore((s) => s.clearYoutube);
-  const youtubePlayerEnabled = useUIStore((s) => s.youtubePlayerEnabled);
+  const musicPlayerActive = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "youtube");
 
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YTPlayer | null>(null);
@@ -103,7 +104,7 @@ export function YouTubePlayer() {
 
   // React to a new "play" intent.
   useEffect(() => {
-    if (!youtubePlayerEnabled) return; // player disabled in Settings — don't fetch or play
+    if (!musicPlayerActive) return; // player disabled in Settings — don't fetch or play
     if (!youtubePlay) return;
     if (youtubePlay.nonce === lastNonceRef.current) return;
     lastNonceRef.current = youtubePlay.nonce;
@@ -140,11 +141,11 @@ export function YouTubePlayer() {
     return () => {
       cancelled = true;
     };
-  }, [youtubePlay, ensurePlayer, youtubePlayerEnabled]);
+  }, [youtubePlay, ensurePlayer, musicPlayerActive]);
 
   // Stop playback immediately if the user disables the player mid-track.
   useEffect(() => {
-    if (youtubePlayerEnabled) return;
+    if (musicPlayerActive) return;
     try {
       playerRef.current?.stopVideo();
     } catch {
@@ -152,7 +153,7 @@ export function YouTubePlayer() {
     }
     lastQueryRef.current = "";
     setNowPlaying(null);
-  }, [youtubePlayerEnabled]);
+  }, [musicPlayerActive]);
 
   // Apply DJ volume changes without changing the track.
   useEffect(() => {
@@ -190,20 +191,22 @@ export function YouTubePlayer() {
     clearYoutube();
   };
 
-  const active = youtubePlayerEnabled && (!!nowPlaying || loading || !!error);
+  const active = musicPlayerActive;
+  const hasPlayerContent = !!nowPlaying || loading || !!error;
 
   return (
     <>
       {/* Compact mini-player pill — lives in the top bar (upper-left), like Spotify's. */}
       {active && (
-        <div className="flex h-8 min-w-0 max-w-[15rem] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card)] pl-2.5 pr-1">
-          <Music className="size-3.5 shrink-0 text-[var(--primary)]" />
+        <div className="flex h-8 min-w-0 max-w-[15rem] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card)] pl-1 pr-1">
+          <MusicSourceButton source="youtube" className="h-6 w-6 border-[var(--border)] bg-[var(--secondary)]" />
           <span
             className="hidden min-w-0 flex-1 truncate text-xs text-[var(--foreground)] sm:inline"
             title={nowPlaying?.title ?? undefined}
           >
-            {loading ? "Finding a track…" : error ? error : (nowPlaying?.title ?? "YouTube DJ")}
+            {loading ? "Finding a track…" : error ? error : (nowPlaying?.title ?? "YouTube")}
           </span>
+          {!loading && !nowPlaying && !error && <Music className="size-3.5 shrink-0 text-[var(--muted-foreground)] sm:hidden" />}
           {loading && (
             <Loader2 className="size-3.5 shrink-0 animate-spin text-[var(--muted-foreground)] sm:hidden" />
           )}
@@ -217,22 +220,26 @@ export function YouTubePlayer() {
               {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setShowVideo((v) => !v)}
-            className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] active:scale-90"
-            aria-label={showVideo ? "Hide video" : "Show video"}
-          >
-            {showVideo ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-          </button>
-          <button
-            type="button"
-            onClick={close}
-            className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)] active:scale-90"
-            aria-label="Stop"
-          >
-            <X className="size-3.5" />
-          </button>
+          {hasPlayerContent && (
+            <button
+              type="button"
+              onClick={() => setShowVideo((v) => !v)}
+              className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] active:scale-90"
+              aria-label={showVideo ? "Hide video" : "Show video"}
+            >
+              {showVideo ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+            </button>
+          )}
+          {hasPlayerContent && (
+            <button
+              type="button"
+              onClick={close}
+              className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)] active:scale-90"
+              aria-label="Stop"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
         </div>
       )}
 
@@ -242,7 +249,9 @@ export function YouTubePlayer() {
       <div
         className={cn(
           "fixed top-14 z-40 w-72 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg transition-opacity",
-          active && showVideo ? "left-2 opacity-100" : "pointer-events-none -left-[9999px] opacity-0",
+          active && hasPlayerContent && showVideo
+            ? "left-2 opacity-100"
+            : "pointer-events-none -left-[9999px] opacity-0",
         )}
       >
         {/* The IFrame player lives here; YT injects the iframe into this host. */}

@@ -2770,22 +2770,14 @@ export async function generateRoutes(app: FastifyInstance) {
           enabledConfigs,
           resolvedAgents,
           agentConnectionWarnings,
-          responseOrchestratorSelectorAgent,
-          responseOrchestratorSelectorUnavailable,
         } = await resolveAgentPipelineAgents({
-          agentsStore,
           connections,
           configuredAgents: configuredPromptAgents,
           chatId: input.chatId,
-          chatMode,
-          chatMetadata: chatMeta,
           chatEnableAgents,
           hasPerChatAgentList,
           perChatAgentSet,
           agentPromptTemplateSelections,
-          characterIds,
-          impersonate: input.impersonate,
-          regenerateMessageId: input.regenerateMessageId,
           chatProvider: provider,
           chatModel: conn.model,
           chatMaxParallelJobs: chatConnectionMaxParallelJobs,
@@ -3494,7 +3486,13 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        if (resolvedAgents.some((a) => a.type === "spotify")) {
+        const spotifyMusicAgents = resolvedAgents.filter(
+          (agent) =>
+            agent.type === "spotify" &&
+            agent.settings?.musicProvider !== "youtube" &&
+            agent.settings?.musicPlayerSource !== "youtube",
+        );
+        if (spotifyMusicAgents.length > 0) {
           agentContext.memory._spotifyDjConstraints = buildSpotifyDjConstraints({ chatMode, chatMeta });
         }
 
@@ -4661,31 +4659,6 @@ export async function generateRoutes(app: FastifyInstance) {
           return null;
         };
 
-        const findLastAssistantCharacterId = (): string | null => {
-          for (let i = chatMessages.length - 1; i >= 0; i--) {
-            const message = chatMessages[i]!;
-            if (message.role === "assistant" && typeof message.characterId === "string" && message.characterId) {
-              return message.characterId;
-            }
-          }
-          return null;
-        };
-
-        const fallbackSmartGroupResponders = (): string[] => {
-          const lastAssistantCharId = findLastAssistantCharacterId();
-          if (!lastAssistantCharId || !characterIds.includes(lastAssistantCharId)) {
-            return characterIds[0] ? [characterIds[0]] : [];
-          }
-
-          const lastIndex = characterIds.indexOf(lastAssistantCharId);
-          for (let offset = 1; offset <= characterIds.length; offset++) {
-            const candidate = characterIds[(lastIndex + offset) % characterIds.length];
-            if (candidate && candidate !== lastAssistantCharId) return [candidate];
-          }
-
-          return characterIds[0] ? [characterIds[0]] : [];
-        };
-
         const getExplicitlyMentionedCharacterIds = (): string[] => {
           const latestUserText =
             typeof input.userMessage === "string" && input.userMessage.trim()
@@ -4709,21 +4682,33 @@ export async function generateRoutes(app: FastifyInstance) {
             .trim()
             .replace(/```(?:json)?\s*/gi, "")
             .replace(/```/g, "");
-          const first = cleaned.indexOf("{");
-          const last = cleaned.lastIndexOf("}");
-          if (first < 0 || last < first) return [];
+          const arrayStart = cleaned.indexOf("[");
+          const arrayEnd = cleaned.lastIndexOf("]");
+          const objectStart = cleaned.indexOf("{");
+          const objectEnd = cleaned.lastIndexOf("}");
+          if (arrayStart < 0 && objectStart < 0) return [];
 
-          const parsed = JSON.parse(cleaned.slice(first, last + 1)) as Record<string, unknown>;
-          const rawIds = Array.isArray(parsed.characterIds)
-            ? parsed.characterIds
-            : Array.isArray(parsed.characters)
-              ? parsed.characters
-              : [];
+          const parsed: unknown =
+            arrayStart >= 0 && (objectStart < 0 || arrayStart < objectStart)
+              ? JSON.parse(cleaned.slice(arrayStart, arrayEnd + 1))
+              : JSON.parse(cleaned.slice(objectStart, objectEnd + 1));
+          const parsedRecord = parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? (parsed as Record<string, unknown>)
+            : {};
+          const rawIds = Array.isArray(parsed)
+            ? parsed
+            : Array.isArray(parsedRecord.characterIds)
+              ? parsedRecord.characterIds
+              : Array.isArray(parsedRecord.characters)
+                ? parsedRecord.characters
+                : [];
           const validIds = new Set(characterIds);
+          const namesByLower = new Map(charInfo.map((character) => [character.name.trim().toLowerCase(), character.id]));
           const selected: string[] = [];
 
           for (const rawId of rawIds) {
-            const id = String(rawId);
+            const value = String(rawId).trim();
+            const id = validIds.has(value) ? value : (namesByLower.get(value.toLowerCase()) ?? "");
             if (validIds.has(id) && !selected.includes(id)) selected.push(id);
           }
 
@@ -4733,11 +4718,10 @@ export async function generateRoutes(app: FastifyInstance) {
         const selectSmartGroupResponders = async (): Promise<string[]> => {
           const explicitMentionIds = getExplicitlyMentionedCharacterIds();
           if (explicitMentionIds.length > 0) return explicitMentionIds;
-          if (responseOrchestratorSelectorUnavailable) return fallbackSmartGroupResponders();
 
           const recentTranscript = chatMessages
-            .slice(-16)
             .filter((message: any) => message.role === "user" || message.role === "assistant")
+            .slice(-5)
             .map((message: any) => {
               const speaker = resolveMessageSpeakerName(message);
               const content = stripConversationPromptTimestamps(String(message.content ?? ""))
@@ -4771,7 +4755,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 `Choose which character or characters should respond next, based on the latest user message, recent scene context, relevance, personality, and who has spoken recently.`,
                 `Usually choose exactly one character. Choose multiple only when multiple characters have a strong immediate reason to answer.`,
                 `Do not always choose the first character. Avoid making the same character speak twice in a row unless the context clearly calls for it.`,
-                `Return ONLY valid JSON with this schema: {"characterIds":["id"],"reason":"short explanation"}.`,
+                `Return ONLY a valid JSON array of character IDs, such as ["character-id"]. No prose, no object wrapper, no markdown.`,
               ].join("\n"),
             },
             {
@@ -4789,23 +4773,13 @@ export async function generateRoutes(app: FastifyInstance) {
           ];
 
           try {
-            const orchestratorAgent =
-              responseOrchestratorSelectorAgent ??
-              resolvedAgents.find((agent) => agent.type === "response-orchestrator");
-            const selectorProvider = orchestratorAgent?.provider ?? provider;
-            const selectorModel = orchestratorAgent?.model ?? conn.model;
-            const selectorTemperature =
-              typeof orchestratorAgent?.settings.temperature === "number"
-                ? orchestratorAgent.settings.temperature
-                : 0.2;
-            const selectorMaxTokens = applyProviderMaxTokensOverride(
-              selectorProvider,
-              normalizeAgentMaxTokens(orchestratorAgent?.settings?.maxTokens),
-            );
+            const selectorProvider = provider;
+            const selectorModel = conn.model;
+            const selectorMaxTokens = applyProviderMaxTokensOverride(selectorProvider, 512);
 
             const result = await selectorProvider.chatComplete(selectionPrompt, {
               model: selectorModel,
-              temperature: selectorTemperature,
+              temperature: 0.2,
               maxTokens: selectorMaxTokens,
               maxContext: effectiveMaxContext,
               topP: 1,
@@ -4828,10 +4802,10 @@ export async function generateRoutes(app: FastifyInstance) {
             );
           } catch (error) {
             if (abortController.signal.aborted) return [];
-            logger.warn({ err: error, chatId: input.chatId }, "[group-smart] Selector failed, using fallback");
+            logger.warn({ err: error, chatId: input.chatId }, "[group-smart] Selector failed; aborting generation");
           }
 
-          return fallbackSmartGroupResponders();
+          return [];
         };
 
         // ── Determine characters to generate for ──
@@ -4848,8 +4822,38 @@ export async function generateRoutes(app: FastifyInstance) {
               )
             : [];
 
+        const smartResponseQueue =
+          useIndividualLoop && groupResponseOrder === "smart" && !input.forCharacterId
+            ? await selectSmartGroupResponders()
+            : null;
+
+        if (smartResponseQueue && smartResponseQueue.length > 0) {
+          sendSseEvent(reply, {
+            type: "response_queue",
+            data: {
+              characterIds: smartResponseQueue,
+              characters: smartResponseQueue.map((id, index) => ({
+                id,
+                name: charInfo.find((character) => character.id === id)?.name ?? "Character",
+                order: index + 1,
+              })),
+            },
+          });
+        }
+
+        if (
+          useIndividualLoop &&
+          groupResponseOrder === "smart" &&
+          !input.forCharacterId &&
+          (!smartResponseQueue || smartResponseQueue.length === 0)
+        ) {
+          sendSseEvent(reply, { type: "response_queue_failed", data: "No response queue was created." });
+          sendSseEvent(reply, { type: "done", data: "" });
+          return;
+        }
+
         // Manual mode with forCharacterId: only generate for the specified character
-        // Sequential/smart: all characters respond
+        // Sequential: all characters respond. Smart: generate the first queued character only.
         const respondingCharIds = useIndividualLoop
           ? input.forCharacterId && characterIds.includes(input.forCharacterId)
             ? [input.forCharacterId]
@@ -4857,7 +4861,9 @@ export async function generateRoutes(app: FastifyInstance) {
               ? [] // manual mode without forCharacterId: no auto-generation
               : groupResponseOrder === "sequential"
                 ? [...characterIds]
-                : await selectSmartGroupResponders()
+                : smartResponseQueue?.[0]
+                  ? [smartResponseQueue[0]]
+                  : []
           : [characterIds[0] ?? null];
 
         /** Generate a single response for a given character and save it. */

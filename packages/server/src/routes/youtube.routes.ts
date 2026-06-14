@@ -80,17 +80,17 @@ function friendlyYoutubeError(status: number, body: string): string {
 export async function youtubeRoutes(app: FastifyInstance) {
   const storage = createAgentsStorage(app.db);
 
-  /** Resolve the target agent: explicit id, else the latest "youtube" built-in config. */
+  /** Resolve the target agent: explicit id, else Music DJ, else the legacy YouTube built-in config. */
   async function resolveAgent(agentId?: string) {
     if (agentId) return storage.getById(agentId);
-    return storage.getByType("youtube");
+    return (await storage.getByType("spotify")) ?? (await storage.getByType("youtube"));
   }
 
   /**
    * POST /api/youtube/save-key
    * Body: { agentId?, apiKey }
    * Encrypts and stores the YouTube Data API key. agentId is optional — if the
-   * built-in YouTube DJ config doesn't exist yet, it is created automatically so
+   * built-in Music DJ config doesn't exist yet, it is created automatically so
    * the user never has to save the agent first.
    */
   app.post<{ Body: { agentId?: string; apiKey?: string } }>("/save-key", async (req, reply) => {
@@ -98,7 +98,7 @@ export async function youtubeRoutes(app: FastifyInstance) {
     const trimmed = typeof apiKey === "string" ? apiKey.trim() : "";
     if (!trimmed) return reply.status(400).send({ error: "apiKey is required" });
 
-    const agent = (agentId ? await storage.getById(agentId) : null) ?? (await storage.ensureBuiltinConfig("youtube"));
+    const agent = (agentId ? await storage.getById(agentId) : null) ?? (await storage.ensureBuiltinConfig("spotify"));
     if (!agent) return reply.status(404).send({ error: "Agent not found" });
 
     const settings = parseSettings(agent);
@@ -145,7 +145,7 @@ export async function youtubeRoutes(app: FastifyInstance) {
     if (!apiKey) {
       return reply
         .status(400)
-        .send({ error: "YouTube not configured. Add a YouTube Data API key in the YouTube DJ agent settings." });
+        .send({ error: "YouTube not configured. Add a YouTube Data API key in the Music DJ agent settings." });
     }
 
     const limit = Math.max(1, Math.min(10, Number(req.query.limit ?? 5) || 5));

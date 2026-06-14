@@ -8,6 +8,7 @@ export const autonomousMessengerAgentManifest = {
   phase: "parallel",
   enabledByDefault: false,
   category: "misc",
+  libraryHidden: true,
   modeAllowlist: ["conversation"],
   defaultTools: [],
 } satisfies BuiltInAgentManifest;

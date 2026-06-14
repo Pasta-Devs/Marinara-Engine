@@ -154,9 +154,12 @@ export const ChatInput = memo(function ChatInput({
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
   const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
+  const responseQueue = useChatStore((s) => (activeChatId ? (s.responseQueues.get(activeChatId) ?? []) : []));
   const setInputDraft = useChatStore((s) => s.setInputDraft);
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);
   const setCurrentInput = useChatStore((s) => s.setCurrentInput);
+  const removeFromResponseQueue = useChatStore((s) => s.removeFromResponseQueue);
+  const clearResponseQueue = useChatStore((s) => s.clearResponseQueue);
   const activeChat = useChatStore((s) => s.activeChat);
   const chatMetadata = useMemo(() => parseChatMetadata(activeChat?.metadata), [activeChat?.metadata]);
   const inactiveCharacterIds = useMemo(
@@ -175,6 +178,10 @@ export const ChatInput = memo(function ChatInput({
   const activeCharacterNames = useMemo(
     () => (activeChatCharacters ? activeChatCharacters.map((character) => character.name) : characterNames),
     [activeChatCharacters, characterNames],
+  );
+  const queuedResponseOrder = useMemo(
+    () => new Map(responseQueue.map((characterId, index) => [characterId, index + 1])),
+    [responseQueue],
   );
   const { generate } = useGenerate();
   const { applyToUserInput } = useApplyRegex();
@@ -485,6 +492,17 @@ export const ChatInput = memo(function ChatInput({
     if (!hasText && !hasFiles) {
       // Manual mode: no auto-retry/continue — use the character picker instead
       if (groupResponseOrder === "manual") return;
+      const queuedCharacterId = groupResponseOrder === "smart" ? responseQueue[0] : null;
+      if (queuedCharacterId) {
+        removeFromResponseQueue(activeChatId, queuedCharacterId);
+        try {
+          await generate({ chatId: activeChatId, connectionId: null, forCharacterId: queuedCharacterId });
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : "Generation failed";
+          toast.error(msg);
+        }
+        return;
+      }
       const cached = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(activeChatId));
       const firstPage = cached?.pages?.[0];
       const lastMsg = firstPage?.[firstPage.length - 1];
@@ -602,6 +620,7 @@ export const ChatInput = memo(function ChatInput({
     const pendingAttachments = attachments.map((a) => ({ type: a.type, data: a.data, filename: a.name, name: a.name }));
     replaceAttachments([]);
     clearInputDraft(activeChatId);
+    clearResponseQueue(activeChatId);
 
     // Manual mode: only create the user message, no auto-generation
     if (groupResponseOrder === "manual") {
@@ -649,6 +668,9 @@ export const ChatInput = memo(function ChatInput({
     isReadingAttachments,
     mode,
     groupResponseOrder,
+    responseQueue,
+    removeFromResponseQueue,
+    clearResponseQueue,
     createMessage,
     updateMessageExtra,
     syncInputState,
@@ -789,6 +811,7 @@ export const ChatInput = memo(function ChatInput({
     setCompletions([]);
     replaceAttachments([]);
     clearInputDraft(submittingChatId);
+    clearResponseQueue(submittingChatId);
 
     let createdMessageId: string | null = null;
     try {
@@ -851,6 +874,7 @@ export const ChatInput = memo(function ChatInput({
     createMessage,
     deleteMessage,
     updateMessageExtra,
+    clearResponseQueue,
     quoteFormat,
   ]);
 
@@ -1050,6 +1074,9 @@ export const ChatInput = memo(function ChatInput({
       if (!activeChatId || isStreaming) return;
       setCharPickerOpen(false);
       setCharPickerPos(null);
+      if (responseQueue.includes(characterId)) {
+        removeFromResponseQueue(activeChatId, characterId);
+      }
       const guideText = getValue();
       try {
         await generate(
@@ -1068,7 +1095,7 @@ export const ChatInput = memo(function ChatInput({
         toast.error(msg);
       }
     },
-    [activeChatId, isStreaming, generate, hasInput, guideGenerations],
+    [activeChatId, isStreaming, generate, hasInput, guideGenerations, responseQueue, removeFromResponseQueue],
   );
 
   // Close character picker on outside click
@@ -1409,29 +1436,37 @@ export const ChatInput = memo(function ChatInput({
               Trigger Response
             </div>
             <div className="overflow-y-auto p-1">
-              {activeChatCharacters!.map((char) => (
-                <button
-                  key={char.id}
-                  onClick={() => handleCharacterResponse(char.id)}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-foreground/10"
-                >
-                  {char.avatarUrl ? (
-                    <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full">
-                      <img
-                        src={char.avatarUrl}
-                        alt={char.name}
-                        className="h-full w-full object-cover"
-                        style={getAvatarCropStyle(char.avatarCrop)}
-                      />
-                    </span>
-                  ) : (
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45">
-                      {(char.name || "?")[0].toUpperCase()}
-                    </div>
-                  )}
-                  <span className="truncate text-xs">{char.name}</span>
-                </button>
-              ))}
+              {activeChatCharacters!.map((char) => {
+                const queuedOrder = queuedResponseOrder.get(char.id);
+                return (
+                  <button
+                    key={char.id}
+                    onClick={() => handleCharacterResponse(char.id)}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-foreground/10"
+                  >
+                    {char.avatarUrl ? (
+                      <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full">
+                        <img
+                          src={char.avatarUrl}
+                          alt={char.name}
+                          className="h-full w-full object-cover"
+                          style={getAvatarCropStyle(char.avatarCrop)}
+                        />
+                      </span>
+                    ) : (
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45">
+                        {(char.name || "?")[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-xs">{char.name}</span>
+                    {queuedOrder && (
+                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-foreground/15 bg-foreground/10 px-1 text-[0.625rem] font-semibold text-foreground/70">
+                        {queuedOrder}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>,
           document.body,

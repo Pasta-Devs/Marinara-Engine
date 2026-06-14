@@ -195,7 +195,7 @@ export function AgentsPanel() {
     [agentConfigRows],
   );
   const visibleBuiltInAgents = useMemo(
-    () => BUILT_IN_AGENTS.filter((agent) => !deletedBuiltInTypes.has(agent.id)),
+    () => BUILT_IN_AGENTS.filter((agent) => !agent.libraryHidden && !deletedBuiltInTypes.has(agent.id)),
     [deletedBuiltInTypes],
   );
   // Custom agents = DB entries whose type doesn't match any built-in

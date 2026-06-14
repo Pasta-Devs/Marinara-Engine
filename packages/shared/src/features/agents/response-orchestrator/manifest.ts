@@ -8,6 +8,8 @@ export const responseOrchestratorAgentManifest = {
   phase: "pre_generation",
   enabledByDefault: false,
   category: "misc",
+  libraryHidden: true,
+  runtimeDisabled: true,
   modeAllowlist: ["conversation"],
   defaultTools: [],
 } satisfies BuiltInAgentManifest;

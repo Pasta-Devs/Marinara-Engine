@@ -55,7 +55,7 @@ function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void) 
 const shownAgentWarnings = new Set<string>();
 const BUILT_IN_AGENT_TYPE_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const BUILT_IN_TRACKER_AGENT_TYPE_SET = new Set(
-  BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id),
+  BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker" && !agent.libraryHidden).map((agent) => agent.id),
 );
 
 function showAgentWarning(raw: unknown) {
@@ -800,6 +800,9 @@ export function useGenerate() {
   const clearThinkingBuffer = useChatStore((s) => s.clearThinkingBuffer);
   const setRegenerateMessageId = useChatStore((s) => s.setRegenerateMessageId);
   const setStreamingCharacterId = useChatStore((s) => s.setStreamingCharacterId);
+  const setResponseQueue = useChatStore((s) => s.setResponseQueue);
+  const completeQueuedResponse = useChatStore((s) => s.completeQueuedResponse);
+  const clearResponseQueue = useChatStore((s) => s.clearResponseQueue);
   const setTypingCharacterName = useChatStore((s) => s.setTypingCharacterName);
   const setDelayedCharacterInfo = useChatStore((s) => s.setDelayedCharacterInfo);
   const setProcessing = useAgentStore((s) => s.setProcessing);
@@ -1308,7 +1311,7 @@ export function useGenerate() {
                     qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
                   }
                 }
-                if (result.agentType === "spotify") {
+                if (result.resultType === "spotify_control") {
                   qc.invalidateQueries({ queryKey: ["spotify", "player"] });
                 }
               }
@@ -1356,8 +1359,8 @@ export function useGenerate() {
                   }
                 }
 
-                // Drive the embedded YouTube DJ player from the agent's intent.
-                if (result.agentType === "youtube") {
+                // Drive the embedded YouTube player from the agent's intent.
+                if (result.resultType === "youtube_control") {
                   const d = result.data as Record<string, unknown>;
                   const action = d.action as string;
                   if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
@@ -1548,6 +1551,24 @@ export function useGenerate() {
               break;
             }
 
+            case "response_queue": {
+              const data = event.data as { characterIds?: unknown; characters?: Array<{ id?: unknown }> };
+              const rawIds = Array.isArray(data.characterIds)
+                ? data.characterIds
+                : Array.isArray(data.characters)
+                  ? data.characters.map((character) => character.id)
+                  : [];
+              const characterIds = rawIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+              setResponseQueue(params.chatId, characterIds);
+              break;
+            }
+
+            case "response_queue_failed": {
+              clearResponseQueue(params.chatId);
+              if (isActiveChat()) toast.warning("No response queue was created. Try triggering the response again.");
+              break;
+            }
+
             case "game_state":
             case "game_state_patch": {
               const patch = event.data as Record<string, unknown>;
@@ -1614,6 +1635,9 @@ export function useGenerate() {
             case "message_saved": {
               flushLeadingSpeakerPrefix();
               const savedMessage = event.data as Message;
+              if (savedMessage.role === "assistant") {
+                completeQueuedResponse(params.chatId, savedMessage.characterId);
+              }
               await qc.cancelQueries({ queryKey: chatKeys.messages(params.chatId), exact: true });
               persistedMessages.set(savedMessage.id, savedMessage);
               gameStatePatchAnchor = {
@@ -2152,6 +2176,9 @@ export function useGenerate() {
       clearThinkingBuffer,
       setRegenerateMessageId,
       setStreamingCharacterId,
+      setResponseQueue,
+      completeQueuedResponse,
+      clearResponseQueue,
       setTypingCharacterName,
       setDelayedCharacterInfo,
       setProcessing,
@@ -2249,7 +2276,7 @@ export function useGenerate() {
                   spriteChangeReceived = true;
                   qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
                 }
-                if (result.agentType === "spotify") {
+                if (result.resultType === "spotify_control") {
                   qc.invalidateQueries({ queryKey: ["spotify", "player"] });
                 }
               }
@@ -2295,8 +2322,8 @@ export function useGenerate() {
                   const choices = (d.choices as Array<{ label: string; text: string }>) ?? [];
                   if (isActiveChat()) setCyoaChoices(choices, chatId);
                 }
-                // YouTube DJ re-pick: drive the in-app player with the fresh intent.
-                if (result.agentType === "youtube" && isActiveChat()) {
+                // YouTube re-pick: drive the in-app player with the fresh intent.
+                if (result.resultType === "youtube_control" && isActiveChat()) {
                   const d = result.data as Record<string, unknown>;
                   const action = d.action as string;
                   if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
@@ -2588,9 +2615,9 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
 
     case "spotify": {
       const error = typeof d.error === "string" ? d.error.trim() : "";
-      if (error) return `🎵 Spotify DJ could not run: ${error}`;
+      if (error) return `🎵 Music DJ could not run: ${error}`;
       if (d.parseError === true) {
-        return "🎵 Spotify DJ ran, but did not return playable track details";
+        return "🎵 Music DJ ran, but did not return playable track details";
       }
       const action = d.action as string;
       const mood = (d.mood as string) ?? "";
@@ -2607,7 +2634,7 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
           if (display) return display;
           const queued = typeof d.queued === "number" && Number.isFinite(d.queued) ? d.queued : 0;
           if (queued > 1) return `🎵 Queued ${queued} Spotify tracks${mood ? `: ${mood}` : ""}`;
-          return mood ? `🎵 Spotify DJ started playback: ${mood}` : "🎵 Spotify DJ started playback";
+          return mood ? `🎵 Music DJ started playback: ${mood}` : "🎵 Music DJ started playback";
         }
         if (trackNames.length === 1) {
           return `🎵 ${trackNames[0]}${mood ? ` — ${mood}` : ""}`;
@@ -2623,8 +2650,8 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
 
     case "youtube": {
       const error = typeof d.error === "string" ? d.error.trim() : "";
-      if (error) return `🎵 YouTube DJ could not run: ${error}`;
-      if (d.parseError === true) return "🎵 YouTube DJ ran, but did not return a playable pick";
+      if (error) return `🎵 Music DJ could not run: ${error}`;
+      if (d.parseError === true) return "🎵 Music DJ ran, but did not return a playable pick";
       const action = d.action as string;
       const mood = (d.mood as string) ?? "";
       if (action === "none") return mood ? `🎵 Keeping current track — ${mood}` : "🎵 Keeping current track";

@@ -120,7 +120,10 @@ function SidecarCard() {
   const [expanded, setExpanded] = useState(false);
   const activeModelName = isDownloaded ? modelDisplayName : null;
   const backendLabel = config.backend === "mlx" ? "MLX" : "GGUF";
-  const trackerAgents = useMemo(() => BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker"), []);
+  const trackerAgents = useMemo(
+    () => BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker" && !agent.libraryHidden),
+    [],
+  );
   const trackerLocalCount = useMemo(() => {
     const configs = (agentConfigs ?? []) as Array<{ type: string; connectionId: string | null }>;
     const byType = new Map(configs.map((cfg) => [cfg.type, cfg.connectionId]));

@@ -171,6 +171,10 @@ function parseSettingsRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function musicAgentUsesYoutube(settings: Record<string, unknown> | null | undefined): boolean {
+  return settings?.musicProvider === "youtube" || settings?.musicPlayerSource === "youtube";
+}
+
 function getGameImageStylePrompt(chat: any, chatMeta: Record<string, unknown>): string {
   if (((chat as any).mode ?? "conversation") !== "game") return "";
   const setupConfig = parseSettingsRecord(chatMeta.gameSetupConfig);
@@ -590,7 +594,10 @@ async function buildRetryAgentContext(args: {
     }
   }
 
-  if (resolvedAgentTypes.has("youtube")) {
+  const spotifyRetryConfig = enabledConfigs.find((config) => config.type === "spotify");
+  const spotifyMusicUsesYoutube = musicAgentUsesYoutube(parseSettingsRecord(spotifyRetryConfig?.settings));
+
+  if (resolvedAgentTypes.has("youtube") || (resolvedAgentTypes.has("spotify") && spotifyMusicUsesYoutube)) {
     const mode = ((chat as any).mode ?? "conversation") as string;
     agentContext.memory._youtubeDjConstraints = {
       manualRetry: true,
@@ -598,12 +605,12 @@ async function buildRetryAgentContext(args: {
       mode,
       retryNote:
         mode === "game"
-          ? "This is a manual YouTube DJ retry from game mode. Pick a fresh fitting track now with action 'play' and a new searchQuery; do not keep the current track merely because it still fits."
-          : "This is a manual YouTube DJ retry. Pick a fresh fitting track now with action 'play' and a new searchQuery.",
+          ? "This is a manual Music DJ YouTube retry from game mode. Pick a fresh fitting track now with action 'play' and a new searchQuery; do not keep the current track merely because it still fits."
+          : "This is a manual Music DJ YouTube retry. Pick a fresh fitting track now with action 'play' and a new searchQuery.",
     };
   }
 
-  if (resolvedAgentTypes.has("spotify")) {
+  if (resolvedAgentTypes.has("spotify") && !spotifyMusicUsesYoutube) {
     const mode = ((chat as any).mode ?? "conversation") as string;
     agentContext.memory._spotifyDjConstraints = {
       ...buildSpotifyDjConstraints({
@@ -614,8 +621,8 @@ async function buildRetryAgentContext(args: {
       }),
       retryNote:
         mode === "game"
-          ? "This is a manual Spotify DJ retry from game mode. Pick a fresh fitting track now and call spotify_play unless Spotify playback is unavailable; do not keep the current track merely because it still fits."
-          : "This is a manual Spotify DJ retry from roleplay. Pick a fresh fitting queue now and call spotify_play unless Spotify playback is unavailable.",
+          ? "This is a manual Music DJ Spotify retry from game mode. Pick a fresh fitting track now and call spotify_play unless Spotify playback is unavailable; do not keep the current track merely because it still fits."
+          : "This is a manual Music DJ Spotify retry from roleplay. Pick a fresh fitting queue now and call spotify_play unless Spotify playback is unavailable.",
     };
   }
 
@@ -1140,7 +1147,7 @@ async function attachRetrySpotifyToolContexts(args: {
         }
         if (!spotifyAccessToken) {
           return JSON.stringify({
-            error: spotifyError ?? "Spotify is not connected. Open the Spotify DJ agent and connect your account.",
+            error: spotifyError ?? "Spotify is not connected. Open the Music DJ agent and connect your account.",
           });
         }
         if (call.function.name === "spotify_play") {
@@ -1322,7 +1329,7 @@ async function applyDeterministicSpotifyRetryFallback(args: {
   const picked = tracks.find((track) => track.uri !== currentUri) ?? tracks[0]!;
   const play = await executeSpotifyRetryToolJson(entry, "spotify_play", {
     uri: picked.uri,
-    reason: "Manual Spotify DJ retry fallback",
+    reason: "Manual Music DJ Spotify retry fallback",
   });
   if (play.applied !== true) {
     const playError = typeof play.error === "string" ? play.error : "Spotify play did not apply playback.";
@@ -1374,6 +1381,7 @@ async function validateSpotifyRetryPlayback(
   context: AgentContext,
 ): Promise<AgentResult> {
   if (entry.resolved.type !== "spotify") return result;
+  if (result.type !== "spotify_control") return result;
 
   const constraints =
     context.memory._spotifyDjConstraints && typeof context.memory._spotifyDjConstraints === "object"
@@ -1445,7 +1453,7 @@ async function validateSpotifyRetryPlayback(
         name: "spotify_play",
         arguments: JSON.stringify({
           uri: requestedTrackUri,
-          reason: "Manual Spotify DJ retry fallback",
+          reason: "Manual Music DJ Spotify retry fallback",
         }),
       },
     });
@@ -1503,7 +1511,7 @@ async function validateSpotifyRetryPlayback(
     error:
       typeof spotifyPlayError === "string" && spotifyPlayError.trim()
         ? spotifyPlayError
-        : "Spotify DJ retry finished without applying spotify_play.",
+        : "Music DJ Spotify retry finished without applying spotify_play.",
   };
 }
 
