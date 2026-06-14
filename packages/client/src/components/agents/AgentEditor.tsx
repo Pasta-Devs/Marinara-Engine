@@ -46,7 +46,6 @@ import {
   ChevronUp,
   ExternalLink,
   BookOpen,
-  Download,
   Upload,
   Loader2,
   ImageIcon,
@@ -1170,7 +1169,7 @@ export function AgentEditor() {
             onClick={handleExportAgent}
             className="flex items-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
           >
-            <Download size="0.8125rem" /> <span className="max-md:hidden">Export</span>
+            <Upload size="0.8125rem" /> <span className="max-md:hidden">Export</span>
           </button>
           <button
             onClick={handleSave}

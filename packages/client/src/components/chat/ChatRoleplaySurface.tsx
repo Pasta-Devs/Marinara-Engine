@@ -20,7 +20,6 @@ import {
 } from "@marinara-engine/shared";
 import {
   BookOpen,
-  FolderOpen,
   FileText,
   Image,
   Loader2,
@@ -817,7 +816,6 @@ type RoleplaySurfaceProps = {
   onForkScene: (sceneChatId: string, mode: SceneForkMode) => void;
   isForkingScene?: boolean;
   onOpenSettings: () => void;
-  onOpenFiles: () => void;
   onOpenGallery: () => void;
   onCloseSettings: () => void;
   onCloseFiles: () => void;
@@ -916,7 +914,6 @@ export function ChatRoleplaySurface({
   onForkScene,
   isForkingScene,
   onOpenSettings,
-  onOpenFiles,
   onOpenGallery,
   onCloseSettings,
   onCloseFiles,
@@ -1176,11 +1173,6 @@ export function ChatRoleplaySurface({
                       characterMap={characterMap}
                     />
                     <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                    <RpToolbarButton
-                      icon={<FolderOpen size="0.875rem" />}
-                      title="Manage Chat Files"
-                      onClick={onOpenFiles}
-                    />
                     <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                     {chat?.connectedChatId && (
                       <RpToolbarButton
@@ -1262,11 +1254,6 @@ export function ChatRoleplaySurface({
                           characterMap={characterMap}
                         />
                         <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                        <RpToolbarButton
-                          icon={<FolderOpen size="0.875rem" />}
-                          title="Manage Chat Files"
-                          onClick={onOpenFiles}
-                        />
                         <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                         {chat?.connectedChatId && (
                           <RpToolbarButton
@@ -1318,11 +1305,6 @@ export function ChatRoleplaySurface({
                         characterMap={characterMap}
                       />
                       <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                      <RpToolbarButton
-                        icon={<FolderOpen size="0.875rem" />}
-                        title="Manage Chat Files"
-                        onClick={onOpenFiles}
-                      />
                       <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                       {chat?.connectedChatId && (
                         <RpToolbarButton

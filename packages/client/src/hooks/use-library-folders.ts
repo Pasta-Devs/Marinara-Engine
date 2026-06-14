@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export type LibraryFolderScope = "lorebooks" | "presets";
+export type LibraryFolderScope = "lorebooks" | "presets" | "agents";
 
 export type LibraryFolder = {
   id: string;
@@ -38,7 +38,7 @@ function readFolders(): LibraryFolder[] {
       (folder): folder is LibraryFolder =>
         folder &&
         typeof folder === "object" &&
-        (folder.scope === "lorebooks" || folder.scope === "presets") &&
+        (folder.scope === "lorebooks" || folder.scope === "presets" || folder.scope === "agents") &&
         typeof folder.id === "string" &&
         typeof folder.name === "string" &&
         Array.isArray(folder.itemIds),
@@ -123,13 +123,26 @@ export function useDeleteLibraryFolder(scope: LibraryFolderScope) {
 export function useMoveLibraryItem(scope: LibraryFolderScope) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ itemId, folderId }: { itemId: string; folderId: string | null }) => {
+    mutationFn: async ({
+      itemId,
+      itemIds,
+      folderId,
+    }: {
+      itemId?: string;
+      itemIds?: string[];
+      folderId: string | null;
+    }) => {
+      const ids = Array.from(new Set(itemIds ?? (itemId ? [itemId] : [])));
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
       const now = new Date().toISOString();
       const folders = readFolders().map((folder) => {
         if (folder.scope !== scope) return folder;
-        const itemIds = folder.itemIds.filter((id) => id !== itemId);
-        if (folder.id === folderId) itemIds.push(itemId);
-        return { ...folder, itemIds, updatedAt: now };
+        const nextItemIds = folder.itemIds.filter((id) => !idSet.has(id));
+        if (folder.id === folderId) {
+          nextItemIds.push(...ids.filter((id) => !nextItemIds.includes(id)));
+        }
+        return { ...folder, itemIds: nextItemIds, updatedAt: now };
       });
       writeFolders(folders);
     },

@@ -567,7 +567,7 @@ export function ChatSettingsDrawer({
 
   // Build the available agent list: built-in + custom agents from DB
   // Mode capabilities decide which built-ins are exposed for each chat mode.
-  // Custom agents are currently roleplay/visual-novel only.
+  // Custom agents are user-authored and can be attached to any chat mode.
   const availableAgents = useMemo(() => {
     const agents: AvailableAgent[] = [];
     for (const a of BUILT_IN_AGENTS) {
@@ -586,7 +586,7 @@ export function ChatSettingsDrawer({
       });
     }
     // Custom agents from DB
-    if (agentConfigs && modeCapabilities.agentPolicy.kind === "all") {
+    if (agentConfigs) {
       for (const c of agentConfigs as AgentConfigRow[]) {
         if (isAgentConfigDeleted(c.settings)) continue;
         if (!BUILT_IN_AGENTS.some((b) => b.id === c.type)) {
@@ -602,7 +602,7 @@ export function ChatSettingsDrawer({
       }
     }
     return agents;
-  }, [agentConfigs, agentConfigsByType, chatMode, modeCapabilities.agentPolicy.kind]);
+  }, [agentConfigs, agentConfigsByType, chatMode]);
 
   // Estimate the per-turn cost of the active agent loadout — feeds the readout
   // in the agents picker header and the per-row token badges. Approximate; see
@@ -642,6 +642,10 @@ export function ChatSettingsDrawer({
   const lorebookKeeperActive = activeAgentIds.includes("lorebook-keeper");
   const expressionActive = activeAgentIds.includes("expression");
   const hapticActive = activeAgentIds.includes("haptic");
+  const activeCustomAgents = useMemo(
+    () => availableAgents.filter((agent) => agent.category === "custom" && activeAgentIds.includes(agent.id)),
+    [activeAgentIds, availableAgents],
+  );
   const lorebookKeeperTargetLorebookId =
     typeof metadata.lorebookKeeperTargetLorebookId === "string" ? metadata.lorebookKeeperTargetLorebookId : "";
   const lorebookKeeperReadBehindMessages = normalizeNonNegativeInteger(
@@ -1286,8 +1290,16 @@ export function ChatSettingsDrawer({
   const [groupScenarioDraft, setGroupScenarioDraft] = useState((metadata.groupScenarioText as string) ?? "");
   const [groupScenarioExpanded, setGroupScenarioExpanded] = useState(false);
   const gameAgentPool = useMemo(
-    () => Array.from(new Set(activeAgentIds.filter((id) => id !== "spotify" && id !== "lorebook-keeper"))),
-    [activeAgentIds],
+    () =>
+      Array.from(
+        new Set(
+          activeAgentIds.filter((id) => {
+            const agent = availableAgents.find((entry) => entry.id === id);
+            return id !== "spotify" && id !== "lorebook-keeper" && agent?.category !== "custom";
+          }),
+        ),
+      ),
+    [activeAgentIds, availableAgents],
   );
   const [extraPromptDraft, setExtraPromptDraft] = useState((metadata.gameExtraPrompt as string) ?? "");
   const [extraPromptExpanded, setExtraPromptExpanded] = useState(false);
@@ -1753,8 +1765,8 @@ export function ChatSettingsDrawer({
       {/* Backdrop */}
       <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
 
-      {/* Drawer */}
-      <div className="absolute right-0 top-0 z-50 flex h-full min-h-0 w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:pt-[env(safe-area-inset-top)]">
+      {/* Floating panel */}
+      <div className="absolute bottom-3 right-3 top-14 z-50 flex min-h-0 w-[min(34rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:inset-x-2 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h3 className="text-sm font-bold">Chat Settings</h3>
@@ -1880,7 +1892,7 @@ export function ChatSettingsDrawer({
                 title="Import preset (.json)"
                 className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
               >
-                <Upload size="0.875rem" />
+                <Download size="0.875rem" />
               </button>
               <button
                 onClick={handleExportPreset}
@@ -1888,7 +1900,7 @@ export function ChatSettingsDrawer({
                 title="Export preset (.json)"
                 className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <Download size="0.875rem" />
+                <Upload size="0.875rem" />
               </button>
               <button
                 onClick={handleDeletePreset}
@@ -3196,6 +3208,37 @@ export function ChatSettingsDrawer({
                             </button>
                           );
                         })}
+                        {(() => {
+                          const inactiveCustom = availableAgents.filter(
+                            (agent) => agent.category === "custom" && !activeAgentIds.includes(agent.id),
+                          );
+                          if (inactiveCustom.length === 0) return null;
+                          return (
+                            <div className="mt-2 rounded-lg bg-[var(--background)]/55 p-2 ring-1 ring-[var(--border)]">
+                              <div className="mb-1.5 flex items-center gap-1.5 px-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                                <Settings2 size="0.6875rem" />
+                                Custom Agents
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                {inactiveCustom.map((agent) => (
+                                  <button
+                                    key={agent.id}
+                                    onClick={() => openAgentAddModal(agent)}
+                                    className="flex items-center gap-2.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                                  >
+                                    <Plus size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                                    <div className="min-w-0 flex-1">
+                                      <span className="block truncate text-xs">{agent.name}</span>
+                                      <span className="mt-0.5 block text-[0.625rem] leading-tight text-[var(--muted-foreground)] line-clamp-2">
+                                        {agent.description}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -3650,6 +3693,40 @@ export function ChatSettingsDrawer({
                     />
                   </div>
                 </button>
+                {/* Manual trackers toggle — directly under Enable Agents in roleplay/conversation modes */}
+                {metadata.enableAgents && !isGame && (
+                  <button
+                    onClick={() => updateMeta.mutate({ id: chat.id, manualTrackers: !metadata.manualTrackers })}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                      metadata.manualTrackers
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <div>
+                      <span className="text-[0.6875rem] font-medium">Manual Trackers</span>
+                      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                        {metadata.manualTrackers
+                          ? "Trackers won't run automatically — use the button in the HUD to trigger them."
+                          : "Trackers run automatically after every generation."}
+                      </p>
+                    </div>
+                    <div
+                      className={cn(
+                        "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors shrink-0",
+                        metadata.manualTrackers ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                          metadata.manualTrackers && "translate-x-3.5",
+                        )}
+                      />
+                    </div>
+                  </button>
+                )}
                 {isGame && metadata.enableAgents && (
                   <div className="mt-1.5 px-3">
                     <select
@@ -4330,39 +4407,66 @@ export function ChatSettingsDrawer({
                   </div>
                 )}
 
-                {/* Manual trackers toggle — not for game mode */}
-                {metadata.enableAgents && !isGame && (
-                  <button
-                    onClick={() => updateMeta.mutate({ id: chat.id, manualTrackers: !metadata.manualTrackers })}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.manualTrackers
-                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-                    )}
-                  >
-                    <div>
-                      <span className="text-[0.6875rem] font-medium">Manual Trackers</span>
-                      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        {metadata.manualTrackers
-                          ? "Trackers won't run automatically — use the button in the HUD to trigger them."
-                          : "Trackers run automatically after every generation."}
-                      </p>
+                {metadata.enableAgents && activeCustomAgents.length > 0 && (
+                  <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
+                    <div className="flex items-start gap-2">
+                      <Settings2 size="0.75rem" className="mt-0.5 text-[var(--primary)]" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[0.6875rem] font-medium">Custom Agents</div>
+                        <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                          Configure custom agents currently attached to this chat.
+                        </p>
+                      </div>
                     </div>
-                    <div
-                      className={cn(
-                        "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors shrink-0",
-                        metadata.manualTrackers ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                          metadata.manualTrackers && "translate-x-3.5",
-                        )}
-                      />
+                    <div className="space-y-1.5">
+                      {activeCustomAgents.map((agent) => {
+                        const tokenEst = agentLoadCost.tokensByType.get(agent.id);
+                        const promptOptions = getPromptOptionsForAgent(agent.id);
+                        return (
+                          <div
+                            key={agent.id}
+                            className="rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]"
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex min-w-0 items-center gap-1.5">
+                                  <span className="block min-w-0 truncate text-xs font-medium">{agent.name}</span>
+                                  {tokenEst != null ? (
+                                    <span
+                                      className="shrink-0 tabular-nums text-[0.625rem] text-[var(--muted-foreground)]"
+                                      title={`~${tokenEst.toLocaleString()} tokens of agent instructions (estimated)`}
+                                    >
+                                      ~{tokenEst.toLocaleString()}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <span className="mt-0.5 block text-[0.625rem] leading-tight text-[var(--muted-foreground)] line-clamp-2">
+                                  {agent.description}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  void toggleAgent(agent.id);
+                                }}
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                                title="Remove from chat"
+                              >
+                                <Trash2 size="0.6875rem" />
+                              </button>
+                            </div>
+                            <AgentPromptTemplateSelect
+                              options={promptOptions}
+                              selectedId={agentPromptTemplateSelections[agent.id] ?? DEFAULT_AGENT_PROMPT_TEMPLATE_ID}
+                              onChange={(promptTemplateId) =>
+                                updateAgentPromptTemplateSelection(agent.id, promptTemplateId)
+                              }
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
-                  </button>
+                  </div>
                 )}
 
                 {/* Love Toys Control — not for game mode */}
@@ -4837,63 +4941,16 @@ export function ChatSettingsDrawer({
                         {(() => {
                           const customAgents = availableAgents.filter((a) => a.category === "custom");
                           if (customAgents.length === 0) return null;
-                          const activeCustom = customAgents.filter((a) => activeAgentIds.includes(a.id));
+                          const activeCustomCount = customAgents.filter((a) => activeAgentIds.includes(a.id)).length;
                           const inactiveCustom = customAgents.filter((a) => !activeAgentIds.includes(a.id));
                           return (
                             <AgentCategorySection
                               label="Custom Agents"
                               icon={<Settings2 size="0.75rem" />}
-                              description="Your custom-created agents."
-                              count={activeCustom.length}
+                              description="Add your custom-created agents to this chat."
+                              count={activeCustomCount}
                             >
-                              {activeCustom.length > 0 && (
-                                <div className="flex flex-col gap-1 mb-1.5">
-                                  {activeCustom.map((agent) => {
-                                    const tokenEst = agentLoadCost.tokensByType.get(agent.id);
-                                    const promptOptions = getPromptOptionsForAgent(agent.id);
-                                    return (
-                                      <div
-                                        key={agent.id}
-                                        className="rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-                                      >
-                                        <div className="flex items-center gap-2.5">
-                                          <Sparkles size="0.875rem" className="text-[var(--primary)]" />
-                                          <div className="flex-1 min-w-0">
-                                            <span className="block truncate text-xs">{agent.name}</span>
-                                          </div>
-                                          {tokenEst != null ? (
-                                            <span
-                                              className="shrink-0 tabular-nums text-[0.625rem] text-[var(--muted-foreground)]"
-                                              title={`~${tokenEst.toLocaleString()} tokens of agent instructions (estimated)`}
-                                            >
-                                              ~{tokenEst.toLocaleString()}
-                                            </span>
-                                          ) : null}
-                                          <button
-                                            onClick={() => {
-                                              void toggleAgent(agent.id);
-                                            }}
-                                            className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                                            title="Remove from chat"
-                                          >
-                                            <Trash2 size="0.6875rem" />
-                                          </button>
-                                        </div>
-                                        <AgentPromptTemplateSelect
-                                          options={promptOptions}
-                                          selectedId={
-                                            agentPromptTemplateSelections[agent.id] ?? DEFAULT_AGENT_PROMPT_TEMPLATE_ID
-                                          }
-                                          onChange={(promptTemplateId) =>
-                                            updateAgentPromptTemplateSelection(agent.id, promptTemplateId)
-                                          }
-                                        />
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              {inactiveCustom.length > 0 && (
+                              {inactiveCustom.length > 0 ? (
                                 <div className="flex flex-col gap-1">
                                   {inactiveCustom.map((agent) => (
                                     <button
@@ -4911,6 +4968,10 @@ export function ChatSettingsDrawer({
                                     </button>
                                   ))}
                                 </div>
+                              ) : (
+                                <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1">
+                                  All custom agents are active. Configure them below the other agent menus.
+                                </p>
                               )}
                             </AgentCategorySection>
                           );
@@ -5549,7 +5610,7 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
               title="Export memories"
               aria-label="Export memories"
             >
-              <Download size="0.8125rem" />
+              <Upload size="0.8125rem" />
             </button>
             <button
               type="button"
@@ -5559,7 +5620,7 @@ function MemoryRecallMemoriesModal({ chatId, open, onClose }: { chatId: string; 
               title="Import memories"
               aria-label="Import memories"
             >
-              <Upload size="0.8125rem" />
+              <Download size="0.8125rem" />
             </button>
             <button
               type="button"

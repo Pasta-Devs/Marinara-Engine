@@ -2137,7 +2137,6 @@ export function ChatArea() {
           onForkScene={forkScene}
           isForkingScene={isForking || isStreaming}
           onOpenSettings={() => setSettingsOpen(true)}
-          onOpenFiles={() => setFilesOpen(true)}
           onOpenGallery={() => setGalleryOpen(true)}
           onCloseSettings={() => setSettingsOpen(false)}
           onCloseFiles={() => setFilesOpen(false)}

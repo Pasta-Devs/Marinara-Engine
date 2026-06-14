@@ -5230,7 +5230,7 @@ function AdvancedSettings() {
               </>
             ) : (
               <>
-                <Download size="0.8125rem" />
+                <Upload size="0.8125rem" />
                 Export Profile
               </>
             )}

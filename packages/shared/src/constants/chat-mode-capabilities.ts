@@ -6,6 +6,7 @@
 // instead of scattering mode checks across large components.
 
 import type { ChatMode } from "../types/chat.js";
+import { BUILT_IN_AGENTS } from "../types/agent.js";
 
 export type ChatParticipantModel = "chat-participants" | "game-party";
 
@@ -113,6 +114,8 @@ export const GAME_AGENT_IDS = [
   "combat",
 ] as const;
 
+const BUILT_IN_AGENT_ID_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
+
 export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
   conversation: {
     mode: "conversation",
@@ -203,6 +206,7 @@ export function getChatModeCapabilities(mode: ChatMode | null | undefined): Chat
 export function isAgentAvailableInChatMode(mode: ChatMode | null | undefined, agentId: string): boolean {
   const policy = getChatModeCapabilities(mode).agentPolicy;
   if (policy.kind === "all") return true;
+  if (!BUILT_IN_AGENT_ID_SET.has(agentId)) return true;
   return policy.allowedAgentIds.includes(agentId);
 }
 
