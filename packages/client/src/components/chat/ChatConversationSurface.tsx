@@ -35,8 +35,10 @@ type ConversationSurfaceProps = {
   connectedChatName?: string;
   sceneInfo?: SceneInfo;
   settingsOpen: boolean;
+  settingsAnchor: ComponentProps<typeof ChatCommonOverlays>["settingsAnchor"];
   filesOpen: boolean;
   galleryOpen: boolean;
+  galleryAnchor: ComponentProps<typeof ChatCommonOverlays>["galleryAnchor"];
   wizardOpen: boolean;
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
@@ -56,9 +58,9 @@ type ConversationSurfaceProps = {
   onSwitchChat?: () => void;
   onConcludeScene?: () => void;
   onAbandonScene?: () => void;
-  onOpenSettings: () => void;
+  onOpenSettings: ComponentProps<typeof ConversationView>["onOpenSettings"];
   onOpenFiles: () => void;
-  onOpenGallery: () => void;
+  onOpenGallery: ComponentProps<typeof ConversationView>["onOpenGallery"];
   onCloseSettings: () => void;
   onCloseFiles: () => void;
   onCloseGallery: () => void;
@@ -98,8 +100,10 @@ export function ChatConversationSurface({
   connectedChatName,
   sceneInfo,
   settingsOpen,
+  settingsAnchor,
   filesOpen,
   galleryOpen,
+  galleryAnchor,
   wizardOpen,
   peekPromptData,
   deleteDialogMessageId,
@@ -186,8 +190,10 @@ export function ChatConversationSurface({
         chat={chat}
         activeChatId={activeChatId}
         settingsOpen={settingsOpen}
+        settingsAnchor={settingsAnchor}
         filesOpen={filesOpen}
         galleryOpen={galleryOpen}
+        galleryAnchor={galleryAnchor}
         wizardOpen={wizardOpen}
         peekPromptData={peekPromptData}
         deleteDialogMessageId={deleteDialogMessageId}

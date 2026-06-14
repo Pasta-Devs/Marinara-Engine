@@ -1,7 +1,16 @@
 // ──────────────────────────────────────────────
 // Game: Main Surface (rendered by ChatArea when mode === "game")
 // ──────────────────────────────────────────────
-import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import { useGameModeStore } from "../../stores/game-mode.store";
@@ -1777,7 +1786,7 @@ interface GameSurfaceProps {
   }>;
   personaInfo?: PersonaInfo;
   chatBackground?: string | null;
-  onOpenSettings: () => void;
+  onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
   onDeleteMessage: (messageId: string) => void;
   multiSelectMode?: boolean;
   selectedMessageIds?: Set<string>;
@@ -2020,6 +2029,7 @@ export function GameSurface({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryAnchor, setGalleryAnchor] = useState<{ right: number; top: number } | null>(null);
   const [combatLogsOpen, setCombatLogsOpen] = useState(false);
   const [spotifyRetryPending, setSpotifyRetryPending] = useState(false);
   const [youtubeRetryPending, setYoutubeRetryPending] = useState(false);
@@ -2033,6 +2043,25 @@ export function GameSurface({
   const [prepareInitialWidgetsOpen, setPrepareInitialWidgetsOpen] = useState(false);
   const [savingSessionSummary, setSavingSessionSummary] = useState<number | null>(null);
   const [savingCurrentSessionSecrets, setSavingCurrentSessionSecrets] = useState(false);
+  const readFloatingPanelAnchor = useCallback((event?: ReactMouseEvent<HTMLElement>) => {
+    if (!event || typeof window === "undefined" || window.innerWidth < 768) return null;
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      right: Math.max(12, Math.round(window.innerWidth - rect.right)),
+      top: Math.max(56, Math.round(rect.bottom + 8)),
+    };
+  }, []);
+  const handleOpenGalleryPanel = useCallback(
+    (event?: ReactMouseEvent<HTMLElement>) => {
+      setGalleryAnchor(readFloatingPanelAnchor(event));
+      setGalleryOpen(true);
+    },
+    [readFloatingPanelAnchor],
+  );
+  const handleCloseGalleryPanel = useCallback(() => {
+    setGalleryOpen(false);
+    setGalleryAnchor(null);
+  }, []);
   const [activeChoices, setActiveChoices] = useState<string[] | null>(null);
   const [activeQte, setActiveQte] = useState<{ actions: string[]; timer: number } | null>(null);
   const [queuedQte, setQueuedQte] = useState<{ qte: { actions: string[]; timer: number }; messageId: string } | null>(
@@ -8171,7 +8200,7 @@ export function GameSurface({
                     )}
                   </div>
                   <button
-                    onClick={() => setGalleryOpen(true)}
+                    onClick={handleOpenGalleryPanel}
                     className={GAME_TOP_ICON_BUTTON}
                     title="Gallery"
                   >
@@ -8387,8 +8416,8 @@ export function GameSurface({
                           )}
                         </div>
                         <button
-                          onClick={() => {
-                            setGalleryOpen(true);
+                          onClick={(event) => {
+                            handleOpenGalleryPanel(event);
                             setMobileActionsOpen(false);
                           }}
                           className={GAME_MOBILE_ICON_BUTTON}
@@ -8488,8 +8517,8 @@ export function GameSurface({
                           )}
                         </div>
                         <button
-                          onClick={() => {
-                            onOpenSettings();
+                          onClick={(event) => {
+                            onOpenSettings(event);
                             setMobileActionsOpen(false);
                           }}
                           className={GAME_MOBILE_ICON_BUTTON}
@@ -9115,7 +9144,8 @@ export function GameSurface({
               <ChatGalleryDrawer
                 chat={chat}
                 open={galleryOpen}
-                onClose={() => setGalleryOpen(false)}
+                onClose={handleCloseGalleryPanel}
+                anchor={galleryAnchor}
                 onIllustrate={() => retryAgents(activeChatId, ["illustrator"])}
               />
 

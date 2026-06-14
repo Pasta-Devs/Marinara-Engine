@@ -9,6 +9,7 @@ import {
   useState,
   type ComponentProps,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -295,7 +296,7 @@ function RpToolbarButton({
 }: {
   icon: ReactNode;
   title: string;
-  onClick: () => void;
+  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   size?: "sm";
 }) {
   return (
@@ -782,8 +783,10 @@ type RoleplaySurfaceProps = {
   totalMessageCount: number;
   lastAssistantMessageId: string | null;
   settingsOpen: boolean;
+  settingsAnchor: ComponentProps<typeof ChatCommonOverlays>["settingsAnchor"];
   filesOpen: boolean;
   galleryOpen: boolean;
+  galleryAnchor: ComponentProps<typeof ChatCommonOverlays>["galleryAnchor"];
   wizardOpen: boolean;
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
@@ -815,8 +818,8 @@ type RoleplaySurfaceProps = {
   onAbandonScene: () => void;
   onForkScene: (sceneChatId: string, mode: SceneForkMode) => void;
   isForkingScene?: boolean;
-  onOpenSettings: () => void;
-  onOpenGallery: () => void;
+  onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
+  onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
   onCloseSettings: () => void;
   onCloseFiles: () => void;
   onCloseGallery: () => void;
@@ -880,8 +883,10 @@ export function ChatRoleplaySurface({
   totalMessageCount,
   lastAssistantMessageId,
   settingsOpen,
+  settingsAnchor,
   filesOpen,
   galleryOpen,
+  galleryAnchor,
   wizardOpen,
   peekPromptData,
   deleteDialogMessageId,
@@ -1545,8 +1550,10 @@ export function ChatRoleplaySurface({
         chat={chat}
         activeChatId={activeChatId}
         settingsOpen={settingsOpen}
+        settingsAnchor={settingsAnchor}
         filesOpen={filesOpen}
         galleryOpen={galleryOpen}
+        galleryAnchor={galleryAnchor}
         wizardOpen={wizardOpen}
         peekPromptData={peekPromptData}
         deleteDialogMessageId={deleteDialogMessageId}

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type CSSProperties } from "react";
 import { useQuery, useQueryClient, useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -46,6 +46,12 @@ import {
   EyeOff,
   Music2,
 } from "lucide-react";
+import {
+  ROLEPLAY_POPOVER_HEADER,
+  ROLEPLAY_POPOVER_SCROLL_AREA,
+  ROLEPLAY_POPOVER_SHELL,
+  ROLEPLAY_POPOVER_TITLE,
+} from "./roleplay-popover-styles";
 import { PickerDropdown } from "../../features/chat-settings/PickerDropdown";
 import { ChatSettingsSection as Section } from "../../features/chat-settings/ChatSettingsSection";
 import { AdvancedParametersSection } from "../../features/chat-settings/sections/AdvancedParametersSection";
@@ -174,6 +180,7 @@ interface ChatSettingsDrawerProps {
   chat: Chat;
   open: boolean;
   onClose: () => void;
+  anchor?: { right: number; top: number } | null;
   spriteArrangeMode?: boolean;
   onToggleSpriteArrange?: () => void;
   onResetSpritePlacements?: () => void;
@@ -308,6 +315,7 @@ export function ChatSettingsDrawer({
   chat,
   open,
   onClose,
+  anchor,
   spriteArrangeMode = false,
   onToggleSpriteArrange,
   onResetSpritePlacements,
@@ -1759,17 +1767,29 @@ export function ChatSettingsDrawer({
   };
 
   if (!open) return null;
+  const panelStyle: CSSProperties | undefined = anchor
+    ? { right: `${anchor.right}px`, top: `${anchor.top}px` }
+    : undefined;
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="fixed inset-0 z-[65] bg-transparent" onClick={onClose} />
 
       {/* Floating panel */}
-      <div className="absolute bottom-3 right-3 top-14 z-50 flex min-h-0 w-[min(34rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:inset-x-2 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto">
+      <div
+        className={cn(
+          ROLEPLAY_POPOVER_SHELL,
+          "fixed bottom-3 z-[70] flex min-h-0 w-[min(34rem,calc(100vw-1.5rem))] flex-col overflow-hidden max-md:inset-x-2 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto",
+          anchor ? "" : "right-3 top-14",
+        )}
+        style={panelStyle}
+      >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <h3 className="text-sm font-bold">Chat Settings</h3>
+        <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex shrink-0 items-center justify-between")}>
+          <h3 className={ROLEPLAY_POPOVER_TITLE}>
+            <Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
+            Chat Settings
+          </h3>
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
@@ -1778,7 +1798,12 @@ export function ChatSettingsDrawer({
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div
+          className={cn(
+            ROLEPLAY_POPOVER_SCROLL_AREA,
+            "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]",
+          )}
+        >
         {/* Chat Settings Preset bar — hidden in Game Mode and scene chats. */}
         {modeCapabilities.supportsChatSettingsPresets && !isSceneChat && (
           <div

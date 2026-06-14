@@ -13,6 +13,7 @@ import {
   useMemo,
   useState,
   type ReactNode,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -69,9 +70,9 @@ interface ConversationViewProps {
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: () => void;
   lastAssistantMessageId: string | null;
-  onOpenSettings: () => void;
+  onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
   onOpenFiles: () => void;
-  onOpenGallery: () => void;
+  onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
   multiSelectMode?: boolean;
   selectedMessageIds?: Set<string>;
   onToggleSelectMessage?: (toggle: MessageSelectionToggle) => void;
