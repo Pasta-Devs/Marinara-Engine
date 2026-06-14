@@ -13,7 +13,7 @@ export function DiscordMirrorControls({ webhookUrl, onWebhookUrlChange }: Discor
     trimmedWebhookUrl.length > 0 && !/^https:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/[\w-]+$/.test(trimmedWebhookUrl);
 
   return (
-    <div className="space-y-2 border-t border-[var(--border)]/70 pt-2.5">
+    <div className="space-y-2 pt-2.5">
       <input
         id={webhookInputId}
         type="url"

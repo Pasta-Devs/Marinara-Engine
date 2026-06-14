@@ -86,7 +86,7 @@ export function AdvancedParametersSection({
             showOpenRouterServiceTier={conn?.provider === "openrouter"}
             onChange={setParameters}
           />
-          <div className="space-y-2 border-t border-[var(--border)] pt-3">
+          <div className="space-y-2 pt-3">
             <button
               type="button"
               aria-pressed={Boolean(contextMessageLimit)}
