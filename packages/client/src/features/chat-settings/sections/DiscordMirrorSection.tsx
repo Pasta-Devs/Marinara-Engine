@@ -1,5 +1,4 @@
 import { useId } from "react";
-import { Globe } from "lucide-react";
 
 interface DiscordMirrorControlsProps {
   webhookUrl: string;
@@ -15,14 +14,6 @@ export function DiscordMirrorControls({ webhookUrl, onWebhookUrlChange }: Discor
 
   return (
     <div className="space-y-2 border-t border-[var(--border)]/70 pt-2.5">
-      <div className="flex items-center gap-1.5 text-xs font-semibold">
-        <Globe size="0.75rem" className="text-[var(--muted-foreground)]" />
-        <span>Discord Mirror</span>
-      </div>
-      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        Paste a Discord webhook URL to mirror this chat's messages to a channel. Character messages appear under their
-        name, and game narration/party messages use simple speaker labels.
-      </p>
       <input
         id={webhookInputId}
         type="url"
