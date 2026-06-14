@@ -1,10 +1,16 @@
 import type { CharacterData, DiscordBridgeChatContext, DiscordBridgeSetupOptions } from "@marinara-engine/shared";
+import type { PersonaCardData } from "../embeds/persona-card.embed.js";
 import type { EditableCharacterField } from "./character-card-fields.js";
 
 export interface MarinaraCharacterRow {
   id: string;
   data: CharacterData | string;
   comment: string;
+  avatarPath: string | null;
+  updatedAt: string;
+}
+
+export interface MarinaraPersonaRow extends PersonaCardData {
   avatarPath: string | null;
   updatedAt: string;
 }
@@ -51,6 +57,10 @@ export async function getCharacterById(serverUrl: string, characterId: string) {
     ...row,
     data: typeof row.data === "string" ? (JSON.parse(row.data) as CharacterData) : row.data,
   };
+}
+
+export function getPersonaById(serverUrl: string, personaId: string) {
+  return getJson<MarinaraPersonaRow>(serverUrl, `/api/characters/personas/${encodeURIComponent(personaId)}`);
 }
 
 export async function updateCharacterFields(

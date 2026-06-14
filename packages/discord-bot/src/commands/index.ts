@@ -1,8 +1,9 @@
 import { REST, Routes } from "discord.js";
 import { logger } from "../core/logger.js";
 import { charactersCommand } from "./characters.js";
+import { personasCommand } from "./personas.js";
 
-export const commands = [charactersCommand];
+export const commands = [charactersCommand, personasCommand];
 
 export async function syncGuildCommands(token: string, clientId: string, guildId: string) {
   const rest = new REST({ version: "10" }).setToken(token);

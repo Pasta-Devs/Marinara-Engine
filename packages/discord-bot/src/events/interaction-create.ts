@@ -12,11 +12,21 @@ import {
   buildCharacterDetailComponents,
   buildCharacterListComponents,
 } from "../components/character-list.components.js";
-import { getBridgeSetupOptions, getCharacterById, updateCharacterFields } from "../core/marinara-api.js";
+import {
+  PERSONA_BACK_CUSTOM_ID,
+  PERSONA_CLOSE_CUSTOM_ID,
+  PERSONA_PAGE_SELECT_CUSTOM_ID,
+  PERSONA_SELECT_CUSTOM_ID,
+  buildPersonaDetailComponents,
+  buildPersonaListComponents,
+} from "../components/persona-list.components.js";
+import { getBridgeSetupOptions, getCharacterById, getPersonaById, updateCharacterFields } from "../core/marinara-api.js";
 import { logger } from "../core/logger.js";
 import { commands } from "../commands/index.js";
 import { CHARACTER_CARD_PAGES, buildCharacterCardEmbed, type CharacterCardPage } from "../embeds/character-card.embed.js";
 import { buildCharacterListEmbed } from "../embeds/character-list.embed.js";
+import { PERSONA_CARD_PAGES, buildPersonaCardEmbed, type PersonaCardPage } from "../embeds/persona-card.embed.js";
+import { buildPersonaListEmbed } from "../embeds/persona-list.embed.js";
 import {
   applyCharacterFieldUpdates,
   getCharacterFieldValue,
@@ -25,6 +35,7 @@ import {
 } from "../core/character-card-fields.js";
 
 const CHARACTER_PAGE_SELECT_PREFIX = `${CHARACTER_PAGE_SELECT_CUSTOM_ID}:`;
+const PERSONA_PAGE_SELECT_PREFIX = `${PERSONA_PAGE_SELECT_CUSTOM_ID}:`;
 const CHARACTER_EDIT_PREFIX = `${CHARACTER_EDIT_CUSTOM_ID}:`;
 const CHARACTER_SAVE_PREFIX = `${CHARACTER_SAVE_CUSTOM_ID}:`;
 const CHARACTER_EDIT_MODAL_PREFIX = `${CHARACTER_EDIT_MODAL_CUSTOM_ID}:`;
@@ -34,6 +45,10 @@ const characterDrafts = new Map<string, Partial<Record<EditableCharacterField, s
 
 function isCharacterCardPage(value: string): value is CharacterCardPage {
   return CHARACTER_CARD_PAGES.includes(value as CharacterCardPage);
+}
+
+function isPersonaCardPage(value: string): value is PersonaCardPage {
+  return PERSONA_CARD_PAGES.includes(value as PersonaCardPage);
 }
 
 function draftKey(userId: string, characterId: string, page: CharacterCardPage) {
@@ -86,6 +101,15 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         return;
       }
 
+      if (interaction.isButton() && interaction.customId === PERSONA_CLOSE_CUSTOM_ID) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({ content: "Only the configured Marinara Discord owner can close this.", ephemeral: true });
+          return;
+        }
+        await interaction.message.delete();
+        return;
+      }
+
       if (interaction.isButton() && interaction.customId === CHARACTER_BACK_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
           await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", ephemeral: true });
@@ -95,6 +119,21 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         await interaction.update({
           embeds: [buildCharacterListEmbed(setup.characters)],
           components: buildCharacterListComponents(setup.characters),
+          content: null,
+          attachments: [],
+        });
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId === PERSONA_BACK_CUSTOM_ID) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", ephemeral: true });
+          return;
+        }
+        const setup = await getBridgeSetupOptions(config.serverUrl);
+        await interaction.update({
+          embeds: [buildPersonaListEmbed(setup.personas)],
+          components: buildPersonaListComponents(setup.personas),
           content: null,
           attachments: [],
         });
@@ -216,6 +255,30 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         return;
       }
 
+      if (interaction.isStringSelectMenu() && interaction.customId === PERSONA_SELECT_CUSTOM_ID) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", ephemeral: true });
+          return;
+        }
+
+        const selectedId = interaction.values[0];
+        if (!selectedId || selectedId === "none") return;
+        const setup = await getBridgeSetupOptions(config.serverUrl);
+        const persona = setup.personas.find((candidate) => candidate.id === selectedId);
+        if (!persona) {
+          await interaction.reply({ content: "Persona not found.", ephemeral: true });
+          return;
+        }
+        const fullPersona = await getPersonaById(config.serverUrl, persona.id);
+        await interaction.update({
+          embeds: [buildPersonaCardEmbed({ persona: fullPersona, page: "description" })],
+          components: buildPersonaDetailComponents(fullPersona.id, "description"),
+          content: null,
+          attachments: [],
+        });
+        return;
+      }
+
       if (interaction.isStringSelectMenu() && interaction.customId.startsWith(CHARACTER_PAGE_SELECT_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
           await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", ephemeral: true });
@@ -243,6 +306,30 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
             }),
           ],
           components: buildCharacterDetailComponents(fullCharacter.id, page, Object.keys(draft).length > 0),
+          content: null,
+          attachments: [],
+        });
+        return;
+      }
+
+      if (interaction.isStringSelectMenu() && interaction.customId.startsWith(PERSONA_PAGE_SELECT_PREFIX)) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", ephemeral: true });
+          return;
+        }
+
+        const page = interaction.values[0];
+        if (!page || !isPersonaCardPage(page)) {
+          await interaction.reply({ content: "Persona page not found.", ephemeral: true });
+          return;
+        }
+
+        const encodedPersonaId = interaction.customId.slice(PERSONA_PAGE_SELECT_PREFIX.length);
+        const personaId = decodeURIComponent(encodedPersonaId);
+        const fullPersona = await getPersonaById(config.serverUrl, personaId);
+        await interaction.update({
+          embeds: [buildPersonaCardEmbed({ persona: fullPersona, page })],
+          components: buildPersonaDetailComponents(fullPersona.id, page),
           content: null,
           attachments: [],
         });
