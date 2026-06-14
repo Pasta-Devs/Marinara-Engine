@@ -28,6 +28,8 @@ const THINKING_TAG_CONTENT_PLACEHOLDER = "{{thinking}}";
 const PARAM_CHOICE_ACTIVE_CLASS = "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30";
 const PARAM_CHOICE_IDLE_CLASS =
   "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]";
+const PARAM_TEXTAREA_CLASS =
+  "mt-1 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/60 focus:outline-none focus:ring-[var(--ring)]";
 
 export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   temperature: 1,
@@ -211,7 +213,7 @@ export function GenerationParametersFields({
             value={value.assistantPrefill}
             onChange={(e) => set("assistantPrefill", e.target.value)}
             rows={3}
-            className="mt-1 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/60 focus:outline-none focus:ring-[var(--ring)]"
+            className={PARAM_TEXTAREA_CLASS}
             placeholder="<thinking>"
           />
         </div>
@@ -357,15 +359,15 @@ function ThinkingTagsInput({
         }}
         rows={2}
         spellCheck={false}
-        className="mt-1 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/60 focus:outline-none focus:ring-[var(--ring)]"
+        className={PARAM_TEXTAREA_CLASS}
         placeholder={focused ? "" : `<thinking>${THINKING_TAG_CONTENT_PLACEHOLDER}</thinking>`}
       />
       {error ? (
         <p className="mt-1 text-[0.5625rem] text-amber-500">{error}</p>
       ) : (
         <p className="mt-1 text-[0.5625rem] text-[var(--muted-foreground)]/70">
-          One wrapper per line. {THINKING_TAG_CONTENT_PLACEHOLDER} will be replaced by any content between the
-          specified tags.
+          One wrapper per line. {THINKING_TAG_CONTENT_PLACEHOLDER} will be replaced by any content between the specified
+          tags.
         </p>
       )}
     </div>
@@ -396,7 +398,10 @@ function parseThinkingTagsDraft(draft: string): { ok: true; value: ThinkingTagPa
     const open = line.slice(0, separatorIndex).trim();
     const close = line.slice(separatorIndex + THINKING_TAG_CONTENT_PLACEHOLDER.length).trim();
     if (!open || !close) {
-      return { ok: false, error: `Both opening and closing tags are required around ${THINKING_TAG_CONTENT_PLACEHOLDER}.` };
+      return {
+        ok: false,
+        error: `Both opening and closing tags are required around ${THINKING_TAG_CONTENT_PLACEHOLDER}.`,
+      };
     }
     pairs.push({ open, close });
   }
@@ -461,7 +466,7 @@ function CustomParametersInput({
         }}
         rows={3}
         spellCheck={false}
-        className="mt-1 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/60 focus:outline-none focus:ring-[var(--ring)]"
+        className={PARAM_TEXTAREA_CLASS}
         placeholder={focused ? "" : '{ "thinking": true }'}
       />
       {error ? (
