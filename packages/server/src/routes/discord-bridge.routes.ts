@@ -37,6 +37,8 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
 
     const updates = Array.isArray(req.body?.updates) ? req.body.updates : [];
     if (updates.length === 0) return reply.status(400).send({ error: "No field updates provided" });
+    const textUpdates = parseTextFieldUpdates(updates, isSupportedCharacterField);
+    if ("error" in textUpdates) return reply.status(400).send({ error: textUpdates.error });
 
     let currentData: CharacterData;
     try {
@@ -48,11 +50,7 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
     const nextData = { ...currentData };
     const nextExtensions = { ...(currentData.extensions ?? {}) };
 
-    for (const update of updates) {
-      if (typeof update.field !== "string" || typeof update.value !== "string") {
-        return reply.status(400).send({ error: "Each field update requires a string field and value" });
-      }
-
+    for (const update of textUpdates.updates) {
       if (isCharacterExtensionTextField(update.field)) {
         (nextExtensions as Record<string, unknown>)[update.field] = update.value;
         continue;
@@ -60,10 +58,7 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
 
       if (isCharacterTopLevelTextField(update.field)) {
         (nextData as Record<string, unknown>)[update.field] = update.value;
-        continue;
       }
-
-      return reply.status(400).send({ error: `Unsupported character field: ${update.field}` });
     }
 
     nextData.extensions = nextExtensions;
@@ -73,6 +68,28 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
       mergeExtensions: false,
     });
     if (!updated) return reply.status(404).send({ error: "Character not found" });
+    return updated;
+  });
+
+  app.patch<{
+    Params: { personaId: string };
+    Body: { updates?: Array<{ field?: string; value?: unknown }> };
+  }>("/personas/:personaId/fields", async (req, reply) => {
+    const persona = await charactersStorage.getPersona(req.params.personaId);
+    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+
+    const updates = Array.isArray(req.body?.updates) ? req.body.updates : [];
+    if (updates.length === 0) return reply.status(400).send({ error: "No field updates provided" });
+    const textUpdates = parseTextFieldUpdates(updates, isPersonaTextField);
+    if ("error" in textUpdates) return reply.status(400).send({ error: textUpdates.error });
+
+    const nextUpdates: Record<string, string> = {};
+    for (const update of textUpdates.updates) {
+      nextUpdates[update.field] = update.value;
+    }
+
+    const updated = await charactersStorage.updatePersona(req.params.personaId, nextUpdates);
+    if (!updated) return reply.status(404).send({ error: "Persona not found" });
     return updated;
   });
 }
@@ -99,4 +116,31 @@ function isCharacterTopLevelTextField(field: string): field is keyof CharacterDa
 
 function isCharacterExtensionTextField(field: string) {
   return CHARACTER_EXTENSION_TEXT_FIELDS.has(field);
+}
+
+const PERSONA_TEXT_FIELDS = new Set(["description", "personality", "backstory", "appearance", "scenario"]);
+
+function isSupportedCharacterField(field: string) {
+  return isCharacterTopLevelTextField(field) || isCharacterExtensionTextField(field);
+}
+
+function isPersonaTextField(field: string) {
+  return PERSONA_TEXT_FIELDS.has(field);
+}
+
+function parseTextFieldUpdates(
+  updates: Array<{ field?: string; value?: unknown }>,
+  isSupportedField: (field: string) => boolean,
+): { updates: Array<{ field: string; value: string }> } | { error: string } {
+  const parsed: Array<{ field: string; value: string }> = [];
+  for (const update of updates) {
+    if (typeof update.field !== "string" || typeof update.value !== "string") {
+      return { error: "Each field update requires a string field and value" };
+    }
+    if (!isSupportedField(update.field)) {
+      return { error: `Unsupported field: ${update.field}` };
+    }
+    parsed.push({ field: update.field, value: update.value });
+  }
+  return { updates: parsed };
 }

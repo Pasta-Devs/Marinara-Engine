@@ -15,12 +15,22 @@ import {
 import {
   PERSONA_BACK_CUSTOM_ID,
   PERSONA_CLOSE_CUSTOM_ID,
+  PERSONA_EDIT_CUSTOM_ID,
+  PERSONA_EDIT_MODAL_CUSTOM_ID,
   PERSONA_PAGE_SELECT_CUSTOM_ID,
+  PERSONA_SAVE_CUSTOM_ID,
   PERSONA_SELECT_CUSTOM_ID,
+  buildPersonaEditModalCustomId,
   buildPersonaDetailComponents,
   buildPersonaListComponents,
 } from "../components/persona-list.components.js";
-import { getBridgeSetupOptions, getCharacterById, getPersonaById, updateCharacterFields } from "../core/marinara-api.js";
+import {
+  getBridgeSetupOptions,
+  getCharacterById,
+  getPersonaById,
+  updateCharacterFields,
+  updatePersonaFields,
+} from "../core/marinara-api.js";
 import { logger } from "../core/logger.js";
 import { commands } from "../commands/index.js";
 import { CHARACTER_CARD_PAGES, buildCharacterCardEmbed, type CharacterCardPage } from "../embeds/character-card.embed.js";
@@ -33,15 +43,26 @@ import {
   getEditableFieldsForPage,
   type EditableCharacterField,
 } from "../core/character-card-fields.js";
+import {
+  applyPersonaFieldUpdates,
+  getEditablePersonaFieldsForPage,
+  getPersonaFieldValue,
+  type EditablePersonaField,
+} from "../core/persona-card-fields.js";
 
 const CHARACTER_PAGE_SELECT_PREFIX = `${CHARACTER_PAGE_SELECT_CUSTOM_ID}:`;
 const PERSONA_PAGE_SELECT_PREFIX = `${PERSONA_PAGE_SELECT_CUSTOM_ID}:`;
 const CHARACTER_EDIT_PREFIX = `${CHARACTER_EDIT_CUSTOM_ID}:`;
 const CHARACTER_SAVE_PREFIX = `${CHARACTER_SAVE_CUSTOM_ID}:`;
 const CHARACTER_EDIT_MODAL_PREFIX = `${CHARACTER_EDIT_MODAL_CUSTOM_ID}:`;
+const PERSONA_EDIT_PREFIX = `${PERSONA_EDIT_CUSTOM_ID}:`;
+const PERSONA_SAVE_PREFIX = `${PERSONA_SAVE_CUSTOM_ID}:`;
+const PERSONA_EDIT_MODAL_PREFIX = `${PERSONA_EDIT_MODAL_CUSTOM_ID}:`;
 const MODAL_VALUE_LIMIT = 4000;
 
 const characterDrafts = new Map<string, Partial<Record<EditableCharacterField, string>>>();
+const personaDrafts = new Map<string, Partial<Record<EditablePersonaField, string>>>();
+type DraftMap<T extends string> = Partial<Record<T, string>>;
 
 function isCharacterCardPage(value: string): value is CharacterCardPage {
   return CHARACTER_CARD_PAGES.includes(value as CharacterCardPage);
@@ -51,16 +72,28 @@ function isPersonaCardPage(value: string): value is PersonaCardPage {
   return PERSONA_CARD_PAGES.includes(value as PersonaCardPage);
 }
 
-function draftKey(userId: string, characterId: string, page: CharacterCardPage) {
+function characterDraftKey(userId: string, characterId: string, page: CharacterCardPage) {
   return `${userId}:${characterId}:${page}`;
 }
 
+function personaDraftKey(userId: string, personaId: string, page: PersonaCardPage) {
+  return `${userId}:${personaId}:${page}`;
+}
+
 function getDraft(userId: string, characterId: string, page: CharacterCardPage) {
-  return characterDrafts.get(draftKey(userId, characterId, page)) ?? {};
+  return characterDrafts.get(characterDraftKey(userId, characterId, page)) ?? {};
+}
+
+function getPersonaDraft(userId: string, personaId: string, page: PersonaCardPage) {
+  return personaDrafts.get(personaDraftKey(userId, personaId, page)) ?? {};
 }
 
 function hasDraft(userId: string, characterId: string, page: CharacterCardPage) {
-  return Object.keys(getDraft(userId, characterId, page)).length > 0;
+  return hasDraftValues(getDraft(userId, characterId, page));
+}
+
+function hasPersonaDraft(userId: string, personaId: string, page: PersonaCardPage) {
+  return hasDraftValues(getPersonaDraft(userId, personaId, page));
 }
 
 function parseCharacterPageAction(customId: string, prefix: string) {
@@ -74,12 +107,44 @@ function parseCharacterPageAction(customId: string, prefix: string) {
   return { characterId, page };
 }
 
+function parsePersonaPageAction(customId: string, prefix: string) {
+  const raw = customId.slice(prefix.length);
+  const pageSeparator = raw.lastIndexOf(":");
+  if (pageSeparator === -1) return null;
+
+  const personaId = decodeURIComponent(raw.slice(0, pageSeparator));
+  const page = raw.slice(pageSeparator + 1);
+  if (!personaId || !isPersonaCardPage(page)) return null;
+  return { personaId, page };
+}
+
 function truncateModalValue(value: string) {
   return value.length <= MODAL_VALUE_LIMIT ? value : value.slice(0, MODAL_VALUE_LIMIT);
 }
 
-function draftAsUpdateArray(updates: Partial<Record<EditableCharacterField, string>>) {
-  return Object.entries(updates).map(([field, value]) => ({ field: field as EditableCharacterField, value: value ?? "" }));
+function hasDraftValues<T extends string>(updates: DraftMap<T>) {
+  return Object.keys(updates).length > 0;
+}
+
+function draftAsUpdateArray<T extends string>(updates: DraftMap<T>) {
+  return (Object.entries(updates) as Array<[T, string | undefined]>).map(([field, value]) => ({ field, value: value ?? "" }));
+}
+
+function buildTextInputRow(input: {
+  customId: string;
+  label: string;
+  style: TextInputStyle;
+  value: string;
+}) {
+  return new ActionRowBuilder<TextInputBuilder>().addComponents(
+    new TextInputBuilder()
+      .setCustomId(input.customId)
+      .setLabel(input.label)
+      .setStyle(input.style)
+      .setRequired(false)
+      .setMaxLength(MODAL_VALUE_LIMIT)
+      .setValue(truncateModalValue(input.value)),
+  );
 }
 
 export function registerInteractionCreateEvent(client: Client, config: DiscordBridgeConfig) {
@@ -167,15 +232,46 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
         for (const field of fields) {
           modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(
-              new TextInputBuilder()
-                .setCustomId(field.field)
-                .setLabel(field.label)
-                .setStyle(field.style === "paragraph" ? TextInputStyle.Paragraph : TextInputStyle.Short)
-                .setRequired(false)
-                .setMaxLength(MODAL_VALUE_LIMIT)
-                .setValue(truncateModalValue(getCharacterFieldValue(draftData, field.field))),
-            ),
+            buildTextInputRow({
+              customId: field.field,
+              label: field.label,
+              style: field.style === "paragraph" ? TextInputStyle.Paragraph : TextInputStyle.Short,
+              value: getCharacterFieldValue(draftData, field.field),
+            }),
+          );
+        }
+
+        await interaction.showModal(modal);
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId.startsWith(PERSONA_EDIT_PREFIX)) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({ content: "Only the configured Marinara Discord owner can edit this.", ephemeral: true });
+          return;
+        }
+
+        const parsed = parsePersonaPageAction(interaction.customId, PERSONA_EDIT_PREFIX);
+        if (!parsed) {
+          await interaction.reply({ content: "Persona edit target not found.", ephemeral: true });
+          return;
+        }
+
+        const fullPersona = await getPersonaById(config.serverUrl, parsed.personaId);
+        const draft = getPersonaDraft(interaction.user.id, parsed.personaId, parsed.page);
+        const draftPersona = applyPersonaFieldUpdates(fullPersona, draft);
+        const modal = new ModalBuilder()
+          .setCustomId(buildPersonaEditModalCustomId(parsed.personaId, parsed.page))
+          .setTitle(`Edit ${parsed.page}`);
+
+        for (const field of getEditablePersonaFieldsForPage(parsed.page)) {
+          modal.addComponents(
+            buildTextInputRow({
+              customId: field.field,
+              label: field.label,
+              style: TextInputStyle.Paragraph,
+              value: getPersonaFieldValue(draftPersona, field.field),
+            }),
           );
         }
 
@@ -195,9 +291,9 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           return;
         }
 
-        const key = draftKey(interaction.user.id, parsed.characterId, parsed.page);
+        const key = characterDraftKey(interaction.user.id, parsed.characterId, parsed.page);
         const draft = characterDrafts.get(key);
-        if (!draft || Object.keys(draft).length === 0) {
+        if (!draft || !hasDraftValues(draft)) {
           await interaction.reply({ content: "No edits to save.", ephemeral: true });
           return;
         }
@@ -214,6 +310,36 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
             }),
           ],
           components: buildCharacterDetailComponents(updated.id, parsed.page, false),
+          content: null,
+          attachments: [],
+        });
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId.startsWith(PERSONA_SAVE_PREFIX)) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({ content: "Only the configured Marinara Discord owner can save this.", ephemeral: true });
+          return;
+        }
+
+        const parsed = parsePersonaPageAction(interaction.customId, PERSONA_SAVE_PREFIX);
+        if (!parsed) {
+          await interaction.reply({ content: "Persona save target not found.", ephemeral: true });
+          return;
+        }
+
+        const key = personaDraftKey(interaction.user.id, parsed.personaId, parsed.page);
+        const draft = personaDrafts.get(key);
+        if (!draft || !hasDraftValues(draft)) {
+          await interaction.reply({ content: "No edits to save.", ephemeral: true });
+          return;
+        }
+
+        const updated = await updatePersonaFields(config.serverUrl, parsed.personaId, draftAsUpdateArray(draft));
+        personaDrafts.delete(key);
+        await interaction.update({
+          embeds: [buildPersonaCardEmbed({ persona: updated, page: parsed.page })],
+          components: buildPersonaDetailComponents(updated.id, parsed.page, false),
           content: null,
           attachments: [],
         });
@@ -272,7 +398,11 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         const fullPersona = await getPersonaById(config.serverUrl, persona.id);
         await interaction.update({
           embeds: [buildPersonaCardEmbed({ persona: fullPersona, page: "description" })],
-          components: buildPersonaDetailComponents(fullPersona.id, "description"),
+          components: buildPersonaDetailComponents(
+            fullPersona.id,
+            "description",
+            hasPersonaDraft(interaction.user.id, fullPersona.id, "description"),
+          ),
           content: null,
           attachments: [],
         });
@@ -305,7 +435,7 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
               comment: fullCharacter.comment,
             }),
           ],
-          components: buildCharacterDetailComponents(fullCharacter.id, page, Object.keys(draft).length > 0),
+          components: buildCharacterDetailComponents(fullCharacter.id, page, hasDraftValues(draft)),
           content: null,
           attachments: [],
         });
@@ -327,9 +457,11 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         const encodedPersonaId = interaction.customId.slice(PERSONA_PAGE_SELECT_PREFIX.length);
         const personaId = decodeURIComponent(encodedPersonaId);
         const fullPersona = await getPersonaById(config.serverUrl, personaId);
+        const draft = getPersonaDraft(interaction.user.id, fullPersona.id, page);
+        const displayPersona = applyPersonaFieldUpdates(fullPersona, draft);
         await interaction.update({
-          embeds: [buildPersonaCardEmbed({ persona: fullPersona, page })],
-          components: buildPersonaDetailComponents(fullPersona.id, page),
+          embeds: [buildPersonaCardEmbed({ persona: displayPersona, page })],
+          components: buildPersonaDetailComponents(fullPersona.id, page, hasDraftValues(draft)),
           content: null,
           attachments: [],
         });
@@ -357,8 +489,8 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           }
         }
 
-        const key = draftKey(interaction.user.id, parsed.characterId, parsed.page);
-        if (Object.keys(updates).length > 0) {
+        const key = characterDraftKey(interaction.user.id, parsed.characterId, parsed.page);
+        if (hasDraftValues(updates)) {
           characterDrafts.set(key, updates);
         } else {
           characterDrafts.delete(key);
@@ -380,7 +512,51 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
               comment: fullCharacter.comment,
             }),
           ],
-          components: buildCharacterDetailComponents(fullCharacter.id, parsed.page, Object.keys(updates).length > 0),
+          components: buildCharacterDetailComponents(fullCharacter.id, parsed.page, hasDraftValues(updates)),
+          content: null,
+          attachments: [],
+        });
+        return;
+      }
+
+      if (interaction.isModalSubmit() && interaction.customId.startsWith(PERSONA_EDIT_MODAL_PREFIX)) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({ content: "Only the configured Marinara Discord owner can submit this edit.", ephemeral: true });
+          return;
+        }
+
+        const parsed = parsePersonaPageAction(interaction.customId, PERSONA_EDIT_MODAL_PREFIX);
+        if (!parsed) {
+          await interaction.reply({ content: "Persona edit target not found.", ephemeral: true });
+          return;
+        }
+
+        const fullPersona = await getPersonaById(config.serverUrl, parsed.personaId);
+        const updates: Partial<Record<EditablePersonaField, string>> = {};
+        for (const field of getEditablePersonaFieldsForPage(parsed.page)) {
+          const nextValue = interaction.fields.getTextInputValue(field.field);
+          if (nextValue !== getPersonaFieldValue(fullPersona, field.field)) {
+            updates[field.field] = nextValue;
+          }
+        }
+
+        const key = personaDraftKey(interaction.user.id, parsed.personaId, parsed.page);
+        if (hasDraftValues(updates)) {
+          personaDrafts.set(key, updates);
+        } else {
+          personaDrafts.delete(key);
+        }
+
+        const displayPersona = applyPersonaFieldUpdates(fullPersona, updates);
+        if (!interaction.message) {
+          await interaction.reply({ content: "Persona message not found.", ephemeral: true });
+          return;
+        }
+
+        await interaction.deferUpdate();
+        await interaction.message.edit({
+          embeds: [buildPersonaCardEmbed({ persona: displayPersona, page: parsed.page })],
+          components: buildPersonaDetailComponents(fullPersona.id, parsed.page, hasDraftValues(updates)),
           content: null,
           attachments: [],
         });
