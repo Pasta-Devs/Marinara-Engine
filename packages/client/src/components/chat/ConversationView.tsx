@@ -21,7 +21,6 @@ import {
   Loader2,
   ChevronUp,
   Settings2,
-  FolderOpen,
   Image as ImageIcon,
   ArrowRightLeft,
   MoreHorizontal,
@@ -71,8 +70,8 @@ interface ConversationViewProps {
   onPeekPrompt: () => void;
   lastAssistantMessageId: string | null;
   onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
-  onOpenFiles: () => void;
   onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
+  onBranch?: (messageId: string) => void;
   multiSelectMode?: boolean;
   selectedMessageIds?: Set<string>;
   onToggleSelectMessage?: (toggle: MessageSelectionToggle) => void;
@@ -329,8 +328,8 @@ export function ConversationView({
   onPeekPrompt,
   lastAssistantMessageId,
   onOpenSettings,
-  onOpenFiles,
   onOpenGallery,
+  onBranch,
   multiSelectMode,
   selectedMessageIds,
   onToggleSelectMessage,
@@ -367,7 +366,10 @@ export function ConversationView({
   // us hide draft rows immediately so the real updated message shows without a flash.
   const streamHadContentRef = useRef(false);
   useEffect(() => {
-    if (!hasLiveStream) { streamHadContentRef.current = false; return; }
+    if (!hasLiveStream) {
+      streamHadContentRef.current = false;
+      return;
+    }
     if (streamBuffer || thinkingBuffer) streamHadContentRef.current = true;
   }, [hasLiveStream, streamBuffer, thinkingBuffer]);
   const isStreamWindingDown =
@@ -427,6 +429,7 @@ export function ConversationView({
         activeChatId={chatId}
         activeChatName={chatName}
         groupId={chatGroupId}
+        variant="roleplay"
         compact={compact}
         className={
           compact ? "bg-transparent text-foreground/80 hover:bg-[var(--accent)] hover:text-foreground" : undefined
@@ -444,9 +447,6 @@ export function ConversationView({
       ) : (
         <ActiveLorebookEntriesButton chatId={chatId} buttonClassName={HEADER_BTN} />
       )}
-      <button onClick={onOpenFiles} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Manage Chat Files">
-        <FolderOpen size="0.875rem" />
-      </button>
       <button onClick={onOpenGallery} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Gallery">
         <ImageIcon size="0.875rem" />
       </button>
@@ -523,7 +523,15 @@ export function ConversationView({
     if (isOptimistic || (isNearBottomRef.current && !userScrolledAwayRef.current)) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [newestMsgId, streamBuffer, thinkingBuffer, hasLiveStream, delayedCharacterInfo, typingCharacterName, isOptimistic]);
+  }, [
+    newestMsgId,
+    streamBuffer,
+    thinkingBuffer,
+    hasLiveStream,
+    delayedCharacterInfo,
+    typingCharacterName,
+    isOptimistic,
+  ]);
 
   // Preserve scroll on load-more
   useLayoutEffect(() => {
@@ -617,7 +625,11 @@ export function ConversationView({
         const otherTime = new Date(other.createdAt).getTime();
         const timeGap = currentIsAfterOther ? currentTime - otherTime : otherTime - currentTime;
         if (timeGap > TIME_GAP_MS) return false;
-        if (current.role !== other.role || current.characterId !== other.characterId || getDayKey(other.createdAt) !== day) {
+        if (
+          current.role !== other.role ||
+          current.characterId !== other.characterId ||
+          getDayKey(other.createdAt) !== day
+        ) {
           return false;
         }
         const currentHiddenFromAI = getMessageExtraRecord(current).hiddenFromAI === true;
@@ -700,7 +712,14 @@ export function ConversationView({
         thinking: thinkingBuffer || null,
       },
     };
-  }, [chatId, conversationMessageStyle, liveStreamCharacterId, shouldRenderLiveStreamMessage, streamBuffer, thinkingBuffer]);
+  }, [
+    chatId,
+    conversationMessageStyle,
+    liveStreamCharacterId,
+    shouldRenderLiveStreamMessage,
+    streamBuffer,
+    thinkingBuffer,
+  ]);
 
   const buildStreamingBubblePreview = useCallback(
     (content: string, characterId: string | null) => {
@@ -737,7 +756,10 @@ export function ConversationView({
     hasLiveStream && conversationMessageStyle === "bubble" && !delayedCharacterInfo
       ? `${chatId}:${regenerateMessageId ?? "new"}:${liveStreamCharacterId ?? "assistant"}`
       : null;
-  const [streamingBubbleDraft, setStreamingBubbleDraft] = useState<{ key: string; text: string }>({ key: "", text: "" });
+  const [streamingBubbleDraft, setStreamingBubbleDraft] = useState<{ key: string; text: string }>({
+    key: "",
+    text: "",
+  });
 
   useEffect(() => {
     if (!streamingDraftKey) {
@@ -892,7 +914,9 @@ export function ConversationView({
           if (useUIStore.getState().convoNotificationSound) {
             playNotificationPing();
           }
-          staggerTimersRef.current[key] = (staggerTimersRef.current[key] ?? []).filter((activeTimer) => activeTimer !== timer);
+          staggerTimersRef.current[key] = (staggerTimersRef.current[key] ?? []).filter(
+            (activeTimer) => activeTimer !== timer,
+          );
           if (partIndex === count) {
             staggerTimersRef.current[key]?.forEach(clearTimeout);
             delete staggerTimersRef.current[key];
@@ -1081,9 +1105,7 @@ export function ConversationView({
             return (
               <div key={item.key} className="relative my-4 flex items-center px-4">
                 <div className="flex-1 border-t border-[var(--border)]/40" />
-                <span className="mx-4 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                  {item.label}
-                </span>
+                <span className="mx-4 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">{item.label}</span>
                 <div className="flex-1 border-t border-[var(--border)]/40" />
               </div>
             );
@@ -1097,34 +1119,36 @@ export function ConversationView({
           // illustration doesn't linger while new text is streaming in. Bubble
           // regeneration keeps the real message stable and renders a separate
           // presentation-only draft row below it.
-          const displayMsg = isRegenerating && !isBubbleRegenerating
-            ? (() => {
-                const parsed = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
-                return {
-                  ...msg,
-                  content: streamBuffer || (thinkingBuffer ? "Thinking..." : msg.content),
-                  extra: { ...parsed, attachments: null, thinking: thinkingBuffer || parsed.thinking },
-                };
-              })()
-            : msg;
+          const displayMsg =
+            isRegenerating && !isBubbleRegenerating
+              ? (() => {
+                  const parsed = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
+                  return {
+                    ...msg,
+                    content: streamBuffer || (thinkingBuffer ? "Thinking..." : msg.content),
+                    extra: { ...parsed, attachments: null, thinking: thinkingBuffer || parsed.thinking },
+                  };
+                })()
+              : msg;
           const contentParts = isRegenerating ? undefined : item.contentParts;
           const visiblePartCount = contentParts ? (visiblePartCounts[item.key] ?? contentParts.length) : undefined;
           const originalContent = displayMsg.content !== msg.content ? msg.content : undefined;
-          const regenerationDraftMessage = isBubbleRegenerating && !isStreamWindingDown
-            ? ({
-                ...msg,
-                id: `__conversation_regeneration_stream__${msg.id}`,
-                content: "",
-                activeSwipeIndex: 0,
-                swipeCount: 0,
-                extra: {
-                  ...(typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {})),
-                  attachments: null,
-                  displayText: null,
-                  thinking: thinkingBuffer || null,
-                },
-              } as Message)
-            : null;
+          const regenerationDraftMessage =
+            isBubbleRegenerating && !isStreamWindingDown
+              ? ({
+                  ...msg,
+                  id: `__conversation_regeneration_stream__${msg.id}`,
+                  content: "",
+                  activeSwipeIndex: 0,
+                  swipeCount: 0,
+                  extra: {
+                    ...(typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {})),
+                    attachments: null,
+                    displayText: null,
+                    thinking: thinkingBuffer || null,
+                  },
+                } as Message)
+              : null;
 
           return (
             <Fragment key={item.key}>
@@ -1149,6 +1173,7 @@ export function ConversationView({
                 isSelected={selectedMessageIds?.has(msg.id)}
                 onToggleSelect={onToggleSelectMessage}
                 hasDraftInput={hasDraftInput}
+                onBranch={onBranch}
                 messageStyle={conversationMessageStyle}
                 contentParts={contentParts}
                 visiblePartCount={visiblePartCount}

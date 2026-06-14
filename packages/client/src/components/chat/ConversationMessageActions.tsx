@@ -1,7 +1,19 @@
 // ──────────────────────────────────────────────
 // Hover action bar — floats above the message row
 // ──────────────────────────────────────────────
-import { Brain, Copy, Eye, EyeOff, Languages, Pencil, RefreshCw, ScrollText, Search, Trash2 } from "lucide-react";
+import {
+  Brain,
+  Copy,
+  Eye,
+  EyeOff,
+  GitBranch,
+  Languages,
+  Pencil,
+  RefreshCw,
+  ScrollText,
+  Search,
+  Trash2,
+} from "lucide-react";
 import type { MessageExtra } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { MsgAction } from "./ConversationMessageShared";
@@ -29,6 +41,7 @@ export interface ConversationMessageActionsProps {
   onTranslate: () => void;
   onEdit: () => void;
   onRegenerate?: () => void;
+  onBranch?: () => void;
   onToggleHiddenFromAI?: () => void;
   onPeekPrompt?: () => void;
   onDelete?: () => void;
@@ -54,6 +67,7 @@ export function ConversationMessageActions({
   onTranslate,
   onEdit,
   onRegenerate,
+  onBranch,
   onToggleHiddenFromAI,
   onPeekPrompt,
   onDelete,
@@ -103,8 +117,16 @@ export function ConversationMessageActions({
       {isLastAssistantMessage && !isUser && onPeekPrompt && (
         <MsgAction icon={<Search size="0.75rem" />} onClick={onPeekPrompt} title="Peek prompt" tabIndex={tabIdx} />
       )}
+      {onBranch && (
+        <MsgAction icon={<GitBranch size="0.75rem" />} onClick={onBranch} title="Branch from here" tabIndex={tabIdx} />
+      )}
       {generationReplay && (
-        <MsgAction icon={<ScrollText size="0.75rem" />} onClick={onShowGenerationReplay} title="Stored guidance" tabIndex={tabIdx} />
+        <MsgAction
+          icon={<ScrollText size="0.75rem" />}
+          onClick={onShowGenerationReplay}
+          title="Stored guidance"
+          tabIndex={tabIdx}
+        />
       )}
       {thinking && !isUser && (
         <MsgAction icon={<Brain size="0.75rem" />} onClick={onShowThinking} title="View thoughts" tabIndex={tabIdx} />

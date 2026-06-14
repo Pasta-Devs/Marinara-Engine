@@ -7925,12 +7925,16 @@ export async function generateRoutes(app: FastifyInstance) {
                         const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
                         const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
                         const imageSettings = await loadImageGenerationUserSettings(app.db);
-                        const styleProfileId =
+                        const configuredStyleProfileId =
                           ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.imageStyleProfileId as
                             | string
                             | undefined) ??
                           (chatMeta.imageStyleProfileId as string | undefined) ??
                           null;
+                        const styleProfileId =
+                          typeof configuredStyleProfileId === "string" && configuredStyleProfileId.trim()
+                            ? configuredStyleProfileId.trim()
+                            : imageSettings.styleProfiles.defaultProfileId;
 
                         // Parse per-chat selfie resolution, otherwise use the global selfie canvas.
                         const selfieRes = (chatMeta.selfieResolution as string) ?? "";

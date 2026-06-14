@@ -36,7 +36,6 @@ type ConversationSurfaceProps = {
   sceneInfo?: SceneInfo;
   settingsOpen: boolean;
   settingsAnchor: ComponentProps<typeof ChatCommonOverlays>["settingsAnchor"];
-  filesOpen: boolean;
   galleryOpen: boolean;
   galleryAnchor: ComponentProps<typeof ChatCommonOverlays>["galleryAnchor"];
   wizardOpen: boolean;
@@ -54,15 +53,14 @@ type ConversationSurfaceProps = {
   onSetActiveSwipe: (messageId: string, index: number) => void;
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: () => void;
+  onBranch?: (messageId: string) => void;
   onToggleSelectMessage: (toggle: MessageSelectionToggle) => void;
   onSwitchChat?: () => void;
   onConcludeScene?: () => void;
   onAbandonScene?: () => void;
   onOpenSettings: ComponentProps<typeof ConversationView>["onOpenSettings"];
-  onOpenFiles: () => void;
   onOpenGallery: ComponentProps<typeof ConversationView>["onOpenGallery"];
   onCloseSettings: () => void;
-  onCloseFiles: () => void;
   onCloseGallery: () => void;
   onIllustrate?: () => void;
   onWizardFinish: () => void;
@@ -101,7 +99,6 @@ export function ChatConversationSurface({
   sceneInfo,
   settingsOpen,
   settingsAnchor,
-  filesOpen,
   galleryOpen,
   galleryAnchor,
   wizardOpen,
@@ -119,15 +116,14 @@ export function ChatConversationSurface({
   onSetActiveSwipe,
   onToggleHiddenFromAI,
   onPeekPrompt,
+  onBranch,
   onToggleSelectMessage,
   onSwitchChat,
   onConcludeScene,
   onAbandonScene,
   onOpenSettings,
-  onOpenFiles,
   onOpenGallery,
   onCloseSettings,
-  onCloseFiles,
   onCloseGallery,
   onIllustrate,
   onWizardFinish,
@@ -173,8 +169,8 @@ export function ChatConversationSurface({
           onPeekPrompt={onPeekPrompt}
           lastAssistantMessageId={lastAssistantMessageId}
           onOpenSettings={onOpenSettings}
-          onOpenFiles={onOpenFiles}
           onOpenGallery={onOpenGallery}
+          onBranch={onBranch}
           multiSelectMode={multiSelectMode}
           selectedMessageIds={selectedMessageIds}
           onToggleSelectMessage={onToggleSelectMessage}
@@ -191,7 +187,7 @@ export function ChatConversationSurface({
         activeChatId={activeChatId}
         settingsOpen={settingsOpen}
         settingsAnchor={settingsAnchor}
-        filesOpen={filesOpen}
+        filesOpen={false}
         galleryOpen={galleryOpen}
         galleryAnchor={galleryAnchor}
         wizardOpen={wizardOpen}
@@ -209,7 +205,7 @@ export function ChatConversationSurface({
           onSpriteSideChange,
         }}
         onCloseSettings={onCloseSettings}
-        onCloseFiles={onCloseFiles}
+        onCloseFiles={() => undefined}
         onCloseGallery={onCloseGallery}
         onIllustrate={onIllustrate}
         onWizardFinish={onWizardFinish}

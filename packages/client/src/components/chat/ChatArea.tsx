@@ -2044,7 +2044,6 @@ export function ChatArea() {
             sceneInfo={conversationSceneInfo}
             settingsOpen={settingsOpen}
             settingsAnchor={settingsAnchor}
-            filesOpen={filesOpen}
             galleryOpen={galleryOpen}
             galleryAnchor={galleryAnchor}
             wizardOpen={wizardOpen}
@@ -2062,15 +2061,14 @@ export function ChatArea() {
             onSetActiveSwipe={handleSetActiveSwipe}
             onToggleHiddenFromAI={handleToggleHiddenFromAI}
             onPeekPrompt={handlePeekPrompt}
+            onBranch={isSceneChat ? undefined : handleBranch}
             onToggleSelectMessage={handleToggleSelectMessage}
             onSwitchChat={chat?.connectedChatId ? () => setActiveChatId(chat.connectedChatId!) : undefined}
             onConcludeScene={chatMeta.sceneStatus === "active" ? () => concludeScene(activeChatId) : undefined}
             onAbandonScene={chatMeta.sceneStatus === "active" ? () => abandonScene(activeChatId) : undefined}
             onOpenSettings={handleOpenSettingsPanel}
-            onOpenFiles={() => setFilesOpen(true)}
             onOpenGallery={handleOpenGalleryPanel}
             onCloseSettings={handleCloseSettingsPanel}
-            onCloseFiles={() => setFilesOpen(false)}
             onCloseGallery={handleCloseGalleryPanel}
             onWizardFinish={() => {
               setWizardOpen(false);

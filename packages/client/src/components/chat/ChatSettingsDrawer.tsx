@@ -3338,7 +3338,7 @@ export function ChatSettingsDrawer({
                       onChange={(e) => updateMeta.mutate({ id: chat.id, imageStyleProfileId: e.target.value || null })}
                       className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
                     >
-                      <option value="">Use global or connection default</option>
+                      <option value="">Use default style from Style Profiles in Advanced settings</option>
                       {imageStyleProfiles.profiles.map((profile) => (
                         <option key={profile.id} value={profile.id}>
                           {profile.name}
