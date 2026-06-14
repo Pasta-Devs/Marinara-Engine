@@ -412,9 +412,56 @@ function tryParseJsonColumn(row: Row, key: string): unknown {
   }
 }
 
+function toBooleanText(value: unknown): unknown {
+  if (typeof value === "boolean") return String(value);
+  if (typeof value === "number" && (value === 0 || value === 1)) return value === 1 ? "true" : "false";
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  return BOOLEAN_TEXT_VALUES.has(normalized) ? normalized : value;
+}
+
+function normalizeAgentConfigWriteRow(row: Row): Row {
+  const out: Row = { ...row };
+  if (out.description === undefined) out.description = "";
+  if (out.connectionId === undefined) out.connectionId = null;
+  if (out.imagePath === undefined) out.imagePath = null;
+  if (out.promptTemplate === undefined) out.promptTemplate = "";
+  if (out.settings === undefined) out.settings = {};
+  if (typeof out.phase === "string" && out.phase.trim().toLowerCase() === "inactive") {
+    out.phase = "post_processing";
+    out.enabled = "false";
+  } else if (typeof out.phase === "string") {
+    out.phase = out.phase.trim();
+  }
+  if (out.enabled !== undefined) {
+    out.enabled = toBooleanText(out.enabled);
+  } else {
+    out.enabled = "true";
+  }
+  return out;
+}
+
+function normalizeCustomToolWriteRow(row: Row): Row {
+  const out: Row = { ...row };
+  if (out.description === undefined) out.description = "";
+  if (out.parametersSchema === undefined) out.parametersSchema = {};
+  if (out.executionType === undefined) out.executionType = "static";
+  if (out.webhookUrl === undefined) out.webhookUrl = null;
+  if (out.staticResult === undefined) out.staticResult = null;
+  if (out.scriptBody === undefined) out.scriptBody = null;
+  out.enabled = out.enabled === undefined ? "true" : toBooleanText(out.enabled);
+  return out;
+}
+
+function normalizeWriteRow(table: string, row: Row): Row {
+  if (table === "agent_configs") return normalizeAgentConfigWriteRow(row);
+  if (table === "custom_tools") return normalizeCustomToolWriteRow(row);
+  return { ...row };
+}
+
 function serializeRow(table: string, row: Row): Row {
   const jsonCols = jsonColumnSet(table);
-  const out: Row = { ...row };
+  const out: Row = normalizeWriteRow(table, row);
   for (const key of jsonCols) {
     if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
     const value = out[key];
@@ -835,7 +882,7 @@ export class MariDbService {
     if (typeof row.description !== "string") {
       issues.push({ level: "error", table: "agent_configs", id, message: "Agent description must be a string" });
     }
-    if (typeof row.phase !== "string" || (row.phase !== "inactive" && !AGENT_PHASES.has(row.phase))) {
+    if (typeof row.phase !== "string" || !AGENT_PHASES.has(row.phase)) {
       issues.push({
         level: "error",
         table: "agent_configs",
@@ -843,7 +890,7 @@ export class MariDbService {
         message: `Agent phase must be one of: ${[...AGENT_PHASES].join(", ")}`,
       });
     }
-    if ((typeof row.enabled !== "string" && typeof row.enabled !== "boolean") || !(row.enabled === true || row.enabled === false || BOOLEAN_TEXT_VALUES.has(row.enabled))) {
+    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
       issues.push({ level: "error", table: "agent_configs", id, message: "Agent enabled must be stored as \"true\" or \"false\"" });
     }
     if (row.connectionId !== null && row.connectionId !== undefined && typeof row.connectionId !== "string") {
@@ -885,7 +932,7 @@ export class MariDbService {
         message: "Script custom tools require CUSTOM_TOOL_SCRIPT_ENABLED=true and a server restart",
       });
     }
-    if ((typeof row.enabled !== "string" && typeof row.enabled !== "boolean") || !(row.enabled === true || row.enabled === false || BOOLEAN_TEXT_VALUES.has(row.enabled))) {
+    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
       issues.push({ level: "error", table: "custom_tools", id, message: "Tool enabled must be stored as \"true\" or \"false\"" });
     }
     const parametersSchema = tryParseJsonColumn(row, "parametersSchema");
@@ -1460,8 +1507,9 @@ export class MariDbService {
   private async planReplace(request: ParsedMutationRequest, timestamp: string): Promise<PlanChange[]> {
     const meta = getMeta(String(request.table));
     const existing = await this.requireRawById(meta, String(request.id));
-    const next = { ...(request.row ?? {}) };
+    const next = normalizeWriteRow(meta.name, { ...(request.row ?? {}) });
     next[getPrimary(meta)] = existing[getPrimary(meta)];
+    if (meta.byKey.has("createdAt") && !next.createdAt) next.createdAt = existing.createdAt;
     this.fillTimestamps(meta, next, false, timestamp);
     const afterRaw = serializeRow(meta.name, next);
     return [{ table: meta.name, id: rowId(meta, existing), action: "replace", before: parseRow(meta.name, existing), after: parseRow(meta.name, afterRaw), beforeRaw: existing, afterRaw, apply: true }];
@@ -1538,8 +1586,9 @@ export class MariDbService {
           }
           continue;
         }
-        const next = isRecord(result) && Object.prototype.hasOwnProperty.call(result, "update") ? (deepMerge(row, result.update) as Row) : (result as Row);
-        if (!isRecord(next)) continue;
+        const resultRow = isRecord(result) && Object.prototype.hasOwnProperty.call(result, "update") ? (deepMerge(row, result.update) as Row) : (result as Row);
+        if (!isRecord(resultRow)) continue;
+        const next = normalizeWriteRow(table, resultRow);
         next[getPrimary(meta)] = raw[getPrimary(meta)];
         this.fillTimestamps(meta, next, false, timestamp);
         const afterRaw = serializeRow(table, next);
@@ -1736,10 +1785,48 @@ export class MariDbService {
         }
       }
     }
+
+    const parentRowsByTable = new Map<string, Row[]>();
+    const parentRows = async (table: string) => {
+      const cached = parentRowsByTable.get(table);
+      if (cached) return cached;
+      const rows = await this.rawRows(table);
+      parentRowsByTable.set(table, rows);
+      return rows;
+    };
+    for (const change of changes) {
+      if (change.action === "delete") continue;
+      for (const cascade of CASCADES.filter((entry) => entry.child === change.table)) {
+        const ref = change.afterRaw?.[cascade.childKey];
+        if (typeof ref !== "string" || !ref) continue;
+        const parentInsertedOrUpdated = changes.some(
+          (entry) => entry.table === cascade.parent && entry.action !== "delete" && entry.afterRaw?.[cascade.parentKey] === ref,
+        );
+        const parentDeleted = changes.some(
+          (entry) => entry.table === cascade.parent && entry.action === "delete" && entry.beforeRaw?.[cascade.parentKey] === ref,
+        );
+        const parentExists = !parentDeleted && (await parentRows(cascade.parent)).some((row) => row[cascade.parentKey] === ref);
+        if (!parentInsertedOrUpdated && !parentExists) {
+          issues.push({
+            level: "error",
+            table: change.table,
+            id: change.id,
+            message: `Dangling reference ${cascade.childKey}=${ref} -> ${cascade.parent}.${cascade.parentKey}`,
+          });
+        }
+      }
+    }
+
     const fullValidation = await this.validate();
     // Keep current unrelated optional notices visible to Mari, but only let touched-scope errors block.
+    // Existing errors on rows being repaired/deleted must not make the repair impossible.
     const touched = new Set(tables);
-    const scopedExistingErrors = fullValidation.errors.filter((issue) => issue.table && touched.has(issue.table));
+    const touchedRows = new Set(changes.map((change) => `${change.table}:${change.id}`));
+    const scopedExistingErrors = fullValidation.errors.filter((issue) => {
+      if (!issue.table || !touched.has(issue.table)) return false;
+      const issueId = issue.id == null ? null : String(issue.id);
+      return !issueId || !touchedRows.has(`${issue.table}:${issueId}`);
+    });
     return validationFromIssues([...issues, ...scopedExistingErrors, ...fullValidation.notices, ...fullValidation.infos]);
   }
 
@@ -1772,7 +1859,12 @@ export class MariDbService {
     });
     const validation = await this.validate();
     if (validation.status === "blocked") {
-      throw new Error(`Post-apply validation failed: ${validation.errors.map((issue) => issue.message).join("; ")}`);
+      const touchedRows = new Set(plan.changes.map((change) => `${change.table}:${change.id}`));
+      const touchedErrors = validation.errors.filter((issue) => issue.table && issue.id != null && touchedRows.has(`${issue.table}:${String(issue.id)}`));
+      if (touchedErrors.length > 0) {
+        throw new Error(`Post-apply validation failed: ${touchedErrors.map((issue) => issue.message).join("; ")}`);
+      }
+      logger.warn("[mari-db] post-apply validation still reports unrelated errors: %s", validation.errors.map((issue) => issue.message).join("; "));
     }
     await flushDB();
     return journalPath;
