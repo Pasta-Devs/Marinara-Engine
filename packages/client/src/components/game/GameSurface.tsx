@@ -8122,6 +8122,7 @@ export function GameSurface({
               {/* Top-right action controls */}
               <div
                 data-tour="game-controls"
+                data-tracker-panel-anchor="roleplay-hud"
                 className={cn("pointer-events-none absolute right-3 z-30", topOverlayOffsetClass)}
               >
                 {/* Desktop controls */}
