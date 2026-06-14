@@ -17,6 +17,22 @@ export type GroupResponseOrder = "sequential" | "smart" | "manual";
 /** Spotify source constraints used by Spotify DJ. */
 export type SpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
+export const CONVERSATION_COMMAND_KEYS = [
+  "schedule_update",
+  "cross_post",
+  "selfie",
+  "memory",
+  "scene",
+  "music",
+  "haptic",
+  "influence",
+  "note",
+] as const;
+
+export type ConversationCommandKey = (typeof CONVERSATION_COMMAND_KEYS)[number];
+
+export type ConversationCommandToggles = Partial<Record<ConversationCommandKey, boolean>>;
+
 /** Role of a message in the conversation. */
 export type MessageRole = "user" | "assistant" | "system" | "narrator";
 
@@ -242,6 +258,8 @@ export interface ChatMetadata {
   conversationSchedulesEnabled?: boolean;
   /** Allow conversation characters to use hidden command tags. Default: true. */
   characterCommands?: boolean;
+  /** Per-command Conversation command enable overrides. Missing/true means enabled. */
+  conversationCommandToggles?: ConversationCommandToggles;
   /** Chat-scoped generated schedules for conversation characters. */
   characterSchedules?: Record<string, unknown>;
   /** Week start timestamp for the current generated conversation schedules. */

@@ -19,7 +19,6 @@ import {
   Sparkles,
   Image,
   Pencil,
-  Clock,
   AlertTriangle,
   GripVertical,
   MessageCircle,
@@ -63,7 +62,6 @@ import { FunctionCallingSection } from "../../features/chat-settings/sections/Fu
 import { GameExtraPromptSection } from "../../features/chat-settings/sections/GameExtraPromptSection";
 import { ImpersonateSection } from "../../features/chat-settings/sections/ImpersonateSection";
 import { LorebooksSection, type ActiveLorebookView } from "../../features/chat-settings/sections/LorebooksSection";
-import { ManualRepliesSection } from "../../features/chat-settings/sections/ManualRepliesSection";
 import { PromptPresetSection } from "../../features/chat-settings/sections/PromptPresetSection";
 import { SceneInstructionsSection } from "../../features/chat-settings/sections/SceneInstructionsSection";
 import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
@@ -127,6 +125,7 @@ import type {
   ChatMemoryRecallExportPayload,
   ChatPreset,
   ChatPresetSettings,
+  ConversationCommandKey,
   ConversationNote,
   ExportEnvelope,
 } from "@marinara-engine/shared";
@@ -147,6 +146,7 @@ import {
   getAgentPromptTemplateOptions,
   AGENT_COST_HIGH_CALLS,
   AGENT_COST_HIGH_TOKENS,
+  CONVERSATION_COMMAND_KEYS,
   getDefaultBuiltInAgentSettings,
   isAgentAvailableInChatMode,
   isAgentConfigDeleted,
@@ -196,8 +196,77 @@ const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; desc
   { id: "any", label: "Any Spotify", description: "Let the DJ use Spotify search when it fits." },
 ];
 
+const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
+  id: ConversationCommandKey;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "schedule_update",
+    label: "Schedule Updates",
+    description: "Let characters change their current status and activity.",
+  },
+  {
+    id: "cross_post",
+    label: "Cross-Post",
+    description: "Let characters redirect a message into another shared chat.",
+  },
+  {
+    id: "selfie",
+    label: "Selfies",
+    description: "Let characters request a generated selfie.",
+  },
+  {
+    id: "memory",
+    label: "Memories",
+    description: "Let characters create memories for other characters.",
+  },
+  {
+    id: "scene",
+    label: "Scenes",
+    description: "Let characters start an immersive scene from the conversation.",
+  },
+  {
+    id: "music",
+    label: "Music",
+    description: "Let characters play songs through the active Music Player.",
+  },
+  {
+    id: "haptic",
+    label: "Haptics",
+    description: "Let characters control connected haptic devices.",
+  },
+  {
+    id: "influence",
+    label: "Influence",
+    description: "Let characters send one-shot influence to a connected chat.",
+  },
+  {
+    id: "note",
+    label: "Notes",
+    description: "Let characters save durable notes for a connected chat.",
+  },
+];
+
 function normalizeSpotifySourceType(value: unknown): SpotifySourceType {
   return value === "playlist" || value === "artist" || value === "any" ? value : "liked";
+}
+
+function readConversationCommandToggles(value: unknown): Partial<Record<ConversationCommandKey, boolean>> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const toggles: Partial<Record<ConversationCommandKey, boolean>> = {};
+  for (const key of CONVERSATION_COMMAND_KEYS) {
+    if (typeof source[key] === "boolean") toggles[key] = source[key] as boolean;
+  }
+  return toggles;
+}
+
+function isConversationCommandToggleEnabled(
+  toggles: Partial<Record<ConversationCommandKey, boolean>>,
+  command: ConversationCommandKey,
+): boolean {
+  return toggles[command] !== false;
 }
 
 const MODE_INTROS: Record<ChatMode, string> = {
@@ -379,6 +448,10 @@ export function ChatSettingsDrawer({
   const metadata = useMemo(
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
     [chat.metadata],
+  );
+  const conversationCommandToggles = useMemo(
+    () => readConversationCommandToggles(metadata.conversationCommandToggles),
+    [metadata.conversationCommandToggles],
   );
   const inactiveCharacterIds = useMemo<string[]>(
     () =>
@@ -1804,145 +1877,148 @@ export function ChatSettingsDrawer({
             "flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]",
           )}
         >
-        {/* Chat Settings Preset bar — hidden in Game Mode and scene chats. */}
-        {modeCapabilities.supportsChatSettingsPresets && !isSceneChat && (
-          <div
-            style={{ order: CHAT_SETTINGS_ORDER.settingsPresets }}
-            className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
-          >
-            <input
-              ref={presetFileInputRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={handleImportFile}
-            />
-            {/* Dropdown / rename input + help */}
-            <div className="flex items-center gap-2">
-              {renamingPreset ? (
-                <input
-                  value={renamePresetVal}
-                  onChange={(e) => setRenamePresetVal(e.target.value)}
-                  onBlur={handleCommitRenamePreset}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCommitRenamePreset();
-                    else if (e.key === "Escape") setRenamingPreset(false);
-                  }}
-                  autoFocus
-                  maxLength={120}
-                  className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--primary)]/40"
-                />
-              ) : (
-                <select
-                  value={selectedChatPreset?.id ?? ""}
-                  onChange={(e) => handleSelectPreset(e.target.value)}
-                  title="Apply a chat-settings preset to this chat"
-                  className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
-                >
-                  {presetList.length === 0 && <option value="">Loading…</option>}
-                  {presetList.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.isDefault ? "Default" : p.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button
-                onClick={handleToggleDefaultPreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isActive || setActiveChatPreset.isPending}
-                title={
-                  !selectedChatPreset
-                    ? "Select a preset to mark it as default"
-                    : selectedChatPreset.isActive
-                      ? "This preset is the default for new chats in this mode"
-                      : "Mark this preset as default for new chats in this mode"
-                }
-                aria-pressed={!!selectedChatPreset?.isActive}
-                aria-label={selectedChatPreset?.isActive ? "Default preset" : "Mark as default preset"}
-                className={cn(
-                  "shrink-0 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed",
-                  selectedChatPreset?.isActive
-                    ? "text-yellow-400 disabled:opacity-100"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-yellow-400 disabled:opacity-40",
-                )}
-              >
-                <Star
-                  size="0.875rem"
-                  fill={selectedChatPreset?.isActive ? "currentColor" : "none"}
-                  strokeWidth={selectedChatPreset?.isActive ? 1.5 : 2}
-                />
-              </button>
-              <HelpTooltip
-                side="left"
-                text={
-                  isConversation
-                    ? "Presets bundle this chat's connection, tools, translation, memory recall, advanced parameters, and other settings. Prompt presets are not applied in conversation mode. Characters, persona, lorebooks, sprites, summary, tags, and scene prompt stay tied to the chat. Star a preset to use it as the default for new chats in this mode."
-                    : "Presets bundle this chat's connection, prompt preset, agents, tools, translation, memory recall, advanced parameters, and other settings. They never touch your characters, persona, lorebooks, sprites, summary, tags, or scene prompt — those stay tied to the chat. Star a preset to use it as the default for new chats in this mode."
-                }
+          {/* Chat Settings Preset bar — hidden in Game Mode and scene chats. */}
+          {modeCapabilities.supportsChatSettingsPresets && !isSceneChat && (
+            <div
+              style={{ order: CHAT_SETTINGS_ORDER.settingsPresets }}
+              className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)] px-4 py-3"
+            >
+              <input
+                ref={presetFileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleImportFile}
               />
+              {/* Dropdown / rename input + help */}
+              <div className="flex items-center gap-2">
+                {renamingPreset ? (
+                  <input
+                    value={renamePresetVal}
+                    onChange={(e) => setRenamePresetVal(e.target.value)}
+                    onBlur={handleCommitRenamePreset}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCommitRenamePreset();
+                      else if (e.key === "Escape") setRenamingPreset(false);
+                    }}
+                    autoFocus
+                    maxLength={120}
+                    className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--primary)]/40"
+                  />
+                ) : (
+                  <select
+                    value={selectedChatPreset?.id ?? ""}
+                    onChange={(e) => handleSelectPreset(e.target.value)}
+                    title="Apply a chat-settings preset to this chat"
+                    className="flex-1 min-w-0 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                  >
+                    {presetList.length === 0 && <option value="">Loading…</option>}
+                    {presetList.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.isDefault ? "Default" : p.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  onClick={handleToggleDefaultPreset}
+                  disabled={!selectedChatPreset || selectedChatPreset.isActive || setActiveChatPreset.isPending}
+                  title={
+                    !selectedChatPreset
+                      ? "Select a preset to mark it as default"
+                      : selectedChatPreset.isActive
+                        ? "This preset is the default for new chats in this mode"
+                        : "Mark this preset as default for new chats in this mode"
+                  }
+                  aria-pressed={!!selectedChatPreset?.isActive}
+                  aria-label={selectedChatPreset?.isActive ? "Default preset" : "Mark as default preset"}
+                  className={cn(
+                    "shrink-0 flex items-center justify-center rounded-md p-1.5 transition-colors disabled:cursor-not-allowed",
+                    selectedChatPreset?.isActive
+                      ? "text-yellow-400 disabled:opacity-100"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-yellow-400 disabled:opacity-40",
+                  )}
+                >
+                  <Star
+                    size="0.875rem"
+                    fill={selectedChatPreset?.isActive ? "currentColor" : "none"}
+                    strokeWidth={selectedChatPreset?.isActive ? 1.5 : 2}
+                  />
+                </button>
+                <HelpTooltip
+                  side="left"
+                  text={
+                    isConversation
+                      ? "Presets bundle this chat's connection, tools, translation, memory recall, advanced parameters, and other settings. Prompt presets are not applied in conversation mode. Characters, persona, lorebooks, sprites, summary, tags, and scene prompt stay tied to the chat. Star a preset to use it as the default for new chats in this mode."
+                      : "Presets bundle this chat's connection, prompt preset, agents, tools, translation, memory recall, advanced parameters, and other settings. They never touch your characters, persona, lorebooks, sprites, summary, tags, or scene prompt — those stay tied to the chat. Star a preset to use it as the default for new chats in this mode."
+                  }
+                />
+              </div>
+              {/* Single row of all preset actions */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleSaveIntoPreset}
+                  disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+                  title={
+                    selectedChatPreset?.isDefault
+                      ? "Cannot save into the Default preset"
+                      : "Save current chat settings into this preset"
+                  }
+                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Save size="0.875rem" />
+                </button>
+                <button
+                  onClick={handleStartRenamePreset}
+                  disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+                  title={selectedChatPreset?.isDefault ? "Cannot rename the Default preset" : "Rename preset"}
+                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Pencil size="0.875rem" />
+                </button>
+                <button
+                  onClick={handleSaveAsPreset}
+                  disabled={!selectedChatPreset}
+                  title="Save current chat settings as a new preset"
+                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <FilePlus2 size="0.875rem" />
+                </button>
+                <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
+                <button
+                  onClick={handleImportClick}
+                  title="Import preset (.json)"
+                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                >
+                  <Download size="0.875rem" />
+                </button>
+                <button
+                  onClick={handleExportPreset}
+                  disabled={!selectedChatPreset}
+                  title="Export preset (.json)"
+                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Upload size="0.875rem" />
+                </button>
+                <button
+                  onClick={handleDeletePreset}
+                  disabled={!selectedChatPreset || selectedChatPreset.isDefault}
+                  title={selectedChatPreset?.isDefault ? "Cannot delete the Default preset" : "Delete preset"}
+                  className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Trash2 size="0.875rem" />
+                </button>
+              </div>
             </div>
-            {/* Single row of all preset actions */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handleSaveIntoPreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                title={
-                  selectedChatPreset?.isDefault
-                    ? "Cannot save into the Default preset"
-                    : "Save current chat settings into this preset"
-                }
-                className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Save size="0.875rem" />
-              </button>
-              <button
-                onClick={handleStartRenamePreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                title={selectedChatPreset?.isDefault ? "Cannot rename the Default preset" : "Rename preset"}
-                className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Pencil size="0.875rem" />
-              </button>
-              <button
-                onClick={handleSaveAsPreset}
-                disabled={!selectedChatPreset}
-                title="Save current chat settings as a new preset"
-                className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <FilePlus2 size="0.875rem" />
-              </button>
-              <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
-              <button
-                onClick={handleImportClick}
-                title="Import preset (.json)"
-                className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-              >
-                <Download size="0.875rem" />
-              </button>
-              <button
-                onClick={handleExportPreset}
-                disabled={!selectedChatPreset}
-                title="Export preset (.json)"
-                className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Upload size="0.875rem" />
-              </button>
-              <button
-                onClick={handleDeletePreset}
-                disabled={!selectedChatPreset || selectedChatPreset.isDefault}
-                title={selectedChatPreset?.isDefault ? "Cannot delete the Default preset" : "Delete preset"}
-                className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Trash2 size="0.875rem" />
-              </button>
-            </div>
-          </div>
-        )}
+          )}
 
           {/* Hardcoded — CHAT_MODES.defaultAgents looks like the source of truth but is currently
               unused, and wouldn't cover non-agent built-ins (GM pipeline, autonomous messaging, etc.) anyway. */}
           {MODE_INTROS[chatMode as ChatMode] && (
-            <div style={{ order: CHAT_SETTINGS_ORDER.modeIntro }} className="border-b border-[var(--border)] px-4 py-2.5">
+            <div
+              style={{ order: CHAT_SETTINGS_ORDER.modeIntro }}
+              className="border-b border-[var(--border)] px-4 py-2.5"
+            >
               <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                 {MODE_INTROS[chatMode as ChatMode]}
               </p>
@@ -2682,15 +2758,6 @@ export function ChatSettingsDrawer({
             />
           )}
 
-          {isConversation && (
-            <ManualRepliesSection
-              enabled={metadata.groupResponseOrder === "manual"}
-              onEnabledChange={(enabled) =>
-                updateMeta.mutate({ id: chat.id, groupResponseOrder: enabled ? "manual" : "sequential" })
-              }
-            />
-          )}
-
           {/* Group Chat Settings — only when 2+ characters, game mode handles it internally */}
           {chatCharIds.length > 1 && modeCapabilities.supportsGroupChatControls && (
             <Section
@@ -2981,6 +3048,44 @@ export function ChatSettingsDrawer({
                   </div>
                 </button>
 
+                <button
+                  onClick={() => {
+                    const onlyWhenMentioned = metadata.groupResponseOrder === "manual";
+                    updateMeta.mutate({
+                      id: chat.id,
+                      groupResponseOrder: onlyWhenMentioned ? "sequential" : "manual",
+                    });
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    metadata.groupResponseOrder === "manual"
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium">Reply When Mentioned</span>
+                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      Characters wait for direct mentions or manual response triggers
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      metadata.groupResponseOrder === "manual"
+                        ? "bg-[var(--primary)]"
+                        : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                        metadata.groupResponseOrder === "manual" && "translate-x-3.5",
+                      )}
+                    />
+                  </div>
+                </button>
+
                 {metadata.autonomousMessages && !conversationSchedulesEnabled && (
                   <div className="rounded-lg bg-[var(--primary)]/8 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--primary)]/20">
                     Schedules are off. Autonomous messages still use character talkativeness and your active or idle
@@ -3062,7 +3167,6 @@ export function ChatSettingsDrawer({
 
                 {/* Schedule status */}
                 <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] px-3 py-2.5">
-                  <CalendarClock size="0.875rem" className="text-[var(--muted-foreground)]" />
                   <div className="flex-1 min-w-0">
                     <span className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
                       {!conversationSchedulesEnabled
@@ -3137,10 +3241,7 @@ export function ChatSettingsDrawer({
                   )}
                 >
                   <div className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-xs font-medium">
-                      <Sparkles size="0.75rem" className="text-[var(--primary)]" />
-                      Commands
-                    </span>
+                    <span className="text-xs font-medium">Commands</span>
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                       Allow models to interact with you via commands. This way, they can send you selfies, play songs
                       for you, change their schedules, start scenes, and do much more!
@@ -3161,12 +3262,61 @@ export function ChatSettingsDrawer({
                   </div>
                 </button>
 
+                {conversationCommandsEnabled && (
+                  <div className="grid gap-1.5 sm:grid-cols-2">
+                    {CONVERSATION_COMMAND_TOGGLE_OPTIONS.map((command) => {
+                      const enabled = isConversationCommandToggleEnabled(conversationCommandToggles, command.id);
+                      return (
+                        <button
+                          key={command.id}
+                          type="button"
+                          onClick={() =>
+                            updateMeta.mutate({
+                              id: chat.id,
+                              conversationCommandToggles: {
+                                ...conversationCommandToggles,
+                                [command.id]: !enabled,
+                              },
+                            })
+                          }
+                          className={cn(
+                            "flex min-h-[4.125rem] items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
+                            enabled
+                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                          )}
+                          aria-pressed={enabled}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">
+                              {command.label}
+                            </span>
+                            <p className="mt-0.5 text-[0.59375rem] leading-snug text-[var(--muted-foreground)]">
+                              {command.description}
+                            </p>
+                          </div>
+                          <div
+                            className={cn(
+                              "mt-0.5 h-4 w-7 shrink-0 rounded-full p-0.5 transition-colors",
+                              enabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
+                                enabled && "translate-x-3",
+                              )}
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Selfie Connection — connection picker for character selfies */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Image size="0.75rem" className="text-[var(--primary)]" />
-                    <span className="text-xs font-medium">Selfie Connection</span>
-                  </div>
+                  <span className="text-xs font-medium">Selfie Connection</span>
                   <select
                     value={(metadata.imageGenConnectionId as string) ?? ""}
                     onChange={(e) => updateMeta.mutate({ id: chat.id, imageGenConnectionId: e.target.value || null })}
@@ -3289,7 +3439,6 @@ export function ChatSettingsDrawer({
                 {/* Schedule generation preferences — free-form authorial guidance */}
                 <label className="flex flex-col gap-1.5">
                   <span className="inline-flex items-center gap-1.5 text-xs font-medium">
-                    <Sparkles size="0.75rem" className="text-[var(--primary)]" />
                     Schedule generation preferences
                     <HelpTooltip text="Free-form guidance that steers how character schedules are generated. Both directives ('no characters past midnight') and factual constraints ('I work 9-5') work. This setting is global, it applies to every conversation chat." />
                   </span>
@@ -3308,10 +3457,9 @@ export function ChatSettingsDrawer({
                 {/* Active schedule-generation preference indicator */}
                 {scheduleGenerationPreferences.trim() && (
                   <div
-                    className="flex items-start gap-2 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2.5"
+                    className="rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2.5"
                     title={scheduleGenerationPreferences.trim()}
                   >
-                    <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
                     <div className="min-w-0 flex-1">
                       <span className="block text-[0.6875rem] font-medium leading-snug text-[var(--foreground)]">
                         Schedule generation preference active
@@ -3442,7 +3590,7 @@ export function ChatSettingsDrawer({
                         <MessageSquare size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                         <span className="truncate">{getConnectedChatDisplayName(c)}</span>
                       </button>
-                  ))}
+                    ))}
                 </PickerDropdown>
               )}
               <DiscordMirrorControls
@@ -3625,7 +3773,7 @@ export function ChatSettingsDrawer({
                         <MessageSquare size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                         <span className="truncate">{getConnectedChatDisplayName(c)}</span>
                       </button>
-                  ))}
+                    ))}
                 </PickerDropdown>
               )}
               <DiscordMirrorControls
@@ -3872,7 +4020,9 @@ export function ChatSettingsDrawer({
                       <div
                         className={cn(
                           "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          activeAgentIds.includes("youtube") ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                          activeAgentIds.includes("youtube")
+                            ? "bg-[var(--primary)]"
+                            : "bg-[var(--muted-foreground)]/50",
                         )}
                       >
                         <div
@@ -5044,10 +5194,7 @@ export function ChatSettingsDrawer({
 
                 {/* Day rollover hour */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Clock size="0.75rem" className="text-[var(--primary)]" />
-                    <span className="text-xs font-medium">Day Rollover Hour</span>
-                  </div>
+                  <span className="text-xs font-medium">Day Rollover Hour</span>
                   <select
                     value={(metadata.dayRolloverHour as number | undefined) ?? 4}
                     onChange={(e) => {
@@ -5088,10 +5235,7 @@ export function ChatSettingsDrawer({
 
                 {/* Recent message tail */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <MessageCircle size="0.75rem" className="text-[var(--primary)]" />
-                    <span className="text-xs font-medium">Recent Message Tail</span>
-                  </div>
+                  <span className="text-xs font-medium">Recent Message Tail</span>
                   <input
                     type="number"
                     min={0}
@@ -5177,12 +5321,14 @@ export function ChatSettingsDrawer({
             />
           </div>
 
-          <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
-            <ImpersonateSection
-              presets={(presets ?? []) as Array<{ id: string; name: string }>}
-              connections={textConnectionsList}
-            />
-          </div>
+          {!isConversation && (
+            <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
+              <ImpersonateSection
+                presets={(presets ?? []) as Array<{ id: string; name: string }>}
+                connections={textConnectionsList}
+              />
+            </div>
+          )}
         </div>
       </div>
 

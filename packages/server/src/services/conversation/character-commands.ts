@@ -12,6 +12,7 @@
 // - [memory: target="CharName", summary="description of the memory"]
 // - [scene: scenario="...", background="...", plan="..."] (initiate a mini-roleplay scene)
 // - [spotify: title="Song title", artist="Artist"] (play a song on the user's active Spotify player)
+// - [youtube: query="Song title Artist"] (play a song on the user's active YouTube player)
 // - [haptic: action="vibrate", intensity=0.5, duration=3] (haptic device feedback)
 // - <influence>text</influence> (OOC influence for connected roleplay, one-shot)
 // - <note>text</note> (durable note for connected roleplay, persists until cleared)
@@ -109,6 +110,12 @@ export interface SpotifyCommand {
   title: string;
   /** Artist name to disambiguate the track */
   artist: string;
+}
+
+export interface YouTubeCommand {
+  type: "youtube";
+  /** YouTube search query to resolve on the client player */
+  query: string;
 }
 
 // ── Assistant commands (Professor Mari) ──
@@ -307,6 +314,7 @@ export type CharacterCommand =
   | DirectMessageCommand
   | HapticCommand
   | SpotifyCommand
+  | YouTubeCommand
   | AssistantCommand;
 
 // Param block matcher: any char that isn't `"` or `]`, OR a complete
@@ -325,6 +333,7 @@ const MEMORY_RE = /\[memory:\s*target="([^"]+)"\s*,\s*summary="([^"]+)"\]/gi;
 const SCENE_RE = new RegExp(`\\[scene:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
 const HAPTIC_RE = new RegExp(`\\[haptic:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
 const SPOTIFY_RE = new RegExp(`\\[spotify:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
+const YOUTUBE_RE = new RegExp(`\\[youtube:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
 const DIRECT_MESSAGE_RE = new RegExp(`\\[dm:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
 const INFLUENCE_RE = /<influence>([\s\S]*?)<\/influence>/gi;
 const NOTE_RE = /<note>([\s\S]*?)<\/note>/gi;
@@ -870,6 +879,17 @@ export function parseCharacterCommands(content: string): {
     }
   }
 
+  // Parse YouTube song commands
+  for (const match of content.matchAll(YOUTUBE_RE)) {
+    const params = match[1]!;
+    const query =
+      parseQuotedParam(params, "query") ??
+      [parseQuotedParam(params, "title"), parseQuotedParam(params, "artist")].filter(Boolean).join(" ");
+    if (query) {
+      commands.push({ type: "youtube", query });
+    }
+  }
+
   // Parse assistant commands (Professor Mari)
   for (const match of content.matchAll(CREATE_PERSONA_RE)) {
     const params = match[1]!;
@@ -997,6 +1017,7 @@ export function parseCharacterCommands(content: string): {
     .replace(SCENE_RE, "")
     .replace(HAPTIC_RE, "")
     .replace(SPOTIFY_RE, "")
+    .replace(YOUTUBE_RE, "")
     .replace(INFLUENCE_RE, "")
     .replace(NOTE_RE, "")
     .replace(CREATE_PERSONA_RE, "")

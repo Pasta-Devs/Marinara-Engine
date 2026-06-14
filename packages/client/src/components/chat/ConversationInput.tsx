@@ -11,7 +11,6 @@ import {
   ImagePlay,
   AtSign,
   Users,
-  UserCheck,
   Languages,
   Loader2,
   FileText,
@@ -72,6 +71,11 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
 
 const SAVED_STATUS_LIMIT = 12;
 const SAVED_STATUS_MAX_LENGTH = 120;
+const CONVERSATION_HIDDEN_SLASH_COMMANDS = new Set(["impersonate", "impersonate_prompt"]);
+
+function isConversationHiddenSlashCommand(command: SlashCommand): boolean {
+  return CONVERSATION_HIDDEN_SLASH_COMMANDS.has(command.name);
+}
 
 interface PersonaStatusRow {
   id: string;
@@ -228,7 +232,6 @@ export function ConversationInput({
   const showQuickRepliesMenu = useUIStore((s) => s.showQuickRepliesMenu);
   const showQuickReplyPostOnly = useUIStore((s) => s.showQuickReplyPostOnly);
   const showQuickReplyGuide = useUIStore((s) => s.showQuickReplyGuide);
-  const showQuickReplyImpersonate = useUIStore((s) => s.showQuickReplyImpersonate);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const userActivity = useUIStore((s) => s.userActivity);
@@ -621,8 +624,13 @@ export function ConversationInput({
     // Slash command check
     const matched = matchSlashCommand(raw);
     if (matched) {
+      if (isConversationHiddenSlashCommand(matched.command)) {
+        setFeedback("Impersonate is not available in Conversation mode.");
+        return;
+      }
       const slashCtx: SlashCommandContext = {
         chatId: activeChatId,
+        mode: "conversation",
         generate,
         createMessage: (data) => createMessage.mutate(data),
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
@@ -765,9 +773,14 @@ export function ConversationInput({
       const submittingChatId = activeChatId;
       const matched = matchSlashCommand(commandLine);
       if (!matched) return;
+      if (isConversationHiddenSlashCommand(matched.command)) {
+        toast.info("Impersonate is not available in Conversation mode.");
+        return;
+      }
       const generationStatus: { succeeded?: boolean } = {};
       const slashCtx: SlashCommandContext = {
         chatId: submittingChatId,
+        mode: "conversation",
         generate: async (params) => {
           const succeeded = await generate(params);
           if (succeeded !== undefined) generationStatus.succeeded = succeeded;
@@ -841,17 +854,6 @@ export function ConversationInput({
       syncInputState,
     ],
   );
-
-  const handleImpersonateQuickButton = useCallback(async () => {
-    if (!activeChatId || isStreaming) return;
-    if (hasPendingAttachments) {
-      toast.info("Clear or send attachments before using quick impersonate.");
-      return;
-    }
-    const text = textareaRef.current?.value?.trim() ?? "";
-    if (!text) return;
-    await runQuickSlashCommand(`/impersonate ${text}`, "Impersonate failed");
-  }, [activeChatId, isStreaming, hasPendingAttachments, runQuickSlashCommand]);
 
   const handlePostOnlyButton = useCallback(async () => {
     if (!activeChatId || isStreaming) return;
@@ -1011,13 +1013,6 @@ export function ConversationInput({
       if (!hasInput) return "Type a direction first.";
       return undefined;
     };
-    const getImpersonateDisabledReason = () => {
-      if (!activeChatId) return "Select or create a chat first.";
-      if (isStreaming) return "Wait for the current stream to finish.";
-      if (hasPendingAttachments) return "Clear or post attachments first.";
-      if (!hasInput) return "Type a direction first.";
-      return undefined;
-    };
     if (showQuickReplyPostOnly) {
       actions.push({
         id: "post-only",
@@ -1040,17 +1035,6 @@ export function ConversationInput({
         onSelect: handleGuidedGenerationButton,
       });
     }
-    if (showQuickReplyImpersonate) {
-      actions.push({
-        id: "impersonate",
-        label: "Impersonate",
-        description: "Generate as your persona",
-        icon: <UserCheck size="0.875rem" />,
-        disabled: !activeChatId || isStreaming || !hasInput || hasPendingAttachments,
-        disabledReason: getImpersonateDisabledReason(),
-        onSelect: handleImpersonateQuickButton,
-      });
-    }
     return actions;
   }, [
     activeChatId,
@@ -1062,10 +1046,8 @@ export function ConversationInput({
     requiresManualGuideTarget,
     showQuickReplyPostOnly,
     showQuickReplyGuide,
-    showQuickReplyImpersonate,
     handlePostOnlyButton,
     handleGuidedGenerationButton,
-    handleImpersonateQuickButton,
   ]);
 
   const handleKeyDown = useCallback(
@@ -1172,7 +1154,7 @@ export function ConversationInput({
 
     // Slash completions
     if (formatted.startsWith("/")) {
-      const results = getSlashCompletions(formatted);
+      const results = getSlashCompletions(formatted).filter((command) => !isConversationHiddenSlashCommand(command));
       setCompletions(results);
       setSelectedCompletion(0);
     } else {
@@ -1559,9 +1541,7 @@ export function ConversationInput({
         onDrop={handleDrop}
         className={cn(
           "relative flex flex-wrap items-end gap-1 rounded-2xl border border-foreground/20 bg-[var(--card)] px-2 py-1.5 shadow-sm transition-all duration-200 focus-within:border-foreground/35 focus-within:ring-1 focus-within:ring-foreground/10 sm:flex-nowrap sm:items-center sm:gap-2 sm:px-4 sm:py-2.5 dark:bg-black/40",
-          isDragging
-            ? "border-foreground/40 bg-foreground/10 shadow-lg shadow-black/10"
-            : "",
+          isDragging ? "border-foreground/40 bg-foreground/10 shadow-lg shadow-black/10" : "",
         )}
       >
         {/* Attach button */}
@@ -1816,9 +1796,7 @@ export function ConversationInput({
                   </div>
                 ))
               ) : (
-                <div className="px-3 py-4 text-center text-[0.6875rem] text-foreground/45">
-                  No saved statuses yet
-                </div>
+                <div className="px-3 py-4 text-center text-[0.6875rem] text-foreground/45">No saved statuses yet</div>
               )}
             </div>
           </div>,

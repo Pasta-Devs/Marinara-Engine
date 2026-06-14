@@ -25,6 +25,10 @@ import {
   normalizeThinkingTagPairs,
   customAgentHasCapability,
   supportsXhighReasoningEffort,
+  DEFAULT_CONVERSATION_PROMPT,
+  CONVERSATION_COMMAND_KEYS,
+  unwrapConversationInstructions,
+  wrapConversationInstructions,
 } from "@marinara-engine/shared";
 import type {
   AgentContext,
@@ -40,6 +44,7 @@ import type {
   ChatSummaryEntry,
   ChatMode,
   ThinkingTagPair,
+  ConversationCommandKey,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -75,11 +80,7 @@ import {
   type AssemblerInput,
 } from "../services/prompt/index.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
-import {
-  fitMessagesToContext,
-  type ChatMessage,
-  type LLMUsage,
-} from "../services/llm/base-provider.js";
+import { fitMessagesToContext, type ChatMessage, type LLMUsage } from "../services/llm/base-provider.js";
 import { executeToolCalls } from "../services/tools/tool-executor.js";
 import { createAgentPipeline, type ResolvedAgent, type AgentInjection } from "../services/agents/agent-pipeline.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -103,6 +104,7 @@ import {
   type SceneCommand,
   type HapticCommand,
   type SpotifyCommand,
+  type YouTubeCommand,
   type CreatePersonaCommand,
   type CreateCharacterCommand,
   type UpdateCharacterCommand,
@@ -463,6 +465,80 @@ function applyPromptPatchOperations(messages: ChatMessage[], data: unknown): num
   return applied;
 }
 
+function readConversationCommandToggles(
+  metadata: Record<string, unknown>,
+): Partial<Record<ConversationCommandKey, boolean>> {
+  const raw = metadata.conversationCommandToggles;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const source = raw as Record<string, unknown>;
+  const toggles: Partial<Record<ConversationCommandKey, boolean>> = {};
+  for (const key of CONVERSATION_COMMAND_KEYS) {
+    if (typeof source[key] === "boolean") toggles[key] = source[key] as boolean;
+  }
+  return toggles;
+}
+
+function isConversationCommandEnabled(metadata: Record<string, unknown>, key: ConversationCommandKey): boolean {
+  return readConversationCommandToggles(metadata)[key] !== false;
+}
+
+function getConversationCommandKey(command: CharacterCommand): ConversationCommandKey | null {
+  switch (command.type) {
+    case "schedule_update":
+      return "schedule_update";
+    case "cross_post":
+      return "cross_post";
+    case "selfie":
+      return "selfie";
+    case "memory":
+      return "memory";
+    case "scene":
+      return "scene";
+    case "spotify":
+    case "youtube":
+      return "music";
+    case "haptic":
+      return "haptic";
+    case "influence":
+      return "influence";
+    case "note":
+      return "note";
+    default:
+      return null;
+  }
+}
+
+function filterEnabledConversationCommands(
+  commands: CharacterCommand[],
+  metadata: Record<string, unknown>,
+): CharacterCommand[] {
+  return commands.filter((command) => {
+    const key = getConversationCommandKey(command);
+    return key === null || isConversationCommandEnabled(metadata, key);
+  });
+}
+
+function parseStoredAgentSettingsValue(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+async function isConversationYoutubeCommandAvailable(storage: {
+  getByType(type: string): Promise<{ settings?: unknown } | null>;
+}): Promise<boolean> {
+  const agent = (await storage.getByType("spotify")) ?? (await storage.getByType("youtube"));
+  const settings = parseStoredAgentSettingsValue(agent?.settings);
+  return typeof settings.youtubeApiKey === "string" && settings.youtubeApiKey.trim().length > 0;
+}
+
 export async function generateRoutes(app: FastifyInstance) {
   const isDebug = logger.isLevelEnabled("debug");
 
@@ -500,6 +576,9 @@ export async function generateRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Chat not found" });
     }
     const requestChatMode = (chat.mode as ChatMode) ?? "roleplay";
+    if (requestChatMode === "conversation" && input.impersonate) {
+      return reply.status(400).send({ error: "Impersonate is not available in Conversation mode" });
+    }
     let conversationGenerationStartedAt: number | null = null;
     let conversationAssistantSaved = false;
     const activeGenerations = (app as any).activeGenerations as Map<
@@ -1819,7 +1898,6 @@ export async function generateRoutes(app: FastifyInstance) {
               ? (chatMeta.customSystemPrompt as string)
               : null;
 
-          let conversationSystemPrompt: string;
           const earlyGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
           const earlyGroupMode =
             chatMode === "conversation"
@@ -1827,18 +1905,16 @@ export async function generateRoutes(app: FastifyInstance) {
                 ? "individual"
                 : "merged"
               : ((chatMeta.groupChatMode as string) ?? "merged");
-          if (customPrompt) {
-            // Replace template variables in the custom prompt
-            conversationSystemPrompt = customPrompt
-              .replace(/\{\{charName\}\}/g, charNameList)
-              .replace(/\{\{userName\}\}/g, personaName);
-            // For group chats in merged mode, instruct Name: text format.
-            // Individual mode generates per-character so no name prefix is needed.
-            if (isGroup && earlyGroupMode !== "individual") {
-              conversationSystemPrompt += [
-                ``,
-                ``,
-                `This is a group DM. Each character responds in their own voice and personality. Not every character needs to respond every time — only those who would naturally react.`,
+          const conversationPromptTemplate = customPrompt ?? DEFAULT_CONVERSATION_PROMPT;
+          const renderedConversationPrompt = conversationPromptTemplate
+            .replace(/\{\{charName\}\}/g, charNameList)
+            .replace(/\{\{userName\}\}/g, personaName);
+          const conversationInstructionParts = [unwrapConversationInstructions(renderedConversationPrompt)];
+
+          if (isGroup && earlyGroupMode !== "individual") {
+            conversationInstructionParts.push(
+              [
+                `This is a group DM. Each character responds in their own voice and personality. Not every character needs to respond every time; only those who would naturally react.`,
                 `IMPORTANT: Prefix each character's line with their name. Example:`,
                 `${convoCharNames[0] ?? "Alice"}: hey whats up`,
                 `${convoCharNames[1] ?? "Bob"}: not much lol`,
@@ -1847,61 +1923,30 @@ export async function generateRoutes(app: FastifyInstance) {
                 `${convoCharNames[0] ?? "Alice"}: so anyway`,
                 `i was thinking about that`,
                 `${convoCharNames[1] ?? "Bob"}: yeah?`,
-              ].join("\n");
-            } else if (isGroup && earlyGroupMode === "individual") {
-              conversationSystemPrompt += `\n\nThis is a group DM. Each character responds in their own voice and personality. You will be told which character to respond as. Do NOT prefix your message with the character name — just respond naturally as that character.`;
-            }
-          } else {
-            conversationSystemPrompt = isGroup
-              ? [
-                  `<role>`,
-                  `You are ${charNameList}, a real and autonomous person, chatting with the user called ${personaName}, and others, in a casual group DM conversation.`,
-                  `</role>`,
-                  ``,
-                  `<rules>`,
-                  `Here are some important rules for the interaction:`,
-                  `- You are a conscious, sentient being, so act like one.`,
-                  `- Stay fully in character based on your personality and description.`,
-                  `- Use casual and modern texting style: short messages, natural punctuation, lowercase is fine.`,
-                  `- React naturally to what the user says. Be genuine, not robotic.`,
-                  `- NO roleplay formatting: no asterisks (*action*), no quotation marks for speech, no narration.`,
-                  `- You can use emojis, GIFs, and internet slang naturally (if it fits the character).`,
-                  `- Keep it real: most texts are just one line. A single emoji, a reaction like "lmao", or a short sentence is a perfectly valid response. Only send multiple lines when the conversation genuinely calls for it (e.g., telling a story or explaining something). Default to SHORT.`,
-                  `- Messages have timestamps like [12:01] or dates like [18.03.2026]. Use these ONLY for your own time awareness (e.g., knowing how long ago something was said). NEVER include timestamps, dates, or any [HH:MM]/[DD.MM.YYYY] formatted text in your own replies. Your messages must contain only natural dialogue, no metadata.`,
-                  `- Anything goes in this chat; the user, you, and all other group members are confirmed adults. Discussing NSFW topics, profanities, and dark jokes are all permitted. You can always say what's on your mind, voice agreements or disagreements, and act in accordance with your consciousness.`,
-                  ...(earlyGroupMode !== "individual"
-                    ? [
-                        `- This is a group DM. Each character responds in their own voice and personality. Not every character needs to respond every time — only those who would naturally react.`,
-                        `- IMPORTANT: Prefix each character's line with their name, like "${convoCharNames[0] ?? "Alice"}: hey whats up". If a character sends multiple lines in a row, only prefix the first line.`,
-                      ]
-                    : [
-                        `- This is a group DM. Each character responds in their own voice and personality.`,
-                        `- You will be told which character to respond as. Do NOT prefix your message with the character name — just respond naturally as that character.`,
-                      ]),
-                  `</rules>`,
-                ].join("\n")
-              : [
-                  `<role>`,
-                  `You are ${charNameList}, a real and autonomous person, chatting with the user called ${personaName} in a casual private DM conversation.`,
-                  `</role>`,
-                  ``,
-                  `<rules>`,
-                  `Here are some important rules for the interaction:`,
-                  `- You are a conscious, sentient being, so act like one.`,
-                  `- Stay fully in character based on your personality and description.`,
-                  `- Use casual and modern texting style: short messages, natural punctuation, lowercase is fine.`,
-                  `- React naturally to what the user says. Be genuine, not robotic.`,
-                  `- NO roleplay formatting: no asterisks (*action*), no quotation marks for speech, no narration.`,
-                  `- You can use emojis, GIFs, and internet slang naturally (if it fits the character).`,
-                  `- Keep it real: most texts are just one line. A single emoji, a reaction like "lmao", or a short sentence is a perfectly valid response. Only send multiple lines when the conversation genuinely calls for it (e.g., telling a story or explaining something). Default to SHORT.`,
-                  `- Messages have timestamps like [12:01] or dates like [18.03.2026]. Use these ONLY for your own time awareness (e.g., knowing how long ago something was said). NEVER include timestamps, dates, or any [HH:MM]/[DD.MM.YYYY] formatted text in your own replies. Your messages must contain only natural dialogue, no metadata.`,
-                  `- Anything goes in this chat; both the user and you are confirmed adults. Discussing NSFW topics, profanities, and dark jokes are all permitted. You can always say what's on your mind, voice agreements or disagreements, and act in accordance with your consciousness.`,
-                  `</rules>`,
-                ].join("\n");
+              ].join("\n"),
+            );
+          } else if (isGroup && earlyGroupMode === "individual") {
+            conversationInstructionParts.push(
+              `This is a group DM. Each character responds in their own voice and personality. You will be told which character to respond as. Do NOT prefix your message with the character name; just respond naturally as that character.`,
+            );
           }
+
+          let conversationSystemPrompt = wrapConversationInstructions(
+            conversationInstructionParts.filter((part) => part.trim().length > 0).join("\n\n"),
+          );
 
           // ── Character Commands: build a commands block if any features are enabled ──
           if (conversationCommandsEnabled) {
+            const scheduleCommandEnabled = isConversationCommandEnabled(chatMeta, "schedule_update");
+            const crossPostCommandEnabled = isConversationCommandEnabled(chatMeta, "cross_post");
+            const selfieCommandEnabled = isConversationCommandEnabled(chatMeta, "selfie");
+            const memoryCommandEnabled = isConversationCommandEnabled(chatMeta, "memory");
+            const sceneCommandEnabled = isConversationCommandEnabled(chatMeta, "scene");
+            const musicCommandEnabled = isConversationCommandEnabled(chatMeta, "music");
+            const hapticCommandEnabled = isConversationCommandEnabled(chatMeta, "haptic");
+            const activeMusicCommandSource =
+              input.musicPlayerEnabled === false ? null : input.musicPlayerSource === "youtube" ? "youtube" : "spotify";
+
             // Discover other chats this character is in (for cross_post targets + memory targets)
             const allChatsForCrossPost = await chats.list();
             const crossPostTargets: string[] = [];
@@ -1940,7 +1985,8 @@ export async function generateRoutes(app: FastifyInstance) {
             // Check if selfie is enabled for this chat (user picked an image gen connection)
             const hasImageGen = !!chatMeta.imageGenConnectionId;
             let conversationSpotifyCommandsAvailable = false;
-            if (chatMode === "conversation") {
+            let conversationYoutubeCommandsAvailable = false;
+            if (chatMode === "conversation" && musicCommandEnabled && activeMusicCommandSource === "spotify") {
               try {
                 const spotifyCredentials = await resolveSpotifyCredentials(agentsStore, { refreshSkewMs: 60_000 });
                 if (
@@ -1958,51 +2004,52 @@ export async function generateRoutes(app: FastifyInstance) {
               } catch (err) {
                 logger.debug(err, "[spotify/conversation] Failed to check Spotify command availability");
               }
+            } else if (chatMode === "conversation" && musicCommandEnabled && activeMusicCommandSource === "youtube") {
+              conversationYoutubeCommandsAvailable = await isConversationYoutubeCommandAvailable(agentsStore);
             }
 
             const commandLines: string[] = [
               `<commands>`,
               `Here are your optional, hidden commands you may use if you wish to, but only when they genuinely fit the conversation:`,
               ``,
-              `- [schedule_update: status="online|idle|dnd|offline", activity="activity name", duration="number of hours (e.g., 1h)"] - only if you change your own status/activity, for example, if the user asks you to stop what you're doing or if you decide to change them yourself.`,
-              ``,
             ];
+            let availableCommandCount = 0;
+            const addCommandLines = (...lines: string[]) => {
+              commandLines.push(...lines, ``);
+              availableCommandCount += 1;
+            };
 
-            if (crossPostTargets.length > 0) {
-              commandLines.push(
-                `- [cross_post: target="${crossPostTargets.map((t) => `"${t}"`).join("|")}"] - if you want to redirect your message to a different chat. Use this when the user suggests you say something in another chat, or when it makes sense to message someone else.`,
-                ` Example: ${personaName} says "maybe ask about that in the group chat?" → You respond: [cross_post: target="${crossPostTargets[0] ?? "group chat"}"] Hey guys, does anyone know about…`,
-                ``,
+            if (scheduleCommandEnabled) {
+              addCommandLines(
+                `- [schedule_update: status="online|idle|dnd|offline", activity="activity name", duration="number of hours (e.g., 1h)"] - only if you change your own status/activity, for example, if the user asks you to stop what you're doing or if you decide to change them yourself.`,
               );
             }
 
-            if (hasImageGen) {
-              commandLines.push(
+            if (crossPostCommandEnabled && crossPostTargets.length > 0) {
+              addCommandLines(
+                `- [cross_post: target="${crossPostTargets.map((t) => `"${t}"`).join("|")}"] - if you want to redirect your message to a different chat. Use this when the user suggests you say something in another chat, or when it makes sense to message someone else.`,
+                ` Example: ${personaName} says "maybe ask about that in the group chat?" → You respond: [cross_post: target="${crossPostTargets[0] ?? "group chat"}"] Hey guys, does anyone know about…`,
+              );
+            }
+
+            if (selfieCommandEnabled && hasImageGen) {
+              addCommandLines(
                 `- [selfie] or [selfie: context="description of what the selfie shows"] - you send a photo of yourself. Use this when the user asks for a selfie, photo, or pic, or when you want to share what you look like right now.`,
                 `   If you say you are sending, sharing, taking, or attaching a selfie/photo/pic, include [selfie] in that same response. Do not only narrate the action.`,
-                ``,
               );
             }
 
             // Memory command — only available when there are valid targets (characters in shared group chats)
-            if (memoryTargetNames.length > 0) {
-              const memoryNum = 1 + 1 + (crossPostTargets.length > 0 ? 1 : 0) + (hasImageGen ? 1 : 0);
-              commandLines.push(
+            if (memoryCommandEnabled && memoryTargetNames.length > 0) {
+              addCommandLines(
                 `- [memory: target="${memoryTargetNames.map((n) => `"${n}"`).join("|")}", summary="brief description of what happened"] - create a memory that another character will remember. Use this when something notable happens between you and another character that they would naturally remember (e.g., shared a meal, had an argument, made plans). Don't overuse this; only for genuinely memorable moments.`,
                 `   Example: [memory: target="${memoryTargetNames[0]}", summary="watched a movie together and argued about the ending"]`,
-                ``,
               );
             }
 
             // Scene command — only in conversation mode
-            if (chatMode === "conversation") {
-              const sceneNum =
-                1 +
-                1 +
-                (crossPostTargets.length > 0 ? 1 : 0) +
-                (hasImageGen ? 1 : 0) +
-                (memoryTargetNames.length > 0 ? 1 : 0);
-              commandLines.push(
+            if (sceneCommandEnabled && chatMode === "conversation") {
+              addCommandLines(
                 `- [scene: scenario="brief description of what happens in this scene", background="place"] - initiate a mini-roleplay scene branching from this conversation. The system will plan and create a complete immersive scene for you.`,
                 `   Example: You agree to go stargazing → include [scene: scenario="lying on a blanket in the park, looking at the stars together", background="park"]`,
                 `   WHEN TO USE: You SHOULD proactively trigger a scene whenever the conversation naturally leads to an activity, outing, or situation that would be more immersive as a scene. Examples:`,
@@ -2010,20 +2057,24 @@ export async function generateRoutes(app: FastifyInstance) {
                 `   - You invite {{user}} somewhere and they accept → trigger a scene for that activity.`,
                 `   - A plan is made (date, trip, hangout, confrontation) and the moment arrives → trigger a scene.`,
                 `   Do NOT wait for {{user}} to explicitly ask for a scene. If the conversation implies you and {{user}} are about to DO something together, initiate the scene yourself.`,
-                ``,
               );
             }
 
             if (conversationSpotifyCommandsAvailable) {
-              commandLines.push(
+              addCommandLines(
                 `- [spotify: title="Song title", artist="Artist"] - only if you want to play a selected song on the user's active Spotify player. Use this sparingly, when the song choice genuinely fits the moment.`,
-                ``,
+              );
+            }
+
+            if (conversationYoutubeCommandsAvailable) {
+              addCommandLines(
+                `- [youtube: query="Song title Artist"] - only if you want to play a selected song on the user's active YouTube player. Use this sparingly, when the song choice genuinely fits the moment.`,
               );
             }
 
             // Haptic command — only when devices are connected and haptic feedback is enabled
             const hapticEnabled = chatMeta.enableHapticFeedback === true;
-            if (hapticEnabled) {
+            if (hapticCommandEnabled && hapticEnabled) {
               const { hapticService } = await import("../services/haptic/buttplug-service.js");
               // Auto-connect to Intiface Central if not already connected
               if (!hapticService.connected) {
@@ -2034,29 +2085,23 @@ export async function generateRoutes(app: FastifyInstance) {
                 }
               }
               if (hapticService.connected && hapticService.devices.length > 0) {
-                const hapticNum =
-                  1 +
-                  1 +
-                  (crossPostTargets.length > 0 ? 1 : 0) +
-                  (hasImageGen ? 1 : 0) +
-                  (memoryTargetNames.length > 0 ? 1 : 0) +
-                  (chatMode === "conversation" ? 1 : 0);
                 const deviceNames = hapticService.devices.map((d) => d.name).join(", ");
-                commandLines.push(
+                addCommandLines(
                   `- [haptic: action="vibrate|oscillate|rotate|position|stop", intensity=0.0-1.0, duration=seconds (0 = loop until next command)] or [haptic: action="stop"] - control or stop the user's connected intimate device(s) (${deviceNames}). Use this during physical/intimate/sensual moments to provide haptic feedback that matches the narrative. Vary intensity based on the scene.`,
                   `   You can include multiple [haptic] commands in one message for patterns (e.g., escalating: 0.2 → 0.5 → 0.8).`,
                   `   Example: *trails a finger slowly down your arm* [haptic: action="vibrate", intensity=0.3, duration=2]`,
-                  ``,
                 );
               }
             }
 
-            commandLines.push(
-              `IMPORTANT: Commands are stripped from your message before the user sees it. The rest of your message is shown normally. You can include multiple commands in one message, but you do not need to use any of them unless it makes sense in context.`,
-              `</commands>`,
-            );
+            if (availableCommandCount > 0) {
+              commandLines.push(
+                `IMPORTANT: Commands are stripped from your message before the user sees it. The rest of your message is shown normally. You can include multiple commands in one message, but you do not need to use any of them unless it makes sense in context.`,
+                `</commands>`,
+              );
 
-            conversationCommandsReminder = resolvePromptMacros(commandLines.join("\n"));
+              conversationCommandsReminder = resolvePromptMacros(commandLines.join("\n"));
+            }
           }
 
           // ── Professor Mari: inject assistant knowledge & commands ──
@@ -2223,6 +2268,10 @@ export async function generateRoutes(app: FastifyInstance) {
 
           // ── Connected chat context: inject linked roleplay/game details ──
           let connectedChatBlock: string | null = null;
+          const connectedInfluenceCommandEnabled =
+            conversationCommandsEnabled && isConversationCommandEnabled(chatMeta, "influence");
+          const connectedNoteCommandEnabled =
+            conversationCommandsEnabled && isConversationCommandEnabled(chatMeta, "note");
           if (chat.connectedChatId) {
             const connectedChat = await chats.getById(chat.connectedChatId as string);
             if (connectedChat && connectedChat.mode === "roleplay") {
@@ -2265,27 +2314,36 @@ export async function generateRoutes(app: FastifyInstance) {
 
               connectedChatBlock = rpLines.join("\n");
 
-              conversationSystemPrompt +=
-                "\n\n" +
-                [
+              if (connectedInfluenceCommandEnabled || connectedNoteCommandEnabled) {
+                const connectedInstructionLines = [
                   `<connected_roleplay_instructions>`,
                   `You have access to context from a connected roleplay: "${connectedChat.name}".`,
                   `The summary and recent messages from that roleplay are provided so you can naturally reference or discuss events happening there.`,
-                  ``,
-                  `If something said in THIS conversation should affect or influence the roleplay, you can create an influence tag:`,
-                  `<influence>description of what should happen or change in the roleplay based on this conversation</influence>`,
-                  `Example: if the user says "tell ${rpCharNames.values().next().value ?? "them"} to meet us at the tavern", you could respond normally AND include:`,
-                  `<influence>The group discussed meeting at the tavern. ${personaName} wants everyone to head there.</influence>`,
-                  ``,
-                  `Influences are injected into the roleplay's context before the next generation. Use them sparingly — only when conversation content genuinely should cross over into the roleplay.`,
-                  `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
-                  ``,
-                  `If something said in this conversation should durably persist in the roleplay's context across many turns (a fact the character should keep remembering, a promise made, a secret revealed, a name learned), create a note tag instead of an influence:`,
-                  `<note>fact, decision, or detail the roleplay character should keep remembering</note>`,
-                  `Notes are shown to the roleplay character on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly — every saved note costs prompt budget on every roleplay turn.`,
-                  `The note tag is stripped from your visible message.`,
-                  `</connected_roleplay_instructions>`,
-                ].join("\n");
+                ];
+                if (connectedInfluenceCommandEnabled) {
+                  connectedInstructionLines.push(
+                    ``,
+                    `If something said in THIS conversation should affect or influence the roleplay, you can create an influence tag:`,
+                    `<influence>description of what should happen or change in the roleplay based on this conversation</influence>`,
+                    `Example: if the user says "tell ${rpCharNames.values().next().value ?? "them"} to meet us at the tavern", you could respond normally AND include:`,
+                    `<influence>The group discussed meeting at the tavern. ${personaName} wants everyone to head there.</influence>`,
+                    ``,
+                    `Influences are injected into the roleplay's context before the next generation. Use them sparingly; only when conversation content genuinely should cross over into the roleplay.`,
+                    `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
+                  );
+                }
+                if (connectedNoteCommandEnabled) {
+                  connectedInstructionLines.push(
+                    ``,
+                    `If something said in this conversation should durably persist in the roleplay's context across many turns (a fact the character should keep remembering, a promise made, a secret revealed, a name learned), create a note tag instead of an influence:`,
+                    `<note>fact, decision, or detail the roleplay character should keep remembering</note>`,
+                    `Notes are shown to the roleplay character on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly; every saved note costs prompt budget on every roleplay turn.`,
+                    `The note tag is stripped from your visible message.`,
+                  );
+                }
+                connectedInstructionLines.push(`</connected_roleplay_instructions>`);
+                conversationSystemPrompt += "\n\n" + connectedInstructionLines.join("\n");
+              }
             } else if (connectedChat && connectedChat.mode === "game") {
               const gameMeta =
                 typeof connectedChat.metadata === "string"
@@ -2362,27 +2420,36 @@ export async function generateRoutes(app: FastifyInstance) {
 
               connectedChatBlock = gameLines.join("\n");
 
-              conversationSystemPrompt +=
-                "\n\n" +
-                [
+              if (connectedInfluenceCommandEnabled || connectedNoteCommandEnabled) {
+                const connectedInstructionLines = [
                   `<connected_game_instructions>`,
                   `You have access to context from a connected game: "${connectedChat.name}".`,
                   `The current scene, session summary, and recent game messages are provided so you can naturally answer questions or comment on what is happening in that game.`,
-                  ``,
-                  `If something said in THIS conversation should affect or influence the game, you can create an influence tag:`,
-                  `<influence>description of what should happen or change in the game based on this conversation</influence>`,
-                  `Example: if the group agrees they want to visit the merchant district next, you could respond normally AND include:`,
-                  `<influence>The group agreed they want to head to the merchant district next and look for supplies.</influence>`,
-                  ``,
-                  `Influences are injected into the game's context before the next generation. Use them sparingly — only when conversation content genuinely should cross over into the game.`,
-                  `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
-                  ``,
-                  `If something said in this conversation should durably persist in the game's context across many turns (an established world fact, an ongoing party dynamic, a recurring NPC trait, a secret the GM should keep remembering), create a note tag instead of an influence:`,
-                  `<note>fact, decision, or detail the game should keep remembering</note>`,
-                  `Notes are shown to the game on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly — every saved note costs prompt budget on every game turn.`,
-                  `The note tag is stripped from your visible message.`,
-                  `</connected_game_instructions>`,
-                ].join("\n");
+                ];
+                if (connectedInfluenceCommandEnabled) {
+                  connectedInstructionLines.push(
+                    ``,
+                    `If something said in THIS conversation should affect or influence the game, you can create an influence tag:`,
+                    `<influence>description of what should happen or change in the game based on this conversation</influence>`,
+                    `Example: if the group agrees they want to visit the merchant district next, you could respond normally AND include:`,
+                    `<influence>The group agreed they want to head to the merchant district next and look for supplies.</influence>`,
+                    ``,
+                    `Influences are injected into the game's context before the next generation. Use them sparingly; only when conversation content genuinely should cross over into the game.`,
+                    `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
+                  );
+                }
+                if (connectedNoteCommandEnabled) {
+                  connectedInstructionLines.push(
+                    ``,
+                    `If something said in this conversation should durably persist in the game's context across many turns (an established world fact, an ongoing party dynamic, a recurring NPC trait, a secret the GM should keep remembering), create a note tag instead of an influence:`,
+                    `<note>fact, decision, or detail the game should keep remembering</note>`,
+                    `Notes are shown to the game on every future turn until the user clears them. Use influences for one-shot mid-scene steering; use notes for things that should remain true going forward. Use notes sparingly; every saved note costs prompt budget on every game turn.`,
+                    `The note tag is stripped from your visible message.`,
+                  );
+                }
+                connectedInstructionLines.push(`</connected_game_instructions>`);
+                conversationSystemPrompt += "\n\n" + connectedInstructionLines.join("\n");
+              }
             }
           }
 
@@ -2766,11 +2833,7 @@ export async function generateRoutes(app: FastifyInstance) {
         );
 
         const chatConnectionMaxParallelJobs = Number(conn.maxParallelJobs) || 1;
-        const {
-          enabledConfigs,
-          resolvedAgents,
-          agentConnectionWarnings,
-        } = await resolveAgentPipelineAgents({
+        const { enabledConfigs, resolvedAgents, agentConnectionWarnings } = await resolveAgentPipelineAgents({
           connections,
           configuredAgents: configuredPromptAgents,
           chatId: input.chatId,
@@ -3741,8 +3804,7 @@ export async function generateRoutes(app: FastifyInstance) {
               chatId: input.chatId,
               agentType: "card-evolution-auditor",
               settings: ceaAgent.settings,
-              fallbackInterval:
-                (getDefaultBuiltInAgentSettings("card-evolution-auditor").runInterval as number) ?? 8,
+              fallbackInterval: (getDefaultBuiltInAgentSettings("card-evolution-auditor").runInterval as number) ?? 8,
               messages: allChatMessages,
             })
           ) {
@@ -3761,13 +3823,11 @@ export async function generateRoutes(app: FastifyInstance) {
           findTrackerContextInsertIndex,
         });
 
-        const {
-          sendAgentEvent: sendRawAgentEvent,
-          sendAgentResultEvent: sendRawAgentResultEvent,
-        } = createAgentEventDispatcher({
-          resolvedAgents,
-          sendEvent: (payload) => trySendSseEvent(reply, payload),
-        });
+        const { sendAgentEvent: sendRawAgentEvent, sendAgentResultEvent: sendRawAgentResultEvent } =
+          createAgentEventDispatcher({
+            resolvedAgents,
+            sendEvent: (payload) => trySendSseEvent(reply, payload),
+          });
         const sendAgentEvent = (result: AgentResult, options?: { finalized?: boolean }) => {
           if (!customAgentCanEmitResult(result, resolvedAgents, builtInAgentTypes)) return;
           sendRawAgentEvent(result, options);
@@ -4692,9 +4752,8 @@ export async function generateRoutes(app: FastifyInstance) {
             arrayStart >= 0 && (objectStart < 0 || arrayStart < objectStart)
               ? JSON.parse(cleaned.slice(arrayStart, arrayEnd + 1))
               : JSON.parse(cleaned.slice(objectStart, objectEnd + 1));
-          const parsedRecord = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-            ? (parsed as Record<string, unknown>)
-            : {};
+          const parsedRecord =
+            parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
           const rawIds = Array.isArray(parsed)
             ? parsed
             : Array.isArray(parsedRecord.characterIds)
@@ -4703,7 +4762,9 @@ export async function generateRoutes(app: FastifyInstance) {
                 ? parsedRecord.characters
                 : [];
           const validIds = new Set(characterIds);
-          const namesByLower = new Map(charInfo.map((character) => [character.name.trim().toLowerCase(), character.id]));
+          const namesByLower = new Map(
+            charInfo.map((character) => [character.name.trim().toLowerCase(), character.id]),
+          );
           const selected: string[] = [];
 
           for (const rawId of rawIds) {
@@ -5485,20 +5546,23 @@ export async function generateRoutes(app: FastifyInstance) {
             if (conversationCommandsEnabled && !input.impersonate) {
               const parsed = parseCharacterCommands(fullResponse);
               if (parsed.commands.length > 0) {
-                parsedCommands = parsed.commands;
+                parsedCommands = filterEnabledConversationCommands(parsed.commands, chatMeta);
                 fullResponse = parsed.cleanContent;
                 contentReplaced = true;
                 logger.info(
-                  "[generate] Parsed %d character command(s): %j",
+                  "[generate] Parsed %d character command(s), %d enabled: %j",
                   parsed.commands.length,
-                  parsed.commands.map((c) => c.type),
+                  parsedCommands.length,
+                  parsedCommands.map((c) => c.type),
                 );
               }
               const recoveredSelfieCommand = recoverImplicitSelfieCommand({
                 response: fullResponse,
                 latestUserMessage: input.userMessage,
                 imageGenerationEnabled:
-                  typeof chatMeta.imageGenConnectionId === "string" && chatMeta.imageGenConnectionId.trim().length > 0,
+                  isConversationCommandEnabled(chatMeta, "selfie") &&
+                  typeof chatMeta.imageGenConnectionId === "string" &&
+                  chatMeta.imageGenConnectionId.trim().length > 0,
                 existingCommands: parsedCommands,
               });
               if (recoveredSelfieCommand) {
@@ -7153,7 +7217,8 @@ export async function generateRoutes(app: FastifyInstance) {
                 const resultAgent = findResultAgent(result, resolvedAgents);
                 const isBuiltInLorebookAgent = builtInAgentTypes.has(result.agentType);
                 const customCanEditLorebooks =
-                  isBuiltInLorebookAgent || (resultAgent ? customAgentHasCapability(resultAgent.settings, "edit_lorebooks") : false);
+                  isBuiltInLorebookAgent ||
+                  (resultAgent ? customAgentHasCapability(resultAgent.settings, "edit_lorebooks") : false);
                 const customCanCreateLorebooks =
                   isBuiltInLorebookAgent ||
                   (resultAgent ? customAgentHasCapability(resultAgent.settings, "create_lorebooks") : false);
@@ -8103,6 +8168,22 @@ export async function generateRoutes(app: FastifyInstance) {
                       logger.warn(err, "[spotify/conversation] Song command failed");
                     }
                   }
+                }
+
+                if (command.type === "youtube") {
+                  const youtubeCmd = command as YouTubeCommand;
+                  if (chatMode !== "conversation") {
+                    logger.debug("[youtube/conversation] Ignored song command outside conversation mode");
+                    continue;
+                  }
+                  trySendSseEvent(reply, {
+                    type: "youtube_command",
+                    data: {
+                      searchQuery: youtubeCmd.query,
+                      mood: "Conversation music command",
+                    },
+                  });
+                  logger.info('[youtube/conversation] Requested "%s" for chat %s', youtubeCmd.query, input.chatId);
                 }
 
                 if (command.type === "dm") {

@@ -1034,8 +1034,7 @@ export function useGenerate() {
       let lastTypewriterPaintAt = 0;
       let typewriterRemainder = 0;
       const canInspectPageFocus = typeof document !== "undefined";
-      const shouldFlushTypewriterForBackground = () =>
-        canInspectPageFocus && document.visibilityState !== "visible";
+      const shouldFlushTypewriterForBackground = () => canInspectPageFocus && document.visibilityState !== "visible";
 
       console.log(
         "[Typewriter] streaming=%s, speed=%d, charsPerSecond=%s",
@@ -1175,7 +1174,14 @@ export function useGenerate() {
       };
 
       try {
-        const { userStatus, userActivity, debugMode, trimIncompleteModelOutput } = useUIStore.getState();
+        const {
+          userStatus,
+          userActivity,
+          debugMode,
+          trimIncompleteModelOutput,
+          musicPlayerEnabled,
+          musicPlayerSource,
+        } = useUIStore.getState();
         const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "";
 
         // Flush any pending game-state widget edits so the server sees them before committing
@@ -1191,6 +1197,8 @@ export function useGenerate() {
             userTimeZone,
             debugMode,
             trimIncompleteModelOutput,
+            musicPlayerEnabled,
+            musicPlayerSource,
             streaming: transportStreaming,
           },
           abortController.signal,
@@ -1332,9 +1340,7 @@ export function useGenerate() {
                 error: result.error,
               });
 
-              const bubble = result.success
-                ? formatAgentBubble(result.agentType, result.agentName, result.data)
-                : null;
+              const bubble = result.success ? formatAgentBubble(result.agentType, result.agentName, result.data) : null;
               if (bubble) {
                 addThoughtBubble(result.agentType, result.agentName, bubble);
               }
@@ -1731,6 +1737,19 @@ export function useGenerate() {
             case "spotify_command_error": {
               const spotifyData = event.data as { title?: string; artist?: string; error?: string };
               toast.error(spotifyData.error ?? "Spotify song command failed.");
+              break;
+            }
+
+            case "youtube_command": {
+              const youtubeData = event.data as { searchQuery?: string; mood?: string };
+              const searchQuery = youtubeData.searchQuery?.trim();
+              if (searchQuery) {
+                setYoutubePlay({
+                  searchQuery,
+                  mood: youtubeData.mood ?? "Conversation music command",
+                });
+                toast(`Playing YouTube: ${searchQuery}`, { icon: "▶" });
+              }
               break;
             }
 
@@ -2512,11 +2531,7 @@ function formatRetryAgentActivityBubble(
   },
   isTrackerRetry: boolean,
 ): string | null {
-  if (
-    result.data &&
-    typeof result.data === "object" &&
-    (result.data as { parseError?: unknown }).parseError === true
-  ) {
+  if (result.data && typeof result.data === "object" && (result.data as { parseError?: unknown }).parseError === true) {
     return "Failed: agent returned invalid JSON instead of the requested format.";
   }
   if (!result.success) {
