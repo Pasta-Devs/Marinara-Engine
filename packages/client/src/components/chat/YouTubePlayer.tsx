@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Loader2, Music, Pause, Play, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Pause, Play, X } from "lucide-react";
 import { useAgentStore } from "@/stores/agent.store";
 import { useUIStore } from "@/stores/ui.store";
 import { api } from "@/lib/api-client";
@@ -61,7 +61,12 @@ export function YouTubePlayer() {
   const lastQueryRef = useRef("");
   const volumeRef = useRef<number | null>(null);
 
-  const [nowPlaying, setNowPlaying] = useState<{ title: string; mood: string } | null>(null);
+  const [nowPlaying, setNowPlaying] = useState<{
+    title: string;
+    mood: string;
+    channel: string;
+    thumbnail: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -130,7 +135,12 @@ export function YouTubePlayer() {
         lastQueryRef.current = query;
         player.loadVideoById(top.videoId);
         if (volumeRef.current != null) player.setVolume(volumeRef.current);
-        setNowPlaying({ title: top.title, mood: youtubePlay.mood });
+        setNowPlaying({
+          title: top.title,
+          mood: youtubePlay.mood,
+          channel: top.channel,
+          thumbnail: top.thumbnail,
+        });
         setPaused(false);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "YouTube playback failed");
@@ -193,53 +203,79 @@ export function YouTubePlayer() {
 
   const active = musicPlayerActive;
   const hasPlayerContent = !!nowPlaying || loading || !!error;
+  const displayTitle = loading ? "Finding a track..." : error ? error : (nowPlaying?.title ?? "YouTube");
+  const displaySubtitle = loading
+    ? "Searching YouTube"
+    : error
+      ? "Playback needs attention"
+      : (nowPlaying?.channel ?? nowPlaying?.mood ?? "Ready for Music DJ");
 
   return (
     <>
       {/* Compact mini-player pill — lives in the top bar (upper-left), like Spotify's. */}
       {active && (
-        <div className="flex h-8 min-w-0 max-w-[15rem] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--card)] pl-1 pr-1">
-          <MusicSourceButton source="youtube" className="h-6 w-6 border-[var(--border)] bg-[var(--secondary)]" />
-          <span
-            className="hidden min-w-0 flex-1 truncate text-xs text-[var(--foreground)] sm:inline"
-            title={nowPlaying?.title ?? undefined}
-          >
-            {loading ? "Finding a track…" : error ? error : (nowPlaying?.title ?? "YouTube")}
-          </span>
-          {!loading && !nowPlaying && !error && <Music className="size-3.5 shrink-0 text-[var(--muted-foreground)] sm:hidden" />}
-          {loading && (
-            <Loader2 className="size-3.5 shrink-0 animate-spin text-[var(--muted-foreground)] sm:hidden" />
-          )}
+        <div className="relative flex h-10 min-w-0 max-w-[31rem] flex-1 items-center gap-2 overflow-hidden rounded-full border border-[#ff0033]/25 bg-[oklch(0.16_0.006_29)] px-2.5 shadow-[0_1px_10px_rgba(255,0,51,0.10)]">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <MusicSourceButton source="youtube" className="border-[#ff0033]/30 bg-[#ff0033]/10 hover:bg-[#ff0033]/15" />
+            <div className="flex h-7 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] bg-[oklch(0.23_0.006_29)] ring-1 ring-[#ff0033]/25">
+              {loading ? (
+                <Loader2 size="0.875rem" className="animate-spin text-[#ff0033]" />
+              ) : nowPlaying?.thumbnail ? (
+                <img src={nowPlaying.thumbnail} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Play size="0.875rem" className="translate-x-px text-[#ff0033]" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p
+                className="truncate text-[0.6875rem] font-semibold leading-tight text-[oklch(0.96_0.006_29)]"
+                title={displayTitle}
+              >
+                {displayTitle}
+              </p>
+              <p className="truncate text-[0.5625rem] leading-tight text-[oklch(0.72_0.012_29)]">
+                {displaySubtitle}
+              </p>
+            </div>
+          </div>
           {nowPlaying && (
             <button
               type="button"
               onClick={togglePlay}
-              className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] active:scale-90"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#ff0033] text-[oklch(0.98_0.006_29)] shadow-[0_1px_8px_rgba(255,0,51,0.20)] transition-transform hover:scale-105 active:scale-95"
               aria-label={paused ? "Play" : "Pause"}
             >
-              {paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+              {paused ? <Play size="0.8125rem" className="translate-x-px" /> : <Pause size="0.8125rem" />}
             </button>
           )}
           {hasPlayerContent && (
             <button
               type="button"
               onClick={() => setShowVideo((v) => !v)}
-              className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] active:scale-90"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.72_0.012_29)] transition-colors hover:text-[oklch(0.96_0.006_29)] active:scale-90"
               aria-label={showVideo ? "Hide video" : "Show video"}
             >
-              {showVideo ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+              {showVideo ? <ChevronUp size="0.8125rem" /> : <ChevronDown size="0.8125rem" />}
             </button>
           )}
           {hasPlayerContent && (
             <button
               type="button"
               onClick={close}
-              className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)] active:scale-90"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.72_0.012_29)] transition-colors hover:text-[#ff6b6b] active:scale-90"
               aria-label="Stop"
             >
-              <X className="size-3.5" />
+              <X size="0.8125rem" />
             </button>
           )}
+          <div className="pointer-events-none absolute bottom-0 left-3 right-3 h-px overflow-hidden rounded-full bg-[oklch(0.28_0.01_29)]">
+            <div
+              className={cn(
+                "h-full rounded-full bg-[#ff0033]",
+                hasPlayerContent && !paused ? "w-full opacity-80" : "w-8 opacity-50",
+              )}
+            />
+          </div>
         </div>
       )}
 
@@ -248,7 +284,7 @@ export function YouTubePlayer() {
           so audio never stops. */}
       <div
         className={cn(
-          "fixed top-14 z-40 w-72 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-lg transition-opacity",
+          "fixed top-14 z-40 w-80 overflow-hidden rounded-xl border border-[#ff0033]/25 bg-[oklch(0.16_0.006_29)] shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-opacity",
           active && hasPlayerContent && showVideo
             ? "left-2 opacity-100"
             : "pointer-events-none -left-[9999px] opacity-0",
@@ -259,17 +295,17 @@ export function YouTubePlayer() {
         {(nowPlaying || error) && (
           <div className="px-3 py-2">
             {error ? (
-              <div className="text-xs text-[var(--destructive)]">{error}</div>
+              <div className="text-xs text-[#ff6b6b]">{error}</div>
             ) : (
               <div className="min-w-0">
                 <div
-                  className="truncate text-xs font-medium text-[var(--foreground)]"
+                  className="truncate text-xs font-medium text-[oklch(0.96_0.006_29)]"
                   title={nowPlaying?.title}
                 >
                   {nowPlaying?.title}
                 </div>
                 {nowPlaying?.mood && (
-                  <div className="truncate text-[11px] text-[var(--muted-foreground)]">{nowPlaying.mood}</div>
+                  <div className="truncate text-[11px] text-[oklch(0.72_0.012_29)]">{nowPlaying.mood}</div>
                 )}
               </div>
             )}

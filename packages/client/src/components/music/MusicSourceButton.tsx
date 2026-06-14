@@ -44,8 +44,8 @@ export function MusicSourceButton({
       }}
       className={cn(
         "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10 active:scale-95",
-        source === "spotify" ? "text-[#1DB954]" : "text-[#ff0033]",
         className,
+        source === "spotify" ? "text-[#1DB954]" : "text-[#ff0033]",
       )}
       title={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}
       aria-label={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}
