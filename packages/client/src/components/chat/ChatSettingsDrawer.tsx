@@ -3086,13 +3086,6 @@ export function ChatSettingsDrawer({
                   </div>
                 </button>
 
-                {metadata.autonomousMessages && !conversationSchedulesEnabled && (
-                  <div className="rounded-lg bg-[var(--primary)]/8 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--primary)]/20">
-                    Schedules are off. Autonomous messages still use character talkativeness and your active or idle
-                    status; schedules only add routines, availability, and response delays.
-                  </div>
-                )}
-
                 {/* Character exchanges toggle (group chats only) */}
                 {chatCharIds.length > 1 && (
                   <button
