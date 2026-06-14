@@ -20,6 +20,7 @@ export * from "./types/export.js";
 export * from "./types/haptic.js";
 export * from "./types/theme.js";
 export * from "./types/extension.js";
+export * from "./types/discord-bridge.js";
 export * from "./types/chat-preset.js";
 export * from "./types/game.js";
 export * from "./types/sidecar.js";

@@ -239,6 +239,11 @@ if not exist "packages\client\dist" (
     call :run_pnpm --filter @marinara-engine/client build
     if errorlevel 1 echo  [ERROR] Failed to build the client. & pause & exit /b 1
 )
+if not exist "packages\discord-bot\dist" (
+    echo  [..] Building Discord bridge bot...
+    call :run_pnpm --filter @marinara-engine/discord-bot build
+    if errorlevel 1 echo  [ERROR] Failed to build the Discord bridge bot. & pause & exit /b 1
+)
 
 :: Database migrations are handled automatically at server startup by runMigrations()
 
@@ -286,12 +291,11 @@ if defined AUTO_OPEN_BROWSER_ENABLED (
     echo  [OK] Auto-open disabled ^(AUTO_OPEN_BROWSER=%AUTO_OPEN_BROWSER%^)
 )
 
-:: Start server
-cd packages\server
-node dist/index.js
+:: Start server and optional Discord bridge bot
+node scripts\start-production.mjs
 if errorlevel 1 (
     echo.
-    echo  [ERROR] Server exited unexpectedly. See the error above.
+    echo  [ERROR] Marinara exited unexpectedly. See the error above.
     echo.
     pause
 )

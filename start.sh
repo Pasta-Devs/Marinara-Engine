@@ -194,6 +194,10 @@ if [ ! -d "packages/client/dist" ]; then
     echo "  [..] Building client..."
     run_pnpm --filter @marinara-engine/client build
 fi
+if [ ! -d "packages/discord-bot/dist" ]; then
+    echo "  [..] Building Discord bridge bot..."
+    run_pnpm --filter @marinara-engine/discord-bot build
+fi
 
 # Database migrations are handled automatically at server startup by runMigrations()
 
@@ -241,6 +245,5 @@ else
   echo "  [OK] Auto-open disabled (AUTO_OPEN_BROWSER=${AUTO_OPEN_BROWSER_VALUE})"
 fi
 
-# Start server
-cd packages/server
-exec node dist/index.js
+# Start server and optional Discord bridge bot
+exec node scripts/start-production.mjs
