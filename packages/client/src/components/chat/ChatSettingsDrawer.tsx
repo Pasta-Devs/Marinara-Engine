@@ -5771,7 +5771,7 @@ function AgentCategorySection({
         />
       </button>
       {open && (
-        <div className="px-3 pb-2.5 space-y-1.5">
+        <div className="px-3 pb-2.5 pt-2.5 space-y-1.5">
           <p className="text-[0.5625rem] text-[var(--muted-foreground)] leading-tight">{description}</p>
           {children}
         </div>

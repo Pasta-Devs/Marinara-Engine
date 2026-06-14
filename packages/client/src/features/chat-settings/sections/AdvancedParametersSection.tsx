@@ -80,7 +80,7 @@ export function AdvancedParametersSection({
         />
       </div>
       {expanded && (
-        <div className="px-4 pb-3 space-y-3">
+        <div className="px-4 pb-3 pt-3 space-y-3">
           <GenerationParametersFields
             value={effectiveParams}
             showOpenRouterServiceTier={conn?.provider === "openrouter"}

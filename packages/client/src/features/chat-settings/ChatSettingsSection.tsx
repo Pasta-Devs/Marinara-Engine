@@ -49,7 +49,7 @@ export function ChatSettingsSection({ label, icon, count, help, style, children 
           className={cn("text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
         />
       </div>
-      {open && <div className="px-4 pb-3">{children}</div>}
+      {open && <div className="px-4 pb-3 pt-3">{children}</div>}
     </div>
   );
 }
