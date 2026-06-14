@@ -835,7 +835,7 @@ export class MariDbService {
     if (typeof row.description !== "string") {
       issues.push({ level: "error", table: "agent_configs", id, message: "Agent description must be a string" });
     }
-    if (typeof row.phase !== "string" || !AGENT_PHASES.has(row.phase)) {
+    if (typeof row.phase !== "string" || (row.phase !== "inactive" && !AGENT_PHASES.has(row.phase))) {
       issues.push({
         level: "error",
         table: "agent_configs",
@@ -843,7 +843,7 @@ export class MariDbService {
         message: `Agent phase must be one of: ${[...AGENT_PHASES].join(", ")}`,
       });
     }
-    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
+    if ((typeof row.enabled !== "string" && typeof row.enabled !== "boolean") || !(row.enabled === true || row.enabled === false || BOOLEAN_TEXT_VALUES.has(row.enabled))) {
       issues.push({ level: "error", table: "agent_configs", id, message: "Agent enabled must be stored as \"true\" or \"false\"" });
     }
     if (row.connectionId !== null && row.connectionId !== undefined && typeof row.connectionId !== "string") {
@@ -885,7 +885,7 @@ export class MariDbService {
         message: "Script custom tools require CUSTOM_TOOL_SCRIPT_ENABLED=true and a server restart",
       });
     }
-    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
+    if ((typeof row.enabled !== "string" && typeof row.enabled !== "boolean") || !(row.enabled === true || row.enabled === false || BOOLEAN_TEXT_VALUES.has(row.enabled))) {
       issues.push({ level: "error", table: "custom_tools", id, message: "Tool enabled must be stored as \"true\" or \"false\"" });
     }
     const parametersSchema = tryParseJsonColumn(row, "parametersSchema");

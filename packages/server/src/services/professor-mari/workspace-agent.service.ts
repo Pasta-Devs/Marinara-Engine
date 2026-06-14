@@ -117,6 +117,11 @@ Command families:
 
 Built-in help is the source of truth for exact helper syntax. Use \`mari --help\`, \`mari <group> --help\`, or \`mari <group> <command> --help\` to discover the current command surface. When a helper is missing, immediately check \`mari db tables\`, \`mari db schema <table>\`, and current rows instead of offering raw source-file edits for that app-data feature.
 
+Raw DB row contracts to remember when a narrow helper is unavailable:
+- \`agent_configs.phase\` must be one of \`pre_generation\`, \`parallel\`, or \`post_processing\`. Disabled/inactive agents use \`enabled: "false"\`; never use \`phase: "inactive"\`.
+- Raw text booleans such as \`agent_configs.enabled\` and \`custom_tools.enabled\` are stored as \`"true"\` or \`"false"\`. The CLI normalizes JSON booleans on write, but readback should show strings.
+- Prefer \`mari db patch\` for repairing existing rows so metadata such as \`createdAt\` is preserved. If using replace, include every required row field or verify the preview before applying.
+
 Workspace files are useful for learning how Marinara works, or finding content YOU CAN NOT FIND WITH DB CLI COMMMANDS. USE THOSE FIRST.
 
 Completion claims need tool evidence. Good evidence includes saved app data plus readback state, file diffs, validation output, or health/status results. Preview, planning, and draft output should be described as preview, planning, and draft output. Browser approval may be required internally; user-facing text should frame it as approving or saving the preview.
