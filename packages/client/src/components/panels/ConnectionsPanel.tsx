@@ -530,7 +530,7 @@ function ConnectionRow({
           {conn.provider} • {conn.model || "No model set"}
         </div>
       </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-foreground/10 transition-opacity group-hover:opacity-100 max-md:opacity-100">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -539,8 +539,8 @@ function ConnectionRow({
           className={cn(
             "rounded-lg p-1.5 transition-all active:scale-90",
             inRandomPool
-              ? "bg-amber-400/15 text-amber-400"
-              : "text-[var(--muted-foreground)] hover:bg-amber-400/10 hover:text-amber-400",
+              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+              : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/75",
           )}
           title={inRandomPool ? "In random pool (click to remove)" : "Add to random pool"}
         >

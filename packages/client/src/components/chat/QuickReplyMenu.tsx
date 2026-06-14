@@ -148,7 +148,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
         disabled={singleDisabled}
         aria-label={`${singleAction.label}: ${singleAction.description}`}
         className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--primary)] sm:h-8 sm:w-8",
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-2 focus-visible:ring-foreground/20 sm:h-8 sm:w-8",
           !singleDisabled
             ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70 active:scale-90"
             : "cursor-not-allowed text-foreground/20",
@@ -214,10 +214,10 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
                   onKeyDown={(event) => handleItemKeyDown(event, index)}
                   aria-label={`${action.label}: ${action.description}`}
                   className={cn(
-                    "group relative flex h-11 w-11 items-center justify-center rounded-full border shadow-xl outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--primary)] sm:h-10 sm:w-10",
+                    "group relative flex h-11 w-11 items-center justify-center rounded-full border shadow-xl outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/20 sm:h-10 sm:w-10",
                     action.disabled
-                      ? "cursor-not-allowed border-[var(--border)] bg-[var(--card)]/75 opacity-45"
-                      : "border-foreground/20 bg-[var(--card)] text-foreground/65 hover:border-foreground/35 hover:bg-foreground/10 hover:text-foreground/80 active:scale-95",
+                      ? "cursor-not-allowed border-foreground/10 bg-[var(--card)]/75 opacity-45"
+                      : "border-foreground/20 bg-[var(--card)] text-foreground/55 hover:bg-foreground/10 hover:text-foreground/80 active:scale-95",
                   )}
                   title={formatActionTitle(action)}
                   variants={{

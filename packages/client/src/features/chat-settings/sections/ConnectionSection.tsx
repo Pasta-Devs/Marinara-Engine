@@ -28,13 +28,13 @@ export function ConnectionSection({ connectionId, connections, isGame, onConnect
       {isGame ? (
         <div className="space-y-2">
           <div>
-            <label className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+            <label className="mb-1 block text-[0.6875rem] font-medium text-foreground/50">
               GM / Party Model
             </label>
             <select
               value={connectionId ?? ""}
               onChange={(e) => onConnectionChange(e.target.value || null)}
-              className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+              className="w-full rounded-lg bg-foreground/5 px-3 py-2 text-xs outline-none ring-1 ring-foreground/10 transition-shadow focus:ring-foreground/20"
             >
               <option value="">None</option>
               <option value="random">🎲 Random</option>
@@ -52,7 +52,7 @@ export function ConnectionSection({ connectionId, connections, isGame, onConnect
           <select
             value={connectionId ?? ""}
             onChange={(e) => onConnectionChange(e.target.value || null)}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+            className="w-full rounded-lg bg-foreground/5 px-3 py-2 text-xs outline-none ring-1 ring-foreground/10 transition-shadow focus:ring-foreground/20"
           >
             <option value="">None</option>
             <option value="random">🎲 Random</option>
@@ -63,7 +63,7 @@ export function ConnectionSection({ connectionId, connections, isGame, onConnect
             ))}
           </select>
           {connectionId === "random" && (
-            <p className="mt-1.5 text-[0.625rem] text-amber-400/80">
+            <p className="mt-1.5 text-[0.625rem] text-foreground/50">
               Each generation will randomly pick from connections marked for the random pool.
             </p>
           )}
