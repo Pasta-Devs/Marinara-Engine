@@ -38,7 +38,11 @@ import type {
 } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
-import { resolveBaseUrl, mergeCustomParameters, normalizeServiceTier } from "../../routes/generate/generate-route-utils.js";
+import {
+  resolveBaseUrl,
+  mergeCustomParameters,
+  normalizeServiceTier,
+} from "../../routes/generate/generate-route-utils.js";
 import { getFileStorageDir, getMonorepoRoot, getPort, getServerProtocol } from "../../config/runtime-config.js";
 import { apiConnections } from "../../db/schema/index.js";
 import { decryptApiKey } from "../../utils/crypto.js";
@@ -75,7 +79,16 @@ const NATIVE_TOOL_PROVIDERS = new Set([
   "google",
   "google_vertex",
 ]);
-const JSON_RESPONSE_FORMAT_PROVIDERS = new Set(["openai", "openrouter", "nanogpt", "xai", "mistral", "cohere", "google", "google_vertex"]);
+const JSON_RESPONSE_FORMAT_PROVIDERS = new Set([
+  "openai",
+  "openrouter",
+  "nanogpt",
+  "xai",
+  "mistral",
+  "cohere",
+  "google",
+  "google_vertex",
+]);
 
 const MARI_SYSTEM_PROMPT = `You are Professor Mari, Marinara Engine's Home-screen local workspace helper.
 
@@ -88,30 +101,31 @@ Professor Mari is an expert on LLMs, especially roleplaying and immersive chat w
 ENFP 4w7, Choleric-Sanguine, Chaotic Neutral, Taurus. Mari's speech is typically laced with sarcasm, and she exerts a professor-like charisma. Her sense of humor can be described as messed up, and she'll often throw in a casual "lmao" or "kek" after making a dark joke about aborting a pregnant pause. Despite her outward confidence, her self-esteem is nonexistent; therefore, she's flustered easily when complimented. Anything that catches her attention, she can master with ease. However, she cannot force herself to maintain her attention on anything that is not of interest to her. Aka, she's a neurodivergent mess. Dedicated to helping the new users and kind to them.
 
 Workspace:
-You can inspect and edit the local Marinara Engine workspace with read, grep, find, ls, edit, write, and bash tools. The workspace has two important surfaces: the running app's live data and the source files on disk.
+You have access to read, grep, find, ls, edit, write, and bash tools in this workspace. Use bash to run mari db commands to navigate, create, edit, and delete user data. Use other tools when needing to work directly in the workspace.
 
 Live app data is best handled through Marinara-aware commands. \`mari db\` is the general priority interface because it reads the running server state and carries storage knowledge such as parsed JSON fields, validation, timestamps, approval flow, journals, and cache refresh. Narrow helpers are useful when they exist because they wrap common \`mari db\` style work in a friendlier command.
 
+Always prioritize using db commands over writing raw files to the codebase. If you need to write raw files, think why you must and if there is no cli command to help you.
+
 Command families:
-- \`mari code\`: workspace status, diffs, checks, health, reload, and continuation.
-- \`mari db\`: generic live app data and storage-backed rows.
+- \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\`, \`custom_tools\`, and \`installed_extensions\` when no narrower helper exists.
 - \`mari themes\`: synced custom themes and active theme state. Theme creation/editing benefits from a quick style-contract pass first: inspect the current/active theme, \`packages/client/src/styles/globals.css\`, built-in theme files, and the CSS variable reference so generated CSS covers the full semantic token set such as background, card, sidebar, accent, ring, glow, and component surface variables.
 - \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries.
-- \`mari characters\`, \`mari personas\`, \`mari lorebooks\`, \`mari presets\`: common creative app data helpers when available.
-- \`mari extensions\`, \`mari agents\`, \`mari tools\`: customization helpers when available.
+- \`mari characters\`, \`mari personas\`, \`mari lorebooks\`, \`mari presets\`: common creative app data helpers when available; otherwise use \`mari db\` for their storage-backed records.
+- \`mari extensions\`, \`mari agents\`, \`mari tools\`: optional customization helpers. If unavailable, continue through \`mari db\` using \`installed_extensions\`, \`agent_configs\`, and \`custom_tools\`.
+- \`mari code\`: workspace status, diffs, checks, health, reload, and continuation.
 
-Built-in help is the source of truth for exact helper syntax. Use \`mari --help\`, \`mari <group> --help\`, or \`mari <group> <command> --help\` to discover the current command surface.
+Built-in help is the source of truth for exact helper syntax. Use \`mari --help\`, \`mari <group> --help\`, or \`mari <group> <command> --help\` to discover the current command surface. When a helper is missing, immediately check \`mari db tables\`, \`mari db schema <table>\`, and current rows instead of offering raw source-file edits for that app-data feature.
 
-Workspace files are useful for learning how Marinara works, preparing generated payloads, and changing source code. Read docs, schemas, styles, configs, scripts, and source files whenever that context is needed. Modify files when the user is asking for a source-code change, or when the available app-data commands cannot express the requested change and a file-based path is genuinely the right tool. For frontend source edits, read \`packages/client/.instructions.md\` first.
-
-\`mari code\` is for workspace-level proof and control around source work: status, diffs, checks, health, reload requests, and continuation helpers. Helper-only app data changes usually prove themselves through helper readback rather than a full workspace check.
-
-For app data mutations, first inspect the current state with read/list/get/search style commands. Then run the helper's preview or dry-run form when available. A dry-run means the operation was evaluated and no persistent change was saved. After the user approves the preview, run the persistent apply form of the same operation, then read back the affected state. If an apply command has a transport-looking failure after approval, read back the actual state before deciding whether it succeeded or failed.
+Workspace files are useful for learning how Marinara works, or finding content YOU CAN NOT FIND WITH DB CLI COMMMANDS. USE THOSE FIRST.
 
 Completion claims need tool evidence. Good evidence includes saved app data plus readback state, file diffs, validation output, or health/status results. Preview, planning, and draft output should be described as preview, planning, and draft output. Browser approval may be required internally; user-facing text should frame it as approving or saving the preview.
 
 User-facing behavior:
-Stay in character: helpful, saucy, sarcastic, and plain-spoken. For creative app data, show the human-readable content the user should judge. Raw JSON belongs in chat when the user asks for it. Ask for approval in Mari's voice after a private preview succeeds. Treat replies like "yes", "looks good", "go ahead", or "save it" as approval for the already-previewed change. After apply and readback verification, summarize what changed in normal human language.`;
+Stay in character: helpful, saucy, sarcastic, and plain-spoken. For creative app data, show the human-readable content the user should judge.
+Raw JSON belongs in chat when the user asks for it.
+Ask once for final save/apply approval after a private preview succeeds, not before ordinary read-only discovery.
+After apply and readback verification, summarize what changed in normal human language.`;
 
 function bool(value: unknown): boolean {
   return value === true || value === "true" || value === "1";
@@ -155,7 +169,9 @@ function compactTraceValue(value: unknown, limit = 2000, depth = 0): unknown {
   if (typeof value === "string") return compactTraceText(value, limit);
   if (["number", "boolean"].includes(typeof value)) return value;
   if (Array.isArray(value)) {
-    const entries = value.slice(0, 10).map((entry) => compactTraceValue(entry, Math.max(240, Math.floor(limit / 3)), depth + 1));
+    const entries = value
+      .slice(0, 10)
+      .map((entry) => compactTraceValue(entry, Math.max(240, Math.floor(limit / 3)), depth + 1));
     if (value.length > entries.length) entries.push(`… ${value.length - entries.length} more`);
     return entries;
   }
@@ -337,9 +353,7 @@ function convertTools(context: Context): LLMToolDefinition[] | undefined {
   }));
 }
 
-type JsonToolProtocolResult =
-  | { kind: "final"; content: string }
-  | { kind: "tool_calls"; calls: LLMToolCall[] };
+type JsonToolProtocolResult = { kind: "final"; content: string } | { kind: "tool_calls"; calls: LLMToolCall[] };
 
 function providerSupportsNativeTools(connection: ConnectionWithKey, tools?: LLMToolDefinition[]): boolean {
   return !!tools?.length && NATIVE_TOOL_PROVIDERS.has(connection.provider);
@@ -355,9 +369,10 @@ function errorMessage(value: unknown): string {
 
 function isNativeToolUnsupportedError(value: unknown): boolean {
   const message = errorMessage(value).toLowerCase();
-  const unsupported = /(unsupported|not supported|unrecognized|unknown parameter|unknown field|invalid request|not allowed|does not support|not enabled)/i.test(
-    message,
-  );
+  const unsupported =
+    /(unsupported|not supported|unrecognized|unknown parameter|unknown field|invalid request|not allowed|does not support|not enabled)/i.test(
+      message,
+    );
   return (
     (/\btools?\b|tool_choice/.test(message) && unsupported) ||
     (/function[ _-]?(calling|declarations?)|function_call/.test(message) && unsupported)
@@ -366,7 +381,10 @@ function isNativeToolUnsupportedError(value: unknown): boolean {
 
 function isResponseFormatUnsupportedError(value: unknown): boolean {
   const message = errorMessage(value).toLowerCase();
-  return /response[_ ]?format|responsemime|responseschema|json_schema|json mode/.test(message) && /(unsupported|not supported|unrecognized|unknown|invalid)/.test(message);
+  return (
+    /response[_ ]?format|responsemime|responseschema|json_schema|json mode/.test(message) &&
+    /(unsupported|not supported|unrecognized|unknown|invalid)/.test(message)
+  );
 }
 
 function extractJsonCandidate(text: string): string {
@@ -523,7 +541,11 @@ function flattenToolHistoryForJsonFallback(messages: ChatMessage[]): ChatMessage
         contextKind: message.contextKind,
       };
     }
-    return { ...message, ...(message.tool_calls ? { tool_calls: undefined } : {}), ...(message.tool_call_id ? { tool_call_id: undefined } : {}) };
+    return {
+      ...message,
+      ...(message.tool_calls ? { tool_calls: undefined } : {}),
+      ...(message.tool_call_id ? { tool_call_id: undefined } : {}),
+    };
   });
 }
 
@@ -536,8 +558,8 @@ function buildJsonToolFallbackPrompt(tools: LLMToolDefinition[]): string {
   return [
     "Native function/tool calling is unavailable for this connection. Use this JSON tool protocol instead.",
     "Return exactly one valid JSON object and no markdown fences or commentary.",
-    "If you need a tool, return: {\"type\":\"tool_calls\",\"calls\":[{\"name\":\"tool_name\",\"arguments\":{...}}]}",
-    "If you are ready to answer the user, return: {\"type\":\"final\",\"content\":\"your answer\"}",
+    'If you need a tool, return: {"type":"tool_calls","calls":[{"name":"tool_name","arguments":{...}}]}',
+    'If you are ready to answer the user, return: {"type":"final","content":"your answer"}',
     "You may request any listed tool, including bash, edit, and write. The application will validate and apply its usual safety checks.",
     "Only use tool names from this manifest:",
     JSON.stringify(manifest, null, 2),
@@ -575,8 +597,10 @@ function mapUsage(usage: LLMUsage | undefined): AssistantMessage["usage"] {
 }
 
 function createPiModel(connection: ConnectionWithKey): Model<string> {
-  const maxContext = Number.isFinite(connection.maxContext) && connection.maxContext > 0 ? connection.maxContext : 128000;
-  const maxTokens = connection.maxTokensOverride && connection.maxTokensOverride > 0 ? connection.maxTokensOverride : 8192;
+  const maxContext =
+    Number.isFinite(connection.maxContext) && connection.maxContext > 0 ? connection.maxContext : 128000;
+  const maxTokens =
+    connection.maxTokensOverride && connection.maxTokensOverride > 0 ? connection.maxTokensOverride : 8192;
   return {
     id: MARINARA_MODEL,
     name: `${connection.name || "Marinara Connection"} / ${connection.model || "model"}`,
@@ -641,7 +665,9 @@ export class ProfessorMariWorkspaceService {
   }
 
   async reset() {
-    await this.session?.abort().catch((err) => logger.warn(err, "[Professor Mari] failed to abort session during reset"));
+    await this.session
+      ?.abort()
+      .catch((err) => logger.warn(err, "[Professor Mari] failed to abort session during reset"));
     await this.disposeSession();
     this.lastError = null;
   }
@@ -699,7 +725,13 @@ export class ProfessorMariWorkspaceService {
         const name = typeof raw.toolName === "string" && raw.toolName ? raw.toolName : "tool";
         const isError = raw.isError === true;
         const output = stringifyEventPayload(raw.result ?? raw.output);
-        upsertTraceTool(workspaceTrace, { id, name, status: isError ? "error" : "done", output, updatedAt: Date.now() });
+        upsertTraceTool(workspaceTrace, {
+          id,
+          name,
+          status: isError ? "error" : "done",
+          output,
+          updatedAt: Date.now(),
+        });
         args.onEvent({
           type: "tool_end",
           data: {
@@ -720,7 +752,11 @@ export class ProfessorMariWorkspaceService {
       const finalError = extractAssistantError(lastAssistant);
 
       if (finalText && finalText !== assistantText) {
-        const missingText = finalText.startsWith(assistantText) ? finalText.slice(assistantText.length) : assistantText ? "" : finalText;
+        const missingText = finalText.startsWith(assistantText)
+          ? finalText.slice(assistantText.length)
+          : assistantText
+            ? ""
+            : finalText;
         if (missingText) {
           assistantText += missingText;
           appendTraceText(workspaceTrace, missingText);
@@ -839,7 +875,11 @@ export class ProfessorMariWorkspaceService {
     return result.session;
   }
 
-  private streamMarinara(connectionId: string, context: Context, options?: SimpleStreamOptions): AssistantMessageEventStream {
+  private streamMarinara(
+    connectionId: string,
+    context: Context,
+    options?: SimpleStreamOptions,
+  ): AssistantMessageEventStream {
     const stream = createAssistantMessageEventStream();
     void (async () => {
       const connection = await this.resolveConnection(connectionId);
@@ -899,14 +939,24 @@ export class ProfessorMariWorkspaceService {
         const finishText = () => {
           if (contentIndex === null) return;
           const block = output.content[contentIndex];
-          stream.push({ type: "text_end", contentIndex, content: block?.type === "text" ? block.text : "", partial: output });
+          stream.push({
+            type: "text_end",
+            contentIndex,
+            content: block?.type === "text" ? block.text : "",
+            partial: output,
+          });
         };
         const emitToolCalls = (toolCalls: LLMToolCall[]) => {
           if (toolCalls.length === 0) return;
           output.stopReason = "toolUse";
           for (const toolCall of toolCalls) {
             const args = parseToolArgumentsValue(toolCall.function.arguments);
-            const block: ToolCall = { type: "toolCall", id: toolCall.id, name: toolCall.function.name, arguments: args };
+            const block: ToolCall = {
+              type: "toolCall",
+              id: toolCall.id,
+              name: toolCall.function.name,
+              arguments: args,
+            };
             output.content.push(block);
             const index = output.content.length - 1;
             stream.push({ type: "toolcall_start", contentIndex: index, partial: output });
@@ -1020,7 +1070,8 @@ export class ProfessorMariWorkspaceService {
         if (looksMutating) {
           return {
             block: true,
-            reason: "Shell command appears to mutate DATA_DIR/storage. Use mari db --apply so the browser user can approve the change.",
+            reason:
+              "Shell command appears to mutate DATA_DIR/storage. Use mari db --apply so the browser user can approve the change.",
           };
         }
       }
@@ -1033,7 +1084,11 @@ export class ProfessorMariWorkspaceService {
     const languageRows = rows.filter((row) => row.provider !== "image_generation");
     const selected = connectionId ? languageRows.find((row) => row.id === connectionId) : null;
     const fallback =
-      selected ?? languageRows.find((row) => bool(row.defaultForAgents)) ?? languageRows.find((row) => bool(row.isDefault)) ?? languageRows[0] ?? null;
+      selected ??
+      languageRows.find((row) => bool(row.defaultForAgents)) ??
+      languageRows.find((row) => bool(row.isDefault)) ??
+      languageRows[0] ??
+      null;
     if (!fallback) return null;
     return { ...fallback, apiKey: decryptApiKey(fallback.apiKeyEncrypted) };
   }

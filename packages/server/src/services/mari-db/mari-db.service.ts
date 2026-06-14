@@ -12,7 +12,7 @@ import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
 import { FILE_BACKED_TABLES } from "../../db/file-backed-store.js";
 import * as schema from "../../db/schema/index.js";
-import { getFileStorageDir, getMonorepoRoot } from "../../config/runtime-config.js";
+import { getFileStorageDir, getMonorepoRoot, isCustomToolScriptEnabled } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -82,6 +82,7 @@ type ParsedMutationRequest = {
   apply: boolean;
   cascade: boolean;
   reason: string | null;
+  generatedIds?: string[];
 };
 type ApprovalDecision = "approved" | "rejected" | "cancelled" | "timed_out";
 type PendingRecord = MariDbPendingApproval & {
@@ -279,10 +280,10 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   choice_blocks: ["choices"],
   chat_presets: ["parameters", "tags"],
   api_connections: ["defaultParameters"],
-  agent_configs: ["settings", "toolIds", "triggerKeywords", "triggerCharacterIds", "triggerLorebookIds"],
-  agent_runs: ["input", "output", "metadata"],
-  agent_memory: ["memory"],
-  custom_tools: ["schema", "metadata"],
+  agent_configs: ["settings"],
+  agent_runs: ["resultData"],
+  agent_memory: ["value"],
+  custom_tools: ["parametersSchema"],
   game_state_snapshots: [
     "presentCharacters",
     "playerStats",
@@ -345,6 +346,9 @@ function buildTableMetas() {
 }
 
 const TABLE_METAS = buildTableMetas();
+const AGENT_PHASES = new Set(["pre_generation", "parallel", "post_processing"]);
+const TOOL_EXECUTION_TYPES = new Set(["webhook", "static", "script"]);
+const BOOLEAN_TEXT_VALUES = new Set(["true", "false"]);
 
 function isRecord(value: unknown): value is Row {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -394,6 +398,18 @@ function parseRow(table: string, row: Row): Row {
     if (Object.prototype.hasOwnProperty.call(out, key)) out[key] = parseJsonMaybe(out[key]);
   }
   return out;
+}
+
+function tryParseJsonColumn(row: Row, key: string): unknown {
+  if (!Object.prototype.hasOwnProperty.call(row, key)) return undefined;
+  const value = row[key];
+  if (value === null || value === undefined || value === "") return undefined;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 function serializeRow(table: string, row: Row): Row {
@@ -553,6 +569,22 @@ function flagString(flags: Map<string, string | boolean>, name: string): string 
 
 function hasFlag(flags: Map<string, string | boolean>, name: string): boolean {
   return flags.has(name) && flags.get(name) !== false;
+}
+
+function createRequestIdAllocator(request: ParsedMutationRequest): () => string {
+  let index = 0;
+  return () => {
+    request.generatedIds ??= [];
+    const existing = request.generatedIds[index];
+    if (existing) {
+      index += 1;
+      return existing;
+    }
+    const id = newId();
+    request.generatedIds.push(id);
+    index += 1;
+    return id;
+  };
 }
 
 async function parseJsonInput(flags: Map<string, string | boolean>, cwd?: string) {
@@ -756,6 +788,12 @@ export class MariDbService {
             // JSON-column check already reports this.
           }
         }
+        if (tableName === "agent_configs") {
+          this.validateAgentConfigRow(row, id, issues);
+        }
+        if (tableName === "custom_tools") {
+          this.validateCustomToolRow(row, id, issues);
+        }
       }
     }
 
@@ -784,6 +822,93 @@ export class MariDbService {
     }
 
     return validationFromIssues(issues);
+  }
+
+  private validateAgentConfigRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[]) {
+    const id = idValue == null ? null : String(idValue);
+    if (typeof row.type !== "string" || row.type.trim().length === 0) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent type must be a non-empty string" });
+    }
+    if (typeof row.name !== "string" || row.name.trim().length === 0) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent name must be a non-empty string" });
+    }
+    if (typeof row.description !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent description must be a string" });
+    }
+    if (typeof row.phase !== "string" || !AGENT_PHASES.has(row.phase)) {
+      issues.push({
+        level: "error",
+        table: "agent_configs",
+        id,
+        message: `Agent phase must be one of: ${[...AGENT_PHASES].join(", ")}`,
+      });
+    }
+    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent enabled must be stored as \"true\" or \"false\"" });
+    }
+    if (row.connectionId !== null && row.connectionId !== undefined && typeof row.connectionId !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent connectionId must be a string or null" });
+    }
+    if (row.imagePath !== null && row.imagePath !== undefined && typeof row.imagePath !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent imagePath must be a string or null" });
+    }
+    if (typeof row.promptTemplate !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent promptTemplate must be a string" });
+    }
+    const settings = tryParseJsonColumn(row, "settings");
+    if (settings !== undefined && !isRecord(settings)) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent settings must be a JSON object" });
+    }
+  }
+
+  private validateCustomToolRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[]) {
+    const id = idValue == null ? null : String(idValue);
+    if (typeof row.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(row.name)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be lowercase snake_case" });
+    }
+    if (typeof row.description !== "string" || row.description.trim().length === 0) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool description must be a non-empty string" });
+    }
+    if (typeof row.executionType !== "string" || !TOOL_EXECUTION_TYPES.has(row.executionType)) {
+      issues.push({
+        level: "error",
+        table: "custom_tools",
+        id,
+        message: `Tool executionType must be one of: ${[...TOOL_EXECUTION_TYPES].join(", ")}`,
+      });
+    }
+    if (row.executionType === "script" && !isCustomToolScriptEnabled()) {
+      issues.push({
+        level: "error",
+        table: "custom_tools",
+        id,
+        message: "Script custom tools require CUSTOM_TOOL_SCRIPT_ENABLED=true and a server restart",
+      });
+    }
+    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool enabled must be stored as \"true\" or \"false\"" });
+    }
+    const parametersSchema = tryParseJsonColumn(row, "parametersSchema");
+    if (parametersSchema !== undefined && !isRecord(parametersSchema)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool parametersSchema must be a JSON object" });
+    }
+    if (row.webhookUrl !== null && row.webhookUrl !== undefined && row.webhookUrl !== "") {
+      if (typeof row.webhookUrl !== "string") {
+        issues.push({ level: "error", table: "custom_tools", id, message: "Tool webhookUrl must be a URL string or null" });
+      } else {
+        try {
+          new URL(row.webhookUrl);
+        } catch {
+          issues.push({ level: "error", table: "custom_tools", id, message: "Tool webhookUrl must be a valid URL" });
+        }
+      }
+    }
+    if (row.executionType === "script" && (typeof row.scriptBody !== "string" || row.scriptBody.trim().length === 0)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Script tools require a non-empty scriptBody" });
+    }
+    if (row.executionType === "static" && row.staticResult !== null && row.staticResult !== undefined && typeof row.staticResult !== "string") {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Static tool result must be a string or null" });
+    }
   }
 
   private codeCwd(cwd?: string) {
@@ -1293,15 +1418,16 @@ export class MariDbService {
 
   private async planMutation(request: ParsedMutationRequest, command: string, timestamp: string = now()): Promise<Plan> {
     const issues: MariDbValidationIssue[] = [];
+    const allocateId = createRequestIdAllocator(request);
     let changes: PlanChange[] = [];
-    if (request.kind === "insert") changes = await this.planInsert(request, timestamp);
+    if (request.kind === "insert") changes = await this.planInsert(request, timestamp, allocateId);
     else if (request.kind === "patch") changes = await this.planPatch(request, timestamp);
     else if (request.kind === "replace") changes = await this.planReplace(request, timestamp);
     else if (request.kind === "delete") changes = await this.planDelete(request, issues);
     else if (request.kind === "theme-create") changes = await this.planThemeCreate(request, timestamp, issues);
     else if (request.kind === "theme-update") changes = await this.planThemeUpdate(request, timestamp, issues);
     else if (request.kind === "theme-set-active") changes = await this.planThemeSetActive(request, timestamp, issues);
-    else changes = await this.planTransform(request, timestamp);
+    else changes = await this.planTransform(request, timestamp, allocateId);
 
     const touchedTables = [...new Set(changes.map((change) => change.table))];
     const validation = await this.validateTouchedRows(changes, touchedTables, issues);
@@ -1310,11 +1436,11 @@ export class MariDbService {
     return { changes, validation, summary, operationHash, reason: request.reason, request };
   }
 
-  private async planInsert(request: ParsedMutationRequest, timestamp: string): Promise<PlanChange[]> {
+  private async planInsert(request: ParsedMutationRequest, timestamp: string, allocateId: () => string): Promise<PlanChange[]> {
     const meta = getMeta(String(request.table));
     const pk = getPrimary(meta);
     const parsed = { ...(request.row ?? {}) };
-    if (parsed[pk] == null || parsed[pk] === "") parsed[pk] = newId();
+    if (parsed[pk] == null || parsed[pk] === "") parsed[pk] = allocateId();
     this.fillTimestamps(meta, parsed, true, timestamp);
     const afterRaw = serializeRow(meta.name, parsed);
     return [{ table: meta.name, id: String(afterRaw[pk]), action: "insert", before: null, after: parseRow(meta.name, afterRaw), beforeRaw: null, afterRaw, apply: true }];
@@ -1364,7 +1490,7 @@ export class MariDbService {
     return this.dedupeDeletes(changes);
   }
 
-  private async planTransform(request: ParsedMutationRequest, timestamp: string): Promise<PlanChange[]> {
+  private async planTransform(request: ParsedMutationRequest, timestamp: string, allocateId: () => string): Promise<PlanChange[]> {
     const cwd = request.cwd ? resolve(request.cwd) : process.cwd();
     const scriptPath = resolve(cwd, String(request.scriptPath));
     const transform = await importTransform(scriptPath);
@@ -1388,7 +1514,7 @@ export class MariDbService {
         const ctx: TransformContext = {
           table,
           now: timestamp,
-          newId,
+          newId: allocateId,
           raw: (parsedRow) => serializeRow(table, parsedRow),
           parse: (rawRow) => parseRow(table, rawRow),
           find: (findTable, predicate) => (allParsed.get(findTable) ?? []).filter(predicate).map(clone),
@@ -1405,7 +1531,7 @@ export class MariDbService {
             if (!isRecord(insert)) continue;
             const insertRow = { ...insert };
             const pk = getPrimary(meta);
-            if (insertRow[pk] == null || insertRow[pk] === "") insertRow[pk] = newId();
+            if (insertRow[pk] == null || insertRow[pk] === "") insertRow[pk] = allocateId();
             this.fillTimestamps(meta, insertRow, true, timestamp);
             const afterRaw = serializeRow(table, insertRow);
             changes.push({ table, id: String(afterRaw[pk]), action: "insert", before: null, after: parseRow(table, afterRaw), beforeRaw: null, afterRaw, apply: true });
