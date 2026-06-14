@@ -52,6 +52,8 @@ interface Attachment {
   name: string;
 }
 
+const EMPTY_RESPONSE_QUEUE: string[] = [];
+
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "csv",
   "json",
@@ -154,7 +156,9 @@ export const ChatInput = memo(function ChatInput({
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
   const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
-  const responseQueue = useChatStore((s) => (activeChatId ? (s.responseQueues.get(activeChatId) ?? []) : []));
+  const responseQueue = useChatStore((s) =>
+    activeChatId ? (s.responseQueues.get(activeChatId) ?? EMPTY_RESPONSE_QUEUE) : EMPTY_RESPONSE_QUEUE,
+  );
   const setInputDraft = useChatStore((s) => s.setInputDraft);
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);
   const setCurrentInput = useChatStore((s) => s.setCurrentInput);
