@@ -3377,7 +3377,7 @@ export function ChatSettingsDrawer({
           {isConversation && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label="Connected Roleplay"
+              label="Connected Chats"
               icon={<ArrowRightLeft size="0.875rem" />}
               help="Link this conversation to a roleplay or game. Recent messages from the linked chat are pulled into context here automatically. To send something the other direction, the character uses `<influence>` (steers the next linked turn, one-shot) or `<note>` (persists on every future linked turn until cleared)."
             >
@@ -3456,7 +3456,7 @@ export function ChatSettingsDrawer({
           {isRoleplayMode && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label="Connected Conversation"
+              label="Connected Chats"
               icon={<ArrowRightLeft size="0.875rem" />}
               help={
                 'Link to an OOC conversation, and optionally let roleplay characters open direct-message conversations with `[dm: character="Name" message="text"]` when it naturally fits the scene.'
@@ -3541,7 +3541,7 @@ export function ChatSettingsDrawer({
           {isGame && chat.connectedChatId && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label="Connected Conversation"
+              label="Connected Chats"
               icon={<ArrowRightLeft size="0.875rem" />}
               help="Linked to a conversation. `<influence>` tags from the conversation steer the next turn here (one-shot, then consumed). `<note>` tags persist on every turn until cleared. Raw conversation messages are not injected — use `<note>` for facts this chat should keep remembering."
             >
@@ -3584,7 +3584,7 @@ export function ChatSettingsDrawer({
           {chatMode === "game" && !chat.connectedChatId && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
-              label="Connected Conversation"
+              label="Connected Chats"
               icon={<ArrowRightLeft size="0.875rem" />}
               help="Link this game to an OOC conversation. The conversation character uses `<influence>` (one-shot) or `<note>` (durable) to bridge content into the game; raw conversation messages are not injected. Game events and roleplay moments flow back into the conversation automatically."
             >
