@@ -59,6 +59,7 @@ interface Rect {
 }
 
 const PAD = 8;
+const TOPBAR_SAFE_TOP = 64;
 
 function getTargetRect(target: string): Rect | null {
   // Pick the first visible element matching the selector. This handles cases
@@ -79,13 +80,14 @@ function computeTooltipStyle(rect: Rect, side: "top" | "bottom" | "left" | "righ
   const vh = window.innerHeight;
   const isMobile = vw < 640;
   const VIEWPORT_MARGIN = isMobile ? 12 : 16;
+  const SAFE_TOP = Math.max(VIEWPORT_MARGIN, TOPBAR_SAFE_TOP);
   const TOOLTIP_W = isMobile ? Math.min(vw - VIEWPORT_MARGIN * 2, 340) : Math.min(340, vw - VIEWPORT_MARGIN * 2);
   const GAP = isMobile ? 12 : 16;
   const available = {
     right: vw - (rect.left + rect.width + GAP + PAD) - VIEWPORT_MARGIN,
     left: rect.left - GAP - PAD - VIEWPORT_MARGIN,
     bottom: vh - (rect.top + rect.height + GAP + PAD) - VIEWPORT_MARGIN,
-    top: rect.top - GAP - PAD - VIEWPORT_MARGIN,
+    top: rect.top - GAP - PAD - SAFE_TOP,
   };
 
   if (isMobile) {
@@ -97,10 +99,11 @@ function computeTooltipStyle(rect: Rect, side: "top" | "bottom" | "left" | "righ
     const MARGIN = 12;
     if (placeAtBottom) {
       const top = rect.top + rect.height + GAP + PAD;
-      const maxHeight = vh - top - MARGIN;
+      const safeTop = Math.max(top, SAFE_TOP);
+      const maxHeight = vh - safeTop - MARGIN;
       return {
         position: "fixed",
-        top,
+        top: safeTop,
         left: (vw - TOOLTIP_W) / 2,
         width: TOOLTIP_W,
         maxHeight: `${Math.max(200, maxHeight)}px`,
@@ -111,10 +114,10 @@ function computeTooltipStyle(rect: Rect, side: "top" | "bottom" | "left" | "righ
     }
     // Target is in the lower half (e.g. the dialogue box) → anchor card at top
     const bottomLimit = rect.top - GAP - PAD;
-    const maxHeight = Math.max(200, bottomLimit - MARGIN);
+    const maxHeight = Math.max(200, bottomLimit - SAFE_TOP);
     return {
       position: "fixed",
-      top: MARGIN,
+      top: SAFE_TOP,
       left: (vw - TOOLTIP_W) / 2,
       width: TOOLTIP_W,
       maxHeight: `${maxHeight}px`,
@@ -152,25 +155,25 @@ function computeTooltipStyle(rect: Rect, side: "top" | "bottom" | "left" | "righ
   let left = 0;
 
   if (placement === "right") {
-    maxHeight = Math.max(minScrollableHeight, vh - VIEWPORT_MARGIN * 2);
+    maxHeight = Math.max(minScrollableHeight, vh - SAFE_TOP - VIEWPORT_MARGIN);
     top = rect.top + rect.height / 2 - maxHeight / 2;
     left = rect.left + rect.width + GAP + PAD;
     if (left + TOOLTIP_W > vw - VIEWPORT_MARGIN) {
       left = rect.left - TOOLTIP_W - GAP - PAD;
     }
   } else if (placement === "left") {
-    maxHeight = Math.max(minScrollableHeight, vh - VIEWPORT_MARGIN * 2);
+    maxHeight = Math.max(minScrollableHeight, vh - SAFE_TOP - VIEWPORT_MARGIN);
     top = rect.top + rect.height / 2 - maxHeight / 2;
     left = rect.left - TOOLTIP_W - GAP - PAD;
     if (left < VIEWPORT_MARGIN) {
       left = rect.left + rect.width + GAP + PAD;
     }
   } else if (placement === "bottom") {
-    maxHeight = Math.max(minScrollableHeight, Math.min(vh - VIEWPORT_MARGIN * 2, available.bottom));
+    maxHeight = Math.max(minScrollableHeight, Math.min(vh - SAFE_TOP - VIEWPORT_MARGIN, available.bottom));
     top = rect.top + rect.height + GAP + PAD;
     left = rect.left + rect.width / 2 - TOOLTIP_W / 2;
   } else {
-    maxHeight = Math.max(minScrollableHeight, Math.min(vh - VIEWPORT_MARGIN * 2, available.top));
+    maxHeight = Math.max(minScrollableHeight, Math.min(vh - SAFE_TOP - VIEWPORT_MARGIN, available.top));
     top = rect.top - GAP - PAD - maxHeight;
     left = rect.left + rect.width / 2 - TOOLTIP_W / 2;
     if (top < VIEWPORT_MARGIN) {
@@ -179,7 +182,7 @@ function computeTooltipStyle(rect: Rect, side: "top" | "bottom" | "left" | "righ
   }
 
   left = Math.max(VIEWPORT_MARGIN, Math.min(left, vw - TOOLTIP_W - VIEWPORT_MARGIN));
-  top = Math.max(VIEWPORT_MARGIN, Math.min(top, vh - maxHeight - VIEWPORT_MARGIN));
+  top = Math.max(SAFE_TOP, Math.min(top, vh - maxHeight - VIEWPORT_MARGIN));
 
   return {
     position: "fixed",
@@ -368,7 +371,10 @@ export function GameTutorial({ open, onClose }: GameTutorialProps) {
       ) : (
         // Fallback: target not yet measurable — show a centered card so the tour
         // still works even if a region is momentarily hidden.
-        <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
+        <div
+          className="pointer-events-none fixed inset-x-0 bottom-0 flex items-center justify-center"
+          style={{ top: TOPBAR_SAFE_TOP }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={step}

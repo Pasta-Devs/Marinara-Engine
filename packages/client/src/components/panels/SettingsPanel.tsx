@@ -3408,9 +3408,11 @@ function ThemesSettings() {
           <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
             <strong>Tip:</strong> CSS themes can override any CSS variable (e.g.{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--background</code>,{" "}
-            <code className="rounded bg-[var(--secondary)] px-1">--primary</code>) or add custom styles. JSON themes
-            should have <code className="rounded bg-[var(--secondary)] px-1">{`{ "name": "...", "css": "..." }`}</code>{" "}
-            format. Imported theme files sync to this Marinara server but do not auto-activate.
+            <code className="rounded bg-[var(--secondary)] px-1">--primary</code>,{" "}
+            <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-button-bg</code>) or add custom
+            styles. JSON themes should have{" "}
+            <code className="rounded bg-[var(--secondary)] px-1">{`{ "name": "...", "css": "..." }`}</code> format.
+            Imported theme files sync to this Marinara server but do not auto-activate.
           </div>
         </div>
       </SettingsSection>
@@ -3444,9 +3446,31 @@ const CSS_TEMPLATE = `/* ══════════════════�
 
   /* ── Sidebar ── */
   /* --sidebar: #0c0c12; */
+
+  /* ── Shared Chat / Roleplay / Game Chrome ── */
+  /* --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--card) 82%, transparent); */
+  /* --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--card) 94%, var(--foreground) 6%); */
+  /* --marinara-chat-chrome-button-bg-active: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%); */
+  /* --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 12%, transparent); */
+  /* --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 20%, transparent); */
+  /* --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--foreground) 24%, transparent); */
+  /* --marinara-chat-chrome-button-text: color-mix(in srgb, var(--foreground) 64%, transparent); */
+  /* --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--foreground) 92%, transparent); */
+  /* --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--foreground) 96%, transparent); */
+  /* --marinara-chat-chrome-panel-bg: color-mix(in srgb, var(--background) 88%, var(--card) 12%); */
+  /* --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 16%, transparent); */
+  /* --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 13%, transparent); */
+  /* --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--foreground) 90%, transparent); */
+  /* --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--foreground) 58%, transparent); */
+  /* --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--foreground) 9%, transparent); */
+  /* --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--foreground) 13%, transparent); */
 }
 
 /* Uncomment and edit the variables above.
+   You can also target shared chrome directly:
+   .marinara-chat-toolbar-button { border-radius: 0.5rem; }
+   .marinara-chat-popover { box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.4); }
+
    You can also add any custom CSS below: */
 `;
 

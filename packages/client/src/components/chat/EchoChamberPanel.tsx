@@ -39,9 +39,46 @@ const WIDGET_BAR_H = 76; // top HUD toolbar: py-2 (16px) + widget buttons h-[3.7
 const INPUT_BOX_H = 72; // bottom chat input area height
 const HUD_EDGE_GAP = 16; // Aligns with the roleplay HUD edge padding.
 const FLOATING_EDGE_GAP = 16;
+const TOP_BUTTON_GAP = 6; // Matches the tracker panel gap below the top controls.
+const ROLEPLAY_TOP_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
+const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
 
 interface EchoChamberPanelProps {
   hiddenOnMobile?: boolean;
+}
+
+function readVisibleRect(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || window.getComputedStyle(element).display === "none") return null;
+  return rect;
+}
+
+function findVisibleHud(): HTMLElement | null {
+  const els = document.querySelectorAll<HTMLElement>(".rpg-hud");
+  for (const el of els) {
+    if (readVisibleRect(el)) return el;
+  }
+  return null;
+}
+
+function getRoleplayAreaTop() {
+  return document.querySelector<HTMLElement>(".rpg-chat-area")?.getBoundingClientRect().top ?? 0;
+}
+
+function getTopChromeBottomOffset() {
+  const containerTop = getRoleplayAreaTop();
+  const candidates: number[] = [];
+  const topBarRect = document.querySelector<HTMLElement>(TOP_BAR_SELECTOR);
+  const topBarBottom = topBarRect ? readVisibleRect(topBarRect)?.bottom : null;
+  if (topBarBottom != null) candidates.push(Math.ceil(topBarBottom - containerTop + TOP_BUTTON_GAP));
+
+  const anchors = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR));
+  anchors.forEach((anchor) => {
+    const rect = readVisibleRect(anchor);
+    if (rect) candidates.push(Math.ceil(rect.bottom - containerTop + TOP_BUTTON_GAP));
+  });
+
+  return candidates.length > 0 ? Math.max(TOP_BUTTON_GAP, ...candidates) : WIDGET_BAR_H + TOP_BUTTON_GAP;
 }
 
 /** Tiny 4-square grid icon; the active corner is highlighted. */
@@ -196,14 +233,6 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     if (!echoChamberOpen) return;
     // On mobile, position below the HUD bar.
     if (typeof window !== "undefined" && window.innerWidth < 768) {
-      const findVisibleHud = (): HTMLElement | null => {
-        const els = document.querySelectorAll<HTMLElement>(".rpg-hud");
-        for (const el of els) {
-          if (el.getBoundingClientRect().height > 0) return el;
-        }
-        return null;
-      };
-
       const update = () => {
         const hudEl = findVisibleHud();
         // Position relative to container, so measure HUD bottom relative to rpg-chat-area
@@ -227,16 +256,61 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     // Desktop: position within the chat area container (absolute, not fixed)
     const isTop = echoChamberSide.startsWith("top");
     const isLeft = echoChamberSide.endsWith("left");
-    const topOffset = isTop ? WIDGET_BAR_H + FLOATING_EDGE_GAP : undefined;
-    const bottomOffset = !isTop ? INPUT_BOX_H + FLOATING_EDGE_GAP : undefined;
-    const leftOffset = isLeft ? `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-left, 0px))` : undefined;
-    const rightOffset = !isLeft ? `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-right, 0px))` : undefined;
-    setPosStyle({
-      ...(topOffset !== undefined && { top: topOffset }),
-      ...(bottomOffset !== undefined && { bottom: bottomOffset }),
-      ...(leftOffset !== undefined && { left: leftOffset }),
-      ...(rightOffset !== undefined && { right: rightOffset }),
-    });
+    const update = () => {
+      const topOffset = isTop ? getTopChromeBottomOffset() : undefined;
+      const bottomOffset = !isTop ? INPUT_BOX_H + FLOATING_EDGE_GAP : undefined;
+      const leftOffset = isLeft ? `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-left, 0px))` : undefined;
+      const rightOffset = !isLeft ? `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-right, 0px))` : undefined;
+      setPosStyle({
+        ...(topOffset !== undefined && { top: topOffset }),
+        ...(bottomOffset !== undefined && { bottom: bottomOffset }),
+        ...(leftOffset !== undefined && { left: leftOffset }),
+        ...(rightOffset !== undefined && { right: rightOffset }),
+      });
+    };
+
+    update();
+    if (!isTop) return;
+
+    let frame = 0;
+    let discoveryObserver: MutationObserver | null = null;
+    const observedTargets = new Set<HTMLElement>();
+    const observer = new ResizeObserver(() => scheduleUpdate());
+    const observeTargets = () => {
+      const targets = [
+        ...Array.from(document.querySelectorAll<HTMLElement>(TOP_BAR_SELECTOR)),
+        ...Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR)),
+      ];
+      targets.forEach((target) => {
+        if (observedTargets.has(target)) return;
+        observer.observe(target);
+        observedTargets.add(target);
+      });
+      return targets.length > 0;
+    };
+    function scheduleUpdate() {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const foundTargets = observeTargets();
+        update();
+        if (foundTargets) {
+          discoveryObserver?.disconnect();
+          discoveryObserver = null;
+        }
+      });
+    }
+
+    scheduleUpdate();
+    discoveryObserver = new MutationObserver(() => scheduleUpdate());
+    discoveryObserver.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      discoveryObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+    };
   }, [echoChamberOpen, echoChamberSide]);
 
   if (!echoChamberOpen || !echoEnabled || (isMobile && hiddenOnMobile)) return null;
@@ -247,7 +321,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       className={cn(
         ROLEPLAY_POPOVER_SHELL,
         "absolute z-[60] flex flex-col",
-        "pointer-events-auto w-60 max-md:w-auto max-h-44 max-md:max-h-28",
+        "pointer-events-auto w-60 max-md:w-auto md:max-h-[22rem] max-md:max-h-28",
       )}
       style={posStyle}
     >

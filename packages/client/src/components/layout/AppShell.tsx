@@ -172,7 +172,11 @@ export function AppShell() {
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
   const sidebarDragWidthRef = useRef<number | null>(null);
   const rightPanelDragWidthRef = useRef<number | null>(null);
-  const sharedSidebarWidth = clampWidth(rightPanelWidth || sidebarWidth, SHARED_SIDEBAR_WIDTH_MIN, SHARED_SIDEBAR_WIDTH_MAX);
+  const sharedSidebarWidth = clampWidth(
+    rightPanelWidth || sidebarWidth,
+    SHARED_SIDEBAR_WIDTH_MIN,
+    SHARED_SIDEBAR_WIDTH_MAX,
+  );
   const liveSidebarWidth = sidebarDragWidth ?? rightPanelDragWidth ?? sharedSidebarWidth;
   const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? sharedSidebarWidth;
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
@@ -446,12 +450,15 @@ export function AppShell() {
 
   const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;
-  const trackerPanelModeAvailable =
-    activeChat?.mode === "roleplay" || activeChat?.mode === "visual_novel" || activeChat?.mode === "game";
+  const trackerPanelModeAvailable = activeChat?.mode === "roleplay" || activeChat?.mode === "visual_novel";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen;
   const trackerPanelSurfaceAvailable =
     trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView;
   const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable;
+  useEffect(() => {
+    if (!trackerPanelOpen || !activeChat?.mode || trackerPanelModeAvailable) return;
+    setTrackerPanelOpen(false);
+  }, [activeChat?.mode, setTrackerPanelOpen, trackerPanelModeAvailable, trackerPanelOpen]);
   useEffect(() => {
     if (trackerPanelVisible) {
       trackerPanelWasActiveRef.current = true;

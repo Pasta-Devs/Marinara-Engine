@@ -357,7 +357,12 @@ export function GameInput({
     >
       {/* Dice picker */}
       {showDice && (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-foreground/10 px-4 py-2">
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-1.5 border-b border-foreground/10 py-2",
+            inline ? "px-0" : "px-4",
+          )}
+        >
           {QUICK_DICE.map((d) => (
             <button
               type="button"

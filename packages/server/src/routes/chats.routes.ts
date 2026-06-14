@@ -2347,7 +2347,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     // store the per-branch display label in metadata instead.
     const newChat = await storage.create({
       name: sourceChat.name,
-      mode: sourceChat.mode as "conversation" | "roleplay" | "visual_novel",
+      mode: sourceChat.mode as "conversation" | "roleplay" | "visual_novel" | "game",
       characterIds: (() => {
         try {
           return JSON.parse(sourceChat.characterIds as string);

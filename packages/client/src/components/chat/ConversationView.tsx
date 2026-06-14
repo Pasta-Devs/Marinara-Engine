@@ -20,7 +20,7 @@ import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "./SceneBanner";
 import { ChatBranchSelector } from "./ChatBranchSelector";
 import { ActiveLorebookEntriesButton } from "./ActiveLorebookEntriesButton";
-import { ChatToolbarButton, ChatToolbarMenu } from "./ChatToolbarControls";
+import { ChatToolbarButton, ChatToolbarMenu, getChatToolbarButtonClass } from "./ChatToolbarControls";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -880,16 +880,23 @@ export function ConversationView({
                     ? "bg-red-500"
                     : "bg-gray-400";
             };
-            const identityPillClass =
-              "flex items-center gap-2 rounded-full border border-foreground/10 bg-foreground/5 px-2.5 py-1.5 text-foreground/80 backdrop-blur-md";
-            const avatarShellClass = "relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-foreground/10";
+            const identityPillClass = getChatToolbarButtonClass({
+              compact: true,
+              className:
+                "w-auto min-w-0 max-w-[min(20rem,calc(100vw-8rem))] justify-start gap-2 px-2.5 text-[var(--foreground)]/80 hover:text-[var(--foreground)]/90",
+            });
+            const avatarShellClass =
+              "relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]/80";
             const avatarFallbackClass =
-              "flex h-5 w-5 items-center justify-center rounded-full bg-foreground/10 text-[0.5rem] font-bold text-foreground/70 ring-1 ring-foreground/10";
+              "flex h-5 w-5 items-center justify-center rounded-full bg-[var(--foreground)]/10 text-[0.5rem] font-bold text-[var(--foreground)]/70 ring-1 ring-[var(--border)]/80";
 
             if (chars.length === 1) {
               const c = chars[0]!;
               return (
-                <div className={identityPillClass}>
+                <div
+                  className={identityPillClass}
+                  title={c.conversationActivity ? `${c.name}: ${c.conversationActivity}` : c.name}
+                >
                   <div className="relative flex-shrink-0">
                     {c.avatarUrl ? (
                       <span className={avatarShellClass}>
@@ -907,10 +914,12 @@ export function ConversationView({
                       className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--card)] ${statusColor(c.conversationStatus)}`}
                     />
                   </div>
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[0.75rem] font-medium text-foreground/90">{c.name}</span>
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <span className="truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">{c.name}</span>
                     {c.conversationActivity && (
-                      <span className="text-[0.5625rem] text-foreground/50">{c.conversationActivity}</span>
+                      <span className="truncate text-[0.5625rem] text-[var(--foreground)]/50">
+                        {c.conversationActivity}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -919,7 +928,12 @@ export function ConversationView({
 
             // Multiple characters — show stacked avatars + names
             return (
-              <div className={identityPillClass}>
+              <div
+                className={identityPillClass}
+                title={chars
+                  .map((c) => (c.conversationActivity ? `${c.name}: ${c.conversationActivity}` : c.name))
+                  .join(", ")}
+              >
                 <div
                   className="relative flex-shrink-0"
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
@@ -946,7 +960,7 @@ export function ConversationView({
                     </div>
                   ))}
                 </div>
-                <span className="text-[0.75rem] font-medium text-[var(--foreground)]/90">
+                <span className="min-w-0 truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">
                   {chars.length <= 2 ? chars.map((c) => c.name).join(" & ") : `${chars[0]!.name} + ${chars.length - 1}`}
                 </span>
               </div>

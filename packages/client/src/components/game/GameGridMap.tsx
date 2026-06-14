@@ -14,9 +14,9 @@ const TERRAIN_COLORS: Record<string, string> = {
   desert: "bg-amber-900/40",
   snow: "bg-slate-300/20",
   town: "bg-yellow-900/30",
-  dungeon: "bg-purple-900/40",
+  dungeon: "bg-zinc-800/55",
   road: "bg-stone-600/30",
-  cave: "bg-gray-800/60",
+  cave: "bg-zinc-800/60",
 };
 
 interface GameGridMapProps {
@@ -85,14 +85,14 @@ export function GameGridMap({
   return (
     <div className="flex flex-col gap-0.5">
       <div className="mb-1 flex items-center gap-2">
-        <span className="text-xs font-medium text-[var(--foreground)]">{map.name}</span>
-        <AnimatedText html={map.description || ""} className="text-xs text-[var(--muted-foreground)]" />
+        <span className="text-xs font-medium text-zinc-100">{map.name}</span>
+        <AnimatedText html={map.description || ""} className="text-xs text-zinc-400" />
       </div>
       <div className="relative">
         {topLeftAction}
         {topRightAction}
         <div
-          className="w-full overflow-auto rounded"
+          className="w-full overflow-auto rounded-lg"
           style={{
             aspectRatio: `${width} / ${height}`,
             maxHeight: "min(52vh, 340px)",
@@ -112,7 +112,7 @@ export function GameGridMap({
                 const isSelected = selectedCell && selectedCell.x === cell.x && selectedCell.y === cell.y;
                 const isAdjacent = adjacentSet.has(`${cell.x},${cell.y}`);
                 const isMovable = !disabled && isAdjacent && cell.discovered;
-                const terrainBg = TERRAIN_COLORS[cell.terrain] || "bg-gray-800/40";
+                const terrainBg = TERRAIN_COLORS[cell.terrain] || "bg-zinc-900/60";
 
                 return (
                   <button
@@ -126,9 +126,9 @@ export function GameGridMap({
                     }
                     className={cn(
                       "relative flex aspect-square items-center justify-center rounded text-base transition-all",
-                      cell.discovered ? terrainBg : "bg-gray-900/70 game-map-fog",
-                      isParty && "ring-2 ring-amber-400 ring-offset-1 ring-offset-[var(--card)]",
-                      isSelected && !isParty && "ring-2 ring-sky-400/70 ring-offset-1 ring-offset-[var(--card)]",
+                      cell.discovered ? terrainBg : "bg-zinc-950/75 game-map-fog",
+                      isParty && "ring-2 ring-amber-400 ring-offset-1 ring-offset-zinc-950",
+                      isSelected && !isParty && "ring-2 ring-sky-400/70 ring-offset-1 ring-offset-zinc-950",
                       isMovable && "hover:brightness-125 cursor-pointer ring-1 ring-amber-400/30",
                       !isMovable && "cursor-default opacity-80",
                     )}

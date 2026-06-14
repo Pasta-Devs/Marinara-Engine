@@ -26,9 +26,10 @@ export function getChatToolbarButtonClass({
   open = false,
 }: ChatToolbarButtonClassInput = {}) {
   return cn(
-    "flex items-center justify-center rounded-full border border-foreground/10 bg-foreground/5 text-foreground/60 backdrop-blur-md transition-all hover:bg-foreground/10 hover:text-foreground",
+    "marinara-chat-toolbar-button flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] backdrop-blur-md transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
     compact ? "p-1" : "p-1.5",
-    (active || open) && "border-foreground/20 bg-foreground/15 text-foreground/90",
+    (active || open) &&
+      "marinara-chat-toolbar-button--active border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)]",
     className,
   );
 }
@@ -106,10 +107,7 @@ export function ChatToolbarMenu({
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className={cn(
-            "flex w-9 items-center justify-center rounded-xl border border-foreground/10 bg-foreground/5 p-1.5 text-foreground/60 backdrop-blur-md transition-all hover:bg-foreground/10 hover:text-foreground",
-            open && "border-foreground/20 bg-foreground/15 text-foreground/90",
-          )}
+          className={getChatToolbarButtonClass({ className: "h-9 w-9", open })}
           title="More options"
           aria-label="More options"
           aria-haspopup="menu"

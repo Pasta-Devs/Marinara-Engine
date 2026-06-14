@@ -297,6 +297,7 @@ const CHAT_SETTINGS_ORDER = {
   memoryRecall: -300,
   functionCalling: -200,
   translation: -100,
+  gamePrompt: 0,
 } as const;
 
 type AvailableAgent = {
@@ -406,6 +407,7 @@ export function ChatSettingsDrawer({
   const imageSelfieWidth = useUIStore((s) => s.imageSelfieWidth);
   const imageSelfieHeight = useUIStore((s) => s.imageSelfieHeight);
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
+  const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const openToolDetail = useUIStore((s) => s.openToolDetail);
 
   const { data: allCharacters } = useCharacters();
@@ -571,11 +573,10 @@ export function ChatSettingsDrawer({
   const gameSpotifyPlaylistId =
     typeof metadata.gameSpotifyPlaylistId === "string" ? metadata.gameSpotifyPlaylistId : "";
   const gameSpotifyArtist = typeof metadata.gameSpotifyArtist === "string" ? metadata.gameSpotifyArtist : "";
+  const gameMusicDjEnabled =
+    metadata.gameUseMusicDj === true || gameUseSpotifyMusic || activeAgentIds.includes("youtube");
   const gameAgentFeatureCount =
-    (metadata.enableAgents ? 1 : 0) +
-    (gameLorebookKeeperEnabled ? 1 : 0) +
-    (gameUseSpotifyMusic ? 1 : 0) +
-    (activeAgentIds.includes("youtube") ? 1 : 0);
+    (metadata.enableAgents ? 1 : 0) + (gameLorebookKeeperEnabled ? 1 : 0) + (gameMusicDjEnabled ? 1 : 0);
   const spriteCharacterIds: string[] = Array.isArray(metadata.spriteCharacterIds) ? metadata.spriteCharacterIds : [];
   const spriteDisplayModes = normalizeSpriteDisplayModes(metadata.spriteDisplayModes);
   const spritePosition: "left" | "right" = metadata.spritePosition === "right" ? "right" : "left";
@@ -599,8 +600,12 @@ export function ChatSettingsDrawer({
       }>("/spotify/playlists?limit=50"),
     enabled:
       open &&
-      ((isGame && gameUseSpotifyMusic && gameSpotifySourceType === "playlist") ||
-        (isRoleplayMode && metadata.enableAgents && spotifyActive && spotifySourceType === "playlist")),
+      ((isGame && gameMusicDjEnabled && musicPlayerSource === "spotify" && gameSpotifySourceType === "playlist") ||
+        (isRoleplayMode &&
+          metadata.enableAgents &&
+          spotifyActive &&
+          musicPlayerSource === "spotify" &&
+          spotifySourceType === "playlist")),
     staleTime: 60_000,
     retry: false,
   });
@@ -1376,14 +1381,17 @@ export function ChatSettingsDrawer({
         new Set(
           activeAgentIds.filter((id) => {
             const agent = availableAgents.find((entry) => entry.id === id);
-            return id !== "spotify" && id !== "lorebook-keeper" && agent?.category !== "custom";
+            return id !== "spotify" && id !== "youtube" && id !== "lorebook-keeper" && agent?.category !== "custom";
           }),
         ),
       ),
     [activeAgentIds, availableAgents],
   );
-  const [extraPromptDraft, setExtraPromptDraft] = useState((metadata.gameExtraPrompt as string) ?? "");
-  const [extraPromptExpanded, setExtraPromptExpanded] = useState(false);
+  const [gamePromptDraft, setGamePromptDraft] = useState((metadata.gameSystemPrompt as string) ?? "");
+  const [gamePromptExpanded, setGamePromptExpanded] = useState(false);
+  const [gameSpecialInstructionsDraft, setGameSpecialInstructionsDraft] = useState(
+    (metadata.gameSpecialInstructions as string) ?? "",
+  );
   const [gameImagePromptInstructionsDraft, setGameImagePromptInstructionsDraft] = useState(
     (metadata.gameImagePromptInstructions as string) ?? "",
   );
@@ -1423,6 +1431,14 @@ export function ChatSettingsDrawer({
   useEffect(() => {
     setGameImagePromptInstructionsDraft((metadata.gameImagePromptInstructions as string) ?? "");
   }, [chat.id, metadata.gameImagePromptInstructions]);
+
+  useEffect(() => {
+    setGamePromptDraft((metadata.gameSystemPrompt as string) ?? "");
+  }, [chat.id, metadata.gameSystemPrompt]);
+
+  useEffect(() => {
+    setGameSpecialInstructionsDraft((metadata.gameSpecialInstructions as string) ?? "");
+  }, [chat.id, metadata.gameSpecialInstructions]);
 
   useEffect(() => {
     setGameSpotifyArtistDraft(gameSpotifyArtist);
@@ -1512,51 +1528,57 @@ export function ChatSettingsDrawer({
     }
   };
 
-  const ensureSpotifyAgent = useCallback(async () => {
-    const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === "spotify");
-    if (!builtInMeta) throw new Error("Music DJ agent metadata is missing.");
-    const config = agentConfigsByType.get("spotify") ?? null;
-    const nextSettings: Record<string, unknown> = {
-      ...getDefaultBuiltInAgentSettings("spotify"),
-      ...parseAgentSettings(config?.settings),
-      enabledTools: DEFAULT_AGENT_TOOLS.spotify ?? [],
-    };
+  const ensureMusicDjAgent = useCallback(
+    async (provider: "spotify" | "youtube") => {
+      const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === "spotify");
+      if (!builtInMeta) throw new Error("Music DJ agent metadata is missing.");
+      const config = agentConfigsByType.get("spotify") ?? null;
+      const nextSettings: Record<string, unknown> = {
+        ...getDefaultBuiltInAgentSettings("spotify"),
+        ...parseAgentSettings(config?.settings),
+        musicProvider: provider,
+        musicPlayerSource: provider,
+        enabledTools: provider === "youtube" ? [] : (DEFAULT_AGENT_TOOLS.spotify ?? []),
+      };
 
-    if (config) {
-      await updateAgentConfig.mutateAsync({ id: config.id, enabled: true, settings: nextSettings });
-      return;
-    }
+      if (config) {
+        await updateAgentConfig.mutateAsync({ id: config.id, enabled: true, settings: nextSettings });
+        return;
+      }
 
-    await createAgent.mutateAsync({
-      type: builtInMeta.id,
-      name: builtInMeta.name,
-      description: builtInMeta.description,
-      phase: builtInMeta.phase,
-      enabled: true,
-      connectionId: null,
-      promptTemplate: "",
-      settings: nextSettings,
-    });
-  }, [agentConfigsByType, createAgent, updateAgentConfig]);
+      await createAgent.mutateAsync({
+        type: builtInMeta.id,
+        name: builtInMeta.name,
+        description: builtInMeta.description,
+        phase: builtInMeta.phase,
+        enabled: true,
+        connectionId: null,
+        promptTemplate: "",
+        settings: nextSettings,
+      });
+    },
+    [agentConfigsByType, createAgent, updateAgentConfig],
+  );
 
-  const toggleGameSpotifyMusic = useCallback(async () => {
-    if (gameUseSpotifyMusic) {
+  const toggleGameMusicDj = useCallback(async () => {
+    if (gameMusicDjEnabled) {
       await updateMeta.mutateAsync({
         id: chat.id,
+        gameUseMusicDj: false,
         gameUseSpotifyMusic: false,
-        activeAgentIds: activeAgentIds.filter((id) => id !== "spotify"),
+        activeAgentIds: activeAgentIds.filter((id) => id !== "spotify" && id !== "youtube"),
       });
       return;
     }
 
     try {
-      await ensureSpotifyAgent();
+      await ensureMusicDjAgent(musicPlayerSource);
       await updateMeta.mutateAsync({
         id: chat.id,
         enableAgents: true,
-        gameUseSpotifyMusic: true,
+        gameUseMusicDj: true,
+        gameUseSpotifyMusic: musicPlayerSource === "spotify",
         gameSpotifySourceType,
-        // Mutually exclusive with legacy YouTube music — only one music source at a time.
         activeAgentIds: Array.from(new Set([...activeAgentIds.filter((id) => id !== "youtube"), "spotify"])),
       });
     } catch (error) {
@@ -1565,66 +1587,18 @@ export function ChatSettingsDrawer({
         message:
           error instanceof Error
             ? error.message
-            : "Music DJ could not be enabled for this game. Check the Spotify setup and try again.",
+            : "Music DJ could not be enabled for this game. Check the setup and try again.",
       });
     }
-  }, [activeAgentIds, chat.id, ensureSpotifyAgent, gameSpotifySourceType, gameUseSpotifyMusic, updateMeta]);
-
-  const ensureYoutubeAgent = useCallback(async () => {
-    const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === "youtube");
-    if (!builtInMeta) throw new Error("YouTube music metadata is missing.");
-    const config = agentConfigsByType.get("youtube") ?? null;
-    const nextSettings: Record<string, unknown> = {
-      ...getDefaultBuiltInAgentSettings("youtube"),
-      ...parseAgentSettings(config?.settings),
-      enabledTools: DEFAULT_AGENT_TOOLS.youtube ?? [],
-    };
-
-    if (config) {
-      await updateAgentConfig.mutateAsync({ id: config.id, enabled: true, settings: nextSettings });
-      return;
-    }
-
-    await createAgent.mutateAsync({
-      type: builtInMeta.id,
-      name: builtInMeta.name,
-      description: builtInMeta.description,
-      phase: builtInMeta.phase,
-      enabled: true,
-      connectionId: null,
-      promptTemplate: "",
-      settings: nextSettings,
-    });
-  }, [agentConfigsByType, createAgent, updateAgentConfig]);
-
-  const toggleGameYouTubeMusic = useCallback(async () => {
-    if (activeAgentIds.includes("youtube")) {
-      await updateMeta.mutateAsync({
-        id: chat.id,
-        activeAgentIds: activeAgentIds.filter((id) => id !== "youtube"),
-      });
-      return;
-    }
-
-    try {
-      await ensureYoutubeAgent();
-      await updateMeta.mutateAsync({
-        id: chat.id,
-        enableAgents: true,
-        // Mutually exclusive with Spotify Music DJ — only one music source at a time.
-        gameUseSpotifyMusic: false,
-        activeAgentIds: Array.from(new Set([...activeAgentIds.filter((id) => id !== "spotify"), "youtube"])),
-      });
-    } catch (error) {
-      await showAlertDialog({
-        title: "Couldn't Enable Music DJ",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Music DJ could not be enabled for this game. Check the YouTube setup and try again.",
-      });
-    }
-  }, [activeAgentIds, chat.id, ensureYoutubeAgent, updateMeta]);
+  }, [
+    activeAgentIds,
+    chat.id,
+    ensureMusicDjAgent,
+    gameMusicDjEnabled,
+    gameSpotifySourceType,
+    musicPlayerSource,
+    updateMeta,
+  ]);
 
   const toggleGameLorebookKeeper = useCallback(() => {
     const nextActiveAgentIds = activeAgentIds.filter((id) => id !== "lorebook-keeper");
@@ -2064,16 +2038,23 @@ export function ChatSettingsDrawer({
             </div>
           )}
 
-          {/* Extra Prompt — game mode only */}
+          {/* Prompt — game mode only */}
           {isGame && (
-            <GameExtraPromptSection
-              expanded={extraPromptExpanded}
-              storedValue={(metadata.gameExtraPrompt as string) ?? ""}
-              value={extraPromptDraft}
-              onCommit={(gameExtraPrompt) => updateMeta.mutate({ id: chat.id, gameExtraPrompt })}
-              onExpandedChange={setExtraPromptExpanded}
-              onValueChange={setExtraPromptDraft}
-            />
+            <div style={{ order: CHAT_SETTINGS_ORDER.gamePrompt }}>
+              <GameExtraPromptSection
+                expanded={gamePromptExpanded}
+                storedValue={(metadata.gameSystemPrompt as string) ?? ""}
+                value={gamePromptDraft}
+                specialInstructionsValue={gameSpecialInstructionsDraft}
+                onCommit={(gameSystemPrompt) => updateMeta.mutate({ id: chat.id, gameSystemPrompt })}
+                onSpecialInstructionsCommit={(gameSpecialInstructions) =>
+                  updateMeta.mutate({ id: chat.id, gameSpecialInstructions })
+                }
+                onExpandedChange={setGamePromptExpanded}
+                onValueChange={setGamePromptDraft}
+                onSpecialInstructionsChange={setGameSpecialInstructionsDraft}
+              />
+            </div>
           )}
 
           {/* Scene System Prompt — shown only for scene-created chats */}
@@ -3959,10 +3940,10 @@ export function ChatSettingsDrawer({
                   <div className="space-y-2">
                     <button
                       type="button"
-                      onClick={() => void toggleGameSpotifyMusic()}
+                      onClick={() => void toggleGameMusicDj()}
                       className={cn(
                         "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                        gameUseSpotifyMusic
+                        gameMusicDjEnabled
                           ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                           : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                       )}
@@ -3970,68 +3951,33 @@ export function ChatSettingsDrawer({
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 text-xs font-medium">
                           <Music2 size="0.75rem" className="text-[var(--primary)]" />
-                          <span>Music DJ: Spotify</span>
+                          <span>Music DJ</span>
                         </div>
                         <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                          Use Spotify instead of the built-in Game Mode music library.
+                          Use the active Music Player ({musicPlayerSource === "spotify" ? "Spotify" : "YouTube"})
+                          instead of the built-in Game Mode music library.
                         </p>
                       </div>
                       <div
                         className={cn(
                           "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          gameUseSpotifyMusic ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                          gameMusicDjEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                         )}
                       >
                         <div
                           className={cn(
                             "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                            gameUseSpotifyMusic && "translate-x-3.5",
+                            gameMusicDjEnabled && "translate-x-3.5",
                           )}
                         />
                       </div>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => void toggleGameYouTubeMusic()}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                        activeAgentIds.includes("youtube")
-                          ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                          : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 text-xs font-medium">
-                          <Music2 size="0.75rem" className="text-[var(--primary)]" />
-                          <span>Music DJ: YouTube</span>
-                        </div>
-                        <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                          Use YouTube (in-app player) instead of the built-in Game Mode music library.
-                        </p>
-                      </div>
-                      <div
-                        className={cn(
-                          "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                          activeAgentIds.includes("youtube")
-                            ? "bg-[var(--primary)]"
-                            : "bg-[var(--muted-foreground)]/50",
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                            activeAgentIds.includes("youtube") && "translate-x-3.5",
-                          )}
-                        />
-                      </div>
-                    </button>
-
-                    {gameUseSpotifyMusic && (
-                      <div className="space-y-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
+                    {gameMusicDjEnabled && musicPlayerSource === "spotify" && (
+                      <div className="mt-1.5 space-y-2 px-3">
                         <label className="flex flex-col gap-1">
                           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                            Music source
+                            Spotify source
                           </span>
                           <select
                             value={gameSpotifySourceType}
@@ -4452,125 +4398,133 @@ export function ChatSettingsDrawer({
                 )}
 
                 {metadata.enableAgents && isRoleplayMode && spotifyActive && (
-                  <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
+                  <div className="space-y-2 px-3">
                     <div className="flex items-start gap-2">
                       <Music2 size="0.75rem" className="mt-0.5 text-[var(--primary)]" />
                       <div className="min-w-0 flex-1">
                         <div className="text-[0.6875rem] font-medium">Music DJ</div>
                         <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                          Choose where the DJ should look for roleplay music when it reacts to the scene.
+                          Active player: {musicPlayerSource === "spotify" ? "Spotify" : "YouTube"}.
                         </p>
                       </div>
                     </div>
 
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Music source</span>
-                      <select
-                        value={spotifySourceType}
-                        onChange={(event) => {
-                          const next = normalizeSpotifySourceType(event.target.value);
-                          updateMeta.mutate({
-                            id: chat.id,
-                            spotifySourceType: next,
-                            spotifyPlaylistId: next === "playlist" ? spotifyPlaylistId || null : null,
-                            spotifyPlaylistName:
-                              next === "playlist" ? (metadata.spotifyPlaylistName as string) || null : null,
-                            spotifyArtist: next === "artist" ? spotifyArtistDraft.trim() || null : null,
-                          });
-                        }}
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-                      >
-                        {SPOTIFY_SOURCE_OPTIONS.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
-                        {SPOTIFY_SOURCE_OPTIONS.find((option) => option.id === spotifySourceType)?.description ?? ""}
-                      </span>
-                    </label>
-
-                    {spotifySourceType === "playlist" && (
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Playlist</span>
-                        {spotifyPlaylistsQuery.data?.playlists.length ? (
+                    {musicPlayerSource === "spotify" && (
+                      <>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                            Spotify source
+                          </span>
                           <select
-                            value={spotifyPlaylistId}
+                            value={spotifySourceType}
                             onChange={(event) => {
-                              const playlist = spotifyPlaylistsQuery.data?.playlists.find(
-                                (entry) => entry.id === event.target.value,
-                              );
+                              const next = normalizeSpotifySourceType(event.target.value);
                               updateMeta.mutate({
                                 id: chat.id,
-                                spotifyPlaylistId: event.target.value || null,
-                                spotifyPlaylistName: playlist?.name ?? null,
+                                spotifySourceType: next,
+                                spotifyPlaylistId: next === "playlist" ? spotifyPlaylistId || null : null,
+                                spotifyPlaylistName:
+                                  next === "playlist" ? (metadata.spotifyPlaylistName as string) || null : null,
+                                spotifyArtist: next === "artist" ? spotifyArtistDraft.trim() || null : null,
                               });
                             }}
                             className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
                           >
-                            <option value="">Choose playlist...</option>
-                            {spotifyPlaylistsQuery.data.playlists.map((playlist) => {
-                              const suffix =
-                                typeof playlist.trackCount === "number"
-                                  ? ` (${playlist.trackCount})`
-                                  : playlist.owned === false
-                                    ? " (followed, unavailable)"
-                                    : "";
-                              return (
-                                <option key={playlist.id} value={playlist.id}>
-                                  {playlist.name}
-                                  {suffix}
-                                </option>
-                              );
-                            })}
+                            {SPOTIFY_SOURCE_OPTIONS.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.label}
+                              </option>
+                            ))}
                           </select>
-                        ) : (
-                          <input
-                            key={`${chat.id}-${spotifyPlaylistId}`}
-                            defaultValue={spotifyPlaylistId}
-                            onBlur={(event) =>
-                              updateMeta.mutate({
-                                id: chat.id,
-                                spotifyPlaylistId: event.target.value.trim() || null,
-                                spotifyPlaylistName: null,
-                              })
-                            }
-                            placeholder={
-                              spotifyPlaylistsQuery.isFetching ? "Loading playlists..." : "Paste playlist ID"
-                            }
-                            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
-                          />
-                        )}
-                        {spotifyPlaylistsQuery.isError && (
-                          <span className="text-[0.5625rem] text-amber-400/90">
-                            Connect Spotify in the Music DJ agent to load playlist names.
+                          <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                            {SPOTIFY_SOURCE_OPTIONS.find((option) => option.id === spotifySourceType)?.description ??
+                              ""}
                           </span>
-                        )}
-                      </label>
-                    )}
+                        </label>
 
-                    {spotifySourceType === "artist" && (
-                      <label className="flex flex-col gap-1">
-                        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Artist</span>
-                        <input
-                          value={spotifyArtistDraft}
-                          onChange={(event) => setSpotifyArtistDraft(event.target.value)}
-                          onBlur={() =>
-                            updateMeta.mutate({
-                              id: chat.id,
-                              spotifyArtist: spotifyArtistDraft.trim() || null,
-                            })
-                          }
-                          placeholder="HOYO-MiX"
-                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
-                        />
-                      </label>
+                        {spotifySourceType === "playlist" && (
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Playlist</span>
+                            {spotifyPlaylistsQuery.data?.playlists.length ? (
+                              <select
+                                value={spotifyPlaylistId}
+                                onChange={(event) => {
+                                  const playlist = spotifyPlaylistsQuery.data?.playlists.find(
+                                    (entry) => entry.id === event.target.value,
+                                  );
+                                  updateMeta.mutate({
+                                    id: chat.id,
+                                    spotifyPlaylistId: event.target.value || null,
+                                    spotifyPlaylistName: playlist?.name ?? null,
+                                  });
+                                }}
+                                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+                              >
+                                <option value="">Choose playlist...</option>
+                                {spotifyPlaylistsQuery.data.playlists.map((playlist) => {
+                                  const suffix =
+                                    typeof playlist.trackCount === "number"
+                                      ? ` (${playlist.trackCount})`
+                                      : playlist.owned === false
+                                        ? " (followed, unavailable)"
+                                        : "";
+                                  return (
+                                    <option key={playlist.id} value={playlist.id}>
+                                      {playlist.name}
+                                      {suffix}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            ) : (
+                              <input
+                                key={`${chat.id}-${spotifyPlaylistId}`}
+                                defaultValue={spotifyPlaylistId}
+                                onBlur={(event) =>
+                                  updateMeta.mutate({
+                                    id: chat.id,
+                                    spotifyPlaylistId: event.target.value.trim() || null,
+                                    spotifyPlaylistName: null,
+                                  })
+                                }
+                                placeholder={
+                                  spotifyPlaylistsQuery.isFetching ? "Loading playlists..." : "Paste playlist ID"
+                                }
+                                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
+                              />
+                            )}
+                            {spotifyPlaylistsQuery.isError && (
+                              <span className="text-[0.5625rem] text-amber-400/90">
+                                Connect Spotify in the Music DJ agent to load playlist names.
+                              </span>
+                            )}
+                          </label>
+                        )}
+
+                        {spotifySourceType === "artist" && (
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Artist</span>
+                            <input
+                              value={spotifyArtistDraft}
+                              onChange={(event) => setSpotifyArtistDraft(event.target.value)}
+                              onBlur={() =>
+                                updateMeta.mutate({
+                                  id: chat.id,
+                                  spotifyArtist: spotifyArtistDraft.trim() || null,
+                                })
+                              }
+                              placeholder="HOYO-MiX"
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50"
+                            />
+                          </label>
+                        )}
+                      </>
                     )}
 
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      Roleplay DJ queues several fitting tracks when it changes music. Spotify Premium, a connected
-                      account, and an active Spotify device are still required.
+                      {musicPlayerSource === "spotify"
+                        ? "Roleplay DJ queues several fitting tracks when it changes music."
+                        : "YouTube mode uses the Music DJ agent's YouTube connection and embedded player."}
                     </p>
                   </div>
                 )}
@@ -5314,7 +5268,7 @@ export function ChatSettingsDrawer({
             />
           </div>
 
-          {!isConversation && (
+          {!isConversation && !isGame && (
             <div style={{ order: CHAT_SETTINGS_ORDER.impersonate }}>
               <ImpersonateSection
                 presets={(presets ?? []) as Array<{ id: string; name: string }>}

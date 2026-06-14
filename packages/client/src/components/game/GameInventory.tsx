@@ -204,7 +204,7 @@ export function GameInventory({
           <div className="flex items-center gap-2">
             <Package size={15} className="text-amber-400/80" />
             <h2 className="text-sm font-semibold tracking-wide text-white/90">Inventory</h2>
-            <span className="rounded bg-white/8 px-1.5 py-0.5 text-[0.6rem] tabular-nums text-white/40">
+            <span className="rounded bg-white/8 px-1.5 py-0.5 text-[0.6rem] tabular-nums text-white/80">
               {items.length} {items.length === 1 ? "item" : "items"}
             </span>
           </div>
@@ -442,7 +442,7 @@ function InventorySlot({ item, globalIndex, selected, reorderEnabled, onClick }:
                 {item.name}
               </span>
               {item.quantity > 1 && (
-                <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[0.55rem] font-semibold tabular-nums text-white/80">
+                <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[0.55rem] font-semibold tabular-nums text-white">
                   x{item.quantity}
                 </span>
               )}

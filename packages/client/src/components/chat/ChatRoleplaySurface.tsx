@@ -44,7 +44,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
 import { ChatBranchSelector } from "./ChatBranchSelector";
-import { ChatToolbarButton, ChatToolbarMenu } from "./ChatToolbarControls";
+import { ChatToolbarButton, ChatToolbarMenu, getChatToolbarButtonClass } from "./ChatToolbarControls";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
@@ -385,22 +385,16 @@ function ActiveContextLinksButton({
   };
 
   const itemClassName =
-    "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-foreground/80 transition-colors hover:bg-foreground/10 hover:text-foreground";
-  const iconClassName = "shrink-0 text-foreground/55";
+    "marinara-chat-popover__item flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]";
+  const iconClassName = "shrink-0 text-[var(--marinara-chat-chrome-panel-muted)]";
   const entryClassName =
-    "flex min-w-0 items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-[0.625rem] text-foreground/70 ring-1 ring-foreground/10";
+    "flex min-w-0 items-center gap-1.5 rounded-md bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)] ring-1 ring-[var(--marinara-chat-chrome-panel-divider)]";
 
   return (
     <div className="relative" ref={ref} onClick={(event) => event.stopPropagation()}>
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        )}
+        className={getChatToolbarButtonClass({ compact, open })}
         title="Active Context"
         aria-label="Active Context"
         aria-haspopup="menu"
@@ -527,15 +521,7 @@ function SummaryButton({
     <div className="relative" onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => setOpen(!open)}
-        className={cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : summary
-              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
-              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        )}
+        className={getChatToolbarButtonClass({ active: !!summary, compact, open })}
         title="Chat Summary"
       >
         <ScrollText size="0.875rem" />
@@ -590,15 +576,7 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
     <div className="relative" ref={ref} onClick={(e) => e.stopPropagation()}>
       <button
         onClick={() => setOpen(!open)}
-        className={cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : hasNotes
-              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
-              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        )}
+        className={getChatToolbarButtonClass({ active: hasNotes, compact, open })}
         title="Author's Notes"
       >
         <PenLine size="0.875rem" />

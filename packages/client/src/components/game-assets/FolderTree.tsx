@@ -67,7 +67,7 @@ export function FolderTree({
         className={cn(
           "flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-sm transition-colors",
           isSelected
-            ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+            ? "bg-[var(--foreground)]/10 text-[var(--foreground)]/80"
             : "text-[var(--foreground)] hover:bg-[var(--accent)]",
         )}
         style={{ paddingLeft: `${8 + depth * 14}px` }}
@@ -107,8 +107,8 @@ export function FolderTree({
             className={
               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors " +
               (selectionStatus === "excluded"
-                ? "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--primary)]"
-                : "border-[var(--primary)]/40 bg-[var(--primary)] text-white hover:opacity-90")
+                ? "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--foreground)]/30"
+                : "border-[var(--foreground)]/25 bg-[var(--foreground)]/10 text-[var(--foreground)] hover:bg-[var(--foreground)]/15")
             }
             title="Select assets for this game"
             aria-label={`Select ${node.name} assets for this game`}

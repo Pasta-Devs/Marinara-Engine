@@ -34,10 +34,8 @@ import {
   getTemperatureKeywordHint,
   parseTemperatureValue,
 } from "../../features/tracker-panel/lib/world-state-display";
-import {
-  ROLEPLAY_POPOVER_SCROLL_AREA,
-  ROLEPLAY_POPOVER_SHELL,
-} from "./roleplay-popover-styles";
+import { ROLEPLAY_POPOVER_SCROLL_AREA, ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
+import { getChatToolbarButtonClass } from "./ChatToolbarControls";
 import type {
   GameState,
   PresentCharacter,
@@ -437,8 +435,8 @@ export function RoleplayHUD({
 // ═══════════════════════════════════════════════
 
 /** Common mobile HUD button sizing – used by all four strip buttons */
-const MOBILE_HUD_BTN =
-  "flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 transition-all hover:bg-[var(--card)] dark:border-foreground/10 cursor-pointer select-none";
+const HUD_ICON_BUTTON = getChatToolbarButtonClass({ compact: true });
+const MOBILE_HUD_BTN = cn(HUD_ICON_BUTTON, "cursor-pointer select-none");
 
 function DeferredHUDPanelFallback({ label }: { label: string }) {
   return <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">{label}</div>;
@@ -581,6 +579,10 @@ function ActionsGroup({
   ]);
   if (echoMessages.length > 0 && !generatedAgentIds.has("echo-chamber")) generatedAgentIds.add("echo-chamber");
   const generatedAgentCount = generatedAgentIds.size;
+  const agentsLabel = `Agents & Actions${generatedAgentCount > 0 ? ` - ${generatedAgentCount} generated` : ""}${
+    failedAgentTypes.length > 0 ? ` - ${failedAgentTypes.length} failed` : ""
+  }`;
+  const hasAgentCount = generatedAgentCount > 0 || failedAgentTypes.length > 0;
 
   // ── Shared dropdown portal (used by both desktop & mobile) ──
   const dropdownContent =
@@ -633,12 +635,15 @@ function ActionsGroup({
         ref={btnRef}
         onClick={() => setAgentsOpen(!agentsOpen)}
         className={cn(
-          "group flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-foreground/10 cursor-pointer select-none",
-          agentsOpen && "bg-[var(--card)] border-[var(--border)] dark:border-foreground/20",
+          getChatToolbarButtonClass({
+            compact: true,
+            open: agentsOpen,
+            className: hasAgentCount ? "w-auto min-w-8 gap-1.5 px-2" : undefined,
+          }),
+          "group cursor-pointer select-none",
         )}
-        title={`Agents & Actions${generatedAgentCount > 0 ? ` - ${generatedAgentCount} generated` : ""}${
-          failedAgentTypes.length > 0 ? ` - ${failedAgentTypes.length} failed` : ""
-        }`}
+        title={agentsLabel}
+        aria-label={agentsLabel}
       >
         {isAgentProcessing ? (
           <Loader2
@@ -657,12 +662,21 @@ function ActionsGroup({
           />
         )}
         {generatedAgentCount > 0 && (
-          <span className="hidden md:flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-foreground/15 px-1 text-[0.5rem] font-bold text-foreground/80 ring-1 ring-foreground/10">
+          <span
+            className={cn(
+              "shrink-0 rounded-full bg-[var(--foreground)]/10 px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-[var(--foreground)]/65",
+              agentsOpen && "text-[var(--foreground)]/75",
+            )}
+            aria-hidden="true"
+          >
             {generatedAgentCount}
           </span>
         )}
         {failedAgentTypes.length > 0 && (
-          <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-500/80 px-1 text-[0.5rem] font-bold text-foreground">
+          <span
+            className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-amber-200"
+            aria-hidden="true"
+          >
             {failedAgentTypes.length}
           </span>
         )}
@@ -729,12 +743,10 @@ function CombinedPlayerWidget({
         className={cn(WIDGET, "text-foreground/60 hover:text-foreground/75")}
         title="Player & Tracker"
       >
-        <div className="flex h-7 max-md:h-auto items-center justify-center shrink-0">
+        <div className="flex h-4 items-center justify-center shrink-0">
           <Swords size="0.875rem" className="text-orange-400/70 max-md:h-4 max-md:w-4" />
         </div>
-        <span className="max-w-full truncate text-[0.5625rem] font-semibold leading-tight shrink-0 max-md:hidden">
-          Tracker
-        </span>
+        <span className="sr-only">Tracker</span>
       </button>
 
       <WidgetPopover
@@ -1007,9 +1019,7 @@ function PersonaStatsWidget({
         ) : (
           <BarChart3 size="0.875rem" className="text-sky-400/45 max-md:h-3.5 max-md:w-3.5" />
         )}
-        <span className="max-w-full truncate text-[0.5625rem] max-md:text-[0.4375rem] font-semibold leading-tight shrink-0 md:hidden">
-          Persona
-        </span>
+        <span className="sr-only">Persona</span>
       </button>
 
       <WidgetPopover
@@ -1266,8 +1276,10 @@ function QuestsWidget({
 // Uniform World-State Widgets
 // ═══════════════════════════════════════════════
 
-const WIDGET =
-  "group flex w-10 h-10 max-md:w-auto max-md:h-auto max-md:px-2 max-md:py-1.5 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md transition-all hover:bg-[var(--card)] dark:border-foreground/15 cursor-pointer select-none overflow-hidden";
+const WIDGET = cn(
+  HUD_ICON_BUTTON,
+  "group flex-col gap-0 overflow-hidden cursor-pointer select-none dark:border-foreground/15",
+);
 
 // ═══════════════════════════════════════════════
 // Combined World-State Widget (icon strip + popover, desktop & mobile)
@@ -1325,6 +1337,7 @@ function CombinedWorldWidget({
   const tempFill =
     temperatureDisplay.percent == null ? 0.3 : Math.max(0, Math.min(1, temperatureDisplay.percent / 100));
   const tempFillColor = temperatureDisplay.color;
+  const sideLayout = layout === "left" || layout === "right";
 
   return (
     <div className="relative">
@@ -1332,8 +1345,9 @@ function CombinedWorldWidget({
         ref={buttonRef}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-foreground/10 cursor-pointer select-none",
-          open && "bg-[var(--card)] border-[var(--border)] dark:border-foreground/20",
+          getChatToolbarButtonClass({ compact: true, open }),
+          "cursor-pointer select-none",
+          !sideLayout && "w-auto min-w-8 gap-1 px-2",
         )}
         title="World State"
       >
@@ -1341,137 +1355,141 @@ function CombinedWorldWidget({
         <MapPin size="0.9375rem" className={cn(pinColor, "drop-shadow-sm shrink-0")} />
 
         {/* Mini calendar with day number */}
-        <svg viewBox="0 0 20 20" fill="none" className="shrink-0 h-4 w-4">
-          <rect
-            x="2"
-            y="4"
-            width="16"
-            height="14"
-            rx="2"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="text-zinc-300/70"
-          />
-          <line x1="2" y1="8" x2="18" y2="8" stroke="currentColor" strokeWidth="1.2" className="text-zinc-400/50" />
-          <line
-            x1="6"
-            y1="2"
-            x2="6"
-            y2="5.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            className="text-zinc-300/70"
-          />
-          <line
-            x1="14"
-            y1="2"
-            x2="14"
-            y2="5.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            className="text-zinc-300/70"
-          />
-          {dateParts.day && (
-            <text
-              x="10"
-              y="15.5"
-              textAnchor="middle"
-              fill="currentColor"
-              fontSize="7"
-              fontWeight="700"
-              className="text-zinc-100"
-            >
-              {dateParts.day}
-            </text>
-          )}
-        </svg>
-
-        {/* Mini clock with dynamic hands */}
-        <svg viewBox="0 0 20 20" fill="none" className="shrink-0 h-4 w-4">
-          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" className="text-amber-400/70" />
-          {hour >= 0 ? (
-            <>
-              <line
-                x1="10"
-                y1="10"
-                x2={10 + 4.2 * Math.sin((hourAngle * Math.PI) / 180)}
-                y2={10 - 4.2 * Math.cos((hourAngle * Math.PI) / 180)}
+        {!sideLayout && (
+          <>
+            <svg viewBox="0 0 20 20" fill="none" className="shrink-0 h-4 w-4">
+              <rect
+                x="2"
+                y="4"
+                width="16"
+                height="14"
+                rx="2"
                 stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                className="text-amber-300"
+                strokeWidth="1.5"
+                className="text-zinc-300/70"
               />
+              <line x1="2" y1="8" x2="18" y2="8" stroke="currentColor" strokeWidth="1.2" className="text-zinc-400/50" />
               <line
-                x1="10"
-                y1="10"
-                x2={10 + 5.8 * Math.sin((minuteAngle * Math.PI) / 180)}
-                y2={10 - 5.8 * Math.cos((minuteAngle * Math.PI) / 180)}
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                className="text-amber-400/80"
-              />
-            </>
-          ) : (
-            <>
-              <line
-                x1="10"
-                y1="10"
-                x2="10"
+                x1="6"
+                y1="2"
+                x2="6"
                 y2="5.5"
                 stroke="currentColor"
-                strokeWidth="1.8"
+                strokeWidth="1.5"
                 strokeLinecap="round"
-                className="text-amber-300"
+                className="text-zinc-300/70"
               />
               <line
-                x1="10"
-                y1="10"
+                x1="14"
+                y1="2"
                 x2="14"
-                y2="10"
+                y2="5.5"
                 stroke="currentColor"
-                strokeWidth="1.2"
+                strokeWidth="1.5"
                 strokeLinecap="round"
-                className="text-amber-400/80"
+                className="text-zinc-300/70"
               />
-            </>
-          )}
-          <circle cx="10" cy="10" r="1" fill="currentColor" className="text-amber-300" />
-        </svg>
+              {dateParts.day && (
+                <text
+                  x="10"
+                  y="15.5"
+                  textAnchor="middle"
+                  fill="currentColor"
+                  fontSize="7"
+                  fontWeight="700"
+                  className="text-zinc-100"
+                >
+                  {dateParts.day}
+                </text>
+              )}
+            </svg>
 
-        {/* Weather emoji */}
-        <span className="text-sm leading-none shrink-0">{weatherEmoji}</span>
+            {/* Mini clock with dynamic hands */}
+            <svg viewBox="0 0 20 20" fill="none" className="shrink-0 h-4 w-4">
+              <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" className="text-amber-400/70" />
+              {hour >= 0 ? (
+                <>
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2={10 + 4.2 * Math.sin((hourAngle * Math.PI) / 180)}
+                    y2={10 - 4.2 * Math.cos((hourAngle * Math.PI) / 180)}
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    className="text-amber-300"
+                  />
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2={10 + 5.8 * Math.sin((minuteAngle * Math.PI) / 180)}
+                    y2={10 - 5.8 * Math.cos((minuteAngle * Math.PI) / 180)}
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    className="text-amber-400/80"
+                  />
+                </>
+              ) : (
+                <>
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2="10"
+                    y2="5.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    className="text-amber-300"
+                  />
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2="14"
+                    y2="10"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    className="text-amber-400/80"
+                  />
+                </>
+              )}
+              <circle cx="10" cy="10" r="1" fill="currentColor" className="text-amber-300" />
+            </svg>
 
-        {/* Mini thermometer with fill — vivid color & fill level changes dynamically */}
-        <svg viewBox="0 0 10 20" fill="none" className="shrink-0 h-4 w-[0.625rem]">
-          <rect
-            x="3"
-            y="1"
-            width="4"
-            height="13"
-            rx="2"
-            stroke={tempFillColor}
-            strokeWidth="1.2"
-            fill="none"
-            opacity={temp !== null ? 1 : 0.3}
-          />
-          <rect
-            x="3.8"
-            y={1 + 12 * (1 - tempFill)}
-            width="2.4"
-            height={12 * tempFill + 1}
-            rx="1"
-            fill={tempFillColor}
-            opacity={temp !== null ? 0.9 : 0.2}
-          />
-          <circle cx="5" cy="17" r="2.5" fill={tempFillColor} opacity={temp !== null ? 1 : 0.25} />
-        </svg>
-        {tempNumeric !== null && (
-          <span className={cn("text-[0.5rem] md:text-[0.5625rem] font-bold leading-none shrink-0", tempColor)}>
-            {temperatureDisplay.label}
-          </span>
+            {/* Weather emoji */}
+            <span className="text-sm leading-none shrink-0">{weatherEmoji}</span>
+
+            {/* Mini thermometer with fill — vivid color & fill level changes dynamically */}
+            <svg viewBox="0 0 10 20" fill="none" className="shrink-0 h-4 w-[0.625rem]">
+              <rect
+                x="3"
+                y="1"
+                width="4"
+                height="13"
+                rx="2"
+                stroke={tempFillColor}
+                strokeWidth="1.2"
+                fill="none"
+                opacity={temp !== null ? 1 : 0.3}
+              />
+              <rect
+                x="3.8"
+                y={1 + 12 * (1 - tempFill)}
+                width="2.4"
+                height={12 * tempFill + 1}
+                rx="1"
+                fill={tempFillColor}
+                opacity={temp !== null ? 0.9 : 0.2}
+              />
+              <circle cx="5" cy="17" r="2.5" fill={tempFillColor} opacity={temp !== null ? 1 : 0.25} />
+            </svg>
+            {tempNumeric !== null && (
+              <span className={cn("text-[0.5rem] md:text-[0.5625rem] font-bold leading-none shrink-0", tempColor)}>
+                {temperatureDisplay.label}
+              </span>
+            )}
+          </>
         )}
       </button>
 

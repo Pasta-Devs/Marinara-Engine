@@ -78,6 +78,7 @@
      --border, --input, --ring          Borders, inputs, focus rings
      --sidebar-*                        Left & right sidebar tones
      --glow-primary, --glow-accent      Glow effect bases
+     --marinara-chat-chrome-*           Shared chat/game top buttons, panels, highlights
 
    PALETTE (decorative flavor — components should NOT reference these
    directly; they exist for the CSS effects layer and user customization):
@@ -195,6 +196,32 @@
   --sidebar-accent-foreground: #ffb3d9;
   --glow-primary: rgba(255, 179, 217, 0.15);
   --glow-accent: rgba(212, 173, 252, 0.12);
+
+  /* Theme hooks for shared chat, roleplay, and game chrome. */
+  --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--card) 82%, transparent);
+  --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--card) 94%, var(--foreground) 6%);
+  --marinara-chat-chrome-button-bg-active: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%);
+  --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 12%, transparent);
+  --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 20%, transparent);
+  --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--foreground) 24%, transparent);
+  --marinara-chat-chrome-button-text: color-mix(in srgb, var(--foreground) 64%, transparent);
+  --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--foreground) 92%, transparent);
+  --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--foreground) 96%, transparent);
+  --marinara-chat-chrome-focus-ring: color-mix(in srgb, var(--foreground) 22%, transparent);
+  --marinara-chat-chrome-panel-bg: color-mix(in srgb, var(--background) 88%, var(--card) 12%);
+  --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 16%, transparent);
+  --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 13%, transparent);
+  --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--foreground) 90%, transparent);
+  --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--foreground) 96%, transparent);
+  --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--foreground) 58%, transparent);
+  --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--foreground) 22%, transparent);
+  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--foreground) 9%, transparent);
+  --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--foreground) 13%, transparent);
+  --marinara-chat-chrome-highlight-text: color-mix(in srgb, var(--foreground) 94%, transparent);
+  --marinara-chat-chrome-input-bg: color-mix(in srgb, var(--background) 78%, var(--card) 22%);
+  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--foreground) 30%, transparent);
+
   --tracker-card-neutral-surface-top: color-mix(
     in srgb,
     color-mix(in srgb, var(--secondary) 66%, var(--accent) 34%) 91%,
@@ -1904,7 +1931,6 @@ summary[class*="cursor-pointer"],
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
-
 
 /* ─────────────────────────────────────────────
    15. CHAT: ROLEPLAY MODE

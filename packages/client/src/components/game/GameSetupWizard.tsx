@@ -1252,9 +1252,9 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                         className={enableSpotifyDj ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
                       />
                       <div className="min-w-0">
-                        <span className="block text-xs font-medium text-[var(--foreground)]">Music DJ: Spotify</span>
+                        <span className="block text-xs font-medium text-[var(--foreground)]">Music DJ</span>
                         <span className="block text-[0.575rem] text-[var(--muted-foreground)]">
-                          Use Spotify music for this game instead of local music assets
+                          Use the Music DJ for this game instead of local music assets
                         </span>
                       </div>
                     </div>

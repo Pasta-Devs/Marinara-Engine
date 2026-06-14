@@ -309,21 +309,17 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
       <div className={cn("pointer-events-auto flex flex-col gap-1.5", position === "hud_right" && "items-end")}>
         {filtered.map((w) => {
           const isExpanded = expandedId === w.id;
-          const accent = w.accent ?? "#a78bfa";
 
           if (isExpanded) {
             return (
               <div
                 key={w.id}
-                className="w-40 overflow-hidden rounded-lg border bg-black/70 backdrop-blur-md transition-all"
-                style={{ borderColor: `${accent}30` }}
+                className="w-40 overflow-hidden rounded-lg border border-white/15 bg-black/70 backdrop-blur-md transition-all"
                 data-game-skip-bg-nav="true"
               >
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-left">
                   {w.icon && <span className="text-xs">{w.icon}</span>}
-                  <span className="flex-1 truncate text-[0.6875rem] font-semibold" style={{ color: accent }}>
-                    {w.label}
-                  </span>
+                  <span className="flex-1 truncate text-[0.6875rem] font-semibold text-white/90">{w.label}</span>
                   <button
                     type="button"
                     onClick={() => openEditor(w)}
@@ -341,7 +337,7 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
                     ×
                   </button>
                 </div>
-                <div className="border-t px-2.5 py-2" style={{ borderColor: `${accent}15` }}>
+                <div className="border-t border-white/10 px-2.5 py-2">
                   <WidgetBody widget={w} />
                 </div>
               </div>
@@ -352,8 +348,7 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
             <button
               key={w.id}
               onClick={() => setExpandedId(w.id)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border bg-black/60 text-base backdrop-blur-md transition-transform active:scale-95"
-              style={{ borderColor: `${accent}30` }}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-black/60 text-base backdrop-blur-md transition-transform active:scale-95"
               title={w.label}
             >
               {w.icon || "📊"}
@@ -386,7 +381,6 @@ function WidgetCard({
   onEdit: (widget: HudWidget) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const accent = widget.accent ?? "#a78bfa";
   const { locked, toggleLocked, x, y, handleDragEnd } = useDraggablePanel(chatId, `widget:${widget.id}`);
 
   return (
@@ -396,10 +390,10 @@ function WidgetCard({
       dragElastic={0}
       dragConstraints={constraintsRef as RefObject<Element>}
       onDragEnd={handleDragEnd}
-      style={{ x, y, borderColor: `${accent}30` }}
+      style={{ x, y }}
       data-game-skip-bg-nav="true"
       className={cn(
-        "w-full overflow-hidden rounded-lg border bg-black/60 backdrop-blur-md transition-colors",
+        "w-full overflow-hidden rounded-lg border border-white/15 bg-black/60 backdrop-blur-md transition-colors",
         !locked && "cursor-grab ring-1 ring-white/20 active:cursor-grabbing",
       )}
     >
@@ -417,10 +411,7 @@ function WidgetCard({
         className="flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-white/5"
       >
         {widget.icon && <span className="text-xs">{widget.icon}</span>}
-        <span
-          className="flex-1 overflow-x-auto scrollbar-hide whitespace-nowrap text-[0.6875rem] font-semibold"
-          style={{ color: accent }}
-        >
+        <span className="flex-1 overflow-x-auto scrollbar-hide whitespace-nowrap text-[0.6875rem] font-semibold text-white/90">
           {widget.label}
         </span>
         <button
@@ -440,7 +431,7 @@ function WidgetCard({
 
       {/* Body */}
       {!collapsed && (
-        <div className="border-t px-2.5 py-2" style={{ borderColor: `${accent}15` }}>
+        <div className="border-t border-white/10 px-2.5 py-2">
           <WidgetBody widget={widget} />
         </div>
       )}

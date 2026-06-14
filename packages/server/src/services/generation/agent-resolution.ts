@@ -37,6 +37,7 @@ type ResolveAgentPipelineAgentsArgs = {
   chatProvider: BaseLLMProvider;
   chatModel: string;
   chatMaxParallelJobs: number;
+  activeMusicPlayerSource?: "spotify" | "youtube" | null;
   resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string;
 };
 
@@ -69,6 +70,26 @@ function parseAgentSettings(settings: unknown): Record<string, unknown> {
     }
   }
   return typeof settings === "object" && !Array.isArray(settings) ? (settings as Record<string, unknown>) : {};
+}
+
+function applyMusicPlayerSourceToMusicDjSettings(
+  settings: Record<string, unknown>,
+  activeMusicPlayerSource: "spotify" | "youtube" | null | undefined,
+): Record<string, unknown> {
+  if (!activeMusicPlayerSource) return settings;
+  return {
+    ...settings,
+    musicProvider: activeMusicPlayerSource,
+    musicPlayerSource: activeMusicPlayerSource,
+    enabledTools: activeMusicPlayerSource === "youtube" ? [] : (DEFAULT_AGENT_TOOLS.spotify ?? []),
+  };
+}
+
+function getAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
+  if (agentType === "spotify" && (settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube")) {
+    return getDefaultAgentPrompt("youtube");
+  }
+  return getDefaultAgentPrompt(agentType);
 }
 
 async function resolveAgentConnectionProvider(args: {
@@ -130,6 +151,7 @@ export async function resolveAgentPipelineAgents({
   chatProvider,
   chatModel,
   chatMaxParallelJobs,
+  activeMusicPlayerSource,
   resolveBaseUrl,
 }: ResolveAgentPipelineAgentsArgs): Promise<ResolvedAgentPipelineAgents> {
   const deletedBuiltInTypes = new Set(
@@ -179,14 +201,22 @@ export async function resolveAgentPipelineAgents({
   for (const cfg of enabledConfigs) {
     if (hasPerChatAgentList && !perChatAgentSet.has(cfg.type)) continue;
 
-    const settings = parseAgentSettings(cfg.settings);
-    if (cfg.type === "spotify" && (!Array.isArray(settings.enabledTools) || settings.enabledTools.length === 0)) {
+    let settings = parseAgentSettings(cfg.settings);
+    if (cfg.type === "spotify") {
+      settings = applyMusicPlayerSourceToMusicDjSettings(settings, activeMusicPlayerSource);
+    }
+    if (
+      cfg.type === "spotify" &&
+      settings.musicProvider !== "youtube" &&
+      settings.musicPlayerSource !== "youtube" &&
+      (!Array.isArray(settings.enabledTools) || settings.enabledTools.length === 0)
+    ) {
       settings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
     }
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: cfg.type as string,
       promptTemplate: cfg.promptTemplate as string,
-      fallbackPromptTemplate: getDefaultAgentPrompt(cfg.type as string),
+      fallbackPromptTemplate: getAgentFallbackPrompt(cfg.type as string, settings),
       settings,
       selectedPromptTemplateId: agentPromptTemplateSelections[cfg.type as string] ?? null,
     });
@@ -256,9 +286,14 @@ export async function resolveAgentPipelineAgents({
     if (defaultAgentConn) {
       defaultAgentConnectionAgents.push(builtIn.name);
     }
-    const builtInSettings = getDefaultBuiltInAgentSettings(builtIn.id);
+    let builtInSettings = getDefaultBuiltInAgentSettings(builtIn.id);
+    if (builtIn.id === "spotify") {
+      builtInSettings = applyMusicPlayerSourceToMusicDjSettings(builtInSettings, activeMusicPlayerSource);
+    }
     if (
       builtIn.id === "spotify" &&
+      builtInSettings.musicProvider !== "youtube" &&
+      builtInSettings.musicPlayerSource !== "youtube" &&
       (!Array.isArray(builtInSettings.enabledTools) || builtInSettings.enabledTools.length === 0)
     ) {
       builtInSettings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
@@ -266,7 +301,7 @@ export async function resolveAgentPipelineAgents({
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: builtIn.id,
       promptTemplate: "",
-      fallbackPromptTemplate: getDefaultAgentPrompt(builtIn.id),
+      fallbackPromptTemplate: getAgentFallbackPrompt(builtIn.id, builtInSettings),
       settings: builtInSettings,
       selectedPromptTemplateId: agentPromptTemplateSelections[builtIn.id] ?? null,
     });

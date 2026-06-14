@@ -1097,7 +1097,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // Determine whether agents are enabled for this chat (needed by assembler + agent pipeline).
         // Mode policy filters which agents may run for conversation, roleplay, visual novel, and game chats.
         logger.info("[generate] chatId=%s, chatMode=%s", input.chatId, chatMode);
-        const gameSpotifyMusicEnabled = chatMode === "game" && chatMeta.gameUseSpotifyMusic === true;
+        const activeMusicPlayerSource =
+          input.musicPlayerEnabled === false ? null : input.musicPlayerSource === "youtube" ? "youtube" : "spotify";
         const chatEnableAgents = shouldEnableAgentsForGeneration({
           chatEnableAgents: chatMeta.enableAgents === true,
           chatMode,
@@ -1107,7 +1108,22 @@ export async function generateRoutes(app: FastifyInstance) {
         const persistedChatActiveAgentIds: string[] = Array.isArray(chatMeta.activeAgentIds)
           ? (chatMeta.activeAgentIds as string[])
           : [];
-        const rawChatActiveAgentIds: string[] = filterGameInternalAgentIds(chatMode, persistedChatActiveAgentIds)
+        const gameMusicDjEnabled =
+          chatMode === "game" &&
+          (chatMeta.gameUseMusicDj === true ||
+            chatMeta.gameUseSpotifyMusic === true ||
+            persistedChatActiveAgentIds.includes("youtube"));
+        const gameSpotifyMusicEnabled = gameMusicDjEnabled && activeMusicPlayerSource === "spotify";
+        const normalizedPersistedChatActiveAgentIds = persistedChatActiveAgentIds.map((agentId) =>
+          agentId === "youtube" ? "spotify" : agentId,
+        );
+        if (gameMusicDjEnabled && !normalizedPersistedChatActiveAgentIds.includes("spotify")) {
+          normalizedPersistedChatActiveAgentIds.push("spotify");
+        }
+        const rawChatActiveAgentIds: string[] = filterGameInternalAgentIds(
+          chatMode,
+          normalizedPersistedChatActiveAgentIds,
+        )
           .filter((agentId) => isAgentAvailableInChatMode(chatMode, agentId))
           .filter((agentId) => !(gameSpotifyMusicEnabled && agentId === "spotify"));
         const configuredPromptAgents =
@@ -2844,6 +2860,7 @@ export async function generateRoutes(app: FastifyInstance) {
           chatProvider: provider,
           chatModel: conn.model,
           chatMaxParallelJobs: chatConnectionMaxParallelJobs,
+          activeMusicPlayerSource,
           resolveBaseUrl,
         });
 
@@ -3079,6 +3096,7 @@ export async function generateRoutes(app: FastifyInstance) {
               characterSprites: gmCtx.characterSprites,
               language: gmCtx.language,
               rating: gmCtx.rating,
+              gameSpecialInstructions: gmCtx.gameSpecialInstructions,
               canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
               artStylePrompt: gmCtx.artStylePrompt,
               addressMode,

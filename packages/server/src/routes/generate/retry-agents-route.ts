@@ -175,6 +175,26 @@ function musicAgentUsesYoutube(settings: Record<string, unknown> | null | undefi
   return settings?.musicProvider === "youtube" || settings?.musicPlayerSource === "youtube";
 }
 
+function applyRetryMusicPlayerSource(
+  settings: Record<string, unknown>,
+  activeMusicPlayerSource: "spotify" | "youtube" | null | undefined,
+): Record<string, unknown> {
+  if (!activeMusicPlayerSource) return settings;
+  return {
+    ...settings,
+    musicProvider: activeMusicPlayerSource,
+    musicPlayerSource: activeMusicPlayerSource,
+    enabledTools: activeMusicPlayerSource === "youtube" ? [] : (DEFAULT_AGENT_TOOLS.spotify ?? []),
+  };
+}
+
+function getRetryAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
+  if (agentType === "spotify" && musicAgentUsesYoutube(settings)) {
+    return getDefaultAgentPrompt("youtube");
+  }
+  return getDefaultAgentPrompt(agentType);
+}
+
 function getGameImageStylePrompt(chat: any, chatMeta: Record<string, unknown>): string {
   if (((chat as any).mode ?? "conversation") !== "game") return "";
   const setupConfig = parseSettingsRecord(chatMeta.gameSetupConfig);
@@ -634,13 +654,15 @@ async function resolveRetryAgents(args: {
   chat: any;
   conns: ReturnType<typeof createConnectionsStorage>;
   agentsStore: ReturnType<typeof createAgentsStorage>;
+  activeMusicPlayerSource?: "spotify" | "youtube" | null;
 }): Promise<ResolvedRetryAgents> {
-  const { agentTypes, chat, conns, agentsStore } = args;
+  const { agentTypes, chat, conns, agentsStore, activeMusicPlayerSource } = args;
   const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
   const chatMeta = parseExtra((chat as { metadata?: unknown }).metadata);
   const agentPromptTemplateSelections = normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds);
+  const normalizedAgentTypes = agentTypes.map((agentType) => (agentType === "youtube" ? "spotify" : agentType));
   const agentTypeSet = new Set(
-    filterGameInternalAgentIds(chatMode, agentTypes).filter((agentType) =>
+    filterGameInternalAgentIds(chatMode, normalizedAgentTypes).filter((agentType) =>
       isAgentAvailableInChatMode(chatMode, agentType),
     ),
   );
@@ -765,11 +787,14 @@ async function resolveRetryAgents(args: {
       }
     }
     const rawSettings = typeof cfg.settings === "string" ? JSON.parse(cfg.settings) : (cfg.settings ?? {});
-    const settings = applyDefaultBuiltInAgentTools(cfg.type, rawSettings);
+    let settings = applyDefaultBuiltInAgentTools(cfg.type, rawSettings);
+    if (cfg.type === "spotify") {
+      settings = applyRetryMusicPlayerSource(settings, activeMusicPlayerSource);
+    }
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: cfg.type as string,
       promptTemplate: cfg.promptTemplate as string,
-      fallbackPromptTemplate: getDefaultAgentPrompt(cfg.type as string),
+      fallbackPromptTemplate: getRetryAgentFallbackPrompt(cfg.type as string, settings),
       settings,
       selectedPromptTemplateId: agentPromptTemplateSelections[cfg.type as string] ?? null,
     });
@@ -807,11 +832,14 @@ async function resolveRetryAgents(args: {
       defaultAgentConnectionAgents.push(builtIn.name);
     }
 
-    const settings = applyDefaultBuiltInAgentTools(builtIn.id, getDefaultBuiltInAgentSettings(builtIn.id));
+    let settings = applyDefaultBuiltInAgentTools(builtIn.id, getDefaultBuiltInAgentSettings(builtIn.id));
+    if (builtIn.id === "spotify") {
+      settings = applyRetryMusicPlayerSource(settings, activeMusicPlayerSource);
+    }
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: builtIn.id,
       promptTemplate: "",
-      fallbackPromptTemplate: getDefaultAgentPrompt(builtIn.id),
+      fallbackPromptTemplate: getRetryAgentFallbackPrompt(builtIn.id, settings),
       settings,
       selectedPromptTemplateId: agentPromptTemplateSelections[builtIn.id] ?? null,
     });
@@ -2360,6 +2388,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       lorebookKeeperBackfill?: boolean;
       /** When set, scope history and game state to this assistant message (as at original generation), not the latest turn. */
       forMessageId?: string;
+      musicPlayerSource?: "spotify" | "youtube";
+      musicPlayerEnabled?: boolean;
       /** Secret Plot re-run mode: full = refresh arc+turn data, turn_only = preserve arc and refresh only turn guidance. */
       secretPlotRerollMode?: "full" | "turn_only";
     };
@@ -2371,6 +2401,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       debugMode = false,
       lorebookKeeperBackfill = false,
       forMessageId,
+      musicPlayerSource = "spotify",
+      musicPlayerEnabled = true,
       secretPlotRerollMode = "full",
     } = request.body;
     if (!chatId || !agentTypes?.length) {
@@ -2447,6 +2479,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         chat,
         conns,
         agentsStore,
+        activeMusicPlayerSource:
+          musicPlayerEnabled === false ? null : musicPlayerSource === "youtube" ? "youtube" : "spotify",
       });
       await attachRetrySpotifyToolContexts({ agentsStore, chats, chatId, chatMeta, resolvedAgents });
       await attachRetryChatMetadataToolContexts({ chats, chatId, chatMeta, resolvedAgents });

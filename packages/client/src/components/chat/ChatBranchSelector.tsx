@@ -1,6 +1,17 @@
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { Check, ChevronDown, Download, FileText, GitBranch, Loader2, MessageSquare, Pencil, Trash2, Upload } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Download,
+  FileText,
+  GitBranch,
+  Loader2,
+  MessageSquare,
+  Pencil,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -144,7 +155,8 @@ export function ChatBranchSelector({
     ) {
       return;
     }
-    const nextActiveChatId = branchId === activeChatId ? displayBranches.find((branch) => branch.id !== branchId)?.id : null;
+    const nextActiveChatId =
+      branchId === activeChatId ? displayBranches.find((branch) => branch.id !== branchId)?.id : null;
     try {
       await deleteChat.mutateAsync({ id: branchId, groupId: groupId ?? null });
       if (nextActiveChatId) setActiveChatId(nextActiveChatId);
@@ -205,11 +217,8 @@ export function ChatBranchSelector({
   const branchLabel = currentBranch?.name ?? activeChatName ?? "Current branch";
   const roleplayMinimal = variant === "roleplay" && !compact;
   const buttonClassName =
-    variant === "roleplay"
-      ? "border border-foreground/10 bg-foreground/5 text-foreground/80 hover:bg-foreground/10 hover:text-foreground"
-      : "bg-black/30 text-foreground/90 hover:bg-black/50";
-  const badgeClassName =
-    variant === "roleplay" ? "bg-foreground/10 text-foreground/60" : "bg-black/30 text-foreground/60";
+    "marinara-chat-toolbar-button border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]";
+  const badgeClassName = "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-muted)]";
 
   return (
     <>
@@ -226,8 +235,10 @@ export function ChatBranchSelector({
             ? "relative flex h-8 w-8 items-center justify-center rounded-lg backdrop-blur-sm transition-colors"
             : roleplayMinimal
               ? "flex h-8 min-w-14 items-center gap-1.5 rounded-lg px-2 py-1 text-left backdrop-blur-sm transition-colors"
-            : "flex max-w-[min(15rem,calc(100vw-9rem))] items-center gap-2 rounded-lg px-2.5 py-1.5 text-left backdrop-blur-sm transition-colors",
+              : "flex max-w-[min(15rem,calc(100vw-9rem))] items-center gap-2 rounded-lg px-2.5 py-1.5 text-left backdrop-blur-sm transition-colors",
           buttonClassName,
+          open &&
+            "marinara-chat-toolbar-button--active border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)]",
           className,
         )}
         title="Switch branch"
@@ -278,9 +289,7 @@ export function ChatBranchSelector({
                 <GitBranch size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                 Chat Branches
               </div>
-              <div className={ROLEPLAY_POPOVER_SUBTITLE}>
-                Switch, import, export, or clean up this chat's branches.
-              </div>
+              <div className={ROLEPLAY_POPOVER_SUBTITLE}>Switch, import, export, or clean up this chat's branches.</div>
             </div>
 
             <div className="border-b border-[var(--border)] p-2">
@@ -316,7 +325,9 @@ export function ChatBranchSelector({
               </div>
             </div>
 
-            <div className={cn(ROLEPLAY_POPOVER_SCROLL_AREA, "max-h-[min(22rem,calc(100vh-12rem))] overflow-y-auto p-2")}>
+            <div
+              className={cn(ROLEPLAY_POPOVER_SCROLL_AREA, "max-h-[min(22rem,calc(100vh-12rem))] overflow-y-auto p-2")}
+            >
               {displayBranches.map((branch) => {
                 const isActive = branch.id === activeChatId;
                 const updatedAt = new Date(branch.updatedAt).toLocaleString(undefined, {
@@ -342,21 +353,21 @@ export function ChatBranchSelector({
                       }}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     >
-                    <div
-                      className={cn(
-                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-                        isActive
-                          ? "bg-[var(--foreground)]/15 text-[var(--foreground)]"
-                          : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
-                      )}
-                    >
-                      {isActive ? <Check size="0.875rem" /> : <MessageSquare size="0.875rem" />}
-                    </div>
+                      <div
+                        className={cn(
+                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+                          isActive
+                            ? "bg-[var(--foreground)]/15 text-[var(--foreground)]"
+                            : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
+                        )}
+                      >
+                        {isActive ? <Check size="0.875rem" /> : <MessageSquare size="0.875rem" />}
+                      </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{getChatDisplayName(branch)}</div>
-                      <div className="text-[0.6875rem] text-[var(--muted-foreground)]">Updated {updatedAt}</div>
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{getChatDisplayName(branch)}</div>
+                        <div className="text-[0.6875rem] text-[var(--muted-foreground)]">Updated {updatedAt}</div>
+                      </div>
                     </button>
 
                     {isActive && (
