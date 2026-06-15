@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 
 export interface GameCharacterSheetGameCard {
   shortDescription: string;
@@ -389,7 +390,10 @@ export function GameCharacterSheet({
       onClick={onClose}
     >
       <div
-        className="relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl"
+        className={cn(
+          NEUTRAL_SURFACE_VARIABLES,
+          "relative mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl",
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {(onSave || onRegenerate) && (

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Users, Send, ChevronLeft, ChevronRight, Swords, Heart, Sparkles } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { AnimatedText } from "./AnimatedText";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 
 interface PartyChatMessage {
   id: string;
@@ -160,7 +161,12 @@ export function GamePartySidebar({
 
           {/* RPG character card */}
           {selectedCard && (
-            <div className="border-b border-[var(--border)] bg-[var(--secondary)]/55 px-2 py-2">
+            <div
+              className={cn(
+                NEUTRAL_SURFACE_VARIABLES,
+                "border-b border-[var(--border)] bg-[var(--secondary)]/55 px-2 py-2",
+              )}
+            >
               <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)]/80 shadow-lg">
                 {/* Card header with avatar + name */}
                 <div className="relative border-b border-[var(--border)] bg-[var(--secondary)]/45 px-2.5 py-2">
