@@ -422,6 +422,30 @@ const CREATE_TABLES: string[] = [
     last_message_at TEXT NOT NULL,
     created_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS discord_bridge_thread_bindings (
+    id TEXT PRIMARY KEY NOT NULL,
+    guild_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL,
+    chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    chat_name TEXT NOT NULL,
+    persona_id TEXT,
+    character_ids TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS discord_bridge_message_mappings (
+    id TEXT PRIMARY KEY NOT NULL,
+    binding_id TEXT NOT NULL REFERENCES discord_bridge_thread_bindings(id) ON DELETE CASCADE,
+    marinara_message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+    discord_message_ids TEXT NOT NULL DEFAULT '[]',
+    role TEXT NOT NULL,
+    direction TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    chunk_count INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS chat_folders (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -891,6 +915,20 @@ export async function runMigrations(db: DB) {
   );
   await db.run(
     sql.raw(`CREATE INDEX IF NOT EXISTS idx_memory_chunks_chat ON memory_chunks(chat_id, last_message_at DESC)`),
+  );
+  await db.run(
+    sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_discord_bridge_binding_thread ON discord_bridge_thread_bindings(thread_id)`),
+  );
+  await db.run(
+    sql.raw(`CREATE INDEX IF NOT EXISTS idx_discord_bridge_binding_chat ON discord_bridge_thread_bindings(chat_id)`),
+  );
+  await db.run(
+    sql.raw(
+      `CREATE UNIQUE INDEX IF NOT EXISTS uniq_discord_bridge_mapping_marinara ON discord_bridge_message_mappings(marinara_message_id)`,
+    ),
+  );
+  await db.run(
+    sql.raw(`CREATE INDEX IF NOT EXISTS idx_discord_bridge_mapping_binding ON discord_bridge_message_mappings(binding_id)`),
   );
   await db.run(
     sql.raw(

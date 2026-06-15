@@ -4,6 +4,7 @@ export interface DiscordBridgeConfig {
   guildId: string;
   ownerId: string;
   serverUrl: string;
+  engineSyncIntervalMs: number;
 }
 
 export function isEnabledFlag(value: string | undefined | null) {
@@ -20,6 +21,13 @@ function defaultServerUrl() {
   return `http://127.0.0.1:${process.env.PORT?.trim() || "7860"}`;
 }
 
+function optionalPositiveInteger(name: string, fallback: number) {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
 export function loadDiscordBridgeConfig(): DiscordBridgeConfig {
   return {
     token: requireEnv("DISCORD_BOT_TOKEN"),
@@ -27,5 +35,6 @@ export function loadDiscordBridgeConfig(): DiscordBridgeConfig {
     guildId: requireEnv("DISCORD_GUILD_ID"),
     ownerId: requireEnv("DISCORD_OWNER_ID"),
     serverUrl: process.env.DISCORD_BRIDGE_SERVER_URL?.trim() || defaultServerUrl(),
+    engineSyncIntervalMs: optionalPositiveInteger("DISCORD_BRIDGE_ENGINE_SYNC_INTERVAL_MS", 5000),
   };
 }

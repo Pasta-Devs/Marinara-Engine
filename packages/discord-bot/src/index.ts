@@ -14,7 +14,9 @@ async function main() {
 
   await syncGuildCommands(config.token, config.clientId, config.guildId);
 
-  const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+  const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+  });
   registerEvents(client, config);
 
   process.once("SIGINT", () => {

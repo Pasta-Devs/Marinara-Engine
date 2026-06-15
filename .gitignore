@@ -41,6 +41,9 @@ packages/server/data/
 # Temporary tests
 *.test.ts
 
+# Local notes for handoff/context between chats
+local-docs/
+
 # Custom agents (personal)
 .github/agents/qa.agent.md
 

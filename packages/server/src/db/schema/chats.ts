@@ -119,3 +119,35 @@ export const memoryChunks = sqliteTable("memory_chunks", {
   lastMessageAt: text("last_message_at").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+export const discordBridgeThreadBindings = sqliteTable("discord_bridge_thread_bindings", {
+  id: text("id").primaryKey(),
+  guildId: text("guild_id").notNull(),
+  channelId: text("channel_id").notNull(),
+  threadId: text("thread_id").notNull(),
+  chatId: text("chat_id")
+    .notNull()
+    .references(() => chats.id, { onDelete: "cascade" }),
+  chatName: text("chat_name").notNull(),
+  personaId: text("persona_id"),
+  characterIds: text("character_ids").notNull().default("[]"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const discordBridgeMessageMappings = sqliteTable("discord_bridge_message_mappings", {
+  id: text("id").primaryKey(),
+  bindingId: text("binding_id")
+    .notNull()
+    .references(() => discordBridgeThreadBindings.id, { onDelete: "cascade" }),
+  marinaraMessageId: text("marinara_message_id")
+    .notNull()
+    .references(() => messages.id, { onDelete: "cascade" }),
+  discordMessageIds: text("discord_message_ids").notNull().default("[]"),
+  role: text("role", { enum: ["user", "assistant", "system", "narrator"] }).notNull(),
+  direction: text("direction", { enum: ["discord_to_engine", "engine_to_discord"] }).notNull(),
+  contentHash: text("content_hash").notNull(),
+  chunkCount: integer("chunk_count").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

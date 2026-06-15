@@ -1,5 +1,57 @@
 import type { CharacterData } from "./character.js";
 import type { ChatMode, MessageRole } from "./chat.js";
+import type { APIProvider } from "./connection.js";
+import type { ChatPresetSettings } from "./chat-preset.js";
+
+export interface DiscordBridgeConnectionOption {
+  id: string;
+  name: string;
+  provider: APIProvider;
+  model: string;
+  baseUrl: string;
+  maxContext: number;
+  isDefault: boolean;
+  useForRandom: boolean;
+  defaultForAgents: boolean;
+  defaultParameters: Record<string, unknown> | null;
+  promptPresetId: string | null;
+  updatedAt: string;
+}
+
+export interface DiscordBridgePromptPresetOption {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  author: string;
+  parameters: Record<string, unknown>;
+  updatedAt: string;
+}
+
+export interface DiscordBridgeChatPresetOption {
+  id: string;
+  name: string;
+  mode: ChatMode;
+  isDefault: boolean;
+  isActive: boolean;
+  settings: ChatPresetSettings;
+  updatedAt: string;
+}
+
+export interface DiscordBridgeRoleplayDefaults {
+  connection: DiscordBridgeConnectionOption | null;
+  chatPreset: DiscordBridgeChatPresetOption | null;
+  promptPreset: DiscordBridgePromptPresetOption | null;
+  connectionId: string | null;
+  promptPresetId: string | null;
+  defaultParameters: Record<string, unknown> | null;
+  settings: DiscordBridgeRoleplaySettings;
+}
+
+export interface DiscordBridgeRoleplaySettings {
+  connectionId: string | null;
+  promptPresetId: string | null;
+}
 
 export interface DiscordBridgeChatOption {
   id: string;
@@ -66,4 +118,59 @@ export interface DiscordBridgeChatContext {
     content: string;
     createdAt: string;
   }>;
+}
+
+export type DiscordBridgeMessageDirection = "discord_to_engine" | "engine_to_discord";
+
+export interface DiscordBridgeThreadBinding {
+  id: string;
+  guildId: string;
+  channelId: string;
+  threadId: string;
+  chatId: string;
+  chatName: string;
+  personaId: string | null;
+  characterIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiscordBridgeMessageMapping {
+  id: string;
+  bindingId: string;
+  marinaraMessageId: string;
+  discordMessageIds: string[];
+  role: MessageRole;
+  direction: DiscordBridgeMessageDirection;
+  contentHash: string;
+  chunkCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiscordBridgeCreateRoleplayChatRequest {
+  name: string;
+  personaId: string | null;
+  characterIds: string[];
+}
+
+export interface DiscordBridgeCreateRoleplayChatResponse {
+  chat: DiscordBridgeChatContext["chat"];
+}
+
+export interface DiscordBridgeEngineSyncItem {
+  action: "create" | "update";
+  binding: DiscordBridgeThreadBinding;
+  mapping: DiscordBridgeMessageMapping | null;
+  message: DiscordBridgeChatContext["messages"][number];
+  contentHash: string;
+}
+
+export interface DiscordBridgeEngineSyncResponse {
+  items: DiscordBridgeEngineSyncItem[];
+}
+
+export interface DiscordBridgeIngestDiscordMessageResponse {
+  message: DiscordBridgeChatContext["messages"][number];
+  mapping: DiscordBridgeMessageMapping;
 }

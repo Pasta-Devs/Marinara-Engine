@@ -151,7 +151,7 @@ export async function getDiscordBridgeChatContext(
   chatsStorage: ChatsStorage,
   charactersStorage: CharactersStorage,
   chatId: string,
-  options: { messageLimit?: number } = {},
+  options: { messageLimit?: number; allMessages?: boolean } = {},
 ): Promise<DiscordBridgeChatContext | null> {
   const chat = await chatsStorage.getById(chatId);
   const chatOption = toChatOption(chat);
@@ -171,7 +171,11 @@ export async function getDiscordBridgeChatContext(
     null;
 
   const messageLimit = Math.max(0, Math.min(200, Math.floor(options.messageLimit ?? 50)));
-  const messages = messageLimit > 0 ? await chatsStorage.listMessagesPaginated(chat.id, messageLimit) : [];
+  const messages = options.allMessages
+    ? await chatsStorage.listMessages(chat.id)
+    : messageLimit > 0
+      ? await chatsStorage.listMessagesPaginated(chat.id, messageLimit)
+      : [];
 
   return {
     chat: {

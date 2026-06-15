@@ -2,8 +2,9 @@ import { REST, Routes } from "discord.js";
 import { logger } from "../core/logger.js";
 import { charactersCommand } from "./characters.js";
 import { personasCommand } from "./personas.js";
+import { roleplayCommand } from "./roleplay.js";
 
-export const commands = [charactersCommand, personasCommand];
+export const commands = [charactersCommand, personasCommand, roleplayCommand];
 
 export async function syncGuildCommands(token: string, clientId: string, guildId: string) {
   const rest = new REST({ version: "10" }).setToken(token);
