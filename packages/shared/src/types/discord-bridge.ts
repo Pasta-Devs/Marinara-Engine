@@ -96,20 +96,22 @@ export interface DiscordBridgeChatContext {
     metadata: Record<string, unknown>;
   };
   characters: Array<DiscordBridgeCharacterOption & { data: CharacterData }>;
-  persona: (DiscordBridgePersonaOption & {
-    description: string;
-    personality: string;
-    scenario: string;
-    backstory: string;
-    appearance: string;
-    nameColor: string;
-    dialogueColor: string;
-    boxColor: string;
-    trackerCardColors: unknown;
-    personaStats: unknown;
-    altDescriptions: unknown[];
-    savedStatusOptions: string[];
-  }) | null;
+  persona:
+    | (DiscordBridgePersonaOption & {
+        description: string;
+        personality: string;
+        scenario: string;
+        backstory: string;
+        appearance: string;
+        nameColor: string;
+        dialogueColor: string;
+        boxColor: string;
+        trackerCardColors: unknown;
+        personaStats: unknown;
+        altDescriptions: unknown[];
+        savedStatusOptions: string[];
+      })
+    | null;
   missingCharacterIds: string[];
   messages: Array<{
     id: string;
@@ -132,6 +134,15 @@ export interface DiscordBridgeThreadBinding {
   chatName: string;
   personaId: string | null;
   characterIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DiscordBridgeUserPersona {
+  id: string;
+  guildId: string;
+  discordUserId: string;
+  personaId: string;
   createdAt: string;
   updatedAt: string;
 }

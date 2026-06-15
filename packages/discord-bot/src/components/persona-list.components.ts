@@ -12,6 +12,7 @@ export const PERSONA_SELECT_CUSTOM_ID = "personas:select";
 export const PERSONA_PAGE_SELECT_CUSTOM_ID = "personas:page";
 export const PERSONA_EDIT_CUSTOM_ID = "personas:edit";
 export const PERSONA_SAVE_CUSTOM_ID = "personas:save";
+export const PERSONA_USE_CUSTOM_ID = "personas:use";
 export const PERSONA_EDIT_MODAL_CUSTOM_ID = "personas:edit-modal";
 export const PERSONA_CLOSE_CUSTOM_ID = "personas:close";
 export const PERSONA_BACK_CUSTOM_ID = "personas:back";
@@ -42,6 +43,10 @@ export function buildPersonaSaveCustomId(personaId: string, page: PersonaCardPag
   return `${PERSONA_SAVE_CUSTOM_ID}:${encodeURIComponent(personaId)}:${page}`;
 }
 
+export function buildPersonaUseCustomId(personaId: string) {
+  return `${PERSONA_USE_CUSTOM_ID}:${encodeURIComponent(personaId)}`;
+}
+
 export function buildPersonaEditModalCustomId(personaId: string, page: PersonaCardPage) {
   return `${PERSONA_EDIT_MODAL_CUSTOM_ID}:${encodeURIComponent(personaId)}:${page}`;
 }
@@ -69,7 +74,12 @@ export function buildPersonaListComponents(personas: DiscordBridgePersonaOption[
   return [selectRow, buttonRow];
 }
 
-export function buildPersonaDetailComponents(personaId: string, selectedPage: PersonaCardPage = "description", hasDraft = false) {
+export function buildPersonaDetailComponents(
+  personaId: string,
+  selectedPage: PersonaCardPage = "description",
+  hasDraft = false,
+  isSelectedPersona = false,
+) {
   const pageOptions = PERSONA_CARD_PAGES.map((page) => ({
     label: pageLabel(page),
     value: page,
@@ -83,11 +93,16 @@ export function buildPersonaDetailComponents(personaId: string, selectedPage: Pe
         .setPlaceholder("Select a persona page")
         .addOptions(pageOptions),
     ),
-    buildPersonaDetailButtonRow(personaId, selectedPage, hasDraft),
+    buildPersonaDetailButtonRow(personaId, selectedPage, hasDraft, isSelectedPersona),
   ];
 }
 
-function buildPersonaDetailButtonRow(personaId: string, selectedPage: PersonaCardPage, hasDraft: boolean) {
+function buildPersonaDetailButtonRow(
+  personaId: string,
+  selectedPage: PersonaCardPage,
+  hasDraft: boolean,
+  isSelectedPersona: boolean,
+) {
   const buttons = [
     new ButtonBuilder()
       .setCustomId(buildPersonaEditCustomId(personaId, selectedPage))
@@ -105,6 +120,11 @@ function buildPersonaDetailButtonRow(personaId: string, selectedPage: PersonaCar
   }
 
   buttons.push(
+    new ButtonBuilder()
+      .setCustomId(buildPersonaUseCustomId(personaId))
+      .setLabel(isSelectedPersona ? "Using persona" : "Use persona")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(isSelectedPersona),
     new ButtonBuilder().setCustomId(PERSONA_BACK_CUSTOM_ID).setLabel("Back").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(PERSONA_CLOSE_CUSTOM_ID).setLabel("Close").setStyle(ButtonStyle.Danger),
   );

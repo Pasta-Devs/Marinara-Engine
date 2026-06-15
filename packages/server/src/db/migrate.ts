@@ -446,6 +446,14 @@ const CREATE_TABLES: string[] = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS discord_bridge_user_personas (
+    id TEXT PRIMARY KEY NOT NULL,
+    guild_id TEXT NOT NULL,
+    discord_user_id TEXT NOT NULL,
+    persona_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS chat_folders (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -917,7 +925,9 @@ export async function runMigrations(db: DB) {
     sql.raw(`CREATE INDEX IF NOT EXISTS idx_memory_chunks_chat ON memory_chunks(chat_id, last_message_at DESC)`),
   );
   await db.run(
-    sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_discord_bridge_binding_thread ON discord_bridge_thread_bindings(thread_id)`),
+    sql.raw(
+      `CREATE UNIQUE INDEX IF NOT EXISTS uniq_discord_bridge_binding_thread ON discord_bridge_thread_bindings(thread_id)`,
+    ),
   );
   await db.run(
     sql.raw(`CREATE INDEX IF NOT EXISTS idx_discord_bridge_binding_chat ON discord_bridge_thread_bindings(chat_id)`),
@@ -928,7 +938,19 @@ export async function runMigrations(db: DB) {
     ),
   );
   await db.run(
-    sql.raw(`CREATE INDEX IF NOT EXISTS idx_discord_bridge_mapping_binding ON discord_bridge_message_mappings(binding_id)`),
+    sql.raw(
+      `CREATE INDEX IF NOT EXISTS idx_discord_bridge_mapping_binding ON discord_bridge_message_mappings(binding_id)`,
+    ),
+  );
+  await db.run(
+    sql.raw(
+      `CREATE UNIQUE INDEX IF NOT EXISTS uniq_discord_bridge_user_persona ON discord_bridge_user_personas(guild_id, discord_user_id)`,
+    ),
+  );
+  await db.run(
+    sql.raw(
+      `CREATE INDEX IF NOT EXISTS idx_discord_bridge_user_persona_persona ON discord_bridge_user_personas(persona_id)`,
+    ),
   );
   await db.run(
     sql.raw(

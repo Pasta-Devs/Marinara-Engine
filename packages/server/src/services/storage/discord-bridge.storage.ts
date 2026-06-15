@@ -1,11 +1,16 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type {
   DiscordBridgeMessageDirection,
   DiscordBridgeMessageMapping,
   DiscordBridgeThreadBinding,
+  DiscordBridgeUserPersona,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
-import { discordBridgeMessageMappings, discordBridgeThreadBindings } from "../../db/schema/index.js";
+import {
+  discordBridgeMessageMappings,
+  discordBridgeThreadBindings,
+  discordBridgeUserPersonas,
+} from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 
 export interface UpsertThreadBindingInput {
@@ -25,6 +30,12 @@ export interface UpsertMessageMappingInput {
   role: DiscordBridgeMessageMapping["role"];
   direction: DiscordBridgeMessageDirection;
   contentHash: string;
+}
+
+export interface UpsertUserPersonaInput {
+  guildId: string;
+  discordUserId: string;
+  personaId: string;
 }
 
 function parseStringArray(raw: unknown): string[] {
@@ -68,6 +79,17 @@ function toMessageMapping(row: typeof discordBridgeMessageMappings.$inferSelect)
   };
 }
 
+function toUserPersona(row: typeof discordBridgeUserPersonas.$inferSelect): DiscordBridgeUserPersona {
+  return {
+    id: row.id,
+    guildId: row.guildId,
+    discordUserId: row.discordUserId,
+    personaId: row.personaId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 export function createDiscordBridgeStorage(db: DB) {
   return {
     async listThreadBindings(): Promise<DiscordBridgeThreadBinding[]> {
@@ -81,12 +103,18 @@ export function createDiscordBridgeStorage(db: DB) {
     },
 
     async getThreadBindingByThreadId(threadId: string): Promise<DiscordBridgeThreadBinding | null> {
-      const rows = await db.select().from(discordBridgeThreadBindings).where(eq(discordBridgeThreadBindings.threadId, threadId));
+      const rows = await db
+        .select()
+        .from(discordBridgeThreadBindings)
+        .where(eq(discordBridgeThreadBindings.threadId, threadId));
       return rows[0] ? toThreadBinding(rows[0]) : null;
     },
 
     async getThreadBindingByChatId(chatId: string): Promise<DiscordBridgeThreadBinding | null> {
-      const rows = await db.select().from(discordBridgeThreadBindings).where(eq(discordBridgeThreadBindings.chatId, chatId));
+      const rows = await db
+        .select()
+        .from(discordBridgeThreadBindings)
+        .where(eq(discordBridgeThreadBindings.chatId, chatId));
       return rows[0] ? toThreadBinding(rows[0]) : null;
     },
 
@@ -135,7 +163,10 @@ export function createDiscordBridgeStorage(db: DB) {
     },
 
     async deleteThreadBindingsByChatId(chatId: string): Promise<void> {
-      const rows = await db.select().from(discordBridgeThreadBindings).where(eq(discordBridgeThreadBindings.chatId, chatId));
+      const rows = await db
+        .select()
+        .from(discordBridgeThreadBindings)
+        .where(eq(discordBridgeThreadBindings.chatId, chatId));
       for (const row of rows) {
         await this.deleteThreadBinding(row.id);
       }
@@ -200,6 +231,47 @@ export function createDiscordBridgeStorage(db: DB) {
       });
       const created = await this.getMessageMappingByMarinaraMessageId(input.marinaraMessageId);
       if (!created) throw new Error("Failed to create Discord bridge message mapping");
+      return created;
+    },
+
+    async getUserPersona(guildId: string, discordUserId: string): Promise<DiscordBridgeUserPersona | null> {
+      const rows = await db
+        .select()
+        .from(discordBridgeUserPersonas)
+        .where(
+          and(
+            eq(discordBridgeUserPersonas.guildId, guildId),
+            eq(discordBridgeUserPersonas.discordUserId, discordUserId),
+          ),
+        );
+      return rows[0] ? toUserPersona(rows[0]) : null;
+    },
+
+    async upsertUserPersona(input: UpsertUserPersonaInput): Promise<DiscordBridgeUserPersona> {
+      const timestamp = now();
+      const existing = await this.getUserPersona(input.guildId, input.discordUserId);
+      if (existing) {
+        await db
+          .update(discordBridgeUserPersonas)
+          .set({
+            personaId: input.personaId,
+            updatedAt: timestamp,
+          })
+          .where(eq(discordBridgeUserPersonas.id, existing.id));
+        const updated = await this.getUserPersona(input.guildId, input.discordUserId);
+        if (updated) return updated;
+      }
+
+      await db.insert(discordBridgeUserPersonas).values({
+        id: newId(),
+        guildId: input.guildId,
+        discordUserId: input.discordUserId,
+        personaId: input.personaId,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+      const created = await this.getUserPersona(input.guildId, input.discordUserId);
+      if (!created) throw new Error("Failed to create Discord bridge user persona");
       return created;
     },
   };

@@ -5,13 +5,13 @@ import type {
   DiscordBridgeConnectionOption,
   DiscordBridgeCreateRoleplayChatResponse,
   DiscordBridgeEngineSyncResponse,
-  DiscordBridgeIngestDiscordMessageResponse,
   DiscordBridgeMessageMapping,
   DiscordBridgePromptPresetOption,
   DiscordBridgeRoleplayDefaults,
   DiscordBridgeRoleplaySettings,
   DiscordBridgeSetupOptions,
   DiscordBridgeThreadBinding,
+  DiscordBridgeUserPersona,
 } from "@marinara-engine/shared";
 import type { PersonaCardData } from "../embeds/persona-card.embed.js";
 import type { EditableCharacterField } from "./character-card-fields.js";
@@ -59,6 +59,18 @@ async function patchJson<T>(serverUrl: string, path: string, body: unknown): Pro
   });
   if (!response.ok) {
     throw new Error(`Marinara request failed: PATCH ${path} returned HTTP ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
+async function putJson<T>(serverUrl: string, path: string, body: unknown): Promise<T> {
+  const response = await fetch(apiUrl(serverUrl, path), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`Marinara request failed: PUT ${path} returned HTTP ${response.status}`);
   }
   return (await response.json()) as T;
 }
@@ -155,6 +167,21 @@ export function updatePersonaFields(
   );
 }
 
+export function getDiscordUserPersona(serverUrl: string, guildId: string, discordUserId: string) {
+  return getJson<DiscordBridgeUserPersona>(
+    serverUrl,
+    `/api/discord-bridge/guilds/${encodeURIComponent(guildId)}/users/${encodeURIComponent(discordUserId)}/persona`,
+  );
+}
+
+export function setDiscordUserPersona(serverUrl: string, guildId: string, discordUserId: string, personaId: string) {
+  return putJson<DiscordBridgeUserPersona & { personaName: string }>(
+    serverUrl,
+    `/api/discord-bridge/guilds/${encodeURIComponent(guildId)}/users/${encodeURIComponent(discordUserId)}/persona`,
+    { personaId },
+  );
+}
+
 export async function updateCharacterFields(
   serverUrl: string,
   characterId: string,
@@ -198,10 +225,7 @@ export function upsertThreadBinding(
 }
 
 export function deleteThreadBinding(serverUrl: string, bindingId: string) {
-  return deleteJson<{ ok: boolean }>(
-    serverUrl,
-    `/api/discord-bridge/thread-bindings/${encodeURIComponent(bindingId)}`,
-  );
+  return deleteJson<{ ok: boolean }>(serverUrl, `/api/discord-bridge/thread-bindings/${encodeURIComponent(bindingId)}`);
 }
 
 export function listThreadMessageMappings(serverUrl: string, threadId: string) {
@@ -211,7 +235,11 @@ export function listThreadMessageMappings(serverUrl: string, threadId: string) {
   );
 }
 
-export function getThreadMessageMappingByDiscordMessageId(serverUrl: string, threadId: string, discordMessageId: string) {
+export function getThreadMessageMappingByDiscordMessageId(
+  serverUrl: string,
+  threadId: string,
+  discordMessageId: string,
+) {
   return getJson<DiscordBridgeMessageMapping>(
     serverUrl,
     `/api/discord-bridge/thread-bindings/by-thread/${encodeURIComponent(
@@ -241,32 +269,95 @@ export function upsertMessageMapping(
   return postJson<DiscordBridgeMessageMapping>(serverUrl, "/api/discord-bridge/message-mappings", input);
 }
 
-export function createUserChatMessage(serverUrl: string, chatId: string, content: string) {
-  return postJson<MarinaraMessageRow>(serverUrl, `/api/chats/${encodeURIComponent(chatId)}/messages`, {
-    role: "user",
-    characterId: null,
-    content,
-  });
-}
-
-export function ingestDiscordUserMessage(
-  serverUrl: string,
-  threadId: string,
-  input: { discordMessageId: string; content: string },
-) {
-  return postJson<DiscordBridgeIngestDiscordMessageResponse>(
-    serverUrl,
-    `/api/discord-bridge/thread-bindings/by-thread/${encodeURIComponent(threadId)}/discord-messages`,
-    input,
-  );
-}
-
 export function updateChatMessageContent(serverUrl: string, chatId: string, messageId: string, content: string) {
   return patchJson<MarinaraMessageRow>(
     serverUrl,
     `/api/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`,
     { content, source: "discord_bridge" },
   );
+}
+
+function parseSseEvents(buffer: string) {
+  const events: Array<{ type?: string; data?: unknown }> = [];
+  const blocks = buffer.split("\n\n");
+  const remaining = blocks.pop() ?? "";
+
+  for (const block of blocks) {
+    const data = block
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => line.slice(6))
+      .join("\n");
+    if (!data) continue;
+    try {
+      events.push(JSON.parse(data) as { type?: string; data?: unknown });
+    } catch {
+      // Ignore malformed SSE payloads; the generate route will still close or send a later error.
+    }
+  }
+
+  return { events, remaining };
+}
+
+function eventDataMessage(data: unknown) {
+  return typeof data === "string" ? data : JSON.stringify(data);
+}
+
+export async function triggerChatGeneration(
+  serverUrl: string,
+  input: {
+    chatId: string;
+    userMessage: string;
+    bindingId: string;
+    discordMessageId: string;
+  },
+) {
+  const response = await fetch(apiUrl(serverUrl, "/api/generate"), {
+    method: "POST",
+    headers: {
+      accept: "text/event-stream",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      chatId: input.chatId,
+      userMessage: input.userMessage,
+      streaming: true,
+      userStatus: "active",
+      userActivity: "Discord bridge",
+      discordBridge: {
+        bindingId: input.bindingId,
+        discordMessageId: input.discordMessageId,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Marinara request failed: POST /api/generate returned HTTP ${response.status}`);
+  }
+  if (!response.body) return;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let generateError: string | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+    const parsed = parseSseEvents(buffer);
+    buffer = parsed.remaining;
+    for (const event of parsed.events) {
+      if (event.type === "error") {
+        generateError = eventDataMessage(event.data);
+      }
+    }
+  }
+
+  if (generateError) {
+    throw new Error(`Marinara generation failed: ${generateError}`);
+  }
 }
 
 export function getEngineSyncItems(serverUrl: string, messageLimit = 100) {

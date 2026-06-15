@@ -8,7 +8,10 @@ export const personasCommand: SlashCommandModule = {
   data: new SlashCommandBuilder().setName("personas").setDescription("Browse Marinara personas"),
   async execute(interaction, config) {
     if (interaction.user.id !== config.ownerId) {
-      await interaction.reply({ content: "Only the configured Marinara Discord owner can use this command.", flags: MessageFlags.Ephemeral });
+      await interaction.reply({
+        content: "Only the configured Marinara Discord owner can use this command.",
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
 

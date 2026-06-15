@@ -62,6 +62,12 @@ export const generateRequestSchema = z.object({
     )
     .optional()
     .default([]),
+  discordBridge: z
+    .object({
+      bindingId: z.string().min(1),
+      discordMessageId: z.string().min(1),
+    })
+    .optional(),
 
   // Impersonate overrides (applied only when impersonate=true)
   impersonatePresetId: z.string().nullish(),

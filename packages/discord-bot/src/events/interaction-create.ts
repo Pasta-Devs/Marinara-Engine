@@ -30,6 +30,7 @@ import {
   PERSONA_PAGE_SELECT_CUSTOM_ID,
   PERSONA_SAVE_CUSTOM_ID,
   PERSONA_SELECT_CUSTOM_ID,
+  PERSONA_USE_CUSTOM_ID,
   buildPersonaEditModalCustomId,
   buildPersonaDetailComponents,
   buildPersonaListComponents,
@@ -62,8 +63,10 @@ import {
   getBridgeRoleplayDefaults,
   getBridgeSetupOptions,
   getCharacterById,
+  getDiscordUserPersona,
   getPersonaById,
   listThreadBindings,
+  setDiscordUserPersona,
   upsertThreadBinding,
   updateCharacterFields,
   updateBridgeRoleplayDefaults,
@@ -71,7 +74,11 @@ import {
 } from "../core/marinara-api.js";
 import { logger } from "../core/logger.js";
 import { commands } from "../commands/index.js";
-import { CHARACTER_CARD_PAGES, buildCharacterCardEmbed, type CharacterCardPage } from "../embeds/character-card.embed.js";
+import {
+  CHARACTER_CARD_PAGES,
+  buildCharacterCardEmbed,
+  type CharacterCardPage,
+} from "../embeds/character-card.embed.js";
 import { buildCharacterListEmbed } from "../embeds/character-list.embed.js";
 import { PERSONA_CARD_PAGES, buildPersonaCardEmbed, type PersonaCardPage } from "../embeds/persona-card.embed.js";
 import { buildPersonaListEmbed } from "../embeds/persona-list.embed.js";
@@ -104,6 +111,7 @@ const CHARACTER_SAVE_PREFIX = `${CHARACTER_SAVE_CUSTOM_ID}:`;
 const CHARACTER_EDIT_MODAL_PREFIX = `${CHARACTER_EDIT_MODAL_CUSTOM_ID}:`;
 const PERSONA_EDIT_PREFIX = `${PERSONA_EDIT_CUSTOM_ID}:`;
 const PERSONA_SAVE_PREFIX = `${PERSONA_SAVE_CUSTOM_ID}:`;
+const PERSONA_USE_PREFIX = `${PERSONA_USE_CUSTOM_ID}:`;
 const PERSONA_EDIT_MODAL_PREFIX = `${PERSONA_EDIT_MODAL_CUSTOM_ID}:`;
 const MODAL_VALUE_LIMIT = 4000;
 const ROLEPLAY_LOAD_SEND_DELAY_MS = 500;
@@ -213,11 +221,24 @@ function hasDraftValues<T extends string>(updates: DraftMap<T>) {
 }
 
 function draftAsUpdateArray<T extends string>(updates: DraftMap<T>) {
-  return (Object.entries(updates) as Array<[T, string | undefined]>).map(([field, value]) => ({ field, value: value ?? "" }));
+  return (Object.entries(updates) as Array<[T, string | undefined]>).map(([field, value]) => ({
+    field,
+    value: value ?? "",
+  }));
 }
 
 function isDiscordErrorCode(err: unknown, code: number) {
   return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === code;
+}
+
+function isNotFoundApiError(err: unknown) {
+  return err instanceof Error && err.message.includes("HTTP 404");
+}
+
+function parsePersonaIdAction(customId: string, prefix: string) {
+  const raw = customId.slice(prefix.length);
+  const personaId = decodeURIComponent(raw);
+  return personaId || null;
 }
 
 async function deleteComponentMessage(message: { delete(): Promise<unknown> }) {
@@ -242,12 +263,7 @@ async function closeComponentPanel(interaction: ButtonInteraction) {
   await deleteComponentMessage(interaction.message);
 }
 
-function buildTextInputRow(input: {
-  customId: string;
-  label: string;
-  style: TextInputStyle;
-  value: string;
-}) {
+function buildTextInputRow(input: { customId: string; label: string; style: TextInputStyle; value: string }) {
   return new ActionRowBuilder<TextInputBuilder>().addComponents(
     new TextInputBuilder()
       .setCustomId(input.customId)
@@ -333,6 +349,17 @@ async function buildRoleplayLoadResponse(config: DiscordBridgeConfig) {
   };
 }
 
+async function getSelectedPersonaId(config: DiscordBridgeConfig, guildId: string | null, userId: string) {
+  if (!guildId) return null;
+  try {
+    const binding = await getDiscordUserPersona(config.serverUrl, guildId, userId);
+    return binding.personaId;
+  } catch (err) {
+    if (isNotFoundApiError(err)) return null;
+    throw err;
+  }
+}
+
 export function registerInteractionCreateEvent(client: Client, config: DiscordBridgeConfig) {
   client.on(Events.InteractionCreate, (interaction) => {
     void (async () => {
@@ -345,7 +372,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === CHARACTER_CLOSE_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can close this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can close this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
         await closeComponentPanel(interaction);
@@ -354,7 +384,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === PERSONA_CLOSE_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can close this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can close this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
         await closeComponentPanel(interaction);
@@ -363,7 +396,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === ROLEPLAY_CLOSE_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can close this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can close this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
         roleplayDrafts.delete(interaction.user.id);
@@ -373,7 +409,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === ROLEPLAY_CREATE_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -392,7 +431,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === ROLEPLAY_SETTINGS_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -402,7 +444,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === ROLEPLAY_LOAD_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -412,7 +457,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === ROLEPLAY_SETTINGS_BACK_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -422,18 +470,27 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === ROLEPLAY_FINAL_CREATE_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can create this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can create this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
         const draft = getRoleplayDraft(interaction.user.id);
         if (!draft.chatName.trim() || draft.characterIds.length === 0) {
-          await interaction.reply({ content: "Set a chat name and select at least one character first.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Set a chat name and select at least one character first.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
         if (!interaction.guildId || !isThreadParentChannel(interaction.channel)) {
-          await interaction.reply({ content: "Run /roleplay in a guild text channel that supports threads.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Run /roleplay in a guild text channel that supports threads.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -481,7 +538,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === CHARACTER_BACK_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
         const setup = await getBridgeSetupOptions(config.serverUrl);
@@ -496,7 +556,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId === PERSONA_BACK_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
         const setup = await getBridgeSetupOptions(config.serverUrl);
@@ -509,9 +572,49 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         return;
       }
 
+      if (interaction.isButton() && interaction.customId.startsWith(PERSONA_USE_PREFIX)) {
+        if (interaction.user.id !== config.ownerId) {
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        if (!interaction.guildId) {
+          await interaction.reply({
+            content: "Persona links can only be saved from a server.",
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        const personaId = parsePersonaIdAction(interaction.customId, PERSONA_USE_PREFIX);
+        if (!personaId) {
+          await interaction.reply({ content: "Persona target not found.", flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        const [updated, fullPersona] = await Promise.all([
+          setDiscordUserPersona(config.serverUrl, interaction.guildId, interaction.user.id, personaId),
+          getPersonaById(config.serverUrl, personaId),
+        ]);
+
+        await interaction.update({
+          embeds: [buildPersonaCardEmbed({ persona: fullPersona, page: "description" })],
+          components: buildPersonaDetailComponents(fullPersona.id, "description", false, true),
+          content: `Using persona: ${updated.personaName}`,
+          attachments: [],
+        });
+        return;
+      }
+
       if (interaction.isButton() && interaction.customId.startsWith(CHARACTER_EDIT_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can edit this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can edit this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -551,7 +654,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId.startsWith(PERSONA_EDIT_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can edit this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can edit this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -585,7 +691,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId.startsWith(CHARACTER_SAVE_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can save this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can save this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -622,7 +731,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isButton() && interaction.customId.startsWith(PERSONA_SAVE_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can save this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can save this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -639,11 +751,14 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           return;
         }
 
-        const updated = await updatePersonaFields(config.serverUrl, parsed.personaId, draftAsUpdateArray(draft));
+        const [updated, selectedPersonaId] = await Promise.all([
+          updatePersonaFields(config.serverUrl, parsed.personaId, draftAsUpdateArray(draft)),
+          getSelectedPersonaId(config, interaction.guildId, interaction.user.id),
+        ]);
         personaDrafts.delete(key);
         await interaction.update({
           embeds: [buildPersonaCardEmbed({ persona: updated, page: parsed.page })],
-          components: buildPersonaDetailComponents(updated.id, parsed.page, false),
+          components: buildPersonaDetailComponents(updated.id, parsed.page, false, selectedPersonaId === updated.id),
           content: null,
           attachments: [],
         });
@@ -652,7 +767,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId === CHARACTER_SELECT_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -687,7 +805,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId === PERSONA_SELECT_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -699,13 +820,17 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           await interaction.reply({ content: "Persona not found.", flags: MessageFlags.Ephemeral });
           return;
         }
-        const fullPersona = await getPersonaById(config.serverUrl, persona.id);
+        const [fullPersona, selectedPersonaId] = await Promise.all([
+          getPersonaById(config.serverUrl, persona.id),
+          getSelectedPersonaId(config, interaction.guildId, interaction.user.id),
+        ]);
         await interaction.update({
           embeds: [buildPersonaCardEmbed({ persona: fullPersona, page: "description" })],
           components: buildPersonaDetailComponents(
             fullPersona.id,
             "description",
             hasPersonaDraft(interaction.user.id, fullPersona.id, "description"),
+            selectedPersonaId === fullPersona.id,
           ),
           content: null,
           attachments: [],
@@ -715,7 +840,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId === ROLEPLAY_PERSONA_SELECT_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -731,7 +859,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId === ROLEPLAY_CHARACTER_SELECT_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -747,14 +878,20 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId === ROLEPLAY_LOAD_SELECT_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
         const chatId = interaction.values[0];
         if (!chatId || chatId === "none") return;
         if (!interaction.guildId || !isThreadParentChannel(interaction.channel)) {
-          await interaction.reply({ content: "Run /roleplay in a guild text channel that supports threads.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Run /roleplay in a guild text channel that supports threads.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -819,7 +956,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId === ROLEPLAY_SETTINGS_CONNECTION_SELECT_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -833,9 +973,15 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         return;
       }
 
-      if (interaction.isStringSelectMenu() && interaction.customId === ROLEPLAY_SETTINGS_PROMPT_PRESET_SELECT_CUSTOM_ID) {
+      if (
+        interaction.isStringSelectMenu() &&
+        interaction.customId === ROLEPLAY_SETTINGS_PROMPT_PRESET_SELECT_CUSTOM_ID
+      ) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -851,7 +997,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId.startsWith(CHARACTER_PAGE_SELECT_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -884,7 +1033,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isStringSelectMenu() && interaction.customId.startsWith(PERSONA_PAGE_SELECT_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can use this selector.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can use this selector.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -896,12 +1048,20 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
         const encodedPersonaId = interaction.customId.slice(PERSONA_PAGE_SELECT_PREFIX.length);
         const personaId = decodeURIComponent(encodedPersonaId);
-        const fullPersona = await getPersonaById(config.serverUrl, personaId);
+        const [fullPersona, selectedPersonaId] = await Promise.all([
+          getPersonaById(config.serverUrl, personaId),
+          getSelectedPersonaId(config, interaction.guildId, interaction.user.id),
+        ]);
         const draft = getPersonaDraft(interaction.user.id, fullPersona.id, page);
         const displayPersona = applyPersonaFieldUpdates(fullPersona, draft);
         await interaction.update({
           embeds: [buildPersonaCardEmbed({ persona: displayPersona, page })],
-          components: buildPersonaDetailComponents(fullPersona.id, page, hasDraftValues(draft)),
+          components: buildPersonaDetailComponents(
+            fullPersona.id,
+            page,
+            hasDraftValues(draft),
+            selectedPersonaId === fullPersona.id,
+          ),
           content: null,
           attachments: [],
         });
@@ -910,7 +1070,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isModalSubmit() && interaction.customId.startsWith(CHARACTER_EDIT_MODAL_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can submit this edit.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can submit this edit.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -961,7 +1124,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isModalSubmit() && interaction.customId === ROLEPLAY_NAME_MODAL_CUSTOM_ID) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can submit this.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can submit this.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -985,7 +1151,10 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
       if (interaction.isModalSubmit() && interaction.customId.startsWith(PERSONA_EDIT_MODAL_PREFIX)) {
         if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({ content: "Only the configured Marinara Discord owner can submit this edit.", flags: MessageFlags.Ephemeral });
+          await interaction.reply({
+            content: "Only the configured Marinara Discord owner can submit this edit.",
+            flags: MessageFlags.Ephemeral,
+          });
           return;
         }
 
@@ -1018,9 +1187,15 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         }
 
         await interaction.deferUpdate();
+        const selectedPersonaId = await getSelectedPersonaId(config, interaction.guildId, interaction.user.id);
         await interaction.message.edit({
           embeds: [buildPersonaCardEmbed({ persona: displayPersona, page: parsed.page })],
-          components: buildPersonaDetailComponents(fullPersona.id, parsed.page, hasDraftValues(updates)),
+          components: buildPersonaDetailComponents(
+            fullPersona.id,
+            parsed.page,
+            hasDraftValues(updates),
+            selectedPersonaId === fullPersona.id,
+          ),
           content: null,
           attachments: [],
         });

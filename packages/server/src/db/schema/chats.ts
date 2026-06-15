@@ -151,3 +151,12 @@ export const discordBridgeMessageMappings = sqliteTable("discord_bridge_message_
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const discordBridgeUserPersonas = sqliteTable("discord_bridge_user_personas", {
+  id: text("id").primaryKey(),
+  guildId: text("guild_id").notNull(),
+  discordUserId: text("discord_user_id").notNull(),
+  personaId: text("persona_id").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

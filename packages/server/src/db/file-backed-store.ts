@@ -171,6 +171,7 @@ export const FILE_BACKED_TABLES = [
   "memory_chunks",
   "discord_bridge_thread_bindings",
   "discord_bridge_message_mappings",
+  "discord_bridge_user_personas",
   "chat_folders",
   "api_connection_folders",
   "custom_themes",
@@ -397,7 +398,11 @@ function describeStaleness(mainPath: string, backupPath: string): string {
 function parseJsonFile<T>(path: string, fallback: T): ParseResult<T> {
   if (!existsSync(path)) return { value: fallback, recoveredFromBackup: false, recoveredFromFallback: false };
   try {
-    return { value: JSON.parse(readFileSync(path, "utf8")) as T, recoveredFromBackup: false, recoveredFromFallback: false };
+    return {
+      value: JSON.parse(readFileSync(path, "utf8")) as T,
+      recoveredFromBackup: false,
+      recoveredFromFallback: false,
+    };
   } catch (err) {
     const backupPath = `${path}.bak`;
     if (existsSync(backupPath)) {
@@ -424,12 +429,7 @@ function parseJsonFile<T>(path: string, fallback: T): ParseResult<T> {
           backupPath,
           staleness,
         );
-        logger.error(
-          backupErr,
-          "[file-storage] Backup %s parse failure while recovering %s.",
-          backupPath,
-          path,
-        );
+        logger.error(backupErr, "[file-storage] Backup %s parse failure while recovering %s.", backupPath, path);
         return { value: fallback, recoveredFromBackup: false, recoveredFromFallback: true };
       }
     }
@@ -1265,7 +1265,9 @@ class FileTableStore {
       tables,
     };
     const path = manifestPath(this.rootDir);
-    await atomicWriteFile(path, JSON.stringify(manifest, null, 2), { refreshBackup: !this.backupRecoveredPaths.has(path) });
+    await atomicWriteFile(path, JSON.stringify(manifest, null, 2), {
+      refreshBackup: !this.backupRecoveredPaths.has(path),
+    });
     this.backupRecoveredPaths.clear();
   }
 
