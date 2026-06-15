@@ -281,27 +281,24 @@ export function PersonasPanel() {
     [draggedPersonaId, movePersonasToFolder],
   );
 
-  const startPersonaTouchDrag = useCallback(
-    (event: React.TouchEvent, personaId: string) => {
-      const timer = window.setTimeout(() => {
-        personaTouchDragRef.current = { id: personaId, timer: null, active: true };
-        suppressPersonaClickRef.current = true;
-        setDraggedPersonaId(personaId);
-      }, 450);
-      personaTouchDragRef.current = { id: personaId, timer, active: false };
-      event.currentTarget.addEventListener(
-        "touchcancel",
-        () => {
-          const current = personaTouchDragRef.current;
-          if (current?.timer) window.clearTimeout(current.timer);
-          personaTouchDragRef.current = null;
-          setDraggedPersonaId(null);
-        },
-        { once: true },
-      );
-    },
-    [],
-  );
+  const startPersonaTouchDrag = useCallback((event: React.TouchEvent, personaId: string) => {
+    const timer = window.setTimeout(() => {
+      personaTouchDragRef.current = { id: personaId, timer: null, active: true };
+      suppressPersonaClickRef.current = true;
+      setDraggedPersonaId(personaId);
+    }, 450);
+    personaTouchDragRef.current = { id: personaId, timer, active: false };
+    event.currentTarget.addEventListener(
+      "touchcancel",
+      () => {
+        const current = personaTouchDragRef.current;
+        if (current?.timer) window.clearTimeout(current.timer);
+        personaTouchDragRef.current = null;
+        setDraggedPersonaId(null);
+      },
+      { once: true },
+    );
+  }, []);
 
   const finishPersonaTouchDrag = useCallback(
     (event: React.TouchEvent) => {
@@ -740,16 +737,25 @@ export function PersonasPanel() {
                       {group.memberIds.map((pid) => {
                         const p = personaMap.get(pid);
                         if (!p) return null;
+                        const isBulkSelected = selectedPersonaIds.has(pid);
                         return (
                           <div
                             key={pid}
                             onClick={() => {
                               if (suppressPersonaClickRef.current) return;
+                              if (selectionMode) {
+                                toggleSelection(pid);
+                                return;
+                              }
                               openPersonaDetail(pid);
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
+                                if (selectionMode) {
+                                  toggleSelection(pid);
+                                  return;
+                                }
                                 openPersonaDetail(pid);
                               }
                             }}
@@ -768,9 +774,28 @@ export function PersonasPanel() {
                             tabIndex={0}
                             className={cn(
                               "group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 text-xs transition-all hover:bg-[var(--sidebar-accent)]",
+                              selectionMode && isBulkSelected && "bg-emerald-400/8 ring-1 ring-emerald-400/40",
                               draggedPersonaId === pid && "opacity-50",
                             )}
                           >
+                            {selectionMode && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelection(pid);
+                                }}
+                                className={cn(
+                                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                                  isBulkSelected
+                                    ? "border-emerald-400 bg-emerald-400 text-white"
+                                    : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+                                )}
+                                aria-label={isBulkSelected ? "Deselect persona" : "Select persona"}
+                              >
+                                <Check size="0.75rem" />
+                              </button>
+                            )}
                             <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
                               {p.avatarPath ? (
                                 <img
@@ -784,16 +809,18 @@ export function PersonasPanel() {
                               )}
                             </div>
                             <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleGroupMember(group.id, pid, group.memberIds);
-                              }}
-                              className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] group-hover/member:opacity-100 max-md:opacity-100"
-                              title="Remove from folder"
-                            >
-                              <UserMinus size="0.625rem" />
-                            </button>
+                            {!selectionMode && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleGroupMember(group.id, pid, group.memberIds);
+                                }}
+                                className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] group-hover/member:opacity-100 max-md:opacity-100"
+                                title="Remove from folder"
+                              >
+                                <UserMinus size="0.625rem" />
+                              </button>
+                            )}
                           </div>
                         );
                       })}

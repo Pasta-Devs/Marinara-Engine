@@ -543,27 +543,24 @@ export function CharactersPanel() {
     [draggedCharacterId, moveCharactersToFolder],
   );
 
-  const startCharacterTouchDrag = useCallback(
-    (event: React.TouchEvent, charId: string) => {
-      const timer = window.setTimeout(() => {
-        characterTouchDragRef.current = { id: charId, timer: null, active: true };
-        suppressCharacterClickRef.current = true;
-        setDraggedCharacterId(charId);
-      }, 450);
-      characterTouchDragRef.current = { id: charId, timer, active: false };
-      event.currentTarget.addEventListener(
-        "touchcancel",
-        () => {
-          const current = characterTouchDragRef.current;
-          if (current?.timer) window.clearTimeout(current.timer);
-          characterTouchDragRef.current = null;
-          setDraggedCharacterId(null);
-        },
-        { once: true },
-      );
-    },
-    [],
-  );
+  const startCharacterTouchDrag = useCallback((event: React.TouchEvent, charId: string) => {
+    const timer = window.setTimeout(() => {
+      characterTouchDragRef.current = { id: charId, timer: null, active: true };
+      suppressCharacterClickRef.current = true;
+      setDraggedCharacterId(charId);
+    }, 450);
+    characterTouchDragRef.current = { id: charId, timer, active: false };
+    event.currentTarget.addEventListener(
+      "touchcancel",
+      () => {
+        const current = characterTouchDragRef.current;
+        if (current?.timer) window.clearTimeout(current.timer);
+        characterTouchDragRef.current = null;
+        setDraggedCharacterId(null);
+      },
+      { once: true },
+    );
+  }, []);
 
   const finishCharacterTouchDrag = useCallback(
     (event: React.TouchEvent) => {
@@ -1017,10 +1014,28 @@ export function CharactersPanel() {
                   {group.memberIds.map((memberId) => {
                     const member = charMap.get(memberId);
                     if (!member) return null;
+                    const isBulkSelected = selectedCharacterIds.has(memberId);
+                    const memberTitle = getCharacterTitle(member);
                     return (
                       <div
                         key={memberId}
-                        onClick={() => openCharacterDetail(memberId)}
+                        onClick={() => {
+                          if (suppressCharacterClickRef.current) return;
+                          if (selectionMode) {
+                            toggleSelection(memberId);
+                            return;
+                          }
+                          openCharacterDetail(memberId);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" && e.key !== " ") return;
+                          e.preventDefault();
+                          if (selectionMode) {
+                            toggleSelection(memberId);
+                            return;
+                          }
+                          openCharacterDetail(memberId);
+                        }}
                         draggable
                         onDragStart={(event) => {
                           const ids = getDraggedCharacterIds(memberId);
@@ -1045,8 +1060,32 @@ export function CharactersPanel() {
                             altGreetings: (fullMember?.parsed?.alternate_greetings ?? []) as string[],
                           });
                         }}
-                        className="group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]"
+                        role="button"
+                        tabIndex={0}
+                        className={cn(
+                          "group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                          selectionMode && isBulkSelected && "bg-[var(--primary)]/8 ring-1 ring-[var(--primary)]/40",
+                          draggedCharacterId === memberId && "opacity-50",
+                        )}
                       >
+                        {selectionMode && (
+                          <button
+                            type="button"
+                            aria-label={isBulkSelected ? "Deselect character" : "Select character"}
+                            className={cn(
+                              "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                              isBulkSelected
+                                ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                                : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSelection(memberId);
+                            }}
+                          >
+                            <Check size="0.75rem" />
+                          </button>
+                        )}
                         <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-pink-400 to-rose-500 text-white">
                           <div className="absolute inset-0 overflow-hidden rounded-lg">
                             {member.avatarPath ? (
@@ -1073,41 +1112,45 @@ export function CharactersPanel() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <span className="block truncate text-[0.6875rem]">{member.name}</span>
-                          {getCharacterTitle(member) && (
+                          {memberTitle && (
                             <span className="block truncate text-[0.5625rem] italic text-[var(--muted-foreground)]">
-                              {getCharacterTitle(member)}
+                              {memberTitle}
                             </span>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const fullMember = parsedCharacters.find((c) => c.id === memberId);
-                            handleStartNewChat(
-                              memberId,
-                              member.name,
-                              fullMember?.parsed?.first_mes as string | undefined,
-                              (fullMember?.parsed?.alternate_greetings ?? []) as string[],
-                            );
-                          }}
-                          disabled={isStartingChat}
-                          className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] group-hover/member:opacity-100 disabled:cursor-not-allowed disabled:opacity-50 max-md:opacity-100"
-                          title="Start New Chat"
-                          aria-label={`Start New Chat with ${member.name}`}
-                        >
-                          <MessageCircle size="0.6875rem" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleGroupMember(group.id, memberId, group.memberIds);
-                          }}
-                          className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
-                          title="Remove from folder"
-                        >
-                          <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
-                        </button>
+                        {!selectionMode && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const fullMember = parsedCharacters.find((c) => c.id === memberId);
+                                handleStartNewChat(
+                                  memberId,
+                                  member.name,
+                                  fullMember?.parsed?.first_mes as string | undefined,
+                                  (fullMember?.parsed?.alternate_greetings ?? []) as string[],
+                                );
+                              }}
+                              disabled={isStartingChat}
+                              className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] group-hover/member:opacity-100 disabled:cursor-not-allowed disabled:opacity-50 max-md:opacity-100"
+                              title="Start New Chat"
+                              aria-label={`Start New Chat with ${member.name}`}
+                            >
+                              <MessageCircle size="0.6875rem" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleGroupMember(group.id, memberId, group.memberIds);
+                              }}
+                              className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
+                              title="Remove from folder"
+                            >
+                              <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     );
                   })}

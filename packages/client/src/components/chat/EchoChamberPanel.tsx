@@ -92,7 +92,9 @@ function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChang
           onClick={() => onChange(c)}
           className={cn(
             "h-[0.4375rem] w-[0.4375rem] rounded-[0.09375rem] transition-colors",
-            c === current ? "bg-white/70" : "bg-white/15 hover:bg-white/30",
+            c === current
+              ? "bg-[var(--marinara-chat-chrome-button-text-hover)]"
+              : "bg-[var(--marinara-chat-chrome-highlight-bg)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
           )}
           title={c.replace("-", " ")}
         />
@@ -334,7 +336,9 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
           </span>
           Echo
           {visibleMessages.length > 0 && (
-            <span className="ml-0.5 text-[0.5625rem] font-normal text-white/25">{visibleMessages.length}</span>
+            <span className="ml-0.5 text-[0.5625rem] font-normal text-[var(--marinara-chat-chrome-panel-muted)]">
+              {visibleMessages.length}
+            </span>
           )}
         </span>
         <div className="flex items-center gap-1.5">
@@ -351,7 +355,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
                   /* best-effort */
                 }
               }}
-              className="rounded p-0.5 text-white/20 transition-colors hover:bg-white/10 hover:text-white/50"
+              className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
               title="Clear messages"
             >
               <Trash2 size="0.5625rem" />
@@ -363,7 +367,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
           </span>
           <button
             onClick={toggleEchoChamber}
-            className="rounded p-0.5 text-white/20 transition-colors hover:bg-white/10 hover:text-white/50"
+            className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
           >
             <X size="0.625rem" />
           </button>
@@ -373,7 +377,9 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       {/* Scrollable message area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 pb-1.5 scrollbar-thin">
         {visibleMessages.length === 0 ? (
-          <p className="py-1.5 text-center text-[0.625rem] text-white/25">Waiting for reactions…</p>
+          <p className="py-1.5 text-center text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)]">
+            Waiting for reactions…
+          </p>
         ) : (
           <div className="flex flex-col gap-0.5">
             {visibleMessages.map((msg, i) => (
@@ -381,8 +387,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
                 <span className={cn("text-[0.6875rem] font-bold", nameColorMap.get(msg.characterName))}>
                   {msg.characterName}
                 </span>
-                <span className="text-[0.6875rem] text-white/30">: </span>
-                <span className="text-[0.6875rem] leading-snug text-white/60">{msg.reaction}</span>
+                <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">: </span>
+                <span className="text-[0.6875rem] leading-snug text-[var(--marinara-chat-chrome-panel-text)]">
+                  {msg.reaction}
+                </span>
               </div>
             ))}
           </div>

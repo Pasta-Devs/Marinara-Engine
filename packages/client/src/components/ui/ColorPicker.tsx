@@ -4,6 +4,7 @@
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { Pipette, Sparkles, X, Plus, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { isCssGradient, RAINBOW_GRADIENT_PRESET } from "../../lib/css-colors";
 
 interface ColorPickerProps {
   value: string;
@@ -50,6 +51,7 @@ const PRESETS = [
 
 /** Preset gradients */
 const GRADIENT_PRESETS = [
+  RAINBOW_GRADIENT_PRESET,
   "linear-gradient(90deg, #ff6b6b, #ffd93d)",
   "linear-gradient(90deg, #a29bfe, #fd79a8)",
   "linear-gradient(90deg, #6c5ce7, #00cec9)",
@@ -90,7 +92,7 @@ export function ColorPicker({
   clearLabel = "Clear",
   headerAction,
 }: ColorPickerProps) {
-  const isGradient = value.startsWith("linear-gradient");
+  const isGradient = isCssGradient(value);
   const [mode, setMode] = useState<"solid" | "gradient">(isGradient ? "gradient" : "solid");
   const [gradientStops, setGradientStops] = useState<string[]>(
     isGradient ? parseGradientStops(value) : ["#ff6b6b", "#ffd93d"],
@@ -102,7 +104,7 @@ export function ColorPicker({
 
   // Sync value → local state when value changes externally
   useEffect(() => {
-    if (value.startsWith("linear-gradient")) {
+    if (isCssGradient(value)) {
       setMode("gradient");
       setGradientStops(parseGradientStops(value));
       const angleMatch = value.match(/linear-gradient\((\d+)deg/);
@@ -165,7 +167,7 @@ export function ColorPicker({
   }, [onChange]);
 
   const displayStyle = value
-    ? value.startsWith("linear-gradient")
+    ? isCssGradient(value)
       ? { background: value }
       : { backgroundColor: value }
     : { backgroundColor: "transparent" };
@@ -272,7 +274,7 @@ export function ColorPicker({
                   <span
                     className="h-6 w-6 shrink-0 rounded-md ring-1 ring-[var(--border)]"
                     style={{
-                      backgroundColor: value && !value.startsWith("linear-gradient") ? value : "#6c5ce7",
+                      backgroundColor: value && !isCssGradient(value) ? value : "#6c5ce7",
                     }}
                   />
                   <span className="min-w-0 text-xs font-medium text-[var(--foreground)]">Pick color</span>
@@ -281,7 +283,7 @@ export function ColorPicker({
                     ref={nativeRef}
                     type="color"
                     aria-label={`Pick ${label} color`}
-                    value={value && !value.startsWith("linear-gradient") ? getNativeColorValue(value) : "#6c5ce7"}
+                    value={value && !isCssGradient(value) ? getNativeColorValue(value) : "#6c5ce7"}
                     onChange={(e) => handleSolidChange(e.target.value)}
                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   />
@@ -291,7 +293,7 @@ export function ColorPicker({
                   <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">Hex / CSS</span>
                   <input
                     aria-label={`${label} hex or CSS color`}
-                    value={value && !value.startsWith("linear-gradient") ? value : ""}
+                    value={value && !isCssGradient(value) ? value : ""}
                     onChange={(e) => handleSolidChange(e.target.value)}
                     placeholder="#hex or color name"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 font-mono text-xs outline-none transition-colors focus:border-[var(--primary)]/50"
@@ -409,6 +411,7 @@ export function ColorPicker({
                         value === g && "ring-2 ring-[var(--primary)] scale-105",
                       )}
                       style={{ background: g }}
+                      title={g === RAINBOW_GRADIENT_PRESET ? "Gay RGB rainbow" : g}
                     />
                   ))}
                 </div>

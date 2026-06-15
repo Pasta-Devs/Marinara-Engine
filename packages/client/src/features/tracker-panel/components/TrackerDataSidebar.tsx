@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react";
 import { TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR, useUIStore } from "../../../stores/ui.store";
 import { useChatStore } from "../../../stores/chat.store";
 import { useGameStatePatcher } from "../../../hooks/use-game-state-patcher";
+import { getCssBackgroundStyle, getCssColorFallback, isCssGradient } from "../../../lib/css-colors";
 import { cn } from "../../../lib/utils";
 import { useTrackerGameState } from "../hooks/use-tracker-game-state";
 import { useTrackerPanelModel } from "../hooks/use-tracker-panel-model";
@@ -12,6 +13,7 @@ import { TrackerSidebarHeader } from "./TrackerSidebarHeader";
 
 const TRACKER_PANEL_NEUTRAL_VARS =
   "[--accent:rgb(39_39_42)] [--accent-foreground:rgb(244_244_245)] [--background:rgb(18_18_21)] [--border:rgb(63_63_70)] [--card:rgb(24_24_27)] [--foreground:rgb(244_244_245)] [--input:rgb(63_63_70)] [--muted:rgb(39_39_42)] [--muted-foreground:rgb(161_161_170)] [--popover:rgb(24_24_27)] [--popover-foreground:rgb(244_244_245)] [--primary:rgb(212_212_216)] [--primary-foreground:rgb(18_18_21)] [--ring:rgb(161_161_170)] [--secondary:rgb(39_39_42)] [--tracker-panel-card-background:color-mix(in_srgb,var(--background)_22%,transparent)] [--tracker-panel-section-background:color-mix(in_srgb,var(--card)_6%,transparent)]";
+type TrackerPanelSurfaceStyle = CSSProperties & Record<`--${string}`, string>;
 
 export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolean } = {}) {
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -53,20 +55,26 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   const showTrackerSections = !!activeChatId && !isLoadingGameState && !!currentGameState && hasFixedTrackerPanel;
   const trackerPanelHasCustomBackground =
     trackerPanelBackgroundColor.trim().toLowerCase() !== TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR;
-  const trackerPanelSurfaceStyle = trackerPanelHasCustomBackground
-    ? ({
-        backgroundColor: trackerPanelBackgroundColor,
-        "--background": trackerPanelBackgroundColor,
-        "--card": trackerPanelBackgroundColor,
-        "--muted": `color-mix(in srgb, ${trackerPanelBackgroundColor} 82%, var(--foreground) 18%)`,
-        "--popover": trackerPanelBackgroundColor,
-        "--secondary": `color-mix(in srgb, ${trackerPanelBackgroundColor} 86%, var(--foreground) 14%)`,
-        "--tracker-card-neutral-material": `color-mix(in srgb, ${trackerPanelBackgroundColor} 90%, var(--foreground) 10%)`,
-        "--tracker-card-neutral-surface-bottom": `color-mix(in srgb, ${trackerPanelBackgroundColor} 96%, var(--foreground) 4%)`,
-        "--tracker-card-neutral-surface-top": `color-mix(in srgb, ${trackerPanelBackgroundColor} 92%, var(--foreground) 8%)`,
-        "--tracker-panel-card-background": `color-mix(in srgb, ${trackerPanelBackgroundColor} 88%, var(--foreground) 12%)`,
-        "--tracker-panel-section-background": trackerPanelBackgroundColor,
-      } as CSSProperties)
+  const trackerPanelBackgroundFallback = getCssColorFallback(
+    trackerPanelBackgroundColor,
+    TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
+  );
+  const trackerPanelSurfaceStyle: TrackerPanelSurfaceStyle | undefined = trackerPanelHasCustomBackground
+    ? {
+        ...getCssBackgroundStyle(trackerPanelBackgroundColor),
+        "--background": trackerPanelBackgroundFallback,
+        "--card": trackerPanelBackgroundFallback,
+        "--muted": `color-mix(in srgb, ${trackerPanelBackgroundFallback} 82%, var(--foreground) 18%)`,
+        "--popover": trackerPanelBackgroundFallback,
+        "--secondary": `color-mix(in srgb, ${trackerPanelBackgroundFallback} 86%, var(--foreground) 14%)`,
+        "--tracker-card-neutral-material": `color-mix(in srgb, ${trackerPanelBackgroundFallback} 90%, var(--foreground) 10%)`,
+        "--tracker-card-neutral-surface-bottom": `color-mix(in srgb, ${trackerPanelBackgroundFallback} 96%, var(--foreground) 4%)`,
+        "--tracker-card-neutral-surface-top": `color-mix(in srgb, ${trackerPanelBackgroundFallback} 92%, var(--foreground) 8%)`,
+        "--tracker-panel-card-background": `color-mix(in srgb, ${trackerPanelBackgroundFallback} 88%, var(--foreground) 12%)`,
+        "--tracker-panel-section-background": isCssGradient(trackerPanelBackgroundColor)
+          ? trackerPanelBackgroundColor
+          : trackerPanelBackgroundFallback,
+      }
     : undefined;
 
   return (

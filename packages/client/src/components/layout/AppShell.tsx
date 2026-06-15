@@ -20,6 +20,7 @@ import { useBackgroundAutonomousPolling } from "../../hooks/use-background-auton
 import { useClearAutonomousUnread } from "../../hooks/use-chats";
 import { useIdleDetection } from "../../hooks/use-idle-detection";
 import { usePageActivity } from "../../hooks/use-page-activity";
+import { getCssBackgroundStyle } from "../../lib/css-colors";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { motion, AnimatePresence } from "framer-motion";
@@ -182,6 +183,9 @@ export function AppShell() {
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
   const trackerPanelHasCustomBackground =
     trackerPanelBackgroundColor.trim().toLowerCase() !== TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR;
+  const trackerPanelBackgroundStyle = trackerPanelHasCustomBackground
+    ? getCssBackgroundStyle(trackerPanelBackgroundColor)
+    : undefined;
 
   // Track mobile breakpoint for right-panel animation strategy
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
@@ -684,7 +688,7 @@ export function AppShell() {
           ...(side === "left"
             ? { left: sidebarOpen ? liveSidebarWidth + RESIZER_HITBOX : 0 }
             : { right: rightPanelOpen ? liveRightPanelWidth + RESIZER_HITBOX : 0 }),
-          ...(trackerPanelHasCustomBackground ? { backgroundColor: trackerPanelBackgroundColor } : {}),
+          ...(trackerPanelBackgroundStyle ?? {}),
         }}
       >
         <div className="mari-tracker-panel-scroll max-h-[inherit] overflow-x-hidden overflow-y-auto">
@@ -825,7 +829,7 @@ export function AppShell() {
                 "mari-tracker-panel !fixed inset-y-0 z-50 w-[calc(100vw-0.5rem)] max-w-[24rem] overflow-hidden bg-zinc-950/95 pt-[env(safe-area-inset-top)] shadow-2xl ring-1 ring-zinc-700/80 backdrop-blur-xl",
                 trackerPanelSide === "left" ? "left-0" : "right-0",
               )}
-              style={trackerPanelHasCustomBackground ? { backgroundColor: trackerPanelBackgroundColor } : undefined}
+              style={trackerPanelBackgroundStyle}
             >
               <Suspense fallback={<SidePanelFallback />}>
                 <TrackerDataSidebar fillHeight />

@@ -82,6 +82,8 @@ export const TRACKER_PANEL_WIDTH_DEFAULT = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.sta
 export const TRACKER_PANEL_WIDTH_MIN = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.compact;
 export const TRACKER_PANEL_WIDTH_MAX = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.expanded;
 export const TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR = "#09090b";
+export const DEFAULT_APP_ACCENT_DARK = "#d4d4d4";
+export const DEFAULT_APP_ACCENT_LIGHT = "#1a1025";
 const IMAGE_DIMENSION_MIN = 64;
 const IMAGE_DIMENSION_MAX = 4096;
 const GAME_SETUP_LEARNED_LIMIT = 60;
@@ -117,6 +119,14 @@ const DEFAULT_SUMMARY_POPOVER_SETTINGS: SummaryPopoverSettings = {
   hideSummarisedMessages: false,
   collapseHiddenMessages: false,
 };
+
+export function getDefaultAppAccentColor(theme: "dark" | "light") {
+  return theme === "light" ? DEFAULT_APP_ACCENT_LIGHT : DEFAULT_APP_ACCENT_DARK;
+}
+
+function normalizeAppAccentColor(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
 
 function clampImageDimension(value: number) {
   const rounded = Number.isFinite(value) ? Math.round(value) : 0;
@@ -286,6 +296,7 @@ interface UIState {
   settingsTab: string;
   modal: { type: string; props?: Record<string, unknown> } | null;
   theme: "dark" | "light";
+  appAccentColor: string;
   chatBackground: string | null;
   /** Native blur applied to selected chat/game background images, in px. */
   chatBackgroundBlur: number;
@@ -540,6 +551,7 @@ interface UIState {
   openModal: (type: string, props?: Record<string, unknown>) => void;
   closeModal: () => void;
   setTheme: (theme: "dark" | "light") => void;
+  setAppAccentColor: (color: string) => void;
   setChatBackground: (url: string | null) => void;
   setChatBackgroundBlur: (v: number) => void;
   openCharacterDetail: (id: string) => void;
@@ -719,6 +731,7 @@ export function pickSyncedSettings(state: UIState) {
     trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
+    appAccentColor: state.appAccentColor,
     chatBackground: state.chatBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
     language: state.language,
@@ -836,6 +849,7 @@ export const useUIStore = create<UIState>()(
       settingsTab: "general",
       modal: null,
       theme: "dark" as const,
+      appAccentColor: "",
       chatBackground: null,
       chatBackgroundBlur: 0,
       characterDetailId: null,
@@ -1025,6 +1039,7 @@ export const useUIStore = create<UIState>()(
       openModal: (type, props) => set({ modal: { type, props } }),
       closeModal: () => set({ modal: null }),
       setTheme: (theme) => set({ theme }),
+      setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
       setChatBackground: (url) => set({ chatBackground: url }),
       setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
       openCharacterDetail: (id) =>
@@ -1492,7 +1507,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 45,
+      version: 46,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -1863,6 +1878,10 @@ export const useUIStore = create<UIState>()(
           persisted.spotifyPlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "spotify";
           persisted.youtubePlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "youtube";
         }
+        if (version <= 45) {
+          persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
+        }
+        persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         delete persisted.trackerPanelWidth;
         return persisted;
       },
@@ -1883,6 +1902,7 @@ export const useUIStore = create<UIState>()(
         trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
         trackerPanelSectionOrder: state.trackerPanelSectionOrder,
         theme: state.theme,
+        appAccentColor: state.appAccentColor,
         chatBackground: state.chatBackground,
         chatBackgroundBlur: state.chatBackgroundBlur,
         fontSize: state.fontSize,

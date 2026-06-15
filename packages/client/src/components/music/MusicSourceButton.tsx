@@ -25,13 +25,7 @@ function YouTubeGlyph({ className }: { className?: string }) {
   );
 }
 
-export function MusicSourceGlyph({
-  source,
-  className,
-}: {
-  source: MusicPlayerSource;
-  className?: string;
-}) {
+export function MusicSourceGlyph({ source, className }: { source: MusicPlayerSource; className?: string }) {
   return source === "spotify" ? (
     <SpotifyGlyph className={cn("h-4 w-4 [--music-glyph-stroke:#06110a]", className)} />
   ) : (
@@ -39,13 +33,7 @@ export function MusicSourceGlyph({
   );
 }
 
-export function MusicSourceButton({
-  source,
-  className,
-}: {
-  source: MusicPlayerSource;
-  className?: string;
-}) {
+export function MusicSourceButton({ source, className }: { source: MusicPlayerSource; className?: string }) {
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
   const nextSource: MusicPlayerSource = source === "spotify" ? "youtube" : "spotify";
 
@@ -57,7 +45,7 @@ export function MusicSourceButton({
         setMusicPlayerSource(nextSource);
       }}
       className={cn(
-        "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10 active:scale-95",
+        "marinara-chat-toolbar-button inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] active:scale-95",
         className,
         source === "spotify" ? "text-[#1DB954]" : "text-[oklch(0.62_0.16_25)]",
       )}

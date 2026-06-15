@@ -26,6 +26,7 @@ import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { getChatDisplayName } from "../../lib/chat-display";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
+import { getChatToolbarButtonClass } from "./ChatToolbarControls";
 import {
   ROLEPLAY_POPOVER_SCROLL_AREA,
   ROLEPLAY_POPOVER_SHELL,
@@ -216,8 +217,16 @@ export function ChatBranchSelector({
 
   const branchLabel = currentBranch?.name ?? activeChatName ?? "Current branch";
   const roleplayMinimal = variant === "roleplay" && !compact;
-  const buttonClassName =
-    "marinara-chat-toolbar-button border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]";
+  const branchButtonSizeClassName = compact
+    ? "relative h-8 w-8"
+    : roleplayMinimal
+      ? "h-8 min-w-14"
+      : "max-w-[min(15rem,calc(100vw-9rem))]";
+  const branchButtonContentClassName = compact
+    ? undefined
+    : roleplayMinimal
+      ? "justify-start gap-1.5 px-2 py-1 text-left"
+      : "justify-start gap-2 px-2.5 py-1.5 text-left";
   const badgeClassName = "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-muted)]";
 
   return (
@@ -230,17 +239,12 @@ export function ChatBranchSelector({
           setOpen((value) => !value);
         }}
         aria-label={isLoading ? "Switch branch" : `Switch branch (${branchCount} branches)`}
-        className={cn(
-          compact
-            ? "relative flex h-8 w-8 items-center justify-center rounded-lg backdrop-blur-sm transition-colors"
-            : roleplayMinimal
-              ? "flex h-8 min-w-14 items-center gap-1.5 rounded-lg px-2 py-1 text-left backdrop-blur-sm transition-colors"
-              : "flex max-w-[min(15rem,calc(100vw-9rem))] items-center gap-2 rounded-lg px-2.5 py-1.5 text-left backdrop-blur-sm transition-colors",
-          buttonClassName,
-          open &&
-            "marinara-chat-toolbar-button--active border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)]",
-          className,
-        )}
+        className={getChatToolbarButtonClass({
+          className: cn(branchButtonContentClassName, className),
+          compact,
+          open,
+          sizeClassName: branchButtonSizeClassName,
+        })}
         title="Switch branch"
       >
         <GitBranch size="0.8125rem" className="shrink-0" />

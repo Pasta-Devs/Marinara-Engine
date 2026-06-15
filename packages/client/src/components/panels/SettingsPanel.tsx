@@ -6,6 +6,7 @@ import {
   TRACKER_DATA_PANEL_SECTIONS,
   TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
   useUIStore,
+  getDefaultAppAccentColor,
   getTrackerPanelWidthForProfile,
   type ConversationMessageStyle,
   type GameDialogueDisplayMode,
@@ -840,14 +841,6 @@ function TrackerPanelAppearanceDrawer({
 }) {
   const [drawerOpen, setDrawerOpen] = useState(true);
   const drawerId = React.useId();
-  const handleTrackerPanelBackgroundColorChange = useCallback(
-    (color: string) => {
-      setTrackerPanelBackgroundColor(
-        color.trim().toLowerCase().startsWith("linear-gradient") ? TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR : color,
-      );
-    },
-    [setTrackerPanelBackgroundColor],
-  );
 
   const toggleTrackerPanel = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -933,10 +926,11 @@ function TrackerPanelAppearanceDrawer({
           <div className="mt-2">
             <ColorPicker
               value={trackerPanelBackgroundColor}
-              onChange={handleTrackerPanelBackgroundColorChange}
+              onChange={setTrackerPanelBackgroundColor}
+              gradient
               compact
               label="Panel background"
-              helpText="Pick the Tracker panel and tracker section background color. CSS color values are accepted."
+              helpText="Pick the Tracker panel and tracker section background. CSS colors and gradients are accepted."
               emptyText={`Default ${TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR}`}
               clearLabel="Reset"
             />
@@ -1718,6 +1712,8 @@ function GameAssetsSettings() {
 function AppearanceSettings() {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const appAccentColor = useUIStore((s) => s.appAccentColor);
+  const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
   const visualTheme = useUIStore((s) => s.visualTheme);
   const setVisualTheme = useUIStore((s) => s.setVisualTheme);
   const chatBackground = useUIStore((s) => s.chatBackground);
@@ -1934,6 +1930,16 @@ function AppearanceSettings() {
               <option value="light">Light</option>
             </select>
           </label>
+
+          <ColorPicker
+            value={appAccentColor || getDefaultAppAccentColor(theme)}
+            onChange={setAppAccentColor}
+            gradient
+            compact
+            label="Accent Color"
+            helpText="Colors the shared chat, roleplay, and game chrome: toolbar icons, button borders, focus rings, highlights, and panel outlines. Gradients unlock rainbow accents."
+            clearLabel="Use scheme default"
+          />
 
           <label className="flex flex-col gap-1">
             <span className="text-xs font-medium inline-flex items-center gap-1">
@@ -3411,6 +3417,8 @@ function ThemesSettings() {
             <strong>Tip:</strong> CSS themes can override any CSS variable (e.g.{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--background</code>,{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--primary</code>,{" "}
+            <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-accent</code>,{" "}
+            <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-accent-gradient</code>,{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-button-bg</code>) or add custom
             styles. JSON themes should have{" "}
             <code className="rounded bg-[var(--secondary)] px-1">{`{ "name": "...", "css": "..." }`}</code> format.
@@ -3450,22 +3458,24 @@ const CSS_TEMPLATE = `/* ══════════════════�
   /* --sidebar: #0c0c12; */
 
   /* ── Shared Chat / Roleplay / Game Chrome ── */
+  /* --marinara-chat-chrome-accent: var(--foreground); */
+  /* --marinara-chat-chrome-accent-gradient: linear-gradient(90deg, var(--marinara-chat-chrome-accent), var(--marinara-chat-chrome-accent)); */
   /* --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--card) 82%, transparent); */
   /* --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--card) 94%, var(--foreground) 6%); */
   /* --marinara-chat-chrome-button-bg-active: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%); */
-  /* --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 12%, transparent); */
-  /* --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 20%, transparent); */
-  /* --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--foreground) 24%, transparent); */
-  /* --marinara-chat-chrome-button-text: color-mix(in srgb, var(--foreground) 64%, transparent); */
-  /* --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--foreground) 92%, transparent); */
-  /* --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--foreground) 96%, transparent); */
+  /* --marinara-chat-chrome-button-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 12%, transparent); */
+  /* --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 20%, transparent); */
+  /* --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--marinara-chat-chrome-accent) 24%, transparent); */
+  /* --marinara-chat-chrome-button-text: color-mix(in srgb, var(--marinara-chat-chrome-accent) 64%, transparent); */
+  /* --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 92%, transparent); */
+  /* --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--marinara-chat-chrome-accent) 96%, transparent); */
   /* --marinara-chat-chrome-panel-bg: color-mix(in srgb, var(--background) 88%, var(--card) 12%); */
-  /* --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 16%, transparent); */
-  /* --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 13%, transparent); */
+  /* --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 16%, transparent); */
+  /* --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent); */
   /* --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--foreground) 90%, transparent); */
   /* --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--foreground) 58%, transparent); */
-  /* --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--foreground) 9%, transparent); */
-  /* --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--foreground) 13%, transparent); */
+  /* --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--marinara-chat-chrome-accent) 9%, transparent); */
+  /* --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent); */
 }
 
 /* Uncomment and edit the variables above.

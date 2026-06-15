@@ -55,6 +55,8 @@
    QUICK CUSTOMIZATION GUIDE
    ─────────────────────────
    • Change the app's accent color → edit --primary in §2
+   • Change chat toolbar/panel accents → edit --marinara-chat-chrome-accent in §2
+   • Change rainbow chrome accents → edit --marinara-chat-chrome-accent-gradient in §2
    • Change the background color   → edit --background in §2
    • Change the font               → edit --font-y2k in §2
    • Change the cursor SVG         → edit --cursor-pink in §2
@@ -79,6 +81,8 @@
      --sidebar-*                        Left & right sidebar tones
      --glow-primary, --glow-accent      Glow effect bases
      --marinara-chat-chrome-*           Shared chat/game top buttons, panels, highlights
+     --marinara-chat-chrome-accent      Shared chrome icon, border, ring, and highlight color
+     --marinara-chat-chrome-accent-gradient  Optional gradient for rainbow chrome accents
 
    PALETTE (decorative flavor — components should NOT reference these
    directly; they exist for the CSS effects layer and user customization):
@@ -198,29 +202,35 @@
   --glow-accent: rgba(212, 173, 252, 0.12);
 
   /* Theme hooks for shared chat, roleplay, and game chrome. */
+  --marinara-chat-chrome-accent: var(--foreground);
+  --marinara-chat-chrome-accent-gradient: linear-gradient(
+    90deg,
+    var(--marinara-chat-chrome-accent),
+    var(--marinara-chat-chrome-accent)
+  );
   --marinara-chat-chrome-button-bg: color-mix(in srgb, var(--card) 82%, transparent);
   --marinara-chat-chrome-button-bg-hover: color-mix(in srgb, var(--card) 94%, var(--foreground) 6%);
   --marinara-chat-chrome-button-bg-active: color-mix(in srgb, var(--card) 92%, var(--foreground) 8%);
-  --marinara-chat-chrome-button-border: color-mix(in srgb, var(--foreground) 12%, transparent);
-  --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--foreground) 20%, transparent);
-  --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--foreground) 24%, transparent);
-  --marinara-chat-chrome-button-text: color-mix(in srgb, var(--foreground) 64%, transparent);
-  --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--foreground) 92%, transparent);
-  --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--foreground) 96%, transparent);
-  --marinara-chat-chrome-focus-ring: color-mix(in srgb, var(--foreground) 22%, transparent);
+  --marinara-chat-chrome-button-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 12%, transparent);
+  --marinara-chat-chrome-button-border-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 20%, transparent);
+  --marinara-chat-chrome-button-border-active: color-mix(in srgb, var(--marinara-chat-chrome-accent) 24%, transparent);
+  --marinara-chat-chrome-button-text: color-mix(in srgb, var(--marinara-chat-chrome-accent) 64%, transparent);
+  --marinara-chat-chrome-button-text-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 92%, transparent);
+  --marinara-chat-chrome-button-text-active: color-mix(in srgb, var(--marinara-chat-chrome-accent) 96%, transparent);
+  --marinara-chat-chrome-focus-ring: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
   --marinara-chat-chrome-panel-bg: color-mix(in srgb, var(--background) 88%, var(--card) 12%);
-  --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--foreground) 16%, transparent);
-  --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--foreground) 13%, transparent);
+  --marinara-chat-chrome-panel-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 16%, transparent);
+  --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent);
   --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--foreground) 90%, transparent);
   --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--foreground) 96%, transparent);
   --marinara-chat-chrome-panel-muted: color-mix(in srgb, var(--foreground) 58%, transparent);
-  --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--foreground) 22%, transparent);
-  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--foreground) 9%, transparent);
-  --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--foreground) 13%, transparent);
-  --marinara-chat-chrome-highlight-text: color-mix(in srgb, var(--foreground) 94%, transparent);
+  --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
+  --marinara-chat-chrome-highlight-bg: color-mix(in srgb, var(--marinara-chat-chrome-accent) 9%, transparent);
+  --marinara-chat-chrome-highlight-bg-hover: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent);
+  --marinara-chat-chrome-highlight-text: color-mix(in srgb, var(--marinara-chat-chrome-accent) 94%, transparent);
   --marinara-chat-chrome-input-bg: color-mix(in srgb, var(--background) 78%, var(--card) 22%);
-  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--foreground) 14%, transparent);
-  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--foreground) 30%, transparent);
+  --marinara-chat-chrome-input-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 14%, transparent);
+  --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--marinara-chat-chrome-accent) 30%, transparent);
 
   --tracker-card-neutral-surface-top: color-mix(
     in srgb,
@@ -457,6 +467,36 @@
 }
 
 /* ─────────────────────────────────────────────
+   4a. SHARED CHROME GRADIENT ACCENTS
+   ───────────────────────────────────────────── */
+[data-marinara-chat-chrome-accent-mode="gradient"] .marinara-chat-toolbar-button {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--marinara-chat-chrome-button-bg), var(--marinara-chat-chrome-button-bg)) padding-box,
+    var(--marinara-chat-chrome-accent-gradient) border-box;
+}
+
+[data-marinara-chat-chrome-accent-mode="gradient"] .marinara-chat-toolbar-button:hover {
+  background:
+    linear-gradient(var(--marinara-chat-chrome-button-bg-hover), var(--marinara-chat-chrome-button-bg-hover))
+      padding-box,
+    var(--marinara-chat-chrome-accent-gradient) border-box;
+}
+
+[data-marinara-chat-chrome-accent-mode="gradient"] .marinara-chat-toolbar-button--active {
+  border-color: transparent;
+  background: var(--marinara-chat-chrome-accent-gradient);
+  color: oklch(0.17 0.02 300);
+}
+
+[data-marinara-chat-chrome-accent-mode="gradient"] .marinara-chat-popover {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--marinara-chat-chrome-panel-bg), var(--marinara-chat-chrome-panel-bg)) padding-box,
+    var(--marinara-chat-chrome-accent-gradient) border-box;
+}
+
+/* ─────────────────────────────────────────────
    5. BASE RESET & BODY
    ───────────────────────────────────────────── */
 * {
@@ -566,39 +606,39 @@ input[type="range"]:disabled {
 }
 
 input[type="range"].mari-spotify-volume-slider {
-  --range-track-color: oklch(0.36 0.006 145);
-  --range-fill-color: oklch(0.96 0.006 145);
-  --range-thumb-color: oklch(0.96 0.006 145);
+  --range-track-color: var(--marinara-chat-chrome-panel-divider);
+  --range-fill-color: var(--marinara-chat-chrome-button-text-active);
+  --range-thumb-color: var(--marinara-chat-chrome-button-text-active);
   --range-thumb-size: 0.6875rem;
   --range-track-height: 0.25rem;
-  --range-thumb-shadow: 0 0 0 0.125rem oklch(0.16 0.006 145);
-  accent-color: oklch(0.96 0.006 145);
+  --range-thumb-shadow: 0 0 0 0.125rem var(--marinara-chat-chrome-panel-bg);
+  accent-color: var(--marinara-chat-chrome-button-text-active);
 }
 
 input[type="range"].mari-spotify-volume-slider::-webkit-slider-runnable-track {
   background: linear-gradient(
     to right,
-    oklch(0.96 0.006 145) 0%,
-    oklch(0.96 0.006 145) var(--range-progress),
-    oklch(0.36 0.006 145) var(--range-progress),
-    oklch(0.36 0.006 145) 100%
+    var(--range-fill-color) 0%,
+    var(--range-fill-color) var(--range-progress),
+    var(--range-track-color) var(--range-progress),
+    var(--range-track-color) 100%
   );
 }
 
 input[type="range"].mari-spotify-volume-slider::-moz-range-track {
-  background: oklch(0.36 0.006 145);
+  background: var(--range-track-color);
 }
 
 input[type="range"].mari-spotify-volume-slider::-moz-range-progress {
-  background: oklch(0.96 0.006 145);
+  background: var(--range-fill-color);
 }
 
 input[type="range"].mari-spotify-volume-slider::-webkit-slider-thumb {
-  background: oklch(0.96 0.006 145);
+  background: var(--range-thumb-color);
 }
 
 input[type="range"].mari-spotify-volume-slider::-moz-range-thumb {
-  background: oklch(0.96 0.006 145);
+  background: var(--range-thumb-color);
 }
 
 @font-face {

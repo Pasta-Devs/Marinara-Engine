@@ -198,7 +198,7 @@ export function AgentsPanel() {
   const [editFolderName, setEditFolderName] = useState("");
   const [draggedAgentId, setDraggedAgentId] = useState<string | null>(null);
 
-  const agentConfigRows = useMemo(() => ((agentConfigs ?? []) as AgentConfigRow[]), [agentConfigs]);
+  const agentConfigRows = useMemo(() => (agentConfigs ?? []) as AgentConfigRow[], [agentConfigs]);
   const visibleAgentConfigs = useMemo(
     () => agentConfigRows.filter((config) => !isAgentConfigDeleted(config.settings)),
     [agentConfigRows],
@@ -265,11 +265,26 @@ export function AgentsPanel() {
         }),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
+  const visibleFolderAgentIds = agentFolders.flatMap((folder) => {
+    if (folder.id !== expandedFolderId) return [];
+    return folder.itemIds.filter((id) => {
+      const agent = selectableAgentById.get(id);
+      if (!agent) return false;
+      return matchesAgentSearch({
+        name: agent.name,
+        description: agent.description,
+        category: BUILT_IN_AGENT_TYPE_SET.has(agent.type)
+          ? (BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.category ?? "misc")
+          : "custom",
+      });
+    });
+  });
   const visibleSelectableAgentIds = [
     ...visibleBuiltInAgents
       .filter((agent) => !folderedAgentIds.has(agent.id) && matchesAgentSearch(agent))
       .map((agent) => agent.id),
     ...visibleCustomAgents.map((agent) => agent.id),
+    ...visibleFolderAgentIds,
   ];
   const hasVisibleAgents =
     agentCategorySections.some((section) =>
@@ -368,8 +383,7 @@ export function AgentsPanel() {
     if (ids.length === 0) return;
     const agentNoun = ids.length === 1 ? "agent" : "agents";
     const deleteMessage =
-      `Delete ${ids.length} selected ${agentNoun}? ` +
-      "Basic agents will be hidden from the library and pickers.";
+      `Delete ${ids.length} selected ${agentNoun}? ` + "Basic agents will be hidden from the library and pickers.";
 
     if (
       !(await showConfirmDialog({
@@ -804,7 +818,8 @@ export function AgentsPanel() {
 
       {agentCategorySections.map((section) => {
         const visibleAgents = visibleBuiltInAgents.filter(
-          (agent) => !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+          (agent) =>
+            !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
         );
         if (visibleAgents.length === 0 && agentSearchQuery) return null;
         return (

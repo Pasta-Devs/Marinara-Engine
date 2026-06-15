@@ -136,6 +136,18 @@ const spotifyKeys = {
 
 const SPOTIFY_GREEN_CLASS = "text-[oklch(0.72_0.18_145)]";
 const SPOTIFY_GREEN_BG_CLASS = "bg-[oklch(0.72_0.18_145)]";
+const MUSIC_PLAYER_BORDER_CLASS = "border-[var(--marinara-chat-chrome-panel-border)]";
+const MUSIC_PLAYER_BG_CLASS = "bg-[var(--marinara-chat-chrome-panel-bg)]";
+const MUSIC_PLAYER_BUTTON_BG_CLASS = "bg-[var(--marinara-chat-chrome-button-bg)]";
+const MUSIC_PLAYER_TILE_BG_CLASS = "bg-[var(--marinara-chat-chrome-highlight-bg)]";
+const MUSIC_PLAYER_TILE_RING_CLASS = "ring-[var(--marinara-chat-chrome-panel-border)]";
+const MUSIC_PLAYER_TEXT_CLASS = "text-[var(--marinara-chat-chrome-panel-title)]";
+const MUSIC_PLAYER_MUTED_CLASS = "text-[var(--marinara-chat-chrome-panel-muted)]";
+const MUSIC_PLAYER_ICON_CLASS = "text-[var(--marinara-chat-chrome-button-text)]";
+const MUSIC_PLAYER_ICON_HOVER_CLASS = "hover:text-[var(--marinara-chat-chrome-button-text-hover)]";
+const MUSIC_PLAYER_ACTION_BG_CLASS = "bg-[var(--marinara-chat-chrome-button-text-active)]";
+const MUSIC_PLAYER_ACTION_TEXT_CLASS = "text-[var(--marinara-chat-chrome-panel-bg)]";
+const MUSIC_PLAYER_PROGRESS_BG_CLASS = "bg-[var(--marinara-chat-chrome-panel-divider)]";
 const REPEAT_TRACK_END_GRACE_MS = 15_000;
 const REPEAT_TRACK_REPLAY_COOLDOWN_MS = 8_000;
 const MANUAL_CONTROL_REPEAT_SUPPRESS_MS = 15_000;
@@ -751,12 +763,12 @@ export function SpotifyMiniPlayer({
   const spotifyVolumeStyle: RangeCssProperties = useMemo(
     () => ({
       "--range-progress": `${volumeDraft}%`,
-      "--range-track-color": "oklch(0.36 0.006 145)",
-      "--range-fill-color": "oklch(0.96 0.006 145)",
-      "--range-thumb-color": "oklch(0.96 0.006 145)",
+      "--range-track-color": "var(--marinara-chat-chrome-panel-divider)",
+      "--range-fill-color": "var(--marinara-chat-chrome-button-text-active)",
+      "--range-thumb-color": "var(--marinara-chat-chrome-button-text-active)",
       "--range-thumb-size": "0.6875rem",
       "--range-track-height": "0.25rem",
-      "--range-thumb-shadow": "0 0 0 0.125rem oklch(0.16 0.006 145)",
+      "--range-thumb-shadow": "0 0 0 0.125rem var(--marinara-chat-chrome-panel-bg)",
     }),
     [volumeDraft],
   );
@@ -769,7 +781,11 @@ export function SpotifyMiniPlayer({
       return (
         <button
           type="button"
-          className="flex w-full shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-left text-[oklch(0.70_0.012_145)] transition-colors hover:bg-[oklch(0.22_0.008_145)] hover:text-[oklch(0.96_0.006_145)]"
+          className={cn(
+            "flex w-full shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
+            MUSIC_PLAYER_ICON_CLASS,
+            MUSIC_PLAYER_ICON_HOVER_CLASS,
+          )}
           onPointerDown={stopPointer}
           onPointerMove={stopPointer}
           onPointerUp={stopPointer}
@@ -798,7 +814,9 @@ export function SpotifyMiniPlayer({
           type="button"
           onClick={toggleMute}
           className={cn(
-            "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[oklch(0.70_0.012_145)] transition-colors hover:text-[oklch(0.96_0.006_145)]",
+            "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
+            MUSIC_PLAYER_ICON_CLASS,
+            MUSIC_PLAYER_ICON_HOVER_CLASS,
             volumeMuted && SPOTIFY_GREEN_CLASS,
           )}
           title={volumeMuted ? "Restore volume" : "Mute"}
@@ -827,8 +845,14 @@ export function SpotifyMiniPlayer({
     () => (
       <>
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <MusicSourceButton source="spotify" className="border-[oklch(0.30_0.012_145)] bg-[oklch(0.20_0.008_145)]" />
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] bg-[oklch(0.23_0.006_145)] ring-1 ring-[oklch(0.34_0.01_145)]">
+          <MusicSourceButton source="spotify" className={cn(MUSIC_PLAYER_BORDER_CLASS, MUSIC_PLAYER_BUTTON_BG_CLASS)} />
+          <div
+            className={cn(
+              "flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] ring-1",
+              MUSIC_PLAYER_TILE_BG_CLASS,
+              MUSIC_PLAYER_TILE_RING_CLASS,
+            )}
+          >
             {cover ? (
               <img src={cover} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -836,10 +860,10 @@ export function SpotifyMiniPlayer({
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[0.6875rem] font-semibold leading-tight text-[oklch(0.96_0.006_145)]">
+            <p className={cn("truncate text-[0.6875rem] font-semibold leading-tight", MUSIC_PLAYER_TEXT_CLASS)}>
               {title}
             </p>
-            <p className="truncate text-[0.5625rem] leading-tight text-[oklch(0.72_0.012_145)]">{subtitle}</p>
+            <p className={cn("truncate text-[0.5625rem] leading-tight", MUSIC_PLAYER_MUTED_CLASS)}>{subtitle}</p>
           </div>
         </div>
 
@@ -848,7 +872,9 @@ export function SpotifyMiniPlayer({
             type="button"
             onClick={() => handleShufflePress({ shuffle: shuffleActive, smartShuffle: smartShuffleActive, deviceId })}
             className={cn(
-              "relative inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.70_0.012_145)] transition-colors hover:text-[oklch(0.96_0.006_145)]",
+              "relative inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+              MUSIC_PLAYER_ICON_CLASS,
+              MUSIC_PLAYER_ICON_HOVER_CLASS,
               shuffleEnabled && SPOTIFY_GREEN_CLASS,
             )}
             aria-pressed={shuffleEnabled}
@@ -859,7 +885,11 @@ export function SpotifyMiniPlayer({
           <button
             type="button"
             onClick={() => runControl.mutate({ type: "previous", deviceId })}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.82_0.01_145)] transition-colors hover:text-[oklch(0.96_0.006_145)]"
+            className={cn(
+              "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+              MUSIC_PLAYER_ICON_CLASS,
+              MUSIC_PLAYER_ICON_HOVER_CLASS,
+            )}
             title="Previous"
           >
             <SkipBack size="0.8125rem" />
@@ -867,7 +897,11 @@ export function SpotifyMiniPlayer({
           <button
             type="button"
             onClick={() => void handlePlayPause()}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[oklch(0.96_0.006_145)] text-[oklch(0.16_0.006_145)] shadow-[0_1px_8px_rgba(29,185,84,0.18)] transition-transform hover:scale-105 active:scale-95"
+            className={cn(
+              "inline-flex h-7 w-7 items-center justify-center rounded-full shadow-[0_1px_8px_rgba(29,185,84,0.18)] transition-transform hover:scale-105 active:scale-95",
+              MUSIC_PLAYER_ACTION_BG_CLASS,
+              MUSIC_PLAYER_ACTION_TEXT_CLASS,
+            )}
             title={player?.isPlaying ? "Pause" : "Play"}
           >
             {playPauseBusy ? (
@@ -881,7 +915,11 @@ export function SpotifyMiniPlayer({
           <button
             type="button"
             onClick={() => runControl.mutate({ type: "next", deviceId })}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.82_0.01_145)] transition-colors hover:text-[oklch(0.96_0.006_145)]"
+            className={cn(
+              "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+              MUSIC_PLAYER_ICON_CLASS,
+              MUSIC_PLAYER_ICON_HOVER_CLASS,
+            )}
             title="Next"
           >
             <SkipForward size="0.8125rem" />
@@ -890,7 +928,9 @@ export function SpotifyMiniPlayer({
             type="button"
             onClick={() => runControl.mutate({ type: "repeat", state: getNextRepeatState(repeatState), deviceId })}
             className={cn(
-              "inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.70_0.012_145)] transition-colors hover:text-[oklch(0.96_0.006_145)]",
+              "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+              MUSIC_PLAYER_ICON_CLASS,
+              MUSIC_PLAYER_ICON_HOVER_CLASS,
               repeatState !== "off" && SPOTIFY_GREEN_CLASS,
             )}
             aria-pressed={repeatState !== "off"}
@@ -902,7 +942,11 @@ export function SpotifyMiniPlayer({
             type="button"
             onClick={() => createDjMariPlaylist.mutate()}
             disabled={createDjMariPlaylist.isPending}
-            className="inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[0.625rem] font-black leading-none text-[oklch(0.70_0.012_145)] transition-colors hover:text-[oklch(0.96_0.006_145)] disabled:cursor-wait disabled:opacity-80"
+            className={cn(
+              "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[0.625rem] font-black leading-none transition-colors disabled:cursor-wait disabled:opacity-80",
+              MUSIC_PLAYER_ICON_CLASS,
+              MUSIC_PLAYER_ICON_HOVER_CLASS,
+            )}
             title="DJ Mari composes a playlist for you!"
             aria-label="DJ Mari composes a playlist for you!"
           >
@@ -914,7 +958,11 @@ export function SpotifyMiniPlayer({
               onClick={() =>
                 runControl.mutate({ type: "transfer", deviceId: sdkDeviceId, play: player?.isPlaying === true })
               }
-              className="hidden h-7 w-7 items-center justify-center rounded-full text-[oklch(0.70_0.012_145)] transition-colors hover:text-[oklch(0.96_0.006_145)] sm:inline-flex"
+              className={cn(
+                "hidden h-7 w-7 items-center justify-center rounded-full transition-colors sm:inline-flex",
+                MUSIC_PLAYER_ICON_CLASS,
+                MUSIC_PLAYER_ICON_HOVER_CLASS,
+              )}
               title="Use Marinara player"
             >
               <Laptop size="0.8125rem" />
@@ -923,7 +971,11 @@ export function SpotifyMiniPlayer({
           <button
             type="button"
             onClick={openSpotifyAgent}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.70_0.012_145)] transition-colors hover:text-[oklch(0.96_0.006_145)]"
+            className={cn(
+              "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors",
+              MUSIC_PLAYER_ICON_CLASS,
+              MUSIC_PLAYER_ICON_HOVER_CLASS,
+            )}
             title="Music DJ setup"
           >
             <Settings size="0.8125rem" />
@@ -968,17 +1020,28 @@ export function SpotifyMiniPlayer({
         onPointerCancel={endDrag}
       >
         {collapsed ? (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[oklch(0.30_0.012_145)] bg-[oklch(0.16_0.006_145)] text-[oklch(0.72_0.18_145)] shadow-lg backdrop-blur-xl">
+          <div
+            className={cn(
+              "flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl",
+              MUSIC_PLAYER_BORDER_CLASS,
+              MUSIC_PLAYER_BG_CLASS,
+              SPOTIFY_GREEN_CLASS,
+            )}
+          >
             <Music2 size="1.125rem" />
           </div>
         ) : (
           <div
-            className="rounded-xl border border-[oklch(0.30_0.012_145)] bg-[oklch(0.16_0.006_145)] p-2 shadow-2xl backdrop-blur-xl"
+            className={cn(
+              "rounded-xl border p-2 shadow-2xl backdrop-blur-xl",
+              MUSIC_PLAYER_BORDER_CLASS,
+              MUSIC_PLAYER_BG_CLASS,
+            )}
             style={mobileExpandedPanelStyle}
           >
             <div className="mb-1 flex items-center gap-1">
-              <GripVertical size="0.875rem" className="text-[oklch(0.70_0.012_145)]" />
-              <span className="flex-1 truncate text-[0.625rem] font-medium text-[oklch(0.70_0.012_145)]">
+              <GripVertical size="0.875rem" className={MUSIC_PLAYER_ICON_CLASS} />
+              <span className={cn("flex-1 truncate text-[0.625rem] font-medium", MUSIC_PLAYER_ICON_CLASS)}>
                 {player?.device?.name ?? "Spotify"}
               </span>
               <button
@@ -991,7 +1054,7 @@ export function SpotifyMiniPlayer({
                   event.stopPropagation();
                   setCollapsed(true);
                 }}
-                className="rounded-full p-1 text-[oklch(0.70_0.012_145)] hover:text-[oklch(0.96_0.006_145)]"
+                className={cn("rounded-full p-1", MUSIC_PLAYER_ICON_CLASS, MUSIC_PLAYER_ICON_HOVER_CLASS)}
                 title="Close player"
               >
                 <X size="0.875rem" />
@@ -1006,10 +1069,21 @@ export function SpotifyMiniPlayer({
   }
 
   return (
-    <div className="relative hidden h-10 min-w-0 max-w-[31rem] flex-1 items-center gap-2 overflow-hidden rounded-full border border-[oklch(0.30_0.012_145)] bg-[oklch(0.16_0.006_145)] px-2.5 md:flex">
+    <div
+      className={cn(
+        "relative hidden h-10 min-w-0 max-w-[31rem] flex-1 items-center gap-2 overflow-hidden rounded-full border px-2.5 md:flex",
+        MUSIC_PLAYER_BORDER_CLASS,
+        MUSIC_PLAYER_BG_CLASS,
+      )}
+    >
       {compactBody}
       <div className="hidden w-24 lg:flex">{volumeControls}</div>
-      <div className="pointer-events-none absolute bottom-0 left-3 right-3 h-px overflow-hidden rounded-full bg-[oklch(0.28_0.01_145)]">
+      <div
+        className={cn(
+          "pointer-events-none absolute bottom-0 left-3 right-3 h-px overflow-hidden rounded-full",
+          MUSIC_PLAYER_PROGRESS_BG_CLASS,
+        )}
+      >
         <div className={cn("h-full rounded-full", SPOTIFY_GREEN_BG_CLASS)} style={{ width: `${progressPercent}%` }} />
       </div>
     </div>

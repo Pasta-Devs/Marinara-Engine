@@ -34,15 +34,16 @@ interface SearchResult {
 
 let ytApiPromise: Promise<void> | null = null;
 
-const MUSIC_NEUTRAL_BORDER_CLASS = "border-[oklch(0.30_0.012_145)]";
-const MUSIC_NEUTRAL_BG_CLASS = "bg-[oklch(0.16_0.006_145)]";
-const MUSIC_NEUTRAL_BUTTON_BG_CLASS = "bg-[oklch(0.20_0.008_145)]";
-const MUSIC_NEUTRAL_TILE_BG_CLASS = "bg-[oklch(0.23_0.006_145)]";
-const MUSIC_NEUTRAL_TEXT_CLASS = "text-[oklch(0.96_0.006_145)]";
-const MUSIC_NEUTRAL_MUTED_CLASS = "text-[oklch(0.72_0.012_145)]";
-const MUSIC_NEUTRAL_ICON_CLASS = "text-[oklch(0.70_0.012_145)]";
-const MUSIC_NEUTRAL_PROGRESS_BG_CLASS = "bg-[oklch(0.28_0.01_145)]";
-const MUSIC_NEUTRAL_PROGRESS_FILL_CLASS = "bg-[oklch(0.96_0.006_145)]";
+const MUSIC_NEUTRAL_BORDER_CLASS = "border-[var(--marinara-chat-chrome-panel-border)]";
+const MUSIC_NEUTRAL_BG_CLASS = "bg-[var(--marinara-chat-chrome-panel-bg)]";
+const MUSIC_NEUTRAL_BUTTON_BG_CLASS = "bg-[var(--marinara-chat-chrome-button-bg)]";
+const MUSIC_NEUTRAL_TILE_BG_CLASS = "bg-[var(--marinara-chat-chrome-highlight-bg)]";
+const MUSIC_NEUTRAL_TEXT_CLASS = "text-[var(--marinara-chat-chrome-panel-title)]";
+const MUSIC_NEUTRAL_MUTED_CLASS = "text-[var(--marinara-chat-chrome-panel-muted)]";
+const MUSIC_NEUTRAL_ICON_CLASS = "text-[var(--marinara-chat-chrome-button-text)]";
+const MUSIC_NEUTRAL_ICON_HOVER_CLASS = "hover:text-[var(--marinara-chat-chrome-button-text-hover)]";
+const MUSIC_NEUTRAL_PROGRESS_BG_CLASS = "bg-[var(--marinara-chat-chrome-panel-divider)]";
+const MUSIC_NEUTRAL_PROGRESS_FILL_CLASS = "bg-[var(--marinara-chat-chrome-accent)]";
 const YOUTUBE_LOGO_CLASS = "text-[oklch(0.62_0.16_25)]";
 const MOBILE_WIDGET_COLLAPSED_SIZE = 48;
 const MOBILE_WIDGET_EXPANDED_MAX_WIDTH = 320;
@@ -92,7 +93,10 @@ function getMobileWidgetStyle(
 
 function getMobileExpandedPanelStyle(position: { x: number; y: number }): CSSProperties {
   if (typeof window === "undefined") return {};
-  const width = Math.min(MOBILE_WIDGET_EXPANDED_MAX_WIDTH, window.innerWidth - MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER);
+  const width = Math.min(
+    MOBILE_WIDGET_EXPANDED_MAX_WIDTH,
+    window.innerWidth - MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER,
+  );
   return {
     width,
     maxWidth: `calc(100vw - ${MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER}px)`,
@@ -212,9 +216,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
       setLoading(true);
       setError(null);
       try {
-        const res = await api.get<{ results: SearchResult[] }>(
-          `/youtube/search?q=${encodeURIComponent(query)}`,
-        );
+        const res = await api.get<{ results: SearchResult[] }>(`/youtube/search?q=${encodeURIComponent(query)}`);
         const top = res.results?.[0];
         if (!top) {
           if (!cancelled) setError(`No YouTube results for "${query}"`);
@@ -344,15 +346,12 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   const compactBody = (
     <>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <MusicSourceButton
-          source="youtube"
-          className={cn(MUSIC_NEUTRAL_BORDER_CLASS, MUSIC_NEUTRAL_BUTTON_BG_CLASS)}
-        />
+        <MusicSourceButton source="youtube" className={cn(MUSIC_NEUTRAL_BORDER_CLASS, MUSIC_NEUTRAL_BUTTON_BG_CLASS)} />
         <div
           className={cn(
             "flex h-7 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] ring-1",
             MUSIC_NEUTRAL_TILE_BG_CLASS,
-            "ring-[oklch(0.34_0.01_145)]",
+            "ring-[var(--marinara-chat-chrome-panel-border)]",
           )}
         >
           {loading ? (
@@ -370,16 +369,14 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           >
             {displayTitle}
           </p>
-          <p className={cn("truncate text-[0.5625rem] leading-tight", MUSIC_NEUTRAL_MUTED_CLASS)}>
-            {displaySubtitle}
-          </p>
+          <p className={cn("truncate text-[0.5625rem] leading-tight", MUSIC_NEUTRAL_MUTED_CLASS)}>{displaySubtitle}</p>
         </div>
       </div>
       {nowPlaying && (
         <button
           type="button"
           onClick={togglePlay}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[oklch(0.96_0.006_145)] text-[oklch(0.16_0.006_145)] shadow-[0_1px_8px_rgba(255,255,255,0.10)] transition-transform hover:scale-105 active:scale-95"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-button-text-active)] text-[var(--marinara-chat-chrome-panel-bg)] shadow-[0_1px_8px_rgba(255,255,255,0.10)] transition-transform hover:scale-105 active:scale-95"
           aria-label={paused ? "Play" : "Pause"}
         >
           {paused ? <Play size="0.8125rem" className="translate-x-px" /> : <Pause size="0.8125rem" />}
@@ -390,8 +387,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           type="button"
           onClick={() => setShowVideo((v) => !v)}
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:text-[oklch(0.96_0.006_145)] active:scale-90",
+            "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-90",
             MUSIC_NEUTRAL_ICON_CLASS,
+            MUSIC_NEUTRAL_ICON_HOVER_CLASS,
           )}
           aria-label={showVideo ? "Hide video" : "Show video"}
         >
@@ -403,8 +401,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           type="button"
           onClick={close}
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:text-[oklch(0.96_0.006_145)] active:scale-90",
+            "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-90",
             MUSIC_NEUTRAL_ICON_CLASS,
+            MUSIC_NEUTRAL_ICON_HOVER_CLASS,
           )}
           aria-label="Stop"
         >
@@ -420,9 +419,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
         "fixed top-14 z-40 w-[calc(100vw-1rem)] max-w-80 overflow-hidden rounded-xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-opacity",
         MUSIC_NEUTRAL_BORDER_CLASS,
         MUSIC_NEUTRAL_BG_CLASS,
-        active && hasPlayerContent && showVideo
-          ? "left-2 opacity-100"
-          : "pointer-events-none -left-[9999px] opacity-0",
+        active && hasPlayerContent && showVideo ? "left-2 opacity-100" : "pointer-events-none -left-[9999px] opacity-0",
       )}
     >
       {/* The IFrame player lives here; YT injects the iframe into this host. */}
@@ -493,8 +490,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
                       setCollapsed(true);
                     }}
                     className={cn(
-                      "rounded-full p-1 transition-colors hover:text-[oklch(0.96_0.006_145)]",
+                      "rounded-full p-1 transition-colors",
                       MUSIC_NEUTRAL_ICON_CLASS,
+                      MUSIC_NEUTRAL_ICON_HOVER_CLASS,
                     )}
                     title="Close player"
                   >
