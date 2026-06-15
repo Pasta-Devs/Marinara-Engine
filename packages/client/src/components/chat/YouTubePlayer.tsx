@@ -7,7 +7,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { ChevronDown, ChevronUp, GripVertical, Loader2, Pause, Play, X } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Loader2, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
 import { useAgentStore } from "@/stores/agent.store";
 import { useUIStore } from "@/stores/ui.store";
 import { api } from "@/lib/api-client";
@@ -134,6 +134,8 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   const youtubePlay = useAgentStore((s) => s.youtubePlay);
   const youtubeVolume = useAgentStore((s) => s.youtubeVolume);
   const clearYoutube = useAgentStore((s) => s.clearYoutube);
+  const playerVolume = useUIStore((s) => s.youtubePlayerVolume);
+  const setPlayerVolume = useUIStore((s) => s.setYoutubePlayerVolume);
   const musicPlayerActive = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "youtube");
   const collapsed = useUIStore((s) => s.spotifyMobileWidgetCollapsed);
   const setCollapsed = useUIStore((s) => s.setSpotifyMobileWidgetCollapsed);
@@ -146,6 +148,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   const lastNonceRef = useRef(0);
   const lastQueryRef = useRef("");
   const volumeRef = useRef<number | null>(null);
+  const prevVolumeRef = useRef(70);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -165,7 +168,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   const [paused, setPaused] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
 
-  volumeRef.current = youtubeVolume;
+  volumeRef.current = playerVolume;
   const active = musicPlayerActive && (mobile || desktopViewport);
 
   /** Create the IFrame player on first use (idempotent). */
@@ -257,10 +260,16 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
     setNowPlaying(null);
   }, [active]);
 
-  // Apply DJ volume changes without changing the track.
+  // When the DJ picks a volume, fold it into the user-facing player volume so the
+  // slider stays the single source of truth (the effect below applies it to the player).
   useEffect(() => {
-    if (youtubeVolume != null) playerRef.current?.setVolume(youtubeVolume);
-  }, [youtubeVolume]);
+    if (youtubeVolume != null) setPlayerVolume(youtubeVolume);
+  }, [youtubeVolume, setPlayerVolume]);
+
+  // Apply the user-facing volume to the player without changing the track.
+  useEffect(() => {
+    playerRef.current?.setVolume(playerVolume);
+  }, [playerVolume]);
 
   // Clean up the player on unmount.
   useEffect(() => {
@@ -292,6 +301,15 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
     setError(null);
     clearYoutube();
   };
+
+  const toggleMute = useCallback(() => {
+    if (playerVolume > 0) {
+      prevVolumeRef.current = playerVolume;
+      setPlayerVolume(0);
+    } else {
+      setPlayerVolume(prevVolumeRef.current > 0 ? prevVolumeRef.current : 70);
+    }
+  }, [playerVolume, setPlayerVolume]);
 
   const startDrag = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -342,6 +360,44 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
       : (nowPlaying?.channel ?? nowPlaying?.mood ?? "Ready for Music DJ");
   const mobileWidgetStyle = useMemo(() => getMobileWidgetStyle(mobilePosition, collapsed), [collapsed, mobilePosition]);
   const mobileExpandedPanelStyle = useMemo(() => getMobileExpandedPanelStyle(mobilePosition), [mobilePosition]);
+
+  const volumeMuted = playerVolume <= 0;
+  const VolumeIcon = volumeMuted ? VolumeX : Volume2;
+  const stopPointer = (event: ReactPointerEvent<HTMLElement>) => event.stopPropagation();
+  const volumeControls = (
+    <div
+      className="flex w-full shrink-0 items-center gap-1"
+      onPointerDown={stopPointer}
+      onPointerMove={stopPointer}
+      onPointerUp={stopPointer}
+      onPointerCancel={stopPointer}
+    >
+      <button
+        type="button"
+        onClick={toggleMute}
+        className={cn(
+          "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
+          MUSIC_NEUTRAL_ICON_CLASS,
+          MUSIC_NEUTRAL_ICON_HOVER_CLASS,
+        )}
+        title={volumeMuted ? "Unmute" : "Mute"}
+        aria-label={volumeMuted ? "Unmute" : "Mute"}
+      >
+        <VolumeIcon size="0.75rem" />
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={playerVolume}
+        onChange={(event) => setPlayerVolume(Number(event.target.value))}
+        className="h-1.5 w-full cursor-pointer accent-[var(--marinara-chat-chrome-accent)]"
+        title="Volume"
+        aria-label="YouTube volume"
+      />
+    </div>
+  );
 
   const compactBody = (
     <>
@@ -500,6 +556,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
                   </button>
                 </div>
                 <div className="flex items-center gap-2">{compactBody}</div>
+                <div className="mt-2">{volumeControls}</div>
               </div>
             )}
           </div>
@@ -521,6 +578,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           )}
         >
           {compactBody}
+          <div className="hidden w-24 shrink-0 lg:flex">{volumeControls}</div>
           <div
             className={cn(
               "pointer-events-none absolute bottom-0 left-3 right-3 h-px overflow-hidden rounded-full",

@@ -397,6 +397,8 @@ interface UIState {
   spotifyPlayerEnabled: boolean;
   /** When true, show the YouTube DJ mini player when the agent plays a track. */
   youtubePlayerEnabled: boolean;
+  /** User-set YouTube player volume (0–100). The DJ can also steer this. */
+  youtubePlayerVolume: number;
   /** Mobile Spotify widget collapsed state. */
   spotifyMobileWidgetCollapsed: boolean;
   /** Mobile Spotify widget position in viewport pixels. */
@@ -626,6 +628,7 @@ interface UIState {
   setMusicPlayerSource: (v: MusicPlayerSource) => void;
   setSpotifyPlayerEnabled: (v: boolean) => void;
   setYoutubePlayerEnabled: (v: boolean) => void;
+  setYoutubePlayerVolume: (v: number) => void;
   setSpotifyMobileWidgetCollapsed: (v: boolean) => void;
   setSpotifyMobileWidgetPosition: (position: FloatingWidgetPosition) => void;
   setIntuitiveSwipeNavigation: (v: boolean) => void;
@@ -912,6 +915,7 @@ export const useUIStore = create<UIState>()(
       musicPlayerSource: "youtube" as MusicPlayerSource,
       spotifyPlayerEnabled: false,
       youtubePlayerEnabled: true,
+      youtubePlayerVolume: 70,
       spotifyMobileWidgetCollapsed: true,
       spotifyMobileWidgetPosition: { x: 16, y: 96 },
       intuitiveSwipeNavigation: false,
@@ -1386,6 +1390,7 @@ export const useUIStore = create<UIState>()(
         })),
       setSpotifyPlayerEnabled: (v) => set({ spotifyPlayerEnabled: v }),
       setYoutubePlayerEnabled: (v) => set({ youtubePlayerEnabled: v }),
+      setYoutubePlayerVolume: (v) => set({ youtubePlayerVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setSpotifyMobileWidgetCollapsed: (v) => set({ spotifyMobileWidgetCollapsed: v }),
       setSpotifyMobileWidgetPosition: (position) =>
         set({
@@ -1507,7 +1512,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 46,
+      version: 47,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -1881,6 +1886,9 @@ export const useUIStore = create<UIState>()(
         if (version <= 45) {
           persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         }
+        if (version <= 46 && typeof persisted.youtubePlayerVolume !== "number") {
+          persisted.youtubePlayerVolume = 70;
+        }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
         delete persisted.trackerPanelWidth;
         return persisted;
@@ -1950,6 +1958,7 @@ export const useUIStore = create<UIState>()(
         musicPlayerSource: state.musicPlayerSource,
         spotifyPlayerEnabled: state.spotifyPlayerEnabled,
         youtubePlayerEnabled: state.youtubePlayerEnabled,
+        youtubePlayerVolume: state.youtubePlayerVolume,
         spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
         spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
         intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
