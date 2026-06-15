@@ -74,6 +74,8 @@ interface ChatState {
   regenerateMessageId: string | null;
   /** During group chat individual mode, the character currently streaming. */
   streamingCharacterId: string | null;
+  /** Smart response queues keyed by chatId. */
+  responseQueues: Map<string, string[]>;
   /** Character name(s) shown in typing indicator when generation is active. */
   typingCharacterName: string | null;
   /** Human-readable label for the current server-side generation phase (e.g. "Running agents..."). */
@@ -134,6 +136,10 @@ interface ChatState {
   clearThinkingBuffer: (chatId?: string) => void;
   setRegenerateMessageId: (id: string | null) => void;
   setStreamingCharacterId: (id: string | null) => void;
+  setResponseQueue: (chatId: string, characterIds: string[]) => void;
+  removeFromResponseQueue: (chatId: string, characterId: string) => void;
+  completeQueuedResponse: (chatId: string, characterId: string | null | undefined) => void;
+  clearResponseQueue: (chatId: string) => void;
   setTypingCharacterName: (name: string | null) => void;
   setGenerationPhase: (phase: string | null) => void;
   setDelayedCharacterInfo: (info: { name: string; status: string } | null) => void;
@@ -194,6 +200,7 @@ export const useChatStore = create<ChatState>()(
     abortControllers: new Map(),
     regenerateMessageId: null,
     streamingCharacterId: null,
+    responseQueues: new Map(),
     typingCharacterName: null,
     generationPhase: null,
     delayedCharacterInfo: null,
@@ -415,6 +422,46 @@ export const useChatStore = create<ChatState>()(
 
     setStreamingCharacterId: (id) => set({ streamingCharacterId: id }),
 
+    setResponseQueue: (chatId, characterIds) =>
+      set((state) => {
+        const unique = characterIds.filter((id, index) => id && characterIds.indexOf(id) === index);
+        const queues = new Map(state.responseQueues);
+        if (unique.length > 0) queues.set(chatId, unique);
+        else queues.delete(chatId);
+        return { responseQueues: queues };
+      }),
+
+    removeFromResponseQueue: (chatId, characterId) =>
+      set((state) => {
+        const current = state.responseQueues.get(chatId) ?? [];
+        if (!current.includes(characterId)) return state;
+        const nextQueue = current.filter((id) => id !== characterId);
+        const queues = new Map(state.responseQueues);
+        if (nextQueue.length > 0) queues.set(chatId, nextQueue);
+        else queues.delete(chatId);
+        return { responseQueues: queues };
+      }),
+
+    completeQueuedResponse: (chatId, characterId) =>
+      set((state) => {
+        if (!characterId) return state;
+        const current = state.responseQueues.get(chatId) ?? [];
+        if (current[0] !== characterId) return state;
+        const queues = new Map(state.responseQueues);
+        const nextQueue = current.slice(1);
+        if (nextQueue.length > 0) queues.set(chatId, nextQueue);
+        else queues.delete(chatId);
+        return { responseQueues: queues };
+      }),
+
+    clearResponseQueue: (chatId) =>
+      set((state) => {
+        if (!state.responseQueues.has(chatId)) return state;
+        const queues = new Map(state.responseQueues);
+        queues.delete(chatId);
+        return { responseQueues: queues };
+      }),
+
     setTypingCharacterName: (name) => set({ typingCharacterName: name, delayedCharacterInfo: null }),
 
     setGenerationPhase: (phase) => set({ generationPhase: phase }),
@@ -595,6 +642,7 @@ export const useChatStore = create<ChatState>()(
         abortControllers: new Map(),
         regenerateMessageId: null,
         streamingCharacterId: null,
+        responseQueues: new Map(),
         typingCharacterName: null,
         generationPhase: null,
         delayedCharacterInfo: null,

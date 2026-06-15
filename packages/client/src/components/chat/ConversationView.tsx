@@ -1,7 +1,6 @@
 // ──────────────────────────────────────────────
 // Chat: Conversation View — Discord-style composite
 // ──────────────────────────────────────────────
-import { createPortal } from "react-dom";
 import {
   Fragment,
   Suspense,
@@ -12,24 +11,16 @@ import {
   useCallback,
   useMemo,
   useState,
-  type ReactNode,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  BookOpen,
-  Loader2,
-  ChevronUp,
-  Settings2,
-  FolderOpen,
-  Image as ImageIcon,
-  ArrowRightLeft,
-  MoreHorizontal,
-} from "lucide-react";
+import { Loader2, ChevronUp, Settings2, Image as ImageIcon, ArrowRightLeft } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "./SceneBanner";
 import { ChatBranchSelector } from "./ChatBranchSelector";
-import { ActiveLorebookEntriesButton, ActiveLorebookEntriesModal } from "./ActiveLorebookEntriesButton";
+import { ActiveLorebookEntriesButton } from "./ActiveLorebookEntriesButton";
+import { ChatToolbarButton, ChatToolbarMenu, getChatToolbarButtonClass } from "./ChatToolbarControls";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -69,9 +60,9 @@ interface ConversationViewProps {
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: () => void;
   lastAssistantMessageId: string | null;
-  onOpenSettings: () => void;
-  onOpenFiles: () => void;
-  onOpenGallery: () => void;
+  onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
+  onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
+  onBranch?: (messageId: string) => void;
   multiSelectMode?: boolean;
   selectedMessageIds?: Set<string>;
   onToggleSelectMessage?: (toggle: MessageSelectionToggle) => void;
@@ -242,68 +233,6 @@ function splitAssistantContentLines(content: string, charName?: string | null): 
 // from replaying when the user navigates away from a chat and comes back.
 const globalSeenKeys = new Set<string>();
 
-const HEADER_BTN =
-  "flex items-center justify-center rounded-lg bg-[var(--card)]/80 p-1.5 text-foreground/80 backdrop-blur-sm transition-colors hover:bg-[var(--card)] hover:text-foreground dark:bg-black/30 dark:hover:bg-black/50";
-const MOBILE_MENU_BTN =
-  "flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80 transition-colors hover:bg-[var(--accent)] hover:text-foreground";
-
-function ConversationToolbarMenu({
-  desktopChildren,
-  mobileChildren,
-}: {
-  desktopChildren: ReactNode;
-  mobileChildren: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const btnRef = useRef<HTMLDivElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    setPos({
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (target instanceof Element && target.closest("[data-chat-branch-popover]")) return;
-      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  return (
-    <>
-      <div className="hidden items-center gap-1.5 md:flex">{desktopChildren}</div>
-      <div className="relative shrink-0 md:hidden" ref={btnRef}>
-        <button onClick={() => setOpen(!open)} className={HEADER_BTN} title="More options" aria-label="More options">
-          <MoreHorizontal size="0.875rem" />
-        </button>
-        {open &&
-          createPortal(
-            <div
-              ref={popRef}
-              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
-              style={{ top: pos.top, right: pos.right }}
-              onClick={() => setOpen(false)}
-            >
-              {mobileChildren}
-            </div>,
-            document.body,
-          )}
-      </div>
-    </>
-  );
-}
-
 export function ConversationView({
   chatId,
   messages,
@@ -328,8 +257,8 @@ export function ConversationView({
   onPeekPrompt,
   lastAssistantMessageId,
   onOpenSettings,
-  onOpenFiles,
   onOpenGallery,
+  onBranch,
   multiSelectMode,
   selectedMessageIds,
   onToggleSelectMessage,
@@ -366,7 +295,10 @@ export function ConversationView({
   // us hide draft rows immediately so the real updated message shows without a flash.
   const streamHadContentRef = useRef(false);
   useEffect(() => {
-    if (!hasLiveStream) { streamHadContentRef.current = false; return; }
+    if (!hasLiveStream) {
+      streamHadContentRef.current = false;
+      return;
+    }
     if (streamBuffer || thinkingBuffer) streamHadContentRef.current = true;
   }, [hasLiveStream, streamBuffer, thinkingBuffer]);
   const isStreamWindingDown =
@@ -419,48 +351,25 @@ export function ConversationView({
     return { background: `linear-gradient(135deg, ${g.from}, ${g.to})` };
   }, [convoGradient, theme]);
   const hasAutonomousMessaging = !!chatMeta.autonomousMessages || !!chatMeta.characterExchanges;
-  const [mobileActiveContextOpen, setMobileActiveContextOpen] = useState(false);
   const renderToolbarActions = (compact = false) => (
     <>
       <ChatBranchSelector
         activeChatId={chatId}
         activeChatName={chatName}
         groupId={chatGroupId}
+        variant="roleplay"
         compact={compact}
-        className={
-          compact ? "bg-transparent text-foreground/80 hover:bg-[var(--accent)] hover:text-foreground" : undefined
-        }
       />
-      {compact ? (
-        <button
-          onClick={() => setMobileActiveContextOpen(true)}
-          className={MOBILE_MENU_BTN}
-          title="Active Context"
-          aria-label="Active Context"
-        >
-          <BookOpen size="0.875rem" />
-        </button>
-      ) : (
-        <ActiveLorebookEntriesButton chatId={chatId} buttonClassName={HEADER_BTN} />
-      )}
-      <button onClick={onOpenFiles} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Manage Chat Files">
-        <FolderOpen size="0.875rem" />
-      </button>
-      <button onClick={onOpenGallery} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Gallery">
-        <ImageIcon size="0.875rem" />
-      </button>
+      <ActiveLorebookEntriesButton chatId={chatId} />
+      <ChatToolbarButton icon={<ImageIcon size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
       {onSwitchChat && (
-        <button
-          onClick={onSwitchChat}
-          className={compact ? MOBILE_MENU_BTN : HEADER_BTN}
+        <ChatToolbarButton
+          icon={<ArrowRightLeft size="0.875rem" />}
           title={connectedChatName ? `Switch to ${connectedChatName}` : "Switch to connected chat"}
-        >
-          <ArrowRightLeft size="0.875rem" />
-        </button>
+          onClick={onSwitchChat}
+        />
       )}
-      <button onClick={onOpenSettings} className={compact ? MOBILE_MENU_BTN : HEADER_BTN} title="Chat Settings">
-        <Settings2 size="0.875rem" />
-      </button>
+      <ChatToolbarButton icon={<Settings2 size="0.875rem" />} title="Chat Settings" onClick={onOpenSettings} />
     </>
   );
 
@@ -522,7 +431,15 @@ export function ConversationView({
     if (isOptimistic || (isNearBottomRef.current && !userScrolledAwayRef.current)) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [newestMsgId, streamBuffer, thinkingBuffer, hasLiveStream, delayedCharacterInfo, typingCharacterName, isOptimistic]);
+  }, [
+    newestMsgId,
+    streamBuffer,
+    thinkingBuffer,
+    hasLiveStream,
+    delayedCharacterInfo,
+    typingCharacterName,
+    isOptimistic,
+  ]);
 
   // Preserve scroll on load-more
   useLayoutEffect(() => {
@@ -616,7 +533,11 @@ export function ConversationView({
         const otherTime = new Date(other.createdAt).getTime();
         const timeGap = currentIsAfterOther ? currentTime - otherTime : otherTime - currentTime;
         if (timeGap > TIME_GAP_MS) return false;
-        if (current.role !== other.role || current.characterId !== other.characterId || getDayKey(other.createdAt) !== day) {
+        if (
+          current.role !== other.role ||
+          current.characterId !== other.characterId ||
+          getDayKey(other.createdAt) !== day
+        ) {
           return false;
         }
         const currentHiddenFromAI = getMessageExtraRecord(current).hiddenFromAI === true;
@@ -699,7 +620,14 @@ export function ConversationView({
         thinking: thinkingBuffer || null,
       },
     };
-  }, [chatId, conversationMessageStyle, liveStreamCharacterId, shouldRenderLiveStreamMessage, streamBuffer, thinkingBuffer]);
+  }, [
+    chatId,
+    conversationMessageStyle,
+    liveStreamCharacterId,
+    shouldRenderLiveStreamMessage,
+    streamBuffer,
+    thinkingBuffer,
+  ]);
 
   const buildStreamingBubblePreview = useCallback(
     (content: string, characterId: string | null) => {
@@ -736,7 +664,10 @@ export function ConversationView({
     hasLiveStream && conversationMessageStyle === "bubble" && !delayedCharacterInfo
       ? `${chatId}:${regenerateMessageId ?? "new"}:${liveStreamCharacterId ?? "assistant"}`
       : null;
-  const [streamingBubbleDraft, setStreamingBubbleDraft] = useState<{ key: string; text: string }>({ key: "", text: "" });
+  const [streamingBubbleDraft, setStreamingBubbleDraft] = useState<{ key: string; text: string }>({
+    key: "",
+    text: "",
+  });
 
   useEffect(() => {
     if (!streamingDraftKey) {
@@ -891,7 +822,9 @@ export function ConversationView({
           if (useUIStore.getState().convoNotificationSound) {
             playNotificationPing();
           }
-          staggerTimersRef.current[key] = (staggerTimersRef.current[key] ?? []).filter((activeTimer) => activeTimer !== timer);
+          staggerTimersRef.current[key] = (staggerTimersRef.current[key] ?? []).filter(
+            (activeTimer) => activeTimer !== timer,
+          );
           if (partIndex === count) {
             staggerTimersRef.current[key]?.forEach(clearTimeout);
             delete staggerTimersRef.current[key];
@@ -947,14 +880,26 @@ export function ConversationView({
                     ? "bg-red-500"
                     : "bg-gray-400";
             };
+            const identityPillClass = getChatToolbarButtonClass({
+              compact: true,
+              className:
+                "w-auto min-w-0 max-w-[min(20rem,calc(100vw-8rem))] justify-start gap-2 px-2.5 text-[var(--foreground)]/80 hover:text-[var(--foreground)]/90",
+            });
+            const avatarShellClass =
+              "relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]/80";
+            const avatarFallbackClass =
+              "flex h-5 w-5 items-center justify-center rounded-full bg-[var(--foreground)]/10 text-[0.5rem] font-bold text-[var(--foreground)]/70 ring-1 ring-[var(--border)]/80";
 
             if (chars.length === 1) {
               const c = chars[0]!;
               return (
-                <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
+                <div
+                  className={identityPillClass}
+                  title={c.conversationActivity ? `${c.name}: ${c.conversationActivity}` : c.name}
+                >
                   <div className="relative flex-shrink-0">
                     {c.avatarUrl ? (
-                      <span className="relative block h-5 w-5 overflow-hidden rounded-full">
+                      <span className={avatarShellClass}>
                         <img
                           src={c.avatarUrl}
                           alt={c.name}
@@ -963,18 +908,18 @@ export function ConversationView({
                         />
                       </span>
                     ) : (
-                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground">
-                        {c.name[0]}
-                      </div>
+                      <div className={avatarFallbackClass}>{c.name[0]}</div>
                     )}
                     <span
-                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
+                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--card)] ${statusColor(c.conversationStatus)}`}
                     />
                   </div>
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-[0.75rem] font-medium text-foreground/90">{c.name}</span>
+                  <div className="flex min-w-0 flex-col leading-tight">
+                    <span className="truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">{c.name}</span>
                     {c.conversationActivity && (
-                      <span className="text-[0.5625rem] text-foreground/50">{c.conversationActivity}</span>
+                      <span className="truncate text-[0.5625rem] text-[var(--foreground)]/50">
+                        {c.conversationActivity}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -983,7 +928,12 @@ export function ConversationView({
 
             // Multiple characters — show stacked avatars + names
             return (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--card)]/80 px-2.5 py-1.5 backdrop-blur-sm dark:bg-black/30">
+              <div
+                className={identityPillClass}
+                title={chars
+                  .map((c) => (c.conversationActivity ? `${c.name}: ${c.conversationActivity}` : c.name))
+                  .join(", ")}
+              >
                 <div
                   className="relative flex-shrink-0"
                   style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
@@ -992,7 +942,7 @@ export function ConversationView({
                     <div key={i} className="absolute top-0" style={{ left: i * 12 }}>
                       <div className="relative">
                         {c.avatarUrl ? (
-                          <span className="relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]">
+                          <span className={avatarShellClass}>
                             <img
                               src={c.avatarUrl}
                               alt={c.name}
@@ -1001,33 +951,23 @@ export function ConversationView({
                             />
                           </span>
                         ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-foreground/20 text-[0.5rem] font-bold text-foreground ring-1 ring-[var(--border)]">
-                            {c.name[0]}
-                          </div>
+                          <div className={avatarFallbackClass}>{c.name[0]}</div>
                         )}
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--border)] ${statusColor(c.conversationStatus)}`}
+                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--card)] ${statusColor(c.conversationStatus)}`}
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-                <span className="text-[0.75rem] font-medium text-[var(--foreground)]/90">
+                <span className="min-w-0 truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">
                   {chars.length <= 2 ? chars.map((c) => c.name).join(" & ") : `${chars[0]!.name} + ${chars.length - 1}`}
                 </span>
               </div>
             );
           })()}
 
-          <ConversationToolbarMenu
-            desktopChildren={renderToolbarActions()}
-            mobileChildren={renderToolbarActions(true)}
-          />
-          <ActiveLorebookEntriesModal
-            chatId={chatId}
-            open={mobileActiveContextOpen}
-            onClose={() => setMobileActiveContextOpen(false)}
-          />
+          <ChatToolbarMenu desktopChildren={renderToolbarActions()} mobileChildren={renderToolbarActions(true)} />
         </div>
 
         {/* Load More */}
@@ -1080,9 +1020,7 @@ export function ConversationView({
             return (
               <div key={item.key} className="relative my-4 flex items-center px-4">
                 <div className="flex-1 border-t border-[var(--border)]/40" />
-                <span className="mx-4 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
-                  {item.label}
-                </span>
+                <span className="mx-4 text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">{item.label}</span>
                 <div className="flex-1 border-t border-[var(--border)]/40" />
               </div>
             );
@@ -1096,34 +1034,36 @@ export function ConversationView({
           // illustration doesn't linger while new text is streaming in. Bubble
           // regeneration keeps the real message stable and renders a separate
           // presentation-only draft row below it.
-          const displayMsg = isRegenerating && !isBubbleRegenerating
-            ? (() => {
-                const parsed = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
-                return {
-                  ...msg,
-                  content: streamBuffer || (thinkingBuffer ? "Thinking..." : msg.content),
-                  extra: { ...parsed, attachments: null, thinking: thinkingBuffer || parsed.thinking },
-                };
-              })()
-            : msg;
+          const displayMsg =
+            isRegenerating && !isBubbleRegenerating
+              ? (() => {
+                  const parsed = typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {});
+                  return {
+                    ...msg,
+                    content: streamBuffer || (thinkingBuffer ? "Thinking..." : msg.content),
+                    extra: { ...parsed, attachments: null, thinking: thinkingBuffer || parsed.thinking },
+                  };
+                })()
+              : msg;
           const contentParts = isRegenerating ? undefined : item.contentParts;
           const visiblePartCount = contentParts ? (visiblePartCounts[item.key] ?? contentParts.length) : undefined;
           const originalContent = displayMsg.content !== msg.content ? msg.content : undefined;
-          const regenerationDraftMessage = isBubbleRegenerating && !isStreamWindingDown
-            ? ({
-                ...msg,
-                id: `__conversation_regeneration_stream__${msg.id}`,
-                content: "",
-                activeSwipeIndex: 0,
-                swipeCount: 0,
-                extra: {
-                  ...(typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {})),
-                  attachments: null,
-                  displayText: null,
-                  thinking: thinkingBuffer || null,
-                },
-              } as Message)
-            : null;
+          const regenerationDraftMessage =
+            isBubbleRegenerating && !isStreamWindingDown
+              ? ({
+                  ...msg,
+                  id: `__conversation_regeneration_stream__${msg.id}`,
+                  content: "",
+                  activeSwipeIndex: 0,
+                  swipeCount: 0,
+                  extra: {
+                    ...(typeof msg.extra === "string" ? JSON.parse(msg.extra) : (msg.extra ?? {})),
+                    attachments: null,
+                    displayText: null,
+                    thinking: thinkingBuffer || null,
+                  },
+                } as Message)
+              : null;
 
           return (
             <Fragment key={item.key}>
@@ -1148,6 +1088,7 @@ export function ConversationView({
                 isSelected={selectedMessageIds?.has(msg.id)}
                 onToggleSelect={onToggleSelectMessage}
                 hasDraftInput={hasDraftInput}
+                onBranch={onBranch}
                 messageStyle={conversationMessageStyle}
                 contentParts={contentParts}
                 visiblePartCount={visiblePartCount}

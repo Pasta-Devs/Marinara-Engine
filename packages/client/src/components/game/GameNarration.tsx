@@ -35,6 +35,7 @@ import {
   Loader2,
   Wand2,
   RotateCcw,
+  GitBranch,
 } from "lucide-react";
 import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
 import { findNamedMapValue } from "../../lib/game-character-name-match";
@@ -417,6 +418,8 @@ interface GameNarrationProps {
   onRetryCombatGeneration?: () => void;
   /** Open the standard delete-message flow for a backing chat message. */
   onDeleteMessage?: (messageId: string) => void;
+  /** Create a chat branch ending at a user-authored game log message. */
+  onBranchMessage?: (messageId: string) => void;
   /** Whether the global multi-delete bar is active. */
   multiSelectMode?: boolean;
   /** Chat message ids selected for global multi-delete. */
@@ -924,6 +927,7 @@ export function GameNarration({
   combatGenerationFailed,
   onRetryCombatGeneration,
   onDeleteMessage,
+  onBranchMessage,
   multiSelectMode = false,
   selectedMessageIds,
   onDeleteSegment,
@@ -3234,6 +3238,8 @@ export function GameNarration({
     "flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/30 px-3 py-1.5 text-xs text-[var(--foreground)]/70 transition-colors hover:bg-[var(--muted)]/50 hover:text-[var(--foreground)] dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/20 dark:hover:text-white";
   const NARRATION_META_BTN =
     "flex min-h-7 items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-2.5 py-1 text-xs text-[var(--foreground)]/75 transition-colors hover:bg-[var(--muted)]/40 dark:border-white/10 dark:bg-white/5 dark:text-white/75 dark:hover:bg-white/10";
+  const NARRATION_COUNT_BADGE =
+    "absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--foreground)] px-0.5 text-[0.55rem] font-bold text-[var(--background)] ring-1 ring-[var(--background)]/20 dark:bg-white/90 dark:text-black dark:ring-black/20";
   const combatMetaButton = onRequestCombatStart ? (
     <button
       type="button"
@@ -4065,11 +4071,7 @@ export function GameNarration({
                     <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
                       <Package size={12} />
                       <span className="hidden sm:inline">Inventory</span>
-                      {(inventoryCount ?? 0) > 0 && (
-                        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[0.55rem] font-bold text-black">
-                          {inventoryCount}
-                        </span>
-                      )}
+                      {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
                     </button>
                   )}
                   {combatMetaButton}
@@ -4183,11 +4185,7 @@ export function GameNarration({
                     <button onClick={onOpenInventory} className={cn("relative", NARRATION_META_BTN)}>
                       <Package size={12} />
                       <span className="hidden sm:inline">Inventory</span>
-                      {(inventoryCount ?? 0) > 0 && (
-                        <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[0.55rem] font-bold text-black">
-                          {inventoryCount}
-                        </span>
-                      )}
+                      {(inventoryCount ?? 0) > 0 && <span className={NARRATION_COUNT_BADGE}>{inventoryCount}</span>}
                     </button>
                   )}
                   {combatMetaButton}
@@ -4410,9 +4408,11 @@ export function GameNarration({
                       const sourceMessageId = seg.sourceMessageId ?? entry.messageId;
                       const hasSourceSegmentIndex = seg.sourceSegmentIndex != null;
                       const sourceSegmentIndex = seg.sourceSegmentIndex ?? 0;
-                      const sourceRole =
-                        seg.sourceRole ??
-                        (sourceMessageId ? (sourceMessagesById.get(sourceMessageId)?.role ?? null) : null);
+                      const sourceMessageRole = sourceMessageId
+                        ? (sourceMessagesById.get(sourceMessageId)?.role ?? null)
+                        : null;
+                      const sourceRole = seg.sourceRole ?? sourceMessageRole;
+                      const isUserAuthoredSource = sourceRole === "user" || sourceMessageRole === "user";
                       const isActiveSeg = active?.id === seg.id;
                       const liveSegmentIndex = segments.findIndex((s) => s.id === seg.id);
                       const canJumpToSeg =
@@ -4450,7 +4450,7 @@ export function GameNarration({
                       const jumpRowClasses = canJumpToSeg
                         ? "cursor-pointer hover:ring-1 hover:ring-white/15 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/30"
                         : "";
-                      const canEditMessage = !!onEditMessage && !!sourceMessageId && sourceRole === "user";
+                      const canEditMessage = !!onEditMessage && !!sourceMessageId && isUserAuthoredSource;
                       const canEditSegment =
                         !!onEditSegment &&
                         !!sourceMessageId &&
@@ -4460,7 +4460,8 @@ export function GameNarration({
                         sourceMessageId !== "party-chat";
                       const canEdit = canEditMessage || canEditSegment;
                       const canDeleteMessage =
-                        !!onDeleteMessage && !!sourceMessageId && (sourceRole === "user" || sourceRole === "system");
+                        !!onDeleteMessage && !!sourceMessageId && (isUserAuthoredSource || sourceRole === "system");
+                      const canBranchMessage = !!onBranchMessage && !!sourceMessageId && isUserAuthoredSource;
                       const canDeleteThisSegment =
                         !!onDeleteSegment &&
                         !!sourceMessageId &&
@@ -4493,6 +4494,23 @@ export function GameNarration({
                           title="Copy"
                         >
                           {copiedMessageKey === copyKey ? <Check size={11} /> : <Copy size={11} />}
+                        </button>
+                      ) : null;
+                      const branchButton = canBranchMessage ? (
+                        <button
+                          type="button"
+                          onPointerDown={stopLogActionPointerDown}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onBranchMessage?.(sourceMessageId);
+                            setLogsOpen(false);
+                          }}
+                          className="rounded-lg border border-zinc-600/70 bg-zinc-950/85 p-1 text-zinc-100 shadow-sm transition-colors hover:bg-zinc-800 hover:text-white"
+                          title="Branch from here"
+                          aria-label="Branch from here"
+                        >
+                          <GitBranch size={11} />
                         </button>
                       ) : null;
                       const deleteButton = showDeleteButton ? (
@@ -4660,12 +4678,13 @@ export function GameNarration({
                       );
 
                       const actionButtons =
-                        deleteButton || copyButton || editButtons ? (
+                        deleteButton || branchButton || copyButton || editButtons ? (
                           <div
                             onPointerDown={stopLogActionPointerDown}
                             onClick={(event) => event.stopPropagation()}
                             className="absolute right-1.5 top-1.5 z-10 flex items-center gap-0.5"
                           >
+                            {branchButton}
                             {deleteButton}
                             {copyButton}
                             {editButtons}

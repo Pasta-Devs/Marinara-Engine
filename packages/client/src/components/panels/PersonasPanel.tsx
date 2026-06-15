@@ -24,6 +24,7 @@ import {
   Camera,
   ArrowUpDown,
   Download,
+  Upload,
   Search,
   FolderPlus,
   ChevronDown,
@@ -238,14 +239,25 @@ export function PersonasPanel() {
     [updatePGroup],
   );
 
-  const movePersonaToFolder = useCallback(
-    async (personaId: string, folderId: string | null) => {
+  const getDraggedPersonaIds = useCallback(
+    (personaId: string) =>
+      selectionMode && selectedPersonaIds.has(personaId) ? Array.from(selectedPersonaIds) : [personaId],
+    [selectedPersonaIds, selectionMode],
+  );
+
+  const movePersonasToFolder = useCallback(
+    async (personaIds: string[], folderId: string | null) => {
+      const ids = Array.from(new Set(personaIds.filter(Boolean)));
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
       const targetFolder = folderId ? parsedGroups.find((folder) => folder.id === folderId) : null;
       const updates = parsedGroups
         .map((folder) => {
-          const withoutPersona = folder.memberIds.filter((id) => id !== personaId);
+          const withoutPersona = folder.memberIds.filter((id) => !idSet.has(id));
           const nextMembers =
-            targetFolder && folder.id === targetFolder.id ? [...withoutPersona, personaId] : withoutPersona;
+            targetFolder && folder.id === targetFolder.id
+              ? [...withoutPersona, ...ids.filter((id) => !withoutPersona.includes(id))]
+              : withoutPersona;
           if (
             nextMembers.length === folder.memberIds.length &&
             nextMembers.every((id, index) => id === folder.memberIds[index])
@@ -261,17 +273,16 @@ export function PersonasPanel() {
   );
 
   const handlePersonaDrop = useCallback(
-    (folderId: string | null) => {
+    (folderId: string | null, personaIds?: string[]) => {
       if (!draggedPersonaId) return;
-      void movePersonaToFolder(draggedPersonaId, folderId);
+      void movePersonasToFolder(personaIds ?? [draggedPersonaId], folderId);
       setDraggedPersonaId(null);
     },
-    [draggedPersonaId, movePersonaToFolder],
+    [draggedPersonaId, movePersonasToFolder],
   );
 
   const startPersonaTouchDrag = useCallback(
     (event: React.TouchEvent, personaId: string) => {
-      if (selectionMode) return;
       const timer = window.setTimeout(() => {
         personaTouchDragRef.current = { id: personaId, timer: null, active: true };
         suppressPersonaClickRef.current = true;
@@ -289,7 +300,7 @@ export function PersonasPanel() {
         { once: true },
       );
     },
-    [selectionMode],
+    [],
   );
 
   const finishPersonaTouchDrag = useCallback(
@@ -304,16 +315,16 @@ export function PersonasPanel() {
       const folderElement = target?.closest("[data-persona-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-persona-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.personaFolderId) {
-        void movePersonaToFolder(current.id, folderElement.dataset.personaFolderId);
+        void movePersonasToFolder(getDraggedPersonaIds(current.id), folderElement.dataset.personaFolderId);
       } else if (rootElement) {
-        void movePersonaToFolder(current.id, null);
+        void movePersonasToFolder(getDraggedPersonaIds(current.id), null);
       }
       setDraggedPersonaId(null);
       window.setTimeout(() => {
         suppressPersonaClickRef.current = false;
       }, 0);
     },
-    [movePersonaToFolder],
+    [getDraggedPersonaIds, movePersonasToFolder],
   );
 
   const filteredList = useMemo(() => {
@@ -580,7 +591,7 @@ export function PersonasPanel() {
             disabled={selectedPersonaIds.size === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
-            <Download size="0.6875rem" />
+            <Upload size="0.6875rem" />
             {exportingSelected ? "Exporting..." : "Export ZIP"}
           </button>
           <button
@@ -637,7 +648,8 @@ export function PersonasPanel() {
               onDrop={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                handlePersonaDrop(group.id);
+                const payload = event.dataTransfer.getData("application/x-marinara-persona-ids");
+                handlePersonaDrop(group.id, payload ? (JSON.parse(payload) as string[]) : undefined);
               }}
               className="flex flex-col rounded-lg transition-colors"
             >
@@ -741,14 +753,12 @@ export function PersonasPanel() {
                                 openPersonaDetail(pid);
                               }
                             }}
-                            draggable={!selectionMode}
+                            draggable
                             onDragStart={(event) => {
-                              if (selectionMode) {
-                                event.preventDefault();
-                                return;
-                              }
+                              const ids = getDraggedPersonaIds(pid);
                               setDraggedPersonaId(pid);
                               event.dataTransfer.effectAllowed = "move";
+                              event.dataTransfer.setData("application/x-marinara-persona-ids", JSON.stringify(ids));
                               event.dataTransfer.setData("text/plain", pid);
                             }}
                             onDragEnd={() => setDraggedPersonaId(null)}
@@ -823,7 +833,8 @@ export function PersonasPanel() {
         }}
         onDrop={(event) => {
           event.preventDefault();
-          handlePersonaDrop(null);
+          const payload = event.dataTransfer.getData("application/x-marinara-persona-ids");
+          handlePersonaDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
         }}
         className={cn(
           "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
@@ -851,14 +862,12 @@ export function PersonasPanel() {
                   openPersonaDetail(persona.id);
                 }
               }}
-              draggable={!selectionMode}
+              draggable
               onDragStart={(event) => {
-                if (selectionMode) {
-                  event.preventDefault();
-                  return;
-                }
+                const ids = getDraggedPersonaIds(persona.id);
                 setDraggedPersonaId(persona.id);
                 event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("application/x-marinara-persona-ids", JSON.stringify(ids));
                 event.dataTransfer.setData("text/plain", persona.id);
               }}
               onDragEnd={() => setDraggedPersonaId(null)}

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   Plus,
   Download,
+  Upload,
   Check,
   BookOpen,
   Search,
@@ -432,25 +433,30 @@ export function LorebooksPanel() {
     [editFolderName, updateLorebookFolder],
   );
 
-  const moveLorebookToFolder = useCallback(
-    (lorebookId: string, folderId: string | null) => {
-      moveLorebookItem.mutate({ itemId: lorebookId, folderId });
+  const getDraggedLorebookIds = useCallback(
+    (lorebookId: string) =>
+      selectionMode && selectedLorebookIds.has(lorebookId) ? Array.from(selectedLorebookIds) : [lorebookId],
+    [selectedLorebookIds, selectionMode],
+  );
+
+  const moveLorebooksToFolder = useCallback(
+    (lorebookIds: string[], folderId: string | null) => {
+      moveLorebookItem.mutate({ itemIds: lorebookIds, folderId });
     },
     [moveLorebookItem],
   );
 
   const handleLorebookDrop = useCallback(
-    (folderId: string | null) => {
+    (folderId: string | null, lorebookIds?: string[]) => {
       if (!draggedLorebookId) return;
-      moveLorebookToFolder(draggedLorebookId, folderId);
+      moveLorebooksToFolder(lorebookIds ?? [draggedLorebookId], folderId);
       setDraggedLorebookId(null);
     },
-    [draggedLorebookId, moveLorebookToFolder],
+    [draggedLorebookId, moveLorebooksToFolder],
   );
 
   const startLorebookTouchDrag = useCallback(
     (event: TouchEvent, lorebookId: string) => {
-      if (selectionMode) return;
       const timer = window.setTimeout(() => {
         lorebookTouchDragRef.current = { id: lorebookId, timer: null, active: true };
         suppressLorebookClickRef.current = true;
@@ -468,7 +474,7 @@ export function LorebooksPanel() {
         { once: true },
       );
     },
-    [selectionMode],
+    [],
   );
 
   const finishLorebookTouchDrag = useCallback(
@@ -483,16 +489,16 @@ export function LorebooksPanel() {
       const folderElement = target?.closest("[data-lorebook-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-lorebook-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.lorebookFolderId) {
-        moveLorebookToFolder(current.id, folderElement.dataset.lorebookFolderId);
+        moveLorebooksToFolder(getDraggedLorebookIds(current.id), folderElement.dataset.lorebookFolderId);
       } else if (rootElement) {
-        moveLorebookToFolder(current.id, null);
+        moveLorebooksToFolder(getDraggedLorebookIds(current.id), null);
       }
       setDraggedLorebookId(null);
       window.setTimeout(() => {
         suppressLorebookClickRef.current = false;
       }, 0);
     },
-    [moveLorebookToFolder],
+    [getDraggedLorebookIds, moveLorebooksToFolder],
   );
 
   const renderLorebookRow = useCallback(
@@ -525,15 +531,13 @@ export function LorebooksPanel() {
           selectionMode={selectionMode}
           isSelected={selectedLorebookIds.has(lb.id)}
           onToggleSelect={() => toggleSelection(lb.id)}
-          draggable={!selectionMode}
+          draggable
           isDragging={draggedLorebookId === lb.id}
           onDragStart={(event) => {
-            if (selectionMode) {
-              event.preventDefault();
-              return;
-            }
+            const ids = getDraggedLorebookIds(lb.id);
             setDraggedLorebookId(lb.id);
             event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("application/x-marinara-lorebook-ids", JSON.stringify(ids));
             event.dataTransfer.setData("text/plain", lb.id);
           }}
           onDragEnd={() => setDraggedLorebookId(null)}
@@ -547,6 +551,7 @@ export function LorebooksPanel() {
       draggedLorebookId,
       finishLorebookTouchDrag,
       getCharacterNames,
+      getDraggedLorebookIds,
       getPersonaNames,
       handlePickLorebookImage,
       openLorebookDetail,
@@ -632,7 +637,7 @@ export function LorebooksPanel() {
             disabled={selectedLorebookIds.size === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
-            <Download size="0.6875rem" />
+            <Upload size="0.6875rem" />
             {exportingSelected ? "Exporting..." : "Export ZIP"}
           </button>
           <button
@@ -823,7 +828,8 @@ export function LorebooksPanel() {
               onDrop={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                handleLorebookDrop(folder.id);
+                const payload = event.dataTransfer.getData("application/x-marinara-lorebook-ids");
+                handleLorebookDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
               }}
               className="flex flex-col rounded-lg transition-colors"
             >
@@ -938,7 +944,8 @@ export function LorebooksPanel() {
           }}
           onDrop={(event) => {
             event.preventDefault();
-            handleLorebookDrop(null);
+            const payload = event.dataTransfer.getData("application/x-marinara-lorebook-ids");
+            handleLorebookDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
           }}
           className={cn(
             "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",

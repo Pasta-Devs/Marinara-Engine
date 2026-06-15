@@ -581,25 +581,30 @@ export function PresetsPanel() {
     [editFolderName, updatePresetFolder],
   );
 
-  const movePresetToFolder = useCallback(
-    (presetId: string, folderId: string | null) => {
-      movePresetItem.mutate({ itemId: presetId, folderId });
+  const getDraggedPresetIds = useCallback(
+    (presetId: string) =>
+      selectionMode && selectedPresetIds.has(presetId) ? Array.from(selectedPresetIds) : [presetId],
+    [selectedPresetIds, selectionMode],
+  );
+
+  const movePresetsToFolder = useCallback(
+    (presetIds: string[], folderId: string | null) => {
+      movePresetItem.mutate({ itemIds: presetIds, folderId });
     },
     [movePresetItem],
   );
 
   const handlePresetDrop = useCallback(
-    (folderId: string | null) => {
+    (folderId: string | null, presetIds?: string[]) => {
       if (!draggedPresetId) return;
-      movePresetToFolder(draggedPresetId, folderId);
+      movePresetsToFolder(presetIds ?? [draggedPresetId], folderId);
       setDraggedPresetId(null);
     },
-    [draggedPresetId, movePresetToFolder],
+    [draggedPresetId, movePresetsToFolder],
   );
 
   const startPresetTouchDrag = useCallback(
     (event: TouchEvent, presetId: string) => {
-      if (selectionMode) return;
       const timer = window.setTimeout(() => {
         presetTouchDragRef.current = { id: presetId, timer: null, active: true };
         suppressPresetClickRef.current = true;
@@ -617,7 +622,7 @@ export function PresetsPanel() {
         { once: true },
       );
     },
-    [selectionMode],
+    [],
   );
 
   const finishPresetTouchDrag = useCallback(
@@ -632,16 +637,16 @@ export function PresetsPanel() {
       const folderElement = target?.closest("[data-preset-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-preset-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.presetFolderId) {
-        movePresetToFolder(current.id, folderElement.dataset.presetFolderId);
+        movePresetsToFolder(getDraggedPresetIds(current.id), folderElement.dataset.presetFolderId);
       } else if (rootElement) {
-        movePresetToFolder(current.id, null);
+        movePresetsToFolder(getDraggedPresetIds(current.id), null);
       }
       setDraggedPresetId(null);
       window.setTimeout(() => {
         suppressPresetClickRef.current = false;
       }, 0);
     },
-    [movePresetToFolder],
+    [getDraggedPresetIds, movePresetsToFolder],
   );
 
   const renderPresetRow = useCallback(
@@ -661,14 +666,12 @@ export function PresetsPanel() {
             isSelected && "ring-1 ring-purple-400/40 bg-purple-400/5",
             draggedPresetId === preset.id && "opacity-50",
           )}
-          draggable={!selectionMode}
+          draggable
           onDragStart={(event) => {
-            if (selectionMode) {
-              event.preventDefault();
-              return;
-            }
+            const ids = getDraggedPresetIds(preset.id);
             setDraggedPresetId(preset.id);
             event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("application/x-marinara-preset-ids", JSON.stringify(ids));
             event.dataTransfer.setData("text/plain", preset.id);
           }}
           onDragEnd={() => setDraggedPresetId(null)}
@@ -798,6 +801,7 @@ export function PresetsPanel() {
       draggedPresetId,
       duplicatePreset,
       finishPresetTouchDrag,
+      getDraggedPresetIds,
       getSectionCount,
       openPresetDetail,
       selectedPresetIds,
@@ -876,7 +880,7 @@ export function PresetsPanel() {
             disabled={selectedPresetIds.size === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-purple-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
           >
-            <Download size="0.6875rem" />
+            <Upload size="0.6875rem" />
             {exportingSelected ? "Exporting..." : "Export ZIP"}
           </button>
           <button
@@ -938,7 +942,8 @@ export function PresetsPanel() {
                 onDrop={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
-                  handlePresetDrop(folder.id);
+                  const payload = event.dataTransfer.getData("application/x-marinara-preset-ids");
+                  handlePresetDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
                 }}
                 className="flex flex-col rounded-lg transition-colors"
               >
@@ -1052,7 +1057,8 @@ export function PresetsPanel() {
           }}
           onDrop={(event) => {
             event.preventDefault();
-            handlePresetDrop(null);
+            const payload = event.dataTransfer.getData("application/x-marinara-preset-ids");
+            handlePresetDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
           }}
           className={cn(
             "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",

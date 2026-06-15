@@ -257,7 +257,16 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     try {
-      await storage.remove(req.params.id);
+      const builtInByType = BUILT_IN_AGENTS.find((agent) => agent.id === req.params.id);
+      const existing = builtInByType ? null : await storage.getById(req.params.id);
+      const existingBuiltInType =
+        existing && BUILT_IN_AGENTS.some((agent) => agent.id === existing.type) ? existing.type : null;
+
+      if (builtInByType || existingBuiltInType) {
+        await storage.softDeleteBuiltIn(builtInByType?.id ?? existingBuiltInType!);
+      } else {
+        await storage.remove(req.params.id);
+      }
       return reply.status(204).send();
     } catch (err) {
       req.log.error(err, "Failed to delete agent %s", req.params.id);

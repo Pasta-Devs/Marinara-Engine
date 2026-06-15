@@ -2,12 +2,15 @@ import type { BuiltInAgentManifest } from "../agent-manifest.types.js";
 
 export const spotifyAgentManifest = {
   id: "spotify",
-  name: "Spotify DJ",
+  name: "Music DJ",
   description:
-    "Analyzes the narrative mood and controls Spotify playback — searching tracks, adjusting volume, and cueing music to match the scene. Requires a Spotify Premium account and API credentials.",
+    "Analyzes the narrative mood and plays matching music through Spotify or YouTube. Spotify requires Premium and API credentials; YouTube uses a free Data API key.",
   phase: "post_processing",
   enabledByDefault: false,
   category: "misc",
+  defaultSettings: {
+    musicProvider: "spotify",
+  },
   defaultTools: [
     "spotify_get_current_playback",
     "spotify_get_playlists",

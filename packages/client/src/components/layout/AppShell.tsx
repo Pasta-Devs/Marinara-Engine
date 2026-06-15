@@ -4,6 +4,7 @@
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
 import { SpotifyMobileWidget } from "../spotify/SpotifyMiniPlayer";
+import { YouTubeMobileWidget } from "../chat/YouTubePlayer";
 import { ChatNotificationBubbles } from "../chat/ChatNotificationBubbles";
 import {
   getTrackerPanelWidthForProfile,
@@ -90,6 +91,12 @@ const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="roleplay-hud"
 const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
 
+function readVisibleElementRect(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || window.getComputedStyle(element).display === "none") return null;
+  return rect;
+}
+
 function MainPaneFallback() {
   return (
     <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">Loading...</div>
@@ -165,7 +172,11 @@ export function AppShell() {
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
   const sidebarDragWidthRef = useRef<number | null>(null);
   const rightPanelDragWidthRef = useRef<number | null>(null);
-  const sharedSidebarWidth = clampWidth(rightPanelWidth || sidebarWidth, SHARED_SIDEBAR_WIDTH_MIN, SHARED_SIDEBAR_WIDTH_MAX);
+  const sharedSidebarWidth = clampWidth(
+    rightPanelWidth || sidebarWidth,
+    SHARED_SIDEBAR_WIDTH_MIN,
+    SHARED_SIDEBAR_WIDTH_MAX,
+  );
   const liveSidebarWidth = sidebarDragWidth ?? rightPanelDragWidth ?? sharedSidebarWidth;
   const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? sharedSidebarWidth;
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
@@ -439,12 +450,15 @@ export function AppShell() {
 
   const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;
-  const trackerPanelModeAvailable =
-    activeChat?.mode === "roleplay" || activeChat?.mode === "visual_novel" || activeChat?.mode === "game";
+  const trackerPanelModeAvailable = activeChat?.mode === "roleplay" || activeChat?.mode === "visual_novel";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen;
   const trackerPanelSurfaceAvailable =
     trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView;
   const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable;
+  useEffect(() => {
+    if (!trackerPanelOpen || !activeChat?.mode || trackerPanelModeAvailable) return;
+    setTrackerPanelOpen(false);
+  }, [activeChat?.mode, setTrackerPanelOpen, trackerPanelModeAvailable, trackerPanelOpen]);
   useEffect(() => {
     if (trackerPanelVisible) {
       trackerPanelWasActiveRef.current = true;
@@ -468,8 +482,8 @@ export function AppShell() {
       root?.querySelector<HTMLElement>(TRACKER_PANEL_TOGGLE_SELECTOR) ??
       document.querySelector<HTMLElement>(TRACKER_PANEL_TOGGLE_SELECTOR);
     if (!toggle) return;
-    const rect = toggle.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0 || window.getComputedStyle(toggle).display === "none") return;
+    const rect = readVisibleElementRect(toggle);
+    if (!rect) return;
 
     const nextCenterY = rect.top + rect.height / 2;
     setTrackerPanelToggleAnchorY((current) =>
@@ -478,30 +492,21 @@ export function AppShell() {
   }, []);
   const updateTrackerPanelTop = useCallback(() => {
     const root = mainRef.current;
-    if (trackerPanelDockToEdge) {
-      const topBar =
-        root?.querySelector<HTMLElement>(TOP_BAR_SELECTOR) ?? document.querySelector<HTMLElement>(TOP_BAR_SELECTOR);
-      const rect = topBar?.getBoundingClientRect();
-      const nextTop =
-        rect && rect.height > 0
-          ? Math.max(TRACKER_PANEL_EDGE_OFFSET, Math.ceil(rect.bottom))
-          : TRACKER_PANEL_EDGE_OFFSET;
-      setTrackerPanelTop((current) => (current === nextTop ? current : nextTop));
-      return;
-    }
-    const anchors = Array.from((root ?? document).querySelectorAll<HTMLElement>(TRACKER_PANEL_ANCHOR_SELECTOR));
-    const visibleAnchor = anchors.find((anchor) => {
-      const rect = anchor.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 && window.getComputedStyle(anchor).display !== "none";
+    const topCandidates = [TRACKER_PANEL_EDGE_OFFSET];
+    const topBar =
+      root?.querySelector<HTMLElement>(TOP_BAR_SELECTOR) ?? document.querySelector<HTMLElement>(TOP_BAR_SELECTOR);
+    const topBarRect = topBar ? readVisibleElementRect(topBar) : null;
+    if (topBarRect) topCandidates.push(Math.ceil(topBarRect.bottom + TRACKER_PANEL_HUD_GAP));
+
+    const anchors = Array.from(document.querySelectorAll<HTMLElement>(TRACKER_PANEL_ANCHOR_SELECTOR));
+    anchors.forEach((anchor) => {
+      const rect = readVisibleElementRect(anchor);
+      if (rect) topCandidates.push(Math.ceil(rect.bottom + TRACKER_PANEL_HUD_GAP));
     });
-    const nextTop = visibleAnchor
-      ? Math.max(
-          TRACKER_PANEL_EDGE_OFFSET,
-          Math.ceil(visibleAnchor.getBoundingClientRect().bottom + TRACKER_PANEL_HUD_GAP),
-        )
-      : TRACKER_PANEL_EDGE_OFFSET;
+
+    const nextTop = Math.max(...topCandidates);
     setTrackerPanelTop((current) => (current === nextTop ? current : nextTop));
-  }, [trackerPanelDockToEdge]);
+  }, []);
 
   useLayoutEffect(() => {
     if (isMobile || trackerPanelVisible || !trackerPanelSurfaceAvailable) return;
@@ -573,14 +578,15 @@ export function AppShell() {
       scheduleUpdate();
     });
     const observeTargets = () => {
-      const selector = trackerPanelDockToEdge ? TOP_BAR_SELECTOR : TRACKER_PANEL_ANCHOR_SELECTOR;
-      const targets = Array.from((mainRef.current ?? document).querySelectorAll<HTMLElement>(selector));
+      const topBarTargets = Array.from(document.querySelectorAll<HTMLElement>(TOP_BAR_SELECTOR));
+      const anchorTargets = Array.from(document.querySelectorAll<HTMLElement>(TRACKER_PANEL_ANCHOR_SELECTOR));
+      const targets = [...topBarTargets, ...anchorTargets];
       targets.forEach((target) => {
         if (observedTargets.has(target)) return;
         observer.observe(target);
         observedTargets.add(target);
       });
-      return targets.length > 0;
+      return anchorTargets.length > 0;
     };
     function scheduleUpdate() {
       if (frame) window.cancelAnimationFrame(frame);
@@ -897,6 +903,7 @@ export function AppShell() {
         </Suspense>
       )}
       <SpotifyMobileWidget />
+      <YouTubeMobileWidget />
     </div>
   );
 }

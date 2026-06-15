@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from "react";
-import { ChevronDown, MessageSquare, Save, Settings2 } from "lucide-react";
+import { ChevronDown, Save, Settings2 } from "lucide-react";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import {
   CHAT_PARAMETER_DEFAULTS,
@@ -80,21 +80,13 @@ export function AdvancedParametersSection({
         />
       </div>
       {expanded && (
-        <div className="px-4 pb-3 space-y-3">
+        <div className="px-4 pb-3 pt-3 space-y-3">
           <GenerationParametersFields
             value={effectiveParams}
             showOpenRouterServiceTier={conn?.provider === "openrouter"}
             onChange={setParameters}
           />
-          <div className="space-y-2 border-t border-[var(--border)] pt-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold">
-              <MessageSquare size="0.75rem" className="text-[var(--muted-foreground)]" />
-              <span>Context</span>
-              <HelpTooltip
-                text="Limit how many messages are included in the context sent to the AI model. When off, all messages are sent up to the model's context window."
-                size="0.625rem"
-              />
-            </div>
+          <div className="space-y-2 pt-3">
             <button
               type="button"
               aria-pressed={Boolean(contextMessageLimit)}

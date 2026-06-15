@@ -125,7 +125,7 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)]/40 px-4 py-3">
           <div className="flex items-center gap-2">
-            <FileText size="1rem" className="text-[var(--primary)]" />
+            <FileText size="1rem" className="text-[var(--foreground)]/80" />
             <span className="text-sm font-semibold text-[var(--foreground)]">
               {node.name}
               {isDirty && <span className="ml-1.5 text-[var(--muted-foreground)]">•</span>}
@@ -139,7 +139,7 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
                   className={cn(
                     "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                     mode === "preview"
-                      ? "bg-[var(--accent)] text-[var(--primary)]"
+                      ? "bg-[var(--accent)] text-[var(--foreground)]/80"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                   )}
                 >
@@ -150,7 +150,7 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
                   className={cn(
                     "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                     mode === "edit"
-                      ? "bg-[var(--accent)] text-[var(--primary)]"
+                      ? "bg-[var(--accent)] text-[var(--foreground)]/80"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                   )}
                 >
@@ -214,7 +214,7 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
             <button
               onClick={handleSave}
               disabled={saveFile.isPending || !isDirty}
-              className="rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg bg-[var(--secondary)] px-4 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saveFile.isPending ? "Saving..." : "Save"}
             </button>

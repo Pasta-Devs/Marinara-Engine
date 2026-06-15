@@ -164,13 +164,13 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
         key={persona.id}
         onClick={() => handleSwitch(persona.id)}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent)]",
-          isActive && "text-foreground",
+          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+          isActive ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15" : "hover:bg-foreground/10",
           indented && "pl-6",
         )}
       >
         {persona.avatarPath ? (
-          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)]">
+          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-foreground/10">
             <img
               src={persona.avatarPath}
               alt={persona.name}
@@ -179,7 +179,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             />
           </div>
         ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)] text-xs font-semibold text-[var(--muted-foreground)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
             {(persona.name || "?")[0].toUpperCase()}
           </div>
         )}
@@ -188,7 +188,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             {persona.name || persona.id}
           </span>
           {persona.comment && (
-            <span className="truncate text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
+            <span className="truncate text-[0.625rem] leading-tight text-foreground/45">
               {persona.comment.length > 60 ? persona.comment.substring(0, 60) + "…" : persona.comment}
             </span>
           )}
@@ -222,7 +222,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             style={getAvatarCropStyle(parseAvatarCropJson(activePersona.avatarCrop))}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-[var(--secondary)] text-[0.75rem] font-semibold text-[var(--muted-foreground)]">
+          <div className="flex h-full w-full items-center justify-center rounded-full bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45">
             {activePersona ? (activePersona.name || "?")[0].toUpperCase() : "?"}
           </div>
         )}
@@ -231,10 +231,10 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
       {open && (
         <div
           ref={menuRef}
-          className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[400px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+          className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[400px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
           style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
         >
-          <div className="flex items-center justify-center border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold">
+          <div className="flex items-center justify-center border-b border-foreground/10 px-3 py-2 text-[0.6875rem] font-semibold">
             Personas
           </div>
           <div className="overflow-y-auto p-1">
@@ -242,21 +242,23 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             <button
               onClick={() => handleSwitch(null)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent)]",
-                !activePersonaId && "text-foreground",
+                "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+                !activePersonaId
+                  ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15"
+                  : "hover:bg-foreground/10",
               )}
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)] text-xs font-semibold text-[var(--muted-foreground)]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
                 ?
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className={cn("text-xs font-semibold", !activePersonaId && "text-foreground")}>None</span>
-                <span className="text-[0.625rem] text-[var(--muted-foreground)]">No persona selected</span>
+                <span className="text-[0.625rem] text-foreground/45">No persona selected</span>
               </div>
               {!activePersonaId && <span className="ml-auto text-[0.6875rem]">✓</span>}
             </button>
 
-            <div className="mx-2 my-1 h-px bg-[var(--border)]" />
+            <div className="mx-2 my-1 h-px bg-foreground/10" />
 
             {/* Groups */}
             {groups.map((group) => {
@@ -269,12 +271,14 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
                   <button
                     onClick={() => toggleGroup(group.id)}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent)]",
-                      hasActiveInGroup && "text-foreground",
+                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+                      hasActiveInGroup
+                        ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15"
+                        : "hover:bg-foreground/10",
                     )}
                   >
                     {firstMember?.avatarPath ? (
-                      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)]">
+                      <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-foreground/10">
                         <img
                           src={firstMember.avatarPath}
                           alt={group.name}
@@ -283,30 +287,30 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
                         />
                       </div>
                     ) : (
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)] text-xs font-semibold text-[var(--muted-foreground)]">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
                         {group.name[0].toUpperCase()}
                       </div>
                     )}
                     <div className="flex min-w-0 flex-1 flex-col">
                       <span className="flex items-center gap-1 text-xs font-semibold">
                         {isExpanded ? (
-                          <FolderOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                          <FolderOpen size="0.75rem" className="shrink-0 text-foreground/45" />
                         ) : (
-                          <Folder size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                          <Folder size="0.75rem" className="shrink-0 text-foreground/45" />
                         )}
                         {group.name} ({group.members.length})
                       </span>
-                      <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      <span className="text-[0.625rem] text-foreground/45">
                         {group.members.length} persona{group.members.length !== 1 ? "s" : ""}
                       </span>
                     </div>
-                    <span className="ml-auto shrink-0 text-[var(--muted-foreground)]">
+                    <span className="ml-auto shrink-0 text-foreground/45">
                       {isExpanded ? <ChevronDown size="0.875rem" /> : <ChevronRight size="0.875rem" />}
                     </span>
                   </button>
 
                   {isExpanded && (
-                    <div className="ml-2 border-l border-[var(--border)]/50 pl-1">
+                    <div className="ml-2 border-l border-foreground/10 pl-1">
                       {group.members.map((persona) => renderPersonaRow(persona, true))}
                     </div>
                   )}
@@ -315,9 +319,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             })}
 
             {personas.length === 0 && (
-              <div className="px-3 py-4 text-center text-[0.6875rem] italic text-[var(--muted-foreground)]">
-                No personas found.
-              </div>
+              <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">No personas found.</div>
             )}
           </div>
         </div>

@@ -3,6 +3,8 @@ import {
   DEFAULT_AGENT_TOOLS,
   getDefaultAgentPrompt,
   getDefaultBuiltInAgentSettings,
+  isBuiltInAgentRuntimeDisabled,
+  isAgentConfigDeleted,
   LOCAL_SIDECAR_CONNECTION_ID,
   resolveAgentPromptTemplate,
 } from "@marinara-engine/shared";
@@ -24,27 +26,18 @@ type ConnectionsStore = {
   getDefaultForAgents(): Promise<any | null>;
 };
 
-type AgentsStore = {
-  getByType(type: string): Promise<any | null>;
-};
-
 type ResolveAgentPipelineAgentsArgs = {
-  agentsStore: AgentsStore;
   connections: ConnectionsStore;
   configuredAgents: any[];
   chatId: string;
-  chatMode: string;
-  chatMetadata: Record<string, unknown>;
   chatEnableAgents: boolean;
   hasPerChatAgentList: boolean;
   perChatAgentSet: Set<string>;
   agentPromptTemplateSelections: Record<string, string>;
-  characterIds: string[];
-  impersonate: boolean;
-  regenerateMessageId?: string | null;
   chatProvider: BaseLLMProvider;
   chatModel: string;
   chatMaxParallelJobs: number;
+  activeMusicPlayerSource?: "spotify" | "youtube" | null;
   resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string;
 };
 
@@ -58,8 +51,6 @@ export type ResolvedAgentPipelineAgents = {
   enabledConfigs: any[];
   resolvedAgents: ResolvedAgent[];
   agentConnectionWarnings: AgentConnectionWarning[];
-  responseOrchestratorSelectorAgent: ResolvedAgent | null;
-  responseOrchestratorSelectorUnavailable: boolean;
 };
 
 function resolveAgentRuntimePhase(agentType: string, configuredPhase: string): string {
@@ -79,6 +70,26 @@ function parseAgentSettings(settings: unknown): Record<string, unknown> {
     }
   }
   return typeof settings === "object" && !Array.isArray(settings) ? (settings as Record<string, unknown>) : {};
+}
+
+function applyMusicPlayerSourceToMusicDjSettings(
+  settings: Record<string, unknown>,
+  activeMusicPlayerSource: "spotify" | "youtube" | null | undefined,
+): Record<string, unknown> {
+  if (!activeMusicPlayerSource) return settings;
+  return {
+    ...settings,
+    musicProvider: activeMusicPlayerSource,
+    musicPlayerSource: activeMusicPlayerSource,
+    enabledTools: activeMusicPlayerSource === "youtube" ? [] : (DEFAULT_AGENT_TOOLS.spotify ?? []),
+  };
+}
+
+function getAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
+  if (agentType === "spotify" && (settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube")) {
+    return getDefaultAgentPrompt("youtube");
+  }
+  return getDefaultAgentPrompt(agentType);
 }
 
 async function resolveAgentConnectionProvider(args: {
@@ -130,25 +141,28 @@ async function resolveAgentConnectionProvider(args: {
 }
 
 export async function resolveAgentPipelineAgents({
-  agentsStore,
   connections,
   configuredAgents,
   chatId,
-  chatMode,
-  chatMetadata,
   chatEnableAgents,
   hasPerChatAgentList,
   perChatAgentSet,
   agentPromptTemplateSelections,
-  characterIds,
-  impersonate,
-  regenerateMessageId,
   chatProvider,
   chatModel,
   chatMaxParallelJobs,
+  activeMusicPlayerSource,
   resolveBaseUrl,
 }: ResolveAgentPipelineAgentsArgs): Promise<ResolvedAgentPipelineAgents> {
-  const enabledConfigs = configuredAgents;
+  const deletedBuiltInTypes = new Set(
+    configuredAgents
+      .filter((agent) => BUILT_IN_AGENTS.some((builtIn) => builtIn.id === agent.type))
+      .filter((agent) => isAgentConfigDeleted(agent.settings))
+      .map((agent) => agent.type as string),
+  );
+  const enabledConfigs = configuredAgents.filter(
+    (agent) => !isAgentConfigDeleted(agent.settings) && !isBuiltInAgentRuntimeDisabled(agent.type as string),
+  );
   const resolvedAgents: ResolvedAgent[] = [];
   const agentProviderCache = new Map<string, AgentProviderCacheEntry>();
   const localSidecarAvailableForTrackers =
@@ -184,20 +198,25 @@ export async function resolveAgentPipelineAgents({
   const agentConnectionWarnings: AgentConnectionWarning[] = [];
   const skippedLocalSidecarAgents: string[] = [];
   const defaultAgentConnectionAgents: string[] = [];
-  let responseOrchestratorSelectorAgent: ResolvedAgent | null = null;
-  let responseOrchestratorSelectorUnavailable = false;
-
   for (const cfg of enabledConfigs) {
     if (hasPerChatAgentList && !perChatAgentSet.has(cfg.type)) continue;
 
-    const settings = parseAgentSettings(cfg.settings);
-    if (cfg.type === "spotify" && (!Array.isArray(settings.enabledTools) || settings.enabledTools.length === 0)) {
+    let settings = parseAgentSettings(cfg.settings);
+    if (cfg.type === "spotify") {
+      settings = applyMusicPlayerSourceToMusicDjSettings(settings, activeMusicPlayerSource);
+    }
+    if (
+      cfg.type === "spotify" &&
+      settings.musicProvider !== "youtube" &&
+      settings.musicPlayerSource !== "youtube" &&
+      (!Array.isArray(settings.enabledTools) || settings.enabledTools.length === 0)
+    ) {
       settings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
     }
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: cfg.type as string,
       promptTemplate: cfg.promptTemplate as string,
-      fallbackPromptTemplate: getDefaultAgentPrompt(cfg.type as string),
+      fallbackPromptTemplate: getAgentFallbackPrompt(cfg.type as string, settings),
       settings,
       selectedPromptTemplateId: agentPromptTemplateSelections[cfg.type as string] ?? null,
     });
@@ -255,6 +274,8 @@ export async function resolveAgentPipelineAgents({
     chatEnableAgents && hasPerChatAgentList
       ? BUILT_IN_AGENTS.filter((agent) => {
           if (resolvedTypes.has(agent.id)) return false;
+          if (deletedBuiltInTypes.has(agent.id)) return false;
+          if (isBuiltInAgentRuntimeDisabled(agent.id)) return false;
           if (agent.id === "chat-summary") return false;
           return perChatAgentSet.has(agent.id);
         })
@@ -265,9 +286,14 @@ export async function resolveAgentPipelineAgents({
     if (defaultAgentConn) {
       defaultAgentConnectionAgents.push(builtIn.name);
     }
-    const builtInSettings = getDefaultBuiltInAgentSettings(builtIn.id);
+    let builtInSettings = getDefaultBuiltInAgentSettings(builtIn.id);
+    if (builtIn.id === "spotify") {
+      builtInSettings = applyMusicPlayerSourceToMusicDjSettings(builtInSettings, activeMusicPlayerSource);
+    }
     if (
       builtIn.id === "spotify" &&
+      builtInSettings.musicProvider !== "youtube" &&
+      builtInSettings.musicPlayerSource !== "youtube" &&
       (!Array.isArray(builtInSettings.enabledTools) || builtInSettings.enabledTools.length === 0)
     ) {
       builtInSettings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
@@ -275,7 +301,7 @@ export async function resolveAgentPipelineAgents({
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: builtIn.id,
       promptTemplate: "",
-      fallbackPromptTemplate: getDefaultAgentPrompt(builtIn.id),
+      fallbackPromptTemplate: getAgentFallbackPrompt(builtIn.id, builtInSettings),
       settings: builtInSettings,
       selectedPromptTemplateId: agentPromptTemplateSelections[builtIn.id] ?? null,
     });
@@ -294,88 +320,8 @@ export async function resolveAgentPipelineAgents({
     });
   }
 
-  const selectorGroupResponseOrder = (chatMetadata.groupResponseOrder as string) ?? "sequential";
-  const selectorGroupChatMode =
-    chatMode === "conversation"
-      ? selectorGroupResponseOrder === "manual"
-        ? "individual"
-        : "merged"
-      : ((chatMetadata.groupChatMode as string) ?? "merged");
-  const shouldResolveResponseOrchestratorSelector =
-    !impersonate &&
-    !regenerateMessageId &&
-    characterIds.length > 1 &&
-    selectorGroupChatMode === "individual" &&
-    selectorGroupResponseOrder === "smart";
-
-  if (shouldResolveResponseOrchestratorSelector) {
-    const resolvedResponseOrchestratorAgent = resolvedAgents.find((agent) => agent.type === "response-orchestrator");
-    if (resolvedResponseOrchestratorAgent) {
-      responseOrchestratorSelectorAgent = resolvedResponseOrchestratorAgent;
-    } else {
-      const storedResponseOrchestratorConfig = await agentsStore.getByType("response-orchestrator");
-      const cfg =
-        storedResponseOrchestratorConfig ??
-        (defaultAgentConn ? (BUILT_IN_AGENTS.find((agent) => agent.id === "response-orchestrator") ?? null) : null);
-
-      if (cfg) {
-        const settings =
-          "settings" in cfg && cfg.settings
-            ? parseAgentSettings(cfg.settings)
-            : getDefaultBuiltInAgentSettings("response-orchestrator");
-        const selectedPromptTemplate = resolveAgentPromptTemplate({
-          agentType: "response-orchestrator",
-          promptTemplate: "promptTemplate" in cfg ? String(cfg.promptTemplate ?? "") : "",
-          fallbackPromptTemplate: getDefaultAgentPrompt("response-orchestrator"),
-          settings,
-          selectedPromptTemplateId: agentPromptTemplateSelections["response-orchestrator"] ?? null,
-        });
-        const requestedConnectionId = "connectionId" in cfg ? (cfg.connectionId as string | null) : null;
-        const effectiveConnectionId = resolveAgentConnectionId({
-          requestedConnectionId,
-          defaultAgentConnectionId: defaultAgentConn?.id ?? null,
-          localSidecarAvailable: localSidecarAvailableForTrackers,
-        });
-
-        if (effectiveConnectionId === "skip-local-sidecar") {
-          responseOrchestratorSelectorUnavailable = true;
-          if (!skippedLocalSidecarAgents.some((agentName) => agentName === "Response Orchestrator")) {
-            agentConnectionWarnings.push(buildLocalSidecarUnavailableWarning(["Response Orchestrator"]));
-          }
-          logger.warn(
-            "[group-smart] Skipping Response Orchestrator Local Model override for chat %s because the sidecar is unavailable",
-            chatId,
-          );
-        } else {
-          if (defaultAgentConn && effectiveConnectionId === defaultAgentConn.id) {
-            defaultAgentConnectionAgents.push("Response Orchestrator");
-          }
-          const resolvedProvider = await resolveAgentConnectionProvider({
-            connections,
-            agentProviderCache,
-            connectionId: effectiveConnectionId,
-            fallbackProvider: chatProvider,
-            fallbackModel: chatModel,
-            fallbackMaxParallelJobs: chatMaxParallelJobs,
-            resolveBaseUrl,
-          });
-
-          responseOrchestratorSelectorAgent = {
-            id: "id" in cfg ? String(cfg.id) : "builtin:response-orchestrator",
-            type: "response-orchestrator",
-            name: "name" in cfg ? String(cfg.name) : "Response Orchestrator",
-            phase: "phase" in cfg ? String(cfg.phase) : "pre_generation",
-            promptTemplate: selectedPromptTemplate,
-            connectionId: effectiveConnectionId,
-            settings,
-            provider: resolvedProvider.provider,
-            model: resolvedProvider.model,
-            maxParallelJobs: resolvedProvider.maxParallelJobs,
-          };
-        }
-      }
-    }
-  }
+  // Smart group response selection is hidden runtime infrastructure now. It uses
+  // the main generation provider directly instead of resolving a public agent.
 
   if (defaultAgentConn && defaultAgentConnectionAgents.length > 0) {
     agentConnectionWarnings.push(
@@ -401,7 +347,5 @@ export async function resolveAgentPipelineAgents({
     enabledConfigs,
     resolvedAgents,
     agentConnectionWarnings,
-    responseOrchestratorSelectorAgent,
-    responseOrchestratorSelectorUnavailable,
   };
 }

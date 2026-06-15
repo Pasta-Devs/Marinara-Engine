@@ -1211,7 +1211,7 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }
   return createPortal(
     <div
       ref={panelRef}
-      className="fixed z-[9999] flex h-[22rem] w-[21rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
+      className="fixed z-[9999] flex h-[22rem] w-[21rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl"
       style={{
         bottom: pos.bottom,
         ...(pos.right != null ? { right: pos.right } : {}),
@@ -1219,19 +1219,19 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }
       }}
     >
       {/* Search */}
-      <div className="border-b border-[var(--border)] px-3 py-2">
+      <div className="border-b border-foreground/10 px-3 py-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search emojis..."
-          className="w-full rounded-md bg-[var(--secondary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--muted-foreground)]/50"
+          className="w-full rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs outline-none ring-1 ring-foreground/10 transition-shadow placeholder:text-foreground/35 focus:ring-foreground/20"
           autoFocus
         />
       </div>
 
       {/* Category tabs */}
-      <div className="flex items-center gap-0.5 border-b border-[var(--border)] px-2 py-1">
+      <div className="flex items-center gap-0.5 border-b border-foreground/10 px-2 py-1">
         {CATEGORIES.map((cat, i) => (
           <button
             key={cat.label}
@@ -1239,8 +1239,8 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }
             className={cn(
               "rounded-md p-1.5 text-sm transition-colors",
               activeCategory === i
-                ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
+                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
             )}
             title={cat.label}
           >
@@ -1253,7 +1253,7 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {(search.trim() ? filteredCategories : [CATEGORIES[activeCategory]]).map((cat) => (
           <div key={cat.label}>
-            <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/45">
               {cat.label}
             </p>
             <div className="grid grid-cols-8 gap-0.5">
@@ -1261,7 +1261,7 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }
                 <button
                   key={emoji}
                   onClick={() => handleSelect(emoji)}
-                  className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-[var(--accent)] active:scale-100"
+                  className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-foreground/10 active:scale-100"
                 >
                   {emoji}
                 </button>

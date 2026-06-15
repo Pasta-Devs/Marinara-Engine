@@ -11,7 +11,6 @@ import {
   ImagePlay,
   AtSign,
   Users,
-  UserCheck,
   Languages,
   Loader2,
   FileText,
@@ -73,6 +72,11 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
 
 const SAVED_STATUS_LIMIT = 12;
 const SAVED_STATUS_MAX_LENGTH = 120;
+const CONVERSATION_HIDDEN_SLASH_COMMANDS = new Set(["impersonate", "impersonate_prompt"]);
+
+function isConversationHiddenSlashCommand(command: SlashCommand): boolean {
+  return CONVERSATION_HIDDEN_SLASH_COMMANDS.has(command.name);
+}
 
 interface PersonaStatusRow {
   id: string;
@@ -232,7 +236,6 @@ export function ConversationInput({
   const showQuickRepliesMenu = useUIStore((s) => s.showQuickRepliesMenu);
   const showQuickReplyPostOnly = useUIStore((s) => s.showQuickReplyPostOnly);
   const showQuickReplyGuide = useUIStore((s) => s.showQuickReplyGuide);
-  const showQuickReplyImpersonate = useUIStore((s) => s.showQuickReplyImpersonate);
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const userActivity = useUIStore((s) => s.userActivity);
@@ -657,8 +660,13 @@ export function ConversationInput({
     // Slash command check
     const matched = matchSlashCommand(raw);
     if (matched) {
+      if (isConversationHiddenSlashCommand(matched.command)) {
+        setFeedback("Impersonate is not available in Conversation mode.");
+        return;
+      }
       const slashCtx: SlashCommandContext = {
         chatId: activeChatId,
+        mode: "conversation",
         generate,
         createMessage: (data) => createMessage.mutate(data),
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
@@ -801,9 +809,14 @@ export function ConversationInput({
       const submittingChatId = activeChatId;
       const matched = matchSlashCommand(commandLine);
       if (!matched) return;
+      if (isConversationHiddenSlashCommand(matched.command)) {
+        toast.info("Impersonate is not available in Conversation mode.");
+        return;
+      }
       const generationStatus: { succeeded?: boolean } = {};
       const slashCtx: SlashCommandContext = {
         chatId: submittingChatId,
+        mode: "conversation",
         generate: async (params) => {
           const succeeded = await generate(params);
           if (succeeded !== undefined) generationStatus.succeeded = succeeded;
@@ -877,17 +890,6 @@ export function ConversationInput({
       syncInputState,
     ],
   );
-
-  const handleImpersonateQuickButton = useCallback(async () => {
-    if (!activeChatId || isStreaming) return;
-    if (hasPendingAttachments) {
-      toast.info("Clear or send attachments before using quick impersonate.");
-      return;
-    }
-    const text = textareaRef.current?.value?.trim() ?? "";
-    if (!text) return;
-    await runQuickSlashCommand(`/impersonate ${text}`, "Impersonate failed");
-  }, [activeChatId, isStreaming, hasPendingAttachments, runQuickSlashCommand]);
 
   const handlePostOnlyButton = useCallback(async () => {
     if (!activeChatId || isStreaming) return;
@@ -1047,13 +1049,6 @@ export function ConversationInput({
       if (!hasInput) return "Type a direction first.";
       return undefined;
     };
-    const getImpersonateDisabledReason = () => {
-      if (!activeChatId) return "Select or create a chat first.";
-      if (isStreaming) return "Wait for the current stream to finish.";
-      if (hasPendingAttachments) return "Clear or post attachments first.";
-      if (!hasInput) return "Type a direction first.";
-      return undefined;
-    };
     if (showQuickReplyPostOnly) {
       actions.push({
         id: "post-only",
@@ -1076,17 +1071,6 @@ export function ConversationInput({
         onSelect: handleGuidedGenerationButton,
       });
     }
-    if (showQuickReplyImpersonate) {
-      actions.push({
-        id: "impersonate",
-        label: "Impersonate",
-        description: "Generate as your persona",
-        icon: <UserCheck size="0.875rem" />,
-        disabled: !activeChatId || isStreaming || !hasInput || hasPendingAttachments,
-        disabledReason: getImpersonateDisabledReason(),
-        onSelect: handleImpersonateQuickButton,
-      });
-    }
     return actions;
   }, [
     activeChatId,
@@ -1098,10 +1082,8 @@ export function ConversationInput({
     requiresManualGuideTarget,
     showQuickReplyPostOnly,
     showQuickReplyGuide,
-    showQuickReplyImpersonate,
     handlePostOnlyButton,
     handleGuidedGenerationButton,
-    handleImpersonateQuickButton,
   ]);
 
   const handleKeyDown = useCallback(
@@ -1208,7 +1190,7 @@ export function ConversationInput({
 
     // Slash completions
     if (formatted.startsWith("/")) {
-      const results = getSlashCompletions(formatted);
+      const results = getSlashCompletions(formatted).filter((command) => !isConversationHiddenSlashCommand(command));
       setCompletions(results);
       setSelectedCompletion(0);
     } else {
@@ -1499,7 +1481,7 @@ export function ConversationInput({
     <div className="relative px-3 pb-3">
       {/* Slash command autocomplete */}
       {completions.length > 0 && (
-        <div className="absolute bottom-full left-3 right-3 z-40 mb-1 max-h-[min(18rem,45dvh)] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-lg [-webkit-overflow-scrolling:touch]">
+        <div className="absolute bottom-full left-3 right-3 z-40 mb-1 max-h-[min(18rem,45dvh)] overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg [-webkit-overflow-scrolling:touch]">
           {completions.map((cmd, i) => (
             <button
               key={cmd.name}
@@ -1515,12 +1497,12 @@ export function ConversationInput({
               }}
               className={cn(
                 "flex w-full min-w-0 items-start gap-2 px-3 py-2.5 text-left text-sm transition-colors",
-                i === selectedCompletion ? "bg-foreground/10 text-foreground" : "hover:bg-[var(--accent)]",
+                i === selectedCompletion ? "bg-foreground/10 text-foreground" : "hover:bg-foreground/10",
               )}
             >
               <span className="shrink-0 whitespace-nowrap font-mono text-xs">/{cmd.name}</span>
               {cmd.description && (
-                <span className="min-w-0 flex-1 text-[0.6875rem] leading-snug text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
+                <span className="min-w-0 flex-1 text-[0.6875rem] leading-snug text-foreground/45 [overflow-wrap:anywhere]">
                   {cmd.description}
                 </span>
               )}
@@ -1531,7 +1513,7 @@ export function ConversationInput({
 
       {/* @mention autocomplete */}
       {mentionCompletions.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-lg">
+        <div className="absolute bottom-full left-0 right-0 mb-1 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg">
           {mentionCompletions.map((name, i) => (
             <button
               key={name}
@@ -1541,10 +1523,10 @@ export function ConversationInput({
               }}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
-                i === selectedMention ? "bg-foreground/10 text-foreground" : "hover:bg-[var(--accent)]",
+                i === selectedMention ? "bg-foreground/10 text-foreground" : "hover:bg-foreground/10",
               )}
             >
-              <AtSign size="0.75rem" className="shrink-0 text-cyan-400" />
+              <AtSign size="0.75rem" className="shrink-0 text-foreground/45" />
               <span className="font-medium">{name}</span>
             </button>
           ))}
@@ -1564,22 +1546,22 @@ export function ConversationInput({
           {attachments.map((att, i) => (
             <div
               key={i}
-              className="flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)]"
+              className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2.5 py-1.5 text-xs ring-1 ring-foreground/10"
             >
               {att.type.startsWith("image/") ? null : (
-                <FileText size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                <FileText size="0.875rem" className="shrink-0 text-foreground/45" />
               )}
               <span className="max-w-[120px] truncate">{att.name}</span>
               <button
                 onClick={() => updateAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                className="rounded p-0.5 text-[var(--muted-foreground)] hover:text-[var(--destructive)]"
+                className="rounded p-0.5 text-foreground/45 hover:text-[var(--destructive)]"
               >
                 <X size="0.625rem" />
               </button>
             </div>
           ))}
           {isReadingAttachments && (
-            <div className="flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            <div className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-2.5 py-1.5 text-xs text-foreground/60 ring-1 ring-foreground/10">
               <Loader2 size="0.875rem" className="animate-spin" />
               Reading file...
             </div>
@@ -1594,8 +1576,8 @@ export function ConversationInput({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          "relative flex flex-wrap items-end gap-1 rounded-2xl border-2 bg-[var(--card)] px-2 py-1.5 transition-all duration-200 sm:flex-nowrap sm:items-center sm:gap-2 sm:px-4 sm:py-2.5 dark:bg-black/40",
-          isDragging ? "border-blue-400/50 bg-blue-500/10 shadow-lg shadow-blue-500/10" : "border-[var(--border)]",
+          "relative flex flex-wrap items-end gap-1 rounded-2xl border border-foreground/20 bg-[var(--card)] px-2 py-1.5 shadow-sm transition-all duration-200 focus-within:border-foreground/35 focus-within:ring-1 focus-within:ring-foreground/10 sm:flex-nowrap sm:items-center sm:gap-2 sm:px-4 sm:py-2.5 dark:bg-black/40",
+          isDragging ? "border-foreground/40 bg-foreground/10 shadow-lg shadow-black/10" : "",
         )}
       >
         {/* Attach button */}
@@ -1615,7 +1597,7 @@ export function ConversationInput({
           className={cn(
             "order-2 flex h-11 w-11 items-center justify-center rounded-xl transition-all active:scale-90 sm:order-none sm:h-8 sm:w-8",
             attachments.length
-              ? "bg-foreground/10 text-foreground/75"
+              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
               : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
           )}
           title="Attach file"
@@ -1649,7 +1631,7 @@ export function ConversationInput({
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          className="order-1 max-h-[12.5rem] min-w-0 basis-full flex-1 resize-none bg-transparent py-0 text-[1rem] leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 sm:order-none sm:basis-auto"
+          className="order-1 max-h-[12.5rem] min-w-0 basis-full flex-1 resize-none bg-transparent py-0 text-[1rem] leading-normal text-foreground outline-none placeholder:text-foreground/30 sm:order-none sm:basis-auto"
         />
 
         {/* Right actions */}
@@ -1712,7 +1694,7 @@ export function ConversationInput({
               className={cn(
                 "flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-8",
                 gifOpen
-                  ? "bg-foreground/10 text-foreground/75"
+                  ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                   : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
               )}
               title="GIF"
@@ -1738,7 +1720,7 @@ export function ConversationInput({
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
                 emojiOpen
-                  ? "bg-foreground/10 text-foreground/75"
+                  ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                   : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
               )}
               title="Emoji"
@@ -1763,7 +1745,7 @@ export function ConversationInput({
                 guideGenerations && hasInput
                   ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
                   : charPickerOpen
-                    ? "bg-foreground/10 text-foreground/75"
+                    ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                     : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
               )}
               title={
@@ -1808,7 +1790,7 @@ export function ConversationInput({
             className={cn(
               "flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-8",
               statusMenuOpen
-                ? "bg-foreground/10 text-foreground/75"
+                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                 : activePersona
                   ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
                   : "text-foreground/25",
@@ -1832,9 +1814,9 @@ export function ConversationInput({
             className={cn(
               "flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 sm:h-8 sm:w-8",
               isActuallyGenerating
-                ? "text-foreground/75 hover:text-foreground/90"
+                ? "text-foreground/75 hover:bg-foreground/10 hover:text-foreground/90"
                 : canSubmit && !isReadingAttachments
-                  ? "text-foreground/75 hover:text-foreground/90 active:scale-90"
+                  ? "text-foreground/75 hover:bg-foreground/10 hover:text-foreground/90 active:scale-90"
                   : "text-foreground/20",
             )}
             title={sendButtonTitle}
@@ -1862,14 +1844,14 @@ export function ConversationInput({
         createPortal(
           <div
             ref={statusMenuRef}
-            className="fixed z-[9999] flex max-h-[320px] min-w-[240px] max-w-[300px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+            className="fixed z-[9999] flex max-h-[320px] min-w-[240px] max-w-[300px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
             style={
               statusMenuPos ? { left: statusMenuPos.left, top: statusMenuPos.top } : { visibility: "hidden" as const }
             }
           >
-            <div className="border-b border-[var(--border)] px-3 py-2">
+            <div className="border-b border-foreground/10 px-3 py-2">
               <div className="truncate text-xs font-semibold">Saved Statuses</div>
-              <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+              <div className="truncate text-[0.625rem] text-foreground/45">
                 {activePersona?.name ?? "No persona selected"}
               </div>
             </div>
@@ -1879,7 +1861,7 @@ export function ConversationInput({
                   type="button"
                   onClick={() => void handleSaveCurrentStatus()}
                   disabled={updatePersona.isPending}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--primary)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground/80 transition-colors hover:bg-foreground/10 disabled:opacity-50"
                 >
                   <Plus size="0.875rem" className="shrink-0" />
                   <span className="min-w-0 flex-1 truncate">Save &quot;{normalizedUserActivity}&quot;</span>
@@ -1887,7 +1869,7 @@ export function ConversationInput({
               )}
               {savedStatusOptions.length > 0 ? (
                 savedStatusOptions.map((status) => (
-                  <div key={status} className="group flex items-center gap-1 rounded-lg hover:bg-[var(--accent)]">
+                  <div key={status} className="group flex items-center gap-1 rounded-lg hover:bg-foreground/10">
                     <button
                       type="button"
                       onClick={() => handleApplySavedStatus(status)}
@@ -1899,7 +1881,7 @@ export function ConversationInput({
                       type="button"
                       onClick={() => void handleDeleteSavedStatus(status)}
                       disabled={updatePersona.isPending}
-                      className="mr-1 rounded-md p-1.5 text-[var(--muted-foreground)] opacity-70 transition-colors hover:text-[var(--destructive)] disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
+                      className="mr-1 rounded-md p-1.5 text-foreground/45 opacity-70 transition-colors hover:text-[var(--destructive)] disabled:opacity-40 sm:opacity-0 sm:group-hover:opacity-100"
                       title="Remove saved status"
                     >
                       <Trash2 size="0.75rem" />
@@ -1907,9 +1889,7 @@ export function ConversationInput({
                   </div>
                 ))
               ) : (
-                <div className="px-3 py-4 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                  No saved statuses yet
-                </div>
+                <div className="px-3 py-4 text-center text-[0.6875rem] text-foreground/45">No saved statuses yet</div>
               )}
             </div>
           </div>,
@@ -1920,12 +1900,12 @@ export function ConversationInput({
         createPortal(
           <div
             ref={charPickerMenuRef}
-            className="fixed z-[9999] flex max-h-[320px] min-w-[220px] max-w-[280px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+            className="fixed z-[9999] flex max-h-[320px] min-w-[220px] max-w-[280px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
             style={
               charPickerPos ? { left: charPickerPos.left, top: charPickerPos.top } : { visibility: "hidden" as const }
             }
           >
-            <div className="flex items-center justify-center border-b border-[var(--border)] px-3 py-2 text-[0.6875rem] font-semibold">
+            <div className="flex items-center justify-center border-b border-foreground/10 px-3 py-2 text-[0.6875rem] font-semibold">
               Trigger Response
             </div>
             <div className="overflow-y-auto p-1">
@@ -1934,7 +1914,7 @@ export function ConversationInput({
                   key={char.id}
                   onClick={() => handleCharacterResponse(char.id)}
                   className={cn(
-                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-foreground/10",
                     (char.conversationStatus === "dnd" || char.conversationStatus === "offline") && "opacity-60",
                   )}
                 >
@@ -1949,7 +1929,7 @@ export function ConversationInput({
                         />
                       </span>
                     ) : (
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--secondary)] text-[0.6875rem] font-semibold text-[var(--muted-foreground)]">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45">
                         {(char.name || "?")[0].toUpperCase()}
                       </div>
                     )}
@@ -1963,7 +1943,7 @@ export function ConversationInput({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs">{char.name}</span>
                     {(char.conversationActivity || statusLabel(char.conversationStatus)) && (
-                      <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                      <span className="block truncate text-[0.625rem] text-foreground/45">
                         {char.conversationActivity || statusLabel(char.conversationStatus)}
                       </span>
                     )}

@@ -24,6 +24,7 @@ import {
   Plus,
   Trash2,
   Download,
+  Upload,
   User,
   Check,
   Search,
@@ -500,14 +501,25 @@ export function CharactersPanel() {
     [updateGroup],
   );
 
-  const moveCharacterToFolder = useCallback(
-    async (charId: string, folderId: string | null) => {
+  const getDraggedCharacterIds = useCallback(
+    (charId: string) =>
+      selectionMode && selectedCharacterIds.has(charId) ? Array.from(selectedCharacterIds) : [charId],
+    [selectedCharacterIds, selectionMode],
+  );
+
+  const moveCharactersToFolder = useCallback(
+    async (charIds: string[], folderId: string | null) => {
+      const ids = Array.from(new Set(charIds.filter(Boolean)));
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
       const targetFolder = folderId ? parsedGroups.find((folder) => folder.id === folderId) : null;
       const updates = parsedGroups
         .map((folder) => {
-          const withoutCharacter = folder.memberIds.filter((id) => id !== charId);
+          const withoutCharacter = folder.memberIds.filter((id) => !idSet.has(id));
           const nextMembers =
-            targetFolder && folder.id === targetFolder.id ? [...withoutCharacter, charId] : withoutCharacter;
+            targetFolder && folder.id === targetFolder.id
+              ? [...withoutCharacter, ...ids.filter((id) => !withoutCharacter.includes(id))]
+              : withoutCharacter;
           if (
             nextMembers.length === folder.memberIds.length &&
             nextMembers.every((id, index) => id === folder.memberIds[index])
@@ -523,17 +535,16 @@ export function CharactersPanel() {
   );
 
   const handleCharacterDrop = useCallback(
-    (folderId: string | null) => {
+    (folderId: string | null, charIds?: string[]) => {
       if (!draggedCharacterId) return;
-      void moveCharacterToFolder(draggedCharacterId, folderId);
+      void moveCharactersToFolder(charIds ?? [draggedCharacterId], folderId);
       setDraggedCharacterId(null);
     },
-    [draggedCharacterId, moveCharacterToFolder],
+    [draggedCharacterId, moveCharactersToFolder],
   );
 
   const startCharacterTouchDrag = useCallback(
     (event: React.TouchEvent, charId: string) => {
-      if (selectionMode) return;
       const timer = window.setTimeout(() => {
         characterTouchDragRef.current = { id: charId, timer: null, active: true };
         suppressCharacterClickRef.current = true;
@@ -551,7 +562,7 @@ export function CharactersPanel() {
         { once: true },
       );
     },
-    [selectionMode],
+    [],
   );
 
   const finishCharacterTouchDrag = useCallback(
@@ -566,16 +577,16 @@ export function CharactersPanel() {
       const folderElement = target?.closest("[data-character-folder-id]") as HTMLElement | null;
       const rootElement = target?.closest("[data-character-folder-root]") as HTMLElement | null;
       if (folderElement?.dataset.characterFolderId) {
-        void moveCharacterToFolder(current.id, folderElement.dataset.characterFolderId);
+        void moveCharactersToFolder(getDraggedCharacterIds(current.id), folderElement.dataset.characterFolderId);
       } else if (rootElement) {
-        void moveCharacterToFolder(current.id, null);
+        void moveCharactersToFolder(getDraggedCharacterIds(current.id), null);
       }
       setDraggedCharacterId(null);
       window.setTimeout(() => {
         suppressCharacterClickRef.current = false;
       }, 0);
     },
-    [moveCharacterToFolder],
+    [getDraggedCharacterIds, moveCharactersToFolder],
   );
 
   const exitSelectionMode = useCallback(() => {
@@ -863,7 +874,7 @@ export function CharactersPanel() {
             disabled={selectedCharacterIds.size === 0 || exportingSelected}
             className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-40"
           >
-            <Download size="0.6875rem" />
+            <Upload size="0.6875rem" />
             {exportingSelected ? "Exporting..." : "Export ZIP"}
           </button>
           <button
@@ -917,7 +928,8 @@ export function CharactersPanel() {
               onDrop={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                handleCharacterDrop(group.id);
+                const payload = event.dataTransfer.getData("application/x-marinara-character-ids");
+                handleCharacterDrop(group.id, payload ? (JSON.parse(payload) as string[]) : undefined);
               }}
               className="flex flex-col rounded-lg transition-colors"
             >
@@ -1009,14 +1021,12 @@ export function CharactersPanel() {
                       <div
                         key={memberId}
                         onClick={() => openCharacterDetail(memberId)}
-                        draggable={!selectionMode}
+                        draggable
                         onDragStart={(event) => {
-                          if (selectionMode) {
-                            event.preventDefault();
-                            return;
-                          }
+                          const ids = getDraggedCharacterIds(memberId);
                           setDraggedCharacterId(memberId);
                           event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("application/x-marinara-character-ids", JSON.stringify(ids));
                           event.dataTransfer.setData("text/plain", memberId);
                         }}
                         onDragEnd={() => setDraggedCharacterId(null)}
@@ -1145,7 +1155,8 @@ export function CharactersPanel() {
         }}
         onDrop={(event) => {
           event.preventDefault();
-          handleCharacterDrop(null);
+          const payload = event.dataTransfer.getData("application/x-marinara-character-ids");
+          handleCharacterDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
         }}
         className={cn(
           "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
@@ -1175,14 +1186,12 @@ export function CharactersPanel() {
                   openCharacterDetail(char.id);
                 }
               }}
-              draggable={!selectionMode}
+              draggable
               onDragStart={(event) => {
-                if (selectionMode) {
-                  event.preventDefault();
-                  return;
-                }
+                const ids = getDraggedCharacterIds(char.id);
                 setDraggedCharacterId(char.id);
                 event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("application/x-marinara-character-ids", JSON.stringify(ids));
                 event.dataTransfer.setData("text/plain", char.id);
               }}
               onDragEnd={() => setDraggedCharacterId(null)}

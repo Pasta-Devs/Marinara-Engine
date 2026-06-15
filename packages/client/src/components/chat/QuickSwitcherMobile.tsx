@@ -202,13 +202,13 @@ export function QuickSwitcherMobile() {
         key={persona.id}
         onClick={() => handleSwitchPersona(persona.id)}
         className={cn(
-          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent)]",
-          isActive && "text-foreground",
+          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+          isActive ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15" : "hover:bg-foreground/10",
           indented && "pl-6",
         )}
       >
         {persona.avatarPath ? (
-          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)]">
+          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-foreground/10">
             <img
               src={persona.avatarPath}
               alt={persona.name}
@@ -217,7 +217,7 @@ export function QuickSwitcherMobile() {
             />
           </div>
         ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)] text-xs font-semibold text-[var(--muted-foreground)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
             {(persona.name || "?")[0].toUpperCase()}
           </div>
         )}
@@ -226,7 +226,7 @@ export function QuickSwitcherMobile() {
             {persona.name || persona.id}
           </span>
           {persona.comment && (
-            <span className="truncate text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
+            <span className="truncate text-[0.625rem] leading-tight text-foreground/45">
               {persona.comment.length > 60 ? persona.comment.substring(0, 60) + "…" : persona.comment}
             </span>
           )}
@@ -244,7 +244,7 @@ export function QuickSwitcherMobile() {
         className={cn(
           "flex h-11 w-11 items-center justify-center rounded-xl transition-all",
           open
-            ? "bg-foreground/10 text-foreground/75"
+            ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
             : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
         )}
       >
@@ -254,17 +254,17 @@ export function QuickSwitcherMobile() {
       {open && (
         <div
           ref={menuRef}
-          className="fixed z-[9999] flex max-h-[400px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+          className="fixed z-[9999] flex max-h-[400px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
           style={pos ? { left: pos.left, top: pos.top, width: pos.width } : { visibility: "hidden" as const }}
         >
-          <div className="flex border-b border-[var(--border)]">
+          <div className="flex border-b border-foreground/10">
             <button
               onClick={() => setTab("connections")}
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
                 tab === "connections"
-                  ? "text-[var(--foreground)] border-b-2 border-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                  ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
+                  : "text-foreground/50 hover:text-foreground/80",
               )}
             >
               <Link size="0.75rem" />
@@ -275,8 +275,8 @@ export function QuickSwitcherMobile() {
               className={cn(
                 "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[0.6875rem] font-semibold transition-colors",
                 tab === "personas"
-                  ? "text-[var(--foreground)] border-b-2 border-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                  ? "border-b-2 border-foreground/25 bg-foreground/10 text-foreground/85"
+                  : "text-foreground/50 hover:text-foreground/80",
               )}
             >
               <CircleUser size="0.75rem" />
@@ -292,15 +292,15 @@ export function QuickSwitcherMobile() {
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors",
                     isRandom
-                      ? "bg-amber-400/15 text-amber-400 font-semibold ring-1 ring-amber-400/40"
-                      : "hover:bg-[var(--accent)]",
+                      ? "bg-foreground/10 font-semibold text-foreground/85 ring-1 ring-foreground/15"
+                      : "hover:bg-foreground/10",
                   )}
                   title={isRandom ? "Random pool active — click to disable" : "Use random connection from pool"}
                 >
                   <span>🎲 Random</span>
                   {isRandom && <span className="ml-auto text-[0.6875rem]">active</span>}
                 </button>
-                <div className="mx-2 my-1 h-px bg-[var(--border)]" />
+                <div className="mx-2 my-1 h-px bg-foreground/10" />
                 {sortedConnections.map((conn) => {
                   const inPool = conn.useForRandom === "true";
                   const isActive = activeConnectionId === conn.id;
@@ -309,7 +309,7 @@ export function QuickSwitcherMobile() {
                       <button
                         key={conn.id}
                         onClick={() => handleTogglePool(conn.id, inPool)}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10"
                         title={inPool ? "In random pool — click to remove" : "Click to add to random pool"}
                       >
                         <span className="flex-1 truncate">{conn.name || conn.id}</span>
@@ -317,8 +317,8 @@ export function QuickSwitcherMobile() {
                           className={cn(
                             "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
                             inPool
-                              ? "border-amber-400/60 bg-amber-400/20 text-amber-400"
-                              : "border-[var(--border)] bg-transparent",
+                              ? "border-foreground/35 bg-foreground/10 text-foreground/75"
+                              : "border-foreground/20 bg-transparent",
                           )}
                         >
                           {inPool && <Check size="0.625rem" strokeWidth={3} />}
@@ -331,7 +331,7 @@ export function QuickSwitcherMobile() {
                       key={conn.id}
                       onClick={() => handleSwitchConnection(conn.id)}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]",
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10",
                         isActive && "text-foreground font-semibold",
                       )}
                     >
@@ -341,7 +341,7 @@ export function QuickSwitcherMobile() {
                   );
                 })}
                 {sortedConnections.length === 0 && (
-                  <div className="px-3 py-4 text-center text-[0.6875rem] italic text-[var(--muted-foreground)]">
+                  <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
                     No connections found.
                   </div>
                 )}
@@ -353,20 +353,22 @@ export function QuickSwitcherMobile() {
                 <button
                   onClick={() => handleSwitchPersona(null)}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent)]",
-                    !activePersonaId && "text-foreground",
+                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+                    !activePersonaId
+                      ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15"
+                      : "hover:bg-foreground/10",
                   )}
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)] text-xs font-semibold text-[var(--muted-foreground)]">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
                     ?
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className={cn("text-xs font-semibold", !activePersonaId && "text-foreground")}>None</span>
-                    <span className="text-[0.625rem] text-[var(--muted-foreground)]">No persona selected</span>
+                    <span className="text-[0.625rem] text-foreground/45">No persona selected</span>
                   </div>
                   {!activePersonaId && <span className="ml-auto text-[0.6875rem]">✓</span>}
                 </button>
-                <div className="mx-2 my-1 h-px bg-[var(--border)]" />
+                <div className="mx-2 my-1 h-px bg-foreground/10" />
                 {groups.map((group) => {
                   const isExpanded = expandedGroups.has(group.id);
                   const firstMember = group.members[0];
@@ -376,12 +378,14 @@ export function QuickSwitcherMobile() {
                       <button
                         onClick={() => toggleGroup(group.id)}
                         className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--accent)]",
-                          hasActiveInGroup && "text-foreground",
+                          "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors",
+                          hasActiveInGroup
+                            ? "bg-foreground/10 text-foreground ring-1 ring-foreground/15"
+                            : "hover:bg-foreground/10",
                         )}
                       >
                         {firstMember?.avatarPath ? (
-                          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[var(--border)]">
+                          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-foreground/10">
                             <img
                               src={firstMember.avatarPath}
                               alt={group.name}
@@ -390,29 +394,29 @@ export function QuickSwitcherMobile() {
                             />
                           </div>
                         ) : (
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--secondary)] text-xs font-semibold text-[var(--muted-foreground)]">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-foreground/10 bg-foreground/10 text-xs font-semibold text-foreground/45">
                             {group.name[0].toUpperCase()}
                           </div>
                         )}
                         <div className="flex min-w-0 flex-1 flex-col">
                           <span className="flex items-center gap-1 text-xs font-semibold">
                             {isExpanded ? (
-                              <FolderOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                              <FolderOpen size="0.75rem" className="shrink-0 text-foreground/45" />
                             ) : (
-                              <Folder size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                              <Folder size="0.75rem" className="shrink-0 text-foreground/45" />
                             )}
                             {group.name} ({group.members.length})
                           </span>
-                          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                          <span className="text-[0.625rem] text-foreground/45">
                             {group.members.length} persona{group.members.length !== 1 ? "s" : ""}
                           </span>
                         </div>
-                        <span className="ml-auto shrink-0 text-[var(--muted-foreground)]">
+                        <span className="ml-auto shrink-0 text-foreground/45">
                           {isExpanded ? <ChevronDown size="0.875rem" /> : <ChevronRight size="0.875rem" />}
                         </span>
                       </button>
                       {isExpanded && (
-                        <div className="ml-2 border-l border-[var(--border)]/50 pl-1">
+                        <div className="ml-2 border-l border-foreground/10 pl-1">
                           {group.members.map((persona) => renderPersonaRow(persona, true))}
                         </div>
                       )}
@@ -420,7 +424,7 @@ export function QuickSwitcherMobile() {
                   );
                 })}
                 {sortedPersonas.length === 0 && (
-                  <div className="px-3 py-4 text-center text-[0.6875rem] italic text-[var(--muted-foreground)]">
+                  <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
                     No personas found.
                   </div>
                 )}

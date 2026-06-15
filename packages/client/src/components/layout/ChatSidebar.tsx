@@ -24,7 +24,7 @@ import {
   ArrowUpDown,
   Tag,
   Pencil,
-  Download,
+  Upload,
 } from "lucide-react";
 import { useBulkExportChats, useChats, useCreateChat, useDeleteChat, useDeleteChatGroup } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
@@ -576,9 +576,18 @@ export function ChatSidebar() {
     [reorderFoldersMut],
   );
 
-  const handleDropChatToFolder = useCallback(
-    (chatId: string, folderId: string | null) => {
-      moveChatMut.mutate({ chatId, folderId });
+  const getDragChatIds = useCallback(
+    (chatId: string) =>
+      multiSelectMode && selectedChatIds.has(chatId) ? Array.from(selectedChatIds) : [chatId],
+    [multiSelectMode, selectedChatIds],
+  );
+
+  const handleDropChatsToFolder = useCallback(
+    (chatIds: string[], folderId: string | null) => {
+      const uniqueIds = Array.from(new Set(chatIds.filter(Boolean)));
+      for (const chatId of uniqueIds) {
+        moveChatMut.mutate({ chatId, folderId });
+      }
       setDraggedChatId(null);
       setIsRootDropTarget(false);
     },
@@ -587,7 +596,7 @@ export function ChatSidebar() {
 
   const startTouchDrag = useCallback(
     (chatId: string, event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.pointerType === "mouse" || multiSelectMode) return;
+      if (event.pointerType === "mouse") return;
       const drag = {
         chatId,
         timer: null as number | null,
@@ -602,7 +611,7 @@ export function ChatSidebar() {
       touchDragRef.current = drag;
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [multiSelectMode],
+    [],
   );
 
   const updateTouchDrag = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -628,9 +637,9 @@ export function ChatSidebar() {
         const rootEl = target?.closest<HTMLElement>("[data-chat-root-drop-zone]");
         const folderId = folderEl?.dataset.chatFolderId ?? null;
         if (folderId) {
-          handleDropChatToFolder(drag.chatId, folderId);
+          handleDropChatsToFolder(getDragChatIds(drag.chatId), folderId);
         } else if (rootEl) {
-          handleDropChatToFolder(drag.chatId, null);
+          handleDropChatsToFolder(getDragChatIds(drag.chatId), null);
         }
         setDraggedChatId(null);
         setIsRootDropTarget(false);
@@ -638,7 +647,7 @@ export function ChatSidebar() {
         event.preventDefault();
       }
     },
-    [handleDropChatToFolder],
+    [getDragChatIds, handleDropChatsToFolder],
   );
 
   // ── Batch actions ──
@@ -692,14 +701,12 @@ export function ChatSidebar() {
         tabIndex={0}
         key={chat.groupId ?? chat.id}
         data-chat-id={chat.id}
-        draggable={!multiSelectMode}
+        draggable
         onDragStart={(event) => {
-          if (multiSelectMode) {
-            event.preventDefault();
-            return;
-          }
+          const chatIds = getDragChatIds(chat.id);
           setDraggedChatId(chat.id);
           event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("application/x-marinara-chat-ids", JSON.stringify(chatIds));
           event.dataTransfer.setData("application/x-marinara-chat-id", chat.id);
           event.dataTransfer.setData("text/plain", chat.id);
         }}
@@ -1127,7 +1134,9 @@ export function ChatSidebar() {
             event.dataTransfer.getData("application/x-marinara-chat-id") ||
             event.dataTransfer.getData("text/plain") ||
             draggedChatId;
-          if (chatId) handleDropChatToFolder(chatId, null);
+          const chatIdsPayload = event.dataTransfer.getData("application/x-marinara-chat-ids");
+          const chatIds = chatIdsPayload ? (JSON.parse(chatIdsPayload) as string[]) : [chatId];
+          if (chatIds.length > 0) handleDropChatsToFolder(chatIds, null);
           setIsRootDropTarget(false);
         }}
       >
@@ -1238,7 +1247,7 @@ export function ChatSidebar() {
                     onRename={handleRenameFolder}
                     onDelete={handleDeleteFolder}
                     draggedChatId={draggedChatId}
-                    onDropChat={handleDropChatToFolder}
+                    onDropChat={handleDropChatsToFolder}
                   />
                 );
               })}
@@ -1262,7 +1271,7 @@ export function ChatSidebar() {
               disabled={selectedChatIds.size === 0 || bulkExportChats.isPending}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium transition-all hover:bg-[var(--accent)] disabled:opacity-40"
             >
-              <Download size="0.75rem" />
+              <Upload size="0.75rem" />
               Export
             </button>
             <button
@@ -1341,7 +1350,7 @@ export function ChatSidebar() {
             disabled={bulkExportChats.isPending}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all hover:bg-[var(--accent)] disabled:opacity-40"
           >
-            <Download size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <Upload size="0.75rem" className="text-[var(--muted-foreground)]" />
             JSONL zip
           </button>
           <button
@@ -1350,7 +1359,7 @@ export function ChatSidebar() {
             disabled={bulkExportChats.isPending}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all hover:bg-[var(--accent)] disabled:opacity-40"
           >
-            <Download size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <Upload size="0.75rem" className="text-[var(--muted-foreground)]" />
             Text zip
           </button>
           <p className="px-1 pt-2 text-[0.625rem] font-medium uppercase tracking-wide text-[var(--muted-foreground)]/60">
@@ -1362,7 +1371,7 @@ export function ChatSidebar() {
             disabled={bulkExportChats.isPending}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all hover:bg-[var(--accent)] disabled:opacity-40"
           >
-            <Download size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <Upload size="0.75rem" className="text-[var(--muted-foreground)]" />
             All chats as JSONL zip
           </button>
           <button
@@ -1371,7 +1380,7 @@ export function ChatSidebar() {
             disabled={bulkExportChats.isPending}
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all hover:bg-[var(--accent)] disabled:opacity-40"
           >
-            <Download size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <Upload size="0.75rem" className="text-[var(--muted-foreground)]" />
             All chats as text zip
           </button>
         </div>
@@ -1398,7 +1407,7 @@ function FolderRow({
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   draggedChatId: string | null;
-  onDropChat: (chatId: string, folderId: string | null) => void;
+  onDropChat: (chatIds: string[], folderId: string | null) => void;
 }) {
   const dragControls = useDragControls();
   const [renaming, setRenaming] = useState(false);
@@ -1435,7 +1444,9 @@ function FolderRow({
           event.dataTransfer.getData("application/x-marinara-chat-id") ||
           event.dataTransfer.getData("text/plain") ||
           draggedChatId;
-        if (chatId) onDropChat(chatId, folder.id);
+        const chatIdsPayload = event.dataTransfer.getData("application/x-marinara-chat-ids");
+        const chatIds = chatIdsPayload ? (JSON.parse(chatIdsPayload) as string[]) : [chatId];
+        if (chatIds.length > 0) onDropChat(chatIds, folder.id);
         setIsDropTarget(false);
       }}
       className={cn(

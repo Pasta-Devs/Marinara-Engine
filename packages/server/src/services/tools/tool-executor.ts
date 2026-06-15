@@ -670,7 +670,7 @@ async function spotifyGetCurrentPlayback(
   creds?: SpotifyCredentials,
 ): Promise<Record<string, unknown>> {
   if (!creds?.accessToken) {
-    return { error: "Spotify not configured. Please connect Spotify in the Spotify DJ agent settings." };
+    return { error: "Spotify not configured. Please connect Spotify in the Music DJ agent settings." };
   }
 
   try {
@@ -751,7 +751,7 @@ async function spotifyGetPlaylists(
   creds?: SpotifyCredentials,
 ): Promise<Record<string, unknown>> {
   if (!creds?.accessToken) {
-    return { error: "Spotify not configured. Please add your Spotify access token in the Spotify DJ agent settings." };
+    return { error: "Spotify not configured. Please add your Spotify access token in the Music DJ agent settings." };
   }
   const limit = Math.min(Number(args.limit ?? 20), 50);
 
@@ -1416,7 +1416,7 @@ async function spotifyGetPlaylistTracks(
   context?: ToolExecutionContext,
 ): Promise<Record<string, unknown>> {
   if (!creds?.accessToken) {
-    return { error: "Spotify not configured. Please add your Spotify access token in the Spotify DJ agent settings." };
+    return { error: "Spotify not configured. Please add your Spotify access token in the Music DJ agent settings." };
   }
   const playlistId = String(args.playlistId ?? "");
 
@@ -1501,7 +1501,7 @@ async function spotifySearch(
   creds?: SpotifyCredentials,
 ): Promise<Record<string, unknown>> {
   if (!creds?.accessToken) {
-    return { error: "Spotify not configured. Please add your Spotify access token in the Spotify DJ agent settings." };
+    return { error: "Spotify not configured. Please add your Spotify access token in the Music DJ agent settings." };
   }
   const query = normalizeSpotifySearchQuery(args.query);
   const limit = Math.min(Number(args.limit ?? 5), 20);
@@ -1541,7 +1541,7 @@ async function spotifyPlay(
   context?: ToolExecutionContext,
 ): Promise<Record<string, unknown>> {
   if (!creds?.accessToken) {
-    return { error: "Spotify not configured. Please add your Spotify access token in the Spotify DJ agent settings." };
+    return { error: "Spotify not configured. Please add your Spotify access token in the Music DJ agent settings." };
   }
   const reason = String(args.reason ?? "");
   const repeatAfterPlay = context?.spotifyRepeatAfterPlay;
@@ -1756,7 +1756,7 @@ async function spotifySetVolume(
   creds?: SpotifyCredentials,
 ): Promise<Record<string, unknown>> {
   if (!creds?.accessToken) {
-    return { error: "Spotify not configured. Please add your Spotify access token in the Spotify DJ agent settings." };
+    return { error: "Spotify not configured. Please add your Spotify access token in the Music DJ agent settings." };
   }
   const volume = Math.max(0, Math.min(100, Number(args.volume ?? 50)));
   const reason = String(args.reason ?? "");

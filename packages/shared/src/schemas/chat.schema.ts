@@ -51,6 +51,8 @@ export const generateRequestSchema = z.object({
     .default([]),
   debugMode: z.boolean().optional().default(false),
   trimIncompleteModelOutput: z.boolean().optional().default(false),
+  musicPlayerEnabled: z.boolean().optional().default(true),
+  musicPlayerSource: z.enum(["spotify", "youtube"]).optional().default("spotify"),
   attachments: z
     .array(
       z.object({

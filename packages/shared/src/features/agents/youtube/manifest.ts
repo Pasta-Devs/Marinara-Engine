@@ -11,5 +11,6 @@ export const youtubeAgentManifest = {
   phase: "post_processing",
   enabledByDefault: false,
   category: "misc",
+  libraryHidden: true,
   resultType: "youtube_control",
 } satisfies BuiltInAgentManifest;

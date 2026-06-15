@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
+import { getChatToolbarButtonClass } from "../chat/ChatToolbarControls";
 
 const STATE_CONFIG: Record<GameActiveState, { icon: typeof Compass; label: string; color: string }> = {
   exploration: { icon: Compass, label: "Exploration", color: "text-emerald-300" },
@@ -102,9 +103,9 @@ function getTimePhaseLabel(phase: TimePhase): string {
 function getSkyClasses(phase: TimePhase): string {
   switch (phase) {
     case "midnight":
-      return "bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900";
+      return "bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900";
     case "night":
-      return "bg-gradient-to-b from-slate-800 via-indigo-900 to-slate-950";
+      return "bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950";
     case "dawn":
       return "bg-gradient-to-b from-rose-300 via-amber-200 to-sky-300";
     case "morning":
@@ -114,7 +115,7 @@ function getSkyClasses(phase: TimePhase): string {
     case "afternoon":
       return "bg-gradient-to-b from-sky-400 via-cyan-300 to-amber-100";
     case "evening":
-      return "bg-gradient-to-b from-violet-400 via-rose-300 to-amber-200";
+      return "bg-gradient-to-b from-slate-500 via-rose-300 to-amber-200";
   }
 }
 
@@ -226,7 +227,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
   const skipCommitRef = useRef(false);
   const timeLabel = getTimeOfDayStatusLabel(timeOfDay);
   const rootClassName = cn(
-    "inline-flex shrink-0 items-stretch overflow-hidden rounded-full border border-white/20 bg-black/55 text-white/85 shadow-[0_2px_8px_rgba(0,0,0,0.2)]",
+    "inline-flex shrink-0 items-stretch overflow-hidden rounded-lg border border-zinc-700/80 bg-zinc-950/85 text-zinc-100/85 shadow-[0_2px_8px_rgba(0,0,0,0.2)]",
     size === "mobile" ? "h-7 text-[0.6875rem]" : "h-5 text-[0.625rem]",
     className,
   );
@@ -234,7 +235,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
     "flex items-center justify-center font-semibold leading-none",
     size === "mobile" ? "min-w-14 px-2.5" : "min-w-11 px-1.5",
   );
-  const dividerClassName = cn("my-auto w-px shrink-0 bg-white/20", size === "mobile" ? "h-5" : "h-3.5");
+  const dividerClassName = cn("my-auto w-px shrink-0 bg-zinc-600/70", size === "mobile" ? "h-5" : "h-3.5");
   const timeClassName = cn(
     "h-full rounded-l-none rounded-r-full border-0 shadow-none",
     size === "mobile" ? "w-8" : "w-7",
@@ -264,7 +265,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
   if (editing) {
     return (
       <div
-        className={cn(rootClassName, "focus-within:ring-2 focus-within:ring-white/35")}
+        className={cn(rootClassName, "focus-within:ring-2 focus-within:ring-zinc-500/35")}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         title={`Day ${safeDay}. ${timeLabel}.`}
@@ -311,7 +312,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
       onPointerDown={(event) => event.stopPropagation()}
       className={cn(
         rootClassName,
-        "transition-colors hover:bg-black/75 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/35",
+        "transition-colors hover:bg-zinc-900 hover:text-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-500/35",
       )}
       title={`Day ${safeDay}. ${timeLabel}. Tap to edit day.`}
       aria-label={`Day ${safeDay}. ${timeLabel}. Tap to edit day.`}
@@ -370,7 +371,7 @@ function MapZoomControls({ zoom, onZoomOut, onZoomIn }: MapZoomControlsProps) {
 
   return (
     <div
-      className="absolute right-1.5 top-1.5 z-20 flex h-6 overflow-hidden rounded-md border border-white/15 bg-black/85 shadow-lg shadow-black/35"
+      className="absolute right-1.5 top-1.5 z-20 flex h-6 overflow-hidden rounded-md border border-zinc-700/80 bg-zinc-950/90 shadow-lg shadow-black/35"
       onPointerDown={stopPointer}
       title={`Map zoom: ${Math.round(zoom * 100)}%`}
     >
@@ -381,13 +382,13 @@ function MapZoomControls({ zoom, onZoomOut, onZoomIn }: MapZoomControlsProps) {
           onZoomOut();
         }}
         disabled={atMin}
-        className="flex h-full w-5 items-center justify-center text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+        className="flex h-full w-5 items-center justify-center text-zinc-200/80 transition-colors hover:bg-zinc-800 hover:text-zinc-50 disabled:cursor-not-allowed disabled:opacity-35"
         title="Zoom out"
         aria-label="Zoom out map"
       >
         <Minus size={11} />
       </button>
-      <span className="w-px bg-white/15" />
+      <span className="w-px bg-zinc-700/80" />
       <button
         type="button"
         onClick={(event) => {
@@ -395,7 +396,7 @@ function MapZoomControls({ zoom, onZoomOut, onZoomIn }: MapZoomControlsProps) {
           onZoomIn();
         }}
         disabled={atMax}
-        className="flex h-full w-5 items-center justify-center text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+        className="flex h-full w-5 items-center justify-center text-zinc-200/80 transition-colors hover:bg-zinc-800 hover:text-zinc-50 disabled:cursor-not-allowed disabled:opacity-35"
         title="Zoom in"
         aria-label="Zoom in map"
       >
@@ -444,7 +445,7 @@ function MapGenerateButton({ onGenerateMap, disabled, onAfterGenerate }: MapGene
         onAfterGenerate?.();
       }}
       disabled={disabled}
-      className="absolute left-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-md border border-white/15 bg-black/85 text-white/80 shadow-lg shadow-black/35 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+      className="absolute left-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-md border border-zinc-700/80 bg-zinc-950/90 text-zinc-200/80 shadow-lg shadow-black/35 transition-colors hover:bg-zinc-900 hover:text-zinc-50 disabled:cursor-not-allowed disabled:opacity-45"
       title="Generate another map"
       aria-label="Generate another map"
     >
@@ -499,14 +500,14 @@ export function GameMapPanel({
     return (
       <div
         data-tour="game-map"
-        className="flex w-52 flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 p-3 text-[var(--muted-foreground)] shadow-lg backdrop-blur-sm"
+        className="flex w-52 flex-col items-center justify-center gap-2 rounded-lg border border-zinc-700/80 bg-zinc-950/90 p-3 text-zinc-400 shadow-lg backdrop-blur-sm"
       >
         <span className="text-[0.625rem]">No map yet</span>
         {onGenerateMap && (
           <button
             onClick={onGenerateMap}
             disabled={disabled}
-            className="flex items-center gap-1 rounded-md bg-[var(--primary)] px-2 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50"
+            className="flex items-center gap-1 rounded-md bg-zinc-900 px-2 py-1 text-[0.625rem] font-medium text-zinc-100 ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zinc-900"
           >
             <Wand2 size={10} />
             Generate
@@ -533,8 +534,8 @@ export function GameMapPanel({
       onDragEnd={handleDragEnd}
       style={{ x, y }}
       className={cn(
-        "game-map-container flex w-52 flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 p-2 shadow-lg backdrop-blur-sm",
-        !locked && "cursor-grab ring-1 ring-white/20 active:cursor-grabbing",
+        "game-map-container flex w-52 flex-col gap-1 rounded-lg border border-zinc-700/80 bg-zinc-950/90 p-2 text-zinc-300 shadow-lg shadow-black/35 backdrop-blur-sm",
+        !locked && "cursor-grab ring-1 ring-zinc-500/30 active:cursor-grabbing",
       )}
     >
       <div
@@ -547,7 +548,7 @@ export function GameMapPanel({
             setCollapsed(!collapsed);
           }
         }}
-        className="relative flex cursor-pointer items-center gap-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+        className="relative flex cursor-pointer items-center gap-1.5 text-xs text-zinc-400 transition-colors hover:text-zinc-100"
       >
         {hasLeadingStatus && (
           <div className="flex shrink-0 items-center gap-1.5">
@@ -560,7 +561,7 @@ export function GameMapPanel({
               >
                 <StateIcon size={13} />
                 {stateHovered && (
-                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 px-1.5 py-0.5 text-[0.55rem] text-white/90 shadow z-50">
+                  <span className="absolute -bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-zinc-950/95 px-1.5 py-0.5 text-[0.55rem] text-zinc-100 shadow">
                     {stateCfg!.label}
                   </span>
                 )}
@@ -569,7 +570,7 @@ export function GameMapPanel({
             <DayTimeIndicator day={day} timeOfDay={timeOfDay} onDayChange={onDayChange} />
           </div>
         )}
-        <span className="block min-w-0 flex-1 overflow-hidden text-center font-semibold text-[var(--foreground)]">
+        <span className="block min-w-0 flex-1 overflow-hidden text-center font-semibold text-zinc-100">
           {shouldMarquee ? (
             <span className="game-map-marquee-track inline-flex whitespace-nowrap">
               <span className="pr-8">{mapName}</span>
@@ -580,14 +581,16 @@ export function GameMapPanel({
           )}
         </span>
         <PanelLockButton locked={locked} onToggle={toggleLocked} size={11} />
-        <span className="shrink-0">{collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}</span>
+        <span className="shrink-0 text-zinc-300/70">
+          {collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+        </span>
       </div>
       {!collapsed && mapOptions.length > 1 && (
         <div className="flex items-center gap-1">
           <select
             value={selectedMapId ?? ""}
             onChange={(event) => onViewedMapChange?.(event.target.value)}
-            className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/35 px-1.5 py-1 text-[0.625rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+            className="min-w-0 flex-1 rounded-md border border-zinc-700/80 bg-zinc-950/70 px-1.5 py-1 text-[0.625rem] text-zinc-100 outline-none focus:border-zinc-400/60"
             title="View map"
           >
             {mapOptions.map((option, index) => {
@@ -728,11 +731,11 @@ export function MobileMapButton({
       <div className="flex items-center gap-1.5">
         <button
           onClick={() => setOpen(true)}
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/60 text-white/80 shadow-lg backdrop-blur-md transition-colors active:bg-white/10"
+          className={getChatToolbarButtonClass({ className: "shadow-lg shadow-black/25" })}
           aria-label="Open map"
           title="Open map"
         >
-          <MapIcon size={18} />
+          <MapIcon size={14} />
         </button>
         <DayTimeIndicator day={day} timeOfDay={timeOfDay} onDayChange={onDayChange} size="mobile" />
       </div>
@@ -747,12 +750,12 @@ export function MobileMapButton({
           }}
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/15 bg-[var(--card)]/95 shadow-2xl backdrop-blur-md"
+            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl backdrop-blur-md"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-              <StateIcon size={14} className={stateCfg?.color ?? "text-white/60"} />
+            <div className="flex items-center gap-2 border-b border-zinc-700/80 px-4 py-3">
+              <StateIcon size={14} className={stateCfg?.color ?? "text-zinc-400"} />
               <DayTimeIndicator day={day} timeOfDay={timeOfDay} onDayChange={onDayChange} size="mobile" />
               <div className="min-w-0 flex-1 overflow-hidden">
                 <p className="block overflow-hidden whitespace-nowrap text-sm font-bold text-[var(--foreground)]">
@@ -784,7 +787,7 @@ export function MobileMapButton({
                       onViewedMapChange?.(event.target.value);
                       setSelectedNode(null);
                     }}
-                    className="mt-1 w-full rounded-md border border-white/10 bg-black/35 px-1.5 py-1 text-[0.625rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                    className="mt-1 w-full rounded-md border border-zinc-700/80 bg-zinc-950/70 px-1.5 py-1 text-[0.625rem] text-zinc-100 outline-none focus:border-zinc-400/60"
                     title="View map"
                   >
                     {mapOptions.map((option, index) => {
@@ -804,7 +807,7 @@ export function MobileMapButton({
                   setOpen(false);
                   setSelectedNode(null);
                 }}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
               >
                 <X size={14} />
               </button>
@@ -822,7 +825,7 @@ export function MobileMapButton({
                         setOpen(false);
                       }}
                       disabled={disabled}
-                      className="flex items-center gap-1 rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-100 ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Wand2 size={12} />
                       Generate
@@ -881,7 +884,7 @@ export function MobileMapButton({
 
             {/* Selected node footer — shown when a node is tapped */}
             {selectedNodeData && (
-              <div className="flex items-center gap-2 border-t border-white/10 px-4 py-2.5">
+              <div className="flex items-center gap-2 border-t border-zinc-700/80 px-4 py-2.5">
                 <span className="text-sm">{selectedNodeData.discovered ? selectedNodeData.emoji : "❓"}</span>
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--foreground)]">
                   {selectedNodeData.discovered ? selectedNodeData.label : "Unknown location"}
@@ -889,7 +892,7 @@ export function MobileMapButton({
                 {canTravel && selectedNode !== currentNode?.id && (
                   <button
                     onClick={handleTravel}
-                    className="shrink-0 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--primary-foreground)] transition-colors active:opacity-80"
+                    className="shrink-0 rounded-lg bg-zinc-900 px-3 py-1.5 text-[0.6875rem] font-semibold text-zinc-100 ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800 active:opacity-80"
                   >
                     Set destination
                   </button>

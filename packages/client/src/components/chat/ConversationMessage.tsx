@@ -54,6 +54,7 @@ interface ConversationMessageProps {
   onSetActiveSwipe?: (messageId: string, index: number) => void;
   onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
   onPeekPrompt?: () => void;
+  onBranch?: (messageId: string) => void;
   isLastAssistantMessage?: boolean;
   characterMap?: CharacterMap;
   personaInfo?: PersonaInfo;
@@ -90,6 +91,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   onSetActiveSwipe,
   onToggleHiddenFromAI,
   onPeekPrompt,
+  onBranch,
   isLastAssistantMessage,
   characterMap,
   personaInfo,
@@ -169,9 +171,8 @@ export const ConversationMessage = memo(function ConversationMessage({
     }
     return null;
   }, [chatCharacterIds, scopedCharacterMap]);
-  const resolvedCharacterInfo = message.characterId !== null
-    ? (charInfo ?? fallbackChatCharacterEntry?.info ?? null)
-    : null;
+  const resolvedCharacterInfo =
+    message.characterId !== null ? (charInfo ?? fallbackChatCharacterEntry?.info ?? null) : null;
   const primaryCharInfo =
     resolvedCharacterInfo ??
     (scopedCharacterMap
@@ -180,17 +181,27 @@ export const ConversationMessage = memo(function ConversationMessage({
 
   const msgPersona = isUser && !plainUserMessages && extra.personaSnapshot ? extra.personaSnapshot : null;
   const avatarUrl = isUser
-    ? plainUserMessages ? null : (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
+    ? plainUserMessages
+      ? null
+      : (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
     : (resolvedCharacterInfo?.avatarUrl ?? null);
   const personaAvatarCrop = isUser
-    ? plainUserMessages ? null : (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
+    ? plainUserMessages
+      ? null
+      : (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
     : null;
-  const avatarCropStyle = isUser ? getAvatarCropStyle(personaAvatarCrop) : getAvatarCropStyle(resolvedCharacterInfo?.avatarCrop);
+  const avatarCropStyle = isUser
+    ? getAvatarCropStyle(personaAvatarCrop)
+    : getAvatarCropStyle(resolvedCharacterInfo?.avatarCrop);
   const displayName = isUser
-    ? plainUserMessages ? "You" : (msgPersona?.name ?? personaInfo?.name ?? "You")
+    ? plainUserMessages
+      ? "You"
+      : (msgPersona?.name ?? personaInfo?.name ?? "You")
     : (primaryCharInfo?.name ?? "Assistant");
   const nameColor = isUser
-    ? plainUserMessages ? undefined : (msgPersona?.nameColor ?? personaInfo?.nameColor)
+    ? plainUserMessages
+      ? undefined
+      : (msgPersona?.nameColor ?? personaInfo?.nameColor)
     : resolvedCharacterInfo?.nameColor;
 
   const macroContext = useMemo(
@@ -205,15 +216,27 @@ export const ConversationMessage = memo(function ConversationMessage({
         scenario: plainUserMessages ? undefined : (msgPersona?.scenario ?? personaInfo?.scenario),
       },
       primaryCharacter: primaryCharInfo ?? { name: displayName },
-      characters: scopedCharacterMap ? Array.from(scopedCharacterMap.values()) : displayName ? [{ name: displayName }] : [],
+      characters: scopedCharacterMap
+        ? Array.from(scopedCharacterMap.values())
+        : displayName
+          ? [{ name: displayName }]
+          : [],
     }),
     [
       displayName,
-      msgPersona?.appearance, msgPersona?.backstory, msgPersona?.description,
-      msgPersona?.personality, msgPersona?.scenario,
-      personaInfo?.appearance, personaInfo?.backstory, personaInfo?.description,
-      personaInfo?.personality, personaInfo?.scenario,
-      plainUserMessages, primaryCharInfo, scopedCharacterMap,
+      msgPersona?.appearance,
+      msgPersona?.backstory,
+      msgPersona?.description,
+      msgPersona?.personality,
+      msgPersona?.scenario,
+      personaInfo?.appearance,
+      personaInfo?.backstory,
+      personaInfo?.description,
+      personaInfo?.personality,
+      personaInfo?.scenario,
+      plainUserMessages,
+      primaryCharInfo,
+      scopedCharacterMap,
     ],
   );
 
@@ -224,7 +247,9 @@ export const ConversationMessage = memo(function ConversationMessage({
   const renderedContentParts = useMemo(() => {
     if (!contentParts?.length) return null;
     const count = Math.max(1, Math.min(visiblePartCount ?? contentParts.length, contentParts.length));
-    return contentParts.slice(0, count).map((part) => formatTextQuotes(resolveMessageMacros(part, macroContext), quoteFormat));
+    return contentParts
+      .slice(0, count)
+      .map((part) => formatTextQuotes(resolveMessageMacros(part, macroContext), quoteFormat));
   }, [contentParts, macroContext, quoteFormat, visiblePartCount]);
 
   // ── Attachment removal ──
@@ -277,7 +302,9 @@ export const ConversationMessage = memo(function ConversationMessage({
   const mentionNames = useMemo(() => {
     if (!scopedCharacterMap) return [] as string[];
     const names: string[] = [];
-    for (const [, v] of scopedCharacterMap) { if (v?.name) names.push(v.name); }
+    for (const [, v] of scopedCharacterMap) {
+      if (v?.name) names.push(v.name);
+    }
     return names;
   }, [scopedCharacterMap]);
 
@@ -308,7 +335,10 @@ export const ConversationMessage = memo(function ConversationMessage({
       prevContentRef.current = renderedContent;
       setVisibleSegments(1);
       let count = 1;
-      const reveal = () => { count++; setVisibleSegments(count); };
+      const reveal = () => {
+        count++;
+        setVisibleSegments(count);
+      };
       const timers: ReturnType<typeof setTimeout>[] = [];
       for (let i = 1; i < segmentCount; i++) timers.push(setTimeout(reveal, i * 1500));
       return () => timers.forEach(clearTimeout);
@@ -318,7 +348,8 @@ export const ConversationMessage = memo(function ConversationMessage({
   }, [renderedContent, segmentCount]);
 
   // ── Hidden from AI ──
-  const isHiddenExpanded = isHiddenFromAI && (!collapseHiddenMessages || manuallyExpandedHidden || editing || !!isStreaming);
+  const isHiddenExpanded =
+    isHiddenFromAI && (!collapseHiddenMessages || manuallyExpandedHidden || editing || !!isStreaming);
   const isHiddenCollapsed = isHiddenFromAI && collapseHiddenMessages && !isHiddenExpanded;
   const hiddenFromAIHeader = isHiddenFromAI ? (
     <HiddenFromAIConversationButton
@@ -390,7 +421,12 @@ export const ConversationMessage = memo(function ConversationMessage({
       const target = e.target as HTMLElement;
       if (target.closest("button, a, textarea")) return;
       if (multiSelectMode) {
-        onToggleSelect?.({ messageId: message.id, orderIndex: messageOrderIndex ?? 0, checked: !isSelected, shiftKey: e.shiftKey });
+        onToggleSelect?.({
+          messageId: message.id,
+          orderIndex: messageOrderIndex ?? 0,
+          checked: !isSelected,
+          shiftKey: e.shiftKey,
+        });
         return;
       }
       if (!matchMedia("(pointer: coarse)").matches) return;
@@ -400,9 +436,15 @@ export const ConversationMessage = memo(function ConversationMessage({
   );
 
   // ── Effects ──
-  useEffect(() => { setManuallyExpandedHidden(false); }, [message.id]);
-  useEffect(() => { if (!isHiddenFromAI || !collapseHiddenMessages) setManuallyExpandedHidden(false); }, [collapseHiddenMessages, isHiddenFromAI]);
-  useEffect(() => { if (!generationReplay) setShowGenerationReplay(false); }, [generationReplay]);
+  useEffect(() => {
+    setManuallyExpandedHidden(false);
+  }, [message.id]);
+  useEffect(() => {
+    if (!isHiddenFromAI || !collapseHiddenMessages) setManuallyExpandedHidden(false);
+  }, [collapseHiddenMessages, isHiddenFromAI]);
+  useEffect(() => {
+    if (!generationReplay) setShowGenerationReplay(false);
+  }, [generationReplay]);
   useEffect(() => {
     if (!showActions) return;
     const handleTouch = (e: TouchEvent) => {
@@ -417,40 +459,82 @@ export const ConversationMessage = memo(function ConversationMessage({
     isBubbleStyle && !!isStreaming && renderedContentParts?.length ? renderedContentParts.join("\n\n") : null;
   const shouldHideUserAvatar = (isUser && !!hideUserAvatar) || (isBubbleStyle && isUser);
   const bubbleCornerClass = isUser
-    ? bubbleGroupPosition === "single" ? "rounded-2xl"
-    : bubbleGroupPosition === "first" ? "rounded-2xl rounded-br-md"
-    : bubbleGroupPosition === "middle" ? "rounded-2xl rounded-r-md"
-    : "rounded-2xl rounded-tr-md"
-    : bubbleGroupPosition === "single" ? "rounded-2xl"
-    : bubbleGroupPosition === "first" ? "rounded-2xl rounded-bl-md"
-    : bubbleGroupPosition === "middle" ? "rounded-2xl rounded-l-md"
-    : "rounded-2xl rounded-tl-md";
+    ? bubbleGroupPosition === "single"
+      ? "rounded-2xl"
+      : bubbleGroupPosition === "first"
+        ? "rounded-2xl rounded-br-md"
+        : bubbleGroupPosition === "middle"
+          ? "rounded-2xl rounded-r-md"
+          : "rounded-2xl rounded-tr-md"
+    : bubbleGroupPosition === "single"
+      ? "rounded-2xl"
+      : bubbleGroupPosition === "first"
+        ? "rounded-2xl rounded-bl-md"
+        : bubbleGroupPosition === "middle"
+          ? "rounded-2xl rounded-l-md"
+          : "rounded-2xl rounded-tl-md";
 
   // ── Build shared render context ──
   const ctx: MessageRenderContext = {
-    message, extra, isUser, isGrouped: !!isGrouped,
-    displayName, avatarUrl, avatarCropStyle, nameColor,
-    mentionNames, charByName,
+    message,
+    extra,
+    isUser,
+    isGrouped: !!isGrouped,
+    displayName,
+    avatarUrl,
+    avatarCropStyle,
+    nameColor,
+    mentionNames,
+    charByName,
     quoteFormat,
-    renderedContent, renderedContentParts, groupedSegments, visibleSegments,
-    streamingBubbleDraftContent, isStreaming,
-    editing, editValue, editRef,
+    renderedContent,
+    renderedContentParts,
+    groupedSegments,
+    visibleSegments,
+    streamingBubbleDraftContent,
+    isStreaming,
+    editing,
+    editValue,
+    editRef,
     onEditValueChange: setEditValue,
     onSaveEdit: handleSaveEdit,
     onCancelEdit: () => setEditing(false),
-    isHiddenFromAI, isHiddenCollapsed, hiddenFromAIHeader,
+    isHiddenFromAI,
+    isHiddenCollapsed,
+    hiddenFromAIHeader,
     onExpandHidden: () => setManuallyExpandedHidden(true),
-    showActions, forceShowActions, hideActions, noHoverGroup,
-    hideTimestamp, hideUserAvatar, showMessageNumbers, messageIndex,
-    copied, isGuided, regenerateButtonTitle, regenerateGuidedClass,
-    thinking, generationReplay, canRegenerate, isLastAssistantMessage,
-    translatedText, isTranslating,
+    showActions,
+    forceShowActions,
+    hideActions,
+    noHoverGroup,
+    hideTimestamp,
+    hideUserAvatar,
+    showMessageNumbers,
+    messageIndex,
+    copied,
+    isGuided,
+    regenerateButtonTitle,
+    regenerateGuidedClass,
+    thinking,
+    generationReplay,
+    canRegenerate,
+    isLastAssistantMessage,
+    translatedText,
+    isTranslating,
     hasSwipes: (message.swipeCount ?? 0) > 1,
     swipeCount: message.swipeCount ?? 0,
-    multiSelectMode, isSelected,
-    onToggleSelect: multiSelectMode && onToggleSelect
-      ? () => onToggleSelect({ messageId: message.id, orderIndex: messageOrderIndex ?? 0, checked: !isSelected, shiftKey: false })
-      : undefined,
+    multiSelectMode,
+    isSelected,
+    onToggleSelect:
+      multiSelectMode && onToggleSelect
+        ? () =>
+            onToggleSelect({
+              messageId: message.id,
+              orderIndex: messageOrderIndex ?? 0,
+              checked: !isSelected,
+              shiftKey: false,
+            })
+        : undefined,
     handleMobileTap,
     onCopy: handleCopy,
     onTranslate: handleTranslate,
@@ -465,38 +549,63 @@ export const ConversationMessage = memo(function ConversationMessage({
     onShowGenerationReplay: () => setShowGenerationReplay(true),
     onShowThinking: () => setShowThinking(true),
     messageTextStyle,
-    isBubbleStyle, bubbleGroupPosition, bubbleCornerClass, shouldHideUserAvatar,
+    isBubbleStyle,
+    bubbleGroupPosition,
+    bubbleCornerClass,
+    shouldHideUserAvatar,
   };
 
   // ── Shared modals (portals, rendered outside the layout) ──
   const modals = (
     <>
-      {showThinking && thinking && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]" onClick={() => setShowThinking(false)}>
-          <div className="relative mx-4 flex max-h-[70vh] w-full max-w-xl flex-col rounded-xl bg-[var(--card)] shadow-2xl ring-1 ring-[var(--border)]" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Brain size="0.875rem" className="text-[var(--muted-foreground)]" />
-                Model Thoughts
+      {showThinking &&
+        thinking &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
+            onClick={() => setShowThinking(false)}
+          >
+            <div
+              className="relative mx-4 flex max-h-[70vh] w-full max-w-xl flex-col rounded-xl bg-[var(--card)] shadow-2xl ring-1 ring-[var(--border)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Brain size="0.875rem" className="text-[var(--muted-foreground)]" />
+                  Model Thoughts
+                </div>
+                <button
+                  onClick={() => setShowThinking(false)}
+                  className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
+                >
+                  <X size="0.875rem" />
+                </button>
               </div>
-              <button onClick={() => setShowThinking(false)} className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]">
-                <X size="0.875rem" />
-              </button>
+              <div className="overflow-y-auto px-4 py-3">
+                <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--muted-foreground)]">
+                  {thinking}
+                </pre>
+              </div>
             </div>
-            <div className="overflow-y-auto px-4 py-3">
-              <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--muted-foreground)]">{thinking}</pre>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+          </div>,
+          document.body,
+        )}
       {generationReplay && (
-        <GenerationReplayDetailsModal open={showGenerationReplay} replay={generationReplay} onClose={() => setShowGenerationReplay(false)} />
+        <GenerationReplayDetailsModal
+          open={showGenerationReplay}
+          replay={generationReplay}
+          onClose={() => setShowGenerationReplay(false)}
+        />
       )}
-      {imageLightbox && createPortal(
-        <ConversationMessageLightbox url={imageLightbox.url} prompt={imageLightbox.prompt} onClose={() => setImageLightbox(null)} />,
-        document.body,
-      )}
+      {imageLightbox &&
+        createPortal(
+          <ConversationMessageLightbox
+            url={imageLightbox.url}
+            prompt={imageLightbox.prompt}
+            onClose={() => setImageLightbox(null)}
+          />,
+          document.body,
+        )}
     </>
   );
 
@@ -505,14 +614,23 @@ export const ConversationMessage = memo(function ConversationMessage({
     return (
       <div
         ref={msgRef}
-        className={cn("group flex justify-center py-1", multiSelectMode && isSelected && "rounded-lg bg-[var(--destructive)]/10")}
+        className={cn(
+          "group flex justify-center py-1",
+          multiSelectMode && isSelected && "rounded-lg bg-[var(--destructive)]/10",
+        )}
         onClick={handleMobileTap}
       >
         <div className="relative">
           {!multiSelectMode && onDelete && (
             <button
-              onClick={(e) => { e.stopPropagation(); onDelete(message.id); }}
-              className={cn("absolute -right-1 -top-1 rounded-md p-1 text-[var(--muted-foreground)]/30 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100", showActions && "opacity-100")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(message.id);
+              }}
+              className={cn(
+                "absolute -right-1 -top-1 rounded-md p-1 text-[var(--muted-foreground)]/30 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100",
+                showActions && "opacity-100",
+              )}
               title="Delete"
             >
               <Trash2 size="0.75rem" />
@@ -546,16 +664,19 @@ export const ConversationMessage = memo(function ConversationMessage({
           !noHoverGroup && "group",
           isBubbleStyle
             ? cn("py-1", isUser ? "mari-message-user" : "mari-message-assistant", !isGrouped && "mt-2.5")
-            : cn("flex gap-4 py-0.5 hover:bg-[var(--secondary)]/30", isUser ? "mari-message-user" : "mari-message-assistant", isGrouped ? "mt-0" : "mt-4", isStreaming && "bg-[var(--secondary)]/20"),
+            : cn(
+                "flex gap-4 py-0.5 hover:bg-[var(--secondary)]/30",
+                isUser ? "mari-message-user" : "mari-message-assistant",
+                isGrouped ? "mt-0" : "mt-4",
+                isStreaming && "bg-[var(--secondary)]/20",
+              ),
           multiSelectMode && isSelected && "bg-[var(--destructive)]/10",
         )}
         data-message-id={message.id}
         data-message-role={message.role}
         onClick={handleMobileTap}
       >
-        {isBubbleStyle
-          ? <ConversationMessageBubble ctx={ctx} />
-          : <ConversationMessageLine ctx={ctx} />}
+        {isBubbleStyle ? <ConversationMessageBubble ctx={ctx} /> : <ConversationMessageLine ctx={ctx} />}
 
         {!hideActions && (
           <ConversationMessageActions
@@ -577,7 +698,10 @@ export const ConversationMessage = memo(function ConversationMessage({
             onTranslate={handleTranslate}
             onEdit={handleStartEdit}
             onRegenerate={onRegenerate ? () => onRegenerate(message.id) : undefined}
-            onToggleHiddenFromAI={onToggleHiddenFromAI ? () => onToggleHiddenFromAI(message.id, isHiddenFromAI) : undefined}
+            onBranch={onBranch ? () => onBranch(message.id) : undefined}
+            onToggleHiddenFromAI={
+              onToggleHiddenFromAI ? () => onToggleHiddenFromAI(message.id, isHiddenFromAI) : undefined
+            }
             onPeekPrompt={onPeekPrompt}
             onDelete={onDelete ? () => onDelete(message.id) : undefined}
             onShowGenerationReplay={() => setShowGenerationReplay(true)}

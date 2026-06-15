@@ -91,7 +91,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-xl transition-all",
           open
-            ? "bg-foreground/10 text-foreground/75"
+            ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
             : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
           className,
         )}
@@ -102,10 +102,10 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
       {open && (
         <div
           ref={menuRef}
-          className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+          className="fixed z-[9999] flex min-w-[280px] max-w-[340px] max-h-[360px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
           style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" as const }}
         >
-          <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] px-3 py-2">
+          <div className="flex items-center justify-between gap-2 border-b border-foreground/10 px-3 py-2">
             <span className="text-[0.6875rem] font-semibold">Connections</span>
             <button
               onClick={handleToggleRandom}
@@ -113,8 +113,8 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
               className={cn(
                 "flex h-6 w-6 items-center justify-center rounded-md transition-all active:scale-90",
                 isRandom
-                  ? "bg-amber-400/20 text-amber-400 ring-1 ring-amber-400/40"
-                  : "text-[var(--muted-foreground)] hover:bg-amber-400/10 hover:text-amber-400",
+                  ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
               )}
             >
               <Dices size="0.875rem" />
@@ -129,7 +129,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
                   <button
                     key={conn.id}
                     onClick={() => handleTogglePool(conn.id, inPool)}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10"
                     title={inPool ? "In random pool — click to remove" : "Click to add to random pool"}
                   >
                     <span className="flex-1 truncate">{conn.name || conn.id}</span>
@@ -137,8 +137,8 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
                       className={cn(
                         "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
                         inPool
-                          ? "border-amber-400/60 bg-amber-400/20 text-amber-400"
-                          : "border-[var(--border)] bg-transparent",
+                          ? "border-foreground/35 bg-foreground/10 text-foreground/75"
+                          : "border-foreground/20 bg-transparent",
                       )}
                     >
                       {inPool && <Check size="0.625rem" strokeWidth={3} />}
@@ -151,7 +151,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
                   key={conn.id}
                   onClick={() => handleSwitch(conn.id)}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]",
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-foreground/10",
                     isActive && "text-foreground font-semibold",
                   )}
                 >
@@ -162,7 +162,7 @@ export function QuickConnectionSwitcher({ className }: { className?: string }) {
             })}
 
             {sorted.length === 0 && (
-              <div className="px-3 py-4 text-center text-[0.6875rem] italic text-[var(--muted-foreground)]">
+              <div className="px-3 py-4 text-center text-[0.6875rem] italic text-foreground/45">
                 No connections found.
               </div>
             )}

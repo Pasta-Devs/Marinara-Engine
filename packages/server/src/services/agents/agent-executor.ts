@@ -61,6 +61,19 @@ export interface AgentToolContext {
   executeToolCall: (call: LLMToolCall) => Promise<string>;
 }
 
+function getMusicProvider(settings: Record<string, unknown> | null | undefined): "spotify" | "youtube" {
+  const raw = settings?.musicProvider ?? settings?.musicPlayerSource;
+  return raw === "youtube" ? "youtube" : "spotify";
+}
+
+function musicDjUsesYoutube(config: Pick<AgentExecConfig, "type" | "settings">): boolean {
+  return config.type === "spotify" && getMusicProvider(config.settings) === "youtube";
+}
+
+function getDefaultPromptForAgent(config: Pick<AgentExecConfig, "type" | "settings">): string {
+  return getDefaultAgentPrompt(musicDjUsesYoutube(config) ? "youtube" : config.type);
+}
+
 export function normalizeAgentContextSize(value: unknown, fallback = DEFAULT_AGENT_CONTEXT_SIZE): number {
   const parsed =
     typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : fallback;
@@ -226,7 +239,7 @@ export async function executeAgent(
   const startTime = Date.now();
 
   try {
-    const template = config.promptTemplate || getDefaultAgentPrompt(config.type);
+    const template = config.promptTemplate || getDefaultPromptForAgent(config);
     if (!template) {
       return makeError(config, "No prompt template configured", startTime);
     }
@@ -748,7 +761,7 @@ function buildBatchSystemPrompt(configs: AgentExecConfig[], context: AgentContex
   parts.push(`<agents>`);
   parts.push(`Fulfill each of the requested tasks here and return the outputs in the formats they're specified:`);
   for (const config of configs) {
-    const template = config.promptTemplate || getDefaultAgentPrompt(config.type);
+    const template = config.promptTemplate || getDefaultPromptForAgent(config);
     parts.push(``);
     parts.push(`<agent_task id="${config.type}" name="${config.name}">`);
     parts.push(template);
@@ -880,9 +893,9 @@ function makeError(config: AgentExecConfig, error: string, startTime: number): A
   };
 }
 
-function shouldFailInvalidJsonResult(config: Pick<AgentExecConfig, "type">, data: unknown): boolean {
+function shouldFailInvalidJsonResult(config: Pick<AgentExecConfig, "type" | "settings">, data: unknown): boolean {
   return (
-    config.type !== "spotify" &&
+    (config.type !== "spotify" || musicDjUsesYoutube(config)) &&
     !!data &&
     typeof data === "object" &&
     (data as { parseError?: unknown }).parseError === true
@@ -894,7 +907,7 @@ function invalidJsonAgentError(resultType: AgentResultType): string {
 }
 
 function shouldRetryInvalidJsonAgent(config: Pick<AgentExecConfig, "type" | "settings">): boolean {
-  return config.type !== "spotify" && agentResponseIsJson(config);
+  return (config.type !== "spotify" || musicDjUsesYoutube(config)) && agentResponseIsJson(config);
 }
 
 function buildInvalidJsonRetryMessages(
@@ -917,13 +930,14 @@ function buildInvalidJsonRetryMessages(
   ];
 }
 
-function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type">): boolean {
+function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type" | "settings">): boolean {
   // These agents either need compact prompts or carry large private extras that
   // must not be merged into unrelated batched agent requests.
   return (
     config.type === "expression" ||
     config.type === "illustrator" ||
-    config.type === "lorebook-keeper"
+    config.type === "lorebook-keeper" ||
+    musicDjUsesYoutube(config)
   );
 }
 
@@ -1119,9 +1133,14 @@ function findLatestUserMessage(
 function buildSpotifyAgentMessages(config: AgentExecConfig, template: string, context: AgentContext): ChatMessage[] {
   const isGame = context.chatMode === "game";
   const turnLabel = isGame ? "game" : "roleplay";
+  const musicProvider = getMusicProvider(config.settings);
   const systemParts: string[] = [];
   systemParts.push(`<role>`);
-  systemParts.push(`You are a specialized Spotify DJ agent for the current ${turnLabel} turn.`);
+  systemParts.push(
+    musicProvider === "youtube"
+      ? `You are the Music DJ agent using YouTube for the current ${turnLabel} turn.`
+      : `You are the Music DJ agent using Spotify for the current ${turnLabel} turn.`,
+  );
   systemParts.push(`</role>`);
   systemParts.push(``);
   systemParts.push(buildLoreBlock(context));
@@ -1131,7 +1150,7 @@ function buildSpotifyAgentMessages(config: AgentExecConfig, template: string, co
   systemParts.push(template);
   systemParts.push(`</agents>`);
 
-  const extras = buildAgentExtras(context, ["spotify"]);
+  const extras = buildAgentExtras(context, [musicProvider]);
   if (extras) {
     systemParts.push(``);
     systemParts.push(extras);
@@ -1752,6 +1771,7 @@ const AGENT_RESULT_TYPES = new Set<AgentResultType>([
 const TEXT_RESULT_TYPES = new Set<AgentResultType>(["context_injection", "director_event"]);
 
 export function resolveAgentResultType(config: Pick<AgentExecConfig, "type" | "settings">): AgentResultType {
+  if (musicDjUsesYoutube(config)) return "youtube_control";
   const configured = config.settings?.resultType;
   if (typeof configured === "string" && AGENT_RESULT_TYPES.has(configured as AgentResultType)) {
     return configured as AgentResultType;

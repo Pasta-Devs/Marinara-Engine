@@ -47,7 +47,7 @@ export function GameNodeMap({
   // Guard against empty nodes — no SVG to render
   if (nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center rounded border border-[var(--border)] bg-gray-900/30 p-4 text-xs text-[var(--muted-foreground)]">
+      <div className="flex items-center justify-center rounded-lg border border-zinc-700/80 bg-zinc-950/70 p-4 text-xs text-zinc-400">
         No map nodes available
       </div>
     );
@@ -95,7 +95,7 @@ export function GameNodeMap({
       {topLeftAction}
       {topRightAction}
       <div
-        className="w-full overflow-auto rounded"
+        className="w-full overflow-auto rounded-lg"
         style={{
           aspectRatio: `${viewWidth} / ${viewHeight}`,
           maxHeight: "min(52vh, 340px)",
@@ -103,7 +103,7 @@ export function GameNodeMap({
       >
         <svg
           viewBox={`${visibleMinX} ${visibleMinY} ${visibleViewWidth} ${visibleViewHeight}`}
-          className="block rounded border border-[var(--border)] bg-gray-900/30"
+          className="block rounded-lg border border-zinc-700/80 bg-zinc-950/70"
           style={{ width: mapContentWidth }}
         >
           {/* Edges */}

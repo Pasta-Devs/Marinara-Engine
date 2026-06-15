@@ -1,7 +1,17 @@
 // ──────────────────────────────────────────────
 // Chat: Main chat area — mode-aware rendering
 // ──────────────────────────────────────────────
-import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { useQueries } from "@tanstack/react-query";
 import {
   useChatMessages,
@@ -71,7 +81,7 @@ export type { CharacterMap };
 
 const BUILT_IN_AGENT_ID_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const BUILT_IN_TRACKER_AGENT_ID_SET = new Set(
-  BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker").map((agent) => agent.id),
+  BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker" && !agent.libraryHidden).map((agent) => agent.id),
 );
 
 const normalizeSpriteDisplayValue = (value: unknown, fallback: number, min: number, max: number): number => {
@@ -199,6 +209,8 @@ const GameSurface = lazy(async () => {
   return { default: module.GameSurface };
 });
 
+type FloatingPanelAnchor = { right: number; top: number } | null;
+
 export function ChatArea() {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
@@ -228,6 +240,8 @@ export function ChatArea() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [filesOpen, setFilesOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [settingsAnchor, setSettingsAnchor] = useState<FloatingPanelAnchor>(null);
+  const [galleryAnchor, setGalleryAnchor] = useState<FloatingPanelAnchor>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [spriteArrangeMode, setSpriteArrangeMode] = useState(false);
   const [agentInjectionReview, setAgentInjectionReview] = useState<AgentInjectionReviewRequest | null>(null);
@@ -246,6 +260,36 @@ export function ChatArea() {
     () => (activeChatId ? (allChats?.find((candidate) => candidate.id === activeChatId) ?? null) : null),
     [activeChatId, allChats],
   );
+  const readFloatingPanelAnchor = useCallback((event?: ReactMouseEvent<HTMLElement>): FloatingPanelAnchor => {
+    if (!event || typeof window === "undefined" || window.innerWidth < 768) return null;
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      right: Math.max(12, Math.round(window.innerWidth - rect.right)),
+      top: Math.max(56, Math.round(rect.bottom + 8)),
+    };
+  }, []);
+  const handleOpenSettingsPanel = useCallback(
+    (event?: ReactMouseEvent<HTMLElement>) => {
+      setSettingsAnchor(readFloatingPanelAnchor(event));
+      setSettingsOpen(true);
+    },
+    [readFloatingPanelAnchor],
+  );
+  const handleOpenGalleryPanel = useCallback(
+    (event?: ReactMouseEvent<HTMLElement>) => {
+      setGalleryAnchor(readFloatingPanelAnchor(event));
+      setGalleryOpen(true);
+    },
+    [readFloatingPanelAnchor],
+  );
+  const handleCloseSettingsPanel = useCallback(() => {
+    setSettingsOpen(false);
+    setSettingsAnchor(null);
+  }, []);
+  const handleCloseGalleryPanel = useCallback(() => {
+    setGalleryOpen(false);
+    setGalleryAnchor(null);
+  }, []);
   const chat = chatDetail ?? null;
   // Game mode loads ALL messages (no pagination) so the in-game log
   // shows the full session history instead of only the latest page.
@@ -1355,11 +1399,11 @@ export function ChatArea() {
         setWizardOpen(true);
         useChatStore.getState().setShouldOpenWizard(false);
       } else {
-        setSettingsOpen(true);
+        handleOpenSettingsPanel();
       }
       useChatStore.getState().setShouldOpenSettings(false);
     }
-  }, [shouldOpenSettings, shouldOpenWizard, activeChatId]);
+  }, [shouldOpenSettings, shouldOpenWizard, activeChatId, handleOpenSettingsPanel]);
 
   // Auto-scroll on new messages / streaming (but not on "load more")
   // Only scroll if user is already near the bottom (within 150px).
@@ -1922,7 +1966,7 @@ export function ChatArea() {
             characters={gameCharacters}
             personaInfo={personaInfo}
             chatBackground={chatBackground}
-            onOpenSettings={() => setSettingsOpen(true)}
+            onOpenSettings={handleOpenSettingsPanel}
             onDeleteMessage={handleDelete}
             multiSelectMode={multiSelectMode}
             selectedMessageIds={selectedMessageIds}
@@ -1932,8 +1976,10 @@ export function ChatArea() {
             chat={chat}
             activeChatId={activeChatId}
             settingsOpen={settingsOpen}
+            settingsAnchor={settingsAnchor}
             filesOpen={filesOpen}
             galleryOpen={galleryOpen}
+            galleryAnchor={galleryAnchor}
             wizardOpen={wizardOpen}
             peekPromptData={peekPromptData}
             deleteDialogMessageId={deleteDialogMessageId}
@@ -1948,13 +1994,13 @@ export function ChatArea() {
               onResetSpritePlacements: handleResetSpritePlacements,
               onSpriteSideChange: handleSetSpritePosition,
             }}
-            onCloseSettings={() => setSettingsOpen(false)}
+            onCloseSettings={handleCloseSettingsPanel}
             onCloseFiles={() => setFilesOpen(false)}
-            onCloseGallery={() => setGalleryOpen(false)}
+            onCloseGallery={handleCloseGalleryPanel}
             onIllustrate={() => retryAgents(activeChatId, ["illustrator"])}
             onWizardFinish={() => {
               setWizardOpen(false);
-              setSettingsOpen(true);
+              handleOpenSettingsPanel();
             }}
             onClosePeekPrompt={() => setPeekPromptData(null)}
             onDeleteConfirm={handleDeleteConfirm}
@@ -1997,8 +2043,9 @@ export function ChatArea() {
             connectedChatName={connectedChatName}
             sceneInfo={conversationSceneInfo}
             settingsOpen={settingsOpen}
-            filesOpen={filesOpen}
+            settingsAnchor={settingsAnchor}
             galleryOpen={galleryOpen}
+            galleryAnchor={galleryAnchor}
             wizardOpen={wizardOpen}
             peekPromptData={peekPromptData}
             deleteDialogMessageId={deleteDialogMessageId}
@@ -2014,19 +2061,18 @@ export function ChatArea() {
             onSetActiveSwipe={handleSetActiveSwipe}
             onToggleHiddenFromAI={handleToggleHiddenFromAI}
             onPeekPrompt={handlePeekPrompt}
+            onBranch={isSceneChat ? undefined : handleBranch}
             onToggleSelectMessage={handleToggleSelectMessage}
             onSwitchChat={chat?.connectedChatId ? () => setActiveChatId(chat.connectedChatId!) : undefined}
             onConcludeScene={chatMeta.sceneStatus === "active" ? () => concludeScene(activeChatId) : undefined}
             onAbandonScene={chatMeta.sceneStatus === "active" ? () => abandonScene(activeChatId) : undefined}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onOpenFiles={() => setFilesOpen(true)}
-            onOpenGallery={() => setGalleryOpen(true)}
-            onCloseSettings={() => setSettingsOpen(false)}
-            onCloseFiles={() => setFilesOpen(false)}
-            onCloseGallery={() => setGalleryOpen(false)}
+            onOpenSettings={handleOpenSettingsPanel}
+            onOpenGallery={handleOpenGalleryPanel}
+            onCloseSettings={handleCloseSettingsPanel}
+            onCloseGallery={handleCloseGalleryPanel}
             onWizardFinish={() => {
               setWizardOpen(false);
-              setSettingsOpen(true);
+              handleOpenSettingsPanel();
             }}
             onClosePeekPrompt={() => setPeekPromptData(null)}
             onResetSpritePlacements={handleResetSpritePlacements}
@@ -2103,8 +2149,10 @@ export function ChatArea() {
           totalMessageCount={totalMessageCount}
           lastAssistantMessageId={lastAssistantMessageId}
           settingsOpen={settingsOpen}
+          settingsAnchor={settingsAnchor}
           filesOpen={filesOpen}
           galleryOpen={galleryOpen}
+          galleryAnchor={galleryAnchor}
           wizardOpen={wizardOpen}
           peekPromptData={peekPromptData}
           deleteDialogMessageId={deleteDialogMessageId}
@@ -2136,16 +2184,15 @@ export function ChatArea() {
           onAbandonScene={() => abandonScene(activeChatId)}
           onForkScene={forkScene}
           isForkingScene={isForking || isStreaming}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenFiles={() => setFilesOpen(true)}
-          onOpenGallery={() => setGalleryOpen(true)}
-          onCloseSettings={() => setSettingsOpen(false)}
+          onOpenSettings={handleOpenSettingsPanel}
+          onOpenGallery={handleOpenGalleryPanel}
+          onCloseSettings={handleCloseSettingsPanel}
           onCloseFiles={() => setFilesOpen(false)}
-          onCloseGallery={() => setGalleryOpen(false)}
+          onCloseGallery={handleCloseGalleryPanel}
           onIllustrate={() => retryAgents(activeChatId, ["illustrator"])}
           onWizardFinish={() => {
             setWizardOpen(false);
-            setSettingsOpen(true);
+            handleOpenSettingsPanel();
           }}
           onClosePeekPrompt={() => setPeekPromptData(null)}
           onResetSpritePlacements={handleResetSpritePlacements}

@@ -210,7 +210,8 @@ export async function injectGameGmPromptRuntime(args: {
   try {
     const snap = await args.selectedGameStateSnapshotPromise;
     if (snap) {
-      if (snap.weather) weatherContext = `Current weather: ${snap.weather}${snap.temperature ? `, ${snap.temperature}` : ""}`;
+      if (snap.weather)
+        weatherContext = `Current weather: ${snap.weather}${snap.temperature ? `, ${snap.temperature}` : ""}`;
       if (snap.time || snap.date) gameTime = [snap.date, snap.time].filter(Boolean).join(", ");
     }
   } catch {
@@ -308,19 +309,18 @@ export async function injectGameGmPromptRuntime(args: {
     })(),
     characterSprites: listPartySprites(partyIdNamePairs),
     language: (setupConfig?.language as string) || undefined,
+    gameSystemPrompt:
+      typeof args.chatMetadata.gameSystemPrompt === "string" ? args.chatMetadata.gameSystemPrompt.trim() : null,
+    gameSpecialInstructions:
+      typeof args.chatMetadata.gameSpecialInstructions === "string"
+        ? args.chatMetadata.gameSpecialInstructions.trim()
+        : null,
   };
 
   const builtGmPrompt = buildGmSystemPrompt(gmCtx);
   const customGmPrompt =
     typeof args.chatMetadata.customGmPrompt === "string" ? args.chatMetadata.customGmPrompt.trim() : "";
-  const gameExtraPrompt =
-    typeof args.chatMetadata.gameExtraPrompt === "string"
-      ? args.chatMetadata.gameExtraPrompt.trim().replace(/<\/?special_instructions>/gi, "")
-      : "";
   let fullGmPrompt = customGmPrompt ? `${builtGmPrompt}\n\n${customGmPrompt}` : builtGmPrompt;
-  if (gameExtraPrompt) {
-    fullGmPrompt += `\n\n<special_instructions>\n${gameExtraPrompt}\n</special_instructions>`;
-  }
   fullGmPrompt = args.resolvePromptMacros(fullGmPrompt);
 
   const sysIdx = args.messages.findIndex((message) => message.role === "system");

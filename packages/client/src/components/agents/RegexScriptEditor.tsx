@@ -27,7 +27,7 @@ import {
   Plus,
   Minus,
   Users,
-  Download,
+  Upload,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
@@ -457,7 +457,7 @@ export function RegexScriptEditor() {
             onClick={handleExport}
             className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-[0.98]"
           >
-            <Download size="0.8125rem" /> Export
+            <Upload size="0.8125rem" /> Export
           </button>
           {dbRow && (
             <button

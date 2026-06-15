@@ -340,6 +340,7 @@ async function applySpotifyAgentPlaybackFallback(
   const normalizedResult = normalizeSpotifyAgentResult(result);
   if (
     agent.type !== "spotify" ||
+    normalizedResult.type !== "spotify_control" ||
     !normalizedResult.success ||
     !normalizedResult.data ||
     typeof normalizedResult.data !== "object"

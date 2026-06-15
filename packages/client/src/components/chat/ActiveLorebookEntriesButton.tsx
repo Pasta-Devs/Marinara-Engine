@@ -5,6 +5,7 @@ import { cn } from "../../lib/utils";
 import { useActiveLorebookEntries } from "../../hooks/use-lorebooks";
 import { useUIStore } from "../../stores/ui.store";
 import { ROLEPLAY_POPOVER_SCROLL_AREA, ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
+import { getChatToolbarButtonClass } from "./ChatToolbarControls";
 
 const ActiveLorebookEntriesPanel = lazy(async () => {
   const module = await import("./ChatRoleplayPanels");
@@ -107,15 +108,11 @@ export function ActiveLorebookEntriesButton({
     typeof buttonClassName === "function"
       ? buttonClassName({ open, hasEntries, hasSkippedEntries, isLoading, compact })
       : (buttonClassName ??
-        cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : (hasEntries || hasSkippedEntries) && !isLoading
-              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
-              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        ));
+        getChatToolbarButtonClass({
+          active: (hasEntries || hasSkippedEntries) && !isLoading,
+          compact,
+          open,
+        }));
 
   return (
     <div className="relative" ref={ref} onClick={(e) => e.stopPropagation()}>

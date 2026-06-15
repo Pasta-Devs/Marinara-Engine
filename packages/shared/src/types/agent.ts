@@ -99,6 +99,19 @@ export function parseAgentSettingsRecord(value: unknown): Record<string, unknown
   return isRecord(value) ? value : {};
 }
 
+export const AGENT_CONFIG_DELETED_SETTING_KEY = "deletedFromLibrary";
+
+export function isAgentConfigDeleted(settings: unknown): boolean {
+  return parseAgentSettingsRecord(settings)[AGENT_CONFIG_DELETED_SETTING_KEY] === true;
+}
+
+export function markAgentConfigDeletedSettings(settings: unknown): Record<string, unknown> {
+  return {
+    ...parseAgentSettingsRecord(settings),
+    [AGENT_CONFIG_DELETED_SETTING_KEY]: true,
+  };
+}
+
 function normalizePromptTemplateId(value: unknown, fallback: string): string {
   const raw = typeof value === "string" ? value.trim() : "";
   const normalized = raw
@@ -368,6 +381,10 @@ export interface BuiltInAgentMeta {
   /** Whether "Add as Prompt Section" should default to on when first created */
   defaultInjectAsSection?: boolean;
   category: AgentCategory;
+  /** Hide this built-in from public agent library and chat agent pickers. */
+  libraryHidden?: boolean;
+  /** Keep legacy configs recognized, but never run this built-in in generation pipelines. */
+  runtimeDisabled?: boolean;
   promptTemplates?: AgentPromptTemplateOption[];
 }
 
@@ -380,6 +397,8 @@ export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = BUILT_IN_AGENT_MANIFESTS.map(
   enabledByDefault: agent.enabledByDefault,
   ...(agent.defaultInjectAsSection !== undefined ? { defaultInjectAsSection: agent.defaultInjectAsSection } : {}),
   category: agent.category,
+  ...(agent.libraryHidden !== undefined ? { libraryHidden: agent.libraryHidden } : {}),
+  ...(agent.runtimeDisabled !== undefined ? { runtimeDisabled: agent.runtimeDisabled } : {}),
   ...(agent.promptTemplates !== undefined ? { promptTemplates: [...agent.promptTemplates] } : {}),
 }));
 

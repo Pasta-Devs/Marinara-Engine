@@ -37,6 +37,7 @@ import {
 } from "../../lib/spotify-playback-events";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
+import { MusicSourceButton } from "../music/MusicSourceButton";
 
 type SpotifyRepeatState = "off" | "track" | "context";
 
@@ -281,7 +282,7 @@ export function SpotifyMiniPlayer({
   forceFloating?: boolean;
 }) {
   const qc = useQueryClient();
-  const enabled = useUIStore((s) => s.spotifyPlayerEnabled);
+  const enabled = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "spotify");
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
   const collapsed = useUIStore((s) => s.spotifyMobileWidgetCollapsed);
@@ -825,7 +826,8 @@ export function SpotifyMiniPlayer({
   const compactBody = useMemo(
     () => (
       <>
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <MusicSourceButton source="spotify" className="border-[oklch(0.30_0.012_145)] bg-[oklch(0.20_0.008_145)]" />
           <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] bg-[oklch(0.23_0.006_145)] ring-1 ring-[oklch(0.34_0.01_145)]">
             {cover ? (
               <img src={cover} alt="" className="h-full w-full object-cover" />
@@ -922,7 +924,7 @@ export function SpotifyMiniPlayer({
             type="button"
             onClick={openSpotifyAgent}
             className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[oklch(0.70_0.012_145)] transition-colors hover:text-[oklch(0.96_0.006_145)]"
-            title="Spotify setup"
+            title="Music DJ setup"
           >
             <Settings size="0.8125rem" />
           </button>
@@ -1015,7 +1017,7 @@ export function SpotifyMiniPlayer({
 }
 
 export function SpotifyMobileWidget() {
-  const enabled = useUIStore((s) => s.spotifyPlayerEnabled);
+  const enabled = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "spotify");
   const isMobileViewport = useMediaQuery("(max-width: 767px)");
 
   if (!enabled || !isMobileViewport) return null;

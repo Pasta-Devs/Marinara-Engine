@@ -8,6 +8,7 @@ export const schedulePlannerAgentManifest = {
   phase: "pre_generation",
   enabledByDefault: false,
   category: "tracker",
+  libraryHidden: true,
   modeAllowlist: ["conversation"],
   defaultTools: [],
 } satisfies BuiltInAgentManifest;

@@ -6,6 +6,7 @@
 // instead of scattering mode checks across large components.
 
 import type { ChatMode } from "../types/chat.js";
+import { BUILT_IN_AGENTS } from "../types/agent.js";
 
 export type ChatParticipantModel = "chat-participants" | "game-party";
 
@@ -85,11 +86,11 @@ export const ROLEPLAY_AGENT_PICKER_HIDDEN_IDS = [
   "schedule-planner",
   "response-orchestrator",
   "autonomous-messenger",
+  "youtube",
 ] as const;
 
 export const CONVERSATION_AGENT_IDS = [
   "schedule-planner",
-  "response-orchestrator",
   "autonomous-messenger",
 ] as const;
 
@@ -112,6 +113,8 @@ export const GAME_AGENT_IDS = [
   "expression",
   "combat",
 ] as const;
+
+const BUILT_IN_AGENT_ID_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 
 export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
   conversation: {
@@ -183,8 +186,8 @@ export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
     agentPolicy: {
       kind: "allowlist",
       defaultAgentIds: GAME_AGENT_IDS,
-      // YouTube DJ is allowed (opt-in via the game music toggle) but not on by default.
-      allowedAgentIds: [...GAME_AGENT_IDS, "youtube"],
+      // Music DJ is allowed (opt-in via the game music toggle) but not on by default.
+      allowedAgentIds: [...GAME_AGENT_IDS, "spotify", "youtube"],
     },
     sharedSections: SHARED_CHAT_SETTINGS_SECTIONS,
     modeSections: ["extra-prompt", "conversation-notes"],
@@ -203,6 +206,7 @@ export function getChatModeCapabilities(mode: ChatMode | null | undefined): Chat
 export function isAgentAvailableInChatMode(mode: ChatMode | null | undefined, agentId: string): boolean {
   const policy = getChatModeCapabilities(mode).agentPolicy;
   if (policy.kind === "all") return true;
+  if (!BUILT_IN_AGENT_ID_SET.has(agentId)) return true;
   return policy.allowedAgentIds.includes(agentId);
 }
 

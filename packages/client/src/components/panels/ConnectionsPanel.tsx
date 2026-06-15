@@ -120,7 +120,10 @@ function SidecarCard() {
   const [expanded, setExpanded] = useState(false);
   const activeModelName = isDownloaded ? modelDisplayName : null;
   const backendLabel = config.backend === "mlx" ? "MLX" : "GGUF";
-  const trackerAgents = useMemo(() => BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker"), []);
+  const trackerAgents = useMemo(
+    () => BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker" && !agent.libraryHidden),
+    [],
+  );
   const trackerLocalCount = useMemo(() => {
     const configs = (agentConfigs ?? []) as Array<{ type: string; connectionId: string | null }>;
     const byType = new Map(configs.map((cfg) => [cfg.type, cfg.connectionId]));
@@ -451,6 +454,8 @@ function DefaultIllustratorConnectionCard({ connectionsList }: { connectionsList
 function ConnectionRow({
   conn,
   isSelected,
+  isBulkSelected,
+  selectionMode,
   onClickRow,
   isDragging,
   onDragStart,
@@ -459,6 +464,8 @@ function ConnectionRow({
 }: {
   conn: ConnectionRowData;
   isSelected: boolean;
+  isBulkSelected: boolean;
+  selectionMode: boolean;
   onClickRow: () => void;
   isDragging: boolean;
   onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
@@ -491,6 +498,7 @@ function ConnectionRow({
       className={cn(
         "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
         isSelected && `ring-1 ${colors.ring} bg-[var(--sidebar-accent)]/50`,
+        selectionMode && isBulkSelected && "ring-1 ring-[var(--border)] bg-[var(--sidebar-accent)]/70",
         isDragging && "opacity-50",
       )}
     >
@@ -511,7 +519,7 @@ function ConnectionRow({
         <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
           <Camera size="0.875rem" />
         </span>
-        {isSelected && (
+        {(selectionMode ? isBulkSelected : isSelected) && (
           <div
             className={cn(
               "absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full shadow-sm",
@@ -530,7 +538,7 @@ function ConnectionRow({
           {conn.provider} • {conn.model || "No model set"}
         </div>
       </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-foreground/10 transition-opacity group-hover:opacity-100 max-md:opacity-100">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -539,8 +547,8 @@ function ConnectionRow({
           className={cn(
             "rounded-lg p-1.5 transition-all active:scale-90",
             inRandomPool
-              ? "bg-amber-400/15 text-amber-400"
-              : "text-[var(--muted-foreground)] hover:bg-amber-400/10 hover:text-amber-400",
+              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+              : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/75",
           )}
           title={inRandomPool ? "In random pool (click to remove)" : "Add to random pool"}
         >
@@ -602,7 +610,7 @@ function ConnectionFolderRow({
   onRename: (id: string, name: string) => void;
   onDelete: (folder: ConnectionFolder) => void;
   draggedConnectionId: string | null;
-  onDropConnection: (connectionId: string, folderId: string | null) => void;
+  onDropConnection: (connectionIds: string[], folderId: string | null) => void;
 }) {
   const dragControls = useDragControls();
   const [renaming, setRenaming] = useState(false);
@@ -637,7 +645,9 @@ function ConnectionFolderRow({
           event.dataTransfer.getData("application/x-marinara-connection-id") ||
           event.dataTransfer.getData("text/plain") ||
           draggedConnectionId;
-        if (connectionId) onDropConnection(connectionId, folder.id);
+        const payload = event.dataTransfer.getData("application/x-marinara-connection-ids");
+        const connectionIds = payload ? (JSON.parse(payload) as string[]) : [connectionId];
+        if (connectionIds.length > 0) onDropConnection(connectionIds, folder.id);
         setIsDropTarget(false);
       }}
       className={cn(
@@ -744,6 +754,8 @@ export function ConnectionsPanel() {
   const moveConnectionMut = useMoveConnection();
 
   const [draggedConnectionId, setDraggedConnectionId] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
   const connectionImageInputRef = useRef<HTMLInputElement>(null);
   const imageTargetConnectionIdRef = useRef<string | null>(null);
 
@@ -807,8 +819,31 @@ export function ConnectionsPanel() {
     deleteFolderMut.mutate(folder.id);
   };
 
-  const handleDropConnectionToFolder = (connectionId: string, folderId: string | null) => {
-    moveConnectionMut.mutate({ connectionId, folderId });
+  const getDraggedConnectionIds = useCallback(
+    (connectionId: string) =>
+      selectionMode && selectedConnectionIds.has(connectionId) ? Array.from(selectedConnectionIds) : [connectionId],
+    [selectedConnectionIds, selectionMode],
+  );
+
+  const toggleConnectionSelection = useCallback((connectionId: string) => {
+    setSelectedConnectionIds((current) => {
+      const next = new Set(current);
+      if (next.has(connectionId)) next.delete(connectionId);
+      else next.add(connectionId);
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedConnectionIds(new Set());
+  }, []);
+
+  const handleDropConnectionsToFolder = (connectionIds: string[], folderId: string | null) => {
+    const ids = Array.from(new Set(connectionIds.filter(Boolean)));
+    for (const connectionId of ids) {
+      moveConnectionMut.mutate({ connectionId, folderId });
+    }
     setDraggedConnectionId(null);
   };
 
@@ -860,16 +895,24 @@ export function ConnectionsPanel() {
 
   const renderConnectionRow = (conn: ConnectionRowData) => {
     const isSelected = activeConnectionId === conn.id;
+    const isBulkSelected = selectedConnectionIds.has(conn.id);
     return (
       <ConnectionRow
         key={conn.id}
         conn={conn}
         isSelected={isSelected}
-        onClickRow={() => openConnectionDetail(conn.id)}
+        isBulkSelected={isBulkSelected}
+        selectionMode={selectionMode}
+        onClickRow={() => {
+          if (selectionMode) toggleConnectionSelection(conn.id);
+          else openConnectionDetail(conn.id);
+        }}
         isDragging={draggedConnectionId === conn.id}
         onDragStart={(event) => {
+          const ids = getDraggedConnectionIds(conn.id);
           setDraggedConnectionId(conn.id);
           event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("application/x-marinara-connection-ids", JSON.stringify(ids));
           event.dataTransfer.setData("application/x-marinara-connection-id", conn.id);
           event.dataTransfer.setData("text/plain", conn.id);
         }}
@@ -915,7 +958,42 @@ export function ConnectionsPanel() {
           <FolderPlus size="0.75rem" />
           New Folder
         </button>
+        <button
+          onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+          disabled={connectionsList.length === 0}
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[0.6875rem] transition-all disabled:opacity-40",
+            selectionMode
+              ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+              : "text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
+          )}
+        >
+          <Check size="0.75rem" />
+          {selectionMode ? "Done" : "Select"}
+        </button>
       </div>
+
+      {selectionMode && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-3 py-2">
+          <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+            {selectedConnectionIds.size} selected
+          </span>
+          <button
+            onClick={() => setSelectedConnectionIds(new Set(connectionsList.map((connection) => connection.id)))}
+            disabled={connectionsList.length === 0}
+            className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-sky-400 transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
+          >
+            Select visible
+          </button>
+          <button
+            onClick={() => setSelectedConnectionIds(new Set())}
+            disabled={selectedConnectionIds.size === 0}
+            className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {sortedFolders.length > 0 && (
         <p className="px-2.5 text-[0.625rem] leading-snug text-[var(--muted-foreground)]/70">
@@ -999,7 +1077,7 @@ export function ConnectionsPanel() {
                 onRename={handleRenameFolder}
                 onDelete={handleDeleteFolder}
                 draggedConnectionId={draggedConnectionId}
-                onDropConnection={handleDropConnectionToFolder}
+                onDropConnection={handleDropConnectionsToFolder}
               />
             );
           })}
@@ -1007,7 +1085,29 @@ export function ConnectionsPanel() {
       )}
 
       {/* Unfiled connections */}
-      <div className="stagger-children flex flex-col gap-1">{unfiledConnections.map(renderConnectionRow)}</div>
+      <div
+        onDragOver={(event) => {
+          if (draggedConnectionId) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          const payload = event.dataTransfer.getData("application/x-marinara-connection-ids");
+          const fallbackId =
+            event.dataTransfer.getData("application/x-marinara-connection-id") ||
+            event.dataTransfer.getData("text/plain") ||
+            draggedConnectionId;
+          handleDropConnectionsToFolder(payload ? (JSON.parse(payload) as string[]) : fallbackId ? [fallbackId] : [], null);
+        }}
+        className={cn(
+          "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
+          draggedConnectionId && "ring-1 ring-[var(--primary)]/20",
+        )}
+      >
+        {unfiledConnections.map(renderConnectionRow)}
+      </div>
 
       {activeChat && (
         <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]/60">

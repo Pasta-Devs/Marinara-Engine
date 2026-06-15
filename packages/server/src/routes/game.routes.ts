@@ -22,7 +22,6 @@ import { parseGameJsonish } from "../services/game/jsonish.js";
 import { validateTransition } from "../services/game/state-machine.service.js";
 import {
   buildSetupPrompt,
-  buildGmSystemPrompt,
   buildSessionConclusionPrompt,
   buildCampaignProgressionPrompt,
   buildPartyRecruitCardPrompt,
@@ -98,7 +97,6 @@ import {
   generationParametersSchema,
   isClaudeAdaptiveOnlyNoSamplingModel,
   supportsXhighReasoningEffort,
-  resolveMacros,
   scoreMusic,
   scoreAmbient,
   serializeResolvedSkillCheckTag,
@@ -2337,7 +2335,11 @@ function findNpcRecordByName(npcs: GameNpc[], name: string): GameNpc | null {
 function findRecordByName(records: Array<Record<string, unknown>>, name: string): Record<string, unknown> | null {
   const normalizedName = normalizeJournalMatch(name);
   if (!normalizedName) return null;
-  return records.find((record) => optionalTrimmedString(record.name) && normalizeJournalMatch(String(record.name)) === normalizedName) ?? null;
+  return (
+    records.find(
+      (record) => optionalTrimmedString(record.name) && normalizeJournalMatch(String(record.name)) === normalizedName,
+    ) ?? null
+  );
 }
 
 function hasReadableAvatar(avatarUrl: string | null | undefined): avatarUrl is string {
@@ -3118,6 +3120,7 @@ export async function gameRoutes(app: FastifyInstance) {
       gameImageConnectionId: setupConfig.imageConnectionId || null,
       activeLorebookIds: setupConfig.activeLorebookIds || [],
       enableCustomWidgets: setupConfig.enableCustomWidgets !== false,
+      gameUseMusicDj: setupConfig.enableSpotifyDj === true,
       gameUseSpotifyMusic: setupConfig.enableSpotifyDj === true,
       gameSpotifySourceType: spotifySourceType,
       gameSpotifyPlaylistId:
@@ -5925,22 +5928,6 @@ export async function gameRoutes(app: FastifyInstance) {
         /* ignore */
       }
     }
-    const partyPromptMacroContext = await buildPromptMacroContext({
-      db: app.db,
-      characterIds: partyCharIds.filter((id) => !isPartyNpcId(id)),
-      personaName: playerName,
-      variables: {},
-      lastInput: input.playerAction || input.narration,
-      chatId: input.chatId,
-      model: conn.model,
-    });
-    const resolvePartyPromptMacros = (value: string) =>
-      resolveMacros(value, {
-        ...partyPromptMacroContext,
-        char: partyCards[0]?.name ?? partyPromptMacroContext.char,
-        characters: partyCards.map((card) => card.name),
-      });
-
     let systemPrompt = buildPartySystemPrompt({
       partyCards,
       playerName,
@@ -5948,13 +5935,6 @@ export async function gameRoutes(app: FastifyInstance) {
       partyArcs: (meta.gamePartyArcs as PartyArc[]) || undefined,
       characterSprites: listPartySprites(partyIdNamePairs),
     });
-
-    const gameExtraPrompt = resolvePartyPromptMacros(
-      ((meta.gameExtraPrompt as string) || "").replace(/<\/?special_instructions>/gi, ""),
-    );
-    if (gameExtraPrompt) {
-      systemPrompt += `\n\n<special_instructions>\n${gameExtraPrompt}\n</special_instructions>`;
-    }
 
     // Build user prompt with context
     const userPrompt = [
@@ -6224,7 +6204,9 @@ export async function gameRoutes(app: FastifyInstance) {
     const imgConnId = (meta.gameImageConnectionId as string) || null;
     const setupCfgForScene = meta.gameSetupConfig as Record<string, unknown> | null;
     const artStyleForScene = (setupCfgForScene?.artStylePrompt as string) || "";
-    const latestSceneState = await createGameStateStorage(app.db).getLatest(input.chatId).catch(() => null);
+    const latestSceneState = await createGameStateStorage(app.db)
+      .getLatest(input.chatId)
+      .catch(() => null);
     const imagePromptInstructions =
       typeof meta.gameImagePromptInstructions === "string"
         ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
@@ -6838,7 +6820,9 @@ export async function gameRoutes(app: FastifyInstance) {
       typeof meta.gameImagePromptInstructions === "string"
         ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
         : "";
-    const latestImageState = await createGameStateStorage(app.db).getLatest(input.chatId).catch(() => null);
+    const latestImageState = await createGameStateStorage(app.db)
+      .getLatest(input.chatId)
+      .catch(() => null);
 
     const items: Array<{
       id: string;
@@ -7137,7 +7121,9 @@ export async function gameRoutes(app: FastifyInstance) {
       typeof meta.gameImagePromptInstructions === "string"
         ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
         : "";
-    const latestImageState = await createGameStateStorage(app.db).getLatest(input.chatId).catch(() => null);
+    const latestImageState = await createGameStateStorage(app.db)
+      .getLatest(input.chatId)
+      .catch(() => null);
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const backgroundSize: ImageGenerationSize = input.imageSizes?.background ?? imageSettings.background;
     const portraitSize: ImageGenerationSize = input.imageSizes?.portrait ?? imageSettings.portrait;

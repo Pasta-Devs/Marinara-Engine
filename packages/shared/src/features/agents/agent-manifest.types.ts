@@ -10,6 +10,10 @@ export interface BuiltInAgentManifest {
   enabledByDefault: boolean;
   defaultInjectAsSection?: boolean;
   category: AgentCategory;
+  /** Hide this built-in from public agent library and chat agent pickers. */
+  libraryHidden?: boolean;
+  /** Keep legacy configs recognized, but never run this built-in in generation pipelines. */
+  runtimeDisabled?: boolean;
   resultType?: AgentResultType;
   modeAllowlist?: readonly ChatMode[];
   defaultTools?: readonly string[];

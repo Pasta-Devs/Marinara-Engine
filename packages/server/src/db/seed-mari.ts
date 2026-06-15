@@ -249,17 +249,13 @@ Agents are AI sub-systems that run alongside the main generation in phases:
 - **Prose Guardian**: Reviews and improves the system prompt for better writing quality
 - **Director**: Controls narrative pacing — injects dramatic tension, cliffhangers, scene transitions
 - **Continuity**: Post-processes the response to fix consistency errors with established facts
-- **Prompt Reviewer**: Analyzes the prompt assembly and suggests improvements
 - **Knowledge Retrieval**: Searches external knowledge sources for relevant context
-- **Schedule Planner**: Generates/maintains character weekly schedules (conversation mode)
 - **HTML**: Renders custom HTML/CSS widgets in messages (for creative formatting)
-- **Response Orchestrator**: Controls which character speaks next in group chats
 
 ### Parallel (run at the same time as generation)
 - **Echo Chamber**: Characters react to messages in other chats with short reactions (shown in a sidebar widget)
 - **Illustrator**: Generates images based on story scenes using an image provider
 - **Combat**: Handles dice rolls, combat mechanics, and turn-based encounters
-- **Autonomous Messenger**: Manages character autonomous messaging in conversation mode
 
 ### Post-Processing (run after the main response)
 - **Editor**: Copy-edits the response for grammar, flow, and style
@@ -272,7 +268,7 @@ Agents are AI sub-systems that run alongside the main generation in phases:
 - **Custom Tracker**: User-defined custom tracking (any JSON data the user wants to track)
 - **Lorebook Keeper**: Auto-generates lorebook entries from the ongoing story
 - **Chat Summary**: Creates rolling conversation summaries for long-term context
-- **Spotify**: Suggests thematic music/playlists for the current scene mood
+- **Music DJ**: Suggests thematic music/playlists for the current scene mood through Spotify or YouTube
 
 ### Agent Configuration
 - Each agent can be toggled on/off per chat

@@ -30,6 +30,7 @@ const PeekPromptModal = lazy(async () => {
 });
 
 type ChatData = ComponentProps<typeof ChatSettingsDrawer>["chat"];
+export type ChatFloatingPanelAnchor = { right: number; top: number } | null;
 
 type SharedSceneSettingsProps = {
   spriteArrangeMode: boolean;
@@ -176,8 +177,10 @@ type ChatCommonOverlaysProps = {
   chat: ChatData | null | undefined;
   activeChatId: string;
   settingsOpen: boolean;
+  settingsAnchor: ChatFloatingPanelAnchor;
   filesOpen: boolean;
   galleryOpen: boolean;
+  galleryAnchor: ChatFloatingPanelAnchor;
   wizardOpen: boolean;
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
@@ -209,8 +212,10 @@ export function ChatCommonOverlays({
   chat,
   activeChatId,
   settingsOpen,
+  settingsAnchor,
   filesOpen,
   galleryOpen,
+  galleryAnchor,
   wizardOpen,
   peekPromptData,
   deleteDialogMessageId,
@@ -245,6 +250,7 @@ export function ChatCommonOverlays({
               chat={chat}
               open={settingsOpen}
               onClose={onCloseSettings}
+              anchor={settingsAnchor}
               spriteArrangeMode={sceneSettings.spriteArrangeMode}
               onToggleSpriteArrange={sceneSettings.onToggleSpriteArrange}
               onResetSpritePlacements={sceneSettings.onResetSpritePlacements}
@@ -261,7 +267,13 @@ export function ChatCommonOverlays({
       {chat && (
         <Suspense fallback={null}>
           {galleryOpen && (
-            <ChatGalleryDrawer chat={chat} open={galleryOpen} onClose={onCloseGallery} onIllustrate={onIllustrate} />
+            <ChatGalleryDrawer
+              chat={chat}
+              open={galleryOpen}
+              onClose={onCloseGallery}
+              anchor={galleryAnchor}
+              onIllustrate={onIllustrate}
+            />
           )}
         </Suspense>
       )}
