@@ -5,6 +5,7 @@ import { desc, eq } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
 import { customThemes } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { normalizeThemeCss } from "../../utils/theme-css.js";
 import type { CreateThemeInput, Theme, UpdateThemeInput } from "@marinara-engine/shared";
 
 type ThemeRow = typeof customThemes.$inferSelect;
@@ -13,7 +14,7 @@ function mapTheme(row: ThemeRow): Theme {
   return {
     id: row.id,
     name: row.name,
-    css: row.css,
+    css: normalizeThemeCss(row.css),
     installedAt: row.installedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -52,7 +53,7 @@ export function createThemesStorage(db: DB) {
       await db.insert(customThemes).values({
         id,
         name: input.name,
-        css: input.css ?? "",
+        css: normalizeThemeCss(input.css ?? ""),
         installedAt: input.installedAt ?? timestamp,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -66,7 +67,7 @@ export function createThemesStorage(db: DB) {
         updatedAt: now(),
       };
       if (data.name !== undefined) updateFields.name = data.name;
-      if (data.css !== undefined) updateFields.css = data.css;
+      if (data.css !== undefined) updateFields.css = normalizeThemeCss(data.css);
       await db.update(customThemes).set(updateFields).where(eq(customThemes.id, id));
       return this.getById(id);
     },

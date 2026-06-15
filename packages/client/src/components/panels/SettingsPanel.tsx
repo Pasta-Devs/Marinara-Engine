@@ -21,6 +21,7 @@ import { useExtensions, useCreateExtension, useDeleteExtension, useUpdateExtensi
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ADMIN_SECRET_STORAGE_KEY, ApiError, api, getAdminSecretHeader } from "../../lib/api-client";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
+import { normalizeThemeCss } from "../../lib/theme-css";
 import { forceRefreshSpa } from "@/lib/browser-runtime";
 import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -3040,7 +3041,7 @@ function ThemesSettings() {
       style = document.createElement("style");
       style.id = "marinara-css-editor-preview";
     }
-    style.textContent = themeCss;
+    style.textContent = normalizeThemeCss(themeCss);
     // Always (re-)append so it's the last <style> in <head>,
     // overriding the active-theme injector's saved CSS.
     document.head.appendChild(style);
@@ -3059,20 +3060,21 @@ function ThemesSettings() {
   const openEditTheme = useCallback((theme: Theme) => {
     setEditingId(theme.id);
     setThemeName(theme.name);
-    setThemeCss(theme.css);
+    setThemeCss(normalizeThemeCss(theme.css));
     setEditorOpen(true);
   }, []);
 
   const handleSave = useCallback(async () => {
     try {
       const name = themeName.trim() || "Untitled Theme";
+      const css = normalizeThemeCss(themeCss);
       if (editingId) {
-        await updateTheme.mutateAsync({ id: editingId, name, css: themeCss });
+        await updateTheme.mutateAsync({ id: editingId, name, css });
         toast.success(`Theme "${name}" updated`);
       } else {
         const theme = await createTheme.mutateAsync({
           name,
-          css: themeCss,
+          css,
           installedAt: new Date().toISOString(),
         });
         await setActiveTheme.mutateAsync(theme.id);
@@ -3105,7 +3107,7 @@ function ThemesSettings() {
           const record = source as Record<string, unknown>;
           const importedThemeName =
             typeof record.name === "string" && record.name.trim() ? record.name : file.name.replace(/\.json$/, "");
-          const importedThemeCss = typeof record.css === "string" ? record.css : "";
+          const importedThemeCss = typeof record.css === "string" ? normalizeThemeCss(record.css) : "";
           if (!importedThemeCss.trim()) continue;
           const duplicate = findDuplicateTheme(workingThemes, importedThemeName, importedThemeCss);
           if (duplicate) {
@@ -3127,7 +3129,7 @@ function ThemesSettings() {
         }
       } else {
         const importedThemeName = file.name.replace(/\.css$/, "");
-        const importedThemeCss = text;
+        const importedThemeCss = normalizeThemeCss(text);
         const duplicate = findDuplicateTheme(workingThemes, importedThemeName, importedThemeCss);
         if (duplicate) {
           skipped++;

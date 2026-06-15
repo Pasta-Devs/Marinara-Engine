@@ -357,7 +357,7 @@ export function createCharactersStorage(db: DB) {
         scenario?: string;
         backstory?: string;
         appearance?: string;
-        avatarPath?: string;
+        avatarPath?: string | null;
         avatarCrop?: string;
         nameColor?: string;
         dialogueColor?: string;

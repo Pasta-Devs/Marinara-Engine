@@ -470,7 +470,7 @@ function ActiveContextLinksButton({
                 </div>
               );
             })}
-            {open && activeLorebookScanLoading && visibleLorebookIds.length > 0 && (
+            {activeLorebookScanLoading && visibleLorebookIds.length > 0 && (
               <div className="flex items-center gap-2 px-2 py-1.5 text-[0.625rem] text-foreground/50">
                 <Loader2 size="0.6875rem" className="animate-spin" />
                 Scanning active lorebook entries...

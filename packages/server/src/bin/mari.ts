@@ -75,9 +75,19 @@ function compactMutationPayload(payload: unknown): unknown {
   if (!isRecord(payload) || !isRecord(payload.summary)) return payload;
   const summary = payload.summary;
   const preview = Array.isArray(summary.preview) ? summary.preview : [];
+  const mode = typeof payload.mode === "string" ? payload.mode : null;
+  const saved = mode === "apply" && payload.ok === true;
   return {
     ok: payload.ok,
     mode: payload.mode,
+    saved,
+    status: mode === "dry-run" ? "dry_run_only" : saved ? "applied" : payload.ok === false ? "failed" : "ok",
+    message:
+      mode === "dry-run"
+        ? "Preview only: no changes were saved. Re-run the same command with --apply after user approval to persist it."
+        : saved
+          ? "Applied and saved. Verify the resulting state with a read command before claiming user-visible success."
+          : undefined,
     command: typeof payload.command === "string" ? truncate(payload.command, 500) : payload.command,
     summary: {
       matchedRows: summary.matchedRows,

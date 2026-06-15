@@ -18,6 +18,7 @@ import {
   Bookmark,
   Trash2,
   WandSparkles,
+  Dices,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -201,6 +202,8 @@ export function ConversationInput({
   const [charPickerPos, setCharPickerPos] = useState<{ left: number; top: number } | null>(null);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const [statusMenuPos, setStatusMenuPos] = useState<{ left: number; top: number } | null>(null);
+  const [diceMenuOpen, setDiceMenuOpen] = useState(false);
+  const [diceResult, setDiceResult] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -208,6 +211,7 @@ export function ConversationInput({
   const gifButtonRef = useRef<HTMLButtonElement>(null);
   const statusButtonRef = useRef<HTMLButtonElement>(null);
   const statusMenuRef = useRef<HTMLDivElement>(null);
+  const diceButtonRef = useRef<HTMLButtonElement>(null);
   const charPickerBtnRef = useRef<HTMLButtonElement>(null);
   const charPickerMenuRef = useRef<HTMLDivElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
@@ -538,6 +542,38 @@ export function ConversationInput({
       el.focus();
     },
     [activeChatId, mentionStartPos, setInputDraft, syncInputState],
+  );
+
+  const parseDiceNotation = useCallback((notation: string) => {
+    const match = notation.trim().match(/^(\d+)?d(\d+)([+-]\d+)?$/i);
+    if (!match) return null;
+    return {
+      count: Number.parseInt(match[1] ?? "1", 10),
+      sides: Number.parseInt(match[2]!, 10),
+      modifier: match[3] ? Number.parseInt(match[3], 10) : 0,
+    };
+  }, []);
+
+  const rollDice = useCallback((count: number, sides: number) => {
+    const rolls: number[] = [];
+    for (let i = 0; i < count; i += 1) rolls.push(Math.floor(Math.random() * sides) + 1);
+    return rolls;
+  }, []);
+
+  const handleDiceRoll = useCallback(
+    (notation: string) => {
+      const parsed = parseDiceNotation(notation);
+      if (!parsed) {
+        toast.error(`Invalid dice notation: ${notation}`);
+        return;
+      }
+      const rolls = rollDice(parsed.count, parsed.sides);
+      const sum = rolls.reduce((a, b) => a + b, 0) + parsed.modifier;
+      const modStr = parsed.modifier > 0 ? `+${parsed.modifier}` : parsed.modifier < 0 ? `${parsed.modifier}` : "";
+      const detail = parsed.count > 1 ? ` [${rolls.join(", ")}]${modStr}` : modStr ? ` (${rolls[0]}${modStr})` : "";
+      setDiceResult(`🎲 ${notation} → ${sum}${detail}`);
+    },
+    [parseDiceNotation, rollDice],
   );
 
   const handleSend = useCallback(async () => {
@@ -1602,6 +1638,54 @@ export function ConversationInput({
         <div className="order-2 ml-auto flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-0.5 sm:order-none sm:flex-none sm:shrink-0">
           <div className="relative">
             <button
+              ref={diceButtonRef}
+              type="button"
+              onClick={() => {
+                setDiceMenuOpen((v) => !v);
+                setStatusMenuOpen(false);
+                setCharPickerOpen(false);
+              }}
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-8",
+                diceMenuOpen
+                  ? "bg-foreground/10 text-foreground/75"
+                  : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+              )}
+              title="Roll dice"
+            >
+              <Dices size="1rem" />
+            </button>
+            {diceMenuOpen && (
+              <div className="absolute bottom-full right-0 z-[9999] mb-2 w-48 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-2xl">
+                <div className="mb-2 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  Quick Roll
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {['1d4', '1d6', '1d8', '1d10', '1d20', '2d6', '3d6', '1d100'].map((notation) => (
+                    <button
+                      key={notation}
+                      type="button"
+                      onClick={() => {
+                        handleDiceRoll(notation);
+                        setDiceMenuOpen(false);
+                      }}
+                      className="rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs transition-colors hover:bg-[var(--accent)]"
+                    >
+                      {notation}
+                    </button>
+                  ))}
+                </div>
+                {diceResult && (
+                  <div className="mt-2 rounded-lg bg-[var(--secondary)]/60 px-2 py-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {diceResult}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <button
               ref={gifButtonRef}
               onClick={() => {
                 setGifOpen((v) => !v);
@@ -1747,6 +1831,15 @@ export function ConversationInput({
           </button>
         </div>
       </div>
+      {diceMenuOpen && (
+        <button
+          type="button"
+          aria-hidden="true"
+          tabIndex={-1}
+          className="fixed inset-0 z-[9998] cursor-default"
+          onClick={() => setDiceMenuOpen(false)}
+        />
+      )}
       {statusMenuOpen &&
         createPortal(
           <div

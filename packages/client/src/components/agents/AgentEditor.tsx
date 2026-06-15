@@ -157,6 +157,12 @@ const PHASE_META: Record<AgentPhase, { label: string; color: string; icon: typeo
   },
 };
 
+function normalizeAgentPhase(value: unknown): AgentPhase {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(PHASE_META, value)
+    ? (value as AgentPhase)
+    : "post_processing";
+}
+
 function normalizeAgentMaxTokensInput(value: string): number | "" {
   if (value === "") return "";
   const parsed = parseInt(value, 10);
@@ -468,7 +474,7 @@ export function AgentEditor() {
     if (dbConfig) {
       setLocalName(builtIn ? builtIn.name : dbConfig.name);
       setLocalDescription(dbConfig.description);
-      setLocalPhase(dbConfig.phase as AgentPhase);
+      setLocalPhase(normalizeAgentPhase(dbConfig.phase));
       setLocalAgentEnabled(dbConfig.enabled !== "false");
       setLocalConnectionId(dbConfig.connectionId ?? "");
       const settings = parseAgentSettingsRecord(dbConfig.settings);
@@ -1080,9 +1086,10 @@ export function AgentEditor() {
     [markDirty],
   );
 
-  const phaseMeta = PHASE_META[localPhase];
+  const normalizedLocalPhase = normalizeAgentPhase(localPhase);
+  const phaseMeta = PHASE_META[normalizedLocalPhase];
   const effectivePhase =
-    (isCustomAgent || isNewCustomAgent) && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    (isCustomAgent || isNewCustomAgent) && localResultType === "text_rewrite" ? "post_processing" : normalizedLocalPhase;
   const showTurnDataAccess = (isCustomAgent || isNewCustomAgent) && effectivePhase === "post_processing";
   const visibleBuiltInTools = useMemo(
     () =>

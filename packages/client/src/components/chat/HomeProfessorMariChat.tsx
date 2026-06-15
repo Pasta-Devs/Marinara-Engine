@@ -395,6 +395,101 @@ function mariDbDetail(info: NonNullable<ReturnType<typeof extractMariDbCommand>>
   return info.target === "all" ? "all tables" : humanizeIdentifier(info.target);
 }
 
+function tokenFlagValue(tokens: string[], flag: string) {
+  const prefixed = `${flag}=`;
+  const inline = tokens.find((token) => token.startsWith(prefixed));
+  if (inline) return inline.slice(prefixed.length);
+  const index = tokens.indexOf(flag);
+  return index >= 0 ? (tokens[index + 1] ?? null) : null;
+}
+
+function extractMariCodeCommand(command: string) {
+  const start = command.indexOf("mari code");
+  if (start < 0) return null;
+  const tokens = splitShellWords(command.slice(start));
+  if (tokens[0] !== "mari" || tokens[1] !== "code") return null;
+  const action = tokens[2] ?? "status";
+  return {
+    action,
+    subaction: action === "reload" ? (tokens[3] ?? null) : null,
+    kind: tokenFlagValue(tokens, "--kind"),
+    changed: tokens.includes("--changed"),
+    patch: tokens.includes("--patch") || tokens.includes("--full"),
+  };
+}
+
+function mariCodeTitle(info: NonNullable<ReturnType<typeof extractMariCodeCommand>>) {
+  switch (info.action) {
+    case "status":
+      return "Checking workspace status";
+    case "diff":
+      return info.patch ? "Inspecting workspace diff" : "Summarizing workspace diff";
+    case "check":
+      return info.changed ? "Checking changed workspace files" : "Running workspace checks";
+    case "health":
+      return "Checking workspace health";
+    case "reload":
+      return info.subaction === "request" ? `Requesting ${info.kind ?? "workspace"} reload` : "Managing workspace reload";
+    case "continue":
+      return "Continuing workspace run";
+    default:
+      return `Running mari code ${info.action}`;
+  }
+}
+
+function mariCodeDetail(info: NonNullable<ReturnType<typeof extractMariCodeCommand>>) {
+  if (info.action === "reload" && info.kind) return info.kind;
+  if (info.action === "diff" && info.patch) return "patch included";
+  if (info.action === "check" && info.changed) return "changed scope requested";
+  return null;
+}
+
+const MARI_THEME_MUTATIONS = new Set(["create", "update", "set-active"]);
+
+function extractMariThemesCommand(command: string) {
+  const themesStart = command.indexOf("mari themes");
+  const themeStart = command.indexOf("mari theme");
+  const start = themesStart >= 0 ? themesStart : themeStart;
+  if (start < 0) return null;
+  const tokens = splitShellWords(command.slice(start));
+  if (tokens[0] !== "mari" || (tokens[1] !== "themes" && tokens[1] !== "theme")) return null;
+  const action = tokens[2] ?? "list";
+  const name = tokenFlagValue(tokens, "--name");
+  return {
+    action,
+    name,
+    apply: tokens.includes("--apply"),
+    activate: tokens.includes("--activate") || tokens.includes("--active") || action === "set-active",
+    dryRun: MARI_THEME_MUTATIONS.has(action) && !tokens.includes("--apply"),
+  };
+}
+
+function mariThemesTitle(info: NonNullable<ReturnType<typeof extractMariThemesCommand>>) {
+  const suffix = info.name ? `: ${info.name}` : "";
+  switch (info.action) {
+    case "list":
+      return "Listing themes";
+    case "active":
+      return "Checking active theme";
+    case "get":
+      return "Reading theme";
+    case "create":
+      return info.apply ? `Creating theme${suffix}` : `Previewing theme${suffix}`;
+    case "update":
+      return info.apply ? "Updating theme" : "Previewing theme update";
+    case "set-active":
+      return info.apply ? "Activating theme" : "Previewing theme activation";
+    default:
+      return `Running mari themes ${info.action}`;
+  }
+}
+
+function mariThemesDetail(info: NonNullable<ReturnType<typeof extractMariThemesCommand>>) {
+  if (info.dryRun) return "dry run, not saved";
+  if (info.activate) return "activate";
+  return null;
+}
+
 function summarizeShellCommand(command: string) {
   const compact = compactCommand(command, 120);
   const words = splitShellWords(command);
@@ -408,12 +503,30 @@ function inferToolPresentation(tool: WorkspaceToolCall): ToolPresentation {
   const name = formatToolName(tool.name);
   const command = getBashCommand(tool);
   const mariDb = command ? extractMariDbCommand(command) : null;
+  const mariCode = command ? extractMariCodeCommand(command) : null;
+  const mariThemes = command ? extractMariThemesCommand(command) : null;
   if (command && mariDb) {
     return {
       eyebrow: mariDb.dryRun ? "DB preview" : "Database",
       title: mariDbTitle(mariDb),
       detail: mariDbDetail(mariDb),
       tone: "db",
+    };
+  }
+  if (command && mariCode) {
+    return {
+      eyebrow: "Workspace",
+      title: mariCodeTitle(mariCode),
+      detail: mariCodeDetail(mariCode),
+      tone: "shell",
+    };
+  }
+  if (command && mariThemes) {
+    return {
+      eyebrow: mariThemes.dryRun ? "Theme preview" : "Theme",
+      title: mariThemesTitle(mariThemes),
+      detail: mariThemesDetail(mariThemes),
+      tone: mariThemes.dryRun ? "write" : "db",
     };
   }
 
@@ -781,6 +894,7 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
   const [workspaceActive, setWorkspaceActive] = useState(false);
   const [workspaceActivity, setWorkspaceActivity] = useState<string | null>(null);
   const [workspaceTimeline, setWorkspaceTimeline] = useState<WorkspaceTimelineItem[]>([]);
+  const [dottoreDismissed, setDottoreDismissed] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sending, setSending] = useState(false);
   const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
@@ -891,7 +1005,7 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
   const displayMessages = useMemo(() => [createWelcomeMessage(chatId), ...messages], [chatId, messages]);
   const workspaceTimelineActive = workspaceActive || hasActiveGeneration;
   const workspaceHasResponseText = workspaceTimeline.some((item) => item.type === "text" && item.content.trim());
-  const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText;
+  const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText && !dottoreDismissed;
 
   useEffect(() => {
     if (!connectionMenuOpen) return;
@@ -981,6 +1095,7 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
       setWorkspaceActive(true);
       setWorkspaceActivity("Thinking...");
       setWorkspaceTimeline([]);
+      setDottoreDismissed(false);
       useChatStore.getState().setAbortController(chat.id, controller);
       useChatStore.getState().clearStreamBuffer(chat.id);
       useChatStore.getState().clearThinkingBuffer(chat.id);
@@ -1162,7 +1277,6 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
                     <WorkspaceStatusEvent content={workspaceActivity ?? "Thinking..."} />
                   )}
                   <WorkspaceTimelineList items={workspaceTimeline} active={workspaceTimelineActive} openReasoning />
-                  <ProfessorMariWorkingWindow visible={showDottoreSupport} />
                   {workspaceStatus?.error && <WorkspaceErrorEvent message={workspaceStatus.error} />}
                   {pendingApprovals.map((approval) => (
                     <WorkspaceApprovalCard
@@ -1283,6 +1397,11 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
           />
         </div>
       </section>
+      <ProfessorMariWorkingWindow
+        visible={showDottoreSupport}
+        onDismiss={() => setDottoreDismissed(true)}
+        className="fixed bottom-4 right-4 z-50 w-[min(18rem,calc(100vw-2rem))] max-sm:bottom-3 max-sm:right-3"
+      />
     </>
   );
 }

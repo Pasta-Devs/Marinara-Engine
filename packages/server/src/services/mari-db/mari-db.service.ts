@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Professor Mari DB service
 // ──────────────────────────────────────────────
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
@@ -11,10 +12,12 @@ import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
 import { FILE_BACKED_TABLES } from "../../db/file-backed-store.js";
 import * as schema from "../../db/schema/index.js";
-import { getFileStorageDir } from "../../config/runtime-config.js";
+import { getFileStorageDir, getMonorepoRoot, isCustomToolScriptEnabled } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { normalizeThemeCss } from "../../utils/theme-css.js";
+import { getMariImagesService } from "./mari-images.service.js";
 import type {
   MariDbCommandResult,
   MariDbDiffSummary,
@@ -79,6 +82,7 @@ type ParsedMutationRequest = {
   apply: boolean;
   cascade: boolean;
   reason: string | null;
+  generatedIds?: string[];
 };
 type ApprovalDecision = "approved" | "rejected" | "cancelled" | "timed_out";
 type PendingRecord = MariDbPendingApproval & {
@@ -95,9 +99,31 @@ type MariCliEnvelope = {
   sessionId?: string;
 };
 
+type CodeCommandContext = {
+  command: string;
+  sessionId: string;
+  cwd?: string;
+};
+
+type ProcessRunResult = {
+  command: string;
+  cwd: string;
+  ok: boolean;
+  exitCode: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+  durationMs: number;
+  timedOut: boolean;
+  truncated: boolean;
+};
+
 const PREVIEW_LIMIT = 50;
 const APPROVAL_TIMEOUT_MS = 10 * 60 * 1000;
 const HISTORY_LIMIT = 50;
+const COMMAND_OUTPUT_LIMIT = 32_000;
+const CODE_READ_TIMEOUT_MS = 30_000;
+const CODE_CHECK_TIMEOUT_MS = 15 * 60 * 1000;
 const FILE_BACKED_TABLE_SET = new Set<string>(FILE_BACKED_TABLES);
 const THEME_TABLE = "custom_themes";
 const THEME_ACTIVE_TRUE = "true";
@@ -106,6 +132,101 @@ const BOOLEAN_FLAGS = new Set(["active", "activate", "apply", "cascade", "dry-ru
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function truncateOutput(value: string, limit = COMMAND_OUTPUT_LIMIT): { text: string; truncated: boolean } {
+  if (value.length <= limit) return { text: value, truncated: false };
+  return { text: `${value.slice(0, limit)}\n… output truncated at ${limit} characters …`, truncated: true };
+}
+
+function appendLimited(current: string, chunk: string, limit = COMMAND_OUTPUT_LIMIT): { text: string; truncated: boolean } {
+  if (current.length >= limit) return { text: current, truncated: true };
+  const next = current + chunk;
+  return truncateOutput(next, limit);
+}
+
+function displayCommand(bin: string, args: string[]) {
+  return [bin, ...args].map((part) => (/[\s"']/.test(part) ? JSON.stringify(part) : part)).join(" ");
+}
+
+function runProcess(bin: string, args: string[], options: { cwd: string; timeoutMs: number }): Promise<ProcessRunResult> {
+  const startedAt = Date.now();
+  const command = displayCommand(bin, args);
+  return new Promise((resolveRun) => {
+    let stdout = "";
+    let stderr = "";
+    let truncated = false;
+    let settled = false;
+    let timedOut = false;
+
+    const child = spawn(bin, args, {
+      cwd: options.cwd,
+      env: process.env,
+      shell: process.platform === "win32",
+      windowsHide: true,
+    });
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, options.timeoutMs);
+    timer.unref?.();
+
+    const finish = (exitCode: number | null, signal: NodeJS.Signals | null, spawnError?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (spawnError) {
+        stderr = stderr ? `${stderr}\n${spawnError.message}` : spawnError.message;
+      }
+      resolveRun({
+        command,
+        cwd: options.cwd,
+        ok: exitCode === 0 && !timedOut && !spawnError,
+        exitCode,
+        signal,
+        stdout,
+        stderr,
+        durationMs: Date.now() - startedAt,
+        timedOut,
+        truncated,
+      });
+    };
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      const result = appendLimited(stdout, chunk.toString());
+      stdout = result.text;
+      truncated ||= result.truncated;
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      const result = appendLimited(stderr, chunk.toString());
+      stderr = result.text;
+      truncated ||= result.truncated;
+    });
+    child.on("error", (err) => finish(null, null, err));
+    child.on("close", (code, signal) => finish(code, signal));
+  });
+}
+
+function parseGitStatusFiles(status: string): string[] {
+  const files = new Set<string>();
+  for (const line of status.split(/\r?\n/)) {
+    if (!line.trim() || line.startsWith("##")) continue;
+    const raw = line.slice(3).trim();
+    if (!raw) continue;
+    const renamed = raw.split(" -> ");
+    files.add(renamed[renamed.length - 1] ?? raw);
+  }
+  return [...files].sort((a, b) => a.localeCompare(b));
+}
+
+async function readPackageVersion(cwd: string): Promise<string | null> {
+  try {
+    const pkg = JSON.parse(await readFile(resolve(cwd, "package.json"), "utf8")) as { version?: unknown };
+    return typeof pkg.version === "string" ? pkg.version : null;
+  } catch {
+    return null;
+  }
 }
 
 const CASCADES: Array<{ parent: string; child: string; parentKey: string; childKey: string }> = [
@@ -159,10 +280,10 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   choice_blocks: ["choices"],
   chat_presets: ["parameters", "tags"],
   api_connections: ["defaultParameters"],
-  agent_configs: ["settings", "toolIds", "triggerKeywords", "triggerCharacterIds", "triggerLorebookIds"],
-  agent_runs: ["input", "output", "metadata"],
-  agent_memory: ["memory"],
-  custom_tools: ["schema", "metadata"],
+  agent_configs: ["settings"],
+  agent_runs: ["resultData"],
+  agent_memory: ["value"],
+  custom_tools: ["parametersSchema"],
   game_state_snapshots: [
     "presentCharacters",
     "playerStats",
@@ -225,6 +346,9 @@ function buildTableMetas() {
 }
 
 const TABLE_METAS = buildTableMetas();
+const AGENT_PHASES = new Set(["pre_generation", "parallel", "post_processing"]);
+const TOOL_EXECUTION_TYPES = new Set(["webhook", "static", "script"]);
+const BOOLEAN_TEXT_VALUES = new Set(["true", "false"]);
 
 function isRecord(value: unknown): value is Row {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -276,9 +400,68 @@ function parseRow(table: string, row: Row): Row {
   return out;
 }
 
+function tryParseJsonColumn(row: Row, key: string): unknown {
+  if (!Object.prototype.hasOwnProperty.call(row, key)) return undefined;
+  const value = row[key];
+  if (value === null || value === undefined || value === "") return undefined;
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function toBooleanText(value: unknown): unknown {
+  if (typeof value === "boolean") return String(value);
+  if (typeof value === "number" && (value === 0 || value === 1)) return value === 1 ? "true" : "false";
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  return BOOLEAN_TEXT_VALUES.has(normalized) ? normalized : value;
+}
+
+function normalizeAgentConfigWriteRow(row: Row): Row {
+  const out: Row = { ...row };
+  if (out.description === undefined) out.description = "";
+  if (out.connectionId === undefined) out.connectionId = null;
+  if (out.imagePath === undefined) out.imagePath = null;
+  if (out.promptTemplate === undefined) out.promptTemplate = "";
+  if (out.settings === undefined) out.settings = {};
+  if (typeof out.phase === "string" && out.phase.trim().toLowerCase() === "inactive") {
+    out.phase = "post_processing";
+    out.enabled = "false";
+  } else if (typeof out.phase === "string") {
+    out.phase = out.phase.trim();
+  }
+  if (out.enabled !== undefined) {
+    out.enabled = toBooleanText(out.enabled);
+  } else {
+    out.enabled = "true";
+  }
+  return out;
+}
+
+function normalizeCustomToolWriteRow(row: Row): Row {
+  const out: Row = { ...row };
+  if (out.description === undefined) out.description = "";
+  if (out.parametersSchema === undefined) out.parametersSchema = {};
+  if (out.executionType === undefined) out.executionType = "static";
+  if (out.webhookUrl === undefined) out.webhookUrl = null;
+  if (out.staticResult === undefined) out.staticResult = null;
+  if (out.scriptBody === undefined) out.scriptBody = null;
+  out.enabled = out.enabled === undefined ? "true" : toBooleanText(out.enabled);
+  return out;
+}
+
+function normalizeWriteRow(table: string, row: Row): Row {
+  if (table === "agent_configs") return normalizeAgentConfigWriteRow(row);
+  if (table === "custom_tools") return normalizeCustomToolWriteRow(row);
+  return { ...row };
+}
+
 function serializeRow(table: string, row: Row): Row {
   const jsonCols = jsonColumnSet(table);
-  const out: Row = { ...row };
+  const out: Row = normalizeWriteRow(table, row);
   for (const key of jsonCols) {
     if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
     const value = out[key];
@@ -293,7 +476,12 @@ function serializeRow(table: string, row: Row): Row {
 }
 
 function parseThemeRow(row: Row): Row {
-  return { ...parseRow(THEME_TABLE, row), isActive: row.isActive === THEME_ACTIVE_TRUE };
+  const parsed = parseRow(THEME_TABLE, row);
+  return {
+    ...parsed,
+    css: typeof parsed.css === "string" ? normalizeThemeCss(parsed.css) : parsed.css,
+    isActive: row.isActive === THEME_ACTIVE_TRUE,
+  };
 }
 
 function summarizeThemeRow(row: Row): Row {
@@ -430,6 +618,22 @@ function hasFlag(flags: Map<string, string | boolean>, name: string): boolean {
   return flags.has(name) && flags.get(name) !== false;
 }
 
+function createRequestIdAllocator(request: ParsedMutationRequest): () => string {
+  let index = 0;
+  return () => {
+    request.generatedIds ??= [];
+    const existing = request.generatedIds[index];
+    if (existing) {
+      index += 1;
+      return existing;
+    }
+    const id = newId();
+    request.generatedIds.push(id);
+    index += 1;
+    return id;
+  };
+}
+
 async function parseJsonInput(flags: Map<string, string | boolean>, cwd?: string) {
   const raw = flagString(flags, "json");
   const file = flagString(flags, "json-file") ?? flagString(flags, "file");
@@ -446,7 +650,8 @@ async function parseCssInput(flags: Map<string, string | boolean>, cwd?: string)
   const file = flagString(flags, "css-file") ?? flagString(flags, "file");
   if (raw !== undefined && file) throw new Error("Use only one of --css or --css-file");
   if (raw === undefined && !file) throw new Error("Missing --css '<css>' or --css-file <path>");
-  return file ? readFile(resolve(cwd ? resolve(cwd) : process.cwd(), file), "utf8") : raw!;
+  const css = file ? await readFile(resolve(cwd ? resolve(cwd) : process.cwd(), file), "utf8") : raw!;
+  return normalizeThemeCss(css);
 }
 
 function createWherePredicate(expr: string | undefined): (row: Row) => boolean {
@@ -490,11 +695,21 @@ export class MariDbService {
     const command = formatCommand(argv, envelope.command);
     const sessionId = envelope.sessionId || "mari-cli";
     try {
-      if (argv[0] === "theme" || argv[0] === "themes") {
+      const group = argv[0];
+      if (!group || group === "help" || group === "--help" || group === "-h") {
+        return { ok: true, mode: "read", command, output: this.topLevelHelpText() };
+      }
+      if (group === "code") {
+        return await this.executeCodeCommand(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
+      }
+      if (group === "theme" || group === "themes") {
         return await this.executeThemeCommand(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
       }
-      if (argv[0] !== "db") {
-        if (argv[0] === "storage") {
+      if (group === "image" || group === "images" || group === "media") {
+        return await getMariImagesService(this.db).execute(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
+      }
+      if (group !== "db") {
+        if (group === "storage") {
           return {
             ok: false,
             mode: "read",
@@ -502,7 +717,7 @@ export class MariDbService {
             error: "mari storage tx is reserved for a later hot-reload repair phase; use mari db for managed data edits.",
           };
         }
-        return { ok: false, mode: "read", command, error: this.helpText() };
+        return { ok: false, mode: "read", command, error: this.topLevelHelpText() };
       }
       return await this.executeDbCommand(argv.slice(1), { command, sessionId, cwd: envelope.cwd });
     } catch (err) {
@@ -620,6 +835,12 @@ export class MariDbService {
             // JSON-column check already reports this.
           }
         }
+        if (tableName === "agent_configs") {
+          this.validateAgentConfigRow(row, id, issues);
+        }
+        if (tableName === "custom_tools") {
+          this.validateCustomToolRow(row, id, issues);
+        }
       }
     }
 
@@ -650,11 +871,304 @@ export class MariDbService {
     return validationFromIssues(issues);
   }
 
+  private validateAgentConfigRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[]) {
+    const id = idValue == null ? null : String(idValue);
+    if (typeof row.type !== "string" || row.type.trim().length === 0) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent type must be a non-empty string" });
+    }
+    if (typeof row.name !== "string" || row.name.trim().length === 0) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent name must be a non-empty string" });
+    }
+    if (typeof row.description !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent description must be a string" });
+    }
+    if (typeof row.phase !== "string" || !AGENT_PHASES.has(row.phase)) {
+      issues.push({
+        level: "error",
+        table: "agent_configs",
+        id,
+        message: `Agent phase must be one of: ${[...AGENT_PHASES].join(", ")}`,
+      });
+    }
+    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent enabled must be stored as \"true\" or \"false\"" });
+    }
+    if (row.connectionId !== null && row.connectionId !== undefined && typeof row.connectionId !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent connectionId must be a string or null" });
+    }
+    if (row.imagePath !== null && row.imagePath !== undefined && typeof row.imagePath !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent imagePath must be a string or null" });
+    }
+    if (typeof row.promptTemplate !== "string") {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent promptTemplate must be a string" });
+    }
+    const settings = tryParseJsonColumn(row, "settings");
+    if (settings !== undefined && !isRecord(settings)) {
+      issues.push({ level: "error", table: "agent_configs", id, message: "Agent settings must be a JSON object" });
+    }
+  }
+
+  private validateCustomToolRow(row: Row, idValue: unknown, issues: MariDbValidationIssue[]) {
+    const id = idValue == null ? null : String(idValue);
+    if (typeof row.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(row.name)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool name must be lowercase snake_case" });
+    }
+    if (typeof row.description !== "string" || row.description.trim().length === 0) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool description must be a non-empty string" });
+    }
+    if (typeof row.executionType !== "string" || !TOOL_EXECUTION_TYPES.has(row.executionType)) {
+      issues.push({
+        level: "error",
+        table: "custom_tools",
+        id,
+        message: `Tool executionType must be one of: ${[...TOOL_EXECUTION_TYPES].join(", ")}`,
+      });
+    }
+    if (row.executionType === "script" && !isCustomToolScriptEnabled()) {
+      issues.push({
+        level: "error",
+        table: "custom_tools",
+        id,
+        message: "Script custom tools require CUSTOM_TOOL_SCRIPT_ENABLED=true and a server restart",
+      });
+    }
+    if (typeof row.enabled !== "string" || !BOOLEAN_TEXT_VALUES.has(row.enabled)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool enabled must be stored as \"true\" or \"false\"" });
+    }
+    const parametersSchema = tryParseJsonColumn(row, "parametersSchema");
+    if (parametersSchema !== undefined && !isRecord(parametersSchema)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Tool parametersSchema must be a JSON object" });
+    }
+    if (row.webhookUrl !== null && row.webhookUrl !== undefined && row.webhookUrl !== "") {
+      if (typeof row.webhookUrl !== "string") {
+        issues.push({ level: "error", table: "custom_tools", id, message: "Tool webhookUrl must be a URL string or null" });
+      } else {
+        try {
+          new URL(row.webhookUrl);
+        } catch {
+          issues.push({ level: "error", table: "custom_tools", id, message: "Tool webhookUrl must be a valid URL" });
+        }
+      }
+    }
+    if (row.executionType === "script" && (typeof row.scriptBody !== "string" || row.scriptBody.trim().length === 0)) {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Script tools require a non-empty scriptBody" });
+    }
+    if (row.executionType === "static" && row.staticResult !== null && row.staticResult !== undefined && typeof row.staticResult !== "string") {
+      issues.push({ level: "error", table: "custom_tools", id, message: "Static tool result must be a string or null" });
+    }
+  }
+
+  private codeCwd(cwd?: string) {
+    return resolve(cwd?.trim() ? cwd : getMonorepoRoot());
+  }
+
+  private async executeCodeCommand(args: string[], context: CodeCommandContext): Promise<MariDbCommandResult> {
+    const sub = args[0];
+    if (!sub || sub === "help" || sub === "--help" || sub === "-h") {
+      return { ok: true, mode: "read", command: context.command, output: this.codeHelpText() };
+    }
+    const parsed = parseArgs(args.slice(1));
+    if (hasFlag(parsed.flags, "help")) return { ok: true, mode: "read", command: context.command, output: this.codeHelpText() };
+
+    switch (sub) {
+      case "status":
+        return this.executeCodeStatus(context);
+      case "diff":
+        return this.executeCodeDiff(context, parsed.flags);
+      case "check":
+        return this.executeCodeCheck(context, parsed.flags);
+      case "health":
+        return this.executeCodeHealth(context);
+      case "reload":
+        return this.executeCodeReload(args.slice(1), context);
+      case "continue":
+        return this.executeCodeContinue(parsed.positionals[0], context);
+      default:
+        return {
+          ok: false,
+          mode: "read",
+          command: context.command,
+          error: `Unknown mari code command: ${sub}\n${this.codeHelpText()}`,
+        };
+    }
+  }
+
+  private async executeCodeStatus(context: CodeCommandContext): Promise<MariDbCommandResult> {
+    const cwd = this.codeCwd(context.cwd);
+    const [repoRoot, branch, status, stat, version] = await Promise.all([
+      runProcess("git", ["rev-parse", "--show-toplevel"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      runProcess("git", ["branch", "--show-current"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      runProcess("git", ["status", "--short", "--branch"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      runProcess("git", ["diff", "--stat"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      readPackageVersion(cwd),
+    ]);
+    const statusText = status.stdout.trim();
+    return {
+      ok: status.ok,
+      mode: "read",
+      command: context.command,
+      output: {
+        workspace: cwd,
+        repoRoot: repoRoot.ok ? repoRoot.stdout.trim() : null,
+        dataDir: getFileStorageDir(),
+        packageVersion: version,
+        runtime: {
+          pid: process.pid,
+          node: process.version,
+          platform: process.platform,
+          uptimeSeconds: Math.round(process.uptime()),
+        },
+        git: {
+          branch: branch.stdout.trim() || null,
+          clean: status.ok && !statusText.split(/\r?\n/).some((line) => line && !line.startsWith("##")),
+          statusShort: statusText,
+          changedFiles: parseGitStatusFiles(statusText),
+          diffStat: stat.stdout.trim(),
+          errors: [repoRoot, branch, status, stat].filter((result) => !result.ok).map((result) => result.stderr.trim() || `${result.command} failed`),
+        },
+      },
+    };
+  }
+
+  private async executeCodeDiff(context: CodeCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
+    const cwd = this.codeCwd(context.cwd);
+    const cached = hasFlag(flags, "cached") || hasFlag(flags, "staged");
+    const includePatch = hasFlag(flags, "patch") || hasFlag(flags, "full");
+    const diffBaseArgs = ["diff", ...(cached ? ["--cached"] : [])];
+    const [status, stat, nameOnly, patch] = await Promise.all([
+      runProcess("git", ["status", "--short", "--branch"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      runProcess("git", [...diffBaseArgs, "--stat"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      runProcess("git", [...diffBaseArgs, "--name-only"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      includePatch ? runProcess("git", [...diffBaseArgs, "--patch"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }) : Promise.resolve(null),
+    ]);
+    const statusText = status.stdout.trim();
+    const gitFiles = nameOnly.stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const changedFiles = [...new Set([...parseGitStatusFiles(statusText), ...gitFiles])].sort((a, b) => a.localeCompare(b));
+    return {
+      ok: status.ok && stat.ok && nameOnly.ok && (!patch || patch.ok),
+      mode: "read",
+      command: context.command,
+      output: {
+        workspace: cwd,
+        cached,
+        statusShort: statusText,
+        changedFiles,
+        stat: stat.stdout.trim(),
+        patch: patch?.stdout,
+        truncated: Boolean(patch?.truncated || stat.truncated || nameOnly.truncated),
+        errors: [status, stat, nameOnly, patch].filter((result): result is ProcessRunResult => !!result && !result.ok).map((result) => result.stderr.trim() || `${result.command} failed`),
+      },
+    };
+  }
+
+  private async executeCodeCheck(context: CodeCommandContext, flags: Map<string, string | boolean>): Promise<MariDbCommandResult> {
+    const cwd = this.codeCwd(context.cwd);
+    const changedOnly = hasFlag(flags, "changed");
+    const result = await runProcess("pnpm", ["check"], { cwd, timeoutMs: CODE_CHECK_TIMEOUT_MS });
+    return {
+      ok: result.ok,
+      mode: "read",
+      command: context.command,
+      output: {
+        scope: changedOnly ? "changed" : "workspace",
+        note: changedOnly ? "No changed-file-only checker is wired yet; ran the baseline pnpm check." : undefined,
+        result,
+      },
+      error: result.ok ? undefined : "pnpm check failed",
+    };
+  }
+
+  private async executeCodeHealth(context: CodeCommandContext): Promise<MariDbCommandResult> {
+    const cwd = this.codeCwd(context.cwd);
+    const [gitStatus, validation] = await Promise.all([
+      runProcess("git", ["status", "--short"], { cwd, timeoutMs: CODE_READ_TIMEOUT_MS }),
+      this.validate().catch((err) => ({
+        status: "blocked" as const,
+        errors: [{ level: "error" as const, message: err instanceof Error ? err.message : String(err) }],
+        notices: [],
+        infos: [],
+      })),
+    ]);
+    return {
+      ok: validation.status === "passed",
+      mode: "read",
+      command: context.command,
+      output: {
+        status: validation.status === "passed" ? "ok" : "attention_required",
+        workspace: cwd,
+        dataDir: getFileStorageDir(),
+        server: {
+          pid: process.pid,
+          node: process.version,
+          platform: process.platform,
+          uptimeSeconds: Math.round(process.uptime()),
+        },
+        git: {
+          clean: gitStatus.ok && gitStatus.stdout.trim().length === 0,
+          statusShort: gitStatus.stdout.trim(),
+        },
+        dataValidation: validation,
+      },
+    };
+  }
+
+  private executeCodeReload(args: string[], context: CodeCommandContext): MariDbCommandResult {
+    const sub = args[0];
+    const parsed = parseArgs(args.slice(1));
+    if (!sub || sub === "help" || sub === "--help" || sub === "-h" || hasFlag(parsed.flags, "help")) {
+      return { ok: true, mode: "read", command: context.command, output: this.codeReloadHelpText() };
+    }
+    if (sub !== "request") {
+      return { ok: false, mode: "read", command: context.command, error: `Unknown mari code reload command: ${sub}\n${this.codeReloadHelpText()}` };
+    }
+    const kind = flagString(parsed.flags, "kind") ?? "client";
+    if (!["client", "server", "full"].includes(kind)) {
+      return { ok: false, mode: "read", command: context.command, error: "--kind must be client, server, or full" };
+    }
+    const reason = flagString(parsed.flags, "reason")?.trim() || "Workspace changes need reload/restart verification.";
+    return {
+      ok: true,
+      mode: "read",
+      command: context.command,
+      output: {
+        status: "reload_requested",
+        kind,
+        reason,
+        resume: hasFlag(parsed.flags, "resume"),
+        requestedAt: now(),
+        workspace: this.codeCwd(context.cwd),
+        note: "Automatic suspend/resume is not wired in this build yet. Stop generation after this request, ask the user to perform the reload/restart, then verify with mari code health or targeted checks.",
+        manualSteps:
+          kind === "client"
+            ? ["Reload the browser tab or rely on Vite HMR if it already updated.", "Continue after the UI reconnects."]
+            : kind === "server"
+              ? ["Restart the Marinara server or wait for tsx watch/dev launcher to restart it.", "Run mari code health after reconnecting."]
+              : ["Restart the Marinara server and reload the browser client.", "Run mari code health after reconnecting."],
+      },
+    };
+  }
+
+  private executeCodeContinue(runId: string | undefined, context: CodeCommandContext): MariDbCommandResult {
+    if (!runId) return { ok: false, mode: "read", command: context.command, error: "Usage: mari code continue <run-id>" };
+    return {
+      ok: false,
+      mode: "read",
+      command: context.command,
+      error: "Durable workspace run resume is planned but not implemented yet. Reopen Professor Mari and paste the run context or continue manually.",
+    };
+  }
+
   private async executeThemeCommand(args: string[], context: { command: string; sessionId: string; cwd?: string }): Promise<MariDbCommandResult> {
     const sub = args[0];
     const rest = args.slice(1);
     const parsed = parseArgs(rest);
     const flags = parsed.flags;
+    if (!sub || sub === "help" || sub === "--help" || sub === "-h" || hasFlag(flags, "help")) {
+      return { ok: true, mode: "read", command: context.command, output: this.themeHelpText() };
+    }
 
     switch (sub) {
       case "list": {
@@ -740,6 +1254,9 @@ export class MariDbService {
     const sub = args[0];
     const rest = args.slice(1);
     const parsed = parseArgs(rest);
+    if (!sub || sub === "help" || sub === "--help" || sub === "-h" || hasFlag(parsed.flags, "help")) {
+      return { ok: true, mode: "read", command: context.command, output: this.helpText() };
+    }
     switch (sub) {
       case "status":
         return { ok: true, mode: "read", command: context.command, output: { status: "ok", dataDir: getFileStorageDir(), tables: FILE_BACKED_TABLES.length } };
@@ -948,15 +1465,16 @@ export class MariDbService {
 
   private async planMutation(request: ParsedMutationRequest, command: string, timestamp: string = now()): Promise<Plan> {
     const issues: MariDbValidationIssue[] = [];
+    const allocateId = createRequestIdAllocator(request);
     let changes: PlanChange[] = [];
-    if (request.kind === "insert") changes = await this.planInsert(request, timestamp);
+    if (request.kind === "insert") changes = await this.planInsert(request, timestamp, allocateId);
     else if (request.kind === "patch") changes = await this.planPatch(request, timestamp);
     else if (request.kind === "replace") changes = await this.planReplace(request, timestamp);
     else if (request.kind === "delete") changes = await this.planDelete(request, issues);
     else if (request.kind === "theme-create") changes = await this.planThemeCreate(request, timestamp, issues);
     else if (request.kind === "theme-update") changes = await this.planThemeUpdate(request, timestamp, issues);
     else if (request.kind === "theme-set-active") changes = await this.planThemeSetActive(request, timestamp, issues);
-    else changes = await this.planTransform(request, timestamp);
+    else changes = await this.planTransform(request, timestamp, allocateId);
 
     const touchedTables = [...new Set(changes.map((change) => change.table))];
     const validation = await this.validateTouchedRows(changes, touchedTables, issues);
@@ -965,11 +1483,11 @@ export class MariDbService {
     return { changes, validation, summary, operationHash, reason: request.reason, request };
   }
 
-  private async planInsert(request: ParsedMutationRequest, timestamp: string): Promise<PlanChange[]> {
+  private async planInsert(request: ParsedMutationRequest, timestamp: string, allocateId: () => string): Promise<PlanChange[]> {
     const meta = getMeta(String(request.table));
     const pk = getPrimary(meta);
     const parsed = { ...(request.row ?? {}) };
-    if (parsed[pk] == null || parsed[pk] === "") parsed[pk] = newId();
+    if (parsed[pk] == null || parsed[pk] === "") parsed[pk] = allocateId();
     this.fillTimestamps(meta, parsed, true, timestamp);
     const afterRaw = serializeRow(meta.name, parsed);
     return [{ table: meta.name, id: String(afterRaw[pk]), action: "insert", before: null, after: parseRow(meta.name, afterRaw), beforeRaw: null, afterRaw, apply: true }];
@@ -989,8 +1507,9 @@ export class MariDbService {
   private async planReplace(request: ParsedMutationRequest, timestamp: string): Promise<PlanChange[]> {
     const meta = getMeta(String(request.table));
     const existing = await this.requireRawById(meta, String(request.id));
-    const next = { ...(request.row ?? {}) };
+    const next = normalizeWriteRow(meta.name, { ...(request.row ?? {}) });
     next[getPrimary(meta)] = existing[getPrimary(meta)];
+    if (meta.byKey.has("createdAt") && !next.createdAt) next.createdAt = existing.createdAt;
     this.fillTimestamps(meta, next, false, timestamp);
     const afterRaw = serializeRow(meta.name, next);
     return [{ table: meta.name, id: rowId(meta, existing), action: "replace", before: parseRow(meta.name, existing), after: parseRow(meta.name, afterRaw), beforeRaw: existing, afterRaw, apply: true }];
@@ -1019,7 +1538,7 @@ export class MariDbService {
     return this.dedupeDeletes(changes);
   }
 
-  private async planTransform(request: ParsedMutationRequest, timestamp: string): Promise<PlanChange[]> {
+  private async planTransform(request: ParsedMutationRequest, timestamp: string, allocateId: () => string): Promise<PlanChange[]> {
     const cwd = request.cwd ? resolve(request.cwd) : process.cwd();
     const scriptPath = resolve(cwd, String(request.scriptPath));
     const transform = await importTransform(scriptPath);
@@ -1043,7 +1562,7 @@ export class MariDbService {
         const ctx: TransformContext = {
           table,
           now: timestamp,
-          newId,
+          newId: allocateId,
           raw: (parsedRow) => serializeRow(table, parsedRow),
           parse: (rawRow) => parseRow(table, rawRow),
           find: (findTable, predicate) => (allParsed.get(findTable) ?? []).filter(predicate).map(clone),
@@ -1060,15 +1579,16 @@ export class MariDbService {
             if (!isRecord(insert)) continue;
             const insertRow = { ...insert };
             const pk = getPrimary(meta);
-            if (insertRow[pk] == null || insertRow[pk] === "") insertRow[pk] = newId();
+            if (insertRow[pk] == null || insertRow[pk] === "") insertRow[pk] = allocateId();
             this.fillTimestamps(meta, insertRow, true, timestamp);
             const afterRaw = serializeRow(table, insertRow);
             changes.push({ table, id: String(afterRaw[pk]), action: "insert", before: null, after: parseRow(table, afterRaw), beforeRaw: null, afterRaw, apply: true });
           }
           continue;
         }
-        const next = isRecord(result) && Object.prototype.hasOwnProperty.call(result, "update") ? (deepMerge(row, result.update) as Row) : (result as Row);
-        if (!isRecord(next)) continue;
+        const resultRow = isRecord(result) && Object.prototype.hasOwnProperty.call(result, "update") ? (deepMerge(row, result.update) as Row) : (result as Row);
+        if (!isRecord(resultRow)) continue;
+        const next = normalizeWriteRow(table, resultRow);
         next[getPrimary(meta)] = raw[getPrimary(meta)];
         this.fillTimestamps(meta, next, false, timestamp);
         const afterRaw = serializeRow(table, next);
@@ -1265,10 +1785,48 @@ export class MariDbService {
         }
       }
     }
+
+    const parentRowsByTable = new Map<string, Row[]>();
+    const parentRows = async (table: string) => {
+      const cached = parentRowsByTable.get(table);
+      if (cached) return cached;
+      const rows = await this.rawRows(table);
+      parentRowsByTable.set(table, rows);
+      return rows;
+    };
+    for (const change of changes) {
+      if (change.action === "delete") continue;
+      for (const cascade of CASCADES.filter((entry) => entry.child === change.table)) {
+        const ref = change.afterRaw?.[cascade.childKey];
+        if (typeof ref !== "string" || !ref) continue;
+        const parentInsertedOrUpdated = changes.some(
+          (entry) => entry.table === cascade.parent && entry.action !== "delete" && entry.afterRaw?.[cascade.parentKey] === ref,
+        );
+        const parentDeleted = changes.some(
+          (entry) => entry.table === cascade.parent && entry.action === "delete" && entry.beforeRaw?.[cascade.parentKey] === ref,
+        );
+        const parentExists = !parentDeleted && (await parentRows(cascade.parent)).some((row) => row[cascade.parentKey] === ref);
+        if (!parentInsertedOrUpdated && !parentExists) {
+          issues.push({
+            level: "error",
+            table: change.table,
+            id: change.id,
+            message: `Dangling reference ${cascade.childKey}=${ref} -> ${cascade.parent}.${cascade.parentKey}`,
+          });
+        }
+      }
+    }
+
     const fullValidation = await this.validate();
     // Keep current unrelated optional notices visible to Mari, but only let touched-scope errors block.
+    // Existing errors on rows being repaired/deleted must not make the repair impossible.
     const touched = new Set(tables);
-    const scopedExistingErrors = fullValidation.errors.filter((issue) => issue.table && touched.has(issue.table));
+    const touchedRows = new Set(changes.map((change) => `${change.table}:${change.id}`));
+    const scopedExistingErrors = fullValidation.errors.filter((issue) => {
+      if (!issue.table || !touched.has(issue.table)) return false;
+      const issueId = issue.id == null ? null : String(issue.id);
+      return !issueId || !touchedRows.has(`${issue.table}:${issueId}`);
+    });
     return validationFromIssues([...issues, ...scopedExistingErrors, ...fullValidation.notices, ...fullValidation.infos]);
   }
 
@@ -1301,7 +1859,12 @@ export class MariDbService {
     });
     const validation = await this.validate();
     if (validation.status === "blocked") {
-      throw new Error(`Post-apply validation failed: ${validation.errors.map((issue) => issue.message).join("; ")}`);
+      const touchedRows = new Set(plan.changes.map((change) => `${change.table}:${change.id}`));
+      const touchedErrors = validation.errors.filter((issue) => issue.table && issue.id != null && touchedRows.has(`${issue.table}:${String(issue.id)}`));
+      if (touchedErrors.length > 0) {
+        throw new Error(`Post-apply validation failed: ${touchedErrors.map((issue) => issue.message).join("; ")}`);
+      }
+      logger.warn("[mari-db] post-apply validation still reports unrelated errors: %s", validation.errors.map((issue) => issue.message).join("; "));
     }
     await flushDB();
     return journalPath;
@@ -1432,6 +1995,44 @@ export class MariDbService {
     return join(this.journalDir(), "mari-db-history.jsonl");
   }
 
+  private topLevelHelpText() {
+    return [
+      "Usage: mari <group> <command>",
+      "Core code/workspace: mari code status|diff|check|health|reload",
+      "Live app data:       mari db status|tables|list|get|search|insert|patch|replace|delete|transform|validate",
+      "Customization:       mari themes list|active|get|create|update|set-active",
+      "Images/media:        mari images connections|preview|generate|edit|assign|delete|list",
+      "Discovery:           mari <group> --help or mari <group> <command> --help",
+      "Writes dry-run by default where supported; --apply requests browser approval.",
+    ].join("\n");
+  }
+
+  private codeHelpText() {
+    return [
+      "Usage: mari code <command>",
+      "status                 Show workspace, runtime, git status, changed files, and diff stat.",
+      "diff [--patch]          Show changed files and git diff --stat. Add --patch for a truncated patch.",
+      "diff --cached [--patch] Show staged changed files and diff summary.",
+      "check [--changed]       Run validation. --changed currently falls back to baseline pnpm check.",
+      "health                 Show server/runtime health and database validation status.",
+      "reload request --kind client|server|full --reason <text> [--resume]",
+      "continue <run-id>       Planned durable resume command; not implemented yet.",
+      "Examples:",
+      "  mari code status",
+      "  mari code diff --patch",
+      "  mari code check",
+      "  mari code reload request --kind server --reason \"Server route changed\" --resume",
+    ].join("\n");
+  }
+
+  private codeReloadHelpText() {
+    return [
+      "Usage: mari code reload request --kind client|server|full --reason <text> [--resume]",
+      "Records that a reload/restart is needed and returns manual resume instructions for this build.",
+      "Automatic suspend/resume cards are planned for the durable workspace-runs phase.",
+    ].join("\n");
+  }
+
   private themeHelpText() {
     return [
       "Usage: mari themes <command>",
@@ -1445,11 +2046,10 @@ export class MariDbService {
 
   private helpText() {
     return [
-      "Usage: mari db <command> or mari themes <command>",
+      "Usage: mari db <command>",
       "Discovery: status, tables, schema <table>, counts, data-dir, now, new-id",
       "Read: list <table>, get <table> <id>, select <table> --where <expr>, search <table|all> <query>, validate [--table <table>]",
       "Write: insert|patch|replace|delete|transform ... (dry-run by default; --apply requests browser approval)",
-      "Themes: mari themes list|active|get|create|update|set-active",
       `Known tables: ${FILE_BACKED_TABLES.slice(0, 8).join(", ")} ... (${FILE_BACKED_TABLES.length})`,
       `Journal directory: ${this.journalDir()} (${basename(getFileStorageDir())})`,
     ].join("\n");
