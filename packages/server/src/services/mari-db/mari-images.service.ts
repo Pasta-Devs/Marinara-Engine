@@ -1062,6 +1062,7 @@ export class MariImagesService {
     if (!patchedFlags.has("target") && positionals[0]) patchedFlags.set("target", positionals[0]);
     if (!patchedFlags.has("asset") && positionals[0] === "asset" && positionals[1]) patchedFlags.set("asset", positionals[1]);
     if (!patchedFlags.has("filename") && positionals[0] === "background" && positionals[1]) patchedFlags.set("filename", positionals[1]);
+    const target = this.parseTarget(patchedFlags, true);
     if (!hasFlag(patchedFlags, "apply")) {
       return {
         ok: true,
