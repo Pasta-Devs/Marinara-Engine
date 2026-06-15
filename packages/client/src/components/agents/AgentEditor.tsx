@@ -159,7 +159,9 @@ const PHASE_META: Record<AgentPhase, { label: string; color: string; icon: typeo
 };
 
 function normalizeAgentPhase(value: unknown): AgentPhase {
-  return typeof value === "string" && value in PHASE_META ? (value as AgentPhase) : "post_processing";
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(PHASE_META, value)
+    ? (value as AgentPhase)
+    : "post_processing";
 }
 
 function normalizeAgentMaxTokensInput(value: string): number | "" {
