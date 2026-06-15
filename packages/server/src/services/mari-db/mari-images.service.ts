@@ -928,6 +928,7 @@ export class MariImagesService {
     const result = await this.assignImage(source, target);
     await flushDB();
     return { ok: true, mode: "apply", command: context.command, output: { saved: true, source: source.label, target, result } };
+  }
 
   private async assignImage(source: ResolvedImage, target: Exclude<ImageTarget, { type: "asset" }>) {
     switch (target.type) {
