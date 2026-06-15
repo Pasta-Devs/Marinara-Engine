@@ -349,6 +349,11 @@ function schemaTableName(table: Record<string, unknown>) {
   return symbolValue<string>(table, "Symbol(drizzle:Name)") ?? null;
 }
 
+function schemaPrimaryKeyColumn(table: Record<string, unknown>) {
+  const columns = symbolValue<Record<string, { primary?: boolean }>>(table, "Symbol(drizzle:Columns)") ?? {};
+  return Object.values(columns).find((column) => column.primary === true) ?? null;
+}
+
 const profileTableObjects = new Map<string, Record<string, unknown>>();
 for (const candidate of Object.values(schema)) {
   if (!isSchemaTable(candidate)) continue;
@@ -642,7 +647,7 @@ async function importProfileStorageSnapshot(
     }
 
     emit("tables", `Importing ${tableName.replace(/_/g, " ")}`);
-    const primaryKey = (table as Record<string, unknown>).id;
+    const primaryKey = schemaPrimaryKeyColumn(table);
     for (const row of rows) {
       const cleanRow = { ...row };
       if (tableName === "api_connections") cleanRow.apiKeyEncrypted = "";
