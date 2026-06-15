@@ -908,10 +908,26 @@ export class MariImagesService {
     const target = this.parseTarget(flags, true);
     if (target.type === "asset") throw new Error("Assign target cannot be asset; use mari images delete --target asset --asset <id> to manage preview assets.");
     const source = await this.resolveSourceImage(flags, null, context.cwd, true);
+
+    if (!hasFlag(flags, "apply")) {
+      return {
+        ok: true,
+        mode: "dry-run",
+        command: context.command,
+        output: {
+          previewOnly: true,
+          saved: false,
+          message:
+            "Preview only: no changes were saved. Re-run the same command with --apply after user approval to persist it.",
+          source: source.label,
+          target,
+        },
+      };
+    }
+
     const result = await this.assignImage(source, target);
     await flushDB();
     return { ok: true, mode: "apply", command: context.command, output: { saved: true, source: source.label, target, result } };
-  }
 
   private async assignImage(source: ResolvedImage, target: Exclude<ImageTarget, { type: "asset" }>) {
     switch (target.type) {
