@@ -271,6 +271,12 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
     playerRef.current?.setVolume(playerVolume);
   }, [playerVolume]);
 
+  // Remember the last audible volume so unmute can restore it, whether the user
+  // muted via the button or dragged the slider all the way to zero.
+  useEffect(() => {
+    if (playerVolume > 0) prevVolumeRef.current = playerVolume;
+  }, [playerVolume]);
+
   // Clean up the player on unmount.
   useEffect(() => {
     return () => {

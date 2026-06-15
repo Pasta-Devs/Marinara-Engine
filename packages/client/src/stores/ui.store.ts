@@ -779,6 +779,7 @@ export function pickSyncedSettings(state: UIState) {
     musicPlayerSource: state.musicPlayerSource,
     spotifyPlayerEnabled: state.spotifyPlayerEnabled,
     youtubePlayerEnabled: state.youtubePlayerEnabled,
+    youtubePlayerVolume: state.youtubePlayerVolume,
     spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
     spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
     intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
