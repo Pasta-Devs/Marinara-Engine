@@ -1011,9 +1011,22 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
 
   useEffect(() => {
     if (!mobileFocusMode) return;
+    const mediaQuery = window.matchMedia("(max-width: 639px)");
     const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+
+    const syncScrollLock = () => {
+      if (!mediaQuery.matches) {
+        setMobileFocusMode(false);
+        document.body.style.overflow = previousOverflow;
+        return;
+      }
+      document.body.style.overflow = "hidden";
+    };
+
+    syncScrollLock();
+    mediaQuery.addEventListener("change", syncScrollLock);
     return () => {
+      mediaQuery.removeEventListener("change", syncScrollLock);
       document.body.style.overflow = previousOverflow;
     };
   }, [mobileFocusMode]);
