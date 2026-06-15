@@ -25,6 +25,7 @@ import { createDiscordBridgeStorage } from "../services/storage/discord-bridge.s
 import {
   buildParticipantPromptEntries,
   compactPersonaSummary,
+  formatParticipantHistoryContent,
   formatParticipantsMacro,
   participantSpeakerName,
 } from "../services/discord-bridge/participant-prompt-context.js";
@@ -321,10 +322,20 @@ export async function promptsRoutes(app: FastifyInstance) {
       chatMeta = {};
     }
     const lorebookScopeExclusions = resolveGameLorebookScopeExclusions(chat.mode, chatMeta);
-    const mappedMessages = chatMessages.map((m: any) => ({
-      role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
-      content: m.content as string,
-    }));
+    const mappedMessages = chatMessages.map((m: any) => {
+      const extra = parseMessageExtra(m.extra);
+      return {
+        role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
+        content:
+          m.role === "user"
+            ? formatParticipantHistoryContent({
+                content: m.content as string,
+                personaSnapshot: extra?.personaSnapshot,
+                participantSnapshot: extra?.participantSnapshot,
+              })
+            : (m.content as string),
+      };
+    });
 
     // Resolve persona
     const charStorage = createCharactersStorage(app.db);

@@ -92,6 +92,7 @@ import {
   useDeleteChatNote,
   useClearChatNotes,
   chatKeys,
+  type ChatParticipantView,
 } from "../../hooks/use-chats";
 import { api } from "../../lib/api-client";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
@@ -5420,7 +5421,8 @@ function DiscordParticipantsSection({
 }) {
   const participantsQuery = useChatParticipants(chatId, open);
   const deactivateParticipant = useDeactivateChatParticipant(chatId);
-  const participants = participantsQuery.data ?? [];
+  const participants = useMemo(() => participantsQuery.data ?? [], [participantsQuery.data]);
+  const displayNameCounts = useMemo(() => buildParticipantDisplayNameCounts(participants), [participants]);
 
   const handleDeactivate = async (participantId: string, displayName: string) => {
     const ok = await showConfirmDialog({
@@ -5463,6 +5465,7 @@ function DiscordParticipantsSection({
             const personaName = participant.personaName || "No selected persona";
             const spokenLabel = participant.hasSpoken ? "Spoken" : "Joined";
             const lastSpokeLabel = participant.lastSpokeAt ? formatMemoryDate(participant.lastSpokeAt) : null;
+            const ownerLabel = formatParticipantOwnerLabel(participant, displayNameCounts);
 
             return (
               <li
@@ -5480,17 +5483,17 @@ function DiscordParticipantsSection({
                     </span>
                   </div>
                   <p className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                    {participant.discordDisplayName}
+                    {ownerLabel}
                     {lastSpokeLabel ? ` - ${spokenLabel} ${lastSpokeLabel}` : ` - ${spokenLabel}`}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => void handleDeactivate(participant.id, participant.discordDisplayName)}
+                  onClick={() => void handleDeactivate(participant.id, ownerLabel)}
                   disabled={deactivateParticipant.isPending}
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
                   title="Remove from active roster"
-                  aria-label={`Remove ${participant.discordDisplayName} from active roster`}
+                  aria-label={`Remove ${ownerLabel} from active roster`}
                 >
                   <Trash2 size="0.6875rem" />
                 </button>
@@ -5501,6 +5504,34 @@ function DiscordParticipantsSection({
       )}
     </Section>
   );
+}
+
+function participantDisplayName(participant: ChatParticipantView): string {
+  return participant.discordDisplayName.trim() || "Discord User";
+}
+
+function participantDisplayNameKey(participant: ChatParticipantView): string {
+  return participantDisplayName(participant).toLocaleLowerCase();
+}
+
+function buildParticipantDisplayNameCounts(participants: ChatParticipantView[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const participant of participants) {
+    const key = participantDisplayNameKey(participant);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function formatParticipantOwnerLabel(
+  participant: ChatParticipantView,
+  displayNameCounts: Map<string, number>,
+): string {
+  const displayName = participantDisplayName(participant);
+  if ((displayNameCounts.get(participantDisplayNameKey(participant)) ?? 0) > 1 && participant.discordUserId) {
+    return `${displayName} (Discord user ${participant.discordUserId})`;
+  }
+  return displayName;
 }
 
 function formatMemoryDate(value: string): string {
