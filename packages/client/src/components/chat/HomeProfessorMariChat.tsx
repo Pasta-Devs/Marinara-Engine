@@ -14,6 +14,7 @@ import {
   Square,
   Terminal,
   Wrench,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -900,6 +901,7 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
   const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
   const [faqExpanded, setFaqExpanded] = useState(false);
   const [faqOpenItemId, setFaqOpenItemId] = useState<string | null>("game-mode-model");
+  const [mobileFocusMode, setMobileFocusMode] = useState(false);
   const hasLoadedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const connectionButtonRef = useRef<HTMLButtonElement>(null);
@@ -1008,6 +1010,15 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
   const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText && !dottoreDismissed;
 
   useEffect(() => {
+    if (!mobileFocusMode) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileFocusMode]);
+
+  useEffect(() => {
     if (!connectionMenuOpen) return;
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -1023,6 +1034,17 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
     rememberConnectionId(id);
     setConnectionMenuOpen(false);
   };
+
+  const closeMobileFocusMode = useCallback(() => {
+    setConnectionMenuOpen(false);
+    setMobileFocusMode(false);
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("marinara:home-professor-mari-close", closeMobileFocusMode);
+    return () => window.removeEventListener("marinara:home-professor-mari-close", closeMobileFocusMode);
+  }, [closeMobileFocusMode]);
 
   const handleRestart = useCallback(async () => {
     const chat = await ensureProfessorMariChat(effectiveConnectionId);
@@ -1213,13 +1235,53 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
   return (
     <>
       <section
-        className="home-professor-mari-chat mt-10 w-full max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--card)]/85 shadow-lg shadow-black/10 sm:mt-0"
+        className={cn(
+          "home-professor-mari-chat mt-10 w-full max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--card)]/85 shadow-lg shadow-black/10 sm:mt-0",
+          mobileFocusMode &&
+            "fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)_+_3rem)] z-30 mt-0 max-w-none overflow-hidden rounded-t-2xl border-0 border-t border-[var(--border)]/70 bg-[var(--background)] sm:relative sm:inset-auto sm:z-auto sm:mt-0 sm:max-w-3xl sm:overflow-visible sm:rounded-xl sm:border sm:bg-[var(--card)]/85",
+        )}
         data-paused={pageActive ? "false" : "true"}
       >
-        <div className="grid gap-2.5 p-2 sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.45fr)] sm:p-2.5">
-          <div className="flex min-w-0 flex-col items-center justify-start gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-2.5">
-            <div className="w-full max-w-[14rem] [--mari-professor-sprite-bottom:5%]">
-              <ProfessorMariPixelScene active={isBusy || mariPhase !== null} />
+        <div
+          className={cn(
+            "grid gap-2.5 p-2 sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.45fr)] sm:p-2.5",
+            mobileFocusMode && "h-full grid-rows-[auto_minmax(0,1fr)] gap-0 p-0 sm:h-auto sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.45fr)] sm:gap-2.5 sm:p-2.5",
+          )}
+        >
+          <div
+            className={cn(
+              "relative flex min-w-0 flex-col items-center justify-start gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-2.5",
+              mobileFocusMode && "z-10 overflow-visible rounded-none border-0 bg-[var(--secondary)]/22 px-3 pb-0 pt-2.5 sm:flex",
+            )}
+          >
+            {mobileFocusMode && (
+              <button
+                type="button"
+                onClick={closeMobileFocusMode}
+                className="absolute right-3 top-2.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)]/70 bg-[var(--card)] text-[var(--muted-foreground)] transition-colors active:bg-[var(--accent)] active:text-[var(--foreground)] sm:hidden"
+                aria-label="Back to home"
+                title="Back"
+              >
+                <X size="0.95rem" />
+              </button>
+            )}
+            <div
+              className={cn(
+                "w-full max-w-[14rem] [--mari-professor-sprite-bottom:5%]",
+                mobileFocusMode && "-mb-12 max-w-[10rem] self-start translate-x-2 translate-y-10",
+              )}
+            >
+              <div style={mobileFocusMode ? { transform: "scale(0.7)", transformOrigin: "bottom left" } : undefined}>
+                <ProfessorMariPixelScene active={isBusy || mariPhase !== null} />
+              </div>
+            </div>
+            <div className={cn("w-full text-center sm:hidden", mobileFocusMode && "absolute left-0 top-2 z-10 px-14")}>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-[var(--foreground)]">Professor Mari</div>
+                <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {isBusy ? "Working on it..." : "Ready to help"}
+                </div>
+              </div>
             </div>
             <div className="hidden sm:block w-full">
               <HomeFaq
@@ -1232,12 +1294,24 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
             </div>
           </div>
 
-          <div className="flex h-[clamp(24rem,70dvh,31rem)] min-w-0 flex-col rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/70">
-            <div className="flex items-center justify-between gap-2 border-b border-[var(--border)]/60 px-3 py-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="truncate text-xs font-semibold text-[var(--foreground)]">Ask Professor Mari</span>
+          <div
+            className={cn(
+              "flex h-[clamp(24rem,70dvh,31rem)] min-w-0 flex-col rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/70",
+              mobileFocusMode && "h-full rounded-none border-0 bg-[var(--background)] sm:h-[clamp(24rem,70dvh,31rem)] sm:rounded-lg sm:border sm:bg-[var(--background)]/70",
+            )}
+          >
+            <div
+              className={cn(
+                "flex items-center justify-between gap-2 border-b border-[var(--border)]/60 px-3 py-2",
+                mobileFocusMode && "relative min-h-12 bg-[var(--card)]/80 px-2 pt-2",
+              )}
+            >
+              <div className={cn("flex min-w-0 flex-1 items-center gap-2", mobileFocusMode && "hidden sm:flex")}>
+                <span className="min-w-0 text-center">
+                  <span className="block truncate text-xs font-semibold text-[var(--foreground)]">Ask Professor Mari</span>
+                </span>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className={cn("flex shrink-0 items-center gap-1", mobileFocusMode && "absolute right-2 top-1/2 -translate-y-1/2")}>
                 {(workspaceActive || hasActiveGeneration) && (
                   <button
                     type="button"
@@ -1261,7 +1335,13 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
               </div>
             </div>
 
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-2.5 py-3 text-left">
+            <div
+              ref={scrollRef}
+              className={cn(
+                "min-h-0 flex-1 space-y-2.5 overflow-y-auto px-2.5 py-3 text-left",
+                mobileFocusMode && "px-3 pb-4",
+              )}
+            >
               {loadingHistory ? (
                 <LoadingHistoryState />
               ) : (
@@ -1359,7 +1439,11 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
 
                 <textarea
                   value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
+                  }}
+                  onFocus={() => setMobileFocusMode(window.matchMedia("(max-width: 639px)").matches)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" && !event.shiftKey) {
                       event.preventDefault();
@@ -1387,7 +1471,7 @@ export function HomeProfessorMariChat({ pageActive = true }: { pageActive?: bool
             </form>
           </div>
         </div>
-        <div className="sm:hidden px-2 pb-2">
+        <div className={cn("sm:hidden px-2 pb-2", mobileFocusMode && "hidden")}>
           <HomeFaq
             compact
             expanded={faqExpanded}

@@ -108,6 +108,7 @@ export function TopBar() {
 
           <button
             onClick={() => {
+              window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
               setActiveChatId(null);
               closeAllDetails();
             }}
