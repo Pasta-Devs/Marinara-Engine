@@ -202,3 +202,17 @@ export interface DiscordBridgeIngestDiscordMessageResponse {
   message: DiscordBridgeChatContext["messages"][number];
   mapping: DiscordBridgeMessageMapping;
 }
+
+export interface DiscordBridgeControlsState {
+  chatId: string;
+  chatName: string;
+  threadId: string;
+  latestAssistantMessage: {
+    id: string;
+    activeSwipeIndex: number;
+    swipeCount: number;
+  } | null;
+  canRegenerate: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
+}

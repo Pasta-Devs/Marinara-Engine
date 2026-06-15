@@ -4,6 +4,7 @@ import type {
   CharacterData,
   DiscordBridgeChatPresetOption,
   DiscordBridgeConnectionOption,
+  DiscordBridgeControlsState,
   DiscordBridgeEngineSyncItem,
   DiscordBridgeIngestDiscordMessageResponse,
   DiscordBridgeMessageDirection,
@@ -46,6 +47,46 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
   const promptsStorage = createPromptsStorage(app.db);
   const bridgeStorage = createDiscordBridgeStorage(app.db);
   const pendingDiscordIngestMessageIds = new Set<string>();
+
+  async function getRoleplayControlsContext(threadId: string) {
+    const binding = await bridgeStorage.getThreadBindingByThreadId(threadId);
+    if (!binding) return null;
+
+    const chat = await chatsStorage.getById(binding.chatId);
+    if (!chat || chat.mode !== "roleplay") return { binding, chat: null, latestAssistantMessage: null };
+
+    const messages = await chatsStorage.listMessages(chat.id);
+    const latestAssistantMessage =
+      [...messages].reverse().find((message) => message.role === "assistant") ?? null;
+
+    return { binding, chat, latestAssistantMessage };
+  }
+
+  function buildControlsState(input: Awaited<ReturnType<typeof getRoleplayControlsContext>>): DiscordBridgeControlsState | null {
+    if (!input?.chat) return null;
+    const message = input.latestAssistantMessage;
+    const swipeCount = message?.swipeCount ?? 0;
+    const activeSwipeIndex = message?.activeSwipeIndex ?? 0;
+    return {
+      chatId: input.binding.chatId,
+      chatName: input.binding.chatName,
+      threadId: input.binding.threadId,
+      latestAssistantMessage: message
+        ? {
+            id: message.id,
+            activeSwipeIndex,
+            swipeCount,
+          }
+        : null,
+      canRegenerate: !!message,
+      canGoBack: !!message && activeSwipeIndex > 0,
+      canGoForward: !!message && activeSwipeIndex < Math.max(0, swipeCount - 1),
+    };
+  }
+
+  async function resolveControlsState(threadId: string) {
+    return buildControlsState(await getRoleplayControlsContext(threadId));
+  }
 
   app.get("/health", async () => {
     await bridgeStorage.listThreadBindings();
@@ -361,6 +402,84 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
       return bridgeStorage.listMessageMappings(binding.id);
     },
   );
+
+  app.get<{ Params: { threadId: string } }>(
+    "/thread-bindings/by-thread/:threadId/controls",
+    async (req, reply) => {
+      const state = await resolveControlsState(req.params.threadId);
+      if (!state) return reply.status(404).send({ error: "Bound roleplay thread not found" });
+      return state;
+    },
+  );
+
+  app.post<{ Params: { threadId: string } }>(
+    "/thread-bindings/by-thread/:threadId/controls/regenerate",
+    async (req, reply) => {
+      const context = await getRoleplayControlsContext(req.params.threadId);
+      const state = buildControlsState(context);
+      if (!context?.chat || !state) return reply.status(404).send({ error: "Bound roleplay thread not found" });
+      const messageId = state.latestAssistantMessage?.id;
+      if (!messageId) return reply.status(400).send({ error: "No assistant response is available to regenerate" });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/generate",
+        headers: {
+          accept: "text/event-stream",
+          "content-type": "application/json",
+        },
+        payload: {
+          chatId: context.chat.id,
+          regenerateMessageId: messageId,
+          streaming: true,
+          userStatus: "active",
+          userActivity: "Discord controls",
+        },
+      });
+
+      if (response.statusCode >= 400) {
+        return reply.status(response.statusCode).send(response.json());
+      }
+
+      return resolveControlsState(req.params.threadId);
+    },
+  );
+
+  app.post<{
+    Params: { threadId: string };
+    Body: { direction?: unknown };
+  }>("/thread-bindings/by-thread/:threadId/controls/active-swipe", async (req, reply) => {
+    const direction = req.body?.direction;
+    if (direction !== "previous" && direction !== "next") {
+      return reply.status(400).send({ error: "direction must be previous or next" });
+    }
+
+    const context = await getRoleplayControlsContext(req.params.threadId);
+    const state = buildControlsState(context);
+    if (!context?.chat || !state) return reply.status(404).send({ error: "Bound roleplay thread not found" });
+
+    const message = state.latestAssistantMessage;
+    if (!message) return reply.status(400).send({ error: "No assistant response is available" });
+
+    const nextIndex = direction === "previous" ? message.activeSwipeIndex - 1 : message.activeSwipeIndex + 1;
+    if (nextIndex < 0 || nextIndex >= message.swipeCount) {
+      return reply.status(400).send({ error: "Requested response history entry is not available" });
+    }
+
+    const updated = await chatsStorage.setActiveSwipe(message.id, nextIndex);
+    if (!updated) return reply.status(404).send({ error: "Assistant response not found" });
+
+    publishChatEvent(
+      createChatRealtimeEvent({
+        type: "chat_message_updated",
+        chatId: context.chat.id,
+        messageId: message.id,
+        source: "engine",
+      }),
+    );
+
+    return resolveControlsState(req.params.threadId);
+  });
 
   app.get<{ Params: { threadId: string; discordMessageId: string } }>(
     "/thread-bindings/by-thread/:threadId/message-mappings/by-discord-message/:discordMessageId",

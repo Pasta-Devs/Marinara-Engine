@@ -3,6 +3,7 @@ import type {
   DiscordBridgeChatContext,
   DiscordBridgeChatPresetOption,
   DiscordBridgeConnectionOption,
+  DiscordBridgeControlsState,
   DiscordBridgeCreateRoleplayChatResponse,
   DiscordBridgeEngineSyncResponse,
   DiscordBridgeMessageMapping,
@@ -221,6 +222,33 @@ export function getThreadBindingByThreadId(serverUrl: string, threadId: string) 
   return getJson<DiscordBridgeThreadBinding>(
     serverUrl,
     `/api/discord-bridge/thread-bindings/by-thread/${encodeURIComponent(threadId)}`,
+  );
+}
+
+export function getRoleplayControlsState(serverUrl: string, threadId: string) {
+  return getJson<DiscordBridgeControlsState>(
+    serverUrl,
+    `/api/discord-bridge/thread-bindings/by-thread/${encodeURIComponent(threadId)}/controls`,
+  );
+}
+
+export function regenerateLatestRoleplayResponse(serverUrl: string, threadId: string) {
+  return postJson<DiscordBridgeControlsState>(
+    serverUrl,
+    `/api/discord-bridge/thread-bindings/by-thread/${encodeURIComponent(threadId)}/controls/regenerate`,
+    {},
+  );
+}
+
+export function switchLatestRoleplayResponseSwipe(
+  serverUrl: string,
+  threadId: string,
+  direction: "previous" | "next",
+) {
+  return postJson<DiscordBridgeControlsState>(
+    serverUrl,
+    `/api/discord-bridge/thread-bindings/by-thread/${encodeURIComponent(threadId)}/controls/active-swipe`,
+    { direction },
   );
 }
 

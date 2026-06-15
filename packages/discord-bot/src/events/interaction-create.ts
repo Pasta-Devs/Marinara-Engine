@@ -56,6 +56,13 @@ import {
   buildRoleplaySetupComponents,
 } from "../components/roleplay-setup.components.js";
 import {
+  CONTROLS_BACK_CUSTOM_ID,
+  CONTROLS_CLOSE_CUSTOM_ID,
+  CONTROLS_FORWARD_CUSTOM_ID,
+  CONTROLS_REGEN_CUSTOM_ID,
+  buildControlsComponents,
+} from "../components/controls.components.js";
+import {
   createBridgeRoleplayChat,
   deleteThreadBinding,
   getBridgeConnections,
@@ -66,9 +73,11 @@ import {
   getCharacterById,
   getDiscordUserPersona,
   getPersonaById,
+  regenerateLatestRoleplayResponse,
   leaveDiscordParticipantRoster,
   listThreadBindings,
   setDiscordUserPersona,
+  switchLatestRoleplayResponseSwipe,
   upsertThreadBinding,
   updateCharacterFields,
   updateBridgeRoleplayDefaults,
@@ -92,6 +101,7 @@ import {
   buildRoleplaySettingsEmbed,
   buildRoleplaySetupEmbed,
 } from "../embeds/roleplay-setup.embed.js";
+import { buildControlsEmbed } from "../embeds/controls.embed.js";
 import {
   applyCharacterFieldUpdates,
   getCharacterFieldValue,
@@ -105,6 +115,7 @@ import {
   type EditablePersonaField,
 } from "../core/persona-card-fields.js";
 import { fillThreadFromChatMessages } from "../core/thread-fill.js";
+import { syncEngineMessagesToDiscord } from "../core/engine-sync.js";
 
 const CHARACTER_PAGE_SELECT_PREFIX = `${CHARACTER_PAGE_SELECT_CUSTOM_ID}:`;
 const PERSONA_PAGE_SELECT_PREFIX = `${PERSONA_PAGE_SELECT_CUSTOM_ID}:`;
@@ -277,6 +288,34 @@ function buildTextInputRow(input: { customId: string; label: string; style: Text
   );
 }
 
+async function handleControlsButton(
+  interaction: ButtonInteraction,
+  config: DiscordBridgeConfig,
+  action: "previous" | "next" | "regenerate",
+) {
+  if (interaction.user.bot) {
+    await interaction.reply({ content: "Bots cannot use roleplay controls.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (!interaction.guildId || !interaction.channelId) {
+    await interaction.reply({ content: "Use roleplay controls in a bound roleplay thread.", flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  await interaction.deferUpdate();
+  const state =
+    action === "regenerate"
+      ? await regenerateLatestRoleplayResponse(config.serverUrl, interaction.channelId)
+      : await switchLatestRoleplayResponseSwipe(config.serverUrl, interaction.channelId, action);
+
+  await syncEngineMessagesToDiscord({ client: interaction.client, serverUrl: config.serverUrl });
+  await interaction.editReply({
+    embeds: [buildControlsEmbed(state)],
+    components: buildControlsComponents(state),
+  });
+}
+
 function isThreadParentChannel(channel: unknown): channel is ThreadParentChannel {
   return (
     !!channel &&
@@ -398,6 +437,26 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           return;
         }
         roleplayDrafts.delete(interaction.user.id);
+        await closeComponentPanel(interaction);
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId === CONTROLS_BACK_CUSTOM_ID) {
+        await handleControlsButton(interaction, config, "previous");
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId === CONTROLS_REGEN_CUSTOM_ID) {
+        await handleControlsButton(interaction, config, "regenerate");
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId === CONTROLS_FORWARD_CUSTOM_ID) {
+        await handleControlsButton(interaction, config, "next");
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId === CONTROLS_CLOSE_CUSTOM_ID) {
         await closeComponentPanel(interaction);
         return;
       }
