@@ -6,6 +6,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ThreadAutoArchiveDuration,
+  type ButtonInteraction,
   type Client,
 } from "discord.js";
 import type { DiscordBridgeConfig } from "../config/env.js";
@@ -54,6 +55,7 @@ import {
 } from "../components/roleplay-setup.components.js";
 import {
   createBridgeRoleplayChat,
+  deleteThreadBinding,
   getBridgeConnections,
   getBridgeChatContext,
   getBridgePromptPresets,
@@ -105,6 +107,7 @@ const PERSONA_SAVE_PREFIX = `${PERSONA_SAVE_CUSTOM_ID}:`;
 const PERSONA_EDIT_MODAL_PREFIX = `${PERSONA_EDIT_MODAL_CUSTOM_ID}:`;
 const MODAL_VALUE_LIMIT = 4000;
 const ROLEPLAY_LOAD_SEND_DELAY_MS = 500;
+const DISCORD_UNKNOWN_MESSAGE_CODE = 10008;
 
 const characterDrafts = new Map<string, Partial<Record<EditableCharacterField, string>>>();
 const personaDrafts = new Map<string, Partial<Record<EditablePersonaField, string>>>();
@@ -180,12 +183,63 @@ function truncateModalValue(value: string) {
   return value.length <= MODAL_VALUE_LIMIT ? value : value.slice(0, MODAL_VALUE_LIMIT);
 }
 
+function discordThreadUrl(guildId: string, threadId: string) {
+  return `https://discord.com/channels/${guildId}/${threadId}`;
+}
+
+async function findLiveRoleplayThread(input: { client: Client; serverUrl: string; guildId: string; chatId: string }) {
+  const bindings = (await listThreadBindings(input.serverUrl)).filter(
+    (binding) => binding.chatId === input.chatId && binding.guildId === input.guildId,
+  );
+
+  for (const binding of bindings) {
+    const channel = await input.client.channels.fetch(binding.threadId).catch(() => null);
+    if (channel) {
+      return {
+        binding,
+        url: discordThreadUrl(binding.guildId, binding.threadId),
+      };
+    }
+
+    await deleteThreadBinding(input.serverUrl, binding.id);
+    logger.warn("Pruned stale Discord bridge binding for missing thread %s during roleplay load", binding.threadId);
+  }
+
+  return null;
+}
+
 function hasDraftValues<T extends string>(updates: DraftMap<T>) {
   return Object.keys(updates).length > 0;
 }
 
 function draftAsUpdateArray<T extends string>(updates: DraftMap<T>) {
   return (Object.entries(updates) as Array<[T, string | undefined]>).map(([field, value]) => ({ field, value: value ?? "" }));
+}
+
+function isDiscordErrorCode(err: unknown, code: number) {
+  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === code;
+}
+
+async function deleteComponentMessage(message: { delete(): Promise<unknown> }) {
+  try {
+    await message.delete();
+  } catch (err) {
+    if (isDiscordErrorCode(err, DISCORD_UNKNOWN_MESSAGE_CODE)) {
+      return;
+    }
+
+    throw err;
+  }
+}
+
+async function closeComponentPanel(interaction: ButtonInteraction) {
+  if (interaction.message.flags.has(MessageFlags.Ephemeral)) {
+    await interaction.update({ content: "Closed.", embeds: [], components: [] });
+    return;
+  }
+
+  await interaction.deferUpdate();
+  await deleteComponentMessage(interaction.message);
 }
 
 function buildTextInputRow(input: {
@@ -294,7 +348,7 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           await interaction.reply({ content: "Only the configured Marinara Discord owner can close this.", flags: MessageFlags.Ephemeral });
           return;
         }
-        await interaction.message.delete();
+        await closeComponentPanel(interaction);
         return;
       }
 
@@ -303,7 +357,7 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           await interaction.reply({ content: "Only the configured Marinara Discord owner can close this.", flags: MessageFlags.Ephemeral });
           return;
         }
-        await interaction.message.delete();
+        await closeComponentPanel(interaction);
         return;
       }
 
@@ -313,7 +367,7 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           return;
         }
         roleplayDrafts.delete(interaction.user.id);
-        await interaction.message.delete();
+        await closeComponentPanel(interaction);
         return;
       }
 
@@ -711,6 +765,21 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
           return;
         }
 
+        const liveThread = await findLiveRoleplayThread({
+          client: interaction.client,
+          serverUrl: config.serverUrl,
+          guildId: interaction.guildId,
+          chatId: context.chat.id,
+        });
+        if (liveThread) {
+          await interaction.editReply({
+            content: `This roleplay is already loaded in Discord: [Open thread](${liveThread.url})`,
+            embeds: [],
+            components: [],
+          });
+          return;
+        }
+
         const thread = await interaction.channel.threads.create({
           name: context.chat.name.slice(0, 100),
           autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
@@ -904,7 +973,13 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
 
         const draft = getRoleplayDraft(interaction.user.id);
         roleplayDrafts.set(interaction.user.id, { ...draft, chatName });
-        await interaction.reply({ ...(await buildRoleplayDraftResponse(config, interaction.user.id)), flags: MessageFlags.Ephemeral });
+        if (!interaction.message) {
+          await interaction.reply({ content: "Roleplay message not found.", flags: MessageFlags.Ephemeral });
+          return;
+        }
+
+        await interaction.deferUpdate();
+        await interaction.message.edit(await buildRoleplayDraftResponse(config, interaction.user.id));
         return;
       }
 

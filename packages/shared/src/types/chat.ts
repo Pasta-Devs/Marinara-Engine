@@ -376,6 +376,29 @@ export interface Message {
   extra: MessageExtra;
 }
 
+export type ChatRealtimeEventType =
+  | "chat_generation_started"
+  | "chat_message_created"
+  | "chat_message_updated"
+  | "chat_message_deleted"
+  | "chat_messages_deleted";
+
+export interface ChatRealtimeEvent {
+  type: ChatRealtimeEventType;
+  chatId: string;
+  messageId?: string;
+  messageIds?: string[];
+  source: "engine" | "discord_bridge";
+  timestamp: string;
+}
+
+export interface ChatServerReadyEvent {
+  type: "server_ready";
+  timestamp: string;
+}
+
+export type ChatEventStreamEvent = ChatRealtimeEvent | ChatServerReadyEvent;
+
 /** Additional data attached to a message. */
 export interface MessageExtra {
   /** Display-formatted text (may differ from raw content) */

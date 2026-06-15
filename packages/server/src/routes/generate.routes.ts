@@ -212,6 +212,7 @@ import { registerDryRunRoute } from "./generate/dry-run-route.js";
 import { registerRetryAgentsRoute } from "./generate/retry-agents-route.js";
 import { fingerprintChatSummary } from "../services/prompt/chat-summary-fingerprint.js";
 import { sendSseEvent, startSseReply, trySendSseEvent } from "./generate/sse.js";
+import { createChatRealtimeEvent, publishChatEvent } from "../services/chat-events.service.js";
 import {
   normalizeContextInjections,
   normalizeSecretPlotSceneDirections,
@@ -596,6 +597,17 @@ export async function generateRoutes(app: FastifyInstance) {
       }
 
       // Mirror user message to Discord (deferred — personaName resolved later)
+      if (userMsg?.id) {
+        publishChatEvent(
+          createChatRealtimeEvent({
+            type: "chat_message_created",
+            chatId: input.chatId,
+            messageId: userMsg.id,
+            source: "engine",
+          }),
+        );
+      }
+
       pendingUserDiscordMsg = discordWebhookUrl && input.userMessage ? input.userMessage : "";
     }
 
@@ -4976,6 +4988,15 @@ export async function generateRoutes(app: FastifyInstance) {
           fullResponse = "";
           fullThinking = "";
           providerThinking = "";
+          if (!input.impersonate) {
+            publishChatEvent(
+              createChatRealtimeEvent({
+                type: "chat_generation_started",
+                chatId: input.chatId,
+                source: "engine",
+              }),
+            );
+          }
           if (tailMessages.assistantPrefillInjected && assistantPrefill) {
             writeContentChunked(assistantPrefill);
           }
@@ -5747,6 +5768,14 @@ export async function generateRoutes(app: FastifyInstance) {
                 type: "message_saved",
                 data: refreshedMsg ?? savedMsg,
               });
+              publishChatEvent(
+                createChatRealtimeEvent({
+                  type: input.regenerateMessageId ? "chat_message_updated" : "chat_message_created",
+                  chatId: input.chatId,
+                  messageId: savedMsg.id,
+                  source: "engine",
+                }),
+              );
 
               if (chatMode === "game" && !input.impersonate) {
                 const mapUpdates = parseMapUpdateCommands(fullResponse);
@@ -7582,6 +7611,14 @@ export async function generateRoutes(app: FastifyInstance) {
                   if (editedText && changes.length > 0) {
                     currentResponseForRewrite = editedText;
                     await chats.updateMessageContent(messageId, editedText);
+                    publishChatEvent(
+                      createChatRealtimeEvent({
+                        type: "chat_message_updated",
+                        chatId: input.chatId,
+                        messageId,
+                        source: "engine",
+                      }),
+                    );
                     reply.raw.write(
                       `data: ${JSON.stringify({
                         type: "text_rewrite",

@@ -51,6 +51,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
+import { createChatRealtimeEvent, publishChatEvent } from "../services/chat-events.service.js";
 import {
   findTrackerContextInsertIndex,
   isManualTrackerCharacterId,
@@ -1176,8 +1177,27 @@ export async function chatsRoutes(app: FastifyInstance) {
       const chat = await storage.getById(req.params.id);
       const personaSnapshot = await buildPersonaSnapshotForChat(app, chat);
       if (personaSnapshot) {
-        return (await storage.updateMessageExtra(created.id, { personaSnapshot })) ?? created;
+        const withSnapshot = (await storage.updateMessageExtra(created.id, { personaSnapshot })) ?? created;
+        publishChatEvent(
+          createChatRealtimeEvent({
+            type: "chat_message_created",
+            chatId: req.params.id,
+            messageId: withSnapshot.id,
+            source: "engine",
+          }),
+        );
+        return withSnapshot;
       }
+    }
+    if (created) {
+      publishChatEvent(
+        createChatRealtimeEvent({
+          type: "chat_message_created",
+          chatId: req.params.id,
+          messageId: created.id,
+          source: "engine",
+        }),
+      );
     }
     return created;
   });
@@ -1185,6 +1205,14 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Delete message
   app.delete<{ Params: { chatId: string; messageId: string } }>("/:chatId/messages/:messageId", async (req, reply) => {
     await storage.removeMessage(req.params.messageId);
+    publishChatEvent(
+      createChatRealtimeEvent({
+        type: "chat_message_deleted",
+        chatId: req.params.chatId,
+        messageId: req.params.messageId,
+        source: "engine",
+      }),
+    );
     return reply.status(204).send();
   });
 
@@ -1195,15 +1223,31 @@ export async function chatsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "messageIds array is required" });
     }
     await storage.removeMessages(messageIds, req.params.chatId);
+    publishChatEvent(
+      createChatRealtimeEvent({
+        type: "chat_messages_deleted",
+        chatId: req.params.chatId,
+        messageIds,
+        source: "engine",
+      }),
+    );
     return reply.status(204).send();
   });
 
   // Edit message content
   app.patch<{ Params: { chatId: string; messageId: string } }>("/:chatId/messages/:messageId", async (req, reply) => {
-    const { content } = req.body as { content: string };
+    const { content, source } = req.body as { content: string; source?: string };
     if (typeof content !== "string") return reply.status(400).send({ error: "content is required" });
     const updated = await storage.updateMessageContent(req.params.messageId, content);
     if (!updated) return reply.status(404).send({ error: "Message not found" });
+    publishChatEvent(
+      createChatRealtimeEvent({
+        type: "chat_message_updated",
+        chatId: req.params.chatId,
+        messageId: updated.id,
+        source: source === "discord_bridge" ? "discord_bridge" : "engine",
+      }),
+    );
     return updated;
   });
 
@@ -1225,6 +1269,14 @@ export async function chatsRoutes(app: FastifyInstance) {
         // Keep swipe extra in sync so per-swipe data (like spriteExpressions) persists
         await storage.updateSwipeExtra(req.params.messageId, updated.activeSwipeIndex, partial);
       }
+      publishChatEvent(
+        createChatRealtimeEvent({
+          type: "chat_message_updated",
+          chatId: req.params.chatId,
+          messageId: updated.id,
+          source: "engine",
+        }),
+      );
       return updated;
     },
   );

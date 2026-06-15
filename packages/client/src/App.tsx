@@ -18,6 +18,7 @@ import { forceRefreshSpa } from "./lib/browser-runtime";
 import { useLegacyThemeMigration } from "./hooks/use-themes";
 import { useLegacyExtensionMigration } from "./hooks/use-extensions";
 import { useSettingsSync } from "./hooks/use-settings-sync";
+import { useChatRealtimeEvents } from "./hooks/use-chat-realtime-events";
 
 const VERSION_RECOVERY_KEY = "marinara:pwa-version-recovery";
 const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
@@ -95,6 +96,7 @@ export function App() {
   useLegacyThemeMigration();
   useLegacyExtensionMigration();
   useSettingsSync();
+  useChatRealtimeEvents();
   const showDownloadModal = useSidecarStore((s) => s.showDownloadModal);
   const setShowDownloadModal = useSidecarStore((s) => s.setShowDownloadModal);
   const fetchSidecarStatus = useSidecarStore((s) => s.fetchStatus);

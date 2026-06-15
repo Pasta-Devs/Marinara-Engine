@@ -115,6 +115,7 @@ export interface DiscordBridgeChatContext {
     id: string;
     role: MessageRole;
     characterId: string | null;
+    displayName: string;
     content: string;
     createdAt: string;
   }>;

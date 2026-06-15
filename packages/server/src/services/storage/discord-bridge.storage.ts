@@ -110,6 +110,8 @@ export function createDiscordBridgeStorage(db: DB) {
         if (updated) return updated;
       }
 
+      await this.deleteThreadBindingsByChatId(input.chatId);
+
       await db.insert(discordBridgeThreadBindings).values({
         id: newId(),
         guildId: input.guildId,
@@ -125,6 +127,18 @@ export function createDiscordBridgeStorage(db: DB) {
       const created = await this.getThreadBindingByThreadId(input.threadId);
       if (!created) throw new Error("Failed to create Discord bridge thread binding");
       return created;
+    },
+
+    async deleteThreadBinding(id: string): Promise<void> {
+      await db.delete(discordBridgeMessageMappings).where(eq(discordBridgeMessageMappings.bindingId, id));
+      await db.delete(discordBridgeThreadBindings).where(eq(discordBridgeThreadBindings.id, id));
+    },
+
+    async deleteThreadBindingsByChatId(chatId: string): Promise<void> {
+      const rows = await db.select().from(discordBridgeThreadBindings).where(eq(discordBridgeThreadBindings.chatId, chatId));
+      for (const row of rows) {
+        await this.deleteThreadBinding(row.id);
+      }
     },
 
     async listMessageMappings(bindingId: string): Promise<DiscordBridgeMessageMapping[]> {

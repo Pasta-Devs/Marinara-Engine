@@ -1,6 +1,6 @@
 import type { Client, TextBasedChannel } from "discord.js";
 import type { DiscordBridgeEngineSyncItem } from "@marinara-engine/shared";
-import { getEngineSyncItems, upsertMessageMapping } from "./marinara-api.js";
+import { deleteThreadBinding, getEngineSyncItems, upsertMessageMapping } from "./marinara-api.js";
 import { splitDiscordMessageContent } from "./message-splitter.js";
 import { formatThreadMessage } from "./thread-message-format.js";
 import { logger } from "./logger.js";
@@ -108,8 +108,9 @@ async function applyUpdate(input: { serverUrl: string; item: DiscordBridgeEngine
 async function applySyncItem(input: { client: Client; serverUrl: string; item: DiscordBridgeEngineSyncItem }) {
   const thread = await fetchThread(input.client, input.item.binding.threadId);
   if (!thread) {
-    logger.warn("Discord sync skipped missing thread %s", input.item.binding.threadId);
-    return;
+    await deleteThreadBinding(input.serverUrl, input.item.binding.id);
+    logger.warn("Pruned stale Discord bridge binding for missing thread %s", input.item.binding.threadId);
+    return "stale-binding" as const;
   }
 
   if (input.item.action === "create") {
@@ -117,18 +118,24 @@ async function applySyncItem(input: { client: Client; serverUrl: string; item: D
   } else {
     await applyUpdate({ serverUrl: input.serverUrl, item: input.item, thread });
   }
+  return "synced" as const;
 }
 
 export async function syncEngineMessagesToDiscord(input: { client: Client; serverUrl: string }) {
   const response = await getEngineSyncItems(input.serverUrl);
+  const staleBindingIds = new Set<string>();
+  let syncedCount = 0;
   for (const item of response.items) {
+    if (staleBindingIds.has(item.binding.id)) continue;
     try {
-      await applySyncItem({ client: input.client, serverUrl: input.serverUrl, item });
+      const result = await applySyncItem({ client: input.client, serverUrl: input.serverUrl, item });
+      if (result === "stale-binding") staleBindingIds.add(item.binding.id);
+      if (result === "synced") syncedCount += 1;
     } catch (err) {
       logger.error(err, `Discord sync item failed for Marinara message ${item.message.id}`);
     }
   }
-  if (response.items.length > 0) {
-    logger.info("Synced %d engine message changes to Discord", response.items.length);
+  if (syncedCount > 0) {
+    logger.info("Synced %d engine message changes to Discord", syncedCount);
   }
 }

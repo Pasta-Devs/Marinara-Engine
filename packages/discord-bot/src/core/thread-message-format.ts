@@ -14,6 +14,6 @@ function roleLabel(role: MessageRole) {
   }
 }
 
-export function formatThreadMessage(message: { role: MessageRole; content: string }) {
-  return `**${roleLabel(message.role)}**\n${message.content}`;
+export function formatThreadMessage(message: { role: MessageRole; displayName?: string; content: string }) {
+  return `**${message.displayName || roleLabel(message.role)}**\n${message.content}`;
 }

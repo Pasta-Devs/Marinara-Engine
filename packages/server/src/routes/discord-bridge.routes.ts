@@ -30,6 +30,7 @@ import type {
   UpsertThreadBindingInput,
 } from "../services/storage/discord-bridge.storage.js";
 import { logger } from "../lib/logger.js";
+import { createChatRealtimeEvent, publishChatEvent } from "../services/chat-events.service.js";
 
 const DISCORD_BRIDGE_ROLEPLAY_SETTINGS_KEY = "discordBridge.roleplaySettings";
 
@@ -158,6 +159,16 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
     await appSettingsStorage.set(DISCORD_BRIDGE_ROLEPLAY_SETTINGS_KEY, JSON.stringify(settings));
   }
 
+  async function resolveBindingPersonaName(personaId: string | null): Promise<string> {
+    if (personaId) {
+      const persona = await charactersStorage.getPersona(personaId);
+      if (persona?.name) return persona.name;
+    }
+
+    const activePersona = (await charactersStorage.listPersonas()).find((persona) => persona.isActive === "true");
+    return activePersona?.name || "User";
+  }
+
   app.get<{ Params: { chatId: string }; Querystring: { messageLimit?: string } }>(
     "/chats/:chatId/context",
     async (req, reply) => {
@@ -254,6 +265,14 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
     return bridgeStorage.upsertThreadBinding(parsed.input);
   });
 
+  app.delete<{ Params: { bindingId: string } }>("/thread-bindings/:bindingId", async (req, reply) => {
+    const binding = await bridgeStorage.getThreadBindingById(req.params.bindingId);
+    if (!binding) return reply.status(404).send({ error: "Discord bridge thread binding not found" });
+
+    await bridgeStorage.deleteThreadBinding(binding.id);
+    return { ok: true };
+  });
+
   app.get<{ Params: { threadId: string } }>("/thread-bindings/by-thread/:threadId/message-mappings", async (req, reply) => {
     const binding = await bridgeStorage.getThreadBindingByThreadId(req.params.threadId);
     if (!binding) return reply.status(404).send({ error: "Discord bridge thread binding not found" });
@@ -289,6 +308,7 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
       binding.id,
       parsed.input.discordMessageId,
     );
+    const displayName = await resolveBindingPersonaName(binding.personaId);
     if (existingMapping) {
       const existingMessage = await chatsStorage.getMessage(existingMapping.marinaraMessageId);
       if (existingMessage) {
@@ -297,6 +317,7 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
             id: existingMessage.id,
             role: existingMessage.role,
             characterId: existingMessage.characterId ?? null,
+            displayName,
             content: existingMessage.content,
             createdAt: existingMessage.createdAt,
           },
@@ -335,11 +356,21 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
       pendingDiscordIngestMessageIds.delete(created.id);
     }
 
+    publishChatEvent(
+      createChatRealtimeEvent({
+        type: "chat_message_created",
+        chatId: binding.chatId,
+        messageId: created.id,
+        source: "discord_bridge",
+      }),
+    );
+
     return {
       message: {
         id: created.id,
         role: created.role,
         characterId: created.characterId ?? null,
+        displayName,
         content: created.content,
         createdAt: created.createdAt,
       },

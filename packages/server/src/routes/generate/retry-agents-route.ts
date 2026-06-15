@@ -62,6 +62,7 @@ import {
 } from "./lorebook-keeper-utils.js";
 import { filterGameInternalAgentIds } from "../../services/lorebook/game-lorebook-scope.js";
 import { sendSseEvent, startSseReply } from "./sse.js";
+import { createChatRealtimeEvent, publishChatEvent } from "../../services/chat-events.service.js";
 import {
   buildDefaultAgentConnectionWarning,
   buildLocalSidecarUnavailableWarning,
@@ -1748,6 +1749,14 @@ async function applyRetryResultEffects(args: {
           }
           currentResponseForRewrite = editedText;
           await chats.updateMessageContent(retryMessageId, editedText);
+          publishChatEvent(
+            createChatRealtimeEvent({
+              type: "chat_message_updated",
+              chatId,
+              messageId: retryMessageId,
+              source: "engine",
+            }),
+          );
           sendSseEvent(reply, { type: "text_rewrite", data: { editedText, changes } });
         }
       } catch {

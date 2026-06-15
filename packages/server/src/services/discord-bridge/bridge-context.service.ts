@@ -103,6 +103,23 @@ function toPersonaOption(persona: Awaited<ReturnType<CharactersStorage["getPerso
   };
 }
 
+function roleDisplayName(
+  role: DiscordBridgeChatContext["messages"][number]["role"],
+  characterId: string | null,
+  persona: ReturnType<typeof toPersonaOption>,
+  characterNamesById: Map<string, string>,
+): string {
+  if (role === "user") return persona?.name || "User";
+  if (role === "assistant") {
+    if (characterId) return characterNamesById.get(characterId) || "Assistant";
+    if (characterNamesById.size === 1) return [...characterNamesById.values()][0] || "Assistant";
+    return "Assistant";
+  }
+  if (role === "narrator") return "Narrator";
+  if (role === "system") return "System";
+  return role;
+}
+
 export async function getDiscordBridgeSetupOptions(
   chatsStorage: ChatsStorage,
   charactersStorage: CharactersStorage,
@@ -163,12 +180,14 @@ export async function getDiscordBridgeChatContext(
     return option ? [option] : [];
   });
   const foundCharacterIds = new Set(characters.map((character) => character.id));
+  const characterNamesById = new Map(characters.map((character) => [character.id, character.name]));
 
   const personas = await charactersStorage.listPersonas();
   const personaRow =
     (chat.personaId ? personas.find((candidate) => candidate.id === chat.personaId) : null) ??
     personas.find((candidate) => candidate.isActive === "true") ??
     null;
+  const persona = toPersonaOption(personaRow);
 
   const messageLimit = Math.max(0, Math.min(200, Math.floor(options.messageLimit ?? 50)));
   const messages = options.allMessages
@@ -187,12 +206,13 @@ export async function getDiscordBridgeChatContext(
       metadata: parseRecord(chat.metadata),
     },
     characters,
-    persona: toPersonaOption(personaRow),
+    persona,
     missingCharacterIds: chatOption.characterIds.filter((id) => !foundCharacterIds.has(id)),
     messages: messages.map((message) => ({
       id: message.id,
       role: message.role,
       characterId: message.characterId ?? null,
+      displayName: roleDisplayName(message.role, message.characterId ?? null, persona, characterNamesById),
       content: message.content,
       createdAt: message.createdAt,
     })),

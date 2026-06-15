@@ -14,7 +14,7 @@ export const roleplayCommand: SlashCommandModule = {
       return;
     }
 
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply();
 
     const [setup, bindings] = await Promise.all([
       getBridgeSetupOptions(config.serverUrl),

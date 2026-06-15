@@ -75,6 +75,16 @@ async function postJson<T>(serverUrl: string, path: string, body: unknown): Prom
   return (await response.json()) as T;
 }
 
+async function deleteJson<T>(serverUrl: string, path: string): Promise<T> {
+  const response = await fetch(apiUrl(serverUrl, path), {
+    method: "DELETE",
+  });
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Marinara request failed: DELETE ${path} returned HTTP ${response.status}`);
+  }
+  return (await response.json()) as T;
+}
+
 export function getBridgeSetupOptions(serverUrl: string) {
   return getJson<DiscordBridgeSetupOptions>(serverUrl, "/api/discord-bridge/setup-options");
 }
@@ -187,6 +197,13 @@ export function upsertThreadBinding(
   return postJson<DiscordBridgeThreadBinding>(serverUrl, "/api/discord-bridge/thread-bindings", input);
 }
 
+export function deleteThreadBinding(serverUrl: string, bindingId: string) {
+  return deleteJson<{ ok: boolean }>(
+    serverUrl,
+    `/api/discord-bridge/thread-bindings/${encodeURIComponent(bindingId)}`,
+  );
+}
+
 export function listThreadMessageMappings(serverUrl: string, threadId: string) {
   return getJson<DiscordBridgeMessageMapping[]>(
     serverUrl,
@@ -248,7 +265,7 @@ export function updateChatMessageContent(serverUrl: string, chatId: string, mess
   return patchJson<MarinaraMessageRow>(
     serverUrl,
     `/api/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`,
-    { content },
+    { content, source: "discord_bridge" },
   );
 }
 
