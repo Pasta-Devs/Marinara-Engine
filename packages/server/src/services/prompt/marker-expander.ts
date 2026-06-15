@@ -36,6 +36,9 @@ export interface MarkerContext {
     backstory?: string;
     appearance?: string;
   };
+  speakerName?: string;
+  speakerPersona?: string;
+  participants?: string;
   /** Raw personaStats JSON (for rpgStats injection) */
   personaStats?: any;
   chatMessages: ChatMLMessage[];

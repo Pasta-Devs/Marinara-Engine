@@ -182,6 +182,21 @@ export function setDiscordUserPersona(serverUrl: string, guildId: string, discor
   );
 }
 
+export function leaveDiscordParticipantRoster(
+  serverUrl: string,
+  guildId: string,
+  discordUserId: string,
+  threadId: string,
+) {
+  const params = new URLSearchParams({ threadId });
+  return deleteJson<{ ok: boolean; deactivated: boolean; reason?: string; chatId?: string; chatName?: string }>(
+    serverUrl,
+    `/api/discord-bridge/guilds/${encodeURIComponent(guildId)}/users/${encodeURIComponent(
+      discordUserId,
+    )}/participants?${params}`,
+  );
+}
+
 export async function updateCharacterFields(
   serverUrl: string,
   characterId: string,
@@ -310,6 +325,8 @@ export async function triggerChatGeneration(
     userMessage: string;
     bindingId: string;
     discordMessageId: string;
+    discordUserId?: string;
+    discordDisplayName?: string;
   },
 ) {
   const response = await fetch(apiUrl(serverUrl, "/api/generate"), {
@@ -327,6 +344,8 @@ export async function triggerChatGeneration(
       discordBridge: {
         bindingId: input.bindingId,
         discordMessageId: input.discordMessageId,
+        ...(input.discordUserId ? { discordUserId: input.discordUserId } : {}),
+        ...(input.discordDisplayName ? { discordDisplayName: input.discordDisplayName } : {}),
       },
     }),
   });

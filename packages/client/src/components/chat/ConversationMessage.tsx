@@ -179,6 +179,11 @@ export const ConversationMessage = memo(function ConversationMessage({
       : null);
 
   const msgPersona = isUser && !plainUserMessages && extra.personaSnapshot ? extra.personaSnapshot : null;
+  const participantSnapshot = isUser && extra.participantSnapshot ? extra.participantSnapshot : null;
+  const participantLabel =
+    participantSnapshot && typeof participantSnapshot.discordDisplayName === "string"
+      ? `Discord: ${participantSnapshot.discordDisplayName}`
+      : null;
   const avatarUrl = isUser
     ? plainUserMessages ? null : (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
     : (resolvedCharacterInfo?.avatarUrl ?? null);
@@ -429,7 +434,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   // ── Build shared render context ──
   const ctx: MessageRenderContext = {
     message, extra, isUser, isGrouped: !!isGrouped,
-    displayName, avatarUrl, avatarCropStyle, nameColor,
+    displayName, participantLabel, avatarUrl, avatarCropStyle, nameColor,
     mentionNames, charByName,
     quoteFormat,
     renderedContent, renderedContentParts, groupedSegments, visibleSegments,

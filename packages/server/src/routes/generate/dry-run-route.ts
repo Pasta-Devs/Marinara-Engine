@@ -6,7 +6,10 @@ import {
   supportsXhighReasoningEffort,
   resolveMacros,
   stripMacroComments,
+  formatParticipantTrackerField,
+  splitParticipantTrackerFields,
   type APIProvider,
+  type CustomTrackerField,
   type LorebookEntryTimingState,
 } from "@marinara-engine/shared";
 import { randomUUID } from "crypto";
@@ -16,6 +19,7 @@ import { createPromptsStorage } from "../../services/storage/prompts.storage.js"
 import { createCharactersStorage } from "../../services/storage/characters.storage.js";
 import { createLorebooksStorage } from "../../services/storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../../services/storage/regex-scripts.storage.js";
+import { createDiscordBridgeStorage } from "../../services/storage/discord-bridge.storage.js";
 import { buildImpersonateInstruction } from "../../services/conversation/impersonate-prompt.js";
 import { processLorebooks } from "../../services/lorebook/index.js";
 import { resolveGameLorebookScopeExclusions } from "../../services/lorebook/game-lorebook-scope.js";
@@ -32,6 +36,12 @@ import {
 } from "../../services/prompt/index.js";
 import { mergeAdjacentMessages } from "../../services/prompt/merger.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import {
+  buildParticipantPromptEntries,
+  compactPersonaSummary,
+  formatParticipantsMacro,
+  participantSpeakerName,
+} from "../../services/discord-bridge/participant-prompt-context.js";
 import { fitMessagesToContext, type BaseLLMProvider, type ChatMessage } from "../../services/llm/base-provider.js";
 import { applyAllSegmentEdits } from "../../services/game/segment-edits.js";
 import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-application.js";
@@ -195,8 +205,16 @@ function formatTrackersContextBlock(args: {
         trackerParts.push(wrapContent(statLines.join("\n"), "Stats", wrapFormat));
       }
       if (Array.isArray(stats.customTrackerFields) && stats.customTrackerFields.length > 0) {
-        const customLines = stats.customTrackerFields.map((f: any) => `- ${f.name}: ${f.value}`);
-        trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", wrapFormat));
+        const { participantTracker, customFields } = splitParticipantTrackerFields(
+          stats.customTrackerFields as CustomTrackerField[],
+        );
+        if (participantTracker) {
+          trackerParts.push(wrapContent(formatParticipantTrackerField(participantTracker), "Participant Tracker", wrapFormat));
+        }
+        if (customFields.length > 0) {
+          const customLines = customFields.map((f) => `- ${f.name}: ${f.value}`);
+          trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", wrapFormat));
+        }
       }
     } catch {
       /* ignore */
@@ -755,8 +773,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     let personaDescription = "";
     let personaFields: Record<string, string> = {};
     let persona: any = null;
+    let allPersonas: any[] = [];
     try {
-      const allPersonas = await chars.listPersonas();
+      allPersonas = await chars.listPersonas();
       persona =
         ((chat as any).personaId ? allPersonas.find((p: any) => p.id === (chat as any).personaId) : null) ??
         allPersonas.find((p: any) => p.isActive === "true");
@@ -793,6 +812,26 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     } catch {
       /* non-critical */
     }
+    const bridgeStorage = createDiscordBridgeStorage(app.db);
+    const participantRows = await bridgeStorage.listActiveParticipants(chatId);
+    const participantEntries = buildParticipantPromptEntries(participantRows, allPersonas);
+    const latestParticipantSnapshot = [...chatMessages]
+      .reverse()
+      .map((message: any) => parseExtra(message.extra)?.participantSnapshot)
+      .find((snapshot): snapshot is Record<string, unknown> => !!snapshot && typeof snapshot === "object");
+    const activeParticipantEntry =
+      participantEntries.find((entry) => entry.participant.id === latestParticipantSnapshot?.participantId) ??
+      participantEntries.find(
+        (entry) =>
+          typeof latestParticipantSnapshot?.discordUserId === "string" &&
+          entry.participant.discordUserId === latestParticipantSnapshot.discordUserId,
+      ) ??
+      [...participantEntries].reverse().find((entry) => entry.participant.hasSpoken) ??
+      participantEntries[0] ??
+      null;
+    const participantSpeaker = participantSpeakerName(activeParticipantEntry, personaName);
+    const speakerPersona = compactPersonaSummary(activeParticipantEntry?.persona ?? persona ?? null);
+    const participantsMacro = formatParticipantsMacro(participantEntries);
 
     const promptPresetCandidates = skipPreset
       ? []
@@ -852,6 +891,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       personaName,
       personaDescription,
       personaFields,
+      speakerName: participantSpeaker,
+      speakerPersona,
+      participants: participantsMacro,
       variables: {},
       groupScenarioOverrideText:
         typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
@@ -1249,6 +1291,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         personaName,
         personaDescription,
         personaFields,
+        speakerName: participantSpeaker,
+        speakerPersona,
+        participants: participantsMacro,
         personaStats: (() => {
           if (!persona?.personaStats) return undefined;
           if (typeof persona.personaStats !== "string") return persona.personaStats;

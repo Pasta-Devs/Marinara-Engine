@@ -172,6 +172,7 @@ export const FILE_BACKED_TABLES = [
   "discord_bridge_thread_bindings",
   "discord_bridge_message_mappings",
   "discord_bridge_user_personas",
+  "chat_participants",
   "chat_folders",
   "api_connection_folders",
   "custom_themes",
@@ -195,6 +196,7 @@ const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; parentK
   { parent: "chats", child: "game_state_snapshots", parentKey: "id", childKey: "chatId" },
   { parent: "chats", child: "game_checkpoints", parentKey: "id", childKey: "chatId" },
   { parent: "chats", child: "discord_bridge_thread_bindings", parentKey: "id", childKey: "chatId" },
+  { parent: "chats", child: "chat_participants", parentKey: "id", childKey: "chatId" },
   { parent: "messages", child: "message_swipes", parentKey: "id", childKey: "messageId" },
   { parent: "messages", child: "discord_bridge_message_mappings", parentKey: "id", childKey: "marinaraMessageId" },
   {

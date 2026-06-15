@@ -73,6 +73,7 @@ export * from "./utils/generation-guide.js";
 export * from "./utils/lorebook-keyword-matching.js";
 export * from "./utils/regex-safety.js";
 export * from "./utils/game-state-text.js";
+export * from "./utils/participant-tracker-state.js";
 export * from "./utils/chat-summary-entries.js";
 export * from "./utils/quest-state.js";
 export * from "./utils/quote-format.js";

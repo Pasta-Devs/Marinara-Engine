@@ -454,6 +454,21 @@ const CREATE_TABLES: string[] = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS chat_participants (
+    id TEXT PRIMARY KEY NOT NULL,
+    chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    source TEXT NOT NULL,
+    guild_id TEXT,
+    discord_user_id TEXT,
+    discord_display_name TEXT NOT NULL DEFAULT '',
+    persona_id TEXT,
+    active TEXT NOT NULL DEFAULT 'true',
+    has_spoken TEXT NOT NULL DEFAULT 'false',
+    last_message_id TEXT,
+    last_spoke_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS chat_folders (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
@@ -950,6 +965,12 @@ export async function runMigrations(db: DB) {
   await db.run(
     sql.raw(
       `CREATE INDEX IF NOT EXISTS idx_discord_bridge_user_persona_persona ON discord_bridge_user_personas(persona_id)`,
+    ),
+  );
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_chat_participants_chat ON chat_participants(chat_id, active)`));
+  await db.run(
+    sql.raw(
+      `CREATE UNIQUE INDEX IF NOT EXISTS uniq_chat_participants_source_user ON chat_participants(chat_id, source, guild_id, discord_user_id)`,
     ),
   );
   await db.run(

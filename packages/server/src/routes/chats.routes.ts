@@ -20,6 +20,8 @@ import {
   stripMacroComments,
   summariesPatchSchema,
   coerceGameStateTextValue,
+  formatParticipantTrackerField,
+  splitParticipantTrackerFields,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -31,10 +33,12 @@ import type {
   ExportEnvelope,
   GameNpc,
   LorebookEntryTimingState,
+  CustomTrackerField,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createDiscordBridgeStorage } from "../services/storage/discord-bridge.storage.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../services/storage/game-state.storage.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../services/llm/local-sidecar.js";
@@ -312,8 +316,16 @@ function formatPeekTrackerContextBlock(args: {
       }
 
       if (hasCustomTracker && Array.isArray(stats?.customTrackerFields) && stats.customTrackerFields.length > 0) {
-        const customLines = stats.customTrackerFields.map((f: any) => `- ${f.name}: ${f.value}`);
-        trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", wrapFormat));
+        const { participantTracker, customFields } = splitParticipantTrackerFields(
+          stats.customTrackerFields as CustomTrackerField[],
+        );
+        if (participantTracker) {
+          trackerParts.push(wrapContent(formatParticipantTrackerField(participantTracker), "Participant Tracker", wrapFormat));
+        }
+        if (customFields.length > 0) {
+          const customLines = customFields.map((f) => `- ${f.name}: ${f.value}`);
+          trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", wrapFormat));
+        }
       }
     } catch {
       /* ignore malformed tracker data */
@@ -413,6 +425,7 @@ function resolveEntryStateOverrides(value: unknown): EntryStateOverrides | undef
 
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
+  const discordBridgeStorage = createDiscordBridgeStorage(app.db);
 
   const clearConversationScheduleState = async (chat: Awaited<ReturnType<typeof storage.getById>>) => {
     if (!chat) return;
@@ -601,6 +614,37 @@ export async function chatsRoutes(app: FastifyInstance) {
       incoming.scheduleWeekStart = undefined;
     }
     return storage.patchMetadata(req.params.id, incoming);
+  });
+
+  // List active Discord bridge participants for this chat.
+  app.get<{ Params: { id: string } }>("/:id/participants", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+
+    const [participants, personas] = await Promise.all([
+      discordBridgeStorage.listActiveParticipants(req.params.id),
+      createCharactersStorage(app.db).listPersonas(),
+    ]);
+    const personaNames = new Map(personas.map((persona) => [persona.id, persona.name]));
+
+    return participants.map((participant) => ({
+      ...participant,
+      personaName: participant.personaId ? (personaNames.get(participant.personaId) ?? null) : null,
+    }));
+  });
+
+  // Deactivate a stale Discord bridge participant without deleting history.
+  app.delete<{ Params: { id: string; participantId: string } }>("/:id/participants/:participantId", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+
+    const participants = await discordBridgeStorage.listActiveParticipants(req.params.id);
+    if (!participants.some((participant) => participant.id === req.params.participantId)) {
+      return reply.status(404).send({ error: "Participant not found" });
+    }
+
+    await discordBridgeStorage.deactivateParticipant(req.params.participantId);
+    return { success: true };
   });
 
   // Mark a chat as having autonomous messages the user has not viewed yet.
@@ -1256,6 +1300,14 @@ export async function chatsRoutes(app: FastifyInstance) {
     "/:chatId/messages/:messageId/extra",
     async (req, reply) => {
       const partial = req.body as Record<string, unknown>;
+      if (
+        Object.prototype.hasOwnProperty.call(partial, "personaSnapshot") ||
+        Object.prototype.hasOwnProperty.call(partial, "participantSnapshot")
+      ) {
+        return reply.status(400).send({
+          error: "Message speaker identity snapshots are immutable. Edit the message content or participant roster instead.",
+        });
+      }
       const updated = await storage.updateMessageExtra(req.params.messageId, partial);
       if (!updated) return reply.status(404).send({ error: "Message not found" });
       if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAI")) {

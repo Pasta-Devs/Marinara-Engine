@@ -13,6 +13,7 @@ export const PERSONA_PAGE_SELECT_CUSTOM_ID = "personas:page";
 export const PERSONA_EDIT_CUSTOM_ID = "personas:edit";
 export const PERSONA_SAVE_CUSTOM_ID = "personas:save";
 export const PERSONA_USE_CUSTOM_ID = "personas:use";
+export const PERSONA_LEAVE_ROSTER_CUSTOM_ID = "personas:leave-roster";
 export const PERSONA_EDIT_MODAL_CUSTOM_ID = "personas:edit-modal";
 export const PERSONA_CLOSE_CUSTOM_ID = "personas:close";
 export const PERSONA_BACK_CUSTOM_ID = "personas:back";
@@ -68,6 +69,10 @@ export function buildPersonaListComponents(personas: DiscordBridgePersonaOption[
   );
 
   const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(PERSONA_LEAVE_ROSTER_CUSTOM_ID)
+      .setLabel("Leave roster")
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId(PERSONA_CLOSE_CUSTOM_ID).setLabel("Close").setStyle(ButtonStyle.Danger),
   );
 

@@ -19,6 +19,7 @@ import {
   getDiscordBridgeChatContext,
   getDiscordBridgeSetupOptions,
 } from "../services/discord-bridge/bridge-context.service.js";
+import { buildParticipantSnapshot } from "../services/discord-bridge/participant-prompt-context.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createChatPresetsStorage } from "../services/storage/chat-presets.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -216,6 +217,38 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
     } satisfies DiscordBridgeUserPersona & { personaName: string };
   });
 
+  app.delete<{
+    Params: { guildId: string; discordUserId: string };
+    Querystring: { threadId?: string };
+  }>("/guilds/:guildId/users/:discordUserId/participants", async (req) => {
+    const threadId = typeof req.query.threadId === "string" ? req.query.threadId.trim() : "";
+    if (!threadId) {
+      return { ok: true, deactivated: false, reason: "missing_thread" };
+    }
+
+    const binding = await bridgeStorage.getThreadBindingByThreadId(threadId);
+    if (!binding || binding.guildId !== req.params.guildId) {
+      return { ok: true, deactivated: false, reason: "not_bound_thread" };
+    }
+
+    const participant = await bridgeStorage.getDiscordParticipant(
+      binding.chatId,
+      req.params.guildId,
+      req.params.discordUserId,
+    );
+    if (!participant?.active) {
+      return { ok: true, deactivated: false, reason: "not_active" };
+    }
+
+    await bridgeStorage.deactivateParticipant(participant.id);
+    return {
+      ok: true,
+      deactivated: true,
+      chatId: binding.chatId,
+      chatName: binding.chatName,
+    };
+  });
+
   app.get<{ Params: { chatId: string }; Querystring: { messageLimit?: string } }>(
     "/chats/:chatId/context",
     async (req, reply) => {
@@ -343,7 +376,7 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
 
   app.post<{
     Params: { threadId: string };
-    Body: { discordMessageId?: unknown; discordUserId?: unknown; content?: unknown };
+    Body: { discordMessageId?: unknown; discordUserId?: unknown; discordDisplayName?: unknown; content?: unknown };
   }>("/thread-bindings/by-thread/:threadId/discord-messages", async (req, reply) => {
     const parsed = parseDiscordMessageIngestBody(req.body);
     if ("error" in parsed) return reply.status(400).send({ error: parsed.error });
@@ -384,6 +417,51 @@ export async function discordBridgeRoutes(app: FastifyInstance) {
       content: parsed.input.content,
     });
     if (!created) return reply.status(500).send({ error: "Failed to create Marinara message" });
+
+    const selectedUserPersona = parsed.input.discordUserId
+      ? await bridgeStorage.getUserPersona(binding.guildId, parsed.input.discordUserId)
+      : null;
+    const participantPersonaId = selectedUserPersona?.personaId ?? binding.personaId ?? null;
+    const participant =
+      parsed.input.discordUserId !== null
+        ? await bridgeStorage.upsertDiscordParticipant({
+            chatId: binding.chatId,
+            guildId: binding.guildId,
+            discordUserId: parsed.input.discordUserId,
+            discordDisplayName: parsed.input.discordDisplayName ?? parsed.input.discordUserId,
+            personaId: participantPersonaId,
+            active: true,
+            hasSpoken: true,
+            lastMessageId: created.id,
+            lastSpokeAt: created.createdAt,
+          })
+        : null;
+    const snapshotPersona = participantPersonaId ? await charactersStorage.getPersona(participantPersonaId) : null;
+    const messageExtra: Record<string, unknown> = {};
+    if (snapshotPersona) {
+      messageExtra.personaSnapshot = {
+        personaId: snapshotPersona.id,
+        name: snapshotPersona.name,
+        description: snapshotPersona.description ?? "",
+        personality: snapshotPersona.personality ?? "",
+        scenario: snapshotPersona.scenario ?? "",
+        backstory: snapshotPersona.backstory ?? "",
+        appearance: snapshotPersona.appearance ?? "",
+        avatarUrl: snapshotPersona.avatarPath || null,
+        nameColor: snapshotPersona.nameColor || null,
+        dialogueColor: snapshotPersona.dialogueColor || null,
+        boxColor: snapshotPersona.boxColor || null,
+      };
+    }
+    if (participant) {
+      messageExtra.participantSnapshot = buildParticipantSnapshot({
+        participant,
+        persona: snapshotPersona,
+      });
+    }
+    if (Object.keys(messageExtra).length > 0) {
+      await chatsStorage.updateMessageExtra(created.id, messageExtra);
+    }
 
     pendingDiscordIngestMessageIds.add(created.id);
     let mapping: DiscordBridgeMessageMapping;
@@ -802,8 +880,11 @@ function parseRoleplaySettingsBody(body: {
 function parseDiscordMessageIngestBody(body: {
   discordMessageId?: unknown;
   discordUserId?: unknown;
+  discordDisplayName?: unknown;
   content?: unknown;
-}): { input: { discordMessageId: string; discordUserId: string | null; content: string } } | { error: string } {
+}):
+  | { input: { discordMessageId: string; discordUserId: string | null; discordDisplayName: string | null; content: string } }
+  | { error: string } {
   if (!isNonEmptyString(body.discordMessageId) || !isNonEmptyString(body.content)) {
     return { error: "discordMessageId and content are required strings" };
   }
@@ -812,6 +893,7 @@ function parseDiscordMessageIngestBody(body: {
     input: {
       discordMessageId: body.discordMessageId,
       discordUserId: isNonEmptyString(body.discordUserId) ? body.discordUserId : null,
+      discordDisplayName: isNonEmptyString(body.discordDisplayName) ? body.discordDisplayName.trim() : null,
       content: body.content.trim(),
     },
   };

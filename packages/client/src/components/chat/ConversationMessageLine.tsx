@@ -10,6 +10,7 @@ import {
   ConversationMessageAttachments,
   ConversationMessageTranslation,
   ConversationMessageSwipes,
+  DiscordParticipantBadge,
   nameColorStyle,
   formatTimestamp,
   type MessageRenderContext,
@@ -22,6 +23,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
     isUser,
     isGrouped,
     displayName,
+    participantLabel,
     avatarUrl,
     avatarCropStyle,
     nameColor,
@@ -113,6 +115,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
             <span className="mari-message-name text-[0.9375rem] font-semibold leading-tight hover:underline cursor-default" style={nameColorStyle(nameColor)}>
               {displayName}
             </span>
+            <DiscordParticipantBadge label={participantLabel} />
             {!hideTimestamp && (
               <span className="mari-message-timestamp text-[0.6875rem] text-[var(--muted-foreground)]/60">
                 {formatTimestamp(message.createdAt)}

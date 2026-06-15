@@ -66,6 +66,9 @@ export const generateRequestSchema = z.object({
     .object({
       bindingId: z.string().min(1),
       discordMessageId: z.string().min(1),
+      discordUserId: z.string().min(1).optional(),
+      discordDisplayName: z.string().min(1).optional(),
+      personaId: z.string().min(1).optional(),
     })
     .optional(),
 

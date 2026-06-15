@@ -27,6 +27,7 @@ import {
   PERSONA_CLOSE_CUSTOM_ID,
   PERSONA_EDIT_CUSTOM_ID,
   PERSONA_EDIT_MODAL_CUSTOM_ID,
+  PERSONA_LEAVE_ROSTER_CUSTOM_ID,
   PERSONA_PAGE_SELECT_CUSTOM_ID,
   PERSONA_SAVE_CUSTOM_ID,
   PERSONA_SELECT_CUSTOM_ID,
@@ -65,6 +66,7 @@ import {
   getCharacterById,
   getDiscordUserPersona,
   getPersonaById,
+  leaveDiscordParticipantRoster,
   listThreadBindings,
   setDiscordUserPersona,
   upsertThreadBinding,
@@ -383,13 +385,6 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
       }
 
       if (interaction.isButton() && interaction.customId === PERSONA_CLOSE_CUSTOM_ID) {
-        if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({
-            content: "Only the configured Marinara Discord owner can close this.",
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
         await closeComponentPanel(interaction);
         return;
       }
@@ -555,13 +550,6 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
       }
 
       if (interaction.isButton() && interaction.customId === PERSONA_BACK_CUSTOM_ID) {
-        if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({
-            content: "Only the configured Marinara Discord owner can use this.",
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
         const setup = await getBridgeSetupOptions(config.serverUrl);
         await interaction.update({
           embeds: [buildPersonaListEmbed(setup.personas)],
@@ -572,15 +560,37 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
         return;
       }
 
-      if (interaction.isButton() && interaction.customId.startsWith(PERSONA_USE_PREFIX)) {
-        if (interaction.user.id !== config.ownerId) {
+      if (interaction.isButton() && interaction.customId === PERSONA_LEAVE_ROSTER_CUSTOM_ID) {
+        if (!interaction.guildId) {
           await interaction.reply({
-            content: "Only the configured Marinara Discord owner can use this.",
+            content: "Participant rosters are only available from a server.",
             flags: MessageFlags.Ephemeral,
           });
           return;
         }
 
+        const result = await leaveDiscordParticipantRoster(
+          config.serverUrl,
+          interaction.guildId,
+          interaction.user.id,
+          interaction.channelId ?? "",
+        );
+        if (result.deactivated) {
+          await interaction.reply({
+            content: `Left the active roster for ${result.chatName ?? "this roleplay"}.`,
+            flags: MessageFlags.Ephemeral,
+          });
+          return;
+        }
+
+        await interaction.reply({
+          content: "No active participant roster was found for you in this Discord thread.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
+      if (interaction.isButton() && interaction.customId.startsWith(PERSONA_USE_PREFIX)) {
         if (!interaction.guildId) {
           await interaction.reply({
             content: "Persona links can only be saved from a server.",
@@ -804,14 +814,6 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
       }
 
       if (interaction.isStringSelectMenu() && interaction.customId === PERSONA_SELECT_CUSTOM_ID) {
-        if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({
-            content: "Only the configured Marinara Discord owner can use this selector.",
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-
         const selectedId = interaction.values[0];
         if (!selectedId || selectedId === "none") return;
         const setup = await getBridgeSetupOptions(config.serverUrl);
@@ -1032,14 +1034,6 @@ export function registerInteractionCreateEvent(client: Client, config: DiscordBr
       }
 
       if (interaction.isStringSelectMenu() && interaction.customId.startsWith(PERSONA_PAGE_SELECT_PREFIX)) {
-        if (interaction.user.id !== config.ownerId) {
-          await interaction.reply({
-            content: "Only the configured Marinara Discord owner can use this selector.",
-            flags: MessageFlags.Ephemeral,
-          });
-          return;
-        }
-
         const page = interaction.values[0];
         if (!page || !isPersonaCardPage(page)) {
           await interaction.reply({ content: "Persona page not found.", flags: MessageFlags.Ephemeral });

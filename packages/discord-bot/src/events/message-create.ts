@@ -20,6 +20,8 @@ async function enqueueGeneration(
     userMessage: string;
     bindingId: string;
     discordMessageId: string;
+    discordUserId?: string;
+    discordDisplayName?: string;
   },
 ) {
   const { chatId } = input;
@@ -68,6 +70,8 @@ export function registerMessageCreateEvent(client: Client, config: DiscordBridge
         userMessage: content,
         bindingId: binding.id,
         discordMessageId: message.id,
+        discordUserId: message.author.id,
+        discordDisplayName: message.member?.displayName ?? message.author.globalName ?? message.author.username,
       });
       logger.info("Triggered Marinara generation for Discord thread %s chat %s", binding.threadId, binding.chatId);
     })().catch((err) => {

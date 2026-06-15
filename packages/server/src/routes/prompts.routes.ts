@@ -21,11 +21,30 @@ import { assemblePrompt, type AssemblerInput } from "../services/prompt/index.js
 import { resolveGameLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { createDiscordBridgeStorage } from "../services/storage/discord-bridge.storage.js";
+import {
+  buildParticipantPromptEntries,
+  compactPersonaSummary,
+  formatParticipantsMacro,
+  participantSpeakerName,
+} from "../services/discord-bridge/participant-prompt-context.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import AdmZip from "adm-zip";
 
 function cardPromptText(value: unknown): string {
   return typeof value === "string" ? stripMacroComments(value).trim() : "";
+}
+
+function parseMessageExtra(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (typeof value === "object") return value as Record<string, unknown>;
+  if (typeof value !== "string") return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 function safeAsciiDownloadName(value: string): string {
@@ -329,6 +348,26 @@ export async function promptsRoutes(app: FastifyInstance) {
         appearance: cardPromptText(activePersona.appearance),
       };
     }
+    const bridgeStorage = createDiscordBridgeStorage(app.db);
+    const participantRows = await bridgeStorage.listActiveParticipants(chatId);
+    const participantEntries = buildParticipantPromptEntries(participantRows, allPersonas);
+    const latestParticipantSnapshot = [...chatMessages]
+      .reverse()
+      .map((message: any) => parseMessageExtra(message.extra)?.participantSnapshot)
+      .find((snapshot): snapshot is Record<string, unknown> => !!snapshot && typeof snapshot === "object");
+    const activeParticipantEntry =
+      participantEntries.find((entry) => entry.participant.id === latestParticipantSnapshot?.participantId) ??
+      participantEntries.find(
+        (entry) =>
+          typeof latestParticipantSnapshot?.discordUserId === "string" &&
+          entry.participant.discordUserId === latestParticipantSnapshot.discordUserId,
+      ) ??
+      [...participantEntries].reverse().find((entry) => entry.participant.hasSpoken) ??
+      participantEntries[0] ??
+      null;
+    const participantSpeaker = participantSpeakerName(activeParticipantEntry, personaName);
+    const speakerPersona = compactPersonaSummary(activeParticipantEntry?.persona ?? activePersona ?? null);
+    const participantsMacro = formatParticipantsMacro(participantEntries);
 
     const [sections, groups, choiceBlocks] = await Promise.all([
       storage.listSections(req.params.id),
@@ -349,6 +388,9 @@ export async function promptsRoutes(app: FastifyInstance) {
       personaName,
       personaDescription,
       personaFields,
+      speakerName: participantSpeaker,
+      speakerPersona,
+      participants: participantsMacro,
       chatMessages: mappedMessages,
       activeLorebookIds: Array.isArray(chatMeta.activeLorebookIds) ? (chatMeta.activeLorebookIds as string[]) : [],
       excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,

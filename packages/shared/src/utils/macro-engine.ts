@@ -29,6 +29,12 @@ export interface MacroContext {
   model?: string;
   /** Agent data keyed by agent type (for {{agent::TYPE}}) */
   agentData?: Record<string, string>;
+  /** Active multiplayer speaker name. Defaults to user. */
+  speaker?: string;
+  /** Compact active speaker persona card summary. */
+  speakerPersona?: string;
+  /** Active player roster formatted for prompts. */
+  participants?: string;
   /** Current character card fields used by macros like {{description}} */
   characterFields?: {
     description?: string;
@@ -111,6 +117,9 @@ export function hasDeferredCharacterMacros(template: string): boolean {
 export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{user}}", description: "Current user or persona name" },
   { category: "Identity", syntax: "{{userName}}", description: "Alias for {{user}}" },
+  { category: "Identity", syntax: "{{speaker}}", description: "Current active speaker name" },
+  { category: "Identity", syntax: "{{speakerPersona}}", description: "Active speaker persona card summary" },
+  { category: "Identity", syntax: "{{participants}}", description: "Active player-controlled participant roster" },
   {
     category: "Identity",
     syntax: "{{persona}}",
@@ -215,6 +224,9 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
     chatId: base?.chatId,
     model: base?.model,
     agentData: base?.agentData,
+    speaker: base?.speaker,
+    speakerPersona: base?.speakerPersona,
+    participants: base?.participants,
     personaFields: base?.personaFields,
     characterFields: {
       description: profile.description ?? "",
@@ -452,11 +464,17 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext): string {
     case "char":
     case "charname":
     case "character":
-    case "speaker":
       return ctx.char;
+    case "speaker":
+    case "speakername":
+      return ctx.speaker ?? ctx.user;
     case "user":
     case "username":
       return ctx.user;
+    case "participants":
+      return ctx.participants ?? "";
+    case "speakerpersona":
+      return ctx.speakerPersona ?? "";
     case "characters":
       return ctx.characters.join(", ");
     case "input":
@@ -787,6 +805,9 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
 
   // ── Static substitutions ──
   result = result.replace(/\{\{user(?:Name)?\}\}/gi, ctx.user);
+  result = result.replace(/\{\{speaker(?:Name)?\}\}/gi, ctx.speaker ?? ctx.user);
+  result = result.replace(/\{\{speakerPersona\}\}/gi, ctx.speakerPersona ?? "");
+  result = result.replace(/\{\{participants\}\}/gi, ctx.participants ?? "");
   result = result.replace(/\{\{persona\}\}/gi, personaText);
   result = result.replace(/\{\{char(?:Name)?\}\}/gi, characterReplacement("char"));
   result = result.replace(/\{\{characters\}\}/gi, ctx.characters.join(", "));

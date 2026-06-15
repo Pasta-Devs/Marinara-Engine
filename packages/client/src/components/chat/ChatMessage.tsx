@@ -136,6 +136,27 @@ function HiddenFromAIMessageSummary({ roleplay, onExpand }: { roleplay?: boolean
   );
 }
 
+function DiscordParticipantBadge({ label, roleplay }: { label: string | null; roleplay?: boolean }) {
+  if (!label) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-[12rem] shrink min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.625rem] font-medium leading-none",
+        roleplay
+          ? "border-white/10 bg-white/8 text-white/45"
+          : "border-[var(--border)] bg-[var(--secondary)]/70 text-[var(--muted-foreground)]",
+      )}
+      title={`Discord participant: ${label}`}
+    >
+      <span
+        className={cn("h-1.5 w-1.5 shrink-0 rounded-full", roleplay ? "bg-[var(--primary)]/80" : "bg-[var(--primary)]")}
+        aria-hidden="true"
+      />
+      <span className="truncate">{label}</span>
+    </span>
+  );
+}
+
 /** Isolated edit textarea — uncontrolled to avoid React re-renders on every keystroke. */
 const EditTextarea = memo(function EditTextarea({
   initialContent,
@@ -1136,6 +1157,11 @@ export const ChatMessage = memo(function ChatMessage({
   // to preserve the correct persona name/avatar even after switching personas.
   // Fall back to the current personaInfo prop for older messages without snapshots.
   const msgPersona = isUser && extra.personaSnapshot ? extra.personaSnapshot : null;
+  const participantSnapshot = isUser && extra.participantSnapshot ? extra.participantSnapshot : null;
+  const participantLabel =
+    participantSnapshot && typeof participantSnapshot.discordDisplayName === "string"
+      ? `Discord: ${participantSnapshot.discordDisplayName}`
+      : null;
   const userName = msgPersona?.name ?? personaInfo?.name ?? "You";
   const charName = primaryCharInfo?.name ?? "Assistant";
   const personaDescription = msgPersona?.description ?? personaInfo?.description;
@@ -1733,6 +1759,7 @@ export const ChatMessage = memo(function ChatMessage({
                   )}
                 </span>
                 <span className="text-[0.625rem] text-white/30">{formatTime(message.createdAt)}</span>
+                <DiscordParticipantBadge label={participantLabel} roleplay />
                 {genLabel && (
                   <span className="text-[0.5625rem] text-white/25 italic truncate max-w-[15.625rem]" title={genLabel}>
                     {genLabel}
@@ -2214,7 +2241,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
         >
           {/* Name — only for first in group */}
-          {!isGrouped && !isUser && (
+          {!isGrouped && (!isUser || participantLabel) && (
             <div className="flex items-center gap-2 px-3">
               {hiddenFromAIHeader}
               <span
@@ -2226,6 +2253,7 @@ export const ChatMessage = memo(function ChatMessage({
               >
                 {isMergedGroup ? mergedNameElement : <NameColorText color={msgNameColor}>{displayName}</NameColorText>}
               </span>
+              <DiscordParticipantBadge label={participantLabel} />
             </div>
           )}
 

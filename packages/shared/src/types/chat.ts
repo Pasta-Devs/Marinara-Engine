@@ -423,6 +423,11 @@ export interface MessageExtra {
   personaSnapshot?: {
     personaId: string;
     name: string;
+    description?: string | null;
+    personality?: string | null;
+    scenario?: string | null;
+    backstory?: string | null;
+    appearance?: string | null;
     avatarUrl?: string | null;
     /** JSON-encoded AvatarCrop captured at send time so re-edits don't restyle past messages. */
     avatarCrop?: string | null;
@@ -430,6 +435,8 @@ export interface MessageExtra {
     dialogueColor?: string | null;
     boxColor?: string | null;
   } | null;
+  /** Snapshot of the multiplayer participant that sent this user message. */
+  participantSnapshot?: ChatParticipantSnapshot | null;
   /** Stored for generation context but hidden from the visible chat transcript */
   hiddenFromUser?: boolean;
   /** When true, the visible message is excluded from future AI prompt context */
@@ -455,6 +462,35 @@ export interface MessageExtra {
     impersonateBlockAgents?: boolean;
     impersonatePromptTemplate?: string | null;
   } | null;
+}
+
+export type ChatParticipantSource = "discord_bridge";
+
+export interface ChatParticipant {
+  id: string;
+  chatId: string;
+  source: ChatParticipantSource;
+  guildId: string | null;
+  discordUserId: string | null;
+  discordDisplayName: string;
+  personaId: string | null;
+  active: boolean;
+  hasSpoken: boolean;
+  lastMessageId: string | null;
+  lastSpokeAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatParticipantSnapshot {
+  participantId: string;
+  chatId: string;
+  source: ChatParticipantSource;
+  guildId: string | null;
+  discordUserId: string | null;
+  discordDisplayName: string;
+  personaId: string | null;
+  personaName: string | null;
 }
 
 /** Metadata about how a message was generated. */

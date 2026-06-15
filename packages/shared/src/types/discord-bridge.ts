@@ -147,6 +147,22 @@ export interface DiscordBridgeUserPersona {
   updatedAt: string;
 }
 
+export interface DiscordBridgeParticipant {
+  id: string;
+  chatId: string;
+  source: "discord_bridge";
+  guildId: string | null;
+  discordUserId: string | null;
+  discordDisplayName: string;
+  personaId: string | null;
+  active: boolean;
+  hasSpoken: boolean;
+  lastMessageId: string | null;
+  lastSpokeAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DiscordBridgeMessageMapping {
   id: string;
   bindingId: string;

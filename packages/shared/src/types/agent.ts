@@ -261,6 +261,7 @@ export interface AgentContext {
     role: string;
     content: string;
     characterId?: string;
+    participant?: import("./chat.js").ChatParticipantSnapshot | null;
     /** Tracker state snapshot for this message (if any). */
     gameState?: import("./game-state.js").GameState | null;
   }>;
@@ -303,6 +304,22 @@ export interface AgentContext {
       hp: { value: number; max: number };
     };
   } | null;
+  /** Active multiplayer participants for Discord/future shared chat entry points. */
+  participants?: Array<{
+    participantId: string;
+    source: import("./chat.js").ChatParticipantSource;
+    guildId: string | null;
+    discordUserId: string | null;
+    discordDisplayName: string;
+    personaId: string | null;
+    personaName: string | null;
+    active: boolean;
+    hasSpoken: boolean;
+    lastMessageId: string | null;
+    lastSpokeAt: string | null;
+  }>;
+  /** Current visible speaker for a Discord-origin turn. */
+  activeParticipant?: import("./chat.js").ChatParticipantSnapshot | null;
   /** The agent's own persistent memory (key-value) */
   memory: Record<string, unknown>;
   /** Lorebook entries activated for this generation (read context) */

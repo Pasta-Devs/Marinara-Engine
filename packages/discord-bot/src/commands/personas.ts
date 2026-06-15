@@ -7,15 +7,7 @@ import { buildPersonaListEmbed } from "../embeds/persona-list.embed.js";
 export const personasCommand: SlashCommandModule = {
   data: new SlashCommandBuilder().setName("personas").setDescription("Browse Marinara personas"),
   async execute(interaction, config) {
-    if (interaction.user.id !== config.ownerId) {
-      await interaction.reply({
-        content: "Only the configured Marinara Discord owner can use this command.",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const setup = await getBridgeSetupOptions(config.serverUrl);
     await interaction.editReply({
       embeds: [buildPersonaListEmbed(setup.personas)],

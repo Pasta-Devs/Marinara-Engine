@@ -1,4 +1,9 @@
-import { compactQuestProgressForContext } from "@marinara-engine/shared";
+import {
+  compactQuestProgressForContext,
+  formatParticipantTrackerField,
+  splitParticipantTrackerFields,
+  type CustomTrackerField,
+} from "@marinara-engine/shared";
 import { wrapContent } from "../prompt/format-engine.js";
 
 type WrapFormat = "xml" | "markdown" | "none";
@@ -129,8 +134,22 @@ export function injectCommittedTrackerContext(args: {
       }
 
       if (hasCustomTracker && Array.isArray(stats.customTrackerFields) && stats.customTrackerFields.length > 0) {
-        const customLines = stats.customTrackerFields.map((field: any) => `- ${field.name}: ${field.value}`);
-        trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", args.wrapFormat));
+        const { participantTracker, customFields } = splitParticipantTrackerFields(
+          stats.customTrackerFields as CustomTrackerField[],
+        );
+        if (participantTracker) {
+          trackerParts.push(
+            wrapContent(
+              formatParticipantTrackerField(participantTracker),
+              "Participant Tracker",
+              args.wrapFormat,
+            ),
+          );
+        }
+        if (customFields.length > 0) {
+          const customLines = customFields.map((field) => `- ${field.name}: ${field.value}`);
+          trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", args.wrapFormat));
+        }
       }
     }
   }

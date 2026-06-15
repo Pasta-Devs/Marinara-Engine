@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Schema: Chats, Messages & Folders
 // ──────────────────────────────────────────────
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const chatFolders = sqliteTable("chat_folders", {
   id: text("id").primaryKey(),
@@ -160,3 +160,32 @@ export const discordBridgeUserPersonas = sqliteTable("discord_bridge_user_person
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const chatParticipants = sqliteTable(
+  "chat_participants",
+  {
+    id: text("id").primaryKey(),
+    chatId: text("chat_id")
+      .notNull()
+      .references(() => chats.id, { onDelete: "cascade" }),
+    source: text("source", { enum: ["discord_bridge"] }).notNull(),
+    guildId: text("guild_id"),
+    discordUserId: text("discord_user_id"),
+    discordDisplayName: text("discord_display_name").notNull().default(""),
+    personaId: text("persona_id"),
+    active: text("active").notNull().default("true"),
+    hasSpoken: text("has_spoken").notNull().default("false"),
+    lastMessageId: text("last_message_id"),
+    lastSpokeAt: text("last_spoke_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => ({
+    chatParticipantSourceUserUnique: uniqueIndex("uniq_chat_participants_source_user").on(
+      table.chatId,
+      table.source,
+      table.guildId,
+      table.discordUserId,
+    ),
+  }),
+);

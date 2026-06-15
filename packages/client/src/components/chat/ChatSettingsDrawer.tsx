@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type CSSProperties } from "react";
 import { useQuery, useQueryClient, useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -86,6 +86,8 @@ import {
   useRefreshChatMemories,
   useExportChatMemories,
   useImportChatMemories,
+  useChatParticipants,
+  useDeactivateChatParticipant,
   useChatNotes,
   useDeleteChatNote,
   useClearChatNotes,
@@ -210,6 +212,7 @@ const CHAT_SETTINGS_ORDER = {
   promptPreset: -1200,
   advancedParameters: -1100,
   persona: -1000,
+  participants: -950,
   characters: -900,
   groupChat: -800,
   connectedChat: -700,
@@ -2357,6 +2360,12 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Characters — only show added ones + add button */}
+          <DiscordParticipantsSection
+            chatId={chat.id}
+            open={open}
+            style={{ order: CHAT_SETTINGS_ORDER.participants }}
+          />
+
           {!isGame && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.characters }}
@@ -5397,6 +5406,100 @@ export function ChatSettingsDrawer({
         </div>
       )}
     </>
+  );
+}
+
+function DiscordParticipantsSection({
+  chatId,
+  open,
+  style,
+}: {
+  chatId: string;
+  open: boolean;
+  style?: CSSProperties;
+}) {
+  const participantsQuery = useChatParticipants(chatId, open);
+  const deactivateParticipant = useDeactivateChatParticipant(chatId);
+  const participants = participantsQuery.data ?? [];
+
+  const handleDeactivate = async (participantId: string, displayName: string) => {
+    const ok = await showConfirmDialog({
+      title: "Remove Participant",
+      message: `Remove ${displayName} from the active Discord participant roster? Their messages stay in chat history.`,
+      confirmLabel: "Remove",
+      tone: "destructive",
+    });
+    if (!ok) return;
+
+    try {
+      await deactivateParticipant.mutateAsync(participantId);
+      toast.success("Participant removed from roster");
+    } catch {
+      toast.error("Failed to remove participant");
+    }
+  };
+
+  if (!participantsQuery.isLoading && participants.length === 0) return null;
+
+  return (
+    <Section
+      style={style}
+      label="Discord Participants"
+      icon={<Users size="0.875rem" />}
+      count={participants.length}
+      help="Active Discord users with selected personas in this chat. Removing a participant only removes them from the active prompt roster."
+    >
+      {participantsQuery.isLoading ? (
+        <p className="rounded-lg bg-[var(--secondary)]/50 px-3 py-3 text-center text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+          Loading participants...
+        </p>
+      ) : participantsQuery.error ? (
+        <p className="rounded-lg bg-[var(--destructive)]/10 px-3 py-3 text-[0.625rem] leading-relaxed text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25">
+          Failed to load participants.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {participants.map((participant) => {
+            const personaName = participant.personaName || "No selected persona";
+            const spokenLabel = participant.hasSpoken ? "Spoken" : "Joined";
+            const lastSpokeLabel = participant.lastSpokeAt ? formatMemoryDate(participant.lastSpokeAt) : null;
+
+            return (
+              <li
+                key={participant.id}
+                className="flex items-center gap-2 rounded-lg bg-[var(--secondary)]/50 px-2.5 py-2 ring-1 ring-[var(--border)]"
+              >
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[0.625rem] font-bold text-[var(--foreground)]">
+                  {(participant.discordDisplayName || personaName).trim().charAt(0).toUpperCase() || "D"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-xs font-medium text-[var(--foreground)]">{personaName}</span>
+                    <span className="shrink-0 rounded-full bg-[var(--primary)]/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]">
+                      Discord
+                    </span>
+                  </div>
+                  <p className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                    {participant.discordDisplayName}
+                    {lastSpokeLabel ? ` - ${spokenLabel} ${lastSpokeLabel}` : ` - ${spokenLabel}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleDeactivate(participant.id, participant.discordDisplayName)}
+                  disabled={deactivateParticipant.isPending}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-40"
+                  title="Remove from active roster"
+                  aria-label={`Remove ${participant.discordDisplayName} from active roster`}
+                >
+                  <Trash2 size="0.6875rem" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Section>
   );
 }
 
