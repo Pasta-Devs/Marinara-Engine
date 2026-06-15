@@ -1126,8 +1126,10 @@ async function attachRetrySpotifyToolContexts(args: {
     if (entry.resolved.toolContext?.tools.length) continue;
     const settings = parseSettingsRecord(entry.resolved.settings);
     const enabledNames = Array.isArray(settings.enabledTools) ? (settings.enabledTools as string[]) : [];
+    // YouTube-mode Music DJ is a pure-JSON agent (no tools) — don't backfill the
+    // Spotify tools, or it runs as a tool-caller and never emits a youtube_control result.
     const spotifyEnabledNames =
-      entry.resolved.type === "spotify" && enabledNames.length === 0
+      entry.resolved.type === "spotify" && !musicAgentUsesYoutube(settings) && enabledNames.length === 0
         ? [...spotifyToolNames]
         : enabledNames.filter((name) => spotifyToolNames.has(name));
     if (spotifyEnabledNames.length === 0) continue;

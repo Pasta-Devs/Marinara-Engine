@@ -522,7 +522,14 @@ export async function resolveGenerationTools({
 
     const agentSettings = parseSettings(agent.settings);
     let agentEnabledNames = Array.isArray(agentSettings.enabledTools) ? (agentSettings.enabledTools as string[]) : [];
-    if (agent.type === "spotify" && agentEnabledNames.length === 0) {
+    // YouTube-mode Music DJ has no tools by design (pure-JSON); only backfill the
+    // Spotify tools when the agent is actually in Spotify mode.
+    if (
+      agent.type === "spotify" &&
+      agentSettings.musicProvider !== "youtube" &&
+      agentSettings.musicPlayerSource !== "youtube" &&
+      agentEnabledNames.length === 0
+    ) {
       agentEnabledNames = [...spotifyToolNames];
       agent.settings = { ...agentSettings, enabledTools: agentEnabledNames };
     }
