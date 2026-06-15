@@ -6,6 +6,7 @@ import {
   isBuiltInAgentRuntimeDisabled,
   isAgentConfigDeleted,
   LOCAL_SIDECAR_CONNECTION_ID,
+  mergeBuiltInAgentSettings,
   resolveAgentPromptTemplate,
 } from "@marinara-engine/shared";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
@@ -20,6 +21,11 @@ import {
   resolveAgentConnectionId,
   type AgentConnectionWarning,
 } from "../../routes/generate/agent-connection-guards.js";
+import {
+  applyTextRewriteAgentChatSettings,
+  normalizeProseGuardianPromptTemplate,
+} from "./prose-guardian-settings.js";
+import { applyKnowledgeAgentChatSettings } from "./knowledge-agent-settings.js";
 
 type ConnectionsStore = {
   getWithKey(id: string): Promise<any | null>;
@@ -38,6 +44,7 @@ type ResolveAgentPipelineAgentsArgs = {
   chatModel: string;
   chatMaxParallelJobs: number;
   activeMusicPlayerSource?: "spotify" | "youtube" | null;
+  chatMetadata?: Record<string, unknown>;
   resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string;
 };
 
@@ -54,6 +61,7 @@ export type ResolvedAgentPipelineAgents = {
 };
 
 function resolveAgentRuntimePhase(agentType: string, configuredPhase: string): string {
+  if (agentType === "prose-guardian" || agentType === "continuity") return "post_processing";
   if (agentType === "echo-chamber") return "parallel";
   return configuredPhase;
 }
@@ -70,6 +78,12 @@ function parseAgentSettings(settings: unknown): Record<string, unknown> {
     }
   }
   return typeof settings === "object" && !Array.isArray(settings) ? (settings as Record<string, unknown>) : {};
+}
+
+function resolveAgentSettings(agentType: string, settings: unknown): Record<string, unknown> {
+  const parsed = parseAgentSettings(settings);
+  if (!BUILT_IN_AGENTS.some((agent) => agent.id === agentType)) return parsed;
+  return mergeBuiltInAgentSettings(agentType, parsed);
 }
 
 function applyMusicPlayerSourceToMusicDjSettings(
@@ -90,6 +104,28 @@ function getAgentFallbackPrompt(agentType: string, settings: Record<string, unkn
     return getDefaultAgentPrompt("youtube");
   }
   return getDefaultAgentPrompt(agentType);
+}
+
+function resolveChatSummaryPromptTemplate(chatMetadata?: Record<string, unknown>): string | null {
+  if (!chatMetadata) return null;
+  const selectedId =
+    typeof chatMetadata.activeSummaryPromptTemplateId === "string"
+      ? chatMetadata.activeSummaryPromptTemplateId.trim()
+      : "";
+  if (!selectedId) return null;
+
+  const templates = Array.isArray(chatMetadata.summaryPromptTemplates) ? chatMetadata.summaryPromptTemplates : [];
+  const selected = templates.find(
+    (template): template is { id: string; prompt: string } =>
+      !!template &&
+      typeof template === "object" &&
+      !Array.isArray(template) &&
+      (template as Record<string, unknown>).id === selectedId &&
+      typeof (template as Record<string, unknown>).prompt === "string" &&
+      ((template as Record<string, unknown>).prompt as string).trim().length > 0,
+  );
+
+  return selected?.prompt.trim() ?? null;
 }
 
 async function resolveAgentConnectionProvider(args: {
@@ -152,6 +188,7 @@ export async function resolveAgentPipelineAgents({
   chatModel,
   chatMaxParallelJobs,
   activeMusicPlayerSource,
+  chatMetadata,
   resolveBaseUrl,
 }: ResolveAgentPipelineAgentsArgs): Promise<ResolvedAgentPipelineAgents> {
   const deletedBuiltInTypes = new Set(
@@ -201,10 +238,12 @@ export async function resolveAgentPipelineAgents({
   for (const cfg of enabledConfigs) {
     if (hasPerChatAgentList && !perChatAgentSet.has(cfg.type)) continue;
 
-    let settings = parseAgentSettings(cfg.settings);
+    let settings = resolveAgentSettings(cfg.type as string, cfg.settings);
     if (cfg.type === "spotify") {
       settings = applyMusicPlayerSourceToMusicDjSettings(settings, activeMusicPlayerSource);
     }
+    settings = applyTextRewriteAgentChatSettings(cfg.type as string, settings, chatMetadata);
+    settings = applyKnowledgeAgentChatSettings(cfg.type as string, settings, chatMetadata);
     if (
       cfg.type === "spotify" &&
       settings.musicProvider !== "youtube" &&
@@ -213,13 +252,16 @@ export async function resolveAgentPipelineAgents({
     ) {
       settings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
     }
-    const selectedPromptTemplate = resolveAgentPromptTemplate({
+    let selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: cfg.type as string,
-      promptTemplate: cfg.promptTemplate as string,
+      promptTemplate: normalizeProseGuardianPromptTemplate(cfg.type as string, cfg.promptTemplate),
       fallbackPromptTemplate: getAgentFallbackPrompt(cfg.type as string, settings),
       settings,
       selectedPromptTemplateId: agentPromptTemplateSelections[cfg.type as string] ?? null,
     });
+    if (cfg.type === "chat-summary") {
+      selectedPromptTemplate = resolveChatSummaryPromptTemplate(chatMetadata) ?? selectedPromptTemplate;
+    }
 
     const effectiveConnectionId = resolveAgentConnectionId({
       requestedConnectionId: cfg.connectionId as string | null,
@@ -276,7 +318,6 @@ export async function resolveAgentPipelineAgents({
           if (resolvedTypes.has(agent.id)) return false;
           if (deletedBuiltInTypes.has(agent.id)) return false;
           if (isBuiltInAgentRuntimeDisabled(agent.id)) return false;
-          if (agent.id === "chat-summary") return false;
           return perChatAgentSet.has(agent.id);
         })
       : [];
@@ -290,6 +331,8 @@ export async function resolveAgentPipelineAgents({
     if (builtIn.id === "spotify") {
       builtInSettings = applyMusicPlayerSourceToMusicDjSettings(builtInSettings, activeMusicPlayerSource);
     }
+    builtInSettings = applyTextRewriteAgentChatSettings(builtIn.id, builtInSettings, chatMetadata);
+    builtInSettings = applyKnowledgeAgentChatSettings(builtIn.id, builtInSettings, chatMetadata);
     if (
       builtIn.id === "spotify" &&
       builtInSettings.musicProvider !== "youtube" &&
@@ -298,13 +341,16 @@ export async function resolveAgentPipelineAgents({
     ) {
       builtInSettings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
     }
-    const selectedPromptTemplate = resolveAgentPromptTemplate({
+    let selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: builtIn.id,
       promptTemplate: "",
       fallbackPromptTemplate: getAgentFallbackPrompt(builtIn.id, builtInSettings),
       settings: builtInSettings,
       selectedPromptTemplateId: agentPromptTemplateSelections[builtIn.id] ?? null,
     });
+    if (builtIn.id === "chat-summary") {
+      selectedPromptTemplate = resolveChatSummaryPromptTemplate(chatMetadata) ?? selectedPromptTemplate;
+    }
 
     resolvedAgents.push({
       id: `builtin:${builtIn.id}`,

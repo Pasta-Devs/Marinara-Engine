@@ -12,7 +12,6 @@ import {
   resolveMacros,
   resolveDeferredCharacterMacros,
   hasDeferredCharacterMacros,
-  getDefaultAgentPrompt,
   LIMITS,
   coerceGameStateTextValue,
   appendChatSummaryEntryToMetadata,
@@ -230,7 +229,10 @@ import {
   normalizeGenerationReplay,
 } from "./generate/generation-replay.js";
 import {
+  MAX_AGENT_HAPTIC_COMMANDS,
+  formatHapticSettingsForPrompt,
   getChatHapticIntifaceUrl,
+  getChatHapticSettings,
   normalizeHapticAgentCommand,
   normalizeHapticAgentCommands,
 } from "../services/generation/haptic-runtime.js";
@@ -322,6 +324,7 @@ import {
   shouldReplayStoredChatCompletionsReasoning,
 } from "../services/generation/generation-parameters.js";
 import { resolveAgentPipelineAgents } from "../services/generation/agent-resolution.js";
+import { applyImmersiveHtmlPromptInjection } from "../services/generation/immersive-html-injection.js";
 import { resolveGenerationTools } from "../services/generation/tool-resolution-runtime.js";
 import {
   buildCharacterMacroProfilesById,
@@ -339,6 +342,12 @@ import {
   shouldDeferExpressionAgentEvent,
 } from "../services/generation/agent-event-dispatcher.js";
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
+import {
+  getTextRewritePendingState,
+  mergePairedBuiltInRewriteAgents,
+  PROSE_GUARDIAN_PENDING_MESSAGE,
+  shouldHoldForProseGuardianRewrite,
+} from "../services/generation/prose-guardian-settings.js";
 
 function findResultAgent(result: AgentResult, agents: ResolvedAgent[]): ResolvedAgent | null {
   return agents.find((agent) => agent.id === result.agentId || agent.type === result.agentType) ?? null;
@@ -613,6 +622,10 @@ export async function generateRoutes(app: FastifyInstance) {
         }
       }
     }
+    const requestedNarrativeDirectorMode =
+      input.narrativeDirectorMode === "random" || input.narrativeDirectorMode === "natural"
+        ? input.narrativeDirectorMode
+        : null;
 
     // ── Discord webhook URL (parsed once, used for mirroring below) ──
     const discordWebhookUrl = typeof earlyMeta.discordWebhookUrl === "string" ? earlyMeta.discordWebhookUrl : "";
@@ -2861,6 +2874,7 @@ export async function generateRoutes(app: FastifyInstance) {
           chatModel: conn.model,
           chatMaxParallelJobs: chatConnectionMaxParallelJobs,
           activeMusicPlayerSource,
+          chatMetadata: chatMeta,
           resolveBaseUrl,
         });
 
@@ -3384,18 +3398,15 @@ export async function generateRoutes(app: FastifyInstance) {
           ).trim();
 
         const directorAgent = resolvedAgents.find((a) => a.type === "director");
-        if (
-          directorAgent &&
-          (await shouldSkipAgentByAssistantInterval({
-            agentsStore,
-            chatId: input.chatId,
-            agentType: "director",
-            settings: directorAgent.settings,
-            fallbackInterval: (getDefaultBuiltInAgentSettings("director").runInterval as number) ?? 5,
-            messages: allChatMessages,
-          }))
-        ) {
-          resolvedAgents.splice(resolvedAgents.indexOf(directorAgent), 1);
+        if (directorAgent) {
+          if (!requestedNarrativeDirectorMode) {
+            resolvedAgents.splice(resolvedAgents.indexOf(directorAgent), 1);
+          } else {
+            directorAgent.settings = {
+              ...directorAgent.settings,
+              directorMode: requestedNarrativeDirectorMode,
+            };
+          }
         }
 
         const illustratorAgentForInterval = resolvedAgents.find((a) => a.type === "illustrator");
@@ -3581,6 +3592,8 @@ export async function generateRoutes(app: FastifyInstance) {
         if (resolvedAgents.some((a) => a.type === "haptic")) {
           try {
             const { hapticService } = await import("../services/haptic/buttplug-service.js");
+            const hapticSettings = getChatHapticSettings(chatMeta);
+            agentContext.memory._hapticSettings = formatHapticSettingsForPrompt(hapticSettings);
             // Auto-connect to Intiface Central if not already connected
             if (!hapticService.connected) {
               try {
@@ -3779,7 +3792,11 @@ export async function generateRoutes(app: FastifyInstance) {
         // The context size for summary generation comes from the chat's summaryContextSize metadata.
         if (resolvedAgents.some((a) => a.type === "chat-summary")) {
           const csAgent = resolvedAgents.find((a) => a.type === "chat-summary")!;
-          const triggersAfter = (csAgent.settings.runInterval as number) ?? 5;
+          const rawTriggersAfter = Number(chatMeta.summaryRunInterval ?? csAgent.settings.runInterval ?? 5);
+          const triggersAfter =
+            Number.isFinite(rawTriggersAfter) && rawTriggersAfter > 0
+              ? Math.max(1, Math.min(200, Math.trunc(rawTriggersAfter)))
+              : 5;
           let shouldRun = true;
 
           if (triggersAfter > 1) {
@@ -3805,7 +3822,7 @@ export async function generateRoutes(app: FastifyInstance) {
           } else {
             // Override the agent's context size with the chat-level summaryContextSize
             const summaryCtxSize = (chatMeta.summaryContextSize as number) || 50;
-            csAgent.settings = { ...csAgent.settings, contextSize: summaryCtxSize };
+            csAgent.settings = { ...csAgent.settings, contextSize: summaryCtxSize, runInterval: triggersAfter };
           }
         }
 
@@ -3859,11 +3876,14 @@ export async function generateRoutes(app: FastifyInstance) {
           trySendSseEvent(reply, { type: "agent_warning", data: warning });
         }
 
-        // Create the pipeline (exclude text rewrite/editor agents — they run last,
+        // Create the pipeline (exclude text rewrite agents — they run last,
         // after all other post-processing agents have produced their context).
         const textRewriteAgents = resolvedAgents.filter(
           (a) => a.phase === "post_processing" && resolveAgentResultType(a) === "text_rewrite",
         );
+        const textRewriteRunAgents = mergePairedBuiltInRewriteAgents(textRewriteAgents);
+        const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
+        const holdForProseGuardianRewrite = shouldHoldForProseGuardianRewrite(textRewriteAgents);
         const textRewriteAgentIds = new Set(textRewriteAgents.map((a) => a.id));
         const lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
         let pipelineAgents = resolvedAgents.filter(
@@ -3941,10 +3961,8 @@ export async function generateRoutes(app: FastifyInstance) {
           .filter((entry) => entry.agentType && entry.text.trim().length > 0);
         const reviewedAgentTypes = new Set(reviewedAgentInjections.map((entry) => entry.agentType));
         let contextInjections: AgentInjection[] = reviewedAgentInjections;
-        // Static-injection agents don't need LLM calls — they inject prompt text directly
-        const STATIC_INJECTION_AGENTS = new Set(["html"]);
-        const SEPARATE_INJECTION_AGENTS = new Set(["knowledge-retrieval", "knowledge-router"]);
-        const EXCLUDED_FROM_PIPELINE = new Set(["html", "knowledge-retrieval", "knowledge-router"]);
+        const SEPARATE_INJECTION_AGENTS = new Set(["director", "knowledge-retrieval", "knowledge-router"]);
+        const EXCLUDED_FROM_PIPELINE = new Set(["knowledge-retrieval", "knowledge-router"]);
         const hasPreGenAgents = resolvedAgents.some(
           (a) => a.phase === "pre_generation" && !EXCLUDED_FROM_PIPELINE.has(a.type) && !reviewedAgentTypes.has(a.type),
         );
@@ -3967,21 +3985,23 @@ export async function generateRoutes(app: FastifyInstance) {
         // both fresh generations AND regen-cache replays — keeping the wrap+append
         // in one place prevents the two paths from drifting again (PR #228 had to
         // fix exactly that drift once already).
-        const appendSeparateAgentInjection = (
-          agentType: "knowledge-retrieval" | "knowledge-router",
-          text: string,
-        ): void => {
-          const isRouter = agentType === "knowledge-router";
-          const heading = isRouter ? "Knowledge Router" : "Knowledge Retrieval";
-          const tag = isRouter ? "knowledge_router" : "knowledge_retrieval";
+        const appendSeparateAgentInjection = (agentType: string, text: string): void => {
+          const meta =
+            agentType === "knowledge-router"
+              ? { heading: "Knowledge Router", tag: "knowledge_router" }
+              : agentType === "knowledge-retrieval"
+                ? { heading: "Knowledge Retrieval", tag: "knowledge_retrieval" }
+                : agentType === "director"
+                  ? { heading: "Narrative Director", tag: "narrative_director" }
+                  : { heading: agentType, tag: agentType.replace(/[^a-z0-9_-]/gi, "_") };
           // Honor all three wrapFormat values (the previous KR-only injection had
           // a markdown-or-xml-fallback bug that "none" silently fell into).
           const wrapped =
             wrapFormat === "none"
-              ? `\n\n${text}`
+              ? `\n\n${meta.heading}:\n${text}`
               : wrapFormat === "markdown"
-                ? `\n\n## ${heading}\n${text}`
-                : `\n\n<${tag}>\n${text}\n</${tag}>`;
+                ? `\n\n## ${meta.heading}\n${text}`
+                : `\n\n<${meta.tag}>\n${text}\n</${meta.tag}>`;
           const lastUserIdx = findLastIndex(finalMessages, "user");
           if (lastUserIdx >= 0) {
             const target = finalMessages[lastUserIdx]!;
@@ -4271,9 +4291,18 @@ export async function generateRoutes(app: FastifyInstance) {
           );
 
           // Inject pre-gen agent context at depth 0 (very bottom of prompt)
-          if (runtimeHandledPreGen.fallbackInjections.length > 0) {
-            const wrapped = formatAgentInjections(runtimeHandledPreGen.fallbackInjections, wrapFormat);
+          const fallbackPreGenInjections = runtimeHandledPreGen.fallbackInjections.filter(
+            (inj) => !SEPARATE_INJECTION_AGENTS.has(inj.agentType),
+          );
+          const separatePreGenInjections = runtimeHandledPreGen.fallbackInjections.filter((inj) =>
+            SEPARATE_INJECTION_AGENTS.has(inj.agentType),
+          );
+          if (fallbackPreGenInjections.length > 0) {
+            const wrapped = formatAgentInjections(fallbackPreGenInjections, wrapFormat);
             finalMessages = injectAtDepth(finalMessages, [{ content: wrapped, role: "system", depth: 0 }]);
+          }
+          for (const inj of separatePreGenInjections) {
+            appendSeparateAgentInjection(inj.agentType, inj.text);
           }
 
           // Inject KR output into the prompt
@@ -4384,9 +4413,9 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           // Split cached injections by injection placement, mirroring the fresh-generation path:
-          //   - Pipeline agents (prose-guardian, director, etc.) inject at depth 0 as system context.
-          //   - Separate-injection agents (knowledge-retrieval, knowledge-router) append to the
-          //     last user message wrapped in their own tags.
+          //   - Pipeline agents (prose-guardian, etc.) inject at depth 0 as system context.
+          //   - Separate-injection agents (director, knowledge-retrieval, knowledge-router) append
+          //     to the last user message wrapped in their own tags.
           // Without this split, KR/Router cached output would be replayed in the wrong prompt
           // position with different wrapping than the original generation, subtly changing the
           // model's behavior on regenerate/swipe.
@@ -4414,7 +4443,7 @@ export async function generateRoutes(app: FastifyInstance) {
             const handledByPresetSection =
               tokens !== undefined && replaceRuntimeAgentSection(finalMessages, tokens, inj.text);
             if (!handledByPresetSection) {
-              appendSeparateAgentInjection(inj.agentType as "knowledge-retrieval" | "knowledge-router", inj.text);
+              appendSeparateAgentInjection(inj.agentType, inj.text);
             }
           }
           clearUnusedRuntimeAgentSections(finalMessages, runtimeAgentSectionTokens);
@@ -4573,59 +4602,17 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        // ────────────────────────────────────────
-        // Static injection: Immersive HTML agent
-        // ────────────────────────────────────────
-        if (resolvedAgents.some((a) => a.type === "html")) {
-          const htmlAgent = resolvedAgents.find((a) => a.type === "html")!;
-          const htmlPrompt = (htmlAgent.promptTemplate || getDefaultAgentPrompt("html")).trim();
-          if (htmlPrompt) {
-            const htmlBlock = wrapFormat === "markdown" ? `\n## Immersive HTML\n${htmlPrompt}` : htmlPrompt;
-
-            // Try to inject into <output_format> section
-            let injected = false;
-            for (let i = 0; i < finalMessages.length; i++) {
-              const msg = finalMessages[i]!;
-              if (msg.content.includes("</output_format>")) {
-                finalMessages[i] = {
-                  ...msg,
-                  content: msg.content.replace("</output_format>", "    " + htmlBlock + "\n</output_format>"),
-                };
-                injected = true;
-                break;
-              }
-            }
-            if (!injected) {
-              // Fallback: append to last user message
-              const lastUserIdx = findLastIndex(finalMessages, "user");
-              const idx = lastUserIdx >= 0 ? lastUserIdx : finalMessages.length - 1;
-              const target = finalMessages[idx]!;
-              finalMessages[idx] = {
-                ...target,
-                content:
-                  target.content +
-                  "\n\n" +
-                  (wrapFormat === "xml" ? `<immersive_html>\n${htmlPrompt}\n</immersive_html>` : htmlBlock),
-              };
-            }
-
-            // Notify the UI that this static agent was injected
-            reply.raw.write(
-              `data: ${JSON.stringify({
-                type: "agent_result",
-                data: {
-                  agentType: "html",
-                  agentName: htmlAgent.name || "Immersive HTML",
-                  resultType: "context_injection",
-                  data: { text: "HTML formatting instructions injected into prompt" },
-                  tokensUsed: 0,
-                  success: true,
-                  error: null,
-                  durationMs: 0,
-                },
-              })}\n\n`,
-            );
-          }
+        // Static injection: Immersive HTML is a prompt directive, not a runtime LLM agent.
+        const immersiveHtmlResult = await applyImmersiveHtmlPromptInjection({
+          chatMode,
+          enableAgents: chatEnableAgents,
+          activeAgentIds: chatActiveAgentIds,
+          wrapFormat,
+          messages: finalMessages,
+          getHtmlAgentConfig: () => agentsStore.getByType("html"),
+        });
+        if (immersiveHtmlResult) {
+          trySendSseEvent(reply, { type: "agent_result", data: immersiveHtmlResult });
         }
 
         // Notify UI only when the Automated Chat Summary agent is active and
@@ -4717,7 +4704,9 @@ export async function generateRoutes(app: FastifyInstance) {
           for (let i = 0; i < text.length; i += CHUNK_SIZE) {
             const chunk = text.slice(i, i + CHUNK_SIZE);
             fullResponse += chunk;
-            trySendSseEvent(reply, { type: "token", data: chunk });
+            if (!holdForProseGuardianRewrite) {
+              trySendSseEvent(reply, { type: "token", data: chunk });
+            }
           }
         };
 
@@ -5178,6 +5167,9 @@ export async function generateRoutes(app: FastifyInstance) {
                   return;
                 }
                 fullResponse += chunk;
+                if (holdForProseGuardianRewrite) {
+                  return;
+                }
                 if (chunk.length <= STREAM_CHUNK) {
                   reply.raw.write(`data: ${JSON.stringify({ type: "token", data: chunk })}\n\n`);
                 } else {
@@ -5442,6 +5434,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 // Break large chunks (e.g. Gemini non-streaming) into small pieces
                 // so the client sees progressive streaming.
                 const val = result.value;
+                if (holdForProseGuardianRewrite) {
+                  result = await gen.next();
+                  continue;
+                }
                 if (val.length <= 6) {
                   reply.raw.write(`data: ${JSON.stringify({ type: "token", data: val })}\n\n`);
                 } else {
@@ -5476,7 +5472,9 @@ export async function generateRoutes(app: FastifyInstance) {
                 fullThinking = fullThinking ? fullThinking + "\n\n" + inlineThinking.thinking : inlineThinking.thinking;
               }
               fullResponse = inlineThinking.content;
-              reply.raw.write(`data: ${JSON.stringify({ type: "content_replace", data: fullResponse })}\n\n`);
+              if (!holdForProseGuardianRewrite) {
+                reply.raw.write(`data: ${JSON.stringify({ type: "content_replace", data: fullResponse })}\n\n`);
+              }
             }
 
             // ── LOG_LEVEL=debug or Settings -> Advanced -> Debug mode: log full response + usage to server console ──
@@ -5719,7 +5717,9 @@ export async function generateRoutes(app: FastifyInstance) {
             }
 
             if (contentReplaced) {
-              reply.raw.write(`data: ${JSON.stringify({ type: "content_replace", data: fullResponse })}\n\n`);
+              if (!holdForProseGuardianRewrite) {
+                reply.raw.write(`data: ${JSON.stringify({ type: "content_replace", data: fullResponse })}\n\n`);
+              }
             }
 
             // Guard: don't save empty responses — the model returned nothing useful.
@@ -5840,9 +5840,23 @@ export async function generateRoutes(app: FastifyInstance) {
                 await chats.updateSwipeExtra(savedMsg.id, refreshedMsg.activeSwipeIndex, extraUpdate);
               }
 
+              const savedMessagePayload =
+                holdForProseGuardianRewrite && !input.impersonate
+                  ? {
+                      ...(refreshedMsg ?? savedMsg),
+                      content: textRewritePendingState?.message ?? PROSE_GUARDIAN_PENDING_MESSAGE,
+                      extra: {
+                        ...parseExtra((refreshedMsg ?? savedMsg).extra),
+                        postProcessingPending: {
+                          agentType: textRewritePendingState?.agentType ?? "prose-guardian",
+                          message: textRewritePendingState?.message ?? PROSE_GUARDIAN_PENDING_MESSAGE,
+                        },
+                      },
+                    }
+                  : (refreshedMsg ?? savedMsg);
               sendSseEvent(reply, {
                 type: "message_saved",
-                data: refreshedMsg ?? savedMsg,
+                data: savedMessagePayload,
               });
 
               if (chatMode === "game" && !input.impersonate) {
@@ -6125,12 +6139,9 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        // Persist successful Narrative Director runs.
-        // Interval gating uses getLastSuccessfulRunByType("director", …); those rows were
-        // never inserted because only post_generation results were saved below. Pre-gen runs
-        // before the assistant message exists — anchor each run to the first saved
-        // assistant message from this turn so group-chat cadence counts from the
-        // earliest generated response.
+        // Persist successful one-shot Narrative Director runs for agent history.
+        // Pre-gen runs before the assistant message exists, so anchor the run to
+        // the first saved assistant message from this turn.
         const preGenAnchorMessageId =
           (firstSavedMsg as any)?.role === "assistant" ? ((firstSavedMsg as any)?.id ?? "") : "";
         if (preGenAnchorMessageId && !input.regenerateMessageId && !abortController.signal.aborted) {
@@ -6291,7 +6302,7 @@ export async function generateRoutes(app: FastifyInstance) {
           if (failedResults.length > 0 && !abortController.signal.aborted) {
             const retryResults: AgentResult[] = [];
             for (const failed of failedResults) {
-              const agentCfg = resolvedAgents.find((a) => a.type === failed.agentType && a.type !== "editor");
+              const agentCfg = resolvedAgents.find((a) => a.type === failed.agentType);
               if (!agentCfg) continue;
               try {
                 const historicalLorebookTarget =
@@ -7329,13 +7340,14 @@ export async function generateRoutes(app: FastifyInstance) {
                     (hData.raw as string)?.slice(0, 200),
                   );
                 } else {
-                  const cmds = normalizeHapticAgentCommands(hData);
+                  const cmds = normalizeHapticAgentCommands(hData).slice(0, MAX_AGENT_HAPTIC_COMMANDS);
                   if (cmds.length > 0) {
+                    const hapticSettings = getChatHapticSettings(chatMeta);
                     const { hapticService } = await import("../services/haptic/buttplug-service.js");
                     if (hapticService.connected) {
                       const executedCommands: HapticDeviceCommand[] = [];
                       for (const cmd of cmds) {
-                        const hapticCommand = normalizeHapticAgentCommand(cmd);
+                        const hapticCommand = normalizeHapticAgentCommand(cmd, hapticSettings);
                         if (!hapticCommand) {
                           logger.warn("[haptic] Agent produced unsupported command action: %s", String(cmd.action));
                           continue;
@@ -7423,7 +7435,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (imgConnFull) {
                   const resolvedImageConnection = imgConnFull;
                   // Queue image generation to run after the result loop so it doesn't
-                  // block other agents (game state, trackers, consistency editor).
+                  // block other agents (game state, trackers, rewrite agents).
                   pendingIllustration = (async () => {
                     try {
                       const imgConnFull = resolvedImageConnection;
@@ -7625,10 +7637,12 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           // ── Text rewrite/editing agents: run after ALL other agents ──
-          if (textRewriteAgents.length > 0 && messageId && !abortController.signal.aborted) {
+          if (textRewriteRunAgents.length > 0 && messageId && !abortController.signal.aborted) {
             let currentResponseForRewrite = combinedResponse;
+            const originalResponseBeforeRewrite = combinedResponse;
+            let textRewriteApplied = false;
 
-            for (const textRewriteAgent of textRewriteAgents) {
+            for (const textRewriteAgent of textRewriteRunAgents) {
               if (abortController.signal.aborted) break;
               try {
                 // Collect all successful agent outputs as a summary for rewrite agents.
@@ -7675,15 +7689,37 @@ export async function generateRoutes(app: FastifyInstance) {
                   customAgentCanApplyResult(editorResult, resolvedAgents, builtInAgentTypes, "edit_messages")
                 ) {
                   const edData = editorResult.data as Record<string, unknown>;
-                  const editedText = (edData.editedText as string) ?? "";
-                  const changes = (edData.changes as Array<{ description: string }>) ?? [];
-                  if (editedText && changes.length > 0) {
+                  const editedText = typeof edData.editedText === "string" ? edData.editedText : "";
+                  const changes = Array.isArray(edData.changes)
+                    ? (edData.changes as Array<{ description: string }>)
+                    : [{ description: "Rewrote the assistant response." }];
+                  const editNeededValue = edData.editNeeded;
+                  const strictEditNeeded =
+                    editorResult.agentType === "prose-guardian" || editorResult.agentType === "continuity";
+                  const rewriteAllowed =
+                    editNeededValue === false ? false : strictEditNeeded ? editNeededValue === true : true;
+                  const changedMessage =
+                    rewriteAllowed && editedText.trim().length > 0 && editedText !== currentResponseForRewrite;
+                  if (changedMessage) {
+                    const originalText = strictEditNeeded ? originalResponseBeforeRewrite : null;
                     currentResponseForRewrite = editedText;
                     await chats.updateMessageContent(messageId, editedText);
+                    if (originalText) {
+                      await chats.updateMessageExtra(messageId, {
+                        proseGuardianOriginalText: originalText,
+                        proseGuardianRewrittenAt: new Date().toISOString(),
+                      });
+                    }
+                    textRewriteApplied = true;
                     reply.raw.write(
                       `data: ${JSON.stringify({
                         type: "text_rewrite",
-                        data: { editedText, changes },
+                        data: {
+                          editedText,
+                          changes,
+                          rewriteApplied: true,
+                          ...(originalText ? { originalText, agentType: editorResult.agentType } : {}),
+                        },
                       })}\n\n`,
                     );
                   }
@@ -7691,6 +7727,19 @@ export async function generateRoutes(app: FastifyInstance) {
               } catch {
                 // Non-critical — don't fail generation if a rewrite agent errors.
               }
+            }
+
+            if (holdForProseGuardianRewrite && !textRewriteApplied && !abortController.signal.aborted) {
+              reply.raw.write(
+                `data: ${JSON.stringify({
+                  type: "text_rewrite",
+                  data: {
+                    editedText: originalResponseBeforeRewrite,
+                    changes: [],
+                    rewriteApplied: false,
+                  },
+                })}\n\n`,
+              );
             }
           }
         }

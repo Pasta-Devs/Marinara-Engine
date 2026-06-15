@@ -114,6 +114,10 @@ export const GAME_AGENT_IDS = [
   "combat",
 ] as const;
 
+export const GAME_OPTIONAL_AGENT_IDS = [
+  "knowledge-retrieval",
+] as const;
+
 const BUILT_IN_AGENT_ID_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 
 export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
@@ -187,7 +191,7 @@ export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
       kind: "allowlist",
       defaultAgentIds: GAME_AGENT_IDS,
       // Music DJ is allowed (opt-in via the game music toggle) but not on by default.
-      allowedAgentIds: [...GAME_AGENT_IDS, "spotify", "youtube"],
+      allowedAgentIds: [...GAME_AGENT_IDS, ...GAME_OPTIONAL_AGENT_IDS, "spotify", "youtube"],
     },
     sharedSections: SHARED_CHAT_SETTINGS_SECTIONS,
     modeSections: ["extra-prompt", "conversation-notes"],
@@ -204,6 +208,8 @@ export function getChatModeCapabilities(mode: ChatMode | null | undefined): Chat
 }
 
 export function isAgentAvailableInChatMode(mode: ChatMode | null | undefined, agentId: string): boolean {
+  if (agentId === "html") return mode === "roleplay";
+  if (agentId === "chat-summary") return mode === "roleplay";
   const policy = getChatModeCapabilities(mode).agentPolicy;
   if (policy.kind === "all") return true;
   if (!BUILT_IN_AGENT_ID_SET.has(agentId)) return true;

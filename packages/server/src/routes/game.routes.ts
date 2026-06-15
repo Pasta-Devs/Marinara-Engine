@@ -1928,11 +1928,11 @@ function buildGameLorebookKeeperMessages(args: {
 
   const systemPrompt = [
     "You are Marinara's Game Lorebook Keeper.",
-    "You run only after a Game Mode session has concluded. Preserve durable continuity for this specific game.",
-    "Do not write a session recap. Do not invent future plot. Do not create entries for mundane rooms, transient actions, or things the player did not learn.",
-    "Create entries only when they will help the GM keep the developing world coherent in future sessions.",
-    "When an exact dialogue exchange is important, copy the exact lines into the entry instead of paraphrasing them.",
-    "Return strict JSON only. No markdown, no commentary.",
+    "You run only after a Game Mode session concludes. This is separate from the chat/roleplay Lorebook Keeper agent.",
+    "Create game-scoped lorebook entries only for durable continuity that helps future GM sessions: revealed world lore, meaningful locations, party discoveries, player revelations, important NPCs, exact exchanges, powers, factions, items, or consequences.",
+    "Do not write a recap, invent future plot, record mundane rooms, transient actions, temporary combat states, or things the player did not learn.",
+    "When exact dialogue matters, copy the exact lines. Otherwise keep entries concise and reusable.",
+    "Return strict JSON only.",
   ].join("\n");
 
   const userPrompt = [
@@ -1962,14 +1962,14 @@ function buildGameLorebookKeeperMessages(args: {
     "Write JSON in exactly this shape:",
     `{"entries":[{"entryName":"World Lore - Session ${args.sessionNumber}","tag":"world_lore","keys":["specific keyword"],"description":"short editor-facing note","content":"entry text"}]}`,
     "",
-    "Entry selection rules:",
-    "- World lore: one entry, 0-4 paragraphs, only if important world lore was established or revealed.",
-    "- Locations: one entry, 0-4 paragraphs, only for general discovered locations or meaningful location context; do not list every room.",
-    "- Party members: one entry per party member present at session end, only if the player learned something important about them or had important exchanges with them. Include up to 3 learned details or exchanges per member.",
-    "- Player revelations: one entry total, only if the player's revealed history, nature, goals, powers, secrets, or relationships matter later. Include up to 3 items.",
-    "- Omit categories that have nothing important. Return an empty entries array if nothing durable should be saved.",
-    "- Entry names must include the session number so this run adds new entries instead of overwriting older session notes.",
-    "- Provide 3-8 useful trigger keys per entry.",
+    "Entry rules:",
+    "- Omit categories with no durable facts. Return an empty entries array if nothing should be saved.",
+    "- World lore: one entry only when important lore was established or revealed.",
+    "- Locations: one entry only for meaningful discovered places or reusable location context; do not list every room.",
+    "- Party members: one entry per party member only when the player learned important details or had important exchanges. Keep at most 3 items per member.",
+    "- Player revelations: one entry total only for history, nature, goals, powers, secrets, or relationships that matter later. Keep at most 3 items.",
+    "- Entry names must include the session number so this run adds new notes instead of overwriting older session notes.",
+    "- Provide 3-8 useful trigger keys.",
   ].join("\n");
 
   return [

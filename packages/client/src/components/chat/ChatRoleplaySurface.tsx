@@ -502,6 +502,10 @@ function SummaryButton({
   summaryContextSize,
   summaryPromptTemplates,
   activeSummaryPromptTemplateId,
+  enableAgents,
+  activeAgentIds,
+  summaryRunInterval,
+  automaticSummariesAvailable,
   totalMessageCount,
 }: {
   chatId: string | null;
@@ -510,6 +514,10 @@ function SummaryButton({
   summaryContextSize: number;
   summaryPromptTemplates?: ComponentProps<typeof SummaryPopover>["promptTemplates"];
   activeSummaryPromptTemplateId?: string | null;
+  enableAgents: boolean;
+  activeAgentIds: string[];
+  summaryRunInterval?: number;
+  automaticSummariesAvailable: boolean;
   totalMessageCount: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -535,6 +543,10 @@ function SummaryButton({
             contextSize={summaryContextSize}
             promptTemplates={summaryPromptTemplates}
             activePromptTemplateId={activeSummaryPromptTemplateId}
+            enableAgents={enableAgents}
+            activeAgentIds={activeAgentIds}
+            summaryRunInterval={summaryRunInterval}
+            automaticSummariesAvailable={automaticSummariesAvailable}
             totalMessageCount={totalMessageCount}
             onClose={() => setOpen(false)}
           />
@@ -980,6 +992,13 @@ export function ChatRoleplaySurface({
 
   const visibleMessages = transcriptWindow.messages;
   const loadedMessageOffset = totalMessageCount - (messages?.length ?? 0);
+  const summaryActiveAgentIds = Array.isArray(chatMeta.activeAgentIds)
+    ? chatMeta.activeAgentIds.filter((agentId): agentId is string => typeof agentId === "string")
+    : [];
+  const summaryRunInterval =
+    typeof chatMeta.summaryRunInterval === "number" && Number.isFinite(chatMeta.summaryRunInterval)
+      ? chatMeta.summaryRunInterval
+      : undefined;
 
   return (
     <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
@@ -1060,6 +1079,10 @@ export function ChatRoleplaySurface({
                           ? chatMeta.activeSummaryPromptTemplateId
                           : null
                       }
+                      enableAgents={chatMeta.enableAgents === true}
+                      activeAgentIds={summaryActiveAgentIds}
+                      summaryRunInterval={summaryRunInterval}
+                      automaticSummariesAvailable={chatMode === "roleplay"}
                       totalMessageCount={totalMessageCount}
                     />
                     <ActiveContextLinksButton
@@ -1141,6 +1164,10 @@ export function ChatRoleplaySurface({
                               ? chatMeta.activeSummaryPromptTemplateId
                               : null
                           }
+                          enableAgents={chatMeta.enableAgents === true}
+                          activeAgentIds={summaryActiveAgentIds}
+                          summaryRunInterval={summaryRunInterval}
+                          automaticSummariesAvailable={chatMode === "roleplay"}
                           totalMessageCount={totalMessageCount}
                         />
                         <ActiveContextLinksButton
@@ -1192,6 +1219,10 @@ export function ChatRoleplaySurface({
                             ? chatMeta.activeSummaryPromptTemplateId
                             : null
                         }
+                        enableAgents={chatMeta.enableAgents === true}
+                        activeAgentIds={summaryActiveAgentIds}
+                        summaryRunInterval={summaryRunInterval}
+                        automaticSummariesAvailable={chatMode === "roleplay"}
                         totalMessageCount={totalMessageCount}
                       />
                       <ActiveContextLinksButton

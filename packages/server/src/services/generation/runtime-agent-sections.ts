@@ -23,7 +23,7 @@ export const REVIEWABLE_WRITER_AGENT_TYPES = new Set(
     (agent) =>
       agent.category === "writer" &&
       agent.phase === "pre_generation" &&
-      !["knowledge-retrieval", "knowledge-router"].includes(agent.id),
+      !["director", "knowledge-retrieval", "knowledge-router"].includes(agent.id),
   ).map((agent) => agent.id),
 );
 

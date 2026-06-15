@@ -49,6 +49,9 @@ import {
   Upload,
   Loader2,
   ImageIcon,
+  Shield,
+  ShieldCheck,
+  Shuffle,
 } from "lucide-react";
 import { useDeleteAgent } from "../../hooks/use-agents";
 import { useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
@@ -80,6 +83,8 @@ import {
   MIN_AGENT_MAX_TOKENS,
   getDefaultBuiltInAgentSettings,
   getDefaultAgentPrompt,
+  mergeBuiltInAgentSettings,
+  normalizeAgentPhaseForType,
   normalizeCustomAgentCapabilities,
   normalizeAgentPromptTemplateOptions,
   parseAgentSettingsRecord,
@@ -121,6 +126,9 @@ function createCustomAgentType(name: string): string {
 
 const LOREBOOK_WRITE_TOOL_NAME = "save_lorebook_entry";
 const MESSAGE_EDIT_TOOL_NAME = "edit_chat_message";
+const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
+const DEFAULT_PROSE_GUARDIAN_AVOID =
+  "no repetition of any phrases or sentence structure from the last messages, if the last output started with dialogue line, this one needs to start with narration, no purple prose";
 
 // Mirrors the server's buildSpotifyRedirectUri rule: Spotify only accepts
 // https:// or http://127.0.0.1, so fall back to loopback whenever the page
@@ -157,10 +165,10 @@ const PHASE_META: Record<AgentPhase, { label: string; color: string; icon: typeo
   },
 };
 
-function normalizeAgentPhase(value: unknown): AgentPhase {
-  return typeof value === "string" && Object.prototype.hasOwnProperty.call(PHASE_META, value)
-    ? (value as AgentPhase)
-    : "post_processing";
+type NarrativeDirectorMode = "natural" | "random";
+
+function normalizeNarrativeDirectorMode(value: unknown): NarrativeDirectorMode {
+  return value === "random" ? "random" : "natural";
 }
 
 function normalizeAgentMaxTokensInput(value: string): number | "" {
@@ -438,6 +446,11 @@ export function AgentEditor() {
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
   const [localImagePositivePrompt, setLocalImagePositivePrompt] = useState("");
   const [localImageNegativePrompt, setLocalImageNegativePrompt] = useState("");
+  const [localProseGuardianBanned, setLocalProseGuardianBanned] = useState(DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
+  const [localProseGuardianAvoid, setLocalProseGuardianAvoid] = useState(DEFAULT_PROSE_GUARDIAN_AVOID);
+  const [localProseGuardianPrefer, setLocalProseGuardianPrefer] = useState("");
+  const [localProseGuardianHoldForRewrite, setLocalProseGuardianHoldForRewrite] = useState(true);
+  const [localDirectorMode, setLocalDirectorMode] = useState<NarrativeDirectorMode>("natural");
   const [spotifyStatus, setSpotifyStatus] = useState<{
     connected: boolean;
     expired: boolean;
@@ -474,12 +487,11 @@ export function AgentEditor() {
     if (dbConfig) {
       setLocalName(builtIn ? builtIn.name : dbConfig.name);
       setLocalDescription(dbConfig.description);
-      setLocalPhase(normalizeAgentPhase(dbConfig.phase));
+      setLocalPhase(normalizeAgentPhaseForType(agentType, dbConfig.phase));
       setLocalAgentEnabled(dbConfig.enabled !== "false");
       setLocalConnectionId(dbConfig.connectionId ?? "");
-      const settings = parseAgentSettingsRecord(dbConfig.settings);
-      const promptTemplateSource =
-        settings.promptTemplates !== undefined ? settings.promptTemplates : defaultSettings.promptTemplates;
+      const settings = mergeBuiltInAgentSettings(agentType, dbConfig.settings);
+      const promptTemplateSource = settings.promptTemplates ?? defaultSettings.promptTemplates;
       setLocalAuthor(
         normalizeAuthor(settings.author, builtIn?.author ?? (isCustomAgent ? "Unknown" : DEFAULT_AGENT_AUTHOR)),
       );
@@ -529,6 +541,31 @@ export function AgentEditor() {
       );
       setLocalImagePositivePrompt((settings.imagePositivePrompt as string) ?? "");
       setLocalImageNegativePrompt((settings.imageNegativePrompt as string) ?? "");
+      setLocalProseGuardianBanned(
+        typeof settings.banned === "string"
+          ? settings.banned
+          : typeof defaultSettings.banned === "string"
+            ? defaultSettings.banned
+            : DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+      );
+      setLocalProseGuardianAvoid(
+        typeof settings.avoid === "string"
+          ? settings.avoid
+          : typeof defaultSettings.avoid === "string"
+            ? defaultSettings.avoid
+            : DEFAULT_PROSE_GUARDIAN_AVOID,
+      );
+      setLocalProseGuardianPrefer(
+        typeof settings.prefer === "string"
+          ? settings.prefer
+          : typeof defaultSettings.prefer === "string"
+            ? defaultSettings.prefer
+            : "",
+      );
+      setLocalProseGuardianHoldForRewrite(
+        (settings.holdForRewrite as boolean | undefined) ?? defaultSettings.holdForRewrite !== false,
+      );
+      setLocalDirectorMode(normalizeNarrativeDirectorMode(settings.directorMode ?? defaultSettings.directorMode));
       setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
       setLocalIncludePreGenInjections(settings.includePreGenInjections === true);
@@ -539,7 +576,7 @@ export function AgentEditor() {
       setLocalDescription(builtIn.description);
       setLocalAuthor(builtIn.author ?? DEFAULT_AGENT_AUTHOR);
       setLocalPromptTemplates(normalizeAgentPromptTemplateOptions(defaultSettings.promptTemplates));
-      setLocalPhase(builtIn.phase);
+      setLocalPhase(normalizeAgentPhaseForType(builtIn.id, builtIn.phase));
       setLocalAgentEnabled(true);
       setLocalConnectionId("");
       setLocalImageConnectionId("");
@@ -559,6 +596,15 @@ export function AgentEditor() {
       setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
+      setLocalProseGuardianBanned(
+        typeof defaultSettings.banned === "string" ? defaultSettings.banned : DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+      );
+      setLocalProseGuardianAvoid(
+        typeof defaultSettings.avoid === "string" ? defaultSettings.avoid : DEFAULT_PROSE_GUARDIAN_AVOID,
+      );
+      setLocalProseGuardianPrefer(typeof defaultSettings.prefer === "string" ? defaultSettings.prefer : "");
+      setLocalProseGuardianHoldForRewrite(defaultSettings.holdForRewrite !== false);
+      setLocalDirectorMode(normalizeNarrativeDirectorMode(defaultSettings.directorMode));
       setLocalCustomCapabilities({});
       setLocalResultType("context_injection");
       setLocalIncludePreGenInjections(false);
@@ -593,6 +639,11 @@ export function AgentEditor() {
       setLocalUseAvatarReferences(false);
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
+      setLocalProseGuardianBanned(DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
+      setLocalProseGuardianAvoid(DEFAULT_PROSE_GUARDIAN_AVOID);
+      setLocalProseGuardianPrefer("");
+      setLocalProseGuardianHoldForRewrite(true);
+      setLocalDirectorMode("natural");
       setLocalCustomCapabilities({});
       setLocalResultType("context_injection");
       setLocalIncludePreGenInjections(false);
@@ -616,8 +667,11 @@ export function AgentEditor() {
 
   // Lorebook Keeper agent — run interval setting
   const isLorebookKeeperAgent = agentDetailId === "lorebook-keeper" || dbConfig?.type === "lorebook-keeper";
+  // Card Evolution Auditor agent — run interval setting
+  const isCardEvolutionAuditorAgent =
+    agentDetailId === "card-evolution-auditor" || dbConfig?.type === "card-evolution-auditor";
 
-  // Narrative Director agent — run interval setting
+  // Narrative Director agent — one-shot story push setting
   const isDirectorAgent = agentDetailId === "director" || dbConfig?.type === "director";
 
   // Illustrator agent — run interval setting
@@ -632,6 +686,10 @@ export function AgentEditor() {
   const isKnowledgeRouterAgent = agentDetailId === "knowledge-router" || dbConfig?.type === "knowledge-router";
   // Background agent — can optionally generate missing roleplay backgrounds.
   const isBackgroundAgent = agentDetailId === "background" || dbConfig?.type === "background";
+  // Prose Guardian agent — exposes macro defaults used by its rewrite prompt.
+  const isProseGuardianAgent = agentDetailId === "prose-guardian" || dbConfig?.type === "prose-guardian";
+  // Continuity Checker agent — shares the rewrite reveal timing control.
+  const isContinuityAgent = agentDetailId === "continuity" || dbConfig?.type === "continuity";
 
   // Detect when both knowledge agents will actually run in parallel. Shows a
   // soft warning so users don't accidentally do overlapping work that bloats
@@ -755,7 +813,9 @@ export function AgentEditor() {
     if (!agentDetailId) return;
     setSaveError(null);
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
-    const savedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
+    const selectedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const savedPhase = normalizeAgentPhaseForType(agentType, selectedPhase);
     const mayIncludeTurnData = isEditingCustomAgent && savedPhase === "post_processing";
     const activationKeywords = isEditingCustomAgent ? parseActivationKeywordsText(localActivationKeywordsText) : [];
     const activationScanDepth =
@@ -827,8 +887,8 @@ export function AgentEditor() {
         ...(mayIncludeTurnData && localIncludeParallelResults ? { includeParallelResults: true } : {}),
         ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
         ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
-        ...(localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
-        ...(localInjectAsSection ? { injectAsSection: true } : {}),
+        ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
+        ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
         ...(isMusicAgent ? { musicProvider: localMusicProvider } : {}),
         enabledTools: isMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
         ...(lorebookWriterEnabled
@@ -848,6 +908,16 @@ export function AgentEditor() {
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
         ...(localAutoGenerateBackgrounds ? { autoGenerateBackgrounds: true } : {}),
         ...(isIllustratorAgent ? { useAvatarReferences: localUseAvatarReferences } : {}),
+        ...(isProseGuardianAgent
+          ? {
+              banned: localProseGuardianBanned.trim() || DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+              avoid: localProseGuardianAvoid.trim() || DEFAULT_PROSE_GUARDIAN_AVOID,
+              prefer: localProseGuardianPrefer.trim(),
+              holdForRewrite: localProseGuardianHoldForRewrite,
+            }
+          : {}),
+        ...(isContinuityAgent ? { holdForRewrite: localProseGuardianHoldForRewrite } : {}),
+        ...(isDirectorAgent ? { directorMode: localDirectorMode } : {}),
         ...(localImagePositivePrompt.trim() ? { imagePositivePrompt: localImagePositivePrompt.trim() } : {}),
         ...(localImageNegativePrompt.trim() ? { imageNegativePrompt: localImageNegativePrompt.trim() } : {}),
       },
@@ -907,6 +977,11 @@ export function AgentEditor() {
     localAutoGenerateAvatars,
     localAutoGenerateBackgrounds,
     localUseAvatarReferences,
+    localProseGuardianBanned,
+    localProseGuardianAvoid,
+    localProseGuardianPrefer,
+    localProseGuardianHoldForRewrite,
+    localDirectorMode,
     localImagePositivePrompt,
     localImageNegativePrompt,
     dbConfig,
@@ -914,6 +989,9 @@ export function AgentEditor() {
     isCustomAgent,
     isNewCustomAgent,
     isIllustratorAgent,
+    isProseGuardianAgent,
+    isContinuityAgent,
+    isDirectorAgent,
     isMusicAgent,
     isKnowledgeRetrievalAgent,
     isKnowledgeRouterAgent,
@@ -925,7 +1003,9 @@ export function AgentEditor() {
   const handleExportAgent = () => {
     if (!agentDetailId) return;
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
-    const savedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const agentType = dbConfig?.type ?? builtIn?.id ?? createCustomAgentType(localName);
+    const selectedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const savedPhase = normalizeAgentPhaseForType(agentType, selectedPhase);
     const mayIncludeTurnData = isEditingCustomAgent && savedPhase === "post_processing";
     const activationKeywords = isEditingCustomAgent ? parseActivationKeywordsText(localActivationKeywordsText) : [];
     const activationScanDepth =
@@ -956,7 +1036,6 @@ export function AgentEditor() {
     ).filter((tool) => customCapabilities.edit_messages === true || tool !== MESSAGE_EDIT_TOOL_NAME);
     const savedAuthor = localAuthor.trim() || (builtIn ? DEFAULT_AGENT_AUTHOR : "Unknown");
     const savedPromptTemplates = normalizeAgentPromptTemplateOptions(localPromptTemplates);
-    const agentType = dbConfig?.type ?? builtIn?.id ?? createCustomAgentType(localName);
     const exportingMusicAgent = agentType === "spotify";
     const settings = {
       author: savedAuthor,
@@ -968,8 +1047,8 @@ export function AgentEditor() {
       ...(mayIncludeTurnData && localIncludeParallelResults ? { includeParallelResults: true } : {}),
       ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
       ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
-      ...(localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
-      ...(localInjectAsSection ? { injectAsSection: true } : {}),
+      ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
+      ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
       ...(exportingMusicAgent ? { musicProvider: localMusicProvider } : {}),
       enabledTools: exportingMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
       ...(lorebookWriterEnabled
@@ -985,6 +1064,16 @@ export function AgentEditor() {
       ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
       ...(localAutoGenerateBackgrounds ? { autoGenerateBackgrounds: true } : {}),
       ...(isIllustratorAgent ? { useAvatarReferences: localUseAvatarReferences } : {}),
+      ...(isProseGuardianAgent
+        ? {
+            banned: localProseGuardianBanned.trim() || DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+            avoid: localProseGuardianAvoid.trim() || DEFAULT_PROSE_GUARDIAN_AVOID,
+            prefer: localProseGuardianPrefer.trim(),
+            holdForRewrite: localProseGuardianHoldForRewrite,
+          }
+        : {}),
+      ...(isContinuityAgent ? { holdForRewrite: localProseGuardianHoldForRewrite } : {}),
+      ...(isDirectorAgent ? { directorMode: localDirectorMode } : {}),
       ...(localImagePositivePrompt.trim() ? { imagePositivePrompt: localImagePositivePrompt.trim() } : {}),
       ...(localImageNegativePrompt.trim() ? { imageNegativePrompt: localImageNegativePrompt.trim() } : {}),
     };
@@ -1086,7 +1175,8 @@ export function AgentEditor() {
     [markDirty],
   );
 
-  const normalizedLocalPhase = normalizeAgentPhase(localPhase);
+  const currentAgentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId ?? "";
+  const normalizedLocalPhase = normalizeAgentPhaseForType(currentAgentType, localPhase);
   const phaseMeta = PHASE_META[normalizedLocalPhase];
   const effectivePhase =
     (isCustomAgent || isNewCustomAgent) && localResultType === "text_rewrite" ? "post_processing" : normalizedLocalPhase;
@@ -1323,13 +1413,13 @@ export function AgentEditor() {
           >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {(Object.entries(PHASE_META) as [AgentPhase, typeof phaseMeta][]).map(([phase, meta]) => {
-                const isActive = localPhase === phase;
+                const isActive = normalizedLocalPhase === phase;
                 const Icon = meta.icon;
                 return (
                   <button
                     key={phase}
                     onClick={() => {
-                      setLocalPhase(phase);
+                      setLocalPhase(normalizeAgentPhaseForType(currentAgentType, phase));
                       markDirty();
                     }}
                     className={cn(
@@ -1866,6 +1956,127 @@ export function AgentEditor() {
             </p>
           </FieldGroup>
 
+          {isProseGuardianAgent && (
+            <FieldGroup
+              label="Prose Guardian Defaults"
+              icon={<Shield size="0.875rem" className="text-[var(--primary)]" />}
+              help="These values fill the Prose Guardian prompt macros. Chat settings can override them for one chat."
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    Banned Words {"{{banned}}"}
+                  </span>
+                  <textarea
+                    value={localProseGuardianBanned}
+                    onChange={(e) => {
+                      setLocalProseGuardianBanned(e.target.value);
+                      markDirty();
+                    }}
+                    placeholder={DEFAULT_PROSE_GUARDIAN_BANNED_WORDS}
+                    rows={3}
+                    className="min-h-[5.5rem] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    Prefer In Writing {"{{prefer}}"}
+                  </span>
+                  <textarea
+                    value={localProseGuardianPrefer}
+                    onChange={(e) => {
+                      setLocalProseGuardianPrefer(e.target.value);
+                      markDirty();
+                    }}
+                    placeholder="Optional style notes, phrases, or authorial preferences."
+                    rows={3}
+                    className="min-h-[5.5rem] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                </label>
+              </div>
+              <label className="mt-3 flex flex-col gap-1.5">
+                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  Remove From Writing {"{{avoid}}"}
+                </span>
+                <textarea
+                  value={localProseGuardianAvoid}
+                  onChange={(e) => {
+                    setLocalProseGuardianAvoid(e.target.value);
+                    markDirty();
+                  }}
+                  placeholder={DEFAULT_PROSE_GUARDIAN_AVOID}
+                  rows={4}
+                  className="min-h-[6.5rem] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+              </label>
+              <button
+                type="button"
+                aria-pressed={localProseGuardianHoldForRewrite}
+                onClick={() => {
+                  setLocalProseGuardianHoldForRewrite((value) => !value);
+                  markDirty();
+                }}
+                className={cn(
+                  "mt-3 flex w-full items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                  localProseGuardianHoldForRewrite
+                    ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
+                    : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                )}
+              >
+                {localProseGuardianHoldForRewrite ? (
+                  <ToggleRight size="1.25rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <ToggleLeft size="1.25rem" className="mt-0.5 shrink-0" />
+                )}
+                <span className="min-w-0">
+                  <span className="block font-semibold">Hold message until rewrite</span>
+                  <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                    {localProseGuardianHoldForRewrite
+                      ? "Show the working state, then reveal the rewritten message."
+                      : "Show the original response first, then replace it if Prose Guardian edits it."}
+                  </span>
+                </span>
+              </button>
+            </FieldGroup>
+          )}
+
+          {isContinuityAgent && (
+            <FieldGroup
+              label="Continuity Checker Defaults"
+              icon={<ShieldCheck size="0.875rem" className="text-[var(--primary)]" />}
+              help="Choose whether Continuity Checker should hold the raw response until its rewrite pass finishes. Chat settings can override this for one chat."
+            >
+              <button
+                type="button"
+                aria-pressed={localProseGuardianHoldForRewrite}
+                onClick={() => {
+                  setLocalProseGuardianHoldForRewrite((value) => !value);
+                  markDirty();
+                }}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                  localProseGuardianHoldForRewrite
+                    ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
+                    : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                )}
+              >
+                {localProseGuardianHoldForRewrite ? (
+                  <ToggleRight size="1.25rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <ToggleLeft size="1.25rem" className="mt-0.5 shrink-0" />
+                )}
+                <span className="min-w-0">
+                  <span className="block font-semibold">Hold message until rewrite</span>
+                  <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                    {localProseGuardianHoldForRewrite
+                      ? "Show the working state, then reveal the continuity-checked message."
+                      : "Show the original response first, then replace it if Continuity Checker edits it."}
+                  </span>
+                </span>
+              </button>
+            </FieldGroup>
+          )}
+
           {/* ── Triggers After (Chat Summary agent) ── */}
           {(isCustomAgent || isNewCustomAgent) && customRunIntervalMeta && (
             <FieldGroup
@@ -2036,21 +2247,88 @@ export function AgentEditor() {
                 <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                The agent runs once every N assistant messages instead of every response. Default: 8.
+                The chat/roleplay keeper runs once every N assistant messages instead of every response. Default: 8.
+                Game Mode uses a separate session-end Lorebook Keeper with different instructions.
               </p>
             </FieldGroup>
           )}
 
-          {/* ── Run Interval (Narrative Director / Illustrator) ── */}
-          {(isDirectorAgent || isIllustratorAgent) && (
+          {/* ── Run Interval (Card Evolution Auditor) ── */}
+          {isCardEvolutionAuditorAgent && (
+            <FieldGroup
+              label="Run Interval"
+              icon={<FileText size="0.875rem" className="text-[var(--primary)]" />}
+              help="How many assistant messages between Card Evolution Auditor checks. Higher values keep card review conservative and cheaper."
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={localRunInterval}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setLocalRunInterval(v === "" ? "" : Math.max(1, Math.min(100, parseInt(v) || 1)));
+                    markDirty();
+                  }}
+                  placeholder="8"
+                  className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
+              </div>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                The auditor proposes character card changes for manual approval only. It never applies edits by itself.
+              </p>
+            </FieldGroup>
+          )}
+
+          {isDirectorAgent && (
+            <FieldGroup
+              label="Story Push Mode"
+              icon={<Shuffle size="0.875rem" className="text-[var(--primary)]" />}
+              help="Choose what Push Story should ask the Narrative Director to create when you arm it in chat."
+            >
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 p-1">
+                {[
+                  {
+                    id: "natural" as const,
+                    label: "Natural",
+                    description: "Advance existing tension, goals, or scenario threads.",
+                  },
+                  {
+                    id: "random" as const,
+                    label: "Random Event",
+                    description: "Introduce a plausible surprise, complication, or opportunity.",
+                  },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      setLocalDirectorMode(option.id);
+                      markDirty();
+                    }}
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-left transition-all",
+                      localDirectorMode === option.id
+                        ? "bg-[var(--primary)]/15 text-[var(--foreground)] ring-1 ring-[var(--primary)]/40"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    <span className="block text-xs font-semibold">{option.label}</span>
+                    <span className="mt-0.5 block text-[0.625rem] leading-snug">{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </FieldGroup>
+          )}
+
+          {/* ── Run Interval (Illustrator) ── */}
+          {isIllustratorAgent && (
             <FieldGroup
               label="Run Interval"
               icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
-              help={
-                isIllustratorAgent
-                  ? "How many assistant messages between allowed Illustrator image generations. Set to 1 to allow it every message."
-                  : "How many assistant messages between each Narrative Director intervention. Higher values make the director less aggressive. Set to 1 to run every message."
-              }
+              help="How many assistant messages between allowed Illustrator image generations. Set to 1 to allow it every message."
             >
               <div className="flex items-center gap-3">
                 <input
@@ -2069,41 +2347,42 @@ export function AgentEditor() {
                 <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                {isIllustratorAgent
-                  ? "The Illustrator can only create a new image once every N assistant messages. If it decides not to draw, the timer does not reset. Default: 5."
-                  : "The director only jumps in once every N assistant messages instead of steering every reply. Default: 5."}
+                The Illustrator can only create a new image once every N assistant messages. If it decides not to draw,
+                the timer does not reset. Default: 5.
               </p>
             </FieldGroup>
           )}
 
           {/* ── Inject as Prompt Section ── */}
-          <FieldGroup
-            label="Add as Prompt Section"
-            icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
-            help="When enabled, this agent's output becomes available as a marker section in prompt presets. Add the section in your preset to inject the agent's latest data into the prompt."
-          >
-            <button
-              onClick={() => {
-                setLocalInjectAsSection(!localInjectAsSection);
-                markDirty();
-              }}
-              className="flex items-center gap-3 rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)]"
+          {!isDirectorAgent && (
+            <FieldGroup
+              label="Add as Prompt Section"
+              icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
+              help="When enabled, this agent's output becomes available as a marker section in prompt presets. Add the section in your preset to inject the agent's latest data into the prompt."
             >
-              {localInjectAsSection ? (
-                <ToggleRight size="1.25rem" className="text-emerald-400" />
-              ) : (
-                <ToggleLeft size="1.25rem" className="text-[var(--muted-foreground)]" />
-              )}
-              <div className="text-left">
-                <p className="text-sm font-medium">{localInjectAsSection ? "Enabled" : "Disabled"}</p>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localInjectAsSection
-                    ? `"${localName}" appears as a section option in prompt presets`
-                    : "Agent output is not injected into prompts"}
-                </p>
-              </div>
-            </button>
-          </FieldGroup>
+              <button
+                onClick={() => {
+                  setLocalInjectAsSection(!localInjectAsSection);
+                  markDirty();
+                }}
+                className="flex items-center gap-3 rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)]"
+              >
+                {localInjectAsSection ? (
+                  <ToggleRight size="1.25rem" className="text-emerald-400" />
+                ) : (
+                  <ToggleLeft size="1.25rem" className="text-[var(--muted-foreground)]" />
+                )}
+                <div className="text-left">
+                  <p className="text-sm font-medium">{localInjectAsSection ? "Enabled" : "Disabled"}</p>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localInjectAsSection
+                      ? `"${localName}" appears as a section option in prompt presets`
+                      : "Agent output is not injected into prompts"}
+                  </p>
+                </div>
+              </button>
+            </FieldGroup>
+          )}
 
           {isMusicAgent && (
             <FieldGroup

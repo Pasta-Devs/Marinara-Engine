@@ -36,6 +36,8 @@ import {
   getFolderImportEntries,
   getFolderManifestConfig,
   isAgentConfigDeleted,
+  normalizeAgentPhaseForType,
+  normalizeAgentPhaseValue,
   type AgentCategory,
 } from "@marinara-engine/shared";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -90,7 +92,7 @@ function serializeAgentConfig(agent: AgentConfigRow) {
     type: agent.type,
     name: agent.name,
     description: agent.description,
-    phase: agent.phase,
+    phase: normalizeAgentPhaseForType(agent.type, agent.phase),
     enabled: parseBooleanValue(agent.enabled),
     connectionId: null,
     imagePath: null,
@@ -123,7 +125,7 @@ function createBuiltInAgentConfigRow(
     type: agent.id,
     name: agent.name,
     description: config?.description ?? agent.description,
-    phase: config?.phase ?? agent.phase,
+    phase: normalizeAgentPhaseForType(agent.id, config?.phase ?? agent.phase),
     enabled: config?.enabled ?? String(agent.enabledByDefault),
     connectionId: config?.connectionId ?? null,
     imagePath: config?.imagePath ?? null,
@@ -141,11 +143,8 @@ function normalizeAgentImportEntry(entry: unknown) {
   const type = typeof source.type === "string" ? source.type.trim() : "";
   const name = typeof source.name === "string" ? source.name.trim() : "";
   const description = typeof source.description === "string" ? source.description : "";
-  const phase =
-    source.phase === "pre_generation" || source.phase === "parallel" || source.phase === "post_processing"
-      ? source.phase
-      : "post_processing";
   if (!type || !name) return null;
+  const phase = normalizeAgentPhaseForType(type, normalizeAgentPhaseValue(source.phase));
 
   const settings = parseAgentSettings(source.settings);
   if (typeof source.author === "string" && !settings.author) {
@@ -226,6 +225,18 @@ export function AgentsPanel() {
     () => new Map(visibleAgentConfigs.map((config) => [config.type, config])),
     [visibleAgentConfigs],
   );
+  const visibleBuiltInDisplayAgents = useMemo(
+    () =>
+      visibleBuiltInAgents.map((agent) => {
+        const config = configByType.get(agent.id);
+        return {
+          ...agent,
+          name: config?.name ?? agent.name,
+          description: config?.description ?? agent.description,
+        };
+      }),
+    [configByType, visibleBuiltInAgents],
+  );
   const builtInExportRows = useMemo(
     () => visibleBuiltInAgents.map((agent) => createBuiltInAgentConfigRow(agent, configByType.get(agent.id))),
     [configByType, visibleBuiltInAgents],
@@ -280,7 +291,7 @@ export function AgentsPanel() {
     });
   });
   const visibleSelectableAgentIds = [
-    ...visibleBuiltInAgents
+    ...visibleBuiltInDisplayAgents
       .filter((agent) => !folderedAgentIds.has(agent.id) && matchesAgentSearch(agent))
       .map((agent) => agent.id),
     ...visibleCustomAgents.map((agent) => agent.id),
@@ -288,7 +299,7 @@ export function AgentsPanel() {
   ];
   const hasVisibleAgents =
     agentCategorySections.some((section) =>
-      visibleBuiltInAgents.some(
+      visibleBuiltInDisplayAgents.some(
         (agent) => !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
       ),
     ) ||
@@ -594,17 +605,10 @@ export function AgentsPanel() {
       <div className="flex gap-2">
         <button
           onClick={handleCreateAgent}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-violet-400 to-purple-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-violet-400/15 transition-all hover:shadow-lg hover:shadow-violet-400/25 active:scale-[0.98]"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:brightness-110 active:scale-[0.98]"
           title="New"
         >
           <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
-        </button>
-        <button
-          onClick={handleCreateFolder}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
-          title="New folder"
-        >
-          <FolderPlus size="0.8125rem" /> <span className="md:hidden">Folder</span>
         </button>
         <button
           onClick={() => agentImportInputRef.current?.click()}
@@ -622,7 +626,7 @@ export function AgentsPanel() {
           className={cn(
             "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40",
             selectionMode
-              ? "bg-violet-400/15 text-violet-400 ring-1 ring-violet-400/30"
+              ? "bg-[var(--primary)]/10 text-[var(--foreground)] ring-1 ring-[var(--primary)]/30"
               : "bg-[var(--secondary)] text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
           )}
           title="Select agents"
@@ -646,7 +650,7 @@ export function AgentsPanel() {
           <button
             onClick={() => setSelectedAgentIds(new Set(visibleSelectableAgentIds))}
             disabled={visibleSelectableAgentIds.length === 0}
-            className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-violet-400 transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
+            className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
           >
             Select visible
           </button>
@@ -668,7 +672,7 @@ export function AgentsPanel() {
           <button
             onClick={handleExportSelectedAgents}
             disabled={selectedAgents.length === 0 || exportingSelected}
-            className="inline-flex items-center gap-1 rounded-lg bg-violet-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
+            className="inline-flex items-center gap-1 rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-all hover:brightness-110 disabled:opacity-40"
           >
             <Upload size="0.6875rem" />
             {exportingSelected ? "Exporting..." : "Export"}
@@ -701,123 +705,132 @@ export function AgentsPanel() {
         <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">No agents match your search.</p>
       )}
 
-      {agentFolders.length > 0 && (
-        <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleCreateFolder}
+            className="flex flex-1 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-all hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]"
+          >
+            <FolderPlus size="0.75rem" />
+            New Folder
+          </button>
+        </div>
+        {agentFolders.length > 0 && (
           <p className="px-2.5 pb-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]/70">
             Drag and drop agents to folders
           </p>
-          {agentFolders.map((folder) => {
-            const isExpanded = expandedFolderId === folder.id;
-            const isEditing = editingFolderId === folder.id;
-            const folderAgents = folder.itemIds
-              .map((id) => selectableAgentById.get(id))
-              .filter((agent): agent is AgentConfigRow => Boolean(agent))
-              .filter((agent) =>
-                matchesAgentSearch({
-                  name: agent.name,
-                  description: agent.description,
-                  category: BUILT_IN_AGENT_TYPE_SET.has(agent.type)
-                    ? (BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.category ?? "misc")
-                    : "custom",
-                }),
-              );
-            return (
-              <div
-                key={folder.id}
-                data-agent-folder-id={folder.id}
-                onDragOver={(event) => {
-                  if (draggedAgentId) {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  const payload = event.dataTransfer.getData("application/x-marinara-agent-ids");
-                  handleAgentDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
-                }}
-                className="flex flex-col rounded-lg transition-colors"
-              >
-                <div
-                  className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
-                  onClick={() => setExpandedFolderId(isExpanded ? null : folder.id)}
-                >
-                  <ChevronRight
-                    size="0.75rem"
-                    className={cn(
-                      "shrink-0 text-[var(--muted-foreground)] transition-transform",
-                      isExpanded && "rotate-90",
-                    )}
-                  />
-                  <div className="min-w-0 flex-1">
-                    {isEditing ? (
-                      <input
-                        autoFocus
-                        value={editFolderName}
-                        onChange={(event) => setEditFolderName(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") handleRenameFolder(folder.id);
-                          if (event.key === "Escape") {
-                            setEditingFolderId(null);
-                            setEditFolderName("");
-                          }
-                        }}
-                        onClick={(event) => event.stopPropagation()}
-                        onBlur={() => handleRenameFolder(folder.id)}
-                        className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--border)]"
-                      />
-                    ) : (
-                      <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
-                    )}
-                  </div>
-                  {folder.itemIds.length > 0 && (
-                    <span className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)]">
-                      {folder.itemIds.length}
-                    </span>
-                  )}
-                  <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setEditingFolderId(folder.id);
-                        setEditFolderName(folder.name);
-                      }}
-                      className="rounded-lg p-1 transition-colors hover:bg-[var(--accent)]"
-                      title="Rename folder"
-                    >
-                      <Pencil size="0.6875rem" />
-                    </button>
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        deleteAgentFolder.mutate(folder.id);
-                        if (expandedFolderId === folder.id) setExpandedFolderId(null);
-                      }}
-                      className="rounded-lg p-1 transition-colors hover:bg-[var(--destructive)]/15"
-                      title="Delete folder"
-                    >
-                      <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
-                    </button>
-                  </div>
-                </div>
-                {isExpanded && (
-                  <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
-                    {folderAgents.length === 0 ? (
-                      <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop agents here.</p>
-                    ) : (
-                      folderAgents.map((agent) => renderFolderAgentCard(agent))
-                    )}
-                  </div>
-                )}
-              </div>
+        )}
+        {agentFolders.map((folder) => {
+          const isExpanded = expandedFolderId === folder.id;
+          const isEditing = editingFolderId === folder.id;
+          const folderAgents = folder.itemIds
+            .map((id) => selectableAgentById.get(id))
+            .filter((agent): agent is AgentConfigRow => Boolean(agent))
+            .filter((agent) =>
+              matchesAgentSearch({
+                name: agent.name,
+                description: agent.description,
+                category: BUILT_IN_AGENT_TYPE_SET.has(agent.type)
+                  ? (BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.category ?? "misc")
+                  : "custom",
+              }),
             );
-          })}
-        </div>
-      )}
+          return (
+            <div
+              key={folder.id}
+              data-agent-folder-id={folder.id}
+              onDragOver={(event) => {
+                if (draggedAgentId) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const payload = event.dataTransfer.getData("application/x-marinara-agent-ids");
+                handleAgentDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
+              }}
+              className="flex flex-col rounded-lg transition-colors"
+            >
+              <div
+                className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
+                onClick={() => setExpandedFolderId(isExpanded ? null : folder.id)}
+              >
+                <ChevronRight
+                  size="0.75rem"
+                  className={cn(
+                    "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    isExpanded && "rotate-90",
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      value={editFolderName}
+                      onChange={(event) => setEditFolderName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") handleRenameFolder(folder.id);
+                        if (event.key === "Escape") {
+                          setEditingFolderId(null);
+                          setEditFolderName("");
+                        }
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      onBlur={() => handleRenameFolder(folder.id)}
+                      className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--border)]"
+                    />
+                  ) : (
+                    <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
+                  )}
+                </div>
+                {folder.itemIds.length > 0 && (
+                  <span className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)]">
+                    {folder.itemIds.length}
+                  </span>
+                )}
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setEditingFolderId(folder.id);
+                      setEditFolderName(folder.name);
+                    }}
+                    className="rounded-lg p-1 transition-colors hover:bg-[var(--accent)]"
+                    title="Rename folder"
+                  >
+                    <Pencil size="0.6875rem" />
+                  </button>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deleteAgentFolder.mutate(folder.id);
+                      if (expandedFolderId === folder.id) setExpandedFolderId(null);
+                    }}
+                    className="rounded-lg p-1 transition-colors hover:bg-[var(--destructive)]/15"
+                    title="Delete folder"
+                  >
+                    <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
+                  </button>
+                </div>
+              </div>
+              {isExpanded && (
+                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
+                  {folderAgents.length === 0 ? (
+                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop agents here.</p>
+                  ) : (
+                    folderAgents.map((agent) => renderFolderAgentCard(agent))
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       {agentCategorySections.map((section) => {
-        const visibleAgents = visibleBuiltInAgents.filter(
+        const visibleAgents = visibleBuiltInDisplayAgents.filter(
           (agent) =>
             !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
         );
@@ -963,8 +976,8 @@ function renderAgentCard({
     <Sparkles size="1rem" />
   );
   const iconClasses = cn(
-    "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl text-white shadow-sm",
-    imagePath ? "bg-[var(--muted)]" : "bg-gradient-to-br from-violet-400 to-fuchsia-500",
+    "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
+    imagePath ? "bg-[var(--muted)]" : "bg-[var(--primary)] text-[var(--primary-foreground)]",
   );
 
   return (
@@ -980,7 +993,7 @@ function renderAgentCard({
       }}
       className={cn(
         "group relative flex cursor-pointer items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)]",
-        selectionMode && selected && "bg-violet-400/10 ring-1 ring-violet-400/40",
+        selectionMode && selected && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/40",
         isDragging && "opacity-50",
       )}
     >
@@ -989,7 +1002,7 @@ function renderAgentCard({
           className={cn(
             "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
             selected
-              ? "border-violet-400 bg-violet-400 text-white"
+              ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
               : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
           )}
         >
@@ -1008,7 +1021,7 @@ function renderAgentCard({
         }}
         className={cn(
           iconClasses,
-          "transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-violet-400/50",
+          "transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/50",
         )}
         title={selectionMode ? "Select agent" : imagePath ? "Replace agent picture" : "Upload agent picture"}
         aria-label={selectionMode ? "Select agent" : imagePath ? "Replace agent picture" : "Upload agent picture"}
@@ -1042,7 +1055,7 @@ function renderAgentCard({
       {!selectionMode && (
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
           <button
-            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-violet-400/10 hover:text-violet-400 active:scale-90"
+            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-90"
             title="Edit agent"
             onClick={(event) => {
               event.stopPropagation();
@@ -1096,7 +1109,7 @@ function PanelSection({
             size="0.75rem"
             className={cn("text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
           />
-          <span className="text-violet-400">{icon}</span>
+          <span className="text-[var(--muted-foreground)]">{icon}</span>
           {title}
         </button>
         {action}

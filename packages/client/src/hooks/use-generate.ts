@@ -832,6 +832,7 @@ export function useGenerate() {
       attachments?: Array<{ type: string; data: string; filename?: string; name?: string }>;
       mentionedCharacterNames?: string[];
       forCharacterId?: string;
+      narrativeDirectorMode?: "natural" | "random";
       generationGuide?: string;
       generationGuideSource?: "narrator" | "guide" | "game_start";
       agentInjectionOverrides?: Array<{ agentType: string; agentName?: string; text: string }>;
@@ -980,6 +981,8 @@ export function useGenerate() {
       let typewriterDone: (() => void) | null = null;
       let rafId = 0;
       const persistedMessages = new Map<string, Message>();
+      let heldTextRewriteMessage: Message | null = null;
+      let holdingTextRewrite = false;
       let gameStatePatchAnchor: { messageId: string; swipeIndex: number } | null = null;
       const normalizeLineBreakSpacing = (text: string) =>
         chatModeForGeneration === "roleplay" ? text.replace(/[ \t]+(\r?\n)/g, "$1") : text;
@@ -1057,7 +1060,7 @@ export function useGenerate() {
         }
       };
 
-      const replaceGeneratedContentWithTypewriter = (content: string) => {
+      const replaceGeneratedContentWithTypewriter = (content: string, options: { retype?: boolean } = {}) => {
         const nextContent = normalizeLineBreakSpacing(content);
         cancelAnimationFrame(rafId);
         typingActive = false;
@@ -1069,7 +1072,10 @@ export function useGenerate() {
           return;
         }
 
-        if (nextContent.startsWith(fullBuffer)) {
+        if (options.retype) {
+          fullBuffer = "";
+          pendingText = nextContent;
+        } else if (nextContent.startsWith(fullBuffer)) {
           pendingText = nextContent.slice(fullBuffer.length);
         } else {
           // Final cleanup can remove a speaker prefix, hidden command, or
@@ -1603,24 +1609,77 @@ export function useGenerate() {
             }
 
             case "text_rewrite": {
-              // Consistency Editor replaced the message — update displayed text
-              const rw = event.data as { editedText?: string; changes?: Array<{ description: string }> };
+              // A post-processing editor replaced the message — update displayed text.
+              const rw = event.data as {
+                editedText?: string;
+                changes?: Array<{ description: string }>;
+                rewriteApplied?: boolean;
+                originalText?: string;
+                agentType?: string;
+              };
               if (rw.editedText) {
+                const rewrittenText = normalizeLineBreakSpacing(rw.editedText);
+                const proseGuardianRewriteApplied =
+                  rw.rewriteApplied === true &&
+                  (rw.agentType === "prose-guardian" || rw.agentType === "continuity") &&
+                  typeof rw.originalText === "string";
                 leadingSpeakerPrefixFilter.discard();
-                if (streamingEnabled) {
-                  // Drain any pending typewriter first
-                  if (pendingText.length > 0 || typingActive) {
-                    cancelAnimationFrame(rafId);
+                if (holdingTextRewrite && heldTextRewriteMessage) {
+                  thinkingStreamFilter.reset();
+                  if (streamingEnabled && shouldDisplayRawStream) {
+                    replaceGeneratedContentWithTypewriter(rewrittenText, { retype: true });
+                    await waitForTypewriterDrain();
+                  } else {
+                    fullBuffer = rewrittenText;
                     pendingText = "";
-                    typingActive = false;
+                    setStreamBuffer(fullBuffer, params.chatId);
                   }
+                  const heldExtra = parseMessageExtraRecordForMerge(heldTextRewriteMessage.extra);
+                  delete heldExtra.postProcessingPending;
+                  if (proseGuardianRewriteApplied) {
+                    heldExtra.proseGuardianOriginalText = rw.originalText;
+                    heldExtra.proseGuardianRewrittenAt = new Date().toISOString();
+                  } else {
+                    delete heldExtra.proseGuardianOriginalText;
+                    delete heldExtra.proseGuardianRewrittenAt;
+                  }
+                  const updatedMessage = {
+                    ...heldTextRewriteMessage,
+                    content: rewrittenText,
+                    extra: heldExtra as unknown as Message["extra"],
+                  };
+                  persistedMessages.set(updatedMessage.id, updatedMessage);
+                  upsertPersistedMessages(qc, params.chatId, [updatedMessage]);
+                  clearStreamBuffer(params.chatId);
+                  clearThinkingBuffer(params.chatId);
+                  setStreamCommitted(params.chatId, true);
+                  fullBuffer = "";
+                  pendingText = "";
+                  holdingTextRewrite = false;
+                  heldTextRewriteMessage = null;
+                  break;
                 }
-                fullBuffer = normalizeLineBreakSpacing(rw.editedText);
+
+                if (streamingEnabled && (pendingText.length > 0 || typingActive)) {
+                  cancelAnimationFrame(rafId);
+                  pendingText = "";
+                  typingActive = false;
+                }
+                fullBuffer = rewrittenText;
                 if (streamingEnabled && shouldDisplayRawStream) setStreamBuffer(fullBuffer, params.chatId);
                 if (useChatStore.getState().committedStreamChatIds.has(params.chatId)) {
                   const latestSavedMessage = latestAssistantMessage(persistedMessages.values());
                   if (latestSavedMessage) {
-                    const updatedMessage = { ...latestSavedMessage, content: fullBuffer };
+                    const nextExtra = parseMessageExtraRecordForMerge(latestSavedMessage.extra);
+                    if (proseGuardianRewriteApplied) {
+                      nextExtra.proseGuardianOriginalText = rw.originalText;
+                      nextExtra.proseGuardianRewrittenAt = new Date().toISOString();
+                    }
+                    const updatedMessage = {
+                      ...latestSavedMessage,
+                      content: fullBuffer,
+                      extra: nextExtra as unknown as Message["extra"],
+                    };
                     persistedMessages.set(updatedMessage.id, updatedMessage);
                     upsertPersistedMessages(qc, params.chatId, [updatedMessage]);
                   }
@@ -1653,6 +1712,34 @@ export function useGenerate() {
                     ? savedMessage.activeSwipeIndex
                     : 0,
               };
+              const savedExtra = parseMessageExtraRecordForMerge(savedMessage.extra);
+              const pendingPostProcessing = savedExtra.postProcessingPending;
+              const pendingPostProcessingAgentType =
+                pendingPostProcessing && typeof pendingPostProcessing === "object" && !Array.isArray(pendingPostProcessing)
+                  ? (pendingPostProcessing as { agentType?: unknown }).agentType
+                  : null;
+              if (
+                savedMessage.role === "assistant" &&
+                pendingPostProcessing &&
+                typeof pendingPostProcessing === "object" &&
+                !Array.isArray(pendingPostProcessing) &&
+                (pendingPostProcessingAgentType === "prose-guardian" ||
+                  pendingPostProcessingAgentType === "continuity" ||
+                  pendingPostProcessingAgentType === "text-rewrite")
+              ) {
+                holdingTextRewrite = true;
+                heldTextRewriteMessage = savedMessage;
+                receivedContent = true;
+                leadingSpeakerPrefixFilter.discard();
+                thinkingStreamFilter.reset();
+                cancelAnimationFrame(rafId);
+                pendingText = "";
+                typingActive = false;
+                fullBuffer = normalizeLineBreakSpacing(savedMessage.content || "Rewrite agents are working!");
+                setStreamCommitted(params.chatId, false);
+                setStreamBuffer(fullBuffer, params.chatId);
+                break;
+              }
               // Once an ordinary roleplay stream is saved, the durable message
               // should own the transcript even if post-generation agents
               // (Illustrator, Spotify, etc.) are still running.
@@ -2554,6 +2641,15 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
 
   switch (agentType) {
     case "continuity": {
+      if (d.editNeeded === false) return `✅ No edits needed`;
+      const changes = (d.changes as any[]) ?? [];
+      if (changes.length) return changes.map((c: any) => `🧭 ${c.description}`).join("\n");
+      const text = d.text as string;
+      if (text) {
+        const trimmed = text.trim();
+        const preview = trimmed.length > 120 ? trimmed.slice(0, 120) + "…" : trimmed;
+        return `🧭 ${preview}`;
+      }
       const issues = (d.issues as any[]) ?? [];
       if (!issues.length) return null;
       return issues
@@ -2575,8 +2671,9 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
     }
 
     case "director": {
-      const text = d.text as string;
-      if (!text || text.includes("No intervention needed")) return null;
+      const text =
+        typeof d.direction === "string" ? d.direction.trim() : typeof d.text === "string" ? d.text.trim() : "";
+      if (!text) return null;
       return text;
     }
 
@@ -2681,9 +2778,11 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
     }
 
     case "prose-guardian": {
+      if (d.editNeeded === false) return `✅ No edits needed`;
+      const changes = (d.changes as any[]) ?? [];
+      if (changes.length) return changes.map((c: any) => `🛡️ ${c.description}`).join("\n");
       const text = d.text as string;
       if (!text) return null;
-      // Show a compact summary — first ~120 chars
       const trimmed = text.trim();
       const preview = trimmed.length > 120 ? trimmed.slice(0, 120) + "…" : trimmed;
       return `✍️ ${preview}`;
@@ -2713,12 +2812,6 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
       const updates = (d.updates as any[]) ?? [];
       if (!updates.length) return null;
       return updates.map((u: any) => `📖 ${u.action === "create" ? "New" : "Updated"}: ${u.entryName}`).join("\n");
-    }
-
-    case "editor": {
-      const changes = (d.changes as any[]) ?? [];
-      if (!changes.length) return `✅ No edits needed`;
-      return changes.map((c: any) => `✏️ ${c.description}`).join("\n");
     }
 
     case "html": {

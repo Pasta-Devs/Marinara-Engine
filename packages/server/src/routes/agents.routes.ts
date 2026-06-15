@@ -11,6 +11,7 @@ import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
   getDefaultBuiltInAgentSettings,
+  normalizeAgentPhaseForType,
 } from "@marinara-engine/shared";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -119,7 +120,7 @@ export async function agentsRoutes(app: FastifyInstance) {
       type: builtIn.id,
       name: builtIn.name,
       description: builtIn.description,
-      phase: builtIn.phase,
+      phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
       enabled: builtIn.enabledByDefault,
       connectionId: null,
       imagePath: null,
@@ -162,6 +163,9 @@ export async function agentsRoutes(app: FastifyInstance) {
     if (!builtIn) return reply.status(404).send({ error: "Unknown agent type" });
 
     const defaults = getDefaultBuiltInAgentSettings(agentType);
+    if (defaults.runInterval === undefined) {
+      return reply.status(404).send({ error: "Agent does not use run intervals" });
+    }
     const fallback = normalizeRunInterval(defaults.runInterval, 1);
     const config = await storage.getByType(agentType);
     const settings = { ...defaults, ...parseAgentSettings(config?.settings) };
@@ -293,7 +297,7 @@ export async function agentsRoutes(app: FastifyInstance) {
       type: builtIn.id,
       name: builtIn.name,
       description: builtIn.description,
-      phase: builtIn.phase,
+      phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
       enabled: !builtIn.enabledByDefault,
       connectionId: null,
       imagePath: null,

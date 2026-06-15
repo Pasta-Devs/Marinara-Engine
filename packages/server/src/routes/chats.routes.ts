@@ -33,6 +33,7 @@ import type {
   LorebookEntryTimingState,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../services/storage/game-state.storage.js";
@@ -70,6 +71,7 @@ import {
 } from "../services/memory-recall-embedding.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
 import { sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
+import { applyImmersiveHtmlPromptInjection } from "../services/generation/immersive-html-injection.js";
 
 type TrackerWrapFormat = "xml" | "markdown" | "none";
 type EntryStateOverrides = Record<string, { ephemeral?: number | null; enabled?: boolean }>;
@@ -1789,54 +1791,17 @@ export async function chatsRoutes(app: FastifyInstance) {
             }
           }
 
-          // ── Static injection: Immersive HTML agent ──
+          // ── Static injection: Immersive HTML is a prompt directive, not a runtime LLM agent ──
           const peekAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
-          if (
-            chatMeta.enableAgents === true &&
-            chatMode !== "conversation" &&
-            peekAgentIds.length > 0 &&
-            peekAgentIds.includes("html")
-          ) {
-            const { createAgentsStorage } = await import("../services/storage/agents.storage.js");
-            const agentsStore = createAgentsStorage(app.db);
-            const htmlCfg = await agentsStore.getByType("html");
-            // Per-chat activeAgentIds overrides the global enabled flag (matches generation flow)
-            const htmlPrompt = ((htmlCfg?.promptTemplate as string) || getDefaultAgentPrompt("html")).trim();
-            if (htmlPrompt) {
-              const wrapFmt = (preset as any).wrapFormat || "xml";
-              const htmlBlock = wrapFmt === "markdown" ? `\n## Immersive HTML\n${htmlPrompt}` : htmlPrompt;
-              let injected = false;
-              for (let i = 0; i < assembled.messages.length; i++) {
-                const msg = assembled.messages[i]!;
-                if (msg.content.includes("</output_format>")) {
-                  assembled.messages[i] = {
-                    ...msg,
-                    content: msg.content.replace("</output_format>", "    " + htmlBlock + "\n</output_format>"),
-                  };
-                  injected = true;
-                  break;
-                }
-              }
-              if (!injected) {
-                let lastUserIdx = -1;
-                for (let i = assembled.messages.length - 1; i >= 0; i--) {
-                  if (assembled.messages[i]!.role === "user") {
-                    lastUserIdx = i;
-                    break;
-                  }
-                }
-                const idx = lastUserIdx >= 0 ? lastUserIdx : assembled.messages.length - 1;
-                const target = assembled.messages[idx]!;
-                assembled.messages[idx] = {
-                  ...target,
-                  content:
-                    target.content +
-                    "\n\n" +
-                    (wrapFmt === "xml" ? `<immersive_html>\n${htmlPrompt}\n</immersive_html>` : htmlBlock),
-                };
-              }
-            }
-          }
+          const previewAgentsStore = createAgentsStorage(app.db);
+          await applyImmersiveHtmlPromptInjection({
+            chatMode,
+            enableAgents: chatMeta.enableAgents === true,
+            activeAgentIds: peekAgentIds,
+            wrapFormat: (preset as any).wrapFormat || "xml",
+            messages: assembled.messages,
+            getHtmlAgentConfig: () => previewAgentsStore.getByType("html"),
+          });
 
           // ── Fallback: inject character & persona info if the preset didn't include them ──
           const wrapFormat = ((preset as any).wrapFormat as "xml" | "markdown" | "none") || "xml";

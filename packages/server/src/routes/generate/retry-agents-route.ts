@@ -79,6 +79,12 @@ import {
 } from "./expression-agent-utils.js";
 import { ILLUSTRATOR_TEXT_NEGATIVE_PROMPT, resolveIllustratorCharacterReferences } from "./illustrator-references.js";
 import {
+  applyTextRewriteAgentChatSettings,
+  mergePairedBuiltInRewriteAgents,
+  normalizeProseGuardianPromptTemplate,
+} from "../../services/generation/prose-guardian-settings.js";
+import { applyKnowledgeAgentChatSettings } from "../../services/generation/knowledge-agent-settings.js";
+import {
   normalizeContextInjections,
   normalizeSecretPlotSceneDirections,
   normalizeStringArray,
@@ -186,6 +192,11 @@ function applyRetryMusicPlayerSource(
     musicPlayerSource: activeMusicPlayerSource,
     enabledTools: activeMusicPlayerSource === "youtube" ? [] : (DEFAULT_AGENT_TOOLS.spotify ?? []),
   };
+}
+
+function resolveRetryAgentRuntimePhase(agentType: string, configuredPhase: string): string {
+  if (agentType === "prose-guardian" || agentType === "continuity") return "post_processing";
+  return configuredPhase;
 }
 
 function getRetryAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
@@ -791,9 +802,11 @@ async function resolveRetryAgents(args: {
     if (cfg.type === "spotify") {
       settings = applyRetryMusicPlayerSource(settings, activeMusicPlayerSource);
     }
+    settings = applyTextRewriteAgentChatSettings(cfg.type as string, settings, chatMeta);
+    settings = applyKnowledgeAgentChatSettings(cfg.type as string, settings, chatMeta);
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: cfg.type as string,
-      promptTemplate: cfg.promptTemplate as string,
+      promptTemplate: normalizeProseGuardianPromptTemplate(cfg.type as string, cfg.promptTemplate),
       fallbackPromptTemplate: getRetryAgentFallbackPrompt(cfg.type as string, settings),
       settings,
       selectedPromptTemplateId: agentPromptTemplateSelections[cfg.type as string] ?? null,
@@ -805,7 +818,7 @@ async function resolveRetryAgents(args: {
         id: cfg.id,
         type: cfg.type,
         name: cfg.name,
-        phase: cfg.phase as string,
+        phase: resolveRetryAgentRuntimePhase(cfg.type as string, cfg.phase as string),
         promptTemplate: selectedPromptTemplate,
         connectionId: effectiveConnectionId,
         settings,
@@ -836,6 +849,8 @@ async function resolveRetryAgents(args: {
     if (builtIn.id === "spotify") {
       settings = applyRetryMusicPlayerSource(settings, activeMusicPlayerSource);
     }
+    settings = applyTextRewriteAgentChatSettings(builtIn.id, settings, chatMeta);
+    settings = applyKnowledgeAgentChatSettings(builtIn.id, settings, chatMeta);
     const selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: builtIn.id,
       promptTemplate: "",
@@ -850,7 +865,7 @@ async function resolveRetryAgents(args: {
         id: `builtin:${builtIn.id}`,
         type: builtIn.id,
         name: builtIn.name,
-        phase: builtIn.phase,
+        phase: resolveRetryAgentRuntimePhase(builtIn.id, builtIn.phase),
         promptTemplate: selectedPromptTemplate,
         connectionId: builtInProvider.connectionId,
         settings,
@@ -1550,12 +1565,13 @@ async function executeRetryBatches(
   resolvedAgents: ResolvedRetryAgent[],
   preGenerationContext?: AgentContext | null,
 ) {
+  const retryAgents = mergeRetryPairedBuiltInRewriteAgents(resolvedAgents);
   const providerModelGroups = new Map<
     string,
     { agents: ResolvedRetryAgent[]; provider: any; model: string; context: AgentContext; maxParallelJobs: number }
   >();
 
-  for (const entry of resolvedAgents) {
+  for (const entry of retryAgents) {
     const context =
       preGenerationContext && entry.resolved.phase === "pre_generation" ? preGenerationContext : agentContext;
     const contextKind = context === preGenerationContext ? "pre_generation" : "default";
@@ -1629,6 +1645,29 @@ async function executeRetryBatches(
   }
 
   return results;
+}
+
+function mergeRetryPairedBuiltInRewriteAgents(entries: ResolvedRetryAgent[]): ResolvedRetryAgent[] {
+  const proseGuardian = entries.find((entry) => entry.resolved.type === "prose-guardian");
+  const continuity = entries.find((entry) => entry.resolved.type === "continuity");
+  if (!proseGuardian || !continuity) return entries;
+
+  const firstMergeIndex = Math.min(entries.indexOf(proseGuardian), entries.indexOf(continuity));
+  const mergedResolved = mergePairedBuiltInRewriteAgents([proseGuardian.resolved, continuity.resolved])[0];
+  if (!mergedResolved) return entries;
+  const mergedEntry: ResolvedRetryAgent = {
+    ...proseGuardian,
+    resolved: mergedResolved,
+  };
+
+  const merged: ResolvedRetryAgent[] = [];
+  for (let index = 0; index < entries.length; index++) {
+    const entry = entries[index]!;
+    if (index === firstMergeIndex) merged.push(mergedEntry);
+    if (entry.resolved.type === "prose-guardian" || entry.resolved.type === "continuity") continue;
+    merged.push(entry);
+  }
+  return merged;
 }
 
 async function persistRetryResults(
@@ -1763,6 +1802,7 @@ async function applyRetryResultEffects(args: {
   const agentsStore = createAgentsStorage(app.db);
   const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
   let currentResponseForRewrite = agentContext.mainResponse;
+  const originalResponseBeforeRewrite = agentContext.mainResponse;
   let retryBaseGameStateSnapshotPromise: ReturnType<typeof gameStateStore.getForGeneration> | null = null;
   const loadRetryBaseGameStateSnapshot = () => {
     retryBaseGameStateSnapshotPromise ??= gameStateStore.getForGeneration(chatId, {
@@ -1785,9 +1825,21 @@ async function applyRetryResultEffects(args: {
     if (result.success && result.type === "text_rewrite" && result.data && typeof result.data === "object") {
       try {
         const rewriteData = result.data as Record<string, unknown>;
-        const editedText = (rewriteData.editedText as string) ?? "";
-        const changes = (rewriteData.changes as Array<{ description: string }>) ?? [];
-        if (retryMessageId && editedText && changes.length > 0) {
+        const editedText = typeof rewriteData.editedText === "string" ? rewriteData.editedText : "";
+        const changes = Array.isArray(rewriteData.changes)
+          ? (rewriteData.changes as Array<{ description: string }>)
+          : [{ description: "Rewrote the assistant response." }];
+        const editNeededValue = rewriteData.editNeeded;
+        const strictEditNeeded = result.agentType === "prose-guardian" || result.agentType === "continuity";
+        const rewriteAllowed =
+          editNeededValue === false
+            ? false
+            : strictEditNeeded
+              ? editNeededValue === true
+              : true;
+        const changedMessage =
+          rewriteAllowed && editedText.trim().length > 0 && editedText !== currentResponseForRewrite;
+        if (retryMessageId && changedMessage) {
           const currentMessage = await chats.getMessage(retryMessageId);
           if ((currentMessage?.content ?? "") !== currentResponseForRewrite) {
             logger.info(
@@ -1798,7 +1850,22 @@ async function applyRetryResultEffects(args: {
           }
           currentResponseForRewrite = editedText;
           await chats.updateMessageContent(retryMessageId, editedText);
-          sendSseEvent(reply, { type: "text_rewrite", data: { editedText, changes } });
+          const originalText = strictEditNeeded ? originalResponseBeforeRewrite : null;
+          if (originalText) {
+            await chats.updateMessageExtra(retryMessageId, {
+              proseGuardianOriginalText: originalText,
+              proseGuardianRewrittenAt: new Date().toISOString(),
+            });
+          }
+          sendSseEvent(reply, {
+            type: "text_rewrite",
+            data: {
+              editedText,
+              changes,
+              rewriteApplied: true,
+              ...(originalText ? { originalText, agentType: result.agentType } : {}),
+            },
+          });
         }
       } catch {
         // Non-critical patching failure.

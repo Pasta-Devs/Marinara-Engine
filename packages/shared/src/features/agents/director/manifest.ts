@@ -3,11 +3,12 @@ import type { BuiltInAgentManifest } from "../agent-manifest.types.js";
 export const directorAgentManifest = {
   id: "director",
   name: "Narrative Director",
-  description: "Introduces events, NPCs, and plot beats to keep the story moving.",
+  description: "Creates one-shot story directions when you choose to push the next response forward.",
   phase: "pre_generation",
   enabledByDefault: false,
-  defaultInjectAsSection: true,
   category: "writer",
-  defaultTools: ["trigger_event"],
-  runInterval: 5,
+  defaultTools: [],
+  defaultSettings: {
+    directorMode: "natural",
+  },
 } satisfies BuiltInAgentManifest;

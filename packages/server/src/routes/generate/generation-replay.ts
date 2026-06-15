@@ -7,6 +7,7 @@ export interface GenerationReplay {
   userMessage?: string | null;
   generationGuide?: string;
   generationGuideSource?: GenerationReplayGuideSource;
+  narrativeDirectorMode?: "natural" | "random";
   impersonatePresetId?: string | null;
   impersonateConnectionId?: string | null;
   impersonateBlockAgents?: boolean;
@@ -18,6 +19,7 @@ export interface GenerationReplayInput {
   impersonate?: boolean;
   generationGuide?: string | null;
   generationGuideSource?: GenerationReplayGuideSource | null;
+  narrativeDirectorMode?: "natural" | "random" | null;
   impersonatePresetId?: string | null;
   impersonateConnectionId?: string | null;
   impersonateBlockAgents?: boolean;
@@ -40,6 +42,10 @@ function asGuideSource(value: unknown): GenerationReplayGuideSource | null {
     : null;
 }
 
+function asNarrativeDirectorMode(value: unknown): "natural" | "random" | null {
+  return value === "natural" || value === "random" ? value : null;
+}
+
 export function buildGenerationReplay(input: GenerationReplayInput): GenerationReplay | null {
   const replay: GenerationReplay = {};
   const guide = asNonEmptyString(input.generationGuide);
@@ -49,6 +55,9 @@ export function buildGenerationReplay(input: GenerationReplayInput): GenerationR
     replay.generationGuide = guide;
     replay.generationGuideSource = guideSource;
   }
+
+  const narrativeDirectorMode = asNarrativeDirectorMode(input.narrativeDirectorMode);
+  if (narrativeDirectorMode) replay.narrativeDirectorMode = narrativeDirectorMode;
 
   if (input.impersonate === true) {
     replay.impersonate = true;
@@ -78,6 +87,7 @@ export function normalizeGenerationReplay(value: unknown): GenerationReplay | nu
     impersonate: raw.impersonate === true,
     generationGuide: asNonEmptyString(raw.generationGuide),
     generationGuideSource: asGuideSource(raw.generationGuideSource),
+    narrativeDirectorMode: asNarrativeDirectorMode(raw.narrativeDirectorMode),
     impersonatePresetId: asTrimmedNonEmptyString(raw.impersonatePresetId),
     impersonateConnectionId: asTrimmedNonEmptyString(raw.impersonateConnectionId),
     impersonateBlockAgents: raw.impersonateBlockAgents === true,
@@ -140,6 +150,11 @@ export function applyGenerationReplayToRegenerateInput(
   if (replay.impersonate !== true && !asNonEmptyString(input.generationGuide) && replay.generationGuide) {
     input.generationGuide = replay.generationGuide;
     input.generationGuideSource = replay.generationGuideSource ?? "guide";
+    applied = true;
+  }
+
+  if (!asNarrativeDirectorMode(input.narrativeDirectorMode) && replay.narrativeDirectorMode) {
+    input.narrativeDirectorMode = replay.narrativeDirectorMode;
     applied = true;
   }
 

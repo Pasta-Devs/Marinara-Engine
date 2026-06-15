@@ -26,7 +26,6 @@ const AGENT_ORDER = [
   "chat-summary",
   "spotify",
   "youtube",
-  "editor",
   "knowledge-retrieval",
   "knowledge-router",
   "schedule-planner",

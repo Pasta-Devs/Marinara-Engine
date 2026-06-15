@@ -627,6 +627,8 @@ export async function encounterRoutes(app: FastifyInstance) {
       }
       debugLog("[debug/game/combat:init] parsed response:\n%s", JSON.stringify(combatState, null, 2));
 
+      await chats.patchMetadata(chatId, { encounterActive: true }, { touchUpdatedAt: false });
+
       return { combatState };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -787,6 +789,8 @@ export async function encounterRoutes(app: FastifyInstance) {
         characterId: null,
         content: summary,
       });
+
+      await chats.patchMetadata(chatId, { encounterActive: false }, { touchUpdatedAt: false });
 
       return { summary, messageId: msg?.id ?? "" };
     } catch (err) {

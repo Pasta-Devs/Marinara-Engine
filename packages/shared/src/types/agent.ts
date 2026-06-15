@@ -14,6 +14,21 @@ export type AgentPhase =
   /** After the main response is complete (can modify it) */
   | "post_processing";
 
+const AGENT_PHASE_VALUES = new Set<AgentPhase>(["pre_generation", "parallel", "post_processing"]);
+
+export function normalizeAgentPhaseValue(value: unknown, fallback: AgentPhase = "post_processing"): AgentPhase {
+  return typeof value === "string" && AGENT_PHASE_VALUES.has(value as AgentPhase) ? (value as AgentPhase) : fallback;
+}
+
+export function normalizeAgentPhaseForType(
+  agentType: string,
+  configuredPhase: unknown,
+  fallback: AgentPhase = "post_processing",
+): AgentPhase {
+  if (agentType === "prose-guardian" || agentType === "continuity") return "post_processing";
+  return normalizeAgentPhaseValue(configuredPhase, fallback);
+}
+
 /** The result type an agent can produce. */
 export type AgentResultType =
   | "game_state_update"
@@ -179,11 +194,17 @@ export function getAgentPromptTemplateOptions(input: {
 }): AgentPromptTemplateOption[] {
   const settings = parseAgentSettingsRecord(input.settings);
   const basePromptTemplate = input.promptTemplate?.trim() ? input.promptTemplate : (input.fallbackPromptTemplate ?? "");
+  const defaultName = normalizePromptTemplateName(settings.defaultPromptTemplateName, "Default");
+  const defaultDescription =
+    typeof settings.defaultPromptTemplateDescription === "string"
+      ? settings.defaultPromptTemplateDescription.trim()
+      : "";
   return [
     {
       id: DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
-      name: "Default",
+      name: defaultName,
       promptTemplate: basePromptTemplate,
+      ...(defaultDescription ? { description: defaultDescription } : {}),
     },
     ...normalizeAgentPromptTemplateOptions(settings.promptTemplates),
   ];
@@ -357,7 +378,6 @@ export const BUILT_IN_AGENT_IDS = {
   HTML: "html",
   CHAT_SUMMARY: "chat-summary",
   SPOTIFY: "spotify",
-  EDITOR: "editor",
   KNOWLEDGE_RETRIEVAL: "knowledge-retrieval",
   KNOWLEDGE_ROUTER: "knowledge-router",
   SCHEDULE_PLANNER: "schedule-planner",
@@ -393,7 +413,7 @@ export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = BUILT_IN_AGENT_MANIFESTS.map(
   name: agent.name,
   description: agent.description,
   author: agent.author ?? DEFAULT_AGENT_AUTHOR,
-  phase: agent.phase,
+  phase: normalizeAgentPhaseForType(agent.id, agent.phase),
   enabledByDefault: agent.enabledByDefault,
   ...(agent.defaultInjectAsSection !== undefined ? { defaultInjectAsSection: agent.defaultInjectAsSection } : {}),
   category: agent.category,
@@ -502,6 +522,41 @@ export function getDefaultBuiltInAgentSettings(agentType: string): Record<string
   }
 
   return settings;
+}
+
+const OBSOLETE_BUILT_IN_PROMPT_TEMPLATE_IDS: Record<string, ReadonlySet<string>> = {
+  illustrator: new Set(["illustration", "sketch"]),
+};
+
+export function mergeBuiltInAgentSettings(agentType: string, settings: unknown): Record<string, unknown> {
+  const parsed = parseAgentSettingsRecord(settings);
+  const builtIn = BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === agentType);
+  if (!builtIn) return parsed;
+
+  const defaults = getDefaultBuiltInAgentSettings(agentType);
+  const merged: Record<string, unknown> = {
+    ...defaults,
+    ...parsed,
+  };
+
+  const defaultPromptTemplates = normalizeAgentPromptTemplateOptions(defaults.promptTemplates);
+  const savedPromptTemplates = normalizeAgentPromptTemplateOptions(parsed.promptTemplates);
+  const obsoleteIds = OBSOLETE_BUILT_IN_PROMPT_TEMPLATE_IDS[agentType] ?? new Set<string>();
+  const usedIds = new Set(defaultPromptTemplates.map((entry) => entry.id));
+  const customPromptTemplates = savedPromptTemplates.filter((entry) => {
+    if (obsoleteIds.has(entry.id) || usedIds.has(entry.id)) return false;
+    usedIds.add(entry.id);
+    return true;
+  });
+  const promptTemplates = [...defaultPromptTemplates, ...customPromptTemplates];
+
+  if (promptTemplates.length) {
+    merged.promptTemplates = promptTemplates;
+  } else {
+    delete merged.promptTemplates;
+  }
+
+  return merged;
 }
 
 /** Recommended default tools for each built-in agent type. */

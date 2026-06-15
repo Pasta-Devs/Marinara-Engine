@@ -37,6 +37,7 @@ export const generateRequestSchema = z.object({
   userTimeZone: z.string().max(100).optional().default(""),
   mentionedCharacterNames: z.array(z.string()).optional().default([]),
   forCharacterId: z.string().nullable().optional().default(null),
+  narrativeDirectorMode: z.enum(["natural", "random"]).nullable().optional().default(null),
   generationGuide: z.string().nullable().optional().default(null),
   generationGuideSource: z.enum(["narrator", "guide", "game_start"]).nullable().optional().default(null),
   agentInjectionOverrides: z

@@ -10,14 +10,6 @@ export const EVERY_RUN_LABEL = "Every run";
 
 export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): AgentRunIntervalMeta | null {
   switch (agentType) {
-    case "director":
-      return {
-        label: "Run Interval",
-        unit: "assistant messages",
-        help: "How many assistant messages should pass before the Narrative Director jumps in again. Higher values make it less aggressive.",
-        defaultValue: 5,
-        max: 100,
-      };
     case "illustrator":
       return {
         label: "Run Interval",

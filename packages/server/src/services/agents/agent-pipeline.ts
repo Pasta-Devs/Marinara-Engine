@@ -286,8 +286,22 @@ export async function runPreGenerationAgents(
   for (const result of results) {
     if (!result.success) continue;
 
-    // prose-guardian & director produce text to inject
-    if (result.type === "context_injection" || result.type === "director_event") {
+    // Director and context-injection agents produce text to inject.
+    if (result.type === "director_event") {
+      const text =
+        typeof result.data === "string"
+          ? result.data
+          : typeof (result.data as any)?.direction === "string"
+            ? (result.data as any).direction
+            : typeof (result.data as any)?.text === "string"
+              ? (result.data as any).text
+              : "";
+      const agentName = agents.find((agent) => agent.type === result.agentType)?.name;
+      if (text.trim()) injections.push({ agentType: result.agentType, agentName, text: text.trim() });
+      continue;
+    }
+
+    if (result.type === "context_injection") {
       const text = typeof result.data === "string" ? result.data : ((result.data as any)?.text ?? "");
       const agentName = agents.find((agent) => agent.type === result.agentType)?.name;
       if (text) injections.push({ agentType: result.agentType, agentName, text });

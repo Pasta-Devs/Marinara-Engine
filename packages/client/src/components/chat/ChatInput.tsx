@@ -22,6 +22,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useGenerate } from "../../hooks/use-generate";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
+import { useAgentConfigs } from "../../hooks/use-agents";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../hooks/use-chats";
 import { characterKeys } from "../../hooks/use-characters";
 import { buildGuidedGenerationInstructionMessage, formatTextQuotes, type Message } from "@marinara-engine/shared";
@@ -53,6 +54,8 @@ interface Attachment {
 }
 
 const EMPTY_RESPONSE_QUEUE: string[] = [];
+
+type NarrativeDirectorMode = "natural" | "random";
 
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "csv",
@@ -142,6 +145,7 @@ export const ChatInput = memo(function ChatInput({
   const [pendingAttachmentReadsByChat, setPendingAttachmentReadsByChat] = useState<Record<string, number>>({});
   const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [pushStoryArmed, setPushStoryArmed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [charPickerOpen, setCharPickerOpen] = useState(false);
   const charPickerBtnRef = useRef<HTMLButtonElement>(null);
@@ -188,6 +192,7 @@ export const ChatInput = memo(function ChatInput({
     [responseQueue],
   );
   const { generate } = useGenerate();
+  const { data: agentConfigs } = useAgentConfigs(mode === "roleplay");
   const { applyToUserInput } = useApplyRegex();
   const enterToSend = useUIStore((s) => s.enterToSendRP);
   const guideGenerations = useUIStore((s) => s.guideGenerations);
@@ -203,6 +208,37 @@ export const ChatInput = memo(function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizeRafRef = useRef<number>(0);
   const qc = useQueryClient();
+  const activeAgentIds = useMemo(
+    () =>
+      Array.isArray(chatMetadata.activeAgentIds)
+        ? chatMetadata.activeAgentIds.filter((id): id is string => typeof id === "string")
+        : [],
+    [chatMetadata.activeAgentIds],
+  );
+  const globalDirectorEnabled = useMemo(
+    () =>
+      activeAgentIds.length === 0 &&
+      (agentConfigs ?? []).some((agent) => agent.type === "director" && agent.enabled !== "false"),
+    [activeAgentIds.length, agentConfigs],
+  );
+  const narrativeDirectorActive =
+    mode === "roleplay" &&
+    chatMetadata.enableAgents === true &&
+    (activeAgentIds.includes("director") || globalDirectorEnabled);
+  const narrativeDirectorMode: NarrativeDirectorMode =
+    chatMetadata.narrativeDirectorMode === "random" ? "random" : "natural";
+  const consumeNarrativeDirectorMode = useCallback((): NarrativeDirectorMode | undefined => {
+    if (!pushStoryArmed || !narrativeDirectorActive) return undefined;
+    setPushStoryArmed(false);
+    return narrativeDirectorMode;
+  }, [narrativeDirectorActive, narrativeDirectorMode, pushStoryArmed]);
+  const generateWithNarrativeDirector = useCallback(
+    (params: Parameters<typeof generate>[0]) => {
+      const directorMode = consumeNarrativeDirectorMode();
+      return generate(directorMode ? { ...params, narrativeDirectorMode: directorMode } : params);
+    },
+    [consumeNarrativeDirectorMode, generate],
+  );
 
   const syncInputState = useCallback(
     (value: string) => {
@@ -468,7 +504,7 @@ export const ChatInput = memo(function ChatInput({
     return {
       chatId: activeChatId,
       mode,
-      generate,
+      generate: generateWithNarrativeDirector,
       createMessage: (data) => createMessage.mutate(data),
       invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
       characterNames: activeCharacterNames,
@@ -477,7 +513,33 @@ export const ChatInput = memo(function ChatInput({
         ? (characterId, expression) => onExpressionChange(characterId, expression, { immediate: true })
         : undefined,
     };
-  }, [activeChatId, mode, generate, createMessage, activeCharacterNames, activeChatCharacters, onExpressionChange, qc]);
+  }, [
+    activeChatId,
+    mode,
+    generateWithNarrativeDirector,
+    createMessage,
+    activeCharacterNames,
+    activeChatCharacters,
+    onExpressionChange,
+    qc,
+  ]);
+
+  const handleTogglePushStory = useCallback(() => {
+    if (!narrativeDirectorActive || isStreaming) return;
+    setPushStoryArmed((current) => {
+      const next = !current;
+      if (next) {
+        toast.success(
+          `The next time a character responds, they will push the story forward ${
+            narrativeDirectorMode === "random" ? "randomly" : "naturally"
+          }!`,
+        );
+      } else {
+        toast.info("Push Story disarmed.");
+      }
+      return next;
+    });
+  }, [isStreaming, narrativeDirectorActive, narrativeDirectorMode]);
 
   const handleSend = useCallback(async () => {
     const raw = getValue();
@@ -500,7 +562,11 @@ export const ChatInput = memo(function ChatInput({
       if (queuedCharacterId) {
         removeFromResponseQueue(activeChatId, queuedCharacterId);
         try {
-          await generate({ chatId: activeChatId, connectionId: null, forCharacterId: queuedCharacterId });
+          await generateWithNarrativeDirector({
+            chatId: activeChatId,
+            connectionId: null,
+            forCharacterId: queuedCharacterId,
+          });
         } catch (error) {
           const msg = error instanceof Error ? error.message : "Generation failed";
           toast.error(msg);
@@ -513,7 +579,7 @@ export const ChatInput = memo(function ChatInput({
       if (lastMsg && (lastMsg.role === "user" || (lastMsg.role === "assistant" && mode === "roleplay"))) {
         // Retry (last msg is user) or Continue (last msg is assistant, roleplay mode)
         try {
-          await generate({ chatId: activeChatId, connectionId: null });
+          await generateWithNarrativeDirector({ chatId: activeChatId, connectionId: null });
         } catch (error) {
           const msg = error instanceof Error ? error.message : "Generation failed";
           toast.error(msg);
@@ -649,7 +715,7 @@ export const ChatInput = memo(function ChatInput({
     }
 
     try {
-      await generate({
+      await generateWithNarrativeDirector({
         chatId: activeChatId,
         connectionId: null,
         userMessage: message,
@@ -663,7 +729,7 @@ export const ChatInput = memo(function ChatInput({
   }, [
     activeChatId,
     isStreaming,
-    generate,
+    generateWithNarrativeDirector,
     applyToUserInput,
     buildContext,
     qc,
@@ -1083,7 +1149,7 @@ export const ChatInput = memo(function ChatInput({
       }
       const guideText = getValue();
       try {
-        await generate(
+        await generateWithNarrativeDirector(
           guideGenerations && hasInput
             ? {
                 chatId: activeChatId,
@@ -1099,7 +1165,15 @@ export const ChatInput = memo(function ChatInput({
         toast.error(msg);
       }
     },
-    [activeChatId, isStreaming, generate, hasInput, guideGenerations, responseQueue, removeFromResponseQueue],
+    [
+      activeChatId,
+      isStreaming,
+      generateWithNarrativeDirector,
+      hasInput,
+      guideGenerations,
+      responseQueue,
+      removeFromResponseQueue,
+    ],
   );
 
   // Close character picker on outside click
@@ -1221,6 +1295,31 @@ export const ChatInput = memo(function ChatInput({
 
       {/* Feedback toast */}
       {feedback && <SlashCommandFeedback feedback={feedback} onDismiss={() => setFeedback(null)} className="mb-2" />}
+
+      {narrativeDirectorActive && (
+        <div className="flex justify-center py-1">
+          <button
+            type="button"
+            onClick={handleTogglePushStory}
+            disabled={isStreaming}
+            aria-pressed={pushStoryArmed}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50",
+              pushStoryArmed
+                ? "bg-foreground/10 text-foreground ring-1 ring-foreground/25"
+                : "text-foreground/50 hover:bg-foreground/10 hover:text-foreground/80",
+            )}
+            title={
+              narrativeDirectorMode === "random"
+                ? "Arm a random Narrative Director event for the next response"
+                : "Arm a natural Narrative Director push for the next response"
+            }
+          >
+            <WandSparkles size="0.875rem" />
+            <span>Push Story</span>
+          </button>
+        </div>
+      )}
 
       {/* Attachment previews */}
       {(attachments.length > 0 || isReadingAttachments) && (

@@ -4,7 +4,7 @@ export const lorebookKeeperAgentManifest = {
   id: "lorebook-keeper",
   name: "Lorebook Keeper",
   description:
-    "Automatically creates and updates lorebook entries based on story events, new characters, and world changes.",
+    "Creates and updates durable chat lorebook entries from important story facts, characters, places, and world changes.",
   phase: "post_processing",
   enabledByDefault: false,
   category: "misc",

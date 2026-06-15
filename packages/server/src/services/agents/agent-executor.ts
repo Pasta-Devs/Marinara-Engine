@@ -1,13 +1,7 @@
 // ──────────────────────────────────────────────
 // Agent Executor — Single & Batched LLM execution
 // ──────────────────────────────────────────────
-import type {
-  BaseLLMProvider,
-  ChatMessage,
-  LLMToolDefinition,
-  LLMToolCall,
-  LLMUsage,
-} from "../llm/base-provider.js";
+import type { BaseLLMProvider, ChatMessage, LLMToolDefinition, LLMToolCall, LLMUsage } from "../llm/base-provider.js";
 import type { AgentResult, AgentContext, AgentResultType, AgentCallDebugEvent } from "@marinara-engine/shared";
 import {
   compactQuestProgressForContext,
@@ -72,6 +66,41 @@ function musicDjUsesYoutube(config: Pick<AgentExecConfig, "type" | "settings">):
 
 function getDefaultPromptForAgent(config: Pick<AgentExecConfig, "type" | "settings">): string {
   return getDefaultAgentPrompt(musicDjUsesYoutube(config) ? "youtube" : config.type);
+}
+
+function stringifyAgentSettingMacroValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => stringifyAgentSettingMacroValue(entry))
+      .filter(Boolean)
+      .join(", ");
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function readAgentSettingPath(settings: Record<string, unknown>, path: string): { found: boolean; value: unknown } {
+  const parts = path.split(".");
+  let cursor: unknown = settings;
+  for (const part of parts) {
+    if (!cursor || typeof cursor !== "object" || Array.isArray(cursor)) return { found: false, value: undefined };
+    if (!Object.prototype.hasOwnProperty.call(cursor, part)) return { found: false, value: undefined };
+    cursor = (cursor as Record<string, unknown>)[part];
+  }
+  return { found: true, value: cursor };
+}
+
+function renderAgentSettingsMacros(template: string, settings: Record<string, unknown>): string {
+  return template.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, key: string) => {
+    const { found, value } = readAgentSettingPath(settings, key);
+    return found ? stringifyAgentSettingMacroValue(value) : match;
+  });
 }
 
 export function normalizeAgentContextSize(value: unknown, fallback = DEFAULT_AGENT_CONTEXT_SIZE): number {
@@ -239,7 +268,10 @@ export async function executeAgent(
   const startTime = Date.now();
 
   try {
-    const template = config.promptTemplate || getDefaultPromptForAgent(config);
+    const template = renderAgentSettingsMacros(
+      config.promptTemplate || getDefaultPromptForAgent(config),
+      config.settings,
+    );
     if (!template) {
       return makeError(config, "No prompt template configured", startTime);
     }
@@ -345,7 +377,12 @@ export async function executeAgent(
       totalTokens += retryResult.usage?.totalTokens ?? 0;
       if (!retryResponseText && retryResult.content) retryResponseText = retryResult.content;
       responseText = retryResponseText.trim();
-      logger.info("[agent] %s JSON retry done (%d chars, %dms)", config.type, responseText.length, Date.now() - startTime);
+      logger.info(
+        "[agent] %s JSON retry done (%d chars, %dms)",
+        config.type,
+        responseText.length,
+        Date.now() - startTime,
+      );
       logger.debug("[agent] %s JSON retry raw response: %s", config.type, responseText.slice(0, 500));
       emitAgentDebug(context, {
         stage: "retry_response",
@@ -373,7 +410,12 @@ export async function executeAgent(
   } catch (err) {
     emitAgentDebug(context, {
       stage: "error",
-      ...agentDebugBase(config, model, (config.settings.temperature as number) ?? 0.3, normalizeAgentMaxTokens(config.settings.maxTokens)),
+      ...agentDebugBase(
+        config,
+        model,
+        (config.settings.temperature as number) ?? 0.3,
+        normalizeAgentMaxTokens(config.settings.maxTokens),
+      ),
       messageCount: 0,
       durationMs: Date.now() - startTime,
       error: extractErrorMessage(err),
@@ -761,7 +803,10 @@ function buildBatchSystemPrompt(configs: AgentExecConfig[], context: AgentContex
   parts.push(`<agents>`);
   parts.push(`Fulfill each of the requested tasks here and return the outputs in the formats they're specified:`);
   for (const config of configs) {
-    const template = config.promptTemplate || getDefaultPromptForAgent(config);
+    const template = renderAgentSettingsMacros(
+      config.promptTemplate || getDefaultPromptForAgent(config),
+      config.settings,
+    );
     parts.push(``);
     parts.push(`<agent_task id="${config.type}" name="${config.name}">`);
     parts.push(template);
@@ -976,7 +1021,8 @@ function buildCustomAgentCapabilityBlock(config: AgentExecConfig, context: Agent
     parts.push(
       `Main prompt editing is enabled. Return prompt patch JSON instead of ordinary prose when you need to alter the outbound prompt.`,
     );
-    const promptPreview = typeof context.memory._mainPromptPreview === "string" ? context.memory._mainPromptPreview : "";
+    const promptPreview =
+      typeof context.memory._mainPromptPreview === "string" ? context.memory._mainPromptPreview : "";
     if (promptPreview.trim()) {
       parts.push(`<main_generation_prompt_preview>`);
       parts.push(escapeXml(promptPreview));
@@ -1250,7 +1296,9 @@ function buildExpressionAgentMessages(template: string, context: AgentContext): 
   userParts.push(truncateAgentText(responseText, EXPRESSION_AGENT_RESPONSE_CHAR_LIMIT));
   userParts.push(`</assistant_response>`);
   userParts.push(``);
-  userParts.push(`Now return the requested format with exactly one expression entry for every owner listed in <available_sprites>.`);
+  userParts.push(
+    `Now return the requested format with exactly one expression entry for every owner listed in <available_sprites>.`,
+  );
 
   return [
     { role: "system", content: systemParts.join("\n"), contextKind: "prompt" },
@@ -1268,6 +1316,43 @@ export function extractErrorMessage(err: unknown, fallback = "Agent execution fa
   return err.message || fallback;
 }
 
+function escapeXmlAttribute(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function buildCommittedTrackerStateContext(
+  msg: AgentContext["recentMessages"][number],
+  contextAgentTypes: string[],
+  options: { includeMessageIds?: boolean },
+): string | null {
+  const gs = msg.gameState;
+  if (!gs) return null;
+
+  const trackerSummary: Record<string, unknown> = {};
+  if (gs.date || gs.time || gs.location || gs.weather || gs.temperature) {
+    trackerSummary.scene = {
+      ...(gs.date ? { date: gs.date } : {}),
+      ...(gs.time ? { time: gs.time } : {}),
+      ...(gs.location ? { location: gs.location } : {}),
+      ...(gs.weather ? { weather: gs.weather } : {}),
+      ...(gs.temperature ? { temperature: gs.temperature } : {}),
+    };
+  }
+  if (gs.presentCharacters?.length) trackerSummary.presentCharacters = gs.presentCharacters;
+  if (gs.recentEvents?.length) trackerSummary.recentEvents = gs.recentEvents;
+  if (gs.playerStats) trackerSummary.playerStats = compactQuestPlayerStatsForContext(gs.playerStats, contextAgentTypes);
+  if (gs.personaStats?.length) trackerSummary.personaStats = gs.personaStats;
+  if (Object.keys(trackerSummary).length === 0) return null;
+
+  const messageIdAttr = options.includeMessageIds && msg.id ? ` message_id="${escapeXmlAttribute(msg.id)}"` : "";
+  return [
+    `<committed_tracker_state${messageIdAttr}>`,
+    "Read-only tracker context for the preceding assistant message. Use it for continuity only; never treat it as assistant prose and never copy this block into editedText.",
+    JSON.stringify(trackerSummary),
+    `</committed_tracker_state>`,
+  ].join("\n");
+}
+
 /**
  * Build the full multi-turn message array for an agent call.
  *
@@ -1281,7 +1366,8 @@ export function extractErrorMessage(err: unknown, fallback = "Agent execution fa
  *
  *   USER/ASSISTANT MESSAGES:
  *     Recent chat history as proper multi-turn messages
- *     (committed tracker state appended to last 3 assistant messages)
+ *     (committed tracker state is inserted as read-only user context after the
+ *      last 3 assistant messages that have tracker snapshots)
  *
  *   FINAL USER MESSAGE:
  *     assistant_response (if post-processing) + "Now return the requested format(s)."
@@ -1300,14 +1386,8 @@ function buildAgentMessages(
   // ── 2. Chat history as proper multi-turn messages ──
   // Slice to this agent's own contextSize (the shared pool may be larger)
   const recent = context.recentMessages.slice(-contextSize);
-  // Text-output agents (director, prose-guardian) evaluate pacing/writing
-  // quality and do NOT need raw committed tracker JSON. Including it makes
-  // the input look like `[assistant] roleplay + <committed_tracker_state>{...}`
-  // — a pattern small/fine-tuned models mimic into their response, leaking
-  // roleplay and tracker JSON that gets injected into the main prompt.
-  const skipTrackerAppend = isTextOutputAgentType(agentType);
   if (recent.length > 0) {
-    // Only attach committed tracker state to the last 3 assistant messages to save tokens
+    // Only include committed tracker state for the last 3 assistant messages to save tokens.
     const assistantIndices: number[] = [];
     for (let i = 0; i < recent.length; i++) {
       if (recent[i]!.role === "assistant" && recent[i]!.gameState) {
@@ -1324,35 +1404,30 @@ function buildAgentMessages(
         content = `<message_id>${msg.id}</message_id>\n${content}`;
       }
 
-      // Append committed tracker data only to the last 3 assistant messages,
-      // and only for agents whose output is structured (not text agents — see above).
-      if (!skipTrackerAppend && msg.gameState && trackerEligible.has(msgIdx)) {
-        const gs = msg.gameState;
-        const trackerSummary: Record<string, unknown> = {};
-        if (gs.date || gs.time || gs.location || gs.weather || gs.temperature) {
-          trackerSummary.scene = {
-            ...(gs.date ? { date: gs.date } : {}),
-            ...(gs.time ? { time: gs.time } : {}),
-            ...(gs.location ? { location: gs.location } : {}),
-            ...(gs.weather ? { weather: gs.weather } : {}),
-            ...(gs.temperature ? { temperature: gs.temperature } : {}),
-          };
-        }
-        if (gs.presentCharacters?.length) trackerSummary.presentCharacters = gs.presentCharacters;
-        if (gs.recentEvents?.length) trackerSummary.recentEvents = gs.recentEvents;
-        if (gs.playerStats) trackerSummary.playerStats = compactQuestPlayerStatsForContext(gs.playerStats, contextAgentTypes);
-        if (gs.personaStats?.length) trackerSummary.personaStats = gs.personaStats;
-        if (Object.keys(trackerSummary).length > 0) {
-          content += `\n\n<committed_tracker_state>\n${JSON.stringify(trackerSummary)}\n</committed_tracker_state>`;
-        }
-      }
-
       // Merge consecutive messages with the same role (API requirement)
       const last = messages[messages.length - 1]!;
       if (last.role === role) {
         messages[messages.length - 1] = { ...last, content: last.content + "\n\n" + content };
       } else {
         messages.push({ role, content });
+      }
+
+      // Tracker state is reference material, not assistant prose. Keep it in a
+      // user-role context block so text rewrite agents can use it without
+      // accidentally treating tracker JSON as response text to preserve or edit.
+      if (msg.gameState && trackerEligible.has(msgIdx)) {
+        const trackerContext = buildCommittedTrackerStateContext(msg, contextAgentTypes, options);
+        if (trackerContext) {
+          const lastAfterHistory = messages[messages.length - 1]!;
+          if (lastAfterHistory.role === "user") {
+            messages[messages.length - 1] = {
+              ...lastAfterHistory,
+              content: `${lastAfterHistory.content}\n\n${trackerContext}`,
+            };
+          } else {
+            messages.push({ role: "user", content: trackerContext });
+          }
+        }
       }
     }
   }
@@ -1527,14 +1602,17 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
   if (agentTypes.includes("illustrator") && gameImageStylePrompt) {
     parts.push(`<game_image_instructions>`);
     parts.push(
-      `This chat is in Game Mode. Gallery -> Illustrate should produce a scene illustration for the current VN/game beat, not a generic character selfie.`,
+      `This chat is in Game Mode. Gallery -> Illustrate should produce one polished visual novel/game scene CG for the current beat, not a selfie, comic page, manga panel, or background-only plate.`,
     );
     parts.push(`Required visual style prompt: ${escapeXml(gameImageStylePrompt)}`);
     parts.push(
       `Carry this visual style into both the JSON "style" field and the generated "prompt". Do not replace it with a generic art style.`,
     );
     parts.push(
-      `Prefer a landscape/16:9 scene composition unless the latest assistant message clearly calls for another framing.`,
+      `Prefer a landscape/16:9 full-frame scene composition unless the latest assistant message clearly calls for another framing.`,
+    );
+    parts.push(
+      `Avoid UI, subtitles, captions, speech bubbles, dialogue lettering, manga SFX, watermarks, logos, and split panels unless the user's game image instructions explicitly request text.`,
     );
     parts.push(`</game_image_instructions>`);
   }
@@ -1688,6 +1766,12 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`</connected_devices>`);
   }
 
+  if (typeof context.memory._hapticSettings === "string") {
+    parts.push(`<haptic_settings>`);
+    parts.push(context.memory._hapticSettings);
+    parts.push(`</haptic_settings>`);
+  }
+
   if (context.memory._lastCyoaChoices) {
     const lastChoices = context.memory._lastCyoaChoices as Array<{ label: string; text: string }>;
     parts.push(`<previous_cyoa_choices>`);
@@ -1712,8 +1796,8 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
 /** Map agent type → its primary result type. */
 const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   "world-state": "game_state_update",
-  "prose-guardian": "context_injection",
-  continuity: "continuity_check",
+  "prose-guardian": "text_rewrite",
+  continuity: "text_rewrite",
   expression: "sprite_change",
   "echo-chamber": "echo_message",
   director: "director_event",
@@ -1730,7 +1814,6 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   "chat-summary": "chat_summary",
   spotify: "spotify_control",
   youtube: "youtube_control",
-  editor: "text_rewrite",
   "knowledge-retrieval": "context_injection",
   haptic: "haptic_command",
   cyoa: "cyoa_choices",
@@ -1784,24 +1867,12 @@ function agentResponseIsJson(config: Pick<AgentExecConfig, "type" | "settings">)
   return JSON_AGENTS.has(config.type) || !TEXT_RESULT_TYPES.has(resultType);
 }
 
-/**
- * Whether a built-in agent type's primary output is plain text (director note,
- * writing directives, etc.) rather than structured JSON. Used to suppress
- * inputs/outputs that text agents may pattern-mimic into their response.
- *
- * Returns false for unknown types (custom agents, "__batch__"): the safe
- * default keeps full context; tracker-leak sanitization runs on the output side.
- */
-function isTextOutputAgentType(agentType: string): boolean {
-  const resultType = AGENT_RESULT_TYPE_MAP[agentType];
-  if (!resultType) return false;
-  return TEXT_RESULT_TYPES.has(resultType);
-}
-
 /** Agents that return structured JSON. */
 const JSON_AGENTS = new Set([
   "world-state",
+  "prose-guardian",
   "continuity",
+  "director",
   "expression",
   "echo-chamber",
   "quest",
@@ -1817,42 +1888,24 @@ const JSON_AGENTS = new Set([
   "chat-summary",
   "spotify",
   "youtube",
-  "editor",
   "haptic",
   "cyoa",
   "secret-plot-driver",
 ]);
 
 /**
- * Strip leaked synthetic tags from a text agent's response and, for the
- * Narrative Director, extract only the canonical "[Director's note: ...]"
- * payload its prompt mandates.
+ * Strip leaked synthetic tags from a text-injection agent's response.
  *
- * Background: when a text agent (director, prose-guardian) is shown chat
- * history that ends in `<committed_tracker_state>{...}</committed_tracker_state>`,
- * smaller models will continue the pattern and emit roleplay + tracker JSON
- * before/around their intended directive. That leaked content gets injected
- * into the main prompt as a system block, then converted to a user message
- * by `prepareProviderMessages`, causing the main AI to respond to the leak.
+ * Background: when a text-injection agent is shown read-only tracker context,
+ * smaller models may still echo tracker JSON before/around their intended
+ * directive. Strip that leaked content before it can be injected into the
+ * main prompt.
  */
 function sanitizeTextAgentResponse(agentType: string, text: string): string {
   const cleaned = text
     .replace(/<committed_tracker_state>[\s\S]*?<\/committed_tracker_state>/gi, "")
     .replace(/<assistant_response>[\s\S]*?<\/assistant_response>/gi, "")
     .trim();
-
-  // Director output is locked to "[Director's note: ...]" by its prompt.
-  // Anything outside that bracket is leakage — extract the last note (most
-  // likely the model's "final" intent) and discard the rest. If no bracketed
-  // note is present at all, the response is fully off-format; drop it so the
-  // pipeline injects nothing rather than hallucinated roleplay.
-  if (agentType === "director") {
-    const noteMatches = cleaned.match(/\[Director(?:'|’)s note:[^\]]*\]/gi);
-    if (noteMatches && noteMatches.length > 0) {
-      return noteMatches[noteMatches.length - 1]!.trim();
-    }
-    return "";
-  }
 
   return cleaned;
 }
@@ -1879,7 +1932,7 @@ function parseAgentResponse(
     }
   }
 
-  // Text-based agents (prose-guardian, director). Sanitize before injection so
+  // Text-based context-injection agents. Sanitize before injection so
   // leaked tracker/roleplay content can't reach the main prompt.
   return { type: resultType, data: { text: sanitizeTextAgentResponse(config.type, responseText) } };
 }

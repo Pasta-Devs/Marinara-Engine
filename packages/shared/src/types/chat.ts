@@ -4,6 +4,7 @@
 
 import type { MariWorkspaceTraceItem } from "./professor-mari-workspace.js";
 import type { GenerationGuideSource } from "../utils/generation-guide.js";
+import type { HapticFeedbackSensitivity } from "./haptic.js";
 
 /** The four primary chat modes the engine supports. */
 export type ChatMode = "conversation" | "roleplay" | "visual_novel" | "game";
@@ -16,6 +17,15 @@ export type GroupResponseOrder = "sequential" | "smart" | "manual";
 
 /** Spotify source constraints used by Spotify DJ. */
 export type SpotifySourceType = "liked" | "playlist" | "artist" | "any";
+
+export interface KnowledgeAgentSourceSettings {
+  /** When true/omitted, this agent uses the chat's active lorebooks unless fixed sources are selected. */
+  useChatActiveLorebooks?: boolean;
+  /** Fixed lorebook IDs this agent should read instead of chat-active lorebooks. Empty means no fixed override. */
+  sourceLorebookIds?: string[];
+  /** Uploaded file source IDs. Used by Knowledge Retrieval only. */
+  sourceFileIds?: string[];
+}
 
 export const CONVERSATION_COMMAND_KEYS = [
   "schedule_update",
@@ -155,6 +165,8 @@ export interface ChatMetadata {
   summaryEntries?: ChatSummaryEntry[];
   /** Recent message count used by manual rolling summary generation and the automated summary agent. */
   summaryContextSize?: number;
+  /** User-message cadence for the automated roleplay summary updater. */
+  summaryRunInterval?: number;
   /** Chat-scoped manual summary prompt templates. Missing or empty uses the built-in default. */
   summaryPromptTemplates?: ChatSummaryPromptTemplate[];
   /** Selected manual summary prompt template ID. Null/omitted uses the built-in default. */
@@ -169,6 +181,10 @@ export interface ChatMetadata {
   activeAgentIds: string[];
   /** Per-chat selected named prompt template for each agent type. Missing/default = the agent's default prompt. */
   agentPromptTemplateIds?: Record<string, string>;
+  /** Per-chat source overrides for knowledge agents. */
+  knowledgeAgentSources?: Partial<Record<"knowledge-retrieval" | "knowledge-router", KnowledgeAgentSourceSettings>>;
+  /** Narrative Director mode used when Push Story is armed. */
+  narrativeDirectorMode?: "natural" | "random";
   /** Explicit target lorebook for the Lorebook Keeper in this chat. Null/omitted = auto-pick. */
   lorebookKeeperTargetLorebookId?: string | null;
   /** How many assistant responses behind the latest available one Lorebook Keeper should read from. */
@@ -213,6 +229,14 @@ export interface ChatMetadata {
   showSecretPlotPanel?: boolean;
   /** When true, show the Injections tab in the roleplay Agents menu for cached prompt injections. */
   showInjectionsPanel?: boolean;
+  /** Prose Guardian per-chat banned words/settings applied to the rewrite prompt. */
+  proseGuardianBannedWords?: string | null;
+  /** Prose Guardian per-chat prose habits to remove. */
+  proseGuardianAvoidInstructions?: string | null;
+  /** Prose Guardian per-chat preferred style instructions. */
+  proseGuardianStyleInstructions?: string | null;
+  /** Shared Prose Guardian / Continuity Checker toggle. When true/omitted, hide the raw response until rewriting finishes. */
+  proseGuardianHoldForRewrite?: boolean;
   /** When true, tracker agents only run when the user manually triggers them (not after every generation) */
   manualTrackers?: boolean;
   /** Whether to recall memories from this chat during generation. Default: true for conversation/scenes, false for roleplay. */
@@ -236,6 +260,10 @@ export interface ChatMetadata {
   roleplayDmCommandsEnabled?: boolean;
   /** Chat-scoped Intiface Central WebSocket URL for haptic manual and auto-connect. */
   hapticIntifaceUrl?: string | null;
+  /** Roleplay haptic intensity scaling. Missing = standard. */
+  hapticSensitivity?: HapticFeedbackSensitivity;
+  /** When true, very brief accidental brushes may trigger small haptic feedback. Missing/false = only deliberate contact. */
+  hapticIncidentalContact?: boolean;
   /** Music source constraint for Spotify DJ in roleplay and visual novel chats. */
   spotifySourceType?: SpotifySourceType;
   /** Spotify playlist ID used when spotifySourceType is "playlist". */
@@ -414,6 +442,10 @@ export interface MessageExtra {
   isConversationStart?: boolean;
   /** Model's reasoning/thinking content (if available) */
   thinking?: string | null;
+  /** Original assistant message before a post-processing rewrite, used for one-click restore. */
+  proseGuardianOriginalText?: string | null;
+  /** Timestamp for the last post-processing rewrite applied to this message. */
+  proseGuardianRewrittenAt?: string | null;
   /** Professor Mari workspace trace shown on the home assistant transcript. */
   mariWorkspaceTimeline?: MariWorkspaceTraceItem[] | null;
   /** Per-swipe sprite expressions from the Expression Engine agent */
@@ -451,6 +483,7 @@ export interface MessageExtra {
     userMessage?: string | null;
     generationGuide?: string | null;
     generationGuideSource?: GenerationGuideSource | null;
+    narrativeDirectorMode?: "natural" | "random" | null;
     impersonatePresetId?: string | null;
     impersonateConnectionId?: string | null;
     impersonateBlockAgents?: boolean;
@@ -489,6 +522,8 @@ export interface GenerateRequest {
   regenerateMessageId: string | null;
   /** Override connection for this generation */
   connectionId: string | null;
+  /** One-shot Narrative Director mode for this generation, if the user armed Push Story. */
+  narrativeDirectorMode?: "natural" | "random" | null;
 }
 
 /** An SSE event from the generation stream. */

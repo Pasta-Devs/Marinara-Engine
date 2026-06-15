@@ -33,12 +33,13 @@ import {
   Play,
   ChevronRight,
   EyeOff,
+  Shield,
 } from "lucide-react";
 import { formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
 import { memo, useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { chatKeys } from "../../hooks/use-chats";
+import { chatKeys, rememberRecentMessageContentEdit } from "../../hooks/use-chats";
 import { useShallow } from "zustand/react/shallow";
 import { createMessageMacroResolver } from "../../lib/chat-macros";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
@@ -812,6 +813,7 @@ export const ChatMessage = memo(function ChatMessage({
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [manuallyExpandedHidden, setManuallyExpandedHidden] = useState(false);
+  const [restoringProseGuardianOriginal, setRestoringProseGuardianOriginal] = useState(false);
   const collapseHiddenMessages = useUIStore((s) => s.summaryPopoverSettings.collapseHiddenMessages);
   const [avatarLightbox, setAvatarLightbox] = useState<string | null>(null);
   const [avatarLightboxPrompt, setAvatarLightboxPrompt] = useState<string | null>(null);
@@ -1005,6 +1007,13 @@ export const ChatMessage = memo(function ChatMessage({
   const isHiddenFromAI = extra.hiddenFromAI === true;
   const thinking = extra.thinking as string | undefined;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
+  const proseGuardianOriginalText =
+    !isUser &&
+    typeof extra.proseGuardianOriginalText === "string" &&
+    extra.proseGuardianOriginalText.length > 0 &&
+    extra.proseGuardianOriginalText !== message.content
+      ? extra.proseGuardianOriginalText
+      : null;
 
   useEffect(() => {
     setManuallyExpandedHidden(false);
@@ -1020,6 +1029,58 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Remove an attachment from this message (keeps it in gallery)
   const qc = useQueryClient();
+  const handleRestoreProseGuardianOriginal = useCallback(async () => {
+    if (!proseGuardianOriginalText || restoringProseGuardianOriginal) return;
+    setRestoringProseGuardianOriginal(true);
+
+    const msgKey = chatKeys.messages(message.chatId);
+    const clearedProseGuardianExtra = {
+      proseGuardianOriginalText: null,
+      proseGuardianRewrittenAt: null,
+    };
+
+    qc.setQueryData<InfiniteData<Message[]>>(msgKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) =>
+          page.map((m) => {
+            if (m.id !== message.id) return m;
+            const ex = typeof m.extra === "string" ? JSON.parse(m.extra) : (m.extra ?? {});
+            return {
+              ...m,
+              content: proseGuardianOriginalText,
+              extra: { ...ex, ...clearedProseGuardianExtra },
+            } as Message;
+          }),
+        ),
+      };
+    });
+
+    try {
+      const updated = await api.patch<Message>(`/chats/${message.chatId}/messages/${message.id}`, {
+        content: proseGuardianOriginalText,
+      });
+      rememberRecentMessageContentEdit(
+        message.chatId,
+        message.id,
+        updated?.content ?? proseGuardianOriginalText,
+        updated?.activeSwipeIndex ?? message.activeSwipeIndex ?? null,
+      );
+      await api.patch(`/chats/${message.chatId}/messages/${message.id}/extra`, clearedProseGuardianExtra);
+    } finally {
+      setRestoringProseGuardianOriginal(false);
+      qc.invalidateQueries({ queryKey: msgKey });
+    }
+  }, [
+    message.activeSwipeIndex,
+    message.chatId,
+    message.id,
+    proseGuardianOriginalText,
+    qc,
+    restoringProseGuardianOriginal,
+  ]);
+
   const handleRemoveAttachment = useCallback(
     async (index: number) => {
       const current = (extra.attachments as any[]) ?? [];
@@ -1946,6 +2007,21 @@ export const ChatMessage = memo(function ChatMessage({
                 dark
               />
               <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" dark />
+              {proseGuardianOriginalText && (
+                <ActionBtn
+                  icon={
+                    restoringProseGuardianOriginal ? (
+                      <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                    ) : (
+                      <Shield size={MESSAGE_ACTION_ICON_SIZE} />
+                    )
+                  }
+                  onClick={handleRestoreProseGuardianOriginal}
+                  title="Restore original before rewrite"
+                  disabled={restoringProseGuardianOriginal}
+                  dark
+                />
+              )}
               <ActionBtn
                 icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() => onRegenerate?.(message.id)}
@@ -2388,6 +2464,20 @@ export const ChatMessage = memo(function ChatMessage({
               className={translatedText ? "text-blue-500" : undefined}
             />
             <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" />
+            {proseGuardianOriginalText && (
+              <ActionBtn
+                icon={
+                  restoringProseGuardianOriginal ? (
+                    <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                  ) : (
+                    <Shield size={MESSAGE_ACTION_ICON_SIZE} />
+                  )
+                }
+                onClick={handleRestoreProseGuardianOriginal}
+                title="Restore original before rewrite"
+                disabled={restoringProseGuardianOriginal}
+              />
+            )}
             <ActionBtn
               icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={() => onRegenerate?.(message.id)}
