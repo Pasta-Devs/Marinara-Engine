@@ -20,6 +20,9 @@ import {
   stripMacroComments,
   summariesPatchSchema,
   coerceGameStateTextValue,
+  formatCustomTrackerFieldForPrompt,
+  normalizeTrackerFieldLocks,
+  parseTrackerFieldLocks,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -313,7 +316,7 @@ function formatPeekTrackerContextBlock(args: {
       }
 
       if (hasCustomTracker && Array.isArray(stats?.customTrackerFields) && stats.customTrackerFields.length > 0) {
-        const customLines = stats.customTrackerFields.map((f: any) => `- ${f.name}: ${f.value}`);
+        const customLines = stats.customTrackerFields.map(formatCustomTrackerFieldForPrompt);
         trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", wrapFormat));
       }
     } catch {
@@ -1261,6 +1264,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     const presentCharacters = JSON.parse((row.presentCharacters as string) ?? "[]") as Array<Record<string, unknown>>;
     const playerStats = row.playerStats ? JSON.parse(row.playerStats as string) : null;
     const personaStats = row.personaStats ? JSON.parse(row.personaStats as string) : null;
+    const storedManualOverrides = row.manualOverrides ? (JSON.parse(row.manualOverrides as string) as Record<string, string>) : null;
+    const fieldLocks = parseTrackerFieldLocks(row.fieldLocks);
 
     // ── Enrich present characters with avatar paths ──
     // Match NPC names against the chat's known character cards, then fall back to stored NPC avatars on disk.
@@ -1327,7 +1332,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       recentEvents: JSON.parse((row.recentEvents as string) ?? "[]"),
       playerStats,
       personaStats,
-      manualOverrides: row.manualOverrides ? JSON.parse(row.manualOverrides as string) : null,
+      manualOverrides: storedManualOverrides,
+      fieldLocks,
       createdAt: row.createdAt,
     };
   });
@@ -1355,6 +1361,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       presentCharacters: any[];
       playerStats: any;
       personaStats: any[];
+      fieldLocks: Record<string, boolean> | null;
     }> = {};
     if (body.date !== undefined) fields.date = coerceGameStateTextValue(body.date);
     if (body.time !== undefined) fields.time = coerceGameStateTextValue(body.time);
@@ -1364,6 +1371,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (body.presentCharacters !== undefined) fields.presentCharacters = body.presentCharacters as any[];
     if (body.playerStats !== undefined) fields.playerStats = body.playerStats;
     if (body.personaStats !== undefined) fields.personaStats = body.personaStats as any[];
+    if (body.fieldLocks !== undefined) fields.fieldLocks = normalizeTrackerFieldLocks(body.fieldLocks);
     // Target the same snapshot the GET endpoint returns — the one for the last
     // assistant message's active swipe — so edits persist to the row the user
     // actually sees. Falls back to updateLatest when no messages exist yet.
@@ -1425,6 +1433,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           recentEvents: [],
           playerStats: (fields.playerStats as any) ?? null,
           personaStats: (fields.personaStats as any) ?? null,
+          fieldLocks: normalizeTrackerFieldLocks(fields.fieldLocks),
         },
         Object.keys(manualOverrides).length > 0 ? manualOverrides : null,
       );
@@ -2439,6 +2448,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                   : typeof snapshot.personaStats === "string"
                     ? JSON.parse(snapshot.personaStats)
                     : snapshot.personaStats,
+              fieldLocks: parseTrackerFieldLocks(snapshot.fieldLocks),
               committed: (snapshot.committed as any) === 1,
             } as any,
             overrides,

@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 import { MapPin } from "lucide-react";
-import type { GameState } from "@marinara-engine/shared";
+import { worldTrackerLockKey, type GameState } from "@marinara-engine/shared";
 import type { GameStatePatchField } from "../../../../hooks/use-game-state-patcher";
 import type { TrackerPanelSizeProfile, TrackerTemperatureUnit } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
@@ -66,8 +66,13 @@ export function WorldStatePanel({
             value={state?.date}
             display={dateDisplay}
             onSave={(value) => onSaveField("date", value || null)}
+            lockKey={worldTrackerLockKey("date")}
           />
-          <WorldTimeTile value={state?.time} onSave={(value) => onSaveField("time", value || null)} />
+          <WorldTimeTile
+            value={state?.time}
+            onSave={(value) => onSaveField("time", value || null)}
+            lockKey={worldTrackerLockKey("time")}
+          />
           <WorldForecastTile
             weather={state?.weather}
             temperature={state?.temperature}
@@ -75,11 +80,14 @@ export function WorldStatePanel({
             trackerTemperatureUnit={trackerTemperatureUnit}
             onSaveWeather={(value) => onSaveField("weather", value || null)}
             onSaveTemperature={(value) => onSaveField("temperature", value || null)}
+            weatherLockKey={worldTrackerLockKey("weather")}
+            temperatureLockKey={worldTrackerLockKey("temperature")}
           />
           <WorldLocationPlate
             value={state?.location}
             onSave={(value) => onSaveField("location", value || null)}
             className="col-span-3 @min-[380px]:col-span-1"
+            lockKey={worldTrackerLockKey("location")}
           />
         </div>
       )}

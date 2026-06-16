@@ -1,8 +1,9 @@
-import { PanelLeft, PanelRight, Plus, Trash2 } from "lucide-react";
+import { Lock, PanelLeft, PanelRight, Plus, Trash2, Unlock } from "lucide-react";
 import { TrackerPanelIcon } from "../../../components/ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../../../components/ui/TrackerSizeTierIcon";
 import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../stores/ui.store";
 import { cn } from "../../../lib/utils";
+import { useTrackerLockContext } from "./TrackerLockContext";
 
 const TRACKER_PANEL_SIZE_SEQUENCE: TrackerPanelSizeProfile[] = ["compact", "standard", "expanded"];
 const TRACKER_PANEL_SIZE_LABELS: Record<TrackerPanelSizeProfile, string> = {
@@ -31,6 +32,7 @@ export function TrackerSidebarHeader({
   onSetSizeProfile: (profile: TrackerPanelSizeProfile) => void;
   onClose: () => void;
 }) {
+  const { lockMode, onSetLockMode } = useTrackerLockContext();
   const sizeIndex = Math.max(0, TRACKER_PANEL_SIZE_SEQUENCE.indexOf(sizeProfile));
   const nextSizeProfile = TRACKER_PANEL_SIZE_SEQUENCE[(sizeIndex + 1) % TRACKER_PANEL_SIZE_SEQUENCE.length]!;
   const sizeLabel = TRACKER_PANEL_SIZE_LABELS[sizeProfile];
@@ -55,7 +57,10 @@ export function TrackerSidebarHeader({
         onClick={() => {
           const nextAddMode = !addMode;
           onSetAddMode(nextAddMode);
-          if (nextAddMode) onSetDeleteMode(false);
+          if (nextAddMode) {
+            onSetDeleteMode(false);
+            onSetLockMode?.(false);
+          }
         }}
         title={addMode ? "Exit add mode" : "Enter add mode"}
         aria-label={addMode ? "Exit tracker add mode" : "Enter tracker add mode"}
@@ -72,9 +77,34 @@ export function TrackerSidebarHeader({
       <button
         type="button"
         onClick={() => {
+          const nextLockMode = !lockMode;
+          onSetLockMode?.(nextLockMode);
+          if (nextLockMode) {
+            onSetAddMode(false);
+            onSetDeleteMode(false);
+          }
+        }}
+        title={lockMode ? "Exit lock mode" : "Enter lock mode"}
+        aria-label={lockMode ? "Exit tracker lock mode" : "Enter tracker lock mode"}
+        aria-pressed={lockMode}
+        className={cn(
+          "flex h-6 w-6 items-center justify-center rounded-sm transition-all ring-1 active:scale-90",
+          lockMode
+            ? "bg-[var(--foreground)]/12 text-[var(--foreground)] ring-[var(--foreground)]/24"
+            : "text-[var(--muted-foreground)]/55 ring-transparent hover:bg-[var(--accent)] hover:text-[var(--muted-foreground)] hover:ring-[var(--border)]",
+        )}
+      >
+        {lockMode ? <Lock size="0.75rem" /> : <Unlock size="0.75rem" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
           const nextDeleteMode = !deleteMode;
           onSetDeleteMode(nextDeleteMode);
-          if (nextDeleteMode) onSetAddMode(false);
+          if (nextDeleteMode) {
+            onSetAddMode(false);
+            onSetLockMode?.(false);
+          }
         }}
         title={deleteMode ? "Exit delete mode" : "Enter delete mode"}
         aria-label={deleteMode ? "Exit tracker delete mode" : "Enter tracker delete mode"}

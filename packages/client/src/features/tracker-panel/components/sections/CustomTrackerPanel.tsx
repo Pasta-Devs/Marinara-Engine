@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
-import type { CustomTrackerField } from "@marinara-engine/shared";
+import { customTrackerLockKey, isTrackerFieldLocked, type CustomTrackerField } from "@marinara-engine/shared";
 import type { TrackerPanelSizeProfile } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
 import { visibleText } from "../../lib/tracker-display";
 import { InlineEdit } from "../controls/InlineControls";
 import { TrackerReadabilityVeil } from "../controls/TrackerProfileChrome";
 import { AddRowButton, EmptySection, SectionHeader } from "../controls/SectionControls";
+import { useTrackerLockContext } from "../TrackerLockContext";
 
 function isLongCustomField(field: CustomTrackerField): boolean {
   const name = visibleText(field.name, "");
@@ -35,6 +36,7 @@ function CustomFieldList({
   deleteMode?: boolean;
   trackerPanelSizeProfile: TrackerPanelSizeProfile;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   if (fields.length === 0 && !onUpdate) return <EmptySection>No custom stats tracked.</EmptySection>;
   const readableValues = trackerPanelSizeProfile !== "compact";
   const useFieldColumns = shouldUseCustomFieldColumns(fields, trackerPanelSizeProfile);
@@ -66,6 +68,13 @@ function CustomFieldList({
             const valueText = visibleText(field.value, "");
             const valueIsLong = valueText.length > 18 || valueText.includes(" ");
             const valueAlignment = allowWrap && valueIsLong ? "text-left" : "text-right tabular-nums";
+            const valueLockKey = customTrackerLockKey(index, "value");
+            const valueLocked = isTrackerFieldLocked(fieldLocks, valueLockKey);
+            const toggleValueLock = () => {
+              // Migrate the deprecated per-field flag into the shared lock map on first toggle.
+              if (field.locked) updateField(index, { ...field, locked: false });
+              if (valueLocked || !field.locked) onToggleFieldLock?.(valueLockKey);
+            };
             return (
               <div
                 key={`${field.name}-${index}`}
@@ -81,7 +90,8 @@ function CustomFieldList({
                     fields.length % 2 === 1 &&
                     index === fields.length - 1 &&
                     "@min-[300px]:col-span-2",
-                  deleteMode && "pr-5",
+                  onUpdate && "pr-5",
+                  deleteMode && "pr-9",
                 )}
               >
                 {onUpdate ? (
@@ -90,10 +100,12 @@ function CustomFieldList({
                     onSave={(name) => updateField(index, { ...field, name: name || "Field" })}
                     placeholder="Field"
                     className={cn("min-w-0 px-0.5 py-0 font-medium", allowWrap && "min-h-5")}
-                    editHintMode={allowWrap ? "overlay" : "inline"}
                     previewLineCount={allowWrap ? 2 : undefined}
                     scrollOnHover={!allowWrap}
                     showEditHint={false}
+                    locked={isTrackerFieldLocked(fieldLocks, customTrackerLockKey(index, "name"))}
+                    lockMode={lockMode}
+                    onToggleLock={() => onToggleFieldLock?.(customTrackerLockKey(index, "name"))}
                   />
                 ) : (
                   <span
@@ -116,10 +128,12 @@ function CustomFieldList({
                       allowWrap ? "min-h-5 justify-start leading-[1.15]" : "justify-end",
                     )}
                     twoLinePreview={allowWrap}
-                    editHintMode={allowWrap ? "overlay" : "inline"}
                     previewLineCount={allowWrap ? 2 : undefined}
                     scrollOnHover={!allowWrap}
                     showEditHint={false}
+                    locked={valueLocked || field.locked}
+                    lockMode={lockMode}
+                    onToggleLock={toggleValueLock}
                   />
                 ) : (
                   <span
@@ -132,16 +146,20 @@ function CustomFieldList({
                     {visibleText(field.value, "Empty")}
                   </span>
                 )}
-                {onUpdate && deleteMode && (
-                  <button
-                    type="button"
-                    onClick={() => removeField(index)}
-                    className="absolute right-1 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded-full bg-[var(--background)]/85 text-[var(--destructive)] shadow-sm ring-1 ring-[var(--border)]/70 backdrop-blur-sm transition-all hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-[var(--border)] active:scale-90"
-                    title="Remove field"
-                    aria-label={`Remove ${visibleText(field.name, "field")}`}
-                  >
-                    <X size="0.5625rem" />
-                  </button>
+                {onUpdate && (
+                  <span className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                    {deleteMode && (
+                      <button
+                        type="button"
+                        onClick={() => removeField(index)}
+                        className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--background)]/85 text-[var(--destructive)] shadow-sm ring-1 ring-[var(--border)]/70 backdrop-blur-sm transition-all hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-[var(--border)] active:scale-90"
+                        title="Remove field"
+                        aria-label={`Remove ${visibleText(field.name, "field")}`}
+                      >
+                        <X size="0.5625rem" />
+                      </button>
+                    )}
+                  </span>
                 )}
               </div>
             );

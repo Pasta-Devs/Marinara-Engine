@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { cn } from "../../../../lib/utils";
 import { visibleText } from "../../lib/tracker-display";
 import { InlineEdit } from "../controls/InlineControls";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 
 export type CompactCharacterFieldTone = "mood" | "appearance" | "outfit" | "thoughts";
 
@@ -35,6 +36,7 @@ export function CompactCharacterField({
   readable = false,
   className,
   valueClassName,
+  lockKey,
 }: {
   icon: ReactNode;
   accessibleLabel: string;
@@ -45,7 +47,9 @@ export function CompactCharacterField({
   readable?: boolean;
   className?: string;
   valueClassName?: string;
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   if (!onSave && !value) return null;
   const toneClasses = COMPACT_CHARACTER_FIELD_TONE_CLASSES[tone];
 
@@ -81,8 +85,8 @@ export function CompactCharacterField({
           )}
           scrollOnHover={!readable}
           twoLinePreview={readable}
-          editHintMode={readable ? "overlay" : "inline"}
           showEditHint={false}
+          {...lock}
         />
       ) : (
         <span

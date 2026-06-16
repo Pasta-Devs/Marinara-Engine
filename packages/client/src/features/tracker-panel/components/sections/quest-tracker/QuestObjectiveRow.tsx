@@ -1,8 +1,9 @@
-import { CheckCircle2, Circle, X } from "lucide-react";
-import type { QuestProgress } from "@marinara-engine/shared";
+import { CheckCircle2, Circle, Lock, Unlock, X } from "lucide-react";
+import { isTrackerFieldLocked, type QuestProgress } from "@marinara-engine/shared";
 import { cn } from "../../../../../lib/utils";
 import { visibleText } from "../../../lib/tracker-display";
 import { InlineEdit } from "../../controls/InlineControls";
+import { useTrackerLockContext } from "../../TrackerLockContext";
 
 type QuestObjective = QuestProgress["objectives"][number];
 
@@ -28,6 +29,8 @@ export function QuestObjectiveRow({
   onToggle,
   onUpdateText,
   onRemove,
+  textLockKey,
+  completedLockKey,
 }: {
   objective: QuestObjective;
   deleteMode: boolean;
@@ -38,7 +41,12 @@ export function QuestObjectiveRow({
   onToggle?: () => void;
   onUpdateText?: (text: string) => void;
   onRemove?: () => void;
+  textLockKey: string;
+  completedLockKey: string;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
+  const textLocked = isTrackerFieldLocked(fieldLocks, textLockKey);
+  const completedLocked = isTrackerFieldLocked(fieldLocks, completedLockKey);
   return (
     <div
       className={cn(
@@ -50,12 +58,44 @@ export function QuestObjectiveRow({
       {onToggle ? (
         <button
           type="button"
-          onClick={onToggle}
-          className={cn(OBJECTIVE_TOGGLE_BUTTON_CLASS, wrapsText && "mt-px", objective.completed && "text-emerald-300")}
-          title={objective.completed ? "Mark incomplete" : "Mark complete"}
-          aria-label={objective.completed ? "Mark objective incomplete" : "Mark objective complete"}
+          onClick={lockMode ? () => onToggleFieldLock?.(completedLockKey) : onToggle}
+          className={cn(
+            OBJECTIVE_TOGGLE_BUTTON_CLASS,
+            wrapsText && "mt-px",
+            objective.completed && !lockMode && "text-emerald-300",
+            completedLocked && "ring-1 ring-emerald-300/35",
+          )}
+          title={
+            lockMode
+              ? completedLocked
+                ? "Unlock objective completion"
+                : "Lock objective completion"
+              : objective.completed
+                ? "Mark incomplete"
+                : "Mark complete"
+          }
+          aria-label={
+            lockMode
+              ? completedLocked
+                ? "Unlock objective completion"
+                : "Lock objective completion"
+              : objective.completed
+                ? "Mark objective incomplete"
+                : "Mark objective complete"
+          }
+          aria-pressed={lockMode ? completedLocked : undefined}
         >
-          {objective.completed ? <CheckCircle2 size="0.6875rem" /> : <Circle size="0.6875rem" />}
+          {lockMode ? (
+            completedLocked ? (
+              <Lock size="0.6875rem" />
+            ) : (
+              <Unlock size="0.6875rem" />
+            )
+          ) : objective.completed ? (
+            <CheckCircle2 size="0.6875rem" />
+          ) : (
+            <Circle size="0.6875rem" />
+          )}
         </button>
       ) : objective.completed ? (
         <CheckCircle2 size="0.6875rem" className={cn("shrink-0 text-emerald-300", wrapsText && "mt-0.5")} />
@@ -70,12 +110,14 @@ export function QuestObjectiveRow({
           title={`Objective: ${visibleText(objective.text, "Objective")}`}
           showEditHint={false}
           previewLineCount={previewLineCount}
-          editHintMode={wrapsText ? "overlay" : "inline"}
           className={cn(
             OBJECTIVE_EDIT_CLASS,
             wrapsText ? OBJECTIVE_EDIT_WRAPPED_CLASS : OBJECTIVE_EDIT_SINGLE_LINE_CLASS,
             objective.completed && "line-through opacity-60",
           )}
+          locked={textLocked}
+          lockMode={lockMode}
+          onToggleLock={() => onToggleFieldLock?.(textLockKey)}
         />
       ) : (
         <span

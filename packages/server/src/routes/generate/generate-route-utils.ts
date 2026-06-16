@@ -1,9 +1,15 @@
+import { isDeepStrictEqual } from "node:util";
 import {
   PROVIDERS,
+  applyTrackerFieldLocksToGameStatePatch,
   generationParametersSchema,
   normalizeThinkingTagPairs,
+  parseTrackerFieldLocks,
+  type CharacterStat,
   type GameState,
   type GenerationParameters,
+  type InventoryItem,
+  type PlayerStats,
 } from "@marinara-engine/shared";
 import { wrapContent } from "../../services/prompt/format-engine.js";
 
@@ -29,6 +35,10 @@ export type PromptAttachment = {
   galleryId?: string | null;
 };
 
+function createEmptyPlayerStats(): PlayerStats {
+  return { stats: [], attributes: null, skills: {}, inventory: [], activeQuests: [], status: "" };
+}
+
 const TEXT_ATTACHMENT_CHAR_LIMIT = 60_000;
 const IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
@@ -46,6 +56,136 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractPatchRecord(patch: Record<string, unknown>, field: string): Record<string, unknown> | null {
+  const value = patch[field];
+  return isPlainRecord(value) ? value : null;
+}
+
+function extractPatchArray<T>(patch: Record<string, unknown>, field: string, fallback: T[]): T[] {
+  const value = patch[field];
+  return Array.isArray(value) ? (value as T[]) : fallback;
+}
+
+function extractPlayerStatsPatch(patch: Record<string, unknown>): Record<string, unknown> {
+  return extractPatchRecord(patch, "playerStats") ?? {};
+}
+
+function extractPlayerStatsPatchArray<T>(
+  patch: Record<string, unknown>,
+  field: keyof PlayerStats,
+  fallback: T[],
+): T[] {
+  const value = extractPlayerStatsPatch(patch)[field];
+  return Array.isArray(value) ? (value as T[]) : fallback;
+}
+
+type PlayerStatsArrayField = {
+  [K in keyof PlayerStats]-?: NonNullable<PlayerStats[K]> extends unknown[] ? K : never;
+}[keyof PlayerStats];
+
+export function buildLockedPlayerStatsArrayPatch<T>({
+  field,
+  values,
+  snapshot,
+  lockState,
+  basePlayerStats,
+}: {
+  field: PlayerStatsArrayField;
+  values: T[];
+  snapshot: { playerStats?: unknown } | null | undefined;
+  lockState: GameState | null | undefined;
+  basePlayerStats?: PlayerStats;
+}) {
+  const existingPlayerStats = parseSnapshotPlayerStats(snapshot);
+  const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ playerStats: { [field]: values } }, lockState);
+  const lockedValues = extractPlayerStatsPatchArray<T>(lockedPatch, field, values);
+  const playerStats = { ...(basePlayerStats ?? existingPlayerStats), [field]: lockedValues };
+  const existingValues = existingPlayerStats[field];
+  const changed = !isDeepStrictEqual(lockedValues, Array.isArray(existingValues) ? existingValues : []);
+  const patch = {
+    playerStats: { [field]: lockedValues },
+  } as { playerStats: Partial<Record<PlayerStatsArrayField, T[]>> };
+  return { changed, patch, playerStats, values: lockedValues };
+}
+
+function parseSnapshotPersonaStats(snapshot: { personaStats?: unknown } | null | undefined): CharacterStat[] {
+  const raw = snapshot?.personaStats;
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? (parsed as CharacterStat[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function buildLockedPersonaTrackerPatch({
+  stats,
+  status,
+  inventory,
+  snapshot,
+  lockState,
+}: {
+  stats: CharacterStat[];
+  status: string;
+  inventory: InventoryItem[];
+  snapshot: { personaStats?: unknown; playerStats?: unknown } | null | undefined;
+  lockState: GameState | null | undefined;
+}) {
+  const rawPatch: Record<string, unknown> = {};
+  if (stats.length > 0) rawPatch.personaStats = stats;
+
+  const rawPlayerStatsPatch: Record<string, unknown> = {};
+  if (status) rawPlayerStatsPatch.status = status;
+  if (inventory.length > 0) rawPlayerStatsPatch.inventory = inventory;
+  if (Object.keys(rawPlayerStatsPatch).length > 0) rawPatch.playerStats = rawPlayerStatsPatch;
+
+  const patch = applyTrackerFieldLocksToGameStatePatch(rawPatch, lockState);
+  const updates: Record<string, string> = {};
+  const existingPersonaStats = parseSnapshotPersonaStats(snapshot);
+  const existingPlayerStats = parseSnapshotPlayerStats(snapshot);
+
+  const lockedPersonaStats = extractPatchArray<CharacterStat>(patch, "personaStats", []);
+  const personaStatsChanged =
+    Array.isArray(patch.personaStats) && !isDeepStrictEqual(lockedPersonaStats, existingPersonaStats);
+  if (personaStatsChanged) updates.personaStats = JSON.stringify(lockedPersonaStats);
+
+  const lockedPlayerStatsPatch = extractPlayerStatsPatch(patch);
+  const playerStats = { ...existingPlayerStats };
+  let hasPlayerStatsPatch = false;
+  if (Object.prototype.hasOwnProperty.call(lockedPlayerStatsPatch, "status")) {
+    playerStats.status = typeof lockedPlayerStatsPatch.status === "string" ? lockedPlayerStatsPatch.status : "";
+    hasPlayerStatsPatch = true;
+  }
+  if (Array.isArray(lockedPlayerStatsPatch.inventory)) {
+    playerStats.inventory = lockedPlayerStatsPatch.inventory as InventoryItem[];
+    hasPlayerStatsPatch = true;
+  }
+
+  const playerStatsChanged = hasPlayerStatsPatch && !isDeepStrictEqual(playerStats, existingPlayerStats);
+  if (playerStatsChanged) updates.playerStats = JSON.stringify(playerStats);
+
+  return {
+    changed: personaStatsChanged || playerStatsChanged,
+    inventory: Array.isArray(lockedPlayerStatsPatch.inventory)
+      ? (lockedPlayerStatsPatch.inventory as InventoryItem[])
+      : [],
+    patch,
+    updates,
+  };
+}
+
+export function parseSnapshotPlayerStats(snapshot: { playerStats?: unknown } | null | undefined): PlayerStats {
+  const raw = snapshot?.playerStats;
+  if (!raw) return createEmptyPlayerStats();
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return isPlainRecord(parsed) ? (parsed as unknown as PlayerStats) : createEmptyPlayerStats();
+  } catch {
+    return createEmptyPlayerStats();
+  }
 }
 
 export function shouldAbortOnPassiveGenerationDisconnect(args: { chatMode: string; impersonate?: boolean }): boolean {
@@ -821,6 +961,11 @@ export function preserveTrackerCharacterUiFields(
 
 /** Parse game state JSON fields from a DB row. */
 export function parseGameStateRow(row: Record<string, unknown>): GameState {
+  const manualOverrides =
+    row.manualOverrides && typeof row.manualOverrides === "string"
+      ? (JSON.parse(row.manualOverrides) as Record<string, string>)
+      : null;
+  const fieldLocks = parseTrackerFieldLocks(row.fieldLocks);
   return {
     id: row.id as string,
     chatId: row.chatId as string,
@@ -835,6 +980,8 @@ export function parseGameStateRow(row: Record<string, unknown>): GameState {
     recentEvents: JSON.parse((row.recentEvents as string) ?? "[]"),
     playerStats: row.playerStats ? JSON.parse(row.playerStats as string) : null,
     personaStats: row.personaStats ? JSON.parse(row.personaStats as string) : null,
+    manualOverrides,
+    fieldLocks,
     createdAt: row.createdAt as string,
   };
 }

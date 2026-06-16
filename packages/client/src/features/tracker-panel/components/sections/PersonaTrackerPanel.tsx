@@ -2,6 +2,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { HeartPulse, Package, Sparkles } from "lucide-react";
 import type { CharacterStat, InventoryItem, Persona } from "@marinara-engine/shared";
+import {
+  isTrackerFieldLocked,
+  personaStatTrackerLockKey,
+  personaStatusTrackerLockKey,
+} from "@marinara-engine/shared";
 import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../../stores/ui.store";
 import {
   characterKeys,
@@ -51,6 +56,7 @@ import {
 } from "../controls/TrackerProfileChrome";
 import { AddRowButton, SectionHeader } from "../controls/SectionControls";
 import { StatList } from "../controls/StatList";
+import { useTrackerLockContext } from "../TrackerLockContext";
 import { PersonaInventoryRow } from "./PersonaInventoryRow";
 import { PersonaPortraitStage } from "./PersonaPortraitStage";
 
@@ -132,6 +138,7 @@ export function PersonaInventoryPanel({
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   const queryClient = useQueryClient();
   const updatePersona = useUpdatePersona();
   const personaPortraitSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -272,6 +279,7 @@ export function PersonaInventoryPanel({
             <PersonaInventoryRow
               key={`${item.name}-${index}`}
               item={item}
+              itemIndex={index}
               onUpdate={(updated) => onUpdateInventoryItem(index, updated)}
               onRemove={() => onRemoveInventoryItem(index)}
               deleteMode={deleteMode}
@@ -376,6 +384,7 @@ export function PersonaInventoryPanel({
                         wideColumns={useExpandedPersonaStatColumns}
                         fillWideColumns={useExpandedPersonaStatColumns}
                         visualTone="instrument"
+                        getLockKey={(index, field) => personaStatTrackerLockKey(index, field)}
                       />
                     )}
                   </div>
@@ -411,6 +420,9 @@ export function PersonaInventoryPanel({
                     scrollOnHover={trackerPanelSizeProfile === "compact"}
                     previewLineCount={trackerPanelSizeProfile === "compact" ? undefined : 2}
                     showEditHint={false}
+                    locked={isTrackerFieldLocked(fieldLocks, personaStatusTrackerLockKey())}
+                    lockMode={lockMode}
+                    onToggleLock={() => onToggleFieldLock?.(personaStatusTrackerLockKey())}
                   />
                 </div>
                 {!showInventoryInStatColumn && renderInventoryShelf("lower-deck")}

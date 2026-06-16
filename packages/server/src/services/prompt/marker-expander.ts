@@ -3,7 +3,11 @@
 // sections into actual content at assembly time.
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
-import { resolveCharacterScopedMacros, stripMacroComments } from "@marinara-engine/shared";
+import {
+  formatCustomTrackerFieldForPrompt,
+  resolveCharacterScopedMacros,
+  stripMacroComments,
+} from "@marinara-engine/shared";
 import type {
   CharacterMacroProfile,
   MarkerConfig,
@@ -586,7 +590,7 @@ async function expandWorldStateAgent(ctx: MarkerContext): Promise<ExpandedMarker
       statParts.push(`Stats:\n${statLines.join("\n")}`);
     }
     if (hasCustomTracker && Array.isArray(stats.customTrackerFields) && stats.customTrackerFields.length > 0) {
-      const customLines = stats.customTrackerFields.map((f: any) => `- ${f.name}: ${f.value}`);
+      const customLines = stats.customTrackerFields.map(formatCustomTrackerFieldForPrompt);
       statParts.push(`Custom:\n${customLines.join("\n")}`);
     }
     if (statParts.length > 0) parts.push(statParts.join("\n"));

@@ -16,6 +16,7 @@ import {
   Clock,
   CloudSun,
   ImagePlus,
+  Lock,
   MapPin,
   Package,
   Pencil,
@@ -27,6 +28,7 @@ import {
   Target,
   Thermometer,
   Trash2,
+  Unlock,
   Users,
   X,
   RefreshCw,
@@ -42,6 +44,19 @@ import type {
   PresentCharacter,
   QuestProgress,
 } from "@marinara-engine/shared";
+import {
+  characterStatTrackerLockKey,
+  characterTrackerLockKey,
+  customTrackerLockKey,
+  inventoryTrackerLockKey,
+  isTrackerFieldLocked,
+  personaStatTrackerLockKey,
+  personaStatusTrackerLockKey,
+  questObjectiveTrackerLockKey,
+  questTrackerLockKey,
+  worldTrackerLockKey,
+} from "@marinara-engine/shared";
+import { useTrackerLockContext } from "../../features/tracker-panel/components/TrackerLockContext";
 
 interface CombinedPlayerPanelProps {
   showPersona: boolean;
@@ -99,6 +114,79 @@ const TRACKER_SECTION_TITLE =
   "text-[0.625rem] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider flex items-center gap-1";
 const TRACKER_SECTION_ACTION =
   "flex items-center gap-0.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]";
+const HUD_LOCKED_FIELD_CLASS =
+  "bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_30%,transparent)]";
+const HUD_LOCKED_FIELD_INSET_CLASS =
+  "bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--foreground)_30%,transparent)]";
+
+function HudFieldLockButton({
+  locked,
+  onToggle,
+  label,
+  persistentLocked = true,
+  className,
+}: {
+  locked?: boolean;
+  onToggle?: () => void;
+  label: string;
+  persistentLocked?: boolean;
+  className?: string;
+}) {
+  const { lockMode } = useTrackerLockContext();
+  if (!lockMode) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={locked ? "Unlock field" : "Lock field"}
+      aria-label={`${locked ? "Unlock" : "Lock"} ${label}`}
+      aria-pressed={locked}
+      className={cn(
+        "flex h-4 w-4 shrink-0 items-center justify-center rounded text-[var(--muted-foreground)]/55 opacity-70 ring-1 ring-transparent transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[var(--border)] active:scale-90 max-md:opacity-100",
+        locked && "text-[var(--foreground)]/80 ring-[var(--foreground)]/20",
+        locked && persistentLocked && "opacity-100",
+        className,
+      )}
+    >
+      {locked ? <Lock size="0.5625rem" /> : <Unlock size="0.5625rem" />}
+    </button>
+  );
+}
+
+function HudLockModeToggle() {
+  const { lockMode, onSetLockMode } = useTrackerLockContext();
+  if (!onSetLockMode) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSetLockMode(!lockMode)}
+      title={lockMode ? "Exit lock mode" : "Enter lock mode"}
+      aria-label={lockMode ? "Exit HUD lock mode" : "Enter HUD lock mode"}
+      aria-pressed={!!lockMode}
+      className={cn(
+        "flex h-5 w-5 shrink-0 items-center justify-center rounded p-0.5 transition-all active:scale-90",
+        lockMode
+          ? "bg-[var(--foreground)]/12 text-[var(--foreground)] ring-1 ring-[var(--foreground)]/24"
+          : "text-[var(--muted-foreground)]/50 ring-1 ring-transparent hover:bg-[var(--accent)] hover:text-[var(--foreground)] hover:ring-[var(--border)]",
+      )}
+    >
+      {lockMode ? <Lock size="0.625rem" /> : <Unlock size="0.625rem" />}
+    </button>
+  );
+}
+
+function useHudFieldLockResolver() {
+  const { fieldLocks, onToggleFieldLock } = useTrackerLockContext();
+  return useCallback(
+    (key: string) => ({
+      locked: isTrackerFieldLocked(fieldLocks, key),
+      onToggle: () => onToggleFieldLock?.(key),
+    }),
+    [fieldLocks, onToggleFieldLock],
+  );
+}
 
 export function CombinedPlayerPanel({
   showPersona,
@@ -188,6 +276,8 @@ export function CombinedPlayerPanel({
     next[idx] = updated;
     onUpdateCustomTracker(next);
   };
+  const lockFor = useHudFieldLockResolver();
+  const personaStatusLock = lockFor(personaStatusTrackerLockKey());
 
   return (
     <>
@@ -195,17 +285,25 @@ export function CombinedPlayerPanel({
         <span className={ROLEPLAY_POPOVER_TITLE}>
           <Swords size="0.625rem" className="text-orange-400/80" /> Trackers
         </span>
-        <button
-          onClick={onClose}
-          className="text-[var(--muted-foreground)]/50 hover:text-[var(--foreground)] transition-colors"
-        >
-          <X size="0.75rem" />
-        </button>
+        <span className="flex items-center gap-1">
+          <HudLockModeToggle />
+          <button
+            onClick={onClose}
+            className="text-[var(--muted-foreground)]/50 transition-colors hover:text-[var(--foreground)]"
+          >
+            <X size="0.75rem" />
+          </button>
+        </span>
       </div>
       <div className="overflow-y-auto max-h-[min(calc(75vh-2rem),30rem)] divide-y divide-[var(--border)]">
         {showPersona && (
           <div className="p-2">
-            <PersonaStatusField value={personaStatus} onSave={onUpdatePersonaStatus} />
+            <PersonaStatusField
+              value={personaStatus}
+              onSave={onUpdatePersonaStatus}
+              locked={personaStatusLock.locked}
+              onToggleLock={personaStatusLock.onToggle}
+            />
             <div className="flex items-center justify-between px-1 pb-1">
               <span className="text-[0.625rem] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
                 Persona Stats
@@ -219,15 +317,26 @@ export function CombinedPlayerPanel({
             </div>
             <div className="space-y-2">
               {personaStats.length === 0 && <div className={EMPTY_STATE}>No stats tracked</div>}
-              {personaStats.map((bar, idx) => (
-                <StatBarEditable
-                  key={bar.name}
-                  stat={bar}
-                  onUpdateName={(name) => updateBar(idx, "name", name)}
-                  onUpdateValue={(value) => updateBar(idx, "value", value)}
-                  onUpdateMax={(value) => updateBar(idx, "max", value)}
-                />
-              ))}
+              {personaStats.map((bar, idx) => {
+                const nameLock = lockFor(personaStatTrackerLockKey(idx, "name"));
+                const valueLock = lockFor(personaStatTrackerLockKey(idx, "value"));
+                const maxLock = lockFor(personaStatTrackerLockKey(idx, "max"));
+                return (
+                  <StatBarEditable
+                    key={bar.name}
+                    stat={bar}
+                    onUpdateName={(name) => updateBar(idx, "name", name)}
+                    onUpdateValue={(value) => updateBar(idx, "value", value)}
+                    onUpdateMax={(value) => updateBar(idx, "max", value)}
+                    nameLocked={nameLock.locked}
+                    valueLocked={valueLock.locked}
+                    maxLocked={maxLock.locked}
+                    onToggleNameLock={nameLock.onToggle}
+                    onToggleValueLock={valueLock.onToggle}
+                    onToggleMaxLock={maxLock.onToggle}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -255,20 +364,31 @@ export function CombinedPlayerPanel({
             </div>
             <div className="space-y-2">
               {characters.length === 0 && <div className={EMPTY_STATE}>No characters in scene</div>}
-              {characters.map((char, idx) => (
-                <div key={char.characterId ?? idx} className="rounded-lg bg-[var(--muted)]/20 p-2 space-y-1">
-                  <div className="flex items-center gap-1.5">
+              {characters.map((char, idx) => {
+                const emojiLock = lockFor(characterTrackerLockKey(char, idx, "emoji"));
+                const nameLock = lockFor(characterTrackerLockKey(char, idx, "name"));
+                const moodLock = lockFor(characterTrackerLockKey(char, idx, "mood"));
+                const appearanceLock = lockFor(characterTrackerLockKey(char, idx, "appearance"));
+                const outfitLock = lockFor(characterTrackerLockKey(char, idx, "outfit"));
+                const thoughtsLock = lockFor(characterTrackerLockKey(char, idx, "thoughts"));
+                return (
+                  <div key={char.characterId ?? idx} className="rounded-lg bg-[var(--muted)]/20 p-2 space-y-1">
+                  <div className="group/field flex items-center gap-1.5">
                     <InlineEdit
                       value={char.emoji || "👤"}
                       onSave={(value) => updateCharacter(idx, { ...char, emoji: value })}
                       className="w-8 text-center !text-sm"
+                      locked={emojiLock.locked}
                     />
+                    <HudFieldLockButton {...emojiLock} label={`${char.name || "character"} emoji`} />
                     <InlineEdit
                       value={char.name}
                       onSave={(value) => updateCharacter(idx, { ...char, name: value })}
                       className="flex-1 !font-medium"
                       placeholder="Name"
+                      locked={nameLock.locked}
                     />
+                    <HudFieldLockButton {...nameLock} label={`${char.name || "character"} name`} />
                     <button
                       onClick={() => removeCharacter(idx)}
                       className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
@@ -282,45 +402,62 @@ export function CombinedPlayerPanel({
                       label="Mood"
                       value={char.mood}
                       onSave={(value) => updateCharacter(idx, { ...char, mood: value })}
+                      locked={moodLock.locked}
+                      onToggleLock={moodLock.onToggle}
                     />
                     <LabeledEdit
                       label="Look"
                       value={char.appearance ?? ""}
                       onSave={(value) => updateCharacter(idx, { ...char, appearance: value || null })}
+                      locked={appearanceLock.locked}
+                      onToggleLock={appearanceLock.onToggle}
                     />
                     <LabeledEdit
                       label="Outfit"
                       value={char.outfit ?? ""}
                       onSave={(value) => updateCharacter(idx, { ...char, outfit: value || null })}
+                      locked={outfitLock.locked}
+                      onToggleLock={outfitLock.onToggle}
                     />
                     <LabeledEdit
                       label="Thinks"
                       value={char.thoughts ?? ""}
                       onSave={(value) => updateCharacter(idx, { ...char, thoughts: value || null })}
+                      locked={thoughtsLock.locked}
+                      onToggleLock={thoughtsLock.onToggle}
                     />
                   </div>
                   {char.stats?.length > 0 && (
                     <div className="space-y-1 pt-1 border-t border-[var(--border)]">
-                      {char.stats.map((stat, statIndex) => (
-                        <StatBarEditable
-                          key={stat.name}
-                          stat={stat}
-                          onUpdateValue={(value) => {
-                            const next = [...(char.stats ?? [])];
-                            next[statIndex] = { ...next[statIndex]!, value };
-                            updateCharacter(idx, { ...char, stats: next });
-                          }}
-                          onUpdateMax={(value) => {
-                            const next = [...(char.stats ?? [])];
-                            next[statIndex] = { ...next[statIndex]!, max: value };
-                            updateCharacter(idx, { ...char, stats: next });
-                          }}
-                        />
-                      ))}
+                      {char.stats.map((stat, statIndex) => {
+                        const valueLock = lockFor(characterStatTrackerLockKey(char, idx, statIndex, "value"));
+                        const maxLock = lockFor(characterStatTrackerLockKey(char, idx, statIndex, "max"));
+                        return (
+                          <StatBarEditable
+                            key={stat.name}
+                            stat={stat}
+                            onUpdateValue={(value) => {
+                              const next = [...(char.stats ?? [])];
+                              next[statIndex] = { ...next[statIndex]!, value };
+                              updateCharacter(idx, { ...char, stats: next });
+                            }}
+                            onUpdateMax={(value) => {
+                              const next = [...(char.stats ?? [])];
+                              next[statIndex] = { ...next[statIndex]!, max: value };
+                              updateCharacter(idx, { ...char, stats: next });
+                            }}
+                            valueLocked={valueLock.locked}
+                            maxLocked={maxLock.locked}
+                            onToggleValueLock={valueLock.onToggle}
+                            onToggleMaxLock={maxLock.onToggle}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -331,40 +468,50 @@ export function CombinedPlayerPanel({
               <span className={TRACKER_SECTION_TITLE}>
                 <Package size="0.5625rem" className="text-amber-400/80" /> Inventory ({inventory.length})
               </span>
-              <button
-                onClick={addItem}
-                className={TRACKER_SECTION_ACTION}
-              >
+              <button onClick={addItem} className={TRACKER_SECTION_ACTION}>
                 <Plus size="0.625rem" /> Add
               </button>
             </div>
             <div className="space-y-1">
               {inventory.length === 0 && <div className={EMPTY_STATE}>Inventory empty</div>}
-              {inventory.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5">
-                  <Package size="0.625rem" className="shrink-0 text-amber-400/60" />
-                  <InlineEdit
-                    value={item.name}
-                    onSave={(value) => updateItem(idx, { ...item, name: value })}
-                    className="flex-1"
-                    placeholder="Item name"
-                  />
-                  <input
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(idx, { ...item, quantity: Math.max(0, Number(e.target.value)) })}
-                    className="w-8 bg-transparent text-center text-[0.5625rem] text-[var(--foreground)]/60 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    title="Quantity"
-                  />
-                  <button
-                    onClick={() => removeItem(idx)}
-                    className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
-                    title="Remove item"
+              {inventory.map((item, idx) => {
+                const nameLock = lockFor(inventoryTrackerLockKey(idx, "name"));
+                const quantityLock = lockFor(inventoryTrackerLockKey(idx, "quantity"));
+                return (
+                  <div
+                    key={idx}
+                    className="group/field flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5"
                   >
-                    <X size="0.5625rem" />
-                  </button>
-                </div>
-              ))}
+                    <Package size="0.625rem" className="shrink-0 text-amber-400/60" />
+                    <InlineEdit
+                      value={item.name}
+                      onSave={(value) => updateItem(idx, { ...item, name: value })}
+                      className="flex-1"
+                      placeholder="Item name"
+                      locked={nameLock.locked}
+                    />
+                    <HudFieldLockButton {...nameLock} label={`${item.name || "item"} name`} />
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => updateItem(idx, { ...item, quantity: Math.max(0, Number(e.target.value)) })}
+                      className={cn(
+                        "w-8 rounded bg-transparent text-center text-[0.5625rem] text-[var(--foreground)]/60 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                        quantityLock.locked && HUD_LOCKED_FIELD_CLASS,
+                      )}
+                      title="Quantity"
+                    />
+                    <HudFieldLockButton {...quantityLock} label={`${item.name || "item"} quantity`} />
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
+                      title="Remove item"
+                    >
+                      <X size="0.5625rem" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -382,10 +529,7 @@ export function CombinedPlayerPanel({
                   busy={isTrackerRetryBusy}
                   title="Re-run quest tracker only"
                 />
-                <button
-                  onClick={addQuest}
-                  className={TRACKER_SECTION_ACTION}
-                >
+                <button onClick={addQuest} className={TRACKER_SECTION_ACTION}>
                   <Plus size="0.625rem" /> Add
                 </button>
               </span>
@@ -396,6 +540,7 @@ export function CombinedPlayerPanel({
                 <QuestCardEditable
                   key={quest.questEntryId || idx}
                   quest={quest}
+                  questIndex={idx}
                   onUpdate={(updatedQuest) => updateQuest(idx, updatedQuest)}
                   onRemove={() => removeQuest(idx)}
                 />
@@ -408,7 +553,8 @@ export function CombinedPlayerPanel({
           <div className="p-2">
             <div className="flex items-center justify-between px-1 pb-1">
               <span className={TRACKER_SECTION_TITLE}>
-                <SlidersHorizontal size="0.5625rem" className="text-cyan-400/80" /> Custom ({customTrackerFields.length})
+                <SlidersHorizontal size="0.5625rem" className="text-cyan-400/80" />{" "}
+                {`Custom (${customTrackerFields.length})`}
               </span>
               <span className="flex items-center gap-1">
                 <TrackerSectionRefresh
@@ -417,41 +563,57 @@ export function CombinedPlayerPanel({
                   busy={isTrackerRetryBusy}
                   title="Re-run custom tracker only"
                 />
-                <button
-                  onClick={addCustomField}
-                  className={TRACKER_SECTION_ACTION}
-                >
+                <button onClick={addCustomField} className={TRACKER_SECTION_ACTION}>
                   <Plus size="0.625rem" /> Add
                 </button>
               </span>
             </div>
             <div className="space-y-1">
               {customTrackerFields.length === 0 && <div className={EMPTY_STATE}>No fields tracked</div>}
-              {customTrackerFields.map((field, idx) => (
-                <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5">
-                  <SlidersHorizontal size="0.625rem" className="shrink-0 text-cyan-400/60" />
-                  <InlineEdit
-                    value={field.name}
-                    onSave={(value) => updateCustomField(idx, { ...field, name: value })}
-                    className="flex-1 min-w-0"
-                    placeholder="Field name"
-                  />
-                  <span className="text-[var(--muted-foreground)]/40 text-[0.5rem]">=</span>
-                  <InlineEdit
-                    value={field.value}
-                    onSave={(value) => updateCustomField(idx, { ...field, value })}
-                    className="flex-1 min-w-0"
-                    placeholder="Value"
-                  />
-                  <button
-                    onClick={() => removeCustomField(idx)}
-                    className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
-                    title="Remove field"
+              {customTrackerFields.map((field, idx) => {
+                const nameLock = lockFor(customTrackerLockKey(idx, "name"));
+                const valueLock = lockFor(customTrackerLockKey(idx, "value"));
+                const toggleValueLock = () => {
+                  if (field.locked) updateCustomField(idx, { ...field, locked: false });
+                  if (valueLock.locked || !field.locked) valueLock.onToggle();
+                };
+                return (
+                  <div
+                    key={idx}
+                    className="group/field flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5"
                   >
-                    <X size="0.5625rem" />
-                  </button>
-                </div>
-              ))}
+                    <SlidersHorizontal size="0.625rem" className="shrink-0 text-cyan-400/60" />
+                    <InlineEdit
+                      value={field.name}
+                      onSave={(value) => updateCustomField(idx, { ...field, name: value })}
+                      className="flex-1 min-w-0"
+                      placeholder="Field name"
+                      locked={nameLock.locked}
+                    />
+                    <HudFieldLockButton {...nameLock} label={`${field.name || "field"} name`} />
+                    <span className="text-[var(--muted-foreground)]/40 text-[0.5rem]">=</span>
+                    <InlineEdit
+                      value={field.value}
+                      onSave={(value) => updateCustomField(idx, { ...field, value })}
+                      className="flex-1 min-w-0"
+                      placeholder="Value"
+                      locked={valueLock.locked || field.locked}
+                    />
+                    <HudFieldLockButton
+                      locked={valueLock.locked || field.locked}
+                      onToggle={toggleValueLock}
+                      label={`${field.name || "field"} value`}
+                    />
+                    <button
+                      onClick={() => removeCustomField(idx)}
+                      className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
+                      title="Remove field"
+                    >
+                      <X size="0.5625rem" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -485,34 +647,53 @@ export function PersonaStatsPanel({
   const removeBar = (idx: number) => {
     onUpdate(bars.filter((_, index) => index !== idx));
   };
+  const lockFor = useHudFieldLockResolver();
+  const statusLock = lockFor(personaStatusTrackerLockKey());
 
   return (
     <>
       <div className="border-b border-[var(--border)] p-2">
-        <PersonaStatusField value={status} onSave={onUpdateStatus} />
-      </div>
-      <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex items-center justify-between")}>
-        <span className={ROLEPLAY_POPOVER_TITLE}>
-          Persona Stats
-        </span>
-        <TrackerSectionRefresh
-          agentType="persona-stats"
-          onRerunSingleTracker={onRerunSingleTracker}
-          busy={isTrackerRetryBusy}
-          title="Re-run persona tracker (stats + inventory)"
+        <PersonaStatusField
+          value={status}
+          onSave={onUpdateStatus}
+          locked={statusLock.locked}
+          onToggleLock={statusLock.onToggle}
         />
       </div>
-      <div className="p-2 space-y-2">
-        {bars.map((bar, idx) => (
-          <StatBarEditable
-            key={bar.name}
-            stat={bar}
-            onUpdateName={(name) => updateBar(idx, "name", name)}
-            onUpdateValue={(value) => updateBar(idx, "value", value)}
-            onUpdateMax={(value) => updateBar(idx, "max", value)}
-            onRemove={() => removeBar(idx)}
+      <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex items-center justify-between")}>
+        <span className={ROLEPLAY_POPOVER_TITLE}>Persona Stats</span>
+        <span className="flex items-center gap-1">
+          <TrackerSectionRefresh
+            agentType="persona-stats"
+            onRerunSingleTracker={onRerunSingleTracker}
+            busy={isTrackerRetryBusy}
+            title="Re-run persona tracker (stats + inventory)"
           />
-        ))}
+          <HudLockModeToggle />
+        </span>
+      </div>
+      <div className="p-2 space-y-2">
+        {bars.map((bar, idx) => {
+          const nameLock = lockFor(personaStatTrackerLockKey(idx, "name"));
+          const valueLock = lockFor(personaStatTrackerLockKey(idx, "value"));
+          const maxLock = lockFor(personaStatTrackerLockKey(idx, "max"));
+          return (
+            <StatBarEditable
+              key={bar.name}
+              stat={bar}
+              onUpdateName={(name) => updateBar(idx, "name", name)}
+              onUpdateValue={(value) => updateBar(idx, "value", value)}
+              onUpdateMax={(value) => updateBar(idx, "max", value)}
+              onRemove={() => removeBar(idx)}
+              nameLocked={nameLock.locked}
+              valueLocked={valueLock.locked}
+              maxLocked={maxLock.locked}
+              onToggleNameLock={nameLock.onToggle}
+              onToggleValueLock={valueLock.onToggle}
+              onToggleMaxLock={maxLock.onToggle}
+            />
+          );
+        })}
       </div>
     </>
   );
@@ -610,6 +791,7 @@ export function CharactersPanel({
     next[idx] = updated;
     onUpdate(next);
   };
+  const lockFor = useHudFieldLockResolver();
 
   return (
     <>
@@ -624,6 +806,7 @@ export function CharactersPanel({
             busy={isTrackerRetryBusy}
             title="Re-run character tracker only"
           />
+          <HudLockModeToggle />
           {trackerConfig && (
             <button
               onClick={toggleAutoGenerate}
@@ -649,9 +832,15 @@ export function CharactersPanel({
       </div>
       <div className="p-2 space-y-2">
         {characters.length === 0 && <div className={cn(EMPTY_STATE, "py-2")}>No characters in scene</div>}
-        {characters.map((char, idx) => (
-          <div key={char.characterId ?? idx} className="rounded-lg bg-[var(--muted)]/20 p-2 space-y-1">
-            <div className="flex items-center gap-1.5">
+        {characters.map((char, idx) => {
+          const nameLock = lockFor(characterTrackerLockKey(char, idx, "name"));
+          const moodLock = lockFor(characterTrackerLockKey(char, idx, "mood"));
+          const appearanceLock = lockFor(characterTrackerLockKey(char, idx, "appearance"));
+          const outfitLock = lockFor(characterTrackerLockKey(char, idx, "outfit"));
+          const thoughtsLock = lockFor(characterTrackerLockKey(char, idx, "thoughts"));
+          return (
+            <div key={char.characterId ?? idx} className="rounded-lg bg-[var(--muted)]/20 p-2 space-y-1">
+            <div className="group/field flex items-center gap-1.5">
               {/* Avatar circle or emoji fallback */}
               {char.avatarPath ? (
                 <button
@@ -681,7 +870,9 @@ export function CharactersPanel({
                 onSave={(value) => updateCharacter(idx, { ...char, name: value })}
                 className="flex-1 !font-medium"
                 placeholder="Name"
+                locked={nameLock.locked}
               />
+              <HudFieldLockButton {...nameLock} label={`${char.name || "character"} name`} />
               <button
                 onClick={() => removeCharacter(idx)}
                 className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
@@ -695,45 +886,62 @@ export function CharactersPanel({
                 label="Mood"
                 value={char.mood}
                 onSave={(value) => updateCharacter(idx, { ...char, mood: value })}
+                locked={moodLock.locked}
+                onToggleLock={moodLock.onToggle}
               />
               <LabeledEdit
                 label="Look"
                 value={char.appearance ?? ""}
                 onSave={(value) => updateCharacter(idx, { ...char, appearance: value || null })}
+                locked={appearanceLock.locked}
+                onToggleLock={appearanceLock.onToggle}
               />
               <LabeledEdit
                 label="Outfit"
                 value={char.outfit ?? ""}
                 onSave={(value) => updateCharacter(idx, { ...char, outfit: value || null })}
+                locked={outfitLock.locked}
+                onToggleLock={outfitLock.onToggle}
               />
               <LabeledEdit
                 label="Thinks"
                 value={char.thoughts ?? ""}
                 onSave={(value) => updateCharacter(idx, { ...char, thoughts: value || null })}
+                locked={thoughtsLock.locked}
+                onToggleLock={thoughtsLock.onToggle}
               />
             </div>
             {char.stats?.length > 0 && (
               <div className="space-y-1 pt-1 border-t border-[var(--border)]">
-                {char.stats.map((stat, statIndex) => (
-                  <StatBarEditable
-                    key={stat.name}
-                    stat={stat}
-                    onUpdateValue={(value) => {
-                      const next = [...(char.stats ?? [])];
-                      next[statIndex] = { ...next[statIndex]!, value };
-                      updateCharacter(idx, { ...char, stats: next });
-                    }}
-                    onUpdateMax={(value) => {
-                      const next = [...(char.stats ?? [])];
-                      next[statIndex] = { ...next[statIndex]!, max: value };
-                      updateCharacter(idx, { ...char, stats: next });
-                    }}
-                  />
-                ))}
+                {char.stats.map((stat, statIndex) => {
+                  const valueLock = lockFor(characterStatTrackerLockKey(char, idx, statIndex, "value"));
+                  const maxLock = lockFor(characterStatTrackerLockKey(char, idx, statIndex, "max"));
+                  return (
+                    <StatBarEditable
+                      key={stat.name}
+                      stat={stat}
+                      onUpdateValue={(value) => {
+                        const next = [...(char.stats ?? [])];
+                        next[statIndex] = { ...next[statIndex]!, value };
+                        updateCharacter(idx, { ...char, stats: next });
+                      }}
+                      onUpdateMax={(value) => {
+                        const next = [...(char.stats ?? [])];
+                        next[statIndex] = { ...next[statIndex]!, max: value };
+                        updateCharacter(idx, { ...char, stats: next });
+                      }}
+                      valueLocked={valueLock.locked}
+                      maxLocked={maxLock.locked}
+                      onToggleValueLock={valueLock.onToggle}
+                      onToggleMaxLock={maxLock.onToggle}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
       {/* Hidden file input for avatar upload */}
       <input
@@ -756,7 +964,10 @@ interface InventoryPanelProps {
   onUpdate: (items: InventoryItem[]) => void;
 }
 
-export function InventoryPanel({ items, onUpdate }: InventoryPanelProps) {
+export function InventoryPanel({
+  items,
+  onUpdate,
+}: InventoryPanelProps) {
   const addItem = () => {
     onUpdate([...items, { name: "New Item", description: "", quantity: 1, location: "on_person" }]);
   };
@@ -770,6 +981,7 @@ export function InventoryPanel({ items, onUpdate }: InventoryPanelProps) {
     next[idx] = updated;
     onUpdate(next);
   };
+  const lockFor = useHudFieldLockResolver();
 
   return (
     <>
@@ -777,40 +989,50 @@ export function InventoryPanel({ items, onUpdate }: InventoryPanelProps) {
         <span className={ROLEPLAY_POPOVER_TITLE}>
           <Package size="0.625rem" className="text-amber-400/80" /> Inventory ({items.length})
         </span>
-        <button
-          onClick={addItem}
-          className={TRACKER_SECTION_ACTION}
-        >
-          <Plus size="0.625rem" /> Add
-        </button>
+        <span className="flex items-center gap-1">
+          <HudLockModeToggle />
+          <button onClick={addItem} className={TRACKER_SECTION_ACTION}>
+            <Plus size="0.625rem" /> Add
+          </button>
+        </span>
       </div>
       <div className="p-2 space-y-1">
         {items.length === 0 && <div className={cn(EMPTY_STATE, "py-2")}>Inventory empty</div>}
-        {items.map((item, idx) => (
-          <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5">
-            <Package size="0.625rem" className="shrink-0 text-amber-400/60" />
-            <InlineEdit
-              value={item.name}
-              onSave={(value) => updateItem(idx, { ...item, name: value })}
-              className="flex-1 min-w-0"
-              placeholder="Item name"
-            />
-            <input
-              type="number"
-              value={item.quantity}
-              onChange={(e) => updateItem(idx, { ...item, quantity: Math.max(0, Number(e.target.value)) })}
-              className="w-8 bg-transparent text-center text-[0.5625rem] text-[var(--foreground)]/60 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              title="Quantity"
-            />
-            <button
-              onClick={() => removeItem(idx)}
-              className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
-              title="Remove item"
-            >
-              <X size="0.5625rem" />
-            </button>
-          </div>
-        ))}
+        {items.map((item, idx) => {
+          const nameLock = lockFor(inventoryTrackerLockKey(idx, "name"));
+          const quantityLock = lockFor(inventoryTrackerLockKey(idx, "quantity"));
+          return (
+            <div key={idx} className="group/field flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5">
+              <Package size="0.625rem" className="shrink-0 text-amber-400/60" />
+              <InlineEdit
+                value={item.name}
+                onSave={(value) => updateItem(idx, { ...item, name: value })}
+                className="flex-1 min-w-0"
+                placeholder="Item name"
+                locked={nameLock.locked}
+              />
+              <HudFieldLockButton {...nameLock} label={`${item.name || "item"} name`} />
+              <input
+                type="number"
+                value={item.quantity}
+                onChange={(e) => updateItem(idx, { ...item, quantity: Math.max(0, Number(e.target.value)) })}
+                className={cn(
+                  "w-8 rounded bg-transparent text-center text-[0.5625rem] text-[var(--foreground)]/60 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+                  quantityLock.locked && HUD_LOCKED_FIELD_CLASS,
+                )}
+                title="Quantity"
+              />
+              <HudFieldLockButton {...quantityLock} label={`${item.name || "item"} quantity`} />
+              <button
+                onClick={() => removeItem(idx)}
+                className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
+                title="Remove item"
+              >
+                <X size="0.5625rem" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </>
   );
@@ -823,7 +1045,12 @@ interface QuestsPanelProps {
   isTrackerRetryBusy?: boolean;
 }
 
-export function QuestsPanel({ quests, onUpdate, onRerunSingleTracker, isTrackerRetryBusy }: QuestsPanelProps) {
+export function QuestsPanel({
+  quests,
+  onUpdate,
+  onRerunSingleTracker,
+  isTrackerRetryBusy,
+}: QuestsPanelProps) {
   const addQuest = () => {
     onUpdate([
       ...quests,
@@ -860,10 +1087,8 @@ export function QuestsPanel({ quests, onUpdate, onRerunSingleTracker, isTrackerR
             busy={isTrackerRetryBusy}
             title="Re-run quest tracker only"
           />
-          <button
-            onClick={addQuest}
-            className={TRACKER_SECTION_ACTION}
-          >
+          <HudLockModeToggle />
+          <button onClick={addQuest} className={TRACKER_SECTION_ACTION}>
             <Plus size="0.625rem" /> Add
           </button>
         </span>
@@ -874,6 +1099,7 @@ export function QuestsPanel({ quests, onUpdate, onRerunSingleTracker, isTrackerR
           <QuestCardEditable
             key={quest.questEntryId || idx}
             quest={quest}
+            questIndex={idx}
             onUpdate={(updatedQuest) => updateQuest(idx, updatedQuest)}
             onRemove={() => removeQuest(idx)}
           />
@@ -909,6 +1135,7 @@ export function CustomTrackerPanel({
     next[idx] = updated;
     onUpdate(next);
   };
+  const lockFor = useHudFieldLockResolver();
 
   return (
     <>
@@ -923,41 +1150,58 @@ export function CustomTrackerPanel({
             busy={isTrackerRetryBusy}
             title="Re-run custom tracker only"
           />
-          <button
-            onClick={addField}
-            className={TRACKER_SECTION_ACTION}
-          >
+          <HudLockModeToggle />
+          <button onClick={addField} className={TRACKER_SECTION_ACTION}>
             <Plus size="0.625rem" /> Add
           </button>
         </span>
       </div>
       <div className="p-2 space-y-1">
         {fields.length === 0 && <div className={cn(EMPTY_STATE, "py-2")}>No fields tracked — add one above</div>}
-        {fields.map((field, idx) => (
-          <div key={idx} className="flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5">
-            <SlidersHorizontal size="0.625rem" className="shrink-0 text-cyan-400/60" />
-            <InlineEdit
-              value={field.name}
-              onSave={(value) => updateField(idx, { ...field, name: value })}
-              className="flex-1 min-w-0"
-              placeholder="Field name"
-            />
-            <span className="text-[var(--muted-foreground)]/40 text-[0.5rem]">=</span>
-            <InlineEdit
-              value={field.value}
-              onSave={(value) => updateField(idx, { ...field, value })}
-              className="flex-1 min-w-0"
-              placeholder="Value"
-            />
-            <button
-              onClick={() => removeField(idx)}
-              className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
-              title="Remove field"
+        {fields.map((field, idx) => {
+          const nameLock = lockFor(customTrackerLockKey(idx, "name"));
+          const valueLock = lockFor(customTrackerLockKey(idx, "value"));
+          const toggleValueLock = () => {
+            if (field.locked) updateField(idx, { ...field, locked: false });
+            if (valueLock.locked || !field.locked) valueLock.onToggle();
+          };
+          return (
+            <div
+              key={idx}
+              className="group/field flex items-center gap-1.5 rounded-lg bg-[var(--muted)]/20 px-2 py-1.5"
             >
-              <X size="0.5625rem" />
-            </button>
-          </div>
-        ))}
+              <SlidersHorizontal size="0.625rem" className="shrink-0 text-cyan-400/60" />
+              <InlineEdit
+                value={field.name}
+                onSave={(value) => updateField(idx, { ...field, name: value })}
+                className="flex-1 min-w-0"
+                placeholder="Field name"
+                locked={nameLock.locked}
+              />
+              <HudFieldLockButton {...nameLock} label={`${field.name || "field"} name`} />
+              <span className="text-[var(--muted-foreground)]/40 text-[0.5rem]">=</span>
+              <InlineEdit
+                value={field.value}
+                onSave={(value) => updateField(idx, { ...field, value })}
+                className="flex-1 min-w-0"
+                placeholder="Value"
+                locked={valueLock.locked || field.locked}
+              />
+              <HudFieldLockButton
+                locked={valueLock.locked || field.locked}
+                onToggle={toggleValueLock}
+                label={`${field.name || "field"} value`}
+              />
+              <button
+                onClick={() => removeField(idx)}
+                className="text-[var(--muted-foreground)]/40 hover:text-red-500 transition-colors shrink-0"
+                title="Remove field"
+              >
+                <X size="0.5625rem" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </>
   );
@@ -1000,6 +1244,13 @@ export function CombinedWorldPanel({
   onRerunSingleTracker,
   isTrackerRetryBusy,
 }: CombinedWorldPanelProps) {
+  const lockFor = useHudFieldLockResolver();
+  const locationLock = lockFor(worldTrackerLockKey("location"));
+  const dateLock = lockFor(worldTrackerLockKey("date"));
+  const timeLock = lockFor(worldTrackerLockKey("time"));
+  const weatherLock = lockFor(worldTrackerLockKey("weather"));
+  const temperatureLock = lockFor(worldTrackerLockKey("temperature"));
+
   return (
     <>
       <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex items-center justify-between")}>
@@ -1013,6 +1264,7 @@ export function CombinedWorldPanel({
             busy={isTrackerRetryBusy}
             title="Re-run world state tracker only"
           />
+          <HudLockModeToggle />
           <button
             onClick={onClose}
             className="text-[var(--muted-foreground)]/50 hover:text-[var(--foreground)] transition-colors"
@@ -1028,6 +1280,8 @@ export function CombinedWorldPanel({
           value={location}
           onSave={onSaveLocation}
           accent="text-[var(--foreground)]/80"
+          locked={locationLock.locked}
+          onToggleLock={locationLock.onToggle}
         />
         <WorldFieldRow
           icon={<CalendarDays size="0.8125rem" className="text-[var(--muted-foreground)]" />}
@@ -1035,6 +1289,8 @@ export function CombinedWorldPanel({
           value={date}
           onSave={onSaveDate}
           accent="text-[var(--foreground)]"
+          locked={dateLock.locked}
+          onToggleLock={dateLock.onToggle}
         />
         <WorldFieldRow
           icon={<Clock size="0.8125rem" className="text-amber-400" />}
@@ -1042,6 +1298,8 @@ export function CombinedWorldPanel({
           value={time}
           onSave={onSaveTime}
           accent="text-[var(--foreground)]/80"
+          locked={timeLock.locked}
+          onToggleLock={timeLock.onToggle}
         />
         <WorldFieldRow
           icon={<span className="text-sm leading-none">{weatherEmoji}</span>}
@@ -1049,6 +1307,8 @@ export function CombinedWorldPanel({
           value={weather}
           onSave={onSaveWeather}
           accent="text-[var(--foreground)]/80"
+          locked={weatherLock.locked}
+          onToggleLock={weatherLock.onToggle}
         />
         <WorldFieldRow
           icon={<Thermometer size="0.8125rem" className={tempColor} />}
@@ -1056,6 +1316,8 @@ export function CombinedWorldPanel({
           value={temperature}
           onSave={onSaveTemperature}
           accent="text-[var(--foreground)]"
+          locked={temperatureLock.locked}
+          onToggleLock={temperatureLock.onToggle}
         />
       </div>
     </>
@@ -1175,21 +1437,30 @@ function InlineEdit({
   placeholder,
   className,
   scrollOnHover = false,
+  showEditHint = true,
+  locked = false,
 }: {
   value: string;
   onSave: (v: string) => void;
   placeholder?: string;
   className?: string;
   scrollOnHover?: boolean;
+  showEditHint?: boolean;
+  locked?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const ref = useRef<HTMLInputElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const scrollFieldRef = useRef<HTMLSpanElement>(null);
+  const scrollMeasureRef = useRef<HTMLSpanElement>(null);
   const lastTapRef = useRef(0);
   const isTouchRef = useRef(false);
   const [showTip, setShowTip] = useState(false);
+  const [scrollActive, setScrollActive] = useState(false);
   const tipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canScroll = scrollOnHover && !!value;
+  const shouldScroll = canScroll && (scrollActive || showTip);
 
   useEffect(() => {
     if (editing) ref.current?.focus();
@@ -1201,14 +1472,35 @@ function InlineEdit({
     };
   }, []);
 
+  useEffect(() => {
+    setScrollActive(false);
+    setShowTip(false);
+  }, [value, scrollOnHover]);
+
   const commit = () => {
     const trimmed = draft.trim();
     if (trimmed !== value) onSave(trimmed);
     setEditing(false);
   };
 
+  const measureScrollOverflow = () => {
+    if (!canScroll) return false;
+    const field = scrollFieldRef.current;
+    const measure = scrollMeasureRef.current;
+    if (!field || !measure) return false;
+
+    const nextScrollActive = measure.scrollWidth > field.clientWidth + 1;
+    setScrollActive((previous) => (previous === nextScrollActive ? previous : nextScrollActive));
+    return nextScrollActive;
+  };
+
+  const resetScrollOverflow = () => {
+    setScrollActive((previous) => (previous ? false : previous));
+  };
+
   const handleTouchStart = () => {
     isTouchRef.current = true;
+    measureScrollOverflow();
   };
 
   const handleClick = () => {
@@ -1225,7 +1517,7 @@ function InlineEdit({
       if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
       setDraft(value);
       setEditing(true);
-    } else {
+    } else if (measureScrollOverflow()) {
       setShowTip(true);
       if (tipTimerRef.current) clearTimeout(tipTimerRef.current);
       tipTimerRef.current = setTimeout(() => setShowTip(false), 2500);
@@ -1246,6 +1538,7 @@ function InlineEdit({
         onBlur={commit}
         className={cn(
           "rounded border border-[var(--border)] bg-[var(--muted)]/20 px-1.5 py-0.5 text-[0.625rem] text-[var(--foreground)] outline-none focus:border-[var(--foreground)]/30",
+          locked && HUD_LOCKED_FIELD_CLASS,
           className,
         )}
         placeholder={placeholder}
@@ -1258,20 +1551,35 @@ function InlineEdit({
       ref={buttonRef}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
+      onMouseEnter={measureScrollOverflow}
+      onFocus={measureScrollOverflow}
+      onMouseLeave={resetScrollOverflow}
+      onBlur={resetScrollOverflow}
       title={value || undefined}
       aria-label={value || placeholder}
       className={cn(
-        "group relative flex items-center gap-1 text-left hover:bg-[var(--muted)]/20 rounded px-0.5 transition-colors min-w-0",
+        "group relative flex min-w-0 items-center overflow-hidden rounded px-0.5 text-left transition-colors hover:bg-[var(--muted)]/20",
+        locked && HUD_LOCKED_FIELD_CLASS,
         className,
       )}
     >
       <span
+        ref={scrollFieldRef}
         className={cn(
-          "text-[0.625rem] text-[var(--foreground)]/70 overflow-hidden whitespace-nowrap scrollbar-hide min-w-0",
-          scrollOnHover && value && "roleplay-hud-scroll-field",
+          "min-w-0 flex-1 overflow-hidden whitespace-nowrap scrollbar-hide text-[0.625rem] text-[var(--foreground)]/70",
+          shouldScroll && "roleplay-hud-scroll-field",
         )}
       >
-        {scrollOnHover && value ? (
+        {canScroll && (
+          <span
+            ref={scrollMeasureRef}
+            aria-hidden="true"
+            className="pointer-events-none invisible absolute left-0 top-0 block w-max max-w-none whitespace-nowrap"
+          >
+            {value}
+          </span>
+        )}
+        {canScroll && shouldScroll ? (
           <span className={cn("roleplay-hud-scroll-track", showTip && "roleplay-hud-scroll-track--active")}>
             <span className="pr-6">{value}</span>
             <span className="pr-6" aria-hidden>
@@ -1282,20 +1590,36 @@ function InlineEdit({
           value || <span className="italic text-[var(--muted-foreground)]/50">{placeholder ?? "—"}</span>
         )}
       </span>
-      <Pencil size="0.4375rem" className="opacity-0 group-hover:opacity-40 shrink-0 transition-opacity" />
+      {showEditHint && (
+        <Pencil
+          size="0.4375rem"
+          className="pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-40"
+        />
+      )}
       <InlinePreviewPortal open={showTip} value={value} anchorRef={buttonRef} />
     </button>
   );
 }
 
-function PersonaStatusField({ value, onSave }: { value: string; onSave?: (v: string) => void }) {
+function PersonaStatusField({
+  value,
+  onSave,
+  locked,
+  onToggleLock,
+}: {
+  value: string;
+  onSave?: (v: string) => void;
+  locked?: boolean;
+  onToggleLock?: () => void;
+}) {
   return (
     <div className="mb-2 rounded-lg border border-[var(--border)]/60 bg-[var(--muted)]/10 px-2 py-1.5">
-      <div className="mb-0.5 flex items-center gap-1.5">
+      <div className="group/field mb-0.5 flex items-center gap-1.5">
         <Sparkles size="0.5625rem" className="text-[var(--muted-foreground)]/60" />
         <span className="text-[0.5625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]/70">
           Current Status
         </span>
+        <HudFieldLockButton locked={locked} onToggle={onToggleLock} label="persona status" />
       </div>
       <InlineEdit
         value={value}
@@ -1303,6 +1627,7 @@ function PersonaStatusField({ value, onSave }: { value: string; onSave?: (v: str
         className="w-full !text-[0.6875rem] !text-[var(--foreground)]/85"
         placeholder="Status not tracked"
         scrollOnHover
+        locked={locked}
       />
     </div>
   );
@@ -1314,55 +1639,85 @@ function StatBarEditable({
   onUpdateValue,
   onUpdateMax,
   onRemove,
+  nameLocked,
+  valueLocked,
+  maxLocked,
+  onToggleNameLock,
+  onToggleValueLock,
+  onToggleMaxLock,
 }: {
   stat: CharacterStat;
   onUpdateName?: (name: string) => void;
   onUpdateValue: (v: number) => void;
   onUpdateMax: (v: number) => void;
   onRemove?: () => void;
+  nameLocked?: boolean;
+  valueLocked?: boolean;
+  maxLocked?: boolean;
+  onToggleNameLock?: () => void;
+  onToggleValueLock?: () => void;
+  onToggleMaxLock?: () => void;
 }) {
+  const { lockMode } = useTrackerLockContext();
   const pct = stat.max > 0 ? Math.min(100, Math.max(0, (stat.value / stat.max) * 100)) : 0;
+  const removeButton = onRemove ? (
+    <button
+      type="button"
+      onClick={onRemove}
+      title="Remove stat"
+      aria-label={`Remove ${stat.name || "stat"}`}
+      className={cn(
+        "flex h-4 w-4 items-center justify-center rounded bg-[var(--popover)]/90 text-[var(--muted-foreground)]/45 shadow-sm ring-1 ring-[var(--border)]/70 transition-all hover:text-[var(--destructive)] hover:opacity-100 focus-visible:opacity-100",
+        lockMode ? "shrink-0 opacity-70" : "absolute -right-1 -top-1 opacity-0 group-hover/stat:opacity-80 max-md:opacity-80",
+      )}
+    >
+      <Trash2 size="0.5625rem" />
+    </button>
+  ) : null;
 
   return (
     <div className="group/stat relative">
       <div className="flex items-center justify-between mb-0.5">
         {onUpdateName ? (
-          <InlineEdit
-            value={stat.name}
-            onSave={onUpdateName}
-            className="!text-[0.625rem] !font-medium !text-[var(--foreground)]/80"
-            placeholder="Stat name"
-          />
+          <span className="group/field flex min-w-0 items-center gap-1">
+            <InlineEdit
+              value={stat.name}
+              onSave={onUpdateName}
+              className="!text-[0.625rem] !font-medium !text-[var(--foreground)]/80"
+              placeholder="Stat name"
+              locked={nameLocked}
+            />
+            <HudFieldLockButton locked={nameLocked} onToggle={onToggleNameLock} label={`${stat.name || "stat"} name`} />
+          </span>
         ) : (
           <span className="text-[0.625rem] font-medium text-[var(--foreground)]/80">{stat.name}</span>
         )}
-        <div className="flex items-center gap-0.5 shrink-0 text-[0.5625rem] text-[var(--muted-foreground)]/60">
+        <div className="group/field flex items-center gap-0.5 shrink-0 text-[0.5625rem] text-[var(--muted-foreground)]/60">
           <input
             type="number"
             value={stat.value}
             onChange={(e) => onUpdateValue(Number(e.target.value))}
-            className="w-12 bg-transparent text-right outline-none text-[var(--foreground)]/80 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className={cn(
+              "w-12 rounded bg-transparent text-right outline-none text-[var(--foreground)]/80 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+              valueLocked && HUD_LOCKED_FIELD_CLASS,
+            )}
           />
+          <HudFieldLockButton locked={valueLocked} onToggle={onToggleValueLock} label={`${stat.name || "stat"} value`} />
           <span>/</span>
           <input
             type="number"
             value={stat.max}
             onChange={(e) => onUpdateMax(Number(e.target.value))}
-            className="w-12 bg-transparent outline-none text-[var(--foreground)]/80 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className={cn(
+              "w-12 rounded bg-transparent outline-none text-[var(--foreground)]/80 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
+              maxLocked && HUD_LOCKED_FIELD_CLASS,
+            )}
           />
+          <HudFieldLockButton locked={maxLocked} onToggle={onToggleMaxLock} label={`${stat.name || "stat"} max`} />
+          {lockMode && removeButton}
         </div>
       </div>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          title="Remove stat"
-          aria-label={`Remove ${stat.name || "stat"}`}
-          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded bg-[var(--popover)]/90 text-[var(--muted-foreground)]/45 opacity-0 shadow-sm ring-1 ring-[var(--border)]/70 transition-all hover:text-[var(--destructive)] hover:opacity-100 focus-visible:opacity-100 group-hover/stat:opacity-80 max-md:opacity-80"
-        >
-          <Trash2 size="0.5625rem" />
-        </button>
-      )}
+      {!lockMode && removeButton}
       <div className="h-1.5 rounded-full bg-[var(--muted)]/30 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
@@ -1375,10 +1730,12 @@ function StatBarEditable({
 
 function QuestCardEditable({
   quest,
+  questIndex,
   onUpdate,
   onRemove,
 }: {
   quest: QuestProgress;
+  questIndex: number;
   onUpdate: (q: QuestProgress) => void;
   onRemove: () => void;
 }) {
@@ -1407,13 +1764,17 @@ function QuestCardEditable({
 
   const completed = quest.objectives.filter((objective) => objective.completed).length;
   const total = quest.objectives.length;
+  const lockFor = useHudFieldLockResolver();
+  const questCompletedLock = lockFor(questTrackerLockKey(quest, questIndex, "completed"));
+  const questNameLock = lockFor(questTrackerLockKey(quest, questIndex, "name"));
 
   return (
     <div className="rounded-lg bg-[var(--muted)]/20 p-2">
-      <div className="flex items-center gap-1.5">
+      <div className="group/field flex items-center gap-1.5">
         <button
           onClick={() => onUpdate({ ...quest, completed: !quest.completed })}
           title={quest.completed ? "Mark incomplete" : "Mark complete"}
+          className={cn("rounded-sm", questCompletedLock.locked && HUD_LOCKED_FIELD_CLASS)}
         >
           {quest.completed ? (
             <CheckCircle2 size="0.6875rem" className="text-emerald-400 shrink-0" />
@@ -1421,12 +1782,18 @@ function QuestCardEditable({
             <Target size="0.6875rem" className="text-amber-400 shrink-0" />
           )}
         </button>
+        <HudFieldLockButton
+          {...questCompletedLock}
+          label={`${quest.name || "quest"} completion`}
+        />
         <InlineEdit
           value={quest.name}
           onSave={(value) => onUpdate({ ...quest, name: value })}
           className={cn("flex-1 !font-medium", quest.completed && "line-through opacity-50")}
           placeholder="Quest name"
+          locked={questNameLock.locked}
         />
+        <HudFieldLockButton {...questNameLock} label={`${quest.name || "quest"} name`} />
         {total > 0 && (
           <span className="text-[0.5625rem] text-[var(--muted-foreground)]/60">
             {completed}/{total}
@@ -1442,29 +1809,39 @@ function QuestCardEditable({
       </div>
       {!quest.completed && (
         <div className="mt-1 space-y-0.5 pl-4">
-          {quest.objectives.map((objective, idx) => (
-            <div key={idx} className="group flex items-center gap-1 text-[0.5625rem]">
-              <button onClick={() => toggleObjective(idx)}>
-                {objective.completed ? (
-                  <CheckCircle2 size="0.5rem" className="text-emerald-400/60 shrink-0" />
-                ) : (
-                  <Circle size="0.5rem" className="text-[var(--muted-foreground)]/40 shrink-0" />
-                )}
-              </button>
-              <InlineEdit
-                value={objective.text}
-                onSave={(value) => updateObjectiveText(idx, value)}
-                className={cn("flex-1", objective.completed && "line-through opacity-50")}
-                placeholder="Objective"
-              />
-              <button
-                onClick={() => removeObjective(idx)}
-                className="opacity-0 group-hover:opacity-100 text-[var(--muted-foreground)]/40 hover:text-red-500 transition-all shrink-0"
-              >
-                <X size="0.4375rem" />
-              </button>
-            </div>
-          ))}
+          {quest.objectives.map((objective, idx) => {
+            const completedLock = lockFor(questObjectiveTrackerLockKey(quest, questIndex, idx, "completed"));
+            const textLock = lockFor(questObjectiveTrackerLockKey(quest, questIndex, idx, "text"));
+            return (
+              <div key={idx} className="group group/field flex items-center gap-1 text-[0.5625rem]">
+                <button
+                  onClick={() => toggleObjective(idx)}
+                  className={cn("rounded-sm", completedLock.locked && HUD_LOCKED_FIELD_CLASS)}
+                >
+                  {objective.completed ? (
+                    <CheckCircle2 size="0.5rem" className="text-emerald-400/60 shrink-0" />
+                  ) : (
+                    <Circle size="0.5rem" className="text-[var(--muted-foreground)]/40 shrink-0" />
+                  )}
+                </button>
+                <HudFieldLockButton {...completedLock} label="objective completion" />
+                <InlineEdit
+                  value={objective.text}
+                  onSave={(value) => updateObjectiveText(idx, value)}
+                  className={cn("flex-1", objective.completed && "line-through opacity-50")}
+                  placeholder="Objective"
+                  locked={textLock.locked}
+                />
+                <HudFieldLockButton {...textLock} label="objective text" />
+                <button
+                  onClick={() => removeObjective(idx)}
+                  className="opacity-0 group-hover:opacity-100 text-[var(--muted-foreground)]/40 hover:text-red-500 transition-all shrink-0"
+                >
+                  <X size="0.4375rem" />
+                </button>
+              </div>
+            );
+          })}
           <button
             onClick={addObjective}
             className="flex items-center gap-0.5 text-[0.5rem] text-[var(--muted-foreground)]/40 hover:text-[var(--muted-foreground)] transition-colors mt-0.5"
@@ -1477,11 +1854,45 @@ function QuestCardEditable({
   );
 }
 
-function LabeledEdit({ label, value, onSave }: { label: string; value: string; onSave: (v: string) => void }) {
+function LabeledEdit({
+  label,
+  value,
+  onSave,
+  locked,
+  onToggleLock,
+}: {
+  label: string;
+  value: string;
+  onSave: (v: string) => void;
+  locked?: boolean;
+  onToggleLock?: () => void;
+}) {
+  const { lockMode } = useTrackerLockContext();
+
   return (
-    <div className="flex items-center gap-1">
-      <span className="text-[0.5625rem] text-[var(--muted-foreground)]/60 w-10 shrink-0">{label}</span>
-      <InlineEdit value={value} onSave={onSave} className="flex-1 min-w-0" placeholder="—" scrollOnHover />
+    <div className="group/field relative grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-1">
+      <span
+        className={cn(
+          "relative flex w-10 min-w-0 shrink-0 items-center text-[0.5625rem] text-[var(--muted-foreground)]/60",
+          lockMode && "pr-3",
+        )}
+      >
+        <span className="min-w-0 truncate">{label}</span>
+        <HudFieldLockButton
+          locked={locked}
+          onToggle={onToggleLock}
+          label={label}
+          className="absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 bg-[var(--popover)]/85 shadow-sm"
+        />
+      </span>
+      <InlineEdit
+        value={value}
+        onSave={onSave}
+        className="min-w-0"
+        placeholder="—"
+        scrollOnHover
+        locked={locked}
+      />
     </div>
   );
 }
@@ -1492,12 +1903,16 @@ function WorldFieldRow({
   value,
   onSave,
   accent,
+  locked,
+  onToggleLock,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
   onSave: (v: string) => void;
   accent: string;
+  locked?: boolean;
+  onToggleLock?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -1517,7 +1932,12 @@ function WorldFieldRow({
   };
 
   return (
-    <div className="flex items-center gap-2.5 px-3 py-2 group/row hover:bg-[var(--muted)]/20 transition-colors">
+    <div
+      className={cn(
+        "group/row group/field flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-[var(--muted)]/20",
+        locked && "bg-[color-mix(in_srgb,var(--foreground)_5%,transparent)]",
+      )}
+    >
       <div className="shrink-0 w-5 flex items-center justify-center">{icon}</div>
       <div className="flex-1 min-w-0">
         <div className="text-[0.5625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]/60 mb-0.5">
@@ -1534,7 +1954,8 @@ function WorldFieldRow({
             }}
             onBlur={commit}
             className={cn(
-              "w-full bg-transparent text-[0.6875rem] font-medium outline-none placeholder:text-[var(--muted-foreground)]/40",
+              "w-full rounded bg-transparent px-1 py-0.5 text-[0.6875rem] font-medium outline-none placeholder:text-[var(--muted-foreground)]/40",
+              locked && HUD_LOCKED_FIELD_CLASS,
               accent,
             )}
             placeholder={label}
@@ -1543,8 +1964,9 @@ function WorldFieldRow({
           <button
             onClick={() => setEditing(true)}
             className={cn(
-              "w-full text-left text-[0.6875rem] font-medium truncate",
+              "w-full truncate rounded px-1 py-0.5 text-left text-[0.6875rem] font-medium",
               value ? "text-[var(--foreground)]/80" : "text-[var(--muted-foreground)]/50 italic",
+              locked && HUD_LOCKED_FIELD_INSET_CLASS,
             )}
           >
             {value || `Set ${label.toLowerCase()}…`}
@@ -1560,6 +1982,7 @@ function WorldFieldRow({
           <Pencil size="0.625rem" />
         </button>
       )}
+      <HudFieldLockButton locked={locked} onToggle={onToggleLock} label={label.toLowerCase()} />
     </div>
   );
 }

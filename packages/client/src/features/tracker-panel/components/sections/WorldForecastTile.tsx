@@ -4,6 +4,7 @@ import { cn } from "../../../../lib/utils";
 import { getTemperatureColor, getTemperatureGaugeDisplay, getWeatherEmoji } from "../../lib/world-state-display";
 import { visibleText } from "../../lib/tracker-display";
 import { FittedText } from "../controls/InlineControls";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 import { WorldRenderedEdit, WorldTileShell } from "./WorldEditableTile";
 
 export function WorldForecastTile({
@@ -13,6 +14,8 @@ export function WorldForecastTile({
   trackerTemperatureUnit,
   onSaveWeather,
   onSaveTemperature,
+  weatherLockKey,
+  temperatureLockKey,
 }: {
   weather: string | null | undefined;
   temperature: string | null | undefined;
@@ -20,7 +23,11 @@ export function WorldForecastTile({
   trackerTemperatureUnit: TrackerTemperatureUnit;
   onSaveWeather?: (value: string) => void;
   onSaveTemperature?: (value: string) => void;
+  weatherLockKey?: string;
+  temperatureLockKey?: string;
 }) {
+  const weatherLock = useTrackerFieldLock(weatherLockKey);
+  const temperatureLock = useTrackerFieldLock(temperatureLockKey);
   const weatherText = visibleText(weather, "Set weather");
   const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
   const useHorizontalTempRail = trackerPanelSizeProfile !== "compact";
@@ -62,6 +69,7 @@ export function WorldForecastTile({
               ? "right-[4.45rem] @min-[7rem]:right-[4.6rem] @min-[10rem]:right-[4.7rem] @min-[14rem]:right-[4.8rem]"
               : "right-[2.45rem] @min-[7rem]:right-[2.65rem] @min-[10rem]:right-[2.95rem] @min-[14rem]:right-[3.25rem]",
           )}
+          {...weatherLock}
         >
           <WorldWeatherLabel text={weatherText} trackerPanelSizeProfile={trackerPanelSizeProfile} />
         </WorldRenderedEdit>
@@ -86,6 +94,7 @@ export function WorldForecastTile({
             )}
             inputClassName={cn("text-center text-[0.625rem]", useHorizontalTempRail && "text-[0.6875rem]")}
             showEditHint={false}
+            {...temperatureLock}
           >
             <span
               className={cn(

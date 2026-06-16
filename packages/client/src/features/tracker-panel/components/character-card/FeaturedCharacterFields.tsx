@@ -1,6 +1,10 @@
 import { type ReactNode } from "react";
 import { Eye, HeartPulse, Shirt } from "lucide-react";
-import type { CharacterStat, PresentCharacter } from "@marinara-engine/shared";
+import {
+  characterTrackerLockKey,
+  type CharacterStat,
+  type PresentCharacter,
+} from "@marinara-engine/shared";
 import type { TrackerPanelSizeProfile } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
 import type { TrackerStatDensity } from "../../tracker-panel.types";
@@ -8,11 +12,13 @@ import { visibleText } from "../../lib/tracker-display";
 import { InlineEdit } from "../controls/InlineControls";
 import { StatList } from "../controls/StatList";
 import { TRACKER_PROFILE_FIELD_TILE_CLASS } from "../controls/TrackerProfileChrome";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 
 const FEATURED_FIELD_LIST_CLASS = "relative z-[1] grid h-full min-h-0 grid-cols-1 gap-1 overflow-hidden p-1";
 const FEATURED_FIELD_ICON_CLASS =
   "relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-[0.82] ring-1 ring-inset ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_18%,transparent)] transition-colors before:absolute before:inset-[3px] before:rounded-full before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_3%,transparent)] before:content-[''] group-hover/field:text-[color-mix(in_srgb,var(--tracker-profile-icon)_78%,var(--tracker-profile-text)_22%)] group-hover/field:ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent)] group-hover/field:before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_6%,transparent)] [&>svg]:relative [&>svg]:z-[1] [&>svg]:stroke-[1.85]";
 type FeaturedFieldTone = "mood" | "appearance" | "outfit";
+type FeaturedCharacterFieldKey = "mood" | "appearance" | "outfit";
 const FEATURED_FIELD_ICON_TONE_CLASS = {
   mood: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_70%,var(--tracker-profile-text)_30%)] before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_4%,transparent)] group-hover/field:text-[color-mix(in_srgb,var(--tracker-profile-icon)_84%,var(--tracker-profile-text)_16%)]",
   appearance:
@@ -54,6 +60,7 @@ function FeaturedFieldTile({
   readable = false,
   sizeProfile,
   tone,
+  lockKey,
 }: {
   icon: ReactNode;
   accessibleLabel: string;
@@ -63,7 +70,9 @@ function FeaturedFieldTile({
   readable?: boolean;
   sizeProfile: TrackerPanelSizeProfile;
   tone: FeaturedFieldTone;
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const displayValue = visibleText(value, placeholder);
   const textClass = FEATURED_FIELD_TEXT_CLASS_BY_PROFILE[sizeProfile];
   const previewLines = FEATURED_FIELD_PREVIEW_LINES_BY_PROFILE[sizeProfile];
@@ -86,10 +95,10 @@ function FeaturedFieldTile({
             "w-full min-w-0 self-center px-0 py-0 text-[color:var(--tracker-profile-text)] hover:bg-[var(--accent)]/25",
             readable ? textClass : "h-4 text-[0.625rem] leading-4",
           )}
-          editHintMode={readable ? "overlay" : "inline"}
           scrollOnHover={!readable}
           twoLinePreview={readable}
           previewLineCount={previewLines}
+          {...lock}
         />
       ) : (
         <span
@@ -112,11 +121,13 @@ export function FeaturedFieldList({
   onUpdate,
   readableRows = true,
   sizeProfile,
+  characterIndex,
 }: {
   character: PresentCharacter;
   onUpdate?: (character: PresentCharacter) => void;
   readableRows?: boolean;
   sizeProfile: TrackerPanelSizeProfile;
+  characterIndex: number;
 }) {
   const fields = [
     {
@@ -165,6 +176,7 @@ export function FeaturedFieldList({
           readable={readableRows}
           sizeProfile={sizeProfile}
           tone={field.tone}
+          lockKey={characterTrackerLockKey(character, characterIndex, field.key as FeaturedCharacterFieldKey)}
         />
       ))}
     </div>
@@ -181,6 +193,7 @@ export function FeaturedStatGrid({
   scrollable,
   wideColumns,
   className,
+  getLockKey,
 }: {
   stats: CharacterStat[];
   onUpdate?: (stats: CharacterStat[]) => void;
@@ -191,6 +204,7 @@ export function FeaturedStatGrid({
   scrollable: boolean;
   wideColumns?: boolean;
   className?: string;
+  getLockKey?: (index: number, field: "name" | "value" | "max") => string;
 }) {
   return (
     <div className={cn(FEATURED_STAT_SHELF_CLASS, scrollable ? "overflow-y-auto" : "overflow-y-hidden", className)}>
@@ -207,6 +221,7 @@ export function FeaturedStatGrid({
           wideColumns={wideColumns}
           showWideColumnGhost={wideColumns}
           visualTone="instrument"
+          getLockKey={getLockKey}
         />
       </div>
     </div>

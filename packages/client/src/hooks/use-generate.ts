@@ -13,6 +13,7 @@ import { agentKeys } from "./use-agents";
 import type { PendingCardUpdate } from "../stores/agent.store";
 import {
   applyQuestUpdatesToPlayerStats,
+  applyTrackerFieldLocksToGameStatePatch,
   BUILT_IN_AGENTS,
   createInlineThinkingStreamFilter,
   EDITABLE_CHARACTER_CARD_FIELDS,
@@ -759,10 +760,11 @@ function applyGameStatePatchToStore(
   const current = useGameStateStore.getState().current;
 
   if (current?.chatId === chatId) {
-    const merged = { ...current, ...patch, chatId, ...(anchor ?? {}) };
-    if (patch.playerStats && typeof patch.playerStats === "object" && current.playerStats) {
-      const mergedPS = { ...current.playerStats, ...(patch.playerStats as object) };
-      const patchPS = patch.playerStats as Record<string, unknown>;
+    const lockedPatch = applyTrackerFieldLocksToGameStatePatch(patch, current);
+    const merged = { ...current, ...lockedPatch, chatId, ...(anchor ?? {}) };
+    if (lockedPatch.playerStats && typeof lockedPatch.playerStats === "object" && current.playerStats) {
+      const mergedPS = { ...current.playerStats, ...(lockedPatch.playerStats as object) };
+      const patchPS = lockedPatch.playerStats as Record<string, unknown>;
       if (
         Array.isArray(patchPS.activeQuests) &&
         patchPS.activeQuests.length === 0 &&
@@ -818,7 +820,6 @@ export function useGenerate() {
   const enqueuePendingCardUpdate = useAgentStore((s) => s.enqueuePendingCardUpdate);
   const setFailedAgentFailures = useAgentStore((s) => s.setFailedAgentFailures);
   const clearFailedAgentTypes = useAgentStore((s) => s.clearFailedAgentTypes);
-  const setGameState = useGameStateStore((s) => s.setGameState);
 
   const generate = useCallback(
     async (params: {
@@ -1430,11 +1431,8 @@ export function useGenerate() {
                   };
                   const questMerge = applyQuestUpdatesToPlayerStats(existing, updates);
                   const quests = questMerge.quests;
-                  const merged = cur
-                    ? { ...cur, playerStats: questMerge.playerStats }
-                    : { playerStats: questMerge.playerStats };
                   console.warn(`[Agent] Quest merge result — activeQuests:`, quests);
-                  setGameState(merged as any);
+                  applyGameStatePatchToStore(params.chatId, { playerStats: questMerge.playerStats });
                 } else {
                   console.warn(`[Agent] Quest agent returned success but 0 updates — data shape:`, Object.keys(qd));
                 }
@@ -2300,7 +2298,6 @@ export function useGenerate() {
       enqueuePendingCardUpdate,
       clearFailedAgentTypes,
       setFailedAgentFailures,
-      setGameState,
     ],
   );
 
@@ -2462,10 +2459,7 @@ export function useGenerate() {
                       status: "",
                     };
                     const questMerge = applyQuestUpdatesToPlayerStats(existing, updates);
-                    const merged = cur
-                      ? { ...cur, playerStats: questMerge.playerStats }
-                      : { playerStats: questMerge.playerStats };
-                    setGameState(merged as any);
+                    applyGameStatePatchToStore(chatId, { playerStats: questMerge.playerStats });
                   }
                 }
               }
@@ -2597,7 +2591,6 @@ export function useGenerate() {
       setYoutubeVolume,
       setFailedAgentFailures,
       setProcessing,
-      setGameState,
       qc,
     ],
   );

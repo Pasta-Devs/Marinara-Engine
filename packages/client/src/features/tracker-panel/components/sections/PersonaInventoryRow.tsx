@@ -1,22 +1,28 @@
 import { X } from "lucide-react";
-import type { InventoryItem } from "@marinara-engine/shared";
+import { inventoryTrackerLockKey, isTrackerFieldLocked, type InventoryItem } from "@marinara-engine/shared";
 import { cn } from "../../../../lib/utils";
 import { visibleText } from "../../lib/tracker-display";
 import { InlineEdit, InlineNumber } from "../controls/InlineControls";
+import { useTrackerLockContext } from "../TrackerLockContext";
 
 export function PersonaInventoryRow({
   item,
+  itemIndex,
   onUpdate,
   onRemove,
   deleteMode,
   fullWidth = false,
 }: {
   item: InventoryItem;
+  itemIndex: number;
   onUpdate: (item: InventoryItem) => void;
   onRemove: () => void;
   deleteMode: boolean;
   fullWidth?: boolean;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
+  const nameLockKey = inventoryTrackerLockKey(itemIndex, "name");
+  const quantityLockKey = inventoryTrackerLockKey(itemIndex, "quantity");
   return (
     <div
       className={cn(
@@ -34,6 +40,9 @@ export function PersonaInventoryRow({
           title={visibleText(item.name, "Item")}
           scrollOnHover
           showEditHint={false}
+          locked={isTrackerFieldLocked(fieldLocks, nameLockKey)}
+          lockMode={lockMode}
+          onToggleLock={() => onToggleFieldLock?.(nameLockKey)}
         />
         <div className="flex h-4 min-w-0 items-center justify-end">
           <InlineNumber
@@ -42,6 +51,9 @@ export function PersonaInventoryRow({
             min={0}
             className="justify-self-end px-0 text-right text-[0.625rem] leading-4 text-[color:var(--tracker-profile-number-text)] hover:bg-transparent focus:bg-transparent focus:ring-0"
             title={`${item.name} quantity`}
+            locked={isTrackerFieldLocked(fieldLocks, quantityLockKey)}
+            lockMode={lockMode}
+            onToggleLock={() => onToggleFieldLock?.(quantityLockKey)}
           />
         </div>
       </div>

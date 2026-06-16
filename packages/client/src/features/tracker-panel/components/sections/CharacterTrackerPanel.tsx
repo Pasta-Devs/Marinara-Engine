@@ -115,6 +115,7 @@ export function CharacterTrackerPanel({
         dockedThoughtsAlwaysVisible={dockedThoughtsAlwaysVisible}
         onUpdate={(updated) => onUpdateCharacter(index, updated)}
         onRemove={() => onRemoveCharacter(index)}
+        characterIndex={index}
         deleteMode={deleteMode}
         addMode={addMode}
         featured={featured}

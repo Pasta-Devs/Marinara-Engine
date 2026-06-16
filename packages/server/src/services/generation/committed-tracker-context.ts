@@ -1,4 +1,4 @@
-import { compactQuestProgressForContext } from "@marinara-engine/shared";
+import { compactQuestProgressForContext, formatCustomTrackerFieldForPrompt } from "@marinara-engine/shared";
 import { wrapContent } from "../prompt/format-engine.js";
 
 type WrapFormat = "xml" | "markdown" | "none";
@@ -129,7 +129,7 @@ export function injectCommittedTrackerContext(args: {
       }
 
       if (hasCustomTracker && Array.isArray(stats.customTrackerFields) && stats.customTrackerFields.length > 0) {
-        const customLines = stats.customTrackerFields.map((field: any) => `- ${field.name}: ${field.value}`);
+        const customLines = stats.customTrackerFields.map(formatCustomTrackerFieldForPrompt);
         trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", args.wrapFormat));
       }
     }

@@ -1,4 +1,5 @@
-import { useState, type CSSProperties } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
+import { toggleTrackerFieldLock } from "@marinara-engine/shared";
 import { TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR, useUIStore } from "../../../stores/ui.store";
 import { useChatStore } from "../../../stores/chat.store";
 import { useGameStatePatcher } from "../../../hooks/use-game-state-patcher";
@@ -10,6 +11,7 @@ import { EmptySection } from "./controls/SectionControls";
 import { TrackerSectionList } from "./TrackerSectionList";
 import { TrackerSkeleton } from "./TrackerSkeleton";
 import { TrackerSidebarHeader } from "./TrackerSidebarHeader";
+import { TrackerLockProvider } from "./TrackerLockContext";
 
 const TRACKER_PANEL_NEUTRAL_VARS =
   "[--accent:rgb(39_39_42)] [--accent-foreground:rgb(244_244_245)] [--background:rgb(18_18_21)] [--border:rgb(63_63_70)] [--card:rgb(24_24_27)] [--foreground:rgb(244_244_245)] [--input:rgb(63_63_70)] [--muted:rgb(39_39_42)] [--muted-foreground:rgb(161_161_170)] [--popover:rgb(24_24_27)] [--popover-foreground:rgb(244_244_245)] [--primary:rgb(212_212_216)] [--primary-foreground:rgb(18_18_21)] [--ring:rgb(161_161_170)] [--secondary:rgb(39_39_42)] [--tracker-panel-card-background:color-mix(in_srgb,var(--background)_22%,transparent)] [--tracker-panel-section-background:color-mix(in_srgb,var(--card)_6%,transparent)]";
@@ -51,6 +53,11 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   });
   const [deleteMode, setDeleteMode] = useState(false);
   const [addMode, setAddMode] = useState(false);
+  const [lockMode, setLockMode] = useState(false);
+  const fieldLocks = currentGameState?.fieldLocks ?? null;
+  const toggleFieldLock = useCallback((key: string) => {
+    patchField("fieldLocks", toggleTrackerFieldLock(fieldLocks, key));
+  }, [fieldLocks, patchField]);
   const hasFixedTrackerPanel = orderedTrackerSections.length > 0;
   const showTrackerSections = !!activeChatId && !isLoadingGameState && !!currentGameState && hasFixedTrackerPanel;
   const trackerPanelHasCustomBackground =
@@ -90,60 +97,67 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
       style={trackerPanelSurfaceStyle}
     >
       <div className="pointer-events-none absolute inset-0 z-0 opacity-[0.08] [background-image:linear-gradient(color-mix(in_srgb,var(--foreground)_12%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--foreground)_9%,transparent)_1px,transparent_1px)] [background-size:8px_8px]" />
-      <TrackerSidebarHeader
-        trackerPanelSide={trackerPanelSide}
-        sizeProfile={trackerPanelSizeProfile}
-        addMode={addMode}
-        deleteMode={deleteMode}
-        onSetAddMode={setAddMode}
-        onSetDeleteMode={setDeleteMode}
-        onSetSide={setTrackerPanelSide}
-        onSetSizeProfile={setTrackerPanelSizeProfile}
-        onClose={() => setTrackerPanelOpen(false)}
-      />
+      <TrackerLockProvider
+        fieldLocks={fieldLocks}
+        lockMode={lockMode}
+        onSetLockMode={setLockMode}
+        onToggleFieldLock={toggleFieldLock}
+      >
+        <TrackerSidebarHeader
+          trackerPanelSide={trackerPanelSide}
+          sizeProfile={trackerPanelSizeProfile}
+          addMode={addMode}
+          deleteMode={deleteMode}
+          onSetAddMode={setAddMode}
+          onSetDeleteMode={setDeleteMode}
+          onSetSide={setTrackerPanelSide}
+          onSetSizeProfile={setTrackerPanelSizeProfile}
+          onClose={() => setTrackerPanelOpen(false)}
+        />
 
-      <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>
-        {showTrackerSections ? (
-          <TrackerSectionList
-            activeChatId={activeChatId}
-            activePersona={activePersona}
-            autoGenerateCharacterAvatars={autoGenerateCharacterAvatars}
-            characterSpriteLookup={characterSpriteLookup}
-            characterTrackerConfig={characterTrackerConfig}
-            characterTrackerSettings={characterTrackerSettings}
-            currentGameState={currentGameState}
-            enabledAgentTypes={enabledAgentTypes}
-            expressionSpritesEnabled={expressionSpritesEnabled}
-            featuredCharacterCardKeys={featuredCharacterCardKeys}
-            flushPatch={flushPatch}
-            gameStateRefreshing={gameStateRefreshing}
-            orderedTrackerSections={orderedTrackerSections}
-            patchField={patchField}
-            patchPlayerStats={patchPlayerStats}
-            resolveSpriteCharacterId={resolveSpriteCharacterId}
-            spriteExpressions={spriteExpressions}
-            trackerPanelCollapsedSections={trackerPanelCollapsedSections}
-            trackerPanelSide={trackerPanelSide}
-            trackerPanelSizeProfile={trackerPanelSizeProfile}
-            trackerPanelThoughtBubbleDisplay={trackerPanelThoughtBubbleDisplay}
-            trackerPanelDockedThoughtsAlwaysVisible={trackerPanelDockedThoughtsAlwaysVisible}
-            trackerTemperatureUnit={trackerTemperatureUnit}
-            toggleTrackerPanelSectionCollapsed={toggleTrackerPanelSectionCollapsed}
-            deleteMode={deleteMode}
-            addMode={addMode}
-          />
-        ) : null}
+        <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>
+          {showTrackerSections ? (
+            <TrackerSectionList
+              activeChatId={activeChatId}
+              activePersona={activePersona}
+              autoGenerateCharacterAvatars={autoGenerateCharacterAvatars}
+              characterSpriteLookup={characterSpriteLookup}
+              characterTrackerConfig={characterTrackerConfig}
+              characterTrackerSettings={characterTrackerSettings}
+              currentGameState={currentGameState}
+              enabledAgentTypes={enabledAgentTypes}
+              expressionSpritesEnabled={expressionSpritesEnabled}
+              featuredCharacterCardKeys={featuredCharacterCardKeys}
+              flushPatch={flushPatch}
+              gameStateRefreshing={gameStateRefreshing}
+              orderedTrackerSections={orderedTrackerSections}
+              patchField={patchField}
+              patchPlayerStats={patchPlayerStats}
+              resolveSpriteCharacterId={resolveSpriteCharacterId}
+              spriteExpressions={spriteExpressions}
+              trackerPanelCollapsedSections={trackerPanelCollapsedSections}
+              trackerPanelSide={trackerPanelSide}
+              trackerPanelSizeProfile={trackerPanelSizeProfile}
+              trackerPanelThoughtBubbleDisplay={trackerPanelThoughtBubbleDisplay}
+              trackerPanelDockedThoughtsAlwaysVisible={trackerPanelDockedThoughtsAlwaysVisible}
+              trackerTemperatureUnit={trackerTemperatureUnit}
+              toggleTrackerPanelSectionCollapsed={toggleTrackerPanelSectionCollapsed}
+              deleteMode={deleteMode}
+              addMode={addMode}
+            />
+          ) : null}
 
-        {!activeChatId ? (
-          <EmptySection>Select a chat to view tracker data.</EmptySection>
-        ) : isLoadingGameState ? (
-          <TrackerSkeleton />
-        ) : !currentGameState ? (
-          <EmptySection>No tracker data yet.</EmptySection>
-        ) : !hasFixedTrackerPanel ? (
-          <EmptySection>No enabled tracker panels.</EmptySection>
-        ) : null}
-      </div>
+          {!activeChatId ? (
+            <EmptySection>Select a chat to view tracker data.</EmptySection>
+          ) : isLoadingGameState ? (
+            <TrackerSkeleton />
+          ) : !currentGameState ? (
+            <EmptySection>No tracker data yet.</EmptySection>
+          ) : !hasFixedTrackerPanel ? (
+            <EmptySection>No enabled tracker panels.</EmptySection>
+          ) : null}
+        </div>
+      </TrackerLockProvider>
     </section>
   );
 }

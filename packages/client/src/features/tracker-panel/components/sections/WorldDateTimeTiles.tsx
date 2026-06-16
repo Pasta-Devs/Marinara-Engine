@@ -1,17 +1,21 @@
 import { Clock } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 import { getWorldDateDisplay, getWorldTimeDisplay, type WorldDateDisplay } from "../../lib/world-state-display";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 import { WorldRenderedEdit, WorldTileShell } from "./WorldEditableTile";
 
 export function WorldDateTile({
   value,
   display = getWorldDateDisplay(value),
   onSave,
+  lockKey,
 }: {
   value: string | null | undefined;
   display?: WorldDateDisplay;
   onSave?: (value: string) => void;
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const isFreeformDate = display.kind === "freeform";
 
   return (
@@ -29,6 +33,7 @@ export function WorldDateTile({
         )}
         inputClassName="text-center"
         showEditHint={false}
+        {...lock}
       >
         {isFreeformDate ? (
           <>
@@ -93,10 +98,13 @@ function WorldClockFace({ hour, minute }: { hour: number | null; minute: number 
 export function WorldTimeTile({
   value,
   onSave,
+  lockKey,
 }: {
   value: string | null | undefined;
   onSave?: (value: string) => void;
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const display = getWorldTimeDisplay(value);
   return (
     <WorldTileShell label="Time">
@@ -108,6 +116,7 @@ export function WorldTimeTile({
         className="grid grid-rows-[minmax(0,1fr)_0.625rem] px-1 pb-0.5 pt-0.5 text-center"
         inputClassName="text-center"
         showEditHint={false}
+        {...lock}
       >
         <div className="flex min-h-0 items-center justify-center overflow-visible">
           <WorldClockFace hour={display.hour} minute={display.minute} />

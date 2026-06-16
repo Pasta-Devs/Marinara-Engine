@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { CharacterStat } from "@marinara-engine/shared";
+import { isTrackerFieldLocked, type CharacterStat } from "@marinara-engine/shared";
 import { cn } from "../../../../lib/utils";
 import { TRACKER_BAR, TRACKER_TEXT_ROW } from "../../lib/tracker-panel.constants";
 import type { TrackerStatDensity, TrackerStatDisplayScale } from "../../tracker-panel.types";
@@ -7,6 +7,7 @@ import { visibleText } from "../../lib/tracker-display";
 import { getStatPercent, getTrackerStatDisplayScale } from "../../lib/tracker-stat-layout";
 import { FittedText, InlineAddRow, InlineEdit, InlineNumber } from "./InlineControls";
 import { EmptySection } from "./SectionControls";
+import { useTrackerLockContext } from "../TrackerLockContext";
 
 type StatListVisualTone = "plain" | "instrument";
 
@@ -66,6 +67,13 @@ function StatBar({
   compactNameRhythm = false,
   wideColumnCell = false,
   visualTone = "plain",
+  nameLocked,
+  valueLocked,
+  maxLocked,
+  lockMode,
+  onToggleNameLock,
+  onToggleValueLock,
+  onToggleMaxLock,
 }: {
   stat: CharacterStat;
   onUpdateName?: (name: string) => void;
@@ -81,6 +89,13 @@ function StatBar({
   compactNameRhythm?: boolean;
   wideColumnCell?: boolean;
   visualTone?: StatListVisualTone;
+  nameLocked?: boolean;
+  valueLocked?: boolean;
+  maxLocked?: boolean;
+  lockMode?: boolean;
+  onToggleNameLock?: () => void;
+  onToggleValueLock?: () => void;
+  onToggleMaxLock?: () => void;
 }) {
   const percent = getStatPercent(stat);
   const isCompact = density === "compact";
@@ -197,7 +212,9 @@ function StatBar({
             scrollOnHover={nameMode === "scroll"}
             fitPreview={nameMode === "truncate"}
             fitMinScale={0.56}
-            editHintMode="overlay"
+            locked={nameLocked}
+            lockMode={lockMode}
+            onToggleLock={onToggleNameLock}
           />
         ) : nameMode === "truncate" ? (
           <FittedText
@@ -221,11 +238,28 @@ function StatBar({
         )}
         {onUpdateValue && onUpdateMax ? (
           <div className={valueGroupClass}>
-            <InlineNumber value={stat.value} onChange={onUpdateValue} title="Value" className={valueInputClass} />
+            <InlineNumber
+              value={stat.value}
+              onChange={onUpdateValue}
+              title="Value"
+              className={valueInputClass}
+              locked={valueLocked}
+              lockMode={lockMode}
+              onToggleLock={onToggleValueLock}
+            />
             <span className="px-px text-[color:color-mix(in_srgb,var(--tracker-profile-number-text)_58%,transparent)]">
               /
             </span>
-            <InlineNumber value={stat.max} onChange={onUpdateMax} min={0} title="Max" className={valueInputClass} />
+            <InlineNumber
+              value={stat.max}
+              onChange={onUpdateMax}
+              min={0}
+              title="Max"
+              className={valueInputClass}
+              locked={maxLocked}
+              lockMode={lockMode}
+              onToggleLock={onToggleMaxLock}
+            />
           </div>
         ) : (
           <div className={valueGroupClass} title={`${stat.value} / ${stat.max}`}>
@@ -274,6 +308,7 @@ export function StatList({
   fillWideColumns = false,
   showWideColumnGhost = false,
   visualTone = "plain",
+  getLockKey,
 }: {
   stats: CharacterStat[];
   onUpdate?: (stats: CharacterStat[]) => void;
@@ -289,7 +324,9 @@ export function StatList({
   fillWideColumns?: boolean;
   showWideColumnGhost?: boolean;
   visualTone?: StatListVisualTone;
+  getLockKey?: (index: number, field: "name" | "value" | "max") => string;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   if (stats.length === 0) {
     return onAdd && addMode ? (
       <InlineAddRow onClick={onAdd} title="Add stat" className="border-t-0" />
@@ -307,6 +344,8 @@ export function StatList({
     if (!onUpdate) return;
     onUpdate(stats.filter((_, statIndex) => statIndex !== index));
   };
+  const buildLockToggle = (index: number, field: "name" | "value" | "max") =>
+    getLockKey && onToggleFieldLock ? () => onToggleFieldLock(getLockKey(index, field)) : undefined;
   const displayScale = getTrackerStatDisplayScale(
     stats.length,
     density,
@@ -358,6 +397,13 @@ export function StatList({
             compactNameRhythm={compactNameRhythm}
             wideColumnCell={wideColumnCell}
             visualTone={visualTone}
+            nameLocked={getLockKey ? isTrackerFieldLocked(fieldLocks, getLockKey(index, "name")) : false}
+            valueLocked={getLockKey ? isTrackerFieldLocked(fieldLocks, getLockKey(index, "value")) : false}
+            maxLocked={getLockKey ? isTrackerFieldLocked(fieldLocks, getLockKey(index, "max")) : false}
+            lockMode={lockMode}
+            onToggleNameLock={buildLockToggle(index, "name")}
+            onToggleValueLock={buildLockToggle(index, "value")}
+            onToggleMaxLock={buildLockToggle(index, "max")}
           />
         ))}
         {shouldRenderWideColumnGhost && (
