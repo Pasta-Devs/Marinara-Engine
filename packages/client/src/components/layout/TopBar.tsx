@@ -12,7 +12,6 @@ import {
   FileText,
   User,
   Bot,
-  Images,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useUIStore } from "../../stores/ui.store";
@@ -28,7 +27,6 @@ const RIGHT_PANEL_BUTTONS = [
   { panel: "connections" as const, icon: Link, label: "Connections", color: "from-sky-400 to-blue-500" },
   { panel: "agents" as const, icon: Sparkles, label: "Agents", color: "from-violet-400 to-purple-500" },
   { panel: "personas" as const, icon: User, label: "Personas", color: "from-emerald-400 to-teal-500" },
-  { panel: "gallery" as const, icon: Images, label: "Gallery", color: "from-fuchsia-400 to-pink-500" },
 ] as const;
 
 const SPOTIFY_TOPBAR_MIN_WIDTH = 320;
