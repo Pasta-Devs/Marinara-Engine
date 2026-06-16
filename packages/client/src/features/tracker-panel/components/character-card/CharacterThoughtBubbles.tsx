@@ -5,6 +5,7 @@ import type { TrackerPanelSide } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
 import { visibleText } from "../../lib/tracker-display";
 import { InlineEdit } from "../controls/InlineControls";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 
 type ThoughtBubbleSize = "short" | "medium" | "long";
 
@@ -138,11 +139,14 @@ function ThoughtBubble({
   value,
   onSave,
   tailSide = "left",
+  lockKey,
 }: {
   value: string | null | undefined;
   onSave?: (value: string) => void;
   tailSide?: "left" | "right";
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const tailOnLeft = tailSide === "left";
   const thoughtText = visibleText(value, "Thoughts").replace(/\s+/g, " ");
   const thoughtBubbleSize = getThoughtBubbleSize(thoughtText);
@@ -226,6 +230,7 @@ function ThoughtBubble({
               previewLineCount={thoughtTextFit.previewLineCount}
               previewClassName={thoughtTextFit.previewClassName}
               previewStyle={thoughtTextStyle}
+              {...lock}
             />
           ) : (
             <p
@@ -253,6 +258,7 @@ export function InlineThoughtBubble({
   surfaceClassName,
   tailSide = "right",
   variant = "default",
+  lockKey,
 }: {
   value: string | null | undefined;
   onSave?: (value: string) => void;
@@ -261,7 +267,9 @@ export function InlineThoughtBubble({
   surfaceClassName?: string;
   tailSide?: "left" | "right";
   variant?: "default" | "featured";
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const tailOnLeft = tailSide === "left";
   const thoughtText = visibleText(value, "Thoughts").replace(/\s+/g, " ");
   const thoughtTextFit = getThoughtTextFit(thoughtText, getThoughtBubbleSize(thoughtText));
@@ -340,6 +348,7 @@ export function InlineThoughtBubble({
               previewLineCount={previewLineCount}
               previewClassName={thoughtTextFit.previewClassName}
               previewStyle={thoughtTextStyle}
+              {...lock}
             />
           ) : (
             <p
@@ -366,12 +375,14 @@ export function ExternalThoughtBubble({
   onSave,
   panelSide,
   bubbleRef,
+  lockKey,
 }: {
   anchorRef: RefObject<HTMLElement | null>;
   value: string | null | undefined;
   onSave?: (value: string) => void;
   panelSide: TrackerPanelSide;
   bubbleRef?: RefObject<HTMLDivElement | null>;
+  lockKey?: string;
 }) {
   const reducedMotion = useReducedMotion();
   const [position, setPosition] = useState<{
@@ -465,7 +476,12 @@ export function ExternalThoughtBubble({
         transformOrigin: position.outsideSide === "left" ? "right 1.5rem" : "left 1.5rem",
       }}
     >
-      <ThoughtBubble value={value} onSave={onSave} tailSide={position.outsideSide === "left" ? "right" : "left"} />
+      <ThoughtBubble
+        value={value}
+        onSave={onSave}
+        tailSide={position.outsideSide === "left" ? "right" : "left"}
+        lockKey={lockKey}
+      />
     </motion.div>,
     document.body,
   );

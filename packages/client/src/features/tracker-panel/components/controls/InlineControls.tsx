@@ -87,7 +87,6 @@ export function InlineEdit({
   fullPreview = false,
   scrollOnHover = false,
   showEditHint = true,
-  editHintMode = "inline",
   twoLinePreview = false,
   threeLinePreview = false,
   previewLineCount,
@@ -96,6 +95,9 @@ export function InlineEdit({
   fitPreview = false,
   fitMinScale = 0.62,
   fitAlign = "left",
+  locked = false,
+  lockMode = false,
+  onToggleLock,
 }: {
   value: string | number | null | undefined;
   onSave: (value: string) => void;
@@ -106,7 +108,6 @@ export function InlineEdit({
   fullPreview?: boolean;
   scrollOnHover?: boolean;
   showEditHint?: boolean;
-  editHintMode?: "inline" | "overlay";
   twoLinePreview?: boolean;
   threeLinePreview?: boolean;
   previewLineCount?: 2 | 3 | 4 | "full";
@@ -115,6 +116,9 @@ export function InlineEdit({
   fitPreview?: boolean;
   fitMinScale?: number;
   fitAlign?: "left" | "center" | "right";
+  locked?: boolean;
+  lockMode?: boolean;
+  onToggleLock?: () => void;
 }) {
   const currentValue = value === null || value === undefined ? "" : String(value);
   const previewText = currentValue || placeholder;
@@ -128,6 +132,7 @@ export function InlineEdit({
   const scrollFieldRef = useRef<HTMLSpanElement>(null);
   const scrollMeasureRef = useRef<HTMLSpanElement>(null);
   const committedRef = useRef(false);
+  const lockToggleActive = lockMode && !!onToggleLock;
 
   useEffect(() => {
     if (!editing) setDraft(currentValue);
@@ -192,16 +197,28 @@ export function InlineEdit({
   return (
     <button
       type="button"
-      onClick={() => setEditing(true)}
+      onClick={() => {
+        if (lockToggleActive) {
+          onToggleLock?.();
+          return;
+        }
+        setEditing(true);
+      }}
       onMouseEnter={measureScrollOverflow}
       onFocus={measureScrollOverflow}
       onMouseLeave={resetScrollOverflow}
       onBlur={resetScrollOverflow}
-      title={title ?? currentValue}
+      title={lockToggleActive ? (locked ? "Unlock field" : "Lock field") : (title ?? currentValue)}
+      aria-label={
+        lockToggleActive ? `${locked ? "Unlock" : "Lock"} ${(title ?? currentValue) || placeholder}` : undefined
+      }
+      aria-pressed={lockToggleActive ? locked : undefined}
       className={cn(
         "group group/inline relative flex min-w-0 rounded px-0.5 text-left transition-colors hover:bg-[var(--accent)]/55",
-        editHintMode === "inline" && "gap-1",
         multilinePreviewLineCount ? "items-start overflow-hidden" : "items-center",
+        locked &&
+          "bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] text-[var(--foreground)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_30%,transparent)]",
+        lockToggleActive && "cursor-pointer [@media(pointer:coarse)]:min-h-[1.75rem]",
         className,
       )}
       style={style}
@@ -265,15 +282,14 @@ export function InlineEdit({
           )}
         </span>
       )}
-      <Pencil
-        size="0.5625rem"
-        className={cn(
-          "shrink-0 text-[color:var(--tracker-inline-muted,var(--muted-foreground))] opacity-0 transition-opacity group-hover/inline:opacity-60",
-          (!showEditHint || fullPreview) && "hidden",
-          (useHoverScroll || editHintMode === "overlay") &&
-            "pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2",
-        )}
-      />
+      {!(lockMode || locked) && (
+        <Pencil
+          className={cn(
+            "pointer-events-none absolute right-0.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 shrink-0 text-[color:var(--tracker-inline-muted,var(--muted-foreground))] opacity-0 transition-opacity group-hover/inline:opacity-60",
+            (!showEditHint || fullPreview) && "hidden",
+          )}
+        />
+      )}
     </button>
   );
 }
@@ -284,14 +300,43 @@ export function InlineNumber({
   className,
   min,
   title,
+  locked = false,
+  lockMode = false,
+  onToggleLock,
 }: {
   value: number;
   onChange: (value: number) => void;
   className?: string;
   min?: number;
   title?: string;
+  locked?: boolean;
+  lockMode?: boolean;
+  onToggleLock?: () => void;
 }) {
   const width = getNumberValueWidth(value);
+
+  if (lockMode && onToggleLock) {
+    return (
+      <button
+        type="button"
+        onClick={onToggleLock}
+        title={locked ? "Unlock field" : "Lock field"}
+        aria-label={`${locked ? "Unlock" : "Lock"} ${title?.toLowerCase() ?? "field"}`}
+        aria-pressed={locked}
+        style={{ width }}
+        className={cn(
+          "inline-flex min-w-0 items-center justify-end rounded bg-transparent px-0 py-0.5 text-right text-[0.625rem] tabular-nums text-[color:var(--tracker-inline-number,var(--tracker-inline-foreground,var(--foreground)))] outline-none ring-1 transition-colors hover:bg-[var(--accent)]/45 focus:ring-[var(--border)]",
+          locked
+            ? "bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_30%,transparent)]"
+            : "opacity-90 ring-transparent hover:ring-[var(--border)]/60",
+          className,
+          "[@media(pointer:coarse)]:min-h-[1.75rem]",
+        )}
+      >
+        <span>{Number.isFinite(value) ? value : 0}</span>
+      </button>
+    );
+  }
 
   return (
     <input
@@ -306,6 +351,8 @@ export function InlineNumber({
       style={{ width }}
       className={cn(
         "rounded bg-transparent px-1 py-0.5 text-right text-[0.625rem] tabular-nums text-[color:var(--tracker-inline-number,var(--tracker-inline-foreground,var(--foreground)))] outline-none transition-colors hover:bg-[var(--accent)]/45 focus:bg-[var(--background)] focus:ring-1 focus:ring-[var(--border)] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+        locked &&
+          "bg-[color-mix(in_srgb,var(--foreground)_8%,transparent)] ring-1 ring-[color-mix(in_srgb,var(--foreground)_30%,transparent)]",
         className,
       )}
     />

@@ -10,5 +10,5 @@ export function clampNumber(value: number, min: number, max: number) {
 
 export function getNumberValueWidth(value: number) {
   const text = Number.isFinite(value) ? String(value) : "0";
-  return `${Math.min(7, Math.max(1.15, text.length + 0.35))}ch`;
+  return `${Math.min(7, Math.max(1.15, text.length + 0.1))}ch`;
 }

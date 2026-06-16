@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 import { cn } from "../../../../lib/utils";
 import { visibleText } from "../../lib/tracker-display";
 import { getOppositeTrackerProfileSide, type TrackerProfileSide } from "../../lib/tracker-profile-layout";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 import { FittedText, InlineEdit } from "./InlineControls";
 
 const NAMEPLATE_CLASS = cn(
@@ -123,6 +124,7 @@ export function TrackerProfileNameplate({
   secondaryControlsSide,
   className,
   nameClassName,
+  lockKey,
 }: {
   value: string | null | undefined;
   placeholder: string;
@@ -133,7 +135,9 @@ export function TrackerProfileNameplate({
   secondaryControlsSide?: TrackerProfileSide;
   className?: string;
   nameClassName?: string;
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const displayValue = visibleText(value, placeholder);
   const hasPrimaryControl = !!primaryControl;
   const hasSecondaryControls = !!secondaryControls;
@@ -193,6 +197,7 @@ export function TrackerProfileNameplate({
           fitPreview
           fitAlign="center"
           fitMinScale={0.6}
+          {...lock}
         />
       ) : (
         <FittedText

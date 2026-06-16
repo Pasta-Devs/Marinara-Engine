@@ -1,6 +1,6 @@
 import { type ReactNode, type RefObject } from "react";
 import { Brain, Minimize2 } from "lucide-react";
-import type { PresentCharacter } from "@marinara-engine/shared";
+import { characterTrackerLockKey, type PresentCharacter } from "@marinara-engine/shared";
 import { cn } from "../../../../lib/utils";
 import type { TrackerProfileSide } from "../../lib/tracker-profile-layout";
 import {
@@ -20,6 +20,7 @@ export function FeaturedCharacterNameplate({
   onToggleThoughts,
   onToggleFeatured,
   action,
+  characterIndex,
 }: {
   character: PresentCharacter;
   onUpdate?: (character: PresentCharacter) => void;
@@ -30,7 +31,9 @@ export function FeaturedCharacterNameplate({
   onToggleThoughts?: () => void;
   onToggleFeatured?: () => void;
   action?: ReactNode;
+  characterIndex: number;
 }) {
+  const nameLockKey = characterTrackerLockKey(character, characterIndex, "name");
   const thoughtButtonLabel = thoughtsOpen ? "Stop reading thoughts" : "Read thoughts";
   const thoughtControl =
     hasThoughtsControl && onToggleThoughts ? (
@@ -79,6 +82,7 @@ export function FeaturedCharacterNameplate({
       primaryControl={thoughtControl}
       primaryControlSide={thoughtControlSide}
       secondaryControls={headerControls}
+      lockKey={nameLockKey}
     />
   );
 }

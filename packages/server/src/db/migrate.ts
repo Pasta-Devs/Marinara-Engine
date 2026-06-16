@@ -338,6 +338,7 @@ const CREATE_TABLES: string[] = [
     recent_events TEXT NOT NULL DEFAULT '[]',
     player_stats TEXT,
     persona_stats TEXT,
+    field_locks TEXT,
     committed INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`,
@@ -530,6 +531,11 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
   {
     table: "game_state_snapshots",
     column: "manual_overrides",
+    definition: "TEXT",
+  },
+  {
+    table: "game_state_snapshots",
+    column: "field_locks",
     definition: "TEXT",
   },
   {

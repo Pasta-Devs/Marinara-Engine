@@ -6,6 +6,7 @@ import {
   DEFAULT_AGENT_TOOLS,
   getDefaultAgentPrompt,
   applyQuestUpdatesToPlayerStats,
+  applyTrackerFieldLocksToGameStatePatch,
   getDefaultBuiltInAgentSettings,
   isAgentAvailableInChatMode,
   isAgentConfigDeleted,
@@ -45,9 +46,12 @@ import { getCharacterDescriptionWithExtensions } from "../../services/prompt/ind
 import { syncGameMapMetaPartyPosition } from "../../services/game/map-position.service.js";
 import { gameStateSnapshots as gameStateSnapshotsTable } from "../../db/schema/index.js";
 import {
+  buildLockedPlayerStatsArrayPatch,
+  buildLockedPersonaTrackerPatch,
   isMessageHiddenFromAI,
   parseExtra,
   parseGameStateRow,
+  parseSnapshotPlayerStats,
   preserveTrackerCharacterUiFields,
   resolveActiveCharacterIds,
   resolveBaseUrl,
@@ -1881,18 +1885,23 @@ async function applyRetryResultEffects(args: {
         if (gs.location != null) worldStatePatch.location = gs.location as string;
         if (gs.weather != null) worldStatePatch.weather = gs.weather as string;
         if (gs.temperature != null) worldStatePatch.temperature = gs.temperature as string;
+        const lockSnapshot = (await loadRetryTargetGameStateSnapshot()) ?? (await loadRetryBaseGameStateSnapshot());
+        const lockedWorldStatePatch = applyTrackerFieldLocksToGameStatePatch(
+          worldStatePatch,
+          lockSnapshot ? parseGameStateRow(lockSnapshot as Record<string, unknown>) : null,
+        );
         if (Object.keys(worldStatePatch).length > 0) {
           await gameStateStore.updateByMessage(
             retryMessageId,
             retrySwipeIndex,
             chatId,
-            worldStatePatch as any,
+            lockedWorldStatePatch as any,
             undefined,
             { baseSnapshot: await loadRetryBaseGameStateSnapshot() },
           );
         }
 
-        const nextLocation = typeof worldStatePatch.location === "string" ? worldStatePatch.location : null;
+        const nextLocation = typeof lockedWorldStatePatch.location === "string" ? lockedWorldStatePatch.location : null;
         const existingGameMap = (chatMeta.gameMap as GameMap | null) ?? null;
         const syncedMeta = syncGameMapMetaPartyPosition(chatMeta, nextLocation);
         const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
@@ -1902,7 +1911,7 @@ async function applyRetryResultEffects(args: {
           sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
         }
 
-        sendSseEvent(reply, { type: "game_state_patch", data: worldStatePatch });
+        sendSseEvent(reply, { type: "game_state_patch", data: lockedWorldStatePatch });
       } catch {
         // Non-critical patching failure.
       }
@@ -1954,7 +1963,7 @@ async function applyRetryResultEffects(args: {
     ) {
       try {
         const ctData = result.data as Record<string, unknown>;
-        const presentCharacters = (ctData.presentCharacters as any[]) ?? [];
+        let presentCharacters = (ctData.presentCharacters as any[]) ?? [];
         const previousSnapshot = await loadRetryTargetGameStateSnapshot();
         let previousCharacters: any[] = [];
         if (previousSnapshot?.presentCharacters) {
@@ -1969,6 +1978,13 @@ async function applyRetryResultEffects(args: {
           }
         }
         preserveTrackerCharacterUiFields(presentCharacters, previousCharacters);
+        const lockedCharacterPatch = applyTrackerFieldLocksToGameStatePatch(
+          { presentCharacters },
+          previousSnapshot ? parseGameStateRow(previousSnapshot as Record<string, unknown>) : null,
+        );
+        presentCharacters = Array.isArray(lockedCharacterPatch.presentCharacters)
+          ? lockedCharacterPatch.presentCharacters
+          : presentCharacters;
         await gameStateStore.updateByMessage(
           retryMessageId,
           retrySwipeIndex,
@@ -1992,29 +2008,24 @@ async function applyRetryResultEffects(args: {
         const status = (psData.status as string) ?? "";
         const inventory = (psData.inventory as any[]) ?? [];
         const latest = await loadRetryTargetGameStateSnapshot();
+        const personaPatch = buildLockedPersonaTrackerPatch({
+          stats: bars,
+          status,
+          inventory,
+          snapshot: latest,
+          lockState: latest ? parseGameStateRow(latest as Record<string, unknown>) : null,
+        });
         if (latest) {
-          const updates: Record<string, unknown> = {};
-          if (bars.length > 0) updates.personaStats = JSON.stringify(bars);
-          const existingPS = latest.playerStats
-            ? typeof latest.playerStats === "string"
-              ? JSON.parse(latest.playerStats)
-              : latest.playerStats
-            : { stats: [], attributes: null, skills: {}, inventory: [], activeQuests: [], status: "" };
-          const mergedPS = { ...existingPS };
-          if (status) mergedPS.status = status;
-          if (inventory.length > 0) mergedPS.inventory = inventory;
-          updates.playerStats = JSON.stringify(mergedPS);
-          await app.db.update(gameStateSnapshotsTable).set(updates).where(eq(gameStateSnapshotsTable.id, latest.id));
+          if (Object.keys(personaPatch.updates).length > 0) {
+            await app.db
+              .update(gameStateSnapshotsTable)
+              .set(personaPatch.updates)
+              .where(eq(gameStateSnapshotsTable.id, latest.id));
+          }
         }
-        const patchData: Record<string, unknown> = {};
-        if (bars.length > 0) patchData.personaStats = bars;
-        if (status || inventory.length > 0) {
-          patchData.playerStats = {
-            status: status || undefined,
-            inventory: inventory.length > 0 ? inventory : undefined,
-          };
+        if (personaPatch.changed) {
+          sendSseEvent(reply, { type: "game_state_patch", data: personaPatch.patch });
         }
-        sendSseEvent(reply, { type: "game_state_patch", data: patchData });
       } catch {
         // Non-critical patching failure.
       }
@@ -2091,22 +2102,23 @@ async function applyRetryResultEffects(args: {
         );
         if (updates.length > 0) {
           const snap = await loadRetryTargetGameStateSnapshot();
-          const existingPS = snap?.playerStats
-            ? typeof snap.playerStats === "string"
-              ? JSON.parse(snap.playerStats)
-              : snap.playerStats
-            : { stats: [], attributes: null, skills: {}, inventory: [], activeQuests: [], status: "" };
+          const existingPS = parseSnapshotPlayerStats(snap);
           const questMerge = applyQuestUpdatesToPlayerStats(existingPS, updates);
-          const { quests } = questMerge;
-          if (questMerge.changed) {
-            const mergedPS = questMerge.playerStats;
+          const questTrackerPatch = buildLockedPlayerStatsArrayPatch<any>({
+            field: "activeQuests",
+            values: questMerge.quests,
+            snapshot: snap,
+            lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
+            basePlayerStats: questMerge.playerStats,
+          });
+          if (questMerge.changed && questTrackerPatch.changed) {
             if (snap) {
               await app.db
                 .update(gameStateSnapshotsTable)
-                .set({ playerStats: JSON.stringify(mergedPS) })
+                .set({ playerStats: JSON.stringify(questTrackerPatch.playerStats) })
                 .where(eq(gameStateSnapshotsTable.id, snap.id));
             }
-            sendSseEvent(reply, { type: "game_state_patch", data: { playerStats: { activeQuests: quests } } });
+            sendSseEvent(reply, { type: "game_state_patch", data: questTrackerPatch.patch });
           }
         }
       } catch (err) {
@@ -2154,22 +2166,24 @@ async function applyRetryResultEffects(args: {
     if (result.success && result.type === "custom_tracker_update" && result.data && typeof result.data === "object") {
       try {
         const ctData = result.data as Record<string, unknown>;
-        const fields = (ctData.fields as any[]) ?? [];
-        if (fields.length > 0) {
+        const rawFields = (ctData.fields as any[]) ?? [];
+        if (rawFields.length > 0) {
           const snap = await loadRetryTargetGameStateSnapshot();
-          if (snap) {
-            const existingPS = snap.playerStats
-              ? typeof snap.playerStats === "string"
-                ? JSON.parse(snap.playerStats)
-                : snap.playerStats
-              : { stats: [], attributes: null, skills: {}, inventory: [], activeQuests: [], status: "" };
-            const mergedPS = { ...existingPS, customTrackerFields: fields };
+          const customTrackerPatch = buildLockedPlayerStatsArrayPatch<any>({
+            field: "customTrackerFields",
+            values: rawFields,
+            snapshot: snap,
+            lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
+          });
+          if (snap && customTrackerPatch.changed) {
             await app.db
               .update(gameStateSnapshotsTable)
-              .set({ playerStats: JSON.stringify(mergedPS) })
+              .set({ playerStats: JSON.stringify(customTrackerPatch.playerStats) })
               .where(eq(gameStateSnapshotsTable.id, snap.id));
           }
-          sendSseEvent(reply, { type: "game_state_patch", data: { playerStats: { customTrackerFields: fields } } });
+          if (customTrackerPatch.changed) {
+            sendSseEvent(reply, { type: "game_state_patch", data: customTrackerPatch.patch });
+          }
         }
       } catch {
         // Non-critical patching failure.

@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 import { Eye, HeartPulse, Maximize2, Shirt, X } from "lucide-react";
-import type { PresentCharacter } from "@marinara-engine/shared";
+import {
+  characterCustomFieldTrackerLockKey,
+  characterStatTrackerLockKey,
+  characterTrackerLockKey,
+  isTrackerFieldLocked,
+  type PresentCharacter,
+} from "@marinara-engine/shared";
 import type {
   TrackerPanelSide,
   TrackerPanelSizeProfile,
@@ -17,6 +23,7 @@ import {
 } from "../controls/TrackerProfileChrome";
 import { StatList } from "../controls/StatList";
 import { FeaturedCharacterTrackerCard } from "./FeaturedCharacterTrackerCard";
+import { useTrackerFieldLock, useTrackerLockContext } from "../TrackerLockContext";
 import { CharacterTrackerAvatar } from "./CharacterTrackerAvatar";
 import {
   COMPACT_CHARACTER_MOOD_EDIT_CLASS,
@@ -78,10 +85,13 @@ function CompactCharacterNameplate({ children }: { children: ReactNode }) {
 function CompactThoughtBubble({
   value,
   onSave,
+  lockKey,
 }: {
   value: string | null | undefined;
   onSave?: (value: string) => void;
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const thoughtText = visibleText(value, "Thoughts").replace(/\s+/g, " ");
 
   return (
@@ -97,8 +107,8 @@ function CompactThoughtBubble({
               className="min-h-4 w-full min-w-0 px-0 py-0 text-[0.59375rem] font-medium italic leading-[1.05] [--foreground:color-mix(in_srgb,var(--tracker-profile-text)_90%,var(--tracker-profile-accent-solid)_10%)] [--muted-foreground:color-mix(in_srgb,var(--tracker-profile-muted-text)_82%,var(--tracker-profile-accent-solid)_18%)] hover:bg-[var(--tracker-profile-accent-solid)]/10"
               showEditHint={false}
               previewLineCount={3}
-              editHintMode="overlay"
               previewClassName="tracking-[0]"
+              {...lock}
             />
           ) : (
             <p className="line-clamp-3 break-words text-[0.59375rem] font-medium italic leading-[1.05] tracking-[0] text-[color-mix(in_srgb,var(--tracker-profile-text)_90%,var(--tracker-profile-accent-solid)_10%)]">
@@ -125,6 +135,7 @@ export function CharacterTrackerCard({
   action,
   onUpdate,
   onRemove,
+  characterIndex = 0,
   deleteMode = false,
   addMode = false,
   featured = false,
@@ -144,12 +155,14 @@ export function CharacterTrackerCard({
   action?: ReactNode;
   onUpdate?: (character: PresentCharacter) => void;
   onRemove?: () => void;
+  characterIndex?: number;
   deleteMode?: boolean;
   addMode?: boolean;
   featured?: boolean;
   onToggleFeatured?: () => void;
   onUploadAvatar?: () => void;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   if (featured) {
     return (
       <FeaturedCharacterTrackerCard
@@ -166,6 +179,7 @@ export function CharacterTrackerCard({
         action={action}
         onUpdate={onUpdate}
         onRemove={onRemove}
+        characterIndex={characterIndex}
         deleteMode={deleteMode}
         addMode={addMode}
         onToggleFeatured={onToggleFeatured}
@@ -243,6 +257,13 @@ export function CharacterTrackerCard({
             showEditHint={false}
             fitPreview
             fitMinScale={0.58}
+            locked={isTrackerFieldLocked(fieldLocks, characterTrackerLockKey(character, characterIndex, "name"))}
+            lockMode={lockMode}
+            onToggleLock={
+              onToggleFieldLock
+                ? () => onToggleFieldLock(characterTrackerLockKey(character, characterIndex, "name"))
+                : undefined
+            }
           />
         ) : (
           <FittedText
@@ -280,6 +301,7 @@ export function CharacterTrackerCard({
             <CompactThoughtBubble
               value={character.thoughts}
               onSave={onUpdate ? (thoughts) => onUpdate({ ...character, thoughts: thoughts || null }) : undefined}
+              lockKey={characterTrackerLockKey(character, characterIndex, "thoughts")}
             />
           )}
           {!showThoughts && <div className={CHARACTER_HEADER_FILLER_CLASS} />}
@@ -298,6 +320,7 @@ export function CharacterTrackerCard({
               tone="mood"
               readable={readableDetailRows}
               valueClassName={onUpdate ? COMPACT_CHARACTER_MOOD_EDIT_CLASS : COMPACT_CHARACTER_MOOD_STATIC_CLASS}
+              lockKey={characterTrackerLockKey(character, characterIndex, "mood")}
             />
           )}
           {showAppearance && (
@@ -309,6 +332,7 @@ export function CharacterTrackerCard({
               onSave={onUpdate ? (appearance) => onUpdate({ ...character, appearance: appearance || null }) : undefined}
               tone="appearance"
               readable={readableDetailRows}
+              lockKey={characterTrackerLockKey(character, characterIndex, "appearance")}
             />
           )}
           {showOutfit && (
@@ -320,6 +344,7 @@ export function CharacterTrackerCard({
               onSave={onUpdate ? (outfit) => onUpdate({ ...character, outfit: outfit || null }) : undefined}
               tone="outfit"
               readable={readableDetailRows}
+              lockKey={characterTrackerLockKey(character, characterIndex, "outfit")}
             />
           )}
         </div>
@@ -334,6 +359,7 @@ export function CharacterTrackerCard({
             nameMode="truncate"
             deleteMode={deleteMode}
             addMode={addMode}
+            getLockKey={(statIndex, field) => characterStatTrackerLockKey(character, characterIndex, statIndex, field)}
           />
         </div>
       )}
@@ -349,6 +375,17 @@ export function CharacterTrackerCard({
                   placeholder="Field"
                   className="min-w-0 px-0.5 py-0 font-medium"
                   scrollOnHover
+                  locked={isTrackerFieldLocked(
+                    fieldLocks,
+                    characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"),
+                  )}
+                  lockMode={lockMode}
+                  onToggleLock={
+                    onToggleFieldLock
+                      ? () =>
+                          onToggleFieldLock(characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"))
+                      : undefined
+                  }
                 />
               ) : (
                 <span className="truncate font-medium text-[color:var(--tracker-profile-muted-text)]">{name}</span>
@@ -361,7 +398,19 @@ export function CharacterTrackerCard({
                   className="min-w-0 px-0.5 py-0"
                   scrollOnHover={!readableCustomFields}
                   twoLinePreview={readableCustomFields}
-                  editHintMode={readableCustomFields ? "overlay" : "inline"}
+                  locked={isTrackerFieldLocked(
+                    fieldLocks,
+                    characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"),
+                  )}
+                  lockMode={lockMode}
+                  onToggleLock={
+                    onToggleFieldLock
+                      ? () =>
+                          onToggleFieldLock(
+                            characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"),
+                          )
+                      : undefined
+                  }
                 />
               ) : (
                 <span

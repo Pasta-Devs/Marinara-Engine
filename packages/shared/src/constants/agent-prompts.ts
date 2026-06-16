@@ -299,14 +299,15 @@ Schema:
 6. Track inventory faithfully. Items gained, lost, used, consumed, or traded must update immediately; unchanged items stay as they were.`,
 
   /* ────────────────────────────────────────── */
-  "custom-tracker": `Track only the user's custom fields after the latest assistant message. Current fields live in <current_game_state> under playerStats.customTrackerFields as { name, value } objects.
+  "custom-tracker": `Track only the user's custom fields after the latest assistant message. Current fields live in <current_game_state> under playerStats.customTrackerFields as { name, value, locked? } objects.
 Respond ONLY with valid JSON.
 Rules:
 1. Output ALL fields, including unchanged ones. Omitting a field deletes it.
 2. Update only values the latest narrative changes. If nothing relevant happened, keep previous values exactly.
-3. Do not add, rename, or remove fields.
-4. Values are always strings. Store numbers as strings (for example "150").
-5. Changes must be proportional and realistic.
+3. If a field is locked or marked "(locked)", copy its previous value exactly. Do not change, omit, rename, remove, or unlock locked fields.
+4. Do not add, rename, or remove fields.
+5. Values are always strings. Store numbers as strings (for example "150").
+6. Changes must be proportional and realistic.
 Schema:
 {
   "fields": [

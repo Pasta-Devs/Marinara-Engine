@@ -1,9 +1,15 @@
-import { CheckCircle2, Plus, Target, X } from "lucide-react";
-import type { QuestProgress } from "@marinara-engine/shared";
+import { CheckCircle2, Lock, Plus, Target, Unlock, X } from "lucide-react";
+import {
+  isTrackerFieldLocked,
+  questObjectiveTrackerLockKey,
+  questTrackerLockKey,
+  type QuestProgress,
+} from "@marinara-engine/shared";
 import { cn } from "../../../../../lib/utils";
 import { TRACKER_BAR } from "../../../lib/tracker-panel.constants";
 import { visibleText } from "../../../lib/tracker-display";
 import { InlineEdit } from "../../controls/InlineControls";
+import { useTrackerLockContext } from "../../TrackerLockContext";
 import { getQuestTextWrapClass, type QuestTextLineCount } from "./quest-layout";
 import { QuestObjectiveRow } from "./QuestObjectiveRow";
 
@@ -33,6 +39,7 @@ const ADD_OBJECTIVE_BUTTON_CLASS =
 
 export function QuestRow({
   quest,
+  questIndex,
   onUpdate,
   onRemove,
   deleteMode = false,
@@ -40,12 +47,14 @@ export function QuestRow({
   textLineCount = 1,
 }: {
   quest: QuestProgress;
+  questIndex: number;
   onUpdate?: (quest: QuestProgress) => void;
   onRemove?: () => void;
   deleteMode?: boolean;
   addMode?: boolean;
   textLineCount?: QuestTextLineCount;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   const completed = quest.objectives.filter((objective) => objective.completed).length;
   const totalObjectives = quest.objectives.length;
   const completionPercent = quest.completed ? 100 : totalObjectives > 0 ? (completed / totalObjectives) * 100 : 0;
@@ -54,6 +63,9 @@ export function QuestRow({
     ? "grid-cols-[0.875rem_minmax(0,1fr)_1rem]"
     : "grid-cols-[0.875rem_minmax(0,1fr)]";
   const questTitle = visibleText(quest.name, "Quest");
+  const questCompletedLockKey = questTrackerLockKey(quest, questIndex, "completed");
+  const questNameLockKey = questTrackerLockKey(quest, questIndex, "name");
+  const questCompletedLocked = isTrackerFieldLocked(fieldLocks, questCompletedLockKey);
   const wrapsText = textLineCount > 1;
   const previewLineCount: 2 | 3 | undefined = textLineCount === 1 ? undefined : textLineCount;
   const wrapClass = getQuestTextWrapClass(textLineCount);
@@ -85,12 +97,49 @@ export function QuestRow({
         {onUpdate && (
           <button
             type="button"
-            onClick={() => onUpdate({ ...quest, completed: !quest.completed })}
-            className={cn(QUEST_TOGGLE_BUTTON_CLASS, quest.completed && "text-emerald-300")}
-            title={quest.completed ? "Mark incomplete" : "Mark complete"}
-            aria-label={quest.completed ? "Mark quest incomplete" : "Mark quest complete"}
+            onClick={() =>
+              lockMode
+                ? onToggleFieldLock?.(questCompletedLockKey)
+                : onUpdate({ ...quest, completed: !quest.completed })
+            }
+            className={cn(
+              QUEST_TOGGLE_BUTTON_CLASS,
+              quest.completed && !lockMode && "text-emerald-300",
+              questCompletedLocked && "ring-1 ring-emerald-300/35",
+            )}
+            title={
+              lockMode
+                ? questCompletedLocked
+                  ? "Unlock quest completion"
+                  : "Lock quest completion"
+                : quest.completed
+                  ? "Mark incomplete"
+                  : "Mark complete"
+            }
+            aria-label={
+              lockMode
+                ? questCompletedLocked
+                  ? "Unlock quest completion"
+                  : "Lock quest completion"
+                : quest.completed
+                  ? "Mark quest incomplete"
+                  : "Mark quest complete"
+            }
+            aria-pressed={
+              lockMode ? questCompletedLocked : undefined
+            }
           >
-            {quest.completed ? <CheckCircle2 size="0.75rem" /> : <Target size="0.75rem" />}
+            {lockMode ? (
+              questCompletedLocked ? (
+                <Lock size="0.75rem" />
+              ) : (
+                <Unlock size="0.75rem" />
+              )
+            ) : quest.completed ? (
+              <CheckCircle2 size="0.75rem" />
+            ) : (
+              <Target size="0.75rem" />
+            )}
           </button>
         )}
         {!onUpdate && (
@@ -107,12 +156,14 @@ export function QuestRow({
             showEditHint={false}
             fitPreview={!wrapsText}
             previewLineCount={previewLineCount}
-            editHintMode={wrapsText ? "overlay" : "inline"}
             className={cn(
               QUEST_TITLE_EDIT_CLASS,
               wrapsText ? QUEST_TITLE_EDIT_WRAPPED_CLASS : QUEST_TITLE_EDIT_SINGLE_LINE_CLASS,
               quest.completed && "line-through opacity-60",
             )}
+            locked={isTrackerFieldLocked(fieldLocks, questNameLockKey)}
+            lockMode={lockMode}
+            onToggleLock={() => onToggleFieldLock?.(questNameLockKey)}
           />
         ) : (
           <div
@@ -164,6 +215,8 @@ export function QuestRow({
               onToggle={onUpdate ? () => toggleObjective(index) : undefined}
               onUpdateText={onUpdate ? (text) => updateObjective(index, text) : undefined}
               onRemove={onUpdate && deleteMode ? () => removeObjective(index) : undefined}
+              textLockKey={questObjectiveTrackerLockKey(quest, questIndex, index, "text")}
+              completedLockKey={questObjectiveTrackerLockKey(quest, questIndex, index, "completed")}
             />
           ))}
           {onUpdate && addMode && (

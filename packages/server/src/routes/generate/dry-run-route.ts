@@ -3,6 +3,7 @@ import {
   findKnownModel,
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
+  formatCustomTrackerFieldForPrompt,
   supportsXhighReasoningEffort,
   resolveMacros,
   stripMacroComments,
@@ -195,7 +196,7 @@ function formatTrackersContextBlock(args: {
         trackerParts.push(wrapContent(statLines.join("\n"), "Stats", wrapFormat));
       }
       if (Array.isArray(stats.customTrackerFields) && stats.customTrackerFields.length > 0) {
-        const customLines = stats.customTrackerFields.map((f: any) => `- ${f.name}: ${f.value}`);
+        const customLines = stats.customTrackerFields.map(formatCustomTrackerFieldForPrompt);
         trackerParts.push(wrapContent(customLines.join("\n"), "Custom Tracker", wrapFormat));
       }
     } catch {

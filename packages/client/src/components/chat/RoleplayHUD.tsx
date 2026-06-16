@@ -34,6 +34,7 @@ import {
   getTemperatureKeywordHint,
   parseTemperatureValue,
 } from "../../features/tracker-panel/lib/world-state-display";
+import { TrackerLockProvider } from "../../features/tracker-panel/components/TrackerLockContext";
 import { ROLEPLAY_POPOVER_SCROLL_AREA, ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
 import { getChatToolbarButtonClass } from "./ChatToolbarControls";
 import type {
@@ -45,6 +46,7 @@ import type {
   CustomTrackerField,
   Message,
 } from "@marinara-engine/shared";
+import { toggleTrackerFieldLock } from "@marinara-engine/shared";
 import type { HudPosition, TrackerTemperatureUnit } from "../../stores/ui.store";
 
 const ACTIONS_DROPDOWN_WIDTH_PX = 288;
@@ -103,6 +105,7 @@ export function RoleplayHUD({
   injectionSourceMessages,
 }: RoleplayHUDProps & { mobileCompact?: boolean }) {
   const [agentsOpen, setAgentsOpen] = useState(false);
+  const [lockMode, setLockMode] = useState(false);
   const gameState = useGameStateStore((s) => s.current);
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
   const setGameState = useGameStateStore((s) => s.setGameState);
@@ -192,6 +195,7 @@ export function RoleplayHUD({
         status: "",
       },
       personaStats: [],
+      fieldLocks: null,
     };
     discardPendingGameStatePatch(chatId);
     const prev = useGameStateStore.getState().current;
@@ -225,6 +229,13 @@ export function RoleplayHUD({
   const inventory = playerStats?.inventory ?? [];
   const activeQuests = playerStats?.activeQuests ?? [];
   const customTrackerFields = playerStats?.customTrackerFields ?? [];
+  const fieldLocks = gameState?.fieldLocks ?? null;
+  const toggleFieldLock = useCallback(
+    (key: string) => {
+      patchField("fieldLocks", toggleTrackerFieldLock(fieldLocks, key));
+    },
+    [fieldLocks, patchField],
+  );
   const hasPersonaStatsTracker = enabledAgentTypes.has("persona-stats");
   const hasPlayerTrackerSections =
     hasPersonaStatsTracker ||
@@ -236,13 +247,19 @@ export function RoleplayHUD({
   // If mobileCompact, widgets are even narrower and action buttons are not cut off
 
   return (
-    <div
-      className={cn(
-        "rpg-hud",
-        isVertical ? "flex flex-col items-center gap-1.5" : "flex items-center gap-1.5",
-        mobileCompact && "flex-1 min-w-0",
-      )}
+    <TrackerLockProvider
+      fieldLocks={fieldLocks}
+      lockMode={lockMode}
+      onSetLockMode={setLockMode}
+      onToggleFieldLock={toggleFieldLock}
     >
+      <div
+        className={cn(
+          "rpg-hud",
+          isVertical ? "flex flex-col items-center gap-1.5" : "flex items-center gap-1.5",
+          mobileCompact && "flex-1 min-w-0",
+        )}
+      >
       {trackerPanelEnabled && !trackerPanelOpen && <TrackerPanelToggleButton onToggle={toggleTrackerPanel} />}
 
       {/* Actions (Agents + Clear) */}
@@ -426,7 +443,8 @@ export function RoleplayHUD({
           )}
         </div>
       )}
-    </div>
+      </div>
+    </TrackerLockProvider>
   );
 }
 
@@ -1200,7 +1218,10 @@ function InventoryWidget({
         className="w-64 max-h-80 overflow-y-auto"
       >
         <Suspense fallback={<DeferredHUDPanelFallback label="Loading inventory…" />}>
-          <InventoryPanel items={items} onUpdate={onUpdate} />
+          <InventoryPanel
+            items={items}
+            onUpdate={onUpdate}
+          />
         </Suspense>
       </WidgetPopover>
     </div>

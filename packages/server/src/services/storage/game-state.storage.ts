@@ -5,11 +5,33 @@ import { eq, and, ne, desc, inArray } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
 import { gameStateSnapshots } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
-import { coerceGameStateTextValue, type GameState } from "@marinara-engine/shared";
+import {
+  coerceGameStateTextValue,
+  normalizeTrackerFieldLocks,
+  parseTrackerFieldLocks,
+  trackerFieldLocksAreEmpty,
+  type GameState,
+  type TrackerFieldLocks,
+} from "@marinara-engine/shared";
 
 export type GameStateVisibleAnchor = { messageId: string; swipeIndex: number };
 
 const MANUAL_OVERRIDE_FIELDS = ["date", "time", "location", "weather", "temperature"] as const;
+
+type GameStateUpdateFields = Partial<
+  Pick<
+    GameState,
+    | "date"
+    | "time"
+    | "location"
+    | "weather"
+    | "temperature"
+    | "presentCharacters"
+    | "playerStats"
+    | "personaStats"
+    | "fieldLocks"
+  >
+>;
 
 function coerceSnapshotTextFields(fields: Partial<Pick<GameState, (typeof MANUAL_OVERRIDE_FIELDS)[number]>>) {
   return {
@@ -19,6 +41,30 @@ function coerceSnapshotTextFields(fields: Partial<Pick<GameState, (typeof MANUAL
     weather: coerceGameStateTextValue(fields.weather),
     temperature: coerceGameStateTextValue(fields.temperature),
   };
+}
+
+function parseStoredManualOverrides(value: unknown): Record<string, string> | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, string>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, string>) : null;
+}
+
+function serializeManualOverrides(manualOverrides: Record<string, string> | null | undefined) {
+  return manualOverrides && Object.keys(manualOverrides).length > 0 ? JSON.stringify(manualOverrides) : null;
+}
+
+function serializeFieldLocks(fieldLocks: TrackerFieldLocks | null | undefined) {
+  const normalized = normalizeTrackerFieldLocks(fieldLocks);
+  return trackerFieldLocksAreEmpty(normalized) ? null : JSON.stringify(normalized);
 }
 
 export function createGameStateStorage(db: DB) {
@@ -206,7 +252,8 @@ export function createGameStateStorage(db: DB) {
         recentEvents: JSON.stringify(state.recentEvents),
         playerStats: state.playerStats ? JSON.stringify(state.playerStats) : null,
         personaStats: state.personaStats ? JSON.stringify(state.personaStats) : null,
-        manualOverrides: manualOverrides ? JSON.stringify(manualOverrides) : null,
+        manualOverrides: serializeManualOverrides(manualOverrides),
+        fieldLocks: serializeFieldLocks(state.fieldLocks),
         committed: state.committed ? 1 : 0,
         createdAt: now(),
       });
@@ -215,19 +262,7 @@ export function createGameStateStorage(db: DB) {
 
     async updateLatest(
       chatId: string,
-      fields: Partial<
-        Pick<
-          GameState,
-          | "date"
-          | "time"
-          | "location"
-          | "weather"
-          | "temperature"
-          | "presentCharacters"
-          | "playerStats"
-          | "personaStats"
-        >
-      >,
+      fields: GameStateUpdateFields,
       /** When true, the edited fields are also recorded as manual overrides. */
       manual?: boolean,
     ) {
@@ -254,19 +289,7 @@ export function createGameStateStorage(db: DB) {
       messageId: string,
       swipeIndex: number,
       chatId: string,
-      fields: Partial<
-        Pick<
-          GameState,
-          | "date"
-          | "time"
-          | "location"
-          | "weather"
-          | "temperature"
-          | "presentCharacters"
-          | "playerStats"
-          | "personaStats"
-        >
-      >,
+      fields: GameStateUpdateFields,
       manual?: boolean,
       options?: { baseSnapshot?: typeof gameStateSnapshots.$inferSelect | null },
     ) {
@@ -311,6 +334,7 @@ export function createGameStateStorage(db: DB) {
             ? JSON.parse(latest.personaStats)
             : latest.personaStats
           : null,
+        fieldLocks: parseTrackerFieldLocks(latest?.fieldLocks),
       };
 
       // Apply the incoming fields on top of the cloned base
@@ -322,6 +346,7 @@ export function createGameStateStorage(db: DB) {
       if (fields.presentCharacters !== undefined) baseState.presentCharacters = fields.presentCharacters as any;
       if (fields.playerStats !== undefined) baseState.playerStats = fields.playerStats as any;
       if (fields.personaStats !== undefined) baseState.personaStats = fields.personaStats as any;
+      if (fields.fieldLocks !== undefined) baseState.fieldLocks = normalizeTrackerFieldLocks(fields.fieldLocks);
 
       const manualOverrides = manual
         ? MANUAL_OVERRIDE_FIELDS.reduce<Record<string, string>>((acc, key) => {
@@ -339,19 +364,7 @@ export function createGameStateStorage(db: DB) {
     /** Internal: apply field updates + optional manual-override tracking to a snapshot row. */
     async _applyUpdate(
       row: typeof gameStateSnapshots.$inferSelect,
-      fields: Partial<
-        Pick<
-          GameState,
-          | "date"
-          | "time"
-          | "location"
-          | "weather"
-          | "temperature"
-          | "presentCharacters"
-          | "playerStats"
-          | "personaStats"
-        >
-      >,
+      fields: GameStateUpdateFields,
       manual?: boolean,
     ) {
       const updates: Record<string, unknown> = {};
@@ -365,24 +378,30 @@ export function createGameStateStorage(db: DB) {
         updates.playerStats = fields.playerStats ? JSON.stringify(fields.playerStats) : null;
       if (fields.personaStats !== undefined)
         updates.personaStats = fields.personaStats ? JSON.stringify(fields.personaStats) : null;
-      if (Object.keys(updates).length === 0) return row;
 
-      // Merge manual override tracking
       if (manual) {
-        const existing: Record<string, string> = row.manualOverrides ? JSON.parse(row.manualOverrides as string) : {};
+        const storedOverrides = parseStoredManualOverrides(row.manualOverrides) ?? {};
+
         for (const key of MANUAL_OVERRIDE_FIELDS) {
           if (fields[key] !== undefined) {
             const text = coerceGameStateTextValue(fields[key]);
             // Setting a field to null/empty removes the override so the agent can update it again
             if (!text) {
-              delete existing[key];
+              delete storedOverrides[key];
             } else {
-              existing[key] = text;
+              storedOverrides[key] = text;
             }
           }
         }
-        updates.manualOverrides = Object.keys(existing).length > 0 ? JSON.stringify(existing) : null;
+
+        updates.manualOverrides = serializeManualOverrides(storedOverrides);
       }
+
+      if (fields.fieldLocks !== undefined) {
+        updates.fieldLocks = serializeFieldLocks(fields.fieldLocks);
+      }
+
+      if (Object.keys(updates).length === 0) return row;
 
       await db.update(gameStateSnapshots).set(updates).where(eq(gameStateSnapshots.id, row.id));
       return { ...row, ...updates };

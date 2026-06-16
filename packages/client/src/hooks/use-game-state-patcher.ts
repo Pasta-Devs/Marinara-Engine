@@ -11,7 +11,8 @@ export type GameStatePatchField =
   | "temperature"
   | "presentCharacters"
   | "playerStats"
-  | "personaStats";
+  | "personaStats"
+  | "fieldLocks";
 
 type GameStatePatch = Partial<Record<GameStatePatchField, unknown>>;
 type GameStatePatchTarget = {
@@ -67,6 +68,7 @@ function createEmptyGameState(chatId: string): GameState {
     recentEvents: [],
     playerStats: null,
     personaStats: null,
+    fieldLocks: null,
     createdAt: "",
   };
 }
