@@ -43,6 +43,17 @@ export type ConversationCommandKey = (typeof CONVERSATION_COMMAND_KEYS)[number];
 
 export type ConversationCommandToggles = Partial<Record<ConversationCommandKey, boolean>>;
 
+export type ConversationPresenceStatus = "online" | "idle" | "dnd" | "offline";
+
+export type ConversationManualPresenceStatus = ConversationPresenceStatus;
+
+export interface ConversationStatusOverride {
+  status: ConversationManualPresenceStatus;
+  activity?: string | null;
+  createdAt: string;
+  expiresAt?: string | null;
+}
+
 /** Role of a message in the conversation. */
 export type MessageRole = "user" | "assistant" | "system" | "narrator";
 
@@ -290,6 +301,8 @@ export interface ChatMetadata {
   conversationCommandToggles?: ConversationCommandToggles;
   /** Chat-scoped generated schedules for conversation characters. */
   characterSchedules?: Record<string, unknown>;
+  /** Chat-scoped manual status overrides for conversation characters. */
+  conversationStatusOverrides?: Record<string, ConversationStatusOverride>;
   /** Week start timestamp for the current generated conversation schedules. */
   scheduleWeekStart?: string;
   /** Chat-scoped selfie prompt-builder template. Empty/null uses the global/default prompt. */

@@ -2004,11 +2004,27 @@ export function useGenerate() {
             case "delayed": {
               // Character is busy (DND/idle) — show waiting indicator
               const delayedNames = (event as any).characters as string[] | undefined;
+              const delayedIds = ((event as any).characterIds as unknown[] | undefined)?.filter(
+                (id): id is string => typeof id === "string" && id.length > 0,
+              );
+              const delayedCharacters = ((event as any).characterStatuses as unknown[] | undefined)?.flatMap((item) => {
+                if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+                const character = item as Record<string, unknown>;
+                if (typeof character.id !== "string" || typeof character.name !== "string") return [];
+                const status = typeof character.status === "string" ? character.status : "idle";
+                return [{ id: character.id, name: character.name, status }];
+              });
               const delayedLabel =
                 delayedNames?.length === 1 ? delayedNames[0] : (delayedNames?.join(", ") ?? "Character");
               const delayedStatus = ((event as any).status as string) ?? "idle";
-              useChatStore.getState().setPerChatDelayed(params.chatId, { name: delayedLabel, status: delayedStatus });
-              if (isActiveChat()) setDelayedCharacterInfo({ name: delayedLabel, status: delayedStatus });
+              const delayedInfo = {
+                name: delayedLabel,
+                status: delayedStatus,
+                ...(delayedIds?.length ? { characterIds: delayedIds } : {}),
+                ...(delayedCharacters?.length ? { characters: delayedCharacters } : {}),
+              };
+              useChatStore.getState().setPerChatDelayed(params.chatId, delayedInfo);
+              if (isActiveChat()) setDelayedCharacterInfo(delayedInfo);
               // Refresh character data so sidebar status dots update immediately
               qc.invalidateQueries({ queryKey: characterKeys.list() });
               break;

@@ -87,6 +87,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
       payload: {
         chatId,
         connectionId: null,
+        forCharacterId: characterId,
         streaming: false,
         userStatus: "idle",
         userActivity: "away or offline",

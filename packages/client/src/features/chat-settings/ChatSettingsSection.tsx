@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode, type KeyboardEvent } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode, type KeyboardEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../../components/ui/HelpTooltip";
@@ -8,12 +8,16 @@ interface ChatSettingsSectionProps {
   icon?: ReactNode;
   count?: number;
   help?: string;
+  initialOpen?: boolean;
   style?: CSSProperties;
   children: ReactNode;
 }
 
-export function ChatSettingsSection({ label, icon, count, help, style, children }: ChatSettingsSectionProps) {
-  const [open, setOpen] = useState(false);
+export function ChatSettingsSection({ label, icon, count, help, initialOpen = false, style, children }: ChatSettingsSectionProps) {
+  const [open, setOpen] = useState(initialOpen);
+  useEffect(() => {
+    if (initialOpen) setOpen(true);
+  }, [initialOpen]);
   const toggleOpen = () => setOpen((o) => !o);
   const handleHeaderKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;

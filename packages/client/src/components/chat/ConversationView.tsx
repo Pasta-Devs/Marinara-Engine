@@ -13,22 +13,19 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, ChevronUp, Settings2, Image as ImageIcon, ArrowRightLeft } from "lucide-react";
 import { ConversationMessage } from "./ConversationMessage";
 import { ConversationInput } from "./ConversationInput";
 import { SceneBanner, EndSceneBar } from "./SceneBanner";
 import { ChatBranchSelector } from "./ChatBranchSelector";
 import { ActiveLorebookEntriesButton } from "./ActiveLorebookEntriesButton";
-import { ChatToolbarButton, ChatToolbarMenu, getChatToolbarButtonClass } from "./ChatToolbarControls";
+import { ChatToolbarButton, ChatToolbarMenu } from "./ChatToolbarControls";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
+import { ConversationPresenceCard } from "./ConversationPresenceCard";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { playNotificationPing } from "../../lib/notification-sound";
-import { getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../lib/transcript-render-window";
-import { characterKeys } from "../../hooks/use-characters";
-import { api } from "../../lib/api-client";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
 import type { Message } from "@marinara-engine/shared";
 
@@ -60,7 +57,7 @@ interface ConversationViewProps {
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: () => void;
   lastAssistantMessageId: string | null;
-  onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
+  onOpenSettings: (event?: ReactMouseEvent<HTMLElement>, options?: { initialSection?: "autonomous" | null }) => void;
   onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
   onBranch?: (messageId: string) => void;
   multiSelectMode?: boolean;
@@ -268,7 +265,6 @@ export function ConversationView({
   onConcludeScene,
   onAbandonScene,
 }: ConversationViewProps) {
-  const qc = useQueryClient();
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreaming = useChatStore((s) => s.isStreaming) && streamingChatId === chatId;
   const isStreamCommitted = useChatStore((s) => s.committedStreamChatIds.has(chatId));
@@ -316,25 +312,6 @@ export function ConversationView({
     (conversationMessageStyle === "bubble" || !!streamBuffer || !!thinkingBuffer);
   const showTypingIndicator =
     hasLiveStream && !delayedCharacterInfo && !streamBuffer && !thinkingBuffer && conversationMessageStyle !== "bubble";
-
-  // ── Periodic status refresh (every 60s) ──
-  // Keeps status dots in sync with the character's schedule regardless of autonomous messaging
-  useEffect(() => {
-    if (!chatId) return;
-    const refreshStatus = async () => {
-      // Skip while tab is hidden to avoid a burst of requests on return
-      if (document.hidden) return;
-      try {
-        await api.get(`/conversation/status/${chatId}`);
-        qc.invalidateQueries({ queryKey: characterKeys.list() });
-      } catch {
-        /* non-critical */
-      }
-    };
-    void refreshStatus();
-    const timer = setInterval(refreshStatus, 60_000);
-    return () => clearInterval(timer);
-  }, [chatId, qc]);
 
   // Per-scheme conversation gradient from settings.
   // When a scheme's values are still the defaults (user hasn't customized), use
@@ -860,112 +837,14 @@ export function ConversationView({
         {/* Floating header — character info + action buttons */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2">
           {/* Character identity pill */}
-          {(() => {
-            const chars = chatCharIds.map((id) => characterMap.get(id)).filter(Boolean) as Array<{
-              name: string;
-              avatarUrl: string | null;
-              avatarCrop?: AvatarCropValue | null;
-              conversationStatus?: "online" | "idle" | "dnd" | "offline";
-              conversationActivity?: string;
-            }>;
-            if (chars.length === 0) return <div />;
-
-            const statusColor = (s?: string) => {
-              const st = s ?? "online";
-              return st === "online"
-                ? "bg-green-500"
-                : st === "idle"
-                  ? "bg-yellow-500"
-                  : st === "dnd"
-                    ? "bg-red-500"
-                    : "bg-gray-400";
-            };
-            const identityPillClass = getChatToolbarButtonClass({
-              compact: true,
-              className:
-                "w-auto min-w-0 max-w-[min(20rem,calc(100vw-8rem))] justify-start gap-2 px-2.5 text-[var(--foreground)]/80 hover:text-[var(--foreground)]/90",
-            });
-            const avatarShellClass =
-              "relative block h-5 w-5 overflow-hidden rounded-full ring-1 ring-[var(--border)]/80";
-            const avatarFallbackClass =
-              "flex h-5 w-5 items-center justify-center rounded-full bg-[var(--foreground)]/10 text-[0.5rem] font-bold text-[var(--foreground)]/70 ring-1 ring-[var(--border)]/80";
-
-            if (chars.length === 1) {
-              const c = chars[0]!;
-              return (
-                <div
-                  className={identityPillClass}
-                  title={c.conversationActivity ? `${c.name}: ${c.conversationActivity}` : c.name}
-                >
-                  <div className="relative flex-shrink-0">
-                    {c.avatarUrl ? (
-                      <span className={avatarShellClass}>
-                        <img
-                          src={c.avatarUrl}
-                          alt={c.name}
-                          className="h-full w-full object-cover"
-                          style={getAvatarCropStyle(c.avatarCrop)}
-                        />
-                      </span>
-                    ) : (
-                      <div className={avatarFallbackClass}>{c.name[0]}</div>
-                    )}
-                    <span
-                      className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--card)] ${statusColor(c.conversationStatus)}`}
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-col leading-tight">
-                    <span className="truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">{c.name}</span>
-                    {c.conversationActivity && (
-                      <span className="truncate text-[0.5625rem] text-[var(--foreground)]/50">
-                        {c.conversationActivity}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-
-            // Multiple characters — show stacked avatars + names
-            return (
-              <div
-                className={identityPillClass}
-                title={chars
-                  .map((c) => (c.conversationActivity ? `${c.name}: ${c.conversationActivity}` : c.name))
-                  .join(", ")}
-              >
-                <div
-                  className="relative flex-shrink-0"
-                  style={{ width: `${Math.min(chars.length, 3) * 12 + 8}px`, height: 20 }}
-                >
-                  {chars.slice(0, 3).map((c, i) => (
-                    <div key={i} className="absolute top-0" style={{ left: i * 12 }}>
-                      <div className="relative">
-                        {c.avatarUrl ? (
-                          <span className={avatarShellClass}>
-                            <img
-                              src={c.avatarUrl}
-                              alt={c.name}
-                              className="h-full w-full object-cover"
-                              style={getAvatarCropStyle(c.avatarCrop)}
-                            />
-                          </span>
-                        ) : (
-                          <div className={avatarFallbackClass}>{c.name[0]}</div>
-                        )}
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-1.5 w-1.5 rounded-full ring-[1px] ring-[var(--card)] ${statusColor(c.conversationStatus)}`}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <span className="min-w-0 truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">
-                  {chars.length <= 2 ? chars.map((c) => c.name).join(" & ") : `${chars[0]!.name} + ${chars.length - 1}`}
-                </span>
-              </div>
-            );
-          })()}
+          <ConversationPresenceCard
+            chatId={chatId}
+            chatMeta={chatMeta}
+            chatCharIds={chatCharIds}
+            characterMap={characterMap}
+            messages={messages}
+            onOpenSettings={onOpenSettings}
+          />
 
           <ChatToolbarMenu desktopChildren={renderToolbarActions()} mobileChildren={renderToolbarActions(true)} />
         </div>

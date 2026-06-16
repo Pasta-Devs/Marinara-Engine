@@ -281,6 +281,7 @@ import {
 import {
   areConversationSchedulesEnabled,
   getEnabledConversationSchedules,
+  parseConversationStatusOverrides,
   parsePromptPresetChoices,
 } from "../services/generation/conversation-context-utils.js";
 import { recoverImplicitSelfieCommand } from "../services/generation/selfie-command-recovery.js";
@@ -1499,6 +1500,7 @@ export async function generateRoutes(app: FastifyInstance) {
               string,
               import("../services/conversation/schedule.service.js").WeekSchedule
             >;
+          const statusOverrides = parseConversationStatusOverrides(chatMeta.conversationStatusOverrides);
           const convoCharInfo: {
             charId: string;
             name: string;
@@ -1512,22 +1514,25 @@ export async function generateRoutes(app: FastifyInstance) {
               const d = JSON.parse(charRow.data as string);
               // Schedules are chat-scoped. If this chat has no schedule for the character,
               // don't inherit a stale conversationStatus from some other chat.
-              let status = "online";
-              let activity = "";
+              const schedSvc = await import("../services/conversation/schedule.service.js");
+              const override = statusOverrides[cid];
+              const derived = schedSvc.getEffectiveCurrentStatus(undefined, override, promptNow, "");
+              let status = derived.status;
+              let activity = derived.activity;
               let todaySchedule = "";
               const schedule = schedules[cid];
               if (schedule) {
-                const schedSvc = await import("../services/conversation/schedule.service.js");
-                const derived = schedSvc.getCurrentStatus(schedule, promptNow);
+                const derived = schedSvc.getEffectiveCurrentStatus(schedule, override, promptNow);
                 status = derived.status;
                 activity = derived.activity;
                 todaySchedule = schedSvc.getTodaySchedule(schedule, promptNow);
-                // Sync status to character DB so sidebar/header dots stay in sync
-                const prevStatus = d.extensions?.conversationStatus;
-                if (prevStatus !== status) {
-                  const extensions = { ...(d.extensions ?? {}), conversationStatus: status };
-                  await chars.update(cid, { extensions } as any).catch(() => {});
-                }
+              }
+              // Sync status to character DB so sidebar/header dots stay in sync
+              const prevStatus = d.extensions?.conversationStatus;
+              const prevActivity = d.extensions?.conversationActivity;
+              if (prevStatus !== status || prevActivity !== activity) {
+                const extensions = { ...(d.extensions ?? {}), conversationStatus: status, conversationActivity: activity };
+                await chars.update(cid, { extensions } as any).catch(() => {});
               }
               convoCharInfo.push({ charId: cid, name: d.name ?? "Unknown", status, activity, todaySchedule });
             }
@@ -1548,6 +1553,7 @@ export async function generateRoutes(app: FastifyInstance) {
               : convoCharInfo;
           const respondingConvoCharInfo = scopedConvoCharInfo.length > 0 ? scopedConvoCharInfo : convoCharInfo;
           const respondingConvoCharNames = respondingConvoCharInfo.map((c) => c.name);
+          const respondingConvoCharIds = respondingConvoCharInfo.map((c) => c.charId);
 
           // ── Offline skip: if ALL characters are offline, don't generate ──
           // The user message is already saved. When the character comes back online,
@@ -1585,7 +1591,18 @@ export async function generateRoutes(app: FastifyInstance) {
             if (delayMs > 0) {
               // Send "delayed" event first — client shows "will respond in a moment" / "when they're back"
               reply.raw.write(
-                `data: ${JSON.stringify({ type: "delayed", characters: respondingConvoCharNames, status: worstStatus, delayMs })}\n\n`,
+                `data: ${JSON.stringify({
+                  type: "delayed",
+                  characters: respondingConvoCharNames,
+                  characterIds: respondingConvoCharIds,
+                  characterStatuses: respondingConvoCharInfo.map((character) => ({
+                    id: character.charId,
+                    name: character.name,
+                    status: character.status,
+                  })),
+                  status: worstStatus,
+                  delayMs,
+                })}\n\n`,
               );
               await new Promise((r) => setTimeout(r, delayMs));
 
@@ -6060,7 +6077,7 @@ export async function generateRoutes(app: FastifyInstance) {
         } else {
           // Single/merged: one generation
           sendProgress("generating");
-          let targetCharId = characterIds[0] ?? null;
+          let targetCharId = promptTargetCharacterId ?? characterIds[0] ?? null;
           const sentMessages = [...finalMessages];
 
           if (generationGuideInstruction) {

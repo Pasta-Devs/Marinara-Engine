@@ -75,7 +75,7 @@ import { RecentChats } from "./RecentChats";
 import { HomeCreditsModal } from "./HomeCreditsModal";
 import { HomeProfessorMariChat } from "./HomeProfessorMariChat";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
-import { ChatCommonOverlays } from "./ChatCommonOverlays";
+import { ChatCommonOverlays, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
 
 export type { CharacterMap };
 
@@ -83,6 +83,8 @@ const BUILT_IN_AGENT_ID_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const BUILT_IN_TRACKER_AGENT_ID_SET = new Set(
   BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker" && !agent.libraryHidden).map((agent) => agent.id),
 );
+
+type OpenSettingsOptions = { initialSection?: ChatSettingsInitialSection };
 
 const normalizeSpriteDisplayValue = (value: unknown, fallback: number, min: number, max: number): number => {
   const numeric = typeof value === "number" ? value : Number(value);
@@ -238,6 +240,7 @@ export function ChatArea() {
   // skip the entry animation to avoid a visible flash on refetch.
   const hasAnimatedRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsInitialSection, setSettingsInitialSection] = useState<ChatSettingsInitialSection>(null);
   const [filesOpen, setFilesOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [settingsAnchor, setSettingsAnchor] = useState<FloatingPanelAnchor>(null);
@@ -269,8 +272,9 @@ export function ChatArea() {
     };
   }, []);
   const handleOpenSettingsPanel = useCallback(
-    (event?: ReactMouseEvent<HTMLElement>) => {
+    (event?: ReactMouseEvent<HTMLElement>, options?: OpenSettingsOptions) => {
       setSettingsAnchor(readFloatingPanelAnchor(event));
+      setSettingsInitialSection(options?.initialSection ?? null);
       setSettingsOpen(true);
     },
     [readFloatingPanelAnchor],
@@ -285,6 +289,7 @@ export function ChatArea() {
   const handleCloseSettingsPanel = useCallback(() => {
     setSettingsOpen(false);
     setSettingsAnchor(null);
+    setSettingsInitialSection(null);
   }, []);
   const handleCloseGalleryPanel = useCallback(() => {
     setGalleryOpen(false);
@@ -1977,6 +1982,7 @@ export function ChatArea() {
             activeChatId={activeChatId}
             settingsOpen={settingsOpen}
             settingsAnchor={settingsAnchor}
+            settingsInitialSection={settingsInitialSection}
             filesOpen={filesOpen}
             galleryOpen={galleryOpen}
             galleryAnchor={galleryAnchor}
@@ -2044,6 +2050,7 @@ export function ChatArea() {
             sceneInfo={conversationSceneInfo}
             settingsOpen={settingsOpen}
             settingsAnchor={settingsAnchor}
+            settingsInitialSection={settingsInitialSection}
             galleryOpen={galleryOpen}
             galleryAnchor={galleryAnchor}
             wizardOpen={wizardOpen}

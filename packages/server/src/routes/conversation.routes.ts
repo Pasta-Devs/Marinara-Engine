@@ -11,10 +11,10 @@ import { createCharactersStorage } from "../services/storage/characters.storage.
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { PROVIDERS } from "@marinara-engine/shared";
-import type { CharacterData } from "@marinara-engine/shared";
+import type { CharacterData, ConversationStatusOverride } from "@marinara-engine/shared";
 import {
   generateCharacterSchedule,
-  getCurrentStatus,
+  getEffectiveCurrentStatus,
   scheduleNeedsRefresh,
   getMonday,
   getBusyDelay,
@@ -53,6 +53,17 @@ function areConversationSchedulesEnabled(meta: Record<string, unknown>): boolean
 
 function getEnabledConversationSchedules(meta: Record<string, unknown>): CharacterSchedules {
   return areConversationSchedulesEnabled(meta) && hasSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
+}
+
+function getConversationStatusOverrides(meta: Record<string, unknown>): Record<string, ConversationStatusOverride> {
+  if (!meta.conversationStatusOverrides || typeof meta.conversationStatusOverrides !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(meta.conversationStatusOverrides as Record<string, unknown>).filter(([, value]) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+      const status = (value as Record<string, unknown>).status;
+      return status === "online" || status === "idle" || status === "dnd" || status === "offline";
+    }),
+  ) as Record<string, ConversationStatusOverride>;
 }
 
 type AutonomousUserStatus = "active" | "idle" | "dnd";
@@ -362,7 +373,7 @@ export async function conversationRoutes(app: FastifyInstance) {
           const charRow = await chars.getById(charId);
           if (charRow) {
             const charData = JSON.parse(charRow.data as string) as CharacterData;
-            const { status } = getCurrentStatus(mergedShared);
+            const { status } = getEffectiveCurrentStatus(mergedShared, getConversationStatusOverrides(meta)[charId]);
             const extensions = { ...(charData.extensions ?? {}), conversationStatus: status };
             await chars.update(charId, { extensions } as Partial<CharacterData>, undefined, {
               skipVersionSnapshot: true,
@@ -413,7 +424,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         newSchedules[charId] = fullSchedule;
 
         // Update character's conversationStatus to match current schedule
-        const { status } = getCurrentStatus(fullSchedule);
+        const { status } = getEffectiveCurrentStatus(fullSchedule, getConversationStatusOverrides(meta)[charId]);
         const extensions = { ...(charData.extensions ?? {}), conversationStatus: status };
         await chars.update(charId, { extensions } as Partial<CharacterData>, undefined, {
           skipVersionSnapshot: true,
@@ -487,32 +498,47 @@ export async function conversationRoutes(app: FastifyInstance) {
     const schedules: CharacterSchedules = await chats.inheritFreshConversationSchedules(req.params.chatId);
     const characterIds: string[] =
       typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
+    const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+    const statusOverrides = getConversationStatusOverrides(meta);
 
     const now = new Date();
-    const statuses: Record<string, { status: string; activity: string; schedule?: WeekSchedule }> = {};
+    const statuses: Record<
+      string,
+      { status: string; activity: string; schedule?: WeekSchedule; override?: ConversationStatusOverride }
+    > = {};
 
     for (const charId of characterIds) {
       const schedule = schedules[charId];
       if (!schedule) {
+        const { status, activity, override } = getEffectiveCurrentStatus(
+          null,
+          statusOverrides[charId],
+          now,
+          "",
+        );
         const charRow = await chars.getById(charId);
         if (charRow) {
           const charData = JSON.parse(charRow.data as string) as CharacterData;
           const currentExtensions = (charData.extensions as Record<string, unknown> | undefined) ?? {};
-          if (currentExtensions.conversationStatus !== "online" || currentExtensions.conversationActivity != null) {
+          if (currentExtensions.conversationStatus !== status || currentExtensions.conversationActivity !== activity) {
             const extensions: Record<string, unknown> = {
               ...currentExtensions,
-              conversationStatus: "online",
-              conversationActivity: undefined,
+              conversationStatus: status,
+              conversationActivity: activity,
             };
             await chars.update(charId, { extensions } as Partial<CharacterData>, undefined, {
               skipVersionSnapshot: true,
             });
           }
         }
-        statuses[charId] = { status: "online", activity: "unknown (no schedule)" };
+        statuses[charId] = { status, activity, override };
         continue;
       }
-      const { status, activity } = getCurrentStatus(schedule, now);
+      const { status, activity, override } = getEffectiveCurrentStatus(
+        schedule,
+        statusOverrides[charId],
+        now,
+      );
 
       // Sync the character's conversationStatus in the database
       const charRow = await chars.getById(charId);
@@ -533,7 +559,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         }
       }
 
-      statuses[charId] = { status, activity, schedule };
+      statuses[charId] = { status, activity, schedule, override };
     }
 
     return reply.send({ statuses, needsRefresh: Object.values(schedules).some((s) => scheduleNeedsRefresh(s)) });
@@ -611,12 +637,13 @@ export async function conversationRoutes(app: FastifyInstance) {
         userStatus,
       );
     }
+    const statusOverrides = getConversationStatusOverrides(meta);
 
     // Update each character's conversationStatus to match current schedule
     for (const cid of characterIds) {
       const schedule = schedules[cid];
       if (!schedule) continue;
-      const { status } = getCurrentStatus(schedule);
+      const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[cid]);
       const charRow = await chars.getById(cid);
       if (!charRow) continue;
       const charData = JSON.parse(charRow.data as string);
@@ -648,6 +675,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const result = checkAutonomousMessaging(chatId, filteredSchedules, isGroup, {
       maxFollowups: req.body.maxFollowups,
+      statusOverrides,
     });
 
     if (result.shouldTrigger) {
@@ -655,26 +683,38 @@ export async function conversationRoutes(app: FastifyInstance) {
       return reply.send({ ...result, generationStartedAt });
     }
 
-    // ── Offline catch-up: if any character is now online and last messages are from user ──
+    if (result.reason === "generation_in_progress") {
+      return reply.send(result);
+    }
+
+    // ── Offline catch-up: if any character is available and last messages are from user ──
     // This catches the case where user sent messages while character was offline.
     // Now that they're online, trigger a catch-up generation.
     if (hasRoutineSchedules) {
-      const onlineCharIds = characterIds.filter((cid) => {
-        const schedule = schedules[cid];
-        if (!schedule) return true; // No schedule = assume online
-        const { status } = getCurrentStatus(schedule);
-        return status !== "offline";
+      const onlineCandidates = Object.entries(filteredSchedules).flatMap(([cid, schedule]) => {
+        const { status, override } = getEffectiveCurrentStatus(schedule, statusOverrides[cid]);
+        // Away/busy should not fire immediate catch-up; their normal autonomy delay still applies.
+        return status === "online" ? [{ cid, override }] : [];
       });
 
-      if (onlineCharIds.length > 0 && messages.length > 0) {
+      if (onlineCandidates.length > 0 && messages.length > 0) {
         // Check if the last message (or consecutive last messages) are all from the user
         const last = messages[messages.length - 1]!;
         if (last.role === "user") {
+          onlineCandidates.sort((a, b) => {
+            const aManualOnline = a.override?.status === "online" ? 1 : 0;
+            const bManualOnline = b.override?.status === "online" ? 1 : 0;
+            if (aManualOnline !== bManualOnline) return bManualOnline - aManualOnline;
+            const aCreatedAt = new Date(a.override?.createdAt ?? "").getTime();
+            const bCreatedAt = new Date(b.override?.createdAt ?? "").getTime();
+            return (Number.isFinite(bCreatedAt) ? bCreatedAt : 0) - (Number.isFinite(aCreatedAt) ? aCreatedAt : 0);
+          });
+
           // Character is online but hasn't responded — trigger catch-up
           const generationStartedAt = markGenerationInProgress(chatId);
           return reply.send({
             shouldTrigger: true,
-            characterIds: onlineCharIds.slice(0, 1), // Pick first online character
+            characterIds: [onlineCandidates[0]!.cid],
             reason: "user_inactivity",
             inactivityMs: 0,
             generationStartedAt,
@@ -710,12 +750,16 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const schedules: CharacterSchedules = await chats.inheritFreshConversationSchedules(chatId);
     const schedule = schedules[characterId];
+    const statusOverrides = getConversationStatusOverrides(
+      typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {}),
+    );
 
     if (!schedule) {
-      return reply.send({ delayMs: 0, status: "online", activity: "unknown" });
+      const { status, activity } = getEffectiveCurrentStatus(null, statusOverrides[characterId], undefined, "");
+      return reply.send({ delayMs: getBusyDelay(status), status, activity });
     }
 
-    const { status, activity } = getCurrentStatus(schedule);
+    const { status, activity } = getEffectiveCurrentStatus(schedule, statusOverrides[characterId]);
     const delayMs = getBusyDelay(status, schedule);
 
     return reply.send({ delayMs, status, activity });
@@ -745,14 +789,23 @@ export async function conversationRoutes(app: FastifyInstance) {
       return reply.send({ shouldTrigger: false, characterIds: [], reason: "exchanges_disabled", inactivityMs: 0 });
     }
 
+    if (meta.sceneStatus === "active") {
+      return reply.send({ shouldTrigger: false, characterIds: [], reason: "scene_active", inactivityMs: 0 });
+    }
+
     const schedules: CharacterSchedules = await chats.inheritFreshConversationSchedules(chatId);
+    const sceneBusyCharIds: string[] = meta.sceneBusyCharIds ?? [];
+    const filteredSchedules = { ...schedules };
+    for (const busyId of sceneBusyCharIds) {
+      delete filteredSchedules[busyId];
+    }
     const messages = await chats.listMessages(chatId);
     initializeActivityFromMessages(
       chatId,
       messages as Array<{ role: string; createdAt?: string; characterId?: string | null }>,
     );
 
-    const result = checkCharacterExchange(chatId, lastSpeakerCharId, schedules);
+    const result = checkCharacterExchange(chatId, lastSpeakerCharId, filteredSchedules, getConversationStatusOverrides(meta));
     if (result.shouldTrigger) {
       markGenerationInProgress(chatId);
     }

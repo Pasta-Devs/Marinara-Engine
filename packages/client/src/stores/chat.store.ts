@@ -13,6 +13,13 @@ const DRAFTS_KEY = "marinara-input-drafts";
 
 type NotificationAvatarCrop = AvatarCropValue | null;
 
+export interface DelayedCharacterInfo {
+  name: string;
+  status: string;
+  characterIds?: string[];
+  characters?: Array<{ id: string; name: string; status: string }>;
+}
+
 /** Read drafts from localStorage so typed input survives reloads, tab closes, and app restarts. */
 function loadDrafts(): Map<string, string> {
   try {
@@ -81,11 +88,11 @@ interface ChatState {
   /** Human-readable label for the current server-side generation phase (e.g. "Running agents..."). */
   generationPhase: string | null;
   /** Character name + status shown during DND/idle delay (before generation starts). */
-  delayedCharacterInfo: { name: string; status: string } | null;
+  delayedCharacterInfo: DelayedCharacterInfo | null;
   /** Per-chat typing state so switching chats restores the correct indicator. */
   perChatTyping: Map<string, string>;
   /** Per-chat delayed state so switching chats restores the correct indicator. */
-  perChatDelayed: Map<string, { name: string; status: string }>;
+  perChatDelayed: Map<string, DelayedCharacterInfo>;
   swipeIndex: Map<string, number>; // messageId → active swipe index
   /** When true, ChatArea should open the settings drawer on next render. */
   shouldOpenSettings: boolean;
@@ -142,9 +149,9 @@ interface ChatState {
   clearResponseQueue: (chatId: string) => void;
   setTypingCharacterName: (name: string | null) => void;
   setGenerationPhase: (phase: string | null) => void;
-  setDelayedCharacterInfo: (info: { name: string; status: string } | null) => void;
+  setDelayedCharacterInfo: (info: DelayedCharacterInfo | null) => void;
   setPerChatTyping: (chatId: string, name: string | null) => void;
-  setPerChatDelayed: (chatId: string, info: { name: string; status: string } | null) => void;
+  setPerChatDelayed: (chatId: string, info: DelayedCharacterInfo | null) => void;
   clearPerChatState: (chatId: string) => void;
   setSwipeIndex: (messageId: string, index: number) => void;
   setShouldOpenSettings: (v: boolean) => void;
@@ -478,7 +485,7 @@ export const useChatStore = create<ChatState>()(
         return { perChatTyping: m, perChatDelayed: d };
       }),
 
-    setPerChatDelayed: (chatId: string, info: { name: string; status: string } | null) =>
+    setPerChatDelayed: (chatId: string, info: DelayedCharacterInfo | null) =>
       set((state) => {
         const d = new Map(state.perChatDelayed);
         if (info) d.set(chatId, info);

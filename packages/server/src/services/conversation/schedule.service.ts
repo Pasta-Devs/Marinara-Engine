@@ -6,6 +6,7 @@
 
 import { createLLMProvider } from "../llm/provider-registry.js";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
+import type { ConversationPresenceStatus, ConversationStatusOverride } from "@marinara-engine/shared";
 
 // ── Types ──
 
@@ -16,7 +17,7 @@ export interface ScheduleBlock {
   /** What the character is doing */
   activity: string;
   /** Derived status for this block */
-  status: "online" | "idle" | "dnd" | "offline";
+  status: ConversationPresenceStatus;
 }
 
 /** One day of a character's schedule */
@@ -43,11 +44,17 @@ export interface CharacterSchedules {
   [characterId: string]: WeekSchedule;
 }
 
+export interface CurrentConversationStatus {
+  status: ConversationPresenceStatus;
+  activity: string;
+  override?: ConversationStatusOverride;
+}
+
 // ── Constants ──
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-const STATUS_KEYWORDS: Record<string, "online" | "idle" | "dnd" | "offline"> = {
+const STATUS_KEYWORDS: Record<string, ConversationPresenceStatus> = {
   sleep: "offline",
   sleeping: "offline",
   nap: "offline",
@@ -275,7 +282,7 @@ function inferStatusFromActivity(activity: string): "online" | "idle" | "dnd" | 
 export function getCurrentStatus(
   schedule: WeekSchedule,
   now: Date = new Date(),
-): { status: "online" | "idle" | "dnd" | "offline"; activity: string } {
+): { status: ConversationPresenceStatus; activity: string } {
   const dayName = DAYS[(now.getDay() + 6) % 7]!; // JS Sunday=0, we want Monday=0
   const daySchedule = schedule.days[dayName];
   if (!daySchedule || daySchedule.length === 0) {
@@ -304,6 +311,35 @@ export function getCurrentStatus(
   }
 
   return { status: "online", activity: "free time" };
+}
+
+function isManualPresenceStatus(value: unknown): value is ConversationStatusOverride["status"] {
+  return value === "online" || value === "idle" || value === "dnd" || value === "offline";
+}
+
+function getActiveStatusOverride(
+  override: ConversationStatusOverride | null | undefined,
+  now: Date,
+): ConversationStatusOverride | null {
+  if (!override || !isManualPresenceStatus(override.status)) return null;
+  if (override.expiresAt) {
+    const expiresAt = new Date(override.expiresAt).getTime();
+    if (Number.isFinite(expiresAt) && expiresAt <= now.getTime()) return null;
+  }
+  return override;
+}
+
+export function getEffectiveCurrentStatus(
+  schedule: WeekSchedule | null | undefined,
+  override: ConversationStatusOverride | null | undefined,
+  now: Date = new Date(),
+  fallbackActivity = "free time",
+): CurrentConversationStatus {
+  const scheduled = schedule ? getCurrentStatus(schedule, now) : { status: "online" as const, activity: fallbackActivity };
+  const activeOverride = getActiveStatusOverride(override, now);
+  if (!activeOverride) return scheduled;
+  const activity = typeof activeOverride.activity === "string" ? activeOverride.activity.trim() : scheduled.activity;
+  return { status: activeOverride.status, activity, override: activeOverride };
 }
 
 /**
@@ -342,7 +378,7 @@ export function getMonday(date: Date = new Date()): Date {
  * Returns 0 for online characters, 2-5 minutes for busy characters.
  */
 function getConfiguredResponseDelayMinutes(
-  status: "online" | "idle" | "dnd" | "offline",
+  status: ConversationPresenceStatus,
   schedule?: Pick<WeekSchedule, "idleResponseDelayMinutes" | "dndResponseDelayMinutes">,
 ): number | null {
   const rawValue =
@@ -358,7 +394,7 @@ function getConfiguredResponseDelayMinutes(
 }
 
 function getConfiguredResponseDelay(
-  status: "online" | "idle" | "dnd" | "offline",
+  status: ConversationPresenceStatus,
   schedule?: Pick<WeekSchedule, "idleResponseDelayMinutes" | "dndResponseDelayMinutes">,
 ): number {
   const overrideMinutes = getConfiguredResponseDelayMinutes(status, schedule);
@@ -379,7 +415,7 @@ function getConfiguredResponseDelay(
 }
 
 export function getBusyDelay(
-  status: "online" | "idle" | "dnd" | "offline",
+  status: ConversationPresenceStatus,
   schedule?: Pick<WeekSchedule, "idleResponseDelayMinutes" | "dndResponseDelayMinutes">,
 ): number {
   return getConfiguredResponseDelay(status, schedule);

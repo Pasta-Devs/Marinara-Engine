@@ -5,7 +5,8 @@
 // should send autonomous messages. Also handles character-to-character
 // exchanges in group chats.
 
-import { getCurrentStatus, type WeekSchedule } from "./schedule.service.js";
+import type { ConversationStatusOverride } from "@marinara-engine/shared";
+import { getEffectiveCurrentStatus, type WeekSchedule } from "./schedule.service.js";
 
 // ── Types ──
 
@@ -15,7 +16,7 @@ export interface AutonomousCheckResult {
   /** Which character(s) should send a message */
   characterIds: string[];
   /** Why this was triggered */
-  reason: "user_inactivity" | "character_exchange" | "none";
+  reason: "user_inactivity" | "character_exchange" | "none" | "generation_in_progress";
   /** How long the user has been inactive (ms) */
   inactivityMs: number;
 }
@@ -182,7 +183,7 @@ export function checkAutonomousMessaging(
   chatId: string,
   characterSchedules: Record<string, WeekSchedule>,
   isGroupChat: boolean,
-  opts: { maxFollowups?: number } = {},
+  opts: { maxFollowups?: number; statusOverrides?: Record<string, ConversationStatusOverride> } = {},
 ): AutonomousCheckResult {
   const noTrigger: AutonomousCheckResult = {
     shouldTrigger: false,
@@ -199,7 +200,7 @@ export function checkAutonomousMessaging(
     if (Date.now() - state.generationInProgressSince > GENERATION_TIMEOUT_MS) {
       state.generationInProgressSince = null;
     } else {
-      return noTrigger;
+      return { ...noTrigger, reason: "generation_in_progress" };
     }
   }
 
@@ -216,7 +217,7 @@ export function checkAutonomousMessaging(
   const maxFollowups = Math.max(1, Math.min(3, Math.floor(opts.maxFollowups ?? 3)));
 
   for (const [charId, schedule] of Object.entries(characterSchedules)) {
-    const { status } = getCurrentStatus(schedule);
+    const { status } = getEffectiveCurrentStatus(schedule, opts.statusOverrides?.[charId]);
 
     // Can't send if offline or sleeping
     if (status === "offline") continue;
@@ -291,6 +292,7 @@ export function checkCharacterExchange(
   chatId: string,
   lastSpeakerCharId: string,
   characterSchedules: Record<string, WeekSchedule>,
+  statusOverrides: Record<string, ConversationStatusOverride> = {},
 ): AutonomousCheckResult {
   const noTrigger: AutonomousCheckResult = {
     shouldTrigger: false,
@@ -305,7 +307,7 @@ export function checkCharacterExchange(
     if (Date.now() - state.generationInProgressSince > GENERATION_TIMEOUT_MS) {
       state.generationInProgressSince = null;
     } else {
-      return noTrigger;
+      return { ...noTrigger, reason: "generation_in_progress" };
     }
   }
 
@@ -318,7 +320,7 @@ export function checkCharacterExchange(
   for (const [charId, schedule] of Object.entries(characterSchedules)) {
     if (charId === lastSpeakerCharId) continue;
 
-    const { status } = getCurrentStatus(schedule);
+    const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[charId]);
     if (status === "offline") continue;
     if (status === "dnd") continue; // Busy characters don't join casual exchanges
 

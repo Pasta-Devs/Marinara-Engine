@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 // Polls the server to check if any character should send an
 // unprompted message based on user inactivity and character schedules.
-// Also handles busy delays and triggers generation.
+// Triggers generation when the server says a character should speak.
 
 import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,12 +20,6 @@ interface AutonomousCheckResult {
   characterIds: string[];
   reason: string;
   inactivityMs: number;
-}
-
-interface BusyDelayResult {
-  delayMs: number;
-  status: string;
-  activity: string;
 }
 
 /**
@@ -138,22 +132,6 @@ export function useAutonomousMessaging(
         if (result.shouldTrigger && result.characterIds.length > 0) {
           const characterId = result.characterIds[0]!;
 
-          // Check for busy delay
-          const delay = await api.post<BusyDelayResult>("/conversation/busy-delay", { chatId, characterId });
-
-          if (delay.delayMs > 0) {
-            // Wait for the busy delay, then generate
-            busyTimerRef.current = setTimeout(() => {
-              // Re-check guards after delay — user may have started a manual generation
-              if (generatingRef.current || useChatStore.getState().abortControllers.has(chatId)) {
-                schedulePoll();
-                return;
-              }
-              triggerAutonomousGeneration(characterId);
-            }, delay.delayMs);
-            return; // Don't schedule next poll until generation completes
-          }
-
           await triggerAutonomousGeneration(characterId);
           return; // Generation will schedule next poll when done
         }
@@ -172,6 +150,7 @@ export function useAutonomousMessaging(
         produced = await generate({
           chatId,
           connectionId: null,
+          forCharacterId: characterId,
         });
         if (produced) {
           // Re-sort sidebar so this chat floats to the top

@@ -11,7 +11,7 @@ import type { AvatarCropValue } from "../lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
-import { useChatStore } from "../stores/chat.store";
+import { useChatStore, type DelayedCharacterInfo } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
 import { showConversationLocalNotification } from "../lib/local-notifications";
 import { playNotificationPing } from "../lib/notification-sound";
@@ -26,12 +26,6 @@ interface AutonomousCheckResult {
   generationStartedAt?: number;
 }
 
-interface BusyDelayResult {
-  delayMs: number;
-  status: string;
-  activity: string;
-}
-
 interface RawChat {
   id: string;
   name: string;
@@ -43,6 +37,35 @@ interface RawCharacter {
   id: string;
   data?: string | { name?: string };
   avatarPath?: string | null;
+}
+
+type StreamEvent = { type: string; data?: unknown; [key: string]: unknown };
+
+function parseDelayedEvent(event: StreamEvent): DelayedCharacterInfo {
+  const delayedNames = Array.isArray(event.characters)
+    ? event.characters.filter((name): name is string => typeof name === "string")
+    : [];
+  const delayedIds = Array.isArray(event.characterIds)
+    ? event.characterIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+    : [];
+  const delayedCharacters = Array.isArray(event.characterStatuses)
+    ? event.characterStatuses.flatMap((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+        const character = item as Record<string, unknown>;
+        if (typeof character.id !== "string" || typeof character.name !== "string") return [];
+        const status = typeof character.status === "string" ? character.status : "idle";
+        return [{ id: character.id, name: character.name, status }];
+      })
+    : [];
+  const delayedLabel = delayedNames.length === 1 ? delayedNames[0]! : delayedNames.join(", ") || "Character";
+  const delayedStatus = typeof event.status === "string" ? event.status : "idle";
+
+  return {
+    name: delayedLabel,
+    status: delayedStatus,
+    ...(delayedIds.length ? { characterIds: delayedIds } : {}),
+    ...(delayedCharacters.length ? { characters: delayedCharacters } : {}),
+  };
 }
 
 /**
@@ -62,13 +85,13 @@ function parseMeta(chat: RawChat): Record<string, unknown> {
 export function useBackgroundAutonomousPolling() {
   const qc = useQueryClient();
   const pollTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const busyDelayTimers = useRef<Map<ReturnType<typeof setTimeout>, { chatId: string; startedAt?: number }>>(new Map());
+  const generationControllersRef = useRef<Map<string, { controller: AbortController; startedAt?: number }>>(new Map());
   const generatingForRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-    const delayTimers = busyDelayTimers.current;
+    const generationControllers = generationControllersRef.current;
 
     const poll = async () => {
       if (!mountedRef.current) return;
@@ -136,17 +159,14 @@ export function useBackgroundAutonomousPolling() {
             const characterId = result.characterIds[0]!;
             const generationStartedAt = result.generationStartedAt;
 
-            // Check busy delay
-            const delay = await api.post<BusyDelayResult>("/conversation/busy-delay", { chatId: chat.id, characterId });
-
-            // Generate in background (after optional delay)
             generatingForRef.current.add(chat.id);
             const doGenerate = async () => {
               let receivedTokens = false;
               let shouldClearAutonomousFlag = true;
+              const abortController = new AbortController();
               try {
                 // Re-check guard — a generation may have started for this chat
-                // during the busy delay.
+                // after the autonomous check returned.
                 if (useChatStore.getState().abortControllers.has(chat.id)) {
                   shouldClearAutonomousFlag = false;
                   generatingForRef.current.delete(chat.id);
@@ -159,13 +179,36 @@ export function useBackgroundAutonomousPolling() {
                   return;
                 }
 
+                generationControllers.set(chat.id, { controller: abortController, startedAt: generationStartedAt });
+                useChatStore.getState().setAbortController(chat.id, abortController);
+
                 // Use streamEvents to drain the SSE — tokens aren't needed for background chats
-                for await (const _event of api.streamEvents("/generate", {
-                  chatId: chat.id,
-                  connectionId: null,
-                  streaming: useUIStore.getState().enableStreaming,
-                })) {
-                  if ((_event as { type: string }).type === "token") receivedTokens = true;
+                for await (const rawEvent of api.streamEvents(
+                  "/generate",
+                  {
+                    chatId: chat.id,
+                    connectionId: null,
+                    forCharacterId: characterId,
+                    streaming: useUIStore.getState().enableStreaming,
+                  },
+                  abortController.signal,
+                )) {
+                  const event = rawEvent as StreamEvent;
+                  if (event.type === "delayed") {
+                    const delayedInfo = parseDelayedEvent(event);
+                    useChatStore.getState().setPerChatDelayed(chat.id, delayedInfo);
+                    if (useChatStore.getState().activeChatId === chat.id) {
+                      useChatStore.getState().setDelayedCharacterInfo(delayedInfo);
+                    }
+                    qc.invalidateQueries({ queryKey: characterKeys.list() });
+                  }
+                  if (event.type === "token") {
+                    receivedTokens = true;
+                    useChatStore.getState().setPerChatDelayed(chat.id, null);
+                    if (useChatStore.getState().activeChatId === chat.id) {
+                      useChatStore.getState().setDelayedCharacterInfo(null);
+                    }
+                  }
                 }
 
                 // Only notify if the generation actually produced a message
@@ -227,6 +270,10 @@ export function useBackgroundAutonomousPolling() {
               } catch {
                 // generation failed — non-critical
               } finally {
+                useChatStore.getState().setPerChatDelayed(chat.id, null);
+                if (useChatStore.getState().activeChatId === chat.id) {
+                  useChatStore.getState().setDelayedCharacterInfo(null);
+                }
                 if (!receivedTokens && shouldClearAutonomousFlag) {
                   try {
                     await api.post("/conversation/autonomous/clear-in-progress", {
@@ -237,19 +284,17 @@ export function useBackgroundAutonomousPolling() {
                     /* non-critical */
                   }
                 }
+                if (useChatStore.getState().abortControllers.get(chat.id) === abortController) {
+                  useChatStore.getState().setAbortController(chat.id, null);
+                }
+                if (useChatStore.getState().activeChatId === chat.id) {
+                  useChatStore.getState().setStreaming(false, chat.id);
+                }
+                generationControllers.delete(chat.id);
                 generatingForRef.current.delete(chat.id);
               }
             };
-
-            if (delay.delayMs > 0) {
-              const timerId = setTimeout(() => {
-                busyDelayTimers.current.delete(timerId);
-                doGenerate();
-              }, delay.delayMs);
-              busyDelayTimers.current.set(timerId, { chatId: chat.id, startedAt: generationStartedAt });
-            } else {
-              doGenerate();
-            }
+            doGenerate();
           }
         } catch {
           // Check failed — skip this chat, try next
@@ -271,16 +316,21 @@ export function useBackgroundAutonomousPolling() {
     return () => {
       mountedRef.current = false;
       clearTimeout(pollTimerRef.current);
-      for (const [timer, lock] of delayTimers) {
-        clearTimeout(timer);
+      for (const [chatId, generation] of generationControllers) {
+        generation.controller.abort();
+        useChatStore.getState().setAbortController(chatId, null);
+        if (useChatStore.getState().activeChatId === chatId) {
+          useChatStore.getState().setStreaming(false, chatId);
+        }
+        useChatStore.getState().setPerChatDelayed(chatId, null);
         void api
           .post("/conversation/autonomous/clear-in-progress", {
-            chatId: lock.chatId,
-            startedAt: lock.startedAt,
+            chatId,
+            startedAt: generation.startedAt,
           })
           .catch(() => {});
       }
-      delayTimers.clear();
+      generationControllers.clear();
     };
   }, [qc]); // Only depends on qc (which is stable) — timer lifecycle is self-managed
 }
