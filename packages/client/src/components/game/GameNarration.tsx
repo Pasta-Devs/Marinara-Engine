@@ -997,6 +997,16 @@ export function GameNarration({
   const gameVoiceSequenceRef = useRef(0);
   const gameVoiceGenerationTailRef = useRef<Promise<void>>(Promise.resolve());
   const lastAutoPlayedVoiceKeyRef = useRef<string | null>(null);
+  // Keys for which an auto-play attempt has been launched but not yet confirmed
+  // started. The committed dedup refs (lastAutoPlayedVoiceKeyRef /
+  // autoPlayedSideVoiceKeysRef) are only written in the async onStarted callback,
+  // so without these synchronous in-flight markers a gameVoiceVersion bump (fired
+  // as each clip finishes generating) re-runs the auto-play effects before the
+  // current clip reports playing and relaunches it — restarting the same line on
+  // a loop. onStarted clears in-flight after committing dedup; onBlocked clears it
+  // so the autoplay-blocked retry path still works. See issue #2647.
+  const autoPlayInFlightVoiceKeyRef = useRef<string | null>(null);
+  const autoPlayInFlightSideVoiceKeysRef = useRef<Set<string>>(new Set());
   const autoPlayedSideVoiceKeysRef = useRef<Set<string>>(new Set());
   const sideVoiceAutoPlayFailuresRef = useRef<Map<string, number>>(new Map());
   const sideVoiceAutoPlayRetryPendingRef = useRef<Set<string>>(new Set());
@@ -2838,6 +2848,8 @@ export function GameNarration({
 
   useEffect(() => {
     lastAutoPlayedVoiceKeyRef.current = null;
+    autoPlayInFlightVoiceKeyRef.current = null;
+    autoPlayInFlightSideVoiceKeysRef.current.clear();
     autoPlayedSideVoiceKeysRef.current.clear();
     sideVoiceAutoPlayFailuresRef.current.clear();
     clearSideVoiceAutoPlayRetry();
@@ -2848,6 +2860,8 @@ export function GameNarration({
     if (gameVoiceEnabled && !isStreaming && !scenePreparing && !directionsActive && !gameVoicePlaybackBlocked) return;
     if (isStreaming || scenePreparing || directionsActive || gameVoicePlaybackBlocked) {
       lastAutoPlayedVoiceKeyRef.current = null;
+      autoPlayInFlightVoiceKeyRef.current = null;
+      autoPlayInFlightSideVoiceKeysRef.current.clear();
       autoPlayedSideVoiceKeysRef.current.clear();
       sideVoiceAutoPlayFailuresRef.current.clear();
       clearSideVoiceAutoPlayRetry();
@@ -2867,12 +2881,23 @@ export function GameNarration({
     if (!gameVoiceEnabled || !activeVoiceKey) return;
     if (isStreaming || scenePreparing || directionsActive || gameVoicePlaybackBlocked) return;
     if (lastAutoPlayedVoiceKeyRef.current === activeVoiceKey) return;
+    // A launch is already pending for this key; don't relaunch on version churn.
+    if (autoPlayInFlightVoiceKeyRef.current === activeVoiceKey) return;
     const entry = gameVoiceCacheRef.current.get(activeVoiceKey);
     if (!entry || entry.status !== "ready") return;
+    autoPlayInFlightVoiceKeyRef.current = activeVoiceKey;
     playGameVoiceKey(activeVoiceKey, {
       onStarted: (startedKey) => {
         if (startedKey === activeVoiceKey) {
           lastAutoPlayedVoiceKeyRef.current = activeVoiceKey;
+        }
+        if (autoPlayInFlightVoiceKeyRef.current === startedKey) {
+          autoPlayInFlightVoiceKeyRef.current = null;
+        }
+      },
+      onBlocked: (blockedKey) => {
+        if (autoPlayInFlightVoiceKeyRef.current === blockedKey) {
+          autoPlayInFlightVoiceKeyRef.current = null;
         }
       },
     });
@@ -2906,18 +2931,22 @@ export function GameNarration({
       (key, index) =>
         entries[index]?.status === "ready" &&
         !autoPlayedSideVoiceKeysRef.current.has(key) &&
+        !autoPlayInFlightSideVoiceKeysRef.current.has(key) &&
         !sideVoiceAutoPlayRetryPendingRef.current.has(key) &&
         (sideVoiceAutoPlayFailuresRef.current.get(key) ?? 0) < SIDE_VOICE_AUTOPLAY_MAX_FAILURES,
     );
     if (playableKeys.length > 0) {
+      for (const key of playableKeys) autoPlayInFlightSideVoiceKeysRef.current.add(key);
       playGameVoiceKeys(playableKeys, {
         onStarted: (startedKey) => {
+          autoPlayInFlightSideVoiceKeysRef.current.delete(startedKey);
           autoPlayedSideVoiceKeysRef.current.add(startedKey);
           sideVoiceAutoPlayFailuresRef.current.delete(startedKey);
           sideVoiceAutoPlayRetryPendingRef.current.delete(startedKey);
           setGameVoiceVersion((version) => version + 1);
         },
         onBlocked: (blockedKey) => {
+          autoPlayInFlightSideVoiceKeysRef.current.delete(blockedKey);
           const failures = (sideVoiceAutoPlayFailuresRef.current.get(blockedKey) ?? 0) + 1;
           sideVoiceAutoPlayFailuresRef.current.set(blockedKey, failures);
           if (failures < SIDE_VOICE_AUTOPLAY_MAX_FAILURES) {
