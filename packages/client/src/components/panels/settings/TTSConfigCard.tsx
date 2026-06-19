@@ -220,8 +220,20 @@ function sameStringSet(left: string[], right: string[]): boolean {
 }
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return <SettingsCheckbox label={label} checked={checked} onChange={onChange} align="between" />;
+}
+
+function TtsDropdownIcon({ compact = false }: { compact?: boolean }) {
   return (
-    <SettingsCheckbox label={label} checked={checked} onChange={onChange} align="between" />
+    <span
+      className={cn(
+        "mari-chrome-control mari-chrome-control--small pointer-events-none absolute right-1.5 top-1/2 flex min-w-0 -translate-y-1/2 items-center justify-center p-0",
+        compact ? "h-6 w-6" : "h-7 w-7",
+      )}
+      aria-hidden="true"
+    >
+      <ChevronDown size={compact ? "0.6875rem" : "0.75rem"} />
+    </span>
   );
 }
 
@@ -680,21 +692,19 @@ export function TTSConfigCard() {
         <div className="flex items-center gap-1.5">
           {/* Enable toggle */}
           <SettingsSwitch
-            label={enabled ? "On" : "Off"}
             checked={enabled}
             onChange={(checked) => {
               setEnabled(checked);
               mark({ enabled: checked });
             }}
+            ariaLabel={enabled ? "Disable TTS" : "Enable TTS"}
             title={enabled ? "Disable TTS" : "Enable TTS"}
-            labelPosition="start"
-            className="gap-1.5 rounded-lg p-1 hover:bg-[var(--secondary)]"
-            labelClassName="text-[0.6875rem] text-[var(--muted-foreground)]"
+            className="rounded-lg p-1 hover:bg-[var(--secondary)]"
           />
 
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+            className="mari-chrome-control mari-chrome-control--small h-8 min-h-0 w-8 p-0"
             title={expanded ? "Collapse" : "Expand"}
           >
             {expanded ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
@@ -779,16 +789,23 @@ export function TTSConfigCard() {
                   : "TTS model to use. e.g. tts-1, tts-1-hd, gpt-4o-mini-tts, or any model your provider supports."
             }
           >
-            <input
-              value={model}
-              list={source === "elevenlabs" ? "elevenlabs-tts-models" : undefined}
-              onChange={(e) => {
-                setModel(e.target.value);
-                mark({ model: e.target.value });
-              }}
-              className={INPUT_CLS}
-              placeholder={selectedSource.model}
-            />
+            <div className="relative">
+              <input
+                value={model}
+                list={source === "elevenlabs" ? "elevenlabs-tts-models" : undefined}
+                onChange={(e) => {
+                  setModel(e.target.value);
+                  mark({ model: e.target.value });
+                }}
+                className={cn(
+                  INPUT_CLS,
+                  source === "elevenlabs" &&
+                    "pr-10 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0",
+                )}
+                placeholder={selectedSource.model}
+              />
+              {source === "elevenlabs" && <TtsDropdownIcon />}
+            </div>
             {source === "elevenlabs" && (
               <>
                 <datalist id="elevenlabs-tts-models">

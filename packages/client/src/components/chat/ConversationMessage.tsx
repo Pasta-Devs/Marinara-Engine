@@ -32,9 +32,16 @@ import { ConversationMessageBubble } from "./ConversationMessageBubble";
 import { ConversationMessageLine } from "./ConversationMessageLine";
 import { MessageReactions } from "./MessageReactions";
 import { toggleReaction, USER_REACTOR } from "../../lib/reactions";
+import {
+  NEUTRAL_PANEL_HEADER,
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_TITLE,
+} from "../ui/neutral-surface-styles";
 
 const EMPTY_CUSTOM_EMOJI_MAP = new Map<string, string>();
 const EMPTY_CUSTOM_STICKER_MAP = new Map<string, string>();
+const CONVERSATION_MESSAGE_CHROME_RING_CLASS = "ring-[var(--marinara-chat-chrome-focus-ring)]";
 
 // ── Public props interface (unchanged external API) ──────────────
 
@@ -158,6 +165,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     if (!message.extra) return {} as Record<string, any>;
     return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
   }, [message.extra]);
+  const isConversationStart = extra.isConversationStart === true;
   const isHiddenFromAI = extra.hiddenFromAI === true;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const canRegenerate = !isUser || generationReplay !== null;
@@ -670,23 +678,27 @@ export const ConversationMessage = memo(function ConversationMessage({
             onClick={() => setShowThinking(false)}
           >
             <div
-              className="relative mx-4 flex max-h-[70vh] w-full max-w-xl flex-col rounded-xl bg-[var(--card)] shadow-2xl ring-1 ring-[var(--border)]"
+              className={cn(
+                NEUTRAL_PANEL_SHELL,
+                "relative mx-4 flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden",
+              )}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Brain size="0.875rem" className="text-[var(--muted-foreground)]" />
+              <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between gap-3 px-4 py-3")}>
+                <div className={cn(NEUTRAL_PANEL_TITLE, "text-sm")}>
+                  <Brain size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
                   Model Thoughts
                 </div>
                 <button
                   onClick={() => setShowThinking(false)}
-                  className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]"
+                  className="mari-chrome-control mari-chrome-control--small p-1.5"
+                  aria-label="Close thoughts"
                 >
                   <X size="0.875rem" />
                 </button>
               </div>
-              <div className="overflow-y-auto px-4 py-3">
-                <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--muted-foreground)]">
+              <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "overflow-y-auto px-4 py-3")}>
+                <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
                   {thinking}
                 </pre>
               </div>
@@ -732,7 +744,7 @@ export const ConversationMessage = memo(function ConversationMessage({
                 onDelete(message.id);
               }}
               className={cn(
-                "absolute -right-1 -top-1 rounded-md p-1 text-[var(--muted-foreground)]/30 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100",
+                "absolute -right-1 -top-1 rounded-md p-1 text-[var(--muted-foreground)]/30 opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100",
                 showActions && "opacity-100",
               )}
               title="Delete"
@@ -775,7 +787,9 @@ export const ConversationMessage = memo(function ConversationMessage({
                 isGrouped ? "mt-0" : "mt-4",
                 isStreaming && "bg-[var(--secondary)]/20",
               ),
-          multiSelectMode && isSelected && "bg-[var(--destructive)]/10",
+          isConversationStart && cn("rounded-lg ring-1", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
+          isHiddenFromAI && cn("rounded-lg ring-1 saturate-75", CONVERSATION_MESSAGE_CHROME_RING_CLASS),
+          multiSelectMode && isSelected && "bg-[var(--destructive)]/10 ring-[var(--destructive)]/50",
         )}
         data-message-id={message.id}
         data-message-role={message.role}

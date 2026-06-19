@@ -71,6 +71,8 @@ import {
   useMoveLibraryItem,
   useUpdateLibraryFolder,
 } from "../../hooks/use-library-folders";
+import { useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 type PresetRow = {
   id: string;
@@ -281,6 +283,7 @@ export function PresetsPanel() {
   const [draggedPresetId, setDraggedPresetId] = useState<string | null>(null);
   const presetTouchDragRef = useRef<{ id: string; timer: number | null; active: boolean } | null>(null);
   const suppressPresetClickRef = useRef(false);
+  const handleFolderRenameGesture = useFolderRenameGesture();
 
   const canAssignToActiveChat = !!activeChat && activeChat.mode !== "conversation";
   const activePresetId = canAssignToActiveChat ? (activeChat?.promptPresetId ?? null) : null;
@@ -840,14 +843,14 @@ export function PresetsPanel() {
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-purple-400/15 transition-all hover:shadow-lg hover:shadow-purple-400/25 active:scale-[0.98]"
           title="New"
         >
-          <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
+          <Plus size="0.8125rem" />
         </button>
         <button
           onClick={() => openModal("import-preset")}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title="Import"
         >
-          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+          <Download size="0.8125rem" />
         </button>
         <button
           onClick={() => {
@@ -860,7 +863,7 @@ export function PresetsPanel() {
           )}
           title="Select"
         >
-          <Check size="0.8125rem" /> <span className="md:hidden">Select</span>
+          <Check size="0.8125rem" />
         </button>
       </div>
 
@@ -875,7 +878,7 @@ export function PresetsPanel() {
           placeholder="Search presets…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
         />
       </div>
 
@@ -923,12 +926,20 @@ export function PresetsPanel() {
               >
                 <div
                   className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
-                  onClick={() => setExpandedFolderId(isExpanded ? null : folder.id)}
+                  onClick={(event) =>
+                    handleFolderRenameGesture(folder.id, event, {
+                      onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                      onRename: () => {
+                        setEditingFolderId(folder.id);
+                        setEditFolderName(folder.name);
+                      },
+                    })
+                  }
                 >
                   <ChevronRight
                     size="0.75rem"
                     className={cn(
-                      "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                      "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
                       isExpanded && "rotate-90",
                     )}
                   />
@@ -965,19 +976,6 @@ export function PresetsPanel() {
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        setEditingFolderId(folder.id);
-                        setEditFolderName(folder.name);
-                      }}
-                      className="mari-chrome-control mari-chrome-control--small p-1"
-                      title="Rename folder"
-                      aria-label="Rename folder"
-                    >
-                      <Pencil size="0.6875rem" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
                         void confirmNonEmptyFolderDelete(folder.itemIds.length, {
                           title: "Delete Folder",
                           message: `Delete "${folder.name}"? Its ${folder.itemIds.length} preset${
@@ -999,15 +997,17 @@ export function PresetsPanel() {
                     </button>
                   </div>
                 </div>
-                {isExpanded && (
-                  <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
-                    {folderItems.length === 0 ? (
-                      <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop presets here.</p>
-                    ) : (
-                      folderItems.map((preset) => renderPresetRow(preset))
-                    )}
-                  </div>
-                )}
+                <SmoothFolderContent
+                  open={isExpanded}
+                  className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
+                  innerClassName="flex flex-col gap-0.5"
+                >
+                  {folderItems.length === 0 ? (
+                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop presets here.</p>
+                  ) : (
+                    folderItems.map((preset) => renderPresetRow(preset))
+                  )}
+                </SmoothFolderContent>
               </div>
             );
           })}

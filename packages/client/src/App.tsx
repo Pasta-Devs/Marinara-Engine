@@ -158,7 +158,7 @@ export function App() {
     const accent = appAccentColor.trim();
     if (accent) {
       if (isCssGradient(accent)) {
-        root.style.setProperty("--marinara-chat-chrome-accent", getCssColorFallback(accent, "#d4d4d4"));
+        root.style.setProperty("--marinara-chat-chrome-accent", getCssColorFallback(accent, "#d4acfb"));
         root.style.setProperty("--marinara-chat-chrome-accent-gradient", accent);
         root.dataset.marinaraChatChromeAccentMode = "gradient";
       } else {

@@ -403,7 +403,7 @@ export function ColorPicker({
               {/* Gradient presets */}
               <div>
                 <p className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">Presets</p>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="flex flex-wrap gap-1.5">
                   {GRADIENT_PRESETS.map((g) => (
                     <button
                       key={g}
@@ -415,8 +415,8 @@ export function ColorPicker({
                         onChange(g);
                       }}
                       className={cn(
-                        "h-6 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-105 hover:ring-2 hover:ring-[var(--primary)]/50",
-                        value === g && "ring-2 ring-[var(--primary)] scale-105",
+                        "h-6 w-6 rounded-md ring-1 ring-[var(--border)] transition-all hover:scale-110 hover:ring-2 hover:ring-[var(--primary)]/50",
+                        value === g && "ring-2 ring-[var(--primary)] scale-110",
                       )}
                       style={{ background: g }}
                       title={g === RAINBOW_GRADIENT_PRESET ? "Gay RGB rainbow" : g}

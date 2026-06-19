@@ -77,15 +77,15 @@ export function BotBrowserPanel() {
       {/* Search */}
       <div className="relative">
         <Search
-          size="0.75rem"
-          className="mari-chrome-field-icon pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
+          size="0.8125rem"
+          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
         />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search imported..."
-          className="mari-chrome-field mari-chrome-field--compact w-full py-1.5 pl-7 pr-3 text-xs"
+          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
         />
       </div>
 

@@ -9,6 +9,7 @@ import { FileText, ToggleLeft, ToggleRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { MacroTextarea } from "../ui/MacroTextarea";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 
 export function FieldGroup({
   label,
@@ -125,13 +126,13 @@ export function NumberField({
   return (
     <div>
       <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">{label}</label>
-      <input
-        type="number"
+      <DraftNumberInput
         value={value}
-        onChange={(e) => onChange(parseInt(e.target.value) || 0)}
+        onCommit={(nextValue) => onChange(nextValue)}
         min={min}
         max={max}
-        className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+        selectOnFocus
+        className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
       />
     </div>
   );

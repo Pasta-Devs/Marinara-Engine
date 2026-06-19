@@ -32,6 +32,7 @@ import {
 import { cn } from "../../lib/utils";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { applyRegexReplacement, resolveMacros, type MacroContext, type RegexPlacement } from "@marinara-engine/shared";
 
 // ═══════════════════════════════════════════════
@@ -776,14 +777,14 @@ export function RegexScriptEditor() {
               {/* Order */}
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium w-24">Execution Order</span>
-                <input
-                  type="number"
+                <DraftNumberInput
                   value={localOrder}
-                  onChange={(e) => {
-                    setLocalOrder(parseInt(e.target.value) || 0);
+                  onCommit={(value) => {
+                    setLocalOrder(value);
                     markDirty();
                   }}
-                  className="w-20 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  selectOnFocus
+                  className="w-20 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                 />
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">Lower numbers run first</span>
               </div>
@@ -792,24 +793,30 @@ export function RegexScriptEditor() {
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium w-24">Depth Range</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={localMinDepth ?? ""}
                   onChange={(e) => {
-                    setLocalMinDepth(e.target.value ? parseInt(e.target.value) : null);
+                    if (!/^\d*$/.test(e.target.value)) return;
+                    setLocalMinDepth(e.target.value ? parseInt(e.target.value, 10) : null);
                     markDirty();
                   }}
-                  className="w-16 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  className="w-16 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   placeholder="Min"
                 />
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">to</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={localMaxDepth ?? ""}
                   onChange={(e) => {
-                    setLocalMaxDepth(e.target.value ? parseInt(e.target.value) : null);
+                    if (!/^\d*$/.test(e.target.value)) return;
+                    setLocalMaxDepth(e.target.value ? parseInt(e.target.value, 10) : null);
                     markDirty();
                   }}
-                  className="w-16 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  className="w-16 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   placeholder="Max"
                 />
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">

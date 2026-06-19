@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type { HudWidget, HudWidgetConfig, HudWidgetType } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 
 export const MAX_GAME_SETUP_WIDGETS = 4;
 
@@ -40,6 +41,9 @@ const DEFAULT_ICONS: Record<HudWidgetType, string> = {
   inventory_grid: "▣",
   timer: "◷",
 };
+
+const WIDGET_NUMBER_INPUT_CLASS =
+  "w-full rounded-lg border border-transparent bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/40";
 
 function isHudWidgetType(value: unknown): value is HudWidgetType {
   return (
@@ -391,27 +395,26 @@ function WidgetConfigFields({
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <label className="space-y-1">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Value</span>
-          <input
-            type="number"
+          <DraftNumberInput
             min={0}
             value={value}
             disabled={disabled}
-            onChange={(event) => {
-              const next = parseNumber(event.target.value, value, 0);
+            onCommit={(next) => {
               onConfigChange({ value: next, startingValue: next });
             }}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+            selectOnFocus
+            className={WIDGET_NUMBER_INPUT_CLASS}
           />
         </label>
         <label className="space-y-1">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Max</span>
-          <input
-            type="number"
+          <DraftNumberInput
             min={1}
             value={max}
             disabled={disabled}
-            onChange={(event) => onConfigChange({ max: parseNumber(event.target.value, max, 1) })}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+            onCommit={(next) => onConfigChange({ max: next })}
+            selectOnFocus
+            className={WIDGET_NUMBER_INPUT_CLASS}
           />
         </label>
       </div>
@@ -422,12 +425,12 @@ function WidgetConfigFields({
     return (
       <label className="mt-2 block space-y-1">
         <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Count</span>
-        <input
-          type="number"
+        <DraftNumberInput
           value={parseNumber(widget.config.count, 0)}
           disabled={disabled}
-          onChange={(event) => onConfigChange({ count: Math.round(parseNumber(event.target.value, 0)) })}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          onCommit={(next) => onConfigChange({ count: Math.round(next) })}
+          selectOnFocus
+          className={WIDGET_NUMBER_INPUT_CLASS}
         />
       </label>
     );
@@ -517,13 +520,13 @@ function WidgetConfigFields({
       <div className="mt-2 grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)]">
         <label className="space-y-1">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Slots</span>
-          <input
-            type="number"
+          <DraftNumberInput
             min={1}
             value={parseNumber(widget.config.slots, 8, 1)}
             disabled={disabled}
-            onChange={(event) => onConfigChange({ slots: Math.round(parseNumber(event.target.value, 8, 1)) })}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+            onCommit={(next) => onConfigChange({ slots: Math.round(next) })}
+            selectOnFocus
+            className={WIDGET_NUMBER_INPUT_CLASS}
           />
         </label>
         <label className="space-y-1">
@@ -552,13 +555,13 @@ function WidgetConfigFields({
     <div className="mt-2 grid gap-2 sm:grid-cols-2">
       <label className="space-y-1">
         <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Seconds</span>
-        <input
-          type="number"
+        <DraftNumberInput
           min={0}
           value={parseNumber(widget.config.seconds, 60, 0)}
           disabled={disabled}
-          onChange={(event) => onConfigChange({ seconds: Math.round(parseNumber(event.target.value, 60, 0)) })}
-          className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          onCommit={(next) => onConfigChange({ seconds: Math.round(next) })}
+          selectOnFocus
+          className={WIDGET_NUMBER_INPUT_CLASS}
         />
       </label>
       <label className="flex items-center gap-2 self-end rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)]">

@@ -67,6 +67,7 @@ import {
   ROLEPLAY_PARAMETER_DEFAULTS,
   type EditableGenerationParameters,
 } from "../ui/GenerationParametersEditor";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 import {
   NEUTRAL_PANEL_HEADER,
   NEUTRAL_PANEL_SCROLL_AREA,
@@ -206,6 +207,8 @@ const WIZARD_PANEL_CLASS = cn(
 const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
 const WIZARD_INPUT_CLASS =
   "w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
+const WIZARD_NUMBER_INPUT_CLASS =
+  "w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
 const WIZARD_GHOST_BUTTON_CLASS =
   "rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]";
 const WIZARD_PRIMARY_BUTTON_CLASS =
@@ -982,10 +985,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       <button
         onClick={() => setAutonomousEnabled((value) => !value)}
         className={cn(
-          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-          autonomousEnabled
-            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-            : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+          "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+          autonomousEnabled && "mari-chat-option-field--active",
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1002,8 +1003,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         </div>
         <div
           className={cn(
-            "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-            autonomousEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+            "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+            autonomousEnabled && "mari-chat-option-switch--active",
           )}
         >
           <div
@@ -1019,10 +1020,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         <button
           onClick={() => setGenerateSchedule((value) => !value)}
           className={cn(
-            "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-            generateSchedule
-              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+            "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+            generateSchedule && "mari-chat-option-field--active",
           )}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1039,8 +1038,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
           </div>
           <div
             className={cn(
-              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-              generateSchedule ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+              "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+              generateSchedule && "mari-chat-option-switch--active",
             )}
           >
             <div
@@ -1056,10 +1055,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       <button
         onClick={() => setCommandsEnabled((value) => !value)}
         className={cn(
-          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-          commandsEnabled
-            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-            : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+          "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+          commandsEnabled && "mari-chat-option-field--active",
         )}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1076,8 +1073,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         </div>
         <div
           className={cn(
-            "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-            commandsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+            "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+            commandsEnabled && "mari-chat-option-switch--active",
           )}
         >
           <div
@@ -1105,10 +1102,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
                 }
                 aria-pressed={enabled}
                 className={cn(
-                  "flex min-h-[4rem] items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
-                  enabled
-                    ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                    : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  "mari-chat-option-field flex min-h-[4rem] items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
+                  enabled && "mari-chat-option-field--active",
                 )}
               >
                 <div className="min-w-0 flex-1">
@@ -1119,8 +1114,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
                 </div>
                 <div
                   className={cn(
-                    "mt-0.5 h-4 w-7 shrink-0 rounded-full p-0.5 transition-colors",
-                    enabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    "mari-chat-option-switch mt-0.5 h-4 w-7 shrink-0 rounded-full p-0.5 transition-colors",
+                    enabled && "mari-chat-option-switch--active",
                   )}
                 >
                   <div
@@ -2030,10 +2025,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             })
           }
           className={cn(
-            "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-            agentsEnabled
-              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+            "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+            agentsEnabled && "mari-chat-option-field--active",
           )}
         >
           <div className="min-w-0 flex-1">
@@ -2044,8 +2037,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
           </div>
           <div
             className={cn(
-              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-              agentsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+              "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+              agentsEnabled && "mari-chat-option-switch--active",
             )}
           >
             <div
@@ -2086,56 +2079,45 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                       <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                         Context Size
                       </span>
-                      <input
-                        type="number"
+                      <DraftNumberInput
                         min={1}
                         max={200}
                         value={agentAddPreview.contextSize}
-                        onChange={(event) => {
-                          const value = parseInt(event.target.value, 10);
+                        onCommit={(value) => {
                           setAgentAddPreview((current) =>
                             current
                               ? {
                                   ...current,
-                                  contextSize: Number.isFinite(value)
-                                    ? Math.max(1, Math.min(200, value))
-                                    : DEFAULT_AGENT_CONTEXT_SIZE,
+                                  contextSize: Math.max(1, Math.min(200, value)),
                                 }
                               : current,
                           );
                         }}
                         disabled={addingAgentToChat}
-                        className={WIZARD_INPUT_CLASS}
+                        selectOnFocus
+                        className={WIZARD_NUMBER_INPUT_CLASS}
                       />
                     </label>
                     <label className="space-y-1">
                       <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                         Max Output Tokens
                       </span>
-                      <input
-                        type="number"
+                      <DraftNumberInput
                         min={MIN_AGENT_MAX_TOKENS}
                         value={agentAddPreview.maxTokens}
-                        onChange={(event) => {
-                          const value = parseInt(event.target.value, 10);
+                        onCommit={(value) => {
                           setAgentAddPreview((current) =>
                             current
                               ? {
                                   ...current,
-                                  maxTokens: normalizeAgentMaxTokensInputValue(
-                                    Number.isFinite(value) ? value : undefined,
-                                  ),
+                                  maxTokens: normalizeAgentMaxTokensInputValue(value),
                                 }
                               : current,
                           );
                         }}
-                        onBlur={() =>
-                          setAgentAddPreview((current) =>
-                            current ? { ...current, maxTokens: normalizeAgentMaxTokens(current.maxTokens) } : current,
-                          )
-                        }
                         disabled={addingAgentToChat}
-                        className={WIZARD_INPUT_CLASS}
+                        selectOnFocus
+                        className={WIZARD_NUMBER_INPUT_CLASS}
                       />
                     </label>
                   </div>
@@ -2146,26 +2128,23 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                     <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                       {agentAddIntervalMeta.label}
                     </span>
-                    <input
-                      type="number"
+                    <DraftNumberInput
                       min={1}
                       max={agentAddIntervalMeta.max}
                       value={agentAddPreview.runInterval}
-                      onChange={(event) => {
-                        const value = parseInt(event.target.value, 10);
+                      onCommit={(value) => {
                         setAgentAddPreview((current) =>
                           current
                             ? {
                                 ...current,
-                                runInterval: Number.isFinite(value)
-                                  ? Math.max(1, Math.min(agentAddIntervalMeta.max, value))
-                                  : agentAddIntervalMeta.defaultValue,
+                                runInterval: Math.max(1, Math.min(agentAddIntervalMeta.max, value)),
                               }
                             : current,
                         );
                       }}
                       disabled={addingAgentToChat}
-                      className={WIZARD_INPUT_CLASS}
+                      selectOnFocus
+                      className={WIZARD_NUMBER_INPUT_CLASS}
                     />
                     <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
                       {agentAddIntervalMeta.help}

@@ -294,7 +294,10 @@ export function HiddenFromAIConversationButton({
 }) {
   if (!canCollapse) {
     return (
-      <span className="inline-flex items-center gap-1 align-middle text-[0.625rem] font-medium text-amber-500/80" title="Hidden from AI">
+      <span
+        className="inline-flex items-center gap-1 align-middle text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-highlight-text)]"
+        title="Hidden from AI"
+      >
         <EyeOff size="0.7rem" className="shrink-0" />
       </span>
     );
@@ -305,8 +308,8 @@ export function HiddenFromAIConversationButton({
         type="button"
         onClick={onExpand}
         className={cn(
-          "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-amber-500/80 transition-colors hover:bg-amber-500/10 hover:text-amber-400",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40",
+          "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-highlight-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
         )}
         aria-label={isHiddenExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
         title={isHiddenExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
@@ -323,7 +326,7 @@ export function HiddenFromAIConversationSummary({ onExpand }: { onExpand: () => 
     <button
       type="button"
       onClick={(event) => { event.stopPropagation(); onExpand(); }}
-      className="flex w-full items-center gap-2 rounded-md border border-amber-400/20 bg-amber-500/10 px-2.5 py-1.5 text-left text-[0.75rem] text-amber-600/90 transition-colors hover:bg-amber-500/15 dark:text-amber-200/75"
+      className="flex w-full items-center gap-2 rounded-md border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-2.5 py-1.5 text-left text-[0.75rem] text-[var(--marinara-chat-chrome-highlight-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]"
       title="Expand hidden from AI message"
       aria-label="Expand hidden from AI message"
     >
@@ -522,7 +525,7 @@ export function ConversationMessageTranslation({
   );
 }
 
-/** Swipe pill — consistent style for all message layouts. */
+/** Compact swipe control — consistent style for all Conversation layouts. */
 export function ConversationMessageSwipes({
   messageId,
   activeSwipeIndex,
@@ -543,10 +546,10 @@ export function ConversationMessageSwipes({
       swipeCount={swipeCount}
       onSetActiveSwipe={onSetActiveSwipe}
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-full border border-[var(--border)] bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]",
+        "inline-flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]",
         className,
       )}
-      buttonClassName="rounded-full p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
+      buttonClassName="rounded-sm p-0.5 transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
       inputClassName="h-[1.25rem] w-[2rem] border-none bg-transparent text-center text-[0.625rem] outline-none"
     />
   );
