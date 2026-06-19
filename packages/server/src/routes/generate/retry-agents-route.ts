@@ -1103,8 +1103,10 @@ function resolveRetryAgentWritableLorebookId(settings: Record<string, unknown>):
 async function attachRetryLorebookWriterToolContexts(args: {
   lorebooksStore: ReturnType<typeof createLorebooksStorage>;
   resolvedAgents: ResolvedRetryAgent[];
+  requireApproval: boolean;
+  chatId: string;
 }) {
-  const { lorebooksStore, resolvedAgents } = args;
+  const { lorebooksStore, resolvedAgents, requireApproval, chatId } = args;
   const tool = toLLMToolDefinition(LOREBOOK_WRITE_TOOL_NAME);
   if (!tool) return;
 
@@ -1137,6 +1139,33 @@ async function attachRetryLorebookWriterToolContexts(args: {
           tag?: string;
           mode: "create" | "replace" | "append";
         }) => {
+          // When agent write-approval is required, never write inline — surface a
+          // proposal envelope (mirroring the structured lorebook_update gate) so the
+          // user approves the write before it touches the lorebook DB.
+          if (requireApproval) {
+            return {
+              requiresApproval: true,
+              approval: buildLorebookWriteApprovalProposal({
+                chatId,
+                agentType: entry.resolved.type,
+                agentName: entry.cfg?.name ?? entry.resolved.name ?? entry.resolved.type,
+                updates: [
+                  {
+                    action: loreEntry.mode === "create" ? "create" : "update",
+                    name: loreEntry.name,
+                    content: loreEntry.content,
+                    description: loreEntry.description ?? "",
+                    keys: loreEntry.keys,
+                    tag: loreEntry.tag ?? "",
+                    mode: loreEntry.mode,
+                  },
+                ],
+                preferredTargetLorebookId: writableLorebookId,
+                writableLorebookIds: [writableLorebookId],
+              }),
+            };
+          }
+
           const targetLorebook = await lorebooksStore.getById(writableLorebookId);
           if (!targetLorebook) {
             return { error: "Selected lorebook is no longer available.", lorebookId: writableLorebookId };
@@ -1944,6 +1973,9 @@ async function applyRetryResultEffects(args: {
   retrySwipeIndex: number;
   results: AgentResult[];
   agentContext: AgentContext;
+  /** Raw (unresolved) stored content of the message being retried, used as the
+   *  stale-edit baseline so macros in the message do not falsely trip the guard. */
+  mainResponseRaw: string;
   lorebooksStore: ReturnType<typeof createLorebooksStorage>;
   gameStateStore: ReturnType<typeof createGameStateStorage>;
   conns: ReturnType<typeof createConnectionsStorage>;
@@ -1960,6 +1992,7 @@ async function applyRetryResultEffects(args: {
     retrySwipeIndex,
     results,
     agentContext,
+    mainResponseRaw,
     lorebooksStore,
     gameStateStore,
     conns,
@@ -1975,6 +2008,11 @@ async function applyRetryResultEffects(args: {
   const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
   let currentResponseForRewrite = agentContext.mainResponse;
   const originalResponseBeforeRewrite = agentContext.mainResponse;
+  // Stale-edit baseline tracked in the raw (unresolved) domain to match the
+  // stored message content. `currentResponseForRewrite` is macro-resolved, so
+  // comparing it against the raw stored content falsely trips on any message
+  // containing literal {{...}} macros.
+  let expectedStoredMessageContent = mainResponseRaw;
   let retryBaseGameStateSnapshotPromise: ReturnType<typeof gameStateStore.getForGeneration> | null = null;
   const loadRetryBaseGameStateSnapshot = () => {
     retryBaseGameStateSnapshotPromise ??= gameStateStore.getForGeneration(chatId, {
@@ -2008,14 +2046,18 @@ async function applyRetryResultEffects(args: {
           rewriteAllowed && editedText.trim().length > 0 && editedText !== currentResponseForRewrite;
         if (retryMessageId && changedMessage) {
           const currentMessage = await chats.getMessage(retryMessageId);
-          if ((currentMessage?.content ?? "") !== currentResponseForRewrite) {
+          if ((currentMessage?.content ?? "") !== expectedStoredMessageContent) {
             logger.info(
               "[retry-agents] Skipping rewrite for message %s because the message was edited during agent retry",
               retryMessageId,
             );
-            break;
+            // Skip only this stale rewrite — later results (tracker, quest, persona,
+            // cyoa, illustrator, sprite) must still be applied.
+            continue;
           }
           currentResponseForRewrite = editedText;
+          // We just wrote editedText, so that becomes the new expected stored content.
+          expectedStoredMessageContent = editedText;
           await chats.updateMessageContent(retryMessageId, editedText);
           const originalText = strictEditNeeded ? originalResponseBeforeRewrite : null;
           if (originalText) {
@@ -2765,7 +2807,12 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       }
       await attachRetrySpotifyToolContexts({ agentsStore, chats, chatId, chatMeta, resolvedAgents });
       await attachRetryChatMetadataToolContexts({ chats, chatId, chatMeta, resolvedAgents });
-      await attachRetryLorebookWriterToolContexts({ lorebooksStore, resolvedAgents });
+      await attachRetryLorebookWriterToolContexts({
+        lorebooksStore,
+        resolvedAgents,
+        requireApproval: requireAgentWriteApproval,
+        chatId,
+      });
       const cyoaAgentWillRun = resolvedAgents.some((e) => e.resolved.type === "cyoa");
       const agentContext = await buildRetryAgentContext({
         cyoaAgentWillRun,
@@ -3001,6 +3048,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         retrySwipeIndex,
         results,
         agentContext,
+        mainResponseRaw: (lastAssistant?.content as string) ?? "",
         lorebooksStore,
         gameStateStore,
         conns,

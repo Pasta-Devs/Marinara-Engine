@@ -13,6 +13,10 @@ import {
 import { resolveSpotifyCredentials, spotifyHasScope } from "../spotify/spotify.service.js";
 import { logger } from "../../lib/logger.js";
 import {
+  agentWriteApprovalRequired,
+  buildLorebookWriteApprovalProposal,
+} from "../../routes/generate/agent-write-approval.js";
+import {
   readSpotifyNumberField,
   readSpotifyPlaybackTrackUri,
   readSpotifyStringField,
@@ -367,6 +371,7 @@ function createLorebookEntryWriter(
   lorebooksStore: LorebooksStore,
   agent: ResolvedAgent,
   agentSettings: Record<string, unknown>,
+  options: { requireApproval: boolean; chatId: string },
 ) {
   const writableLorebookId = resolveAgentWritableLorebookId(agentSettings);
   if (!writableLorebookId) return undefined;
@@ -379,6 +384,33 @@ function createLorebookEntryWriter(
     tag?: string;
     mode: "create" | "replace" | "append";
   }) => {
+    // When agent write-approval is required, never write inline — surface a proposal
+    // envelope (mirroring the structured lorebook_update gate) so the user approves
+    // the write before it touches the lorebook DB.
+    if (options.requireApproval) {
+      return {
+        requiresApproval: true,
+        approval: buildLorebookWriteApprovalProposal({
+          chatId: options.chatId,
+          agentType: agent.type,
+          agentName: agent.name ?? agent.type,
+          updates: [
+            {
+              action: entry.mode === "create" ? "create" : "update",
+              name: entry.name,
+              content: entry.content,
+              description: entry.description ?? "",
+              keys: entry.keys,
+              tag: entry.tag ?? "",
+              mode: entry.mode,
+            },
+          ],
+          preferredTargetLorebookId: writableLorebookId,
+          writableLorebookIds: [writableLorebookId],
+        }),
+      };
+    }
+
     const targetLorebook = await lorebooksStore.getById(writableLorebookId);
     if (!targetLorebook) {
       return { error: "Selected lorebook is no longer available.", lorebookId: writableLorebookId };
@@ -664,7 +696,10 @@ export async function resolveGenerationTools({
     if (agentTools.length === 0) continue;
 
     const allowedToolNames = new Set(agentTools.map((toolDef) => toolDef.function.name));
-    const saveLorebookEntry = createLorebookEntryWriter(lorebooksStore, agent, agentSettings);
+    const saveLorebookEntry = createLorebookEntryWriter(lorebooksStore, agent, agentSettings, {
+      requireApproval: agentWriteApprovalRequired(chatMetadata),
+      chatId,
+    });
     const replaceChatMessageContentForAgent = customAgentHasCapability(agentSettings, "edit_messages")
       ? replaceChatMessageContent
       : undefined;

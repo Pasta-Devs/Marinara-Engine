@@ -153,6 +153,7 @@ export async function extractFileText(
 
   const ext = extname(filePath).toLowerCase();
   let text = "";
+  let extractionFailed = false;
 
   if (TEXT_EXTS.has(ext)) {
     text = await readFile(filePath, "utf-8");
@@ -166,6 +167,7 @@ export async function extractFileText(
       text = result.text;
     } catch {
       text = "[PDF text extraction failed]";
+      extractionFailed = true;
     } finally {
       // Always free the parser's workers/memory, even on a getText() failure,
       // and never let a destroy() error mask a successful extraction.
@@ -179,7 +181,9 @@ export async function extractFileText(
     }
   }
 
-  if (fileId && metadata) {
+  // Only cache a successful extraction. A transient parse failure must not poison
+  // the source for the process lifetime — skip the cache so the next turn re-attempts.
+  if (fileId && metadata && !extractionFailed) {
     setCachedText(fileId, { size: metadata.size, uploadedAt: metadata.uploadedAt, text });
   }
 

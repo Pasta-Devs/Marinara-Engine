@@ -1907,8 +1907,8 @@ const JSON_AGENTS = new Set([
  */
 function sanitizeTextAgentResponse(agentType: string, text: string): string {
   const cleaned = text
-    .replace(/<committed_tracker_state>[\s\S]*?<\/committed_tracker_state>/gi, "")
-    .replace(/<assistant_response>[\s\S]*?<\/assistant_response>/gi, "")
+    .replace(/<committed_tracker_state\b[^>]*>[\s\S]*?<\/committed_tracker_state\s*>/gi, "")
+    .replace(/<assistant_response\b[^>]*>[\s\S]*?<\/assistant_response\s*>/gi, "")
     .trim();
 
   return cleaned;

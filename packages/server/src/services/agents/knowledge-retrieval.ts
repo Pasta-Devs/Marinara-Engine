@@ -80,18 +80,22 @@ export async function executeKnowledgeRetrieval(
   // ── Multi-pass: split into chunks ──
   const chunks = chunkText(sourceMaterial, contextBudget);
   const extractions: string[] = [];
+  let consolidatedText: string | null = null;
   let totalTokens = 0;
   let totalDuration = 0;
 
   for (let i = 0; i < chunks.length; i++) {
+    const isLastChunk = i === chunks.length - 1;
+    // The final chunk runs as a consolidation pass only when earlier chunks
+    // produced extractions to merge (so it receives `_previousExtractions`).
+    const isConsolidationPass = isLastChunk && extractions.length > 0;
     const chunkContext: AgentContext = {
       ...baseContext,
       memory: {
         ...baseContext.memory,
         _sourceMaterial: chunks[i]!,
         _chunkInfo: { current: i + 1, total: chunks.length },
-        // On the last chunk, include all previous extractions for consolidation
-        ...(i === chunks.length - 1 && extractions.length > 0 ? { _previousExtractions: extractions } : {}),
+        ...(isConsolidationPass ? { _previousExtractions: extractions } : {}),
       },
     };
 
@@ -102,66 +106,31 @@ export async function executeKnowledgeRetrieval(
     if (result.success && result.data) {
       const text = typeof result.data === "string" ? result.data : ((result.data as { text?: string })?.text ?? "");
       if (text && text !== "No relevant information found.") {
-        extractions.push(text);
+        if (isConsolidationPass) {
+          // The consolidation pass already merged every prior extraction with the
+          // final chunk; track its output explicitly so we return it alone instead
+          // of re-injecting the partials it absorbed.
+          consolidatedText = text;
+        } else {
+          extractions.push(text);
+        }
       }
     }
   }
 
-  // If we had multiple chunks but the last chunk did consolidation, use its result.
-  // If only one extraction or none, no extra consolidation needed.
-  if (extractions.length === 0) {
-    return {
-      agentId: config.id,
-      agentType: config.type,
-      type: "context_injection",
-      data: { text: "" },
-      tokensUsed: totalTokens,
-      durationMs: totalDuration,
-      success: true,
-      error: null,
-    };
-  }
-
-  // If we had extractions and multiple chunks, prefer the consolidated output
-  // when available. If the final chunk failed or produced no output, we may
-  // have fewer extractions than chunks; in that case, fall back to combining
-  // all partial extractions so we don't drop earlier results.
-  if (chunks.length > 1 && extractions.length > 0) {
-    if (extractions.length < chunks.length) {
-      // Best-effort consolidation: concatenate all partial extractions.
-      const combined = extractions.filter(Boolean).join("\n\n");
-      return {
-        agentId: config.id,
-        agentType: config.type,
-        type: "context_injection",
-        data: { text: combined },
-        tokensUsed: totalTokens,
-        durationMs: totalDuration,
-        success: true,
-        error: null,
-      };
-    }
-
-    // The last extraction is the consolidated result
-    const consolidated = extractions[extractions.length - 1]!;
-    return {
-      agentId: config.id,
-      agentType: config.type,
-      type: "context_injection",
-      data: { text: consolidated },
-      tokensUsed: totalTokens,
-      durationMs: totalDuration,
-      success: true,
-      error: null,
-    };
-  }
-
-  // Single extraction — return as-is
+  // Prefer the consolidated output when the final consolidation pass produced text.
+  // Only fall back to concatenating the raw partial extractions when the
+  // consolidation pass itself produced nothing (or never ran) — so we neither drop
+  // earlier results nor double-inject facts the consolidation already merged. This
+  // covers the case where a middle chunk returned "No relevant information found.":
+  // `extractions.length < chunks.length` no longer forces a partial concatenation
+  // that would duplicate the facts the final pass already consolidated.
+  const finalText = consolidatedText && consolidatedText.length > 0 ? consolidatedText : extractions.filter(Boolean).join("\n\n");
   return {
     agentId: config.id,
     agentType: config.type,
     type: "context_injection",
-    data: { text: extractions[0] ?? "" },
+    data: { text: finalText },
     tokensUsed: totalTokens,
     durationMs: totalDuration,
     success: true,
