@@ -306,18 +306,19 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     const observedTargets = new Set<HTMLElement>();
     const observer = new ResizeObserver(() => scheduleUpdate());
     const observeTargets = () => {
-      const targets = [
-        ...Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_AREA_SELECTOR)),
-        ...Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR)),
-        ...Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR)),
-        ...Array.from(document.querySelectorAll<HTMLElement>(".rpg-hud")),
-      ];
+      const roleplayAreas = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_AREA_SELECTOR));
+      const topAnchors = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR));
+      const topRightControls = Array.from(
+        document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR),
+      );
+      const huds = Array.from(document.querySelectorAll<HTMLElement>(".rpg-hud"));
+      const targets = [...roleplayAreas, ...topAnchors, ...topRightControls, ...huds];
       targets.forEach((target) => {
         if (observedTargets.has(target)) return;
         observer.observe(target);
         observedTargets.add(target);
       });
-      return targets.length > 0;
+      return roleplayAreas.length > 0 && (isLeft ? huds.length > 0 : topRightControls.length > 0);
     };
     function scheduleUpdate() {
       if (frame) window.cancelAnimationFrame(frame);

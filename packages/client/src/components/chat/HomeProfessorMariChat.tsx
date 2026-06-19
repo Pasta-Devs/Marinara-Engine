@@ -1736,6 +1736,7 @@ export function HomeProfessorMariChat({
   const openMobileChat = useCallback(() => {
     setSkillsMenuOpen(false);
     setConnectionMenuOpen(false);
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setMobileFocusMode(true);
   }, []);
 
