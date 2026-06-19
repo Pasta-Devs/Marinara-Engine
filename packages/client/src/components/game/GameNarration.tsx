@@ -994,6 +994,13 @@ export function GameNarration({
   const gameVoiceCacheRef = useRef<Map<string, GameSegmentVoiceEntry>>(new Map());
   const gameVoicePendingRef = useRef<Map<string, AbortController>>(new Map());
   const gameVoiceAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Every voice <audio> currently created/playing. gameVoiceAudioRef only tracks
+  // the single most-recent element, so when two playback attempts interleave the
+  // earlier element is dropped from the ref and never paused — it plays to the end
+  // while new clips stack on top (issue #2647 overlap). This set lets
+  // stopGameVoicePlayback tear down ALL live elements, guaranteeing at most one
+  // voice clip is ever audible.
+  const gameVoiceActiveAudiosRef = useRef<Set<HTMLAudioElement>>(new Set());
   const gameVoiceSequenceRef = useRef(0);
   const gameVoiceGenerationTailRef = useRef<Promise<void>>(Promise.resolve());
   const lastAutoPlayedVoiceKeyRef = useRef<string | null>(null);
@@ -1746,14 +1753,16 @@ export function GameNarration({
   const stopGameVoicePlayback = useCallback(() => {
     gameVoiceSequenceRef.current += 1;
     queueLogScrollTopRestore();
-    const audio = gameVoiceAudioRef.current;
-    if (audio) {
+    // Tear down every live voice element, not just the current ref — interleaved
+    // playback attempts can orphan earlier elements off the single ref (#2647).
+    for (const audio of gameVoiceActiveAudiosRef.current) {
       audio.pause();
       audio.onended = null;
       audio.onerror = null;
       audio.onplaying = null;
-      gameVoiceAudioRef.current = null;
     }
+    gameVoiceActiveAudiosRef.current.clear();
+    gameVoiceAudioRef.current = null;
     setGameVoicePlayingKey(null);
     setGameVoicePausedKey(null);
   }, [queueLogScrollTopRestore]);
@@ -1806,6 +1815,7 @@ export function GameNarration({
         audio.preload = "auto";
         audioManager.setMediaElementVolume(audio, normalizedGameVoiceVolume);
         audio.muted = normalizedGameVoiceVolume <= 0;
+        gameVoiceActiveAudiosRef.current.add(audio);
         gameVoiceAudioRef.current = audio;
 
         let started = false;
@@ -1815,6 +1825,7 @@ export function GameNarration({
           options?.onStarted?.(key);
         };
         const markFailed = () => {
+          gameVoiceActiveAudiosRef.current.delete(audio);
           if (gameVoiceSequenceRef.current !== sequence || gameVoiceAudioRef.current !== audio) return;
           queueLogScrollTopRestore();
           setGameVoicePlayingKey(null);
@@ -1825,12 +1836,29 @@ export function GameNarration({
 
         audio.onplaying = markStarted;
         audio.onended = () => {
+          gameVoiceActiveAudiosRef.current.delete(audio);
           if (gameVoiceSequenceRef.current !== sequence || gameVoiceAudioRef.current !== audio) return;
           urlIndex += 1;
           playNext();
         };
         audio.onerror = markFailed;
-        void audio.play().then(markStarted).catch(markFailed);
+        void audio
+          .play()
+          .then(markStarted)
+          .catch(() => {
+            // Browsers can reject the play() promise (typically AbortError) when a
+            // rapid re-trigger "interrupts" it, even though playback actually
+            // started and continues. Dropping such a still-playing clip from the
+            // tracking set would orphan it so stopGameVoicePlayback() can never
+            // pause it — the clips stack and overlap (#2647). Only treat the
+            // rejection as a real failure when the element is genuinely not
+            // playing; otherwise treat it as a normal start.
+            if (!audio.paused && !audio.ended) {
+              markStarted();
+              return;
+            }
+            markFailed();
+          });
       };
 
       playNext();
