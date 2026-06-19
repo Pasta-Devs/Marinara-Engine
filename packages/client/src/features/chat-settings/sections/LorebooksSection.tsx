@@ -77,7 +77,11 @@ export function LorebooksSection({
           inputMode="numeric"
           pattern="[0-9]*"
           value={tokenBudgetDraft}
-          onChange={(event) => setTokenBudgetDraft(event.target.value)}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            if (!/^\d*$/.test(nextValue)) return;
+            setTokenBudgetDraft(nextValue);
+          }}
           onBlur={commitTokenBudget}
           onKeyDown={(event) => {
             if (event.key === "Enter") {

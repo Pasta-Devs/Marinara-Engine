@@ -45,7 +45,7 @@ import {
   useMoveLibraryItem,
   useUpdateLibraryFolder,
 } from "../../hooks/use-library-folders";
-import { useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
@@ -69,6 +69,21 @@ const CATEGORY_COLORS: Record<string, string> = {
   uncategorized: "from-amber-400 to-orange-500",
   all: "from-amber-400 to-orange-500",
 };
+
+function remapLorebookEntryRelationships(
+  relationships: Record<string, string> | null | undefined,
+  entryIdMap: Map<string, string>,
+) {
+  const remapped: Record<string, string> = {};
+  if (!relationships) return remapped;
+
+  for (const [sourceEntryId, relationshipType] of Object.entries(relationships)) {
+    const clonedEntryId = entryIdMap.get(sourceEntryId);
+    if (clonedEntryId) remapped[clonedEntryId] = relationshipType;
+  }
+
+  return remapped;
+}
 
 export function LorebooksPanel() {
   const [activeCategory, setActiveCategory] = useState<LorebookCategory | "all" | "active">("all");
@@ -437,18 +452,41 @@ export function LorebooksPanel() {
         }
 
         if (entries.length > 0) {
-          await api.post<LorebookEntry[]>(`/lorebooks/${createdId}/entries/bulk`, {
-            entries: entries.map((entry) => {
-              const clone: Partial<LorebookEntry> = { ...entry };
-              delete clone.id;
-              delete clone.lorebookId;
-              delete clone.createdAt;
-              delete clone.updatedAt;
-              delete clone.embedding;
-              clone.folderId = entry.folderId ? (folderIdMap.get(entry.folderId) ?? null) : null;
-              return clone;
-            }),
+          const clonedEntries = entries.map((entry) => {
+            const clone: Partial<LorebookEntry> = { ...entry };
+            delete clone.id;
+            delete clone.lorebookId;
+            delete clone.createdAt;
+            delete clone.updatedAt;
+            delete clone.embedding;
+            clone.folderId = entry.folderId ? (folderIdMap.get(entry.folderId) ?? null) : null;
+            clone.relationships = {};
+            return clone;
           });
+
+          const createdEntries = await api.post<LorebookEntry[]>(`/lorebooks/${createdId}/entries/bulk`, {
+            entries: clonedEntries,
+          });
+
+          const entryIdMap = new Map<string, string>();
+          entries.forEach((entry, index) => {
+            const createdEntry = createdEntries[index];
+            if (createdEntry) entryIdMap.set(entry.id, createdEntry.id);
+          });
+
+          const relationshipUpdates = entries
+            .map((entry, index) => {
+              const createdEntry = createdEntries[index];
+              if (!createdEntry) return null;
+
+              const relationships = remapLorebookEntryRelationships(entry.relationships, entryIdMap);
+              if (Object.keys(relationships).length === 0) return null;
+
+              return api.patch<LorebookEntry>(`/lorebooks/${createdId}/entries/${createdEntry.id}`, { relationships });
+            })
+            .filter((update): update is Promise<LorebookEntry> => Boolean(update));
+
+          await Promise.all(relationshipUpdates);
         }
 
         toast.success(`Copied "${lorebook.name}"`);
@@ -860,6 +898,11 @@ export function LorebooksPanel() {
               className="flex flex-col rounded-lg transition-colors"
             >
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+                title="Double-click or press F2 to rename."
                 className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
                 onClick={(event) =>
                   handleFolderRenameGesture(folder.id, event, {
@@ -870,6 +913,16 @@ export function LorebooksPanel() {
                     },
                   })
                 }
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  handleFolderRenameKeyDown(event, {
+                    onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                    onRename: () => {
+                      setEditingFolderId(folder.id);
+                      setEditFolderName(folder.name);
+                    },
+                  });
+                }}
               >
                 <ChevronRight
                   size="0.75rem"

@@ -18,7 +18,7 @@ import {
   useReorderConnectionFolders,
   useMoveConnection,
 } from "../../hooks/use-connection-folders";
-import { useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent } from "../../hooks/use-agents";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -752,12 +752,24 @@ function ConnectionFolderRow({
     >
       {/* Folder header */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+        title="Double-click or press F2 to rename."
         onClick={(event) =>
           handleFolderRenameGesture(folder.id, event, {
             onSingleClick: () => onToggleCollapse(folder),
             onRename: beginRename,
           })
         }
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          handleFolderRenameKeyDown(event, {
+            onSingleClick: () => onToggleCollapse(folder),
+            onRename: beginRename,
+          });
+        }}
         className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40"
       >
         <div
@@ -1106,26 +1118,32 @@ export function ConnectionsPanel() {
       {/* Action buttons */}
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={() => openModal("create-connection")}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-sky-400/15 transition-all hover:shadow-lg hover:shadow-sky-400/25 active:scale-[0.98]"
+          aria-label="Create connection"
           title="New"
         >
           <Plus size="0.8125rem" />
         </button>
         <button
+          type="button"
           onClick={() => openModal("import-connection")}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+          aria-label="Import connection"
           title="Import"
         >
           <Download size="0.8125rem" />
         </button>
         <button
+          type="button"
           onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
           disabled={connectionsList.length === 0}
           className={cn(
             "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
             selectionMode && "mari-chrome-control--selected",
           )}
+          aria-label={selectionMode ? "Exit connection selection mode" : "Select connections"}
           title="Select"
         >
           <Check size="0.8125rem" />

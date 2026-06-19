@@ -1297,6 +1297,7 @@ input[type="range"].mari-spotify-volume-slider {
   --range-thumb-size: 0.6875rem;
   --range-track-height: 0.25rem;
   --range-thumb-shadow: 0 0 0 0.125rem #191414;
+
   accent-color: #1db954;
 }
 

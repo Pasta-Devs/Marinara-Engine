@@ -8,7 +8,7 @@ import { cn } from "../../lib/utils";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
-import { useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import {
   useGlobalGalleryImages,
   useGalleryFolders,
@@ -188,6 +188,21 @@ export function GlobalGalleryPanel() {
           },
         });
       }}
+      onKeyDown={
+        renamable
+          ? (event) =>
+              handleFolderRenameKeyDown(event, {
+                onSingleClick: () => setActiveFolder(key),
+                onRename: () => {
+                  setActiveFolder(key);
+                  setRenameValue(label);
+                  setRenaming(true);
+                },
+              })
+          : undefined
+      }
+      aria-label={renamable ? `${label}. Press F2 to rename.` : label}
+      title={renamable ? `${label}. Double-click or press F2 to rename.` : undefined}
       onDragOver={dropTarget ? (e) => e.preventDefault() : undefined}
       onDragEnter={dropTarget ? () => setDragOverFolder(key) : undefined}
       onDragLeave={dropTarget ? () => setDragOverFolder((cur) => (cur === key ? null : cur)) : undefined}

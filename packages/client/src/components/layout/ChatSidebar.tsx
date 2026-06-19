@@ -39,7 +39,7 @@ import {
   useMoveChat,
 } from "../../hooks/use-chat-folders";
 import { useCharacters } from "../../hooks/use-characters";
-import { useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useChatStore } from "../../stores/chat.store";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { useUIStore, type UserStatus } from "../../stores/ui.store";
@@ -1484,7 +1484,8 @@ function FolderRow({
           role="button"
           tabIndex={0}
           aria-expanded={isExpanded}
-          aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}`}
+          aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+          title="Double-click or press F2 to rename."
           onClick={(e) =>
             handleFolderRenameGesture(folder.id, e, {
               onSingleClick: () => {
@@ -1494,12 +1495,13 @@ function FolderRow({
             })
           }
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!canToggleCollapse) return;
-              onToggleCollapse(folder);
-            }
+            if (e.target !== e.currentTarget) return;
+            handleFolderRenameKeyDown(e, {
+              onSingleClick: () => {
+                if (canToggleCollapse) onToggleCollapse(folder);
+              },
+              onRename: beginRename,
+            });
           }}
           className="flex flex-1 items-center gap-1.5 min-w-0"
         >

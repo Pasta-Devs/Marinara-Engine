@@ -75,7 +75,10 @@ export function SwipeJumpControl({
         pattern="[0-9]*"
         value={inputValue}
         onChange={(event) => handleInputChange(event.target.value)}
-        onBlur={() => setSwipeByDisplayIndex(Number.parseInt(inputValue, 10) || activeSwipeIndex + 1)}
+        onBlur={() => {
+          const parsed = Number.parseInt(inputValue, 10);
+          setSwipeByDisplayIndex(Number.isNaN(parsed) ? activeSwipeIndex + 1 : parsed);
+        }}
         onClick={(event) => event.stopPropagation()}
         onFocus={(event) => event.currentTarget.select()}
         onKeyDown={(event) => {

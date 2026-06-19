@@ -266,6 +266,20 @@ export function SettingsCheckbox({
   );
 }
 
+type SettingsSwitchAccessibleLabel = { label: ReactNode; ariaLabel?: never } | { label?: undefined; ariaLabel: string };
+
+type SettingsSwitchProps = SettingsSwitchAccessibleLabel & {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  title?: string;
+  description?: ReactNode;
+  help?: string;
+  disabled?: boolean;
+  labelPosition?: "start" | "end";
+  className?: string;
+  labelClassName?: string;
+};
+
 export function SettingsSwitch({
   label,
   checked,
@@ -278,19 +292,7 @@ export function SettingsSwitch({
   labelPosition = "end",
   className,
   labelClassName,
-}: {
-  label?: ReactNode;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  ariaLabel?: string;
-  title?: string;
-  description?: ReactNode;
-  help?: string;
-  disabled?: boolean;
-  labelPosition?: "start" | "end";
-  className?: string;
-  labelClassName?: string;
-}) {
+}: SettingsSwitchProps) {
   const inputId = useId();
   const switchControl = (
     <span className="relative inline-flex h-5 w-9 shrink-0">

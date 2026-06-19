@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { getCharacterTitle } from "../../lib/character-display";
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
-import { useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
@@ -847,6 +847,11 @@ export function CharactersPanel() {
             >
               {/* Folder header */}
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${group.name}. Press F2 to rename.`}
+                title="Double-click or press F2 to rename."
                 className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
                 onClick={(event) =>
                   handleFolderRenameGesture(group.id, event, {
@@ -857,6 +862,16 @@ export function CharactersPanel() {
                     },
                   })
                 }
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  handleFolderRenameKeyDown(event, {
+                    onSingleClick: () => setExpandedGroupId(isExpanded ? null : group.id),
+                    onRename: () => {
+                      setEditingGroupId(group.id);
+                      setEditGroupName(group.name);
+                    },
+                  });
+                }}
               >
                 <ChevronRight
                   size="0.75rem"

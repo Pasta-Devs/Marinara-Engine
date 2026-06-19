@@ -573,6 +573,7 @@ export function GameCharacterSheet({
                         <DraftNumberInput
                           value={draft.hpValue}
                           onCommit={(value) => setDraft((prev) => ({ ...prev, hpValue: value }))}
+                          min={0}
                           selectOnFocus
                           className={NUMBER_INPUT_CLASS}
                         />

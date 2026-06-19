@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
-interface FolderRenameGestureOptions {
+export interface FolderRenameGestureOptions {
   onSingleClick: () => void;
   onRename: () => void;
   delayMs?: number;
@@ -53,4 +59,22 @@ export function useFolderRenameGesture() {
     },
     [],
   );
+}
+
+export function handleFolderRenameKeyDown(
+  event: ReactKeyboardEvent<HTMLElement>,
+  { onSingleClick, onRename }: Pick<FolderRenameGestureOptions, "onSingleClick" | "onRename">,
+) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    event.stopPropagation();
+    onSingleClick();
+    return;
+  }
+
+  if (event.key === "F2") {
+    event.preventDefault();
+    event.stopPropagation();
+    onRename();
+  }
 }

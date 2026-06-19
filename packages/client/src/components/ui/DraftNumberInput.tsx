@@ -41,6 +41,9 @@ export function DraftNumberInput({
     const trimmed = raw.trim();
     if (!trimmed) return null;
 
+    const numericPattern = integer ? /^-?\d+$/ : /^-?(?:\d+\.?\d*|\.\d+)$/;
+    if (!numericPattern.test(trimmed)) return null;
+
     const parsed = Number(trimmed);
     const validNumber = Number.isFinite(parsed) && (!integer || Number.isInteger(parsed));
 

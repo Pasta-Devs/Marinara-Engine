@@ -94,6 +94,7 @@ import {
 import { useClearAllData, useExpungeData, useUpdateChatMetadata, type ExpungeScope } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameAssetStore } from "../../stores/game-asset.store";
+import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
 import { chatKeys } from "../../hooks/use-chats";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ColorPicker } from "../ui/ColorPicker";
@@ -114,7 +115,7 @@ import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatD
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
-import { HOST_DEVICE_FILE_MANAGER_MESSAGE, isHostDeviceBrowser } from "../../lib/host-device";
+import { HOST_DEVICE_FILE_MANAGER_MESSAGE } from "../../lib/host-device";
 
 type CustomFontFace = {
   filename: string;
@@ -1557,6 +1558,7 @@ function ImageGenerationSettings() {
 
 function GameAssetsSettings() {
   const rescanGameAssets = useGameAssetStore((s) => s.rescanAssets);
+  const openGameAssetsFolder = useOpenGameAssetsFolder();
   const openGameAssetsBrowser = useUIStore((s) => s.openGameAssetsBrowser);
   const assetFileRef = useRef<HTMLInputElement>(null);
   const [assetCategory, setAssetCategory] = useState<GameAssetCategoryId>("backgrounds");
@@ -1575,11 +1577,12 @@ function GameAssetsSettings() {
   };
 
   const handleOpenGameAssetFolder = (subfolder: string) => {
-    if (!isHostDeviceBrowser()) {
-      toast.info(HOST_DEVICE_FILE_MANAGER_MESSAGE);
-      return;
-    }
-    api.post("/game-assets/open-folder", { subfolder }).catch(() => toast.error("Failed to open game assets folder."));
+    openGameAssetsFolder.mutate(subfolder, {
+      onError: (error) => {
+        if (error instanceof Error && error.message === HOST_DEVICE_FILE_MANAGER_MESSAGE) return;
+        toast.error("Failed to open game assets folder.");
+      },
+    });
   };
 
   const handleGameAssetUpload = async () => {

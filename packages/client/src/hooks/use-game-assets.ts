@@ -135,7 +135,7 @@ export function useOpenGameAssetsFolder() {
     mutationFn: (subfolder?: string) => {
       if (!isHostDeviceBrowser()) {
         toast.info(HOST_DEVICE_FILE_MANAGER_MESSAGE);
-        return Promise.resolve({ ok: false });
+        throw new Error(HOST_DEVICE_FILE_MANAGER_MESSAGE);
       }
       return api.post("/game-assets/open-folder", { subfolder });
     },

@@ -71,7 +71,7 @@ import {
   useMoveLibraryItem,
   useUpdateLibraryFolder,
 } from "../../hooks/use-library-folders";
-import { useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 type PresetRow = {
@@ -839,20 +839,25 @@ export function PresetsPanel() {
       {/* Action buttons */}
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={() => openModal("create-preset")}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-purple-400/15 transition-all hover:shadow-lg hover:shadow-purple-400/25 active:scale-[0.98]"
+          aria-label="Create preset"
           title="New"
         >
           <Plus size="0.8125rem" />
         </button>
         <button
+          type="button"
           onClick={() => openModal("import-preset")}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+          aria-label="Import preset"
           title="Import"
         >
           <Download size="0.8125rem" />
         </button>
         <button
+          type="button"
           onClick={() => {
             if (selectionMode) exitSelectionMode();
             else setSelectionMode(true);
@@ -861,6 +866,7 @@ export function PresetsPanel() {
             "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
             selectionMode && "mari-chrome-control--selected",
           )}
+          aria-label={selectionMode ? "Exit preset selection mode" : "Select presets"}
           title="Select"
         >
           <Check size="0.8125rem" />
@@ -925,6 +931,11 @@ export function PresetsPanel() {
                 className="flex flex-col rounded-lg transition-colors"
               >
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={isExpanded}
+                  aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+                  title="Double-click or press F2 to rename."
                   className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
                   onClick={(event) =>
                     handleFolderRenameGesture(folder.id, event, {
@@ -935,6 +946,16 @@ export function PresetsPanel() {
                       },
                     })
                   }
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    handleFolderRenameKeyDown(event, {
+                      onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                      onRename: () => {
+                        setEditingFolderId(folder.id);
+                        setEditFolderName(folder.name);
+                      },
+                    });
+                  }}
                 >
                   <ChevronRight
                     size="0.75rem"
