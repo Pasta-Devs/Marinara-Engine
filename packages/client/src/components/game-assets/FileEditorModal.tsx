@@ -115,11 +115,11 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
       onClick={handleRequestClose}
     >
       <div
-        className="flex h-[85vh] w-full max-w-4xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
+        className="flex h-[85vh] max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-xl supports-[height:100dvh]:h-[85dvh] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

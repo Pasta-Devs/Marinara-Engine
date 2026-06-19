@@ -424,27 +424,59 @@ function connectionMatchesSearch(conn: ConnectionRowData, query: string) {
   return haystack.includes(query);
 }
 
+function formatDefaultConnectionOption(connection: ConnectionRowData, fallbackModelLabel: string): string {
+  const model = connection.model?.trim() || fallbackModelLabel;
+  return `${connection.name} - ${model}`;
+}
+
 function DefaultAgentConnectionCard({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const updateConnection = useUpdateConnection();
+  const agentConnections = useMemo(
+    () => connectionsList.filter((conn) => conn.provider !== "image_generation"),
+    [connectionsList],
+  );
   const defaultConnection =
-    connectionsList.find(
+    agentConnections.find(
       (conn) =>
         conn.provider !== "image_generation" && (conn.defaultForAgents === true || conn.defaultForAgents === "true"),
     ) ?? null;
+  const hasConnections = agentConnections.length > 0;
+
+  const handleDefaultChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextConnectionId = event.target.value;
+    if (nextConnectionId === defaultConnection?.id) return;
+    if (!nextConnectionId) {
+      if (defaultConnection) {
+        updateConnection.mutate({ id: defaultConnection.id, defaultForAgents: false });
+      }
+      return;
+    }
+    updateConnection.mutate({ id: nextConnectionId, defaultForAgents: true });
+  };
 
   return (
     <div className="rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 max-sm:items-start">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
           <Sparkles size="1rem" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">Default for Agents</div>
-          <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-            {defaultConnection
-              ? `${defaultConnection.name} • ${defaultConnection.model || "No model set"}`
-              : "No default agent connection set"}
-          </div>
+          <select
+            value={defaultConnection?.id ?? ""}
+            onChange={handleDefaultChange}
+            disabled={updateConnection.isPending || (!hasConnections && !defaultConnection)}
+            className="mt-1 w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.75rem] text-[var(--foreground)] ring-1 ring-[var(--border)] transition focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Default agent connection"
+          >
+            <option value="">{hasConnections ? "No default agent connection" : "No text connections available"}</option>
+            {agentConnections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {formatDefaultConnectionOption(connection, "No model set")}
+              </option>
+            ))}
+          </select>
         </div>
         {defaultConnection && (
           <button
@@ -463,25 +495,54 @@ function DefaultAgentConnectionCard({ connectionsList }: { connectionsList: Conn
 
 function DefaultIllustratorConnectionCard({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const updateConnection = useUpdateConnection();
+  const illustratorConnections = useMemo(
+    () => connectionsList.filter((conn) => conn.provider === "image_generation"),
+    [connectionsList],
+  );
   const defaultConnection =
-    connectionsList.find(
+    illustratorConnections.find(
       (conn) =>
         conn.provider === "image_generation" && (conn.defaultForAgents === true || conn.defaultForAgents === "true"),
     ) ?? null;
+  const hasConnections = illustratorConnections.length > 0;
+
+  const handleDefaultChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextConnectionId = event.target.value;
+    if (nextConnectionId === defaultConnection?.id) return;
+    if (!nextConnectionId) {
+      if (defaultConnection) {
+        updateConnection.mutate({ id: defaultConnection.id, defaultForAgents: false });
+      }
+      return;
+    }
+    updateConnection.mutate({ id: nextConnectionId, defaultForAgents: true });
+  };
 
   return (
     <div className="rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 max-sm:items-start">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
           <ImageIcon size="1rem" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">Default for Illustrator</div>
-          <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-            {defaultConnection
-              ? `${defaultConnection.name} • ${defaultConnection.model || "Image generation"}`
-              : "No default Illustrator connection set"}
-          </div>
+          <select
+            value={defaultConnection?.id ?? ""}
+            onChange={handleDefaultChange}
+            disabled={updateConnection.isPending || (!hasConnections && !defaultConnection)}
+            className="mt-1 w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.75rem] text-[var(--foreground)] ring-1 ring-[var(--border)] transition focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Default Illustrator connection"
+          >
+            <option value="">
+              {hasConnections ? "No default Illustrator connection" : "No image connections available"}
+            </option>
+            {illustratorConnections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {formatDefaultConnectionOption(connection, "Image generation")}
+              </option>
+            ))}
+          </select>
         </div>
         {defaultConnection && (
           <button

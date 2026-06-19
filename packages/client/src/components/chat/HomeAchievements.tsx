@@ -61,7 +61,7 @@ function AchievementBadge({ achievement, locked }: { achievement: AchievementDef
       )}
       aria-hidden="true"
     >
-      <div className="absolute inset-0 opacity-30 [background:radial-gradient(circle_at_30%_20%,currentColor,transparent_32%),linear-gradient(135deg,transparent_0_42%,currentColor_43%_45%,transparent_46%)]" />
+      <div className="absolute inset-0 opacity-25 [background:radial-gradient(circle_at_30%_20%,currentColor,transparent_34%)]" />
       <Icon className="relative z-10 h-5 w-5 sm:h-[1.65rem] sm:w-[1.65rem]" />
       {!locked && achievement.rankLabel && (
         <span className="absolute bottom-1.5 right-1.5 rounded bg-black/35 px-1 text-[0.55rem] font-bold text-white">
@@ -169,8 +169,11 @@ export function HomeAchievements({
         aria-label="Open achievements"
       >
         <span className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-          <span className="mari-chrome-control flex h-9 w-9 shrink-0 p-0 sm:h-10 sm:w-10">
-            <Trophy size="1.15rem" />
+          <span
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--secondary)]/45 text-[var(--foreground)] shadow-sm sm:h-10 sm:w-10"
+            aria-hidden="true"
+          >
+            <Trophy size="1.15rem" strokeWidth={2.25} />
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-semibold text-[var(--foreground)]">Achievements</span>

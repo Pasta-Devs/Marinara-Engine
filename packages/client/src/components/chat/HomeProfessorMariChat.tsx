@@ -13,6 +13,7 @@ import {
   ImageIcon,
   Link,
   Loader2,
+  MessageCircle,
   Palette,
   Plus,
   RefreshCw,
@@ -59,6 +60,7 @@ import { HomeFaq } from "./HomeFaq";
 const MARI_AVATAR_URL = "/sprites/mari/Mari_profile.png";
 const MARI_CHIBI_URL = "/sprites/mari/chibi-professor-mari.png";
 const MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id";
+const PROFESSOR_MARI_ERROR_TOAST_DURATION_MS = 120_000;
 const MARI_WELCOME =
   "Howdy, welcome to Marinara Engine!\n\nFeeling a little lost? It is not a skill issue yet, I am here to help! Ask me about the app, your setup, or what to do next.\n\nNeed something made or changed? I can create character cards, personas, lorebooks, chats, and presets, and I can make local workspace changes with your approval.";
 const NEW_SKILL_CONTENT = `# Custom Professor Mari Skill
@@ -125,6 +127,12 @@ function rememberConnectionId(id: string) {
   } catch {
     /* ignore */
   }
+}
+
+function describeProfessorMariError(error: unknown) {
+  const message = error instanceof Error ? error.message.trim() : "";
+  if (message) return `${message} This message will stay visible long enough to screenshot for troubleshooting.`;
+  return "The request failed before Professor Mari could answer. This message will stay visible long enough to screenshot for troubleshooting.";
 }
 
 function toMessageExtra(message: Message): Message["extra"] {
@@ -1493,7 +1501,6 @@ export function HomeProfessorMariChat({
   const [skillsSaving, setSkillsSaving] = useState(false);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [skillDraft, setSkillDraft] = useState<SkillDraftState>({ name: "", description: "", content: "" });
-  const [dottoreDismissed, setDottoreDismissed] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sending, setSending] = useState(false);
   const [connectionMenuOpen, setConnectionMenuOpen] = useState(false);
@@ -1678,7 +1685,7 @@ export function HomeProfessorMariChat({
   const displayMessages = useMemo(() => [createWelcomeMessage(chatId), ...messages], [chatId, messages]);
   const workspaceTimelineActive = workspaceActive || hasActiveGeneration;
   const workspaceHasResponseText = workspaceTimeline.some((item) => item.type === "text" && item.content.trim());
-  const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText && !dottoreDismissed;
+  const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText;
 
   useEffect(() => {
     if (!mobileFocusMode) return;
@@ -1721,15 +1728,21 @@ export function HomeProfessorMariChat({
 
   const closeMobileFocusMode = useCallback(() => {
     setConnectionMenuOpen(false);
+    setSkillsMenuOpen(false);
     setMobileFocusMode(false);
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  }, []);
+
+  const openMobileChat = useCallback(() => {
+    setSkillsMenuOpen(false);
+    setConnectionMenuOpen(false);
+    setMobileFocusMode(true);
   }, []);
 
   const toggleSkillsMenu = useCallback(() => {
     const next = !skillsMenuOpen;
     if (next) {
       setConnectionMenuOpen(false);
-      setMobileFocusMode(false);
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     }
     setSkillsMenuOpen(next);
@@ -1924,7 +1937,6 @@ export function HomeProfessorMariChat({
       setWorkspaceActive(true);
       setWorkspaceActivity("Thinking...");
       setWorkspaceTimeline([]);
-      setDottoreDismissed(false);
       useChatStore.getState().setAbortController(chat.id, controller);
       useChatStore.getState().clearStreamBuffer(chat.id);
       useChatStore.getState().clearThinkingBuffer(chat.id);
@@ -2041,10 +2053,18 @@ export function HomeProfessorMariChat({
       setWorkspaceTimeline([]);
       await refreshWorkspaceStatus().catch(() => undefined);
       await invalidateWorkspaceData();
-      if (!received) toast.error("Professor Mari did not receive a reply from the model.");
+      if (!received) {
+        toast.error("Professor Mari did not receive a reply from the model.", {
+          description: "The model or server may still be busy. This message stays visible long enough to screenshot.",
+          duration: PROFESSOR_MARI_ERROR_TOAST_DURATION_MS,
+        });
+      }
     } catch (error) {
       console.error("[Professor Mari] Failed to send", error);
-      toast.error("Professor Mari could not answer right now.");
+      toast.error("Professor Mari could not answer right now.", {
+        description: describeProfessorMariError(error),
+        duration: PROFESSOR_MARI_ERROR_TOAST_DURATION_MS,
+      });
     } finally {
       setSending(false);
     }
@@ -2057,7 +2077,7 @@ export function HomeProfessorMariChat({
           "home-professor-mari-chat mt-10 w-full max-w-3xl border border-[var(--border)] bg-[var(--card)]/85 shadow-lg shadow-black/10 sm:mt-0",
           attachedFooter ? "rounded-t-xl rounded-b-none" : "rounded-xl",
           mobileFocusMode &&
-            "fixed inset-x-0 bottom-0 top-[calc(env(safe-area-inset-top)_+_3rem)] z-30 mt-0 max-w-none overflow-hidden rounded-t-2xl border-0 border-t border-[var(--border)]/70 bg-[var(--background)] sm:relative sm:inset-auto sm:z-auto sm:mt-0 sm:max-w-3xl sm:overflow-visible sm:rounded-xl sm:border sm:bg-[var(--card)]/85",
+            "fixed inset-0 z-[80] mt-0 h-screen max-h-screen max-w-none overflow-hidden rounded-none border-0 bg-[var(--background)] pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-[max(env(safe-area-inset-top),0.5rem)] sm:relative sm:inset-auto sm:z-auto sm:mt-0 sm:h-auto sm:max-h-none sm:max-w-3xl sm:overflow-visible sm:rounded-xl sm:border sm:bg-[var(--card)]/85 sm:pb-0 sm:pt-0 supports-[height:100dvh]:h-[100dvh] supports-[height:100dvh]:max-h-[100dvh]",
         )}
         data-paused={pageActive ? "false" : "true"}
       >
@@ -2065,44 +2085,33 @@ export function HomeProfessorMariChat({
           className={cn(
             "grid gap-2.5 p-2 sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.45fr)] sm:p-2.5",
             mobileFocusMode &&
-              "h-full grid-rows-[auto_minmax(0,1fr)] gap-0 p-0 sm:h-auto sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.45fr)] sm:gap-2.5 sm:p-2.5",
+              "h-full grid-cols-1 grid-rows-[minmax(0,1fr)] gap-0 p-0 sm:h-auto sm:grid-cols-[minmax(0,0.72fr)_minmax(0,1.45fr)] sm:gap-2.5 sm:p-2.5",
           )}
         >
           <div
             className={cn(
               "relative flex min-w-0 flex-col items-center justify-start gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-2.5",
-              mobileFocusMode &&
-                "z-10 overflow-visible rounded-none border-0 bg-[var(--secondary)]/22 px-3 pb-0 pt-2.5 sm:flex",
+              mobileFocusMode && "hidden sm:flex",
             )}
           >
-            {mobileFocusMode && (
-              <button
-                type="button"
-                onClick={closeMobileFocusMode}
-                className="absolute right-3 top-2.5 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)]/70 bg-[var(--card)] text-[var(--muted-foreground)] transition-colors active:bg-[var(--accent)] active:text-[var(--foreground)] sm:hidden"
-                aria-label="Back to home"
-                title="Back"
-              >
-                <X size="0.95rem" />
-              </button>
-            )}
-            <div
-              className={cn(
-                "w-full max-w-[14rem] [--mari-professor-sprite-bottom:5%]",
-                mobileFocusMode && "-mb-12 max-w-[10rem] self-start translate-x-2 translate-y-10",
-              )}
-            >
-              <div style={mobileFocusMode ? { transform: "scale(0.7)", transformOrigin: "bottom left" } : undefined}>
-                <ProfessorMariPixelScene active={isBusy || mariPhase !== null} />
-              </div>
+            <div className="w-full max-w-[14rem] [--mari-professor-sprite-bottom:5%]">
+              <ProfessorMariPixelScene active={isBusy || mariPhase !== null} />
             </div>
-            <div className={cn("w-full text-center sm:hidden", mobileFocusMode && "absolute left-0 top-2 z-10 px-14")}>
+            <div className="w-full text-center sm:hidden">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-[var(--foreground)]">Professor Mari</div>
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
                   {isBusy ? "Working on it..." : "Ready to help"}
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={openMobileChat}
+                className="mari-chrome-control mari-chrome-control--primary mt-3 w-full gap-2 text-xs"
+              >
+                <MessageCircle size="0.9rem" />
+                Start Chatting
+              </button>
             </div>
             <div className="hidden sm:block w-full">
               <HomeFaq
@@ -2123,7 +2132,7 @@ export function HomeProfessorMariChat({
                 animate={{ opacity: 1, y: 0, rotateX: 0, transformOrigin: "top center" }}
                 exit={{ opacity: 0, y: 12, rotateX: 8, transformOrigin: "bottom center" }}
                 transition={PROFESSOR_MARI_PANE_TRANSITION}
-                className={cn("min-w-0", mobileFocusMode && "h-full")}
+                className={cn("min-w-0", !mobileFocusMode && "hidden sm:block", mobileFocusMode && "h-full")}
               >
                 <ProfessorMariSkillsMenu
                   skills={skills}
@@ -2156,34 +2165,29 @@ export function HomeProfessorMariChat({
                 animate={{ opacity: 1, y: 0, rotateX: 0, transformOrigin: "bottom center" }}
                 exit={{ opacity: 0, y: -12, rotateX: -10, transformOrigin: "top center" }}
                 transition={PROFESSOR_MARI_PANE_TRANSITION}
-                className={cn("min-w-0", mobileFocusMode && "h-full")}
+                className={cn("min-w-0", !mobileFocusMode && "hidden sm:block", mobileFocusMode && "h-full")}
               >
                 <div
                   className={cn(
                     "flex h-[clamp(24rem,70dvh,31rem)] min-w-0 flex-col rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/70",
                     mobileFocusMode &&
-                      "h-full rounded-none border-0 bg-[var(--background)] sm:h-[clamp(24rem,70dvh,31rem)] sm:rounded-lg sm:border sm:bg-[var(--background)]/70",
+                      "h-full min-h-0 rounded-none border-0 bg-[var(--background)] sm:h-[clamp(24rem,70dvh,31rem)] sm:rounded-lg sm:border sm:bg-[var(--background)]/70",
                   )}
                 >
                   <div
                     className={cn(
                       "flex items-center justify-between gap-2 border-b border-[var(--border)]/60 px-3 py-2",
-                      mobileFocusMode && "relative min-h-12 bg-[var(--card)]/80 px-2 pt-2",
+                      mobileFocusMode && "min-h-12 bg-[var(--card)]/80 px-2 pt-2",
                     )}
                   >
-                    <div className={cn("flex min-w-0 flex-1 items-center gap-2", mobileFocusMode && "hidden sm:flex")}>
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       <span className="min-w-0 text-center">
                         <span className="block truncate text-xs font-semibold text-[var(--foreground)]">
                           Ask Professor Mari
                         </span>
                       </span>
                     </div>
-                    <div
-                      className={cn(
-                        "flex shrink-0 items-center gap-1",
-                        mobileFocusMode && "absolute right-2 top-1/2 -translate-y-1/2",
-                      )}
-                    >
+                    <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
                         onClick={toggleSkillsMenu}
@@ -2220,8 +2224,19 @@ export function HomeProfessorMariChat({
                         title="Restart Professor Mari chat"
                       >
                         <RefreshCw size="0.75rem" />
-                        /restart
+                        <span className="max-[380px]:hidden">Restart</span>
                       </button>
+                      {mobileFocusMode && (
+                        <button
+                          type="button"
+                          onClick={closeMobileFocusMode}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border)]/70 bg-[var(--card)] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] sm:hidden"
+                          aria-label="Close Professor Mari chat"
+                          title="Close"
+                        >
+                          <X size="0.9rem" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -2243,8 +2258,13 @@ export function HomeProfessorMariChat({
                             thinking={message.role === "assistant" ? getMessageThinking(message) : null}
                           />
                         ))}
-                        {workspaceTimeline.length === 0 && workspaceTimelineActive && (
+                        {workspaceTimeline.length === 0 && workspaceTimelineActive && !showDottoreSupport && (
                           <WorkspaceStatusEvent content={workspaceActivity ?? "Thinking..."} />
+                        )}
+                        {showDottoreSupport && (
+                          <TranscriptRow marker={<MariAvatar active />}>
+                            <ProfessorMariWorkingWindow visible className="max-w-[18rem]" />
+                          </TranscriptRow>
                         )}
                         <WorkspaceTimelineList
                           items={workspaceTimeline}
@@ -2389,11 +2409,6 @@ export function HomeProfessorMariChat({
           />
         </div>
       </section>
-      <ProfessorMariWorkingWindow
-        visible={showDottoreSupport}
-        onDismiss={() => setDottoreDismissed(true)}
-        className="fixed bottom-4 right-4 z-50 w-[min(18rem,calc(100vw-2rem))] max-sm:bottom-3 max-sm:right-3"
-      />
     </>
   );
 }

@@ -140,10 +140,10 @@ export function GameReadableDisplay({ type, content, onClose }: GameReadableDisp
   }, [content]);
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-md sm:p-4">
       <div
         className={cn(
-          "relative mx-4 flex max-h-[75vh] w-full max-w-lg flex-col overflow-hidden rounded-xl p-0",
+          "relative flex max-h-[75vh] w-full max-w-lg flex-col overflow-hidden rounded-xl p-0 supports-[height:100dvh]:max-h-[75dvh]",
           style.wrapper,
           style.border,
         )}

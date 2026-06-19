@@ -19,7 +19,7 @@ const RANKS = [
 function rankedAchievements(
   groupId: string,
   title: string,
-  descriptionSubject: string,
+  descriptionForTarget: (target: number) => string,
   icon: AchievementDefinition["icon"],
   metric: NonNullable<AchievementDefinition["metric"]>,
   category: AchievementDefinition["category"],
@@ -27,7 +27,7 @@ function rankedAchievements(
   return RANKS.map(({ rank, rankLabel, target }) => ({
     id: `${groupId}_${rank}`,
     title,
-    description: `${descriptionSubject} ${target} times.`,
+    description: descriptionForTarget(target),
     category,
     icon,
     rank,
@@ -77,7 +77,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   ...rankedAchievements(
     "who_needs_irl_friends",
     "Who Needs IRL Friends",
-    "Created Conversation chats",
+    (target) => `Created ${target} Conversation chats.`,
     "conversation",
     "conversationChats",
     "creation",
@@ -85,7 +85,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   ...rankedAchievements(
     "they_feel_real_to_me",
     "They Feel Real To Me",
-    "Created Roleplay chats",
+    (target) => `Created ${target} Roleplay chats.`,
     "roleplay",
     "roleplayChats",
     "creation",
@@ -93,21 +93,21 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   ...rankedAchievements(
     "i_have_no_other_hobbies",
     "I Have No Other Hobbies",
-    "Created Game mode chats",
+    (target) => `Created ${target} Game mode chats.`,
     "game",
     "gameChats",
     "creation",
   ),
-  ...rankedAchievements("hoarder", "Hoarder", "Collected characters", "character", "characters", "collection"),
+  ...rankedAchievements("hoarder", "Hoarder", (target) => `Collected ${target} Characters.`, "character", "characters", "collection"),
   ...rankedAchievements(
     "the_worlds_a_stage",
     "The World's A Stage",
-    "Collected lorebooks",
+    (target) => `Collected ${target} Lorebooks.`,
     "lorebook",
     "lorebooks",
     "collection",
   ),
-  ...rankedAchievements("i_am_a_gamer", "I Am A Gamer", "Collected personas", "persona", "personas", "collection"),
+  ...rankedAchievements("i_am_a_gamer", "I Am A Gamer", (target) => `Collected ${target} Personas.`, "persona", "personas", "collection"),
 ];
 
 export const ACHIEVEMENT_DEFINITION_BY_ID = new Map(ACHIEVEMENT_DEFINITIONS.map((item) => [item.id, item]));

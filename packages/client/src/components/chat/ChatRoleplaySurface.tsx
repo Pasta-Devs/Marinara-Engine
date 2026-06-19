@@ -1554,7 +1554,12 @@ export function ChatRoleplaySurface({
               ref={inputChromeRef}
               className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-30", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}
             >
-              <div className={cn("pointer-events-auto relative", centerCompact ? "px-3" : "px-3 md:px-[12%]")}>
+              <div
+                className={cn(
+                  "pointer-events-auto relative mx-auto w-full",
+                  centerCompact ? "px-3" : "max-w-[var(--mari-roleplay-message-column-width)] px-3 md:px-0",
+                )}
+              >
                 {chatMeta.sceneStatus === "active" && (
                   <EndSceneBar
                     sceneChatId={activeChatId}

@@ -4,6 +4,7 @@
 // avoid double-animation under React.StrictMode.
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
   NEUTRAL_PANEL_HEADER,
@@ -76,7 +77,7 @@ export function Modal({ open, onClose, title, children, width = "max-w-md", cont
 
   const isEntering = animating === "enter";
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       role="dialog"
@@ -131,6 +132,7 @@ export function Modal({ open, onClose, title, children, width = "max-w-md", cont
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

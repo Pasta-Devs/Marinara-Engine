@@ -40,12 +40,10 @@ const INPUT_BOX_H = 72; // bottom chat input area height
 const HUD_EDGE_GAP = 16; // Aligns with the roleplay HUD edge padding.
 const FLOATING_EDGE_GAP = 16;
 const TOP_BUTTON_GAP = 6; // Matches the tracker panel gap below the top controls.
+const DESKTOP_PANEL_WIDTH = 236;
+const ROLEPLAY_AREA_SELECTOR = ".rpg-chat-area";
 const ROLEPLAY_TOP_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR = '[data-roleplay-top-controls="right"]';
-const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
-const DESKTOP_PANEL_FALLBACK_W = 236;
-const DESKTOP_PANEL_MIN_W = 224;
-const DESKTOP_PANEL_MAX_W = 320;
 
 interface EchoChamberPanelProps {
   hiddenOnMobile?: boolean;
@@ -73,35 +71,51 @@ function findVisibleElement(selector: string): HTMLElement | null {
   return null;
 }
 
-function clampDesktopPanelWidth(width: number) {
-  return Math.max(DESKTOP_PANEL_MIN_W, Math.min(DESKTOP_PANEL_MAX_W, Math.ceil(width)));
+function getRoleplayAreaRect() {
+  return document.querySelector<HTMLElement>(ROLEPLAY_AREA_SELECTOR)?.getBoundingClientRect() ?? null;
 }
 
-function getAlignedDesktopPanelWidth(isLeft: boolean) {
-  const preferredElement = isLeft ? findVisibleHud() : findVisibleElement(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR);
-  const preferredRect = preferredElement ? readVisibleRect(preferredElement) : null;
-
-  return clampDesktopPanelWidth(preferredRect?.width ?? DESKTOP_PANEL_FALLBACK_W);
+function getDesktopAlignmentElement(isLeft: boolean) {
+  return isLeft
+    ? (findVisibleHud() ?? findVisibleElement(ROLEPLAY_TOP_ANCHOR_SELECTOR))
+    : findVisibleElement(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR);
 }
 
-function getRoleplayAreaTop() {
-  return document.querySelector<HTMLElement>(".rpg-chat-area")?.getBoundingClientRect().top ?? 0;
-}
-
-function getTopChromeBottomOffset() {
-  const containerTop = getRoleplayAreaTop();
+function getTopChromeBottomOffset(containerRect: DOMRect, alignmentRect: DOMRect | null) {
   const candidates: number[] = [];
-  const topBarRect = document.querySelector<HTMLElement>(TOP_BAR_SELECTOR);
-  const topBarBottom = topBarRect ? readVisibleRect(topBarRect)?.bottom : null;
-  if (topBarBottom != null) candidates.push(Math.ceil(topBarBottom - containerTop + TOP_BUTTON_GAP));
-
   const anchors = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR));
   anchors.forEach((anchor) => {
     const rect = readVisibleRect(anchor);
-    if (rect) candidates.push(Math.ceil(rect.bottom - containerTop + TOP_BUTTON_GAP));
+    if (rect) candidates.push(Math.ceil(rect.bottom - containerRect.top + TOP_BUTTON_GAP));
   });
+  if (alignmentRect) candidates.push(Math.ceil(alignmentRect.bottom - containerRect.top + TOP_BUTTON_GAP));
 
   return candidates.length > 0 ? Math.max(TOP_BUTTON_GAP, ...candidates) : WIDGET_BAR_H + TOP_BUTTON_GAP;
+}
+
+function getDesktopPanelPosition(isTop: boolean, isLeft: boolean): CSSProperties {
+  const containerRect = getRoleplayAreaRect();
+  const alignmentElement = getDesktopAlignmentElement(isLeft);
+  const alignmentRect = alignmentElement ? readVisibleRect(alignmentElement) : null;
+  const edgeOffset = alignmentRect && containerRect ? Math.max(0, Math.round(alignmentRect.left - containerRect.left)) : null;
+  const rightEdgeOffset =
+    alignmentRect && containerRect ? Math.max(0, Math.round(containerRect.right - alignmentRect.right)) : null;
+  const topOffset = isTop && containerRect ? getTopChromeBottomOffset(containerRect, alignmentRect) : undefined;
+
+  return {
+    ...(topOffset !== undefined && { top: topOffset }),
+    ...(!isTop && { bottom: INPUT_BOX_H + FLOATING_EDGE_GAP }),
+    ...(isLeft && {
+      left: edgeOffset !== null ? `${edgeOffset}px` : `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-left, 0px))`,
+    }),
+    ...(!isLeft && {
+      right:
+        rightEdgeOffset !== null
+          ? `${rightEdgeOffset}px`
+          : `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-right, 0px))`,
+    }),
+    width: `${DESKTOP_PANEL_WIDTH}px`,
+  };
 }
 
 /** Tiny 4-square grid icon; the active corner is highlighted. */
@@ -263,7 +277,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
         // Position relative to container, so measure HUD bottom relative to rpg-chat-area
         const container = hudEl?.closest(".rpg-chat-area");
         const containerTop = container?.getBoundingClientRect().top ?? 0;
-        const hudBottom = hudEl ? hudEl.getBoundingClientRect().bottom - containerTop : 56;
+        const hudBottom = hudEl ? hudEl.getBoundingClientRect().bottom - containerTop : WIDGET_BAR_H;
         setPosStyle({ top: hudBottom + 8, left: 16, right: 16 });
       };
 
@@ -282,18 +296,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     const isTop = echoChamberSide.startsWith("top");
     const isLeft = echoChamberSide.endsWith("left");
     const update = () => {
-      const topOffset = isTop ? getTopChromeBottomOffset() : undefined;
-      const bottomOffset = !isTop ? INPUT_BOX_H + FLOATING_EDGE_GAP : undefined;
-      const leftOffset = isLeft ? `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-left, 0px))` : undefined;
-      const rightOffset = !isLeft ? `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-right, 0px))` : undefined;
-      const width = `${getAlignedDesktopPanelWidth(isLeft)}px`;
-      setPosStyle({
-        ...(topOffset !== undefined && { top: topOffset }),
-        ...(bottomOffset !== undefined && { bottom: bottomOffset }),
-        ...(leftOffset !== undefined && { left: leftOffset }),
-        ...(rightOffset !== undefined && { right: rightOffset }),
-        width,
-      });
+      setPosStyle(getDesktopPanelPosition(isTop, isLeft));
     };
 
     update();
@@ -304,7 +307,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     const observer = new ResizeObserver(() => scheduleUpdate());
     const observeTargets = () => {
       const targets = [
-        ...Array.from(document.querySelectorAll<HTMLElement>(TOP_BAR_SELECTOR)),
+        ...Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_AREA_SELECTOR)),
         ...Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR)),
         ...Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR)),
         ...Array.from(document.querySelectorAll<HTMLElement>(".rpg-hud")),
@@ -363,7 +366,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       className={cn(
         ROLEPLAY_POPOVER_SHELL,
         "absolute z-[60] flex flex-col",
-        "pointer-events-auto w-[14.75rem] max-md:w-auto md:max-h-[22rem] max-md:max-h-28",
+        "pointer-events-auto max-md:w-auto md:w-[14.75rem] md:max-h-[22rem] max-md:max-h-28",
       )}
       style={posStyle}
     >

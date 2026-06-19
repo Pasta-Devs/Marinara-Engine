@@ -117,8 +117,8 @@ function ExpandedMacroEditor({
 
   return (
     <MacroModalPortal>
-      <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-        <div className="flex h-[min(92vh,56rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl">
+      <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4">
+        <div className="flex h-[min(92vh,56rem)] max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl supports-[height:100dvh]:h-[min(92dvh,56rem)] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
               <h3 className="text-sm font-semibold text-[var(--foreground)]">{title}</h3>
@@ -179,8 +179,8 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
 
   return (
     <MacroModalPortal>
-      <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-        <div className="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl">
+      <div className="fixed inset-0 z-[145] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4">
+        <div className="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl supports-[height:100dvh]:max-h-[88dvh]">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
               <h3 className="text-sm font-semibold text-[var(--foreground)]">Macro reference</h3>
@@ -196,7 +196,7 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="max-h-[calc(88vh-4rem)] space-y-4 overflow-y-auto p-4">
+          <div className="max-h-[calc(88vh-4rem)] space-y-4 overflow-y-auto p-4 supports-[height:100dvh]:max-h-[calc(88dvh-4rem)]">
             <section className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]">
               <p>
                 Use <code className="text-[var(--foreground)]">{"{{macro}}"}</code> anywhere in prompt fields. Conditional blocks let you include content only when a value exists.

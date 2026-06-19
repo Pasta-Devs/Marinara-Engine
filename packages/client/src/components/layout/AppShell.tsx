@@ -736,7 +736,7 @@ export function AppShell() {
     <div
       data-component="AppShell"
       className={cn(
-        "mari-app fixed inset-0 flex overflow-hidden bg-[var(--background)] max-md:pt-[env(safe-area-inset-top)]",
+        "mari-app fixed inset-0 flex overflow-hidden bg-[var(--background)] max-md:h-screen max-md:max-h-screen max-md:pb-[env(safe-area-inset-bottom)] max-md:pt-[env(safe-area-inset-top)] supports-[height:100dvh]:max-md:h-[100dvh] supports-[height:100dvh]:max-md:max-h-[100dvh]",
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
@@ -769,7 +769,7 @@ export function AppShell() {
           sidebarDragWidth == null && "transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
           sidebarOpen && "mari-shell-panel-edge mari-shell-panel-edge--right md:relative",
           // Mobile: fixed overlay
-          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:shadow-2xl max-md:pt-[env(safe-area-inset-top)]",
+          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:h-screen max-md:max-h-screen max-md:pb-[max(env(safe-area-inset-bottom),0.5rem)] max-md:pt-[max(env(safe-area-inset-top),0.5rem)] max-md:shadow-2xl supports-[height:100dvh]:max-md:h-[100dvh] supports-[height:100dvh]:max-md:max-h-[100dvh]",
           !sidebarOpen && "max-md:!w-0",
         )}
         style={{ width: sidebarOpen ? (isMobile ? "100vw" : liveSidebarWidth) : 0 }}
@@ -859,7 +859,7 @@ export function AppShell() {
               data-component="TrackerDataSidebarMobile"
               aria-label="Tracker data panel"
               className={cn(
-                "mari-tracker-panel !fixed inset-y-0 z-50 h-[100dvh] w-screen max-w-none overflow-hidden bg-zinc-950/95 pt-[env(safe-area-inset-top)] shadow-2xl ring-1 ring-zinc-700/80 backdrop-blur-xl",
+                "mari-tracker-panel !fixed inset-y-0 z-50 h-screen max-h-screen w-screen max-w-none overflow-hidden bg-zinc-950/95 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-[max(env(safe-area-inset-top),0.5rem)] shadow-2xl ring-1 ring-zinc-700/80 backdrop-blur-xl supports-[height:100dvh]:h-[100dvh] supports-[height:100dvh]:max-h-[100dvh]",
                 trackerPanelSide === "left" ? "left-0" : "right-0",
               )}
               style={trackerPanelBackgroundStyle}
@@ -889,7 +889,7 @@ export function AppShell() {
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
               data-component="RightPanelMobile"
               aria-label="Settings and tools panel"
-              className="mari-right-panel !fixed inset-y-0 right-0 z-50 !w-full shadow-2xl overflow-hidden bg-[var(--background)]/80 backdrop-blur-xl pt-[env(safe-area-inset-top)]"
+              className="mari-right-panel !fixed inset-y-0 right-0 z-50 h-screen max-h-screen !w-full overflow-hidden bg-[var(--background)]/80 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-[max(env(safe-area-inset-top),0.5rem)] shadow-2xl backdrop-blur-xl supports-[height:100dvh]:h-[100dvh] supports-[height:100dvh]:max-h-[100dvh]"
             >
               <Suspense fallback={<SidePanelFallback />}>
                 <RightPanel />
