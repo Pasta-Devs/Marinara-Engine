@@ -11,6 +11,7 @@ export function buildLlamaArgs(options: {
   port: number;
   contextSize: number;
   runtimeVariant: string;
+  enableNativeToolCalls: boolean;
 }): string[] {
   // llama-server divides --ctx-size across --parallel slots; Marinara's setting is the per-request budget.
   const totalContextSize = options.contextSize * LLAMA_SERVER_PARALLEL_SLOTS;
@@ -26,6 +27,11 @@ export function buildLlamaArgs(options: {
     "--port",
     String(options.port),
   ];
+
+  if (options.enableNativeToolCalls) {
+    // llama.cpp exposes OpenAI-compatible tool calls when llama-server runs with Jinja chat templates.
+    args.push("--jinja");
+  }
 
   // Gemma 4 needs split mode disabled on CUDA multi-GPU launches,
   // but non-CUDA builds may reject the flag entirely.

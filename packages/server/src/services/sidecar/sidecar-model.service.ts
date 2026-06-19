@@ -115,6 +115,10 @@ function normalizeFloatSetting(value: unknown, fallback: number, min: number, ma
   return Math.min(max, Math.max(min, value));
 }
 
+function normalizeBooleanSetting(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 class SidecarModelService {
   private config: SidecarConfig;
   private status: SidecarStatus = "not_downloaded";
@@ -159,6 +163,10 @@ class SidecarModelService {
           SIDECAR_DEFAULT_CONFIG.gpuLayers,
           -1,
           1024,
+        );
+        nextConfig.enableNativeToolCalls = normalizeBooleanSetting(
+          nextConfig.enableNativeToolCalls,
+          SIDECAR_DEFAULT_CONFIG.enableNativeToolCalls,
         );
 
         if (!isRuntimePreference(nextConfig.runtimePreference)) {
@@ -496,6 +504,7 @@ class SidecarModelService {
         | "topP"
         | "topK"
         | "gpuLayers"
+        | "enableNativeToolCalls"
         | "runtimePreference"
       >
     >,

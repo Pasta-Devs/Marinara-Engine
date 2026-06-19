@@ -251,6 +251,55 @@ export class OpenAIProvider extends BaseLLMProvider {
     return "";
   }
 
+  private static asRecord(value: unknown): Record<string, unknown> | null {
+    return typeof value === "object" && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private static toolCallId(index: number): string {
+    return `call_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  private static stringifyToolArguments(value: unknown): string {
+    if (typeof value === "string") return value.trim() ? value : "{}";
+    if (value === undefined || value === null) return "{}";
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "{}";
+    }
+  }
+
+  private static normalizeToolCall(value: unknown, index: number): LLMToolCall | null {
+    const raw = OpenAIProvider.asRecord(value);
+    if (!raw) return null;
+    const fn = OpenAIProvider.asRecord(raw.function) ?? raw;
+    const name = typeof fn.name === "string" ? fn.name : typeof raw.name === "string" ? raw.name : "";
+    if (!name) return null;
+    const id =
+      typeof raw.id === "string" && raw.id.trim()
+        ? raw.id
+        : typeof raw.call_id === "string" && raw.call_id.trim()
+          ? raw.call_id
+          : OpenAIProvider.toolCallId(index);
+    return {
+      id,
+      type: "function",
+      function: {
+        name,
+        arguments: OpenAIProvider.stringifyToolArguments(fn.arguments ?? raw.arguments ?? raw.args),
+      },
+    };
+  }
+
+  private static normalizeToolCalls(value: unknown): LLMToolCall[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item, index) => OpenAIProvider.normalizeToolCall(item, index))
+      .filter((call): call is LLMToolCall => call !== null);
+  }
+
   /**
    * Preserve provider-native Chat Completions reasoning fields for replay.
    * DeepSeek thinking + tool calls requires `reasoning_content` to be passed
@@ -1114,7 +1163,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       const choices = OpenAIProvider.requireChatCompletionsChoices<{
         message: Record<string, unknown> & {
           content: string | unknown[] | null;
-          tool_calls?: LLMToolCall[];
+          tool_calls?: unknown;
           refusal?: string;
         };
         finish_reason?: string;
@@ -1141,10 +1190,11 @@ export class OpenAIProvider extends BaseLLMProvider {
         resolvedContent = choice.message.refusal;
       }
       const usage = OpenAIProvider.extractChatCompletionsUsage(json.usage as ChatCompletionsUsagePayload | undefined);
+      const toolCalls = OpenAIProvider.normalizeToolCalls(choice?.message?.tool_calls);
       return {
         content: resolvedContent,
-        toolCalls: choice?.message?.tool_calls ?? [],
-        finishReason: choice?.finish_reason ?? "stop",
+        toolCalls,
+        finishReason: toolCalls.length > 0 ? "tool_calls" : (choice?.finish_reason ?? "stop"),
         usage,
         ...(OpenAIProvider.hasReasoningMetadata(reasoningMetadata) ? { providerMetadata: reasoningMetadata } : {}),
       };
@@ -1207,12 +1257,7 @@ export class OpenAIProvider extends BaseLLMProvider {
           parsed.choices as Array<{
             delta: Record<string, unknown> & {
               content?: string | unknown[];
-              tool_calls?: Array<{
-                index: number;
-                id?: string;
-                type?: "function";
-                function?: { name?: string; arguments?: string };
-              }>;
+              tool_calls?: unknown;
             };
             finish_reason?: string;
           }>
@@ -1248,23 +1293,38 @@ export class OpenAIProvider extends BaseLLMProvider {
           options.onToken?.(delta.refusal);
         }
 
-        // Accumulate tool call deltas
-        if (delta?.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            const existing = toolCallsMap.get(tc.index);
+        // Accumulate tool call deltas. Some OpenAI-compatible backends (including llama.cpp)
+        // may stream tool calls as { name, arguments } instead of { function: { ... } }.
+        if (Array.isArray(delta?.tool_calls)) {
+          for (const [fallbackIndex, rawToolCall] of delta.tool_calls.entries()) {
+            const tc = OpenAIProvider.asRecord(rawToolCall);
+            if (!tc) continue;
+            const fn = OpenAIProvider.asRecord(tc.function) ?? tc;
+            const index = typeof tc.index === "number" ? tc.index : fallbackIndex;
+            const nameDelta = typeof fn.name === "string" ? fn.name : typeof tc.name === "string" ? tc.name : "";
+            const argumentDelta =
+              typeof fn.arguments === "string"
+                ? fn.arguments
+                : typeof tc.arguments === "string"
+                  ? tc.arguments
+                  : fn.arguments !== undefined || tc.arguments !== undefined
+                    ? OpenAIProvider.stringifyToolArguments(fn.arguments ?? tc.arguments)
+                    : "";
+            const existing = toolCallsMap.get(index);
             if (!existing) {
-              toolCallsMap.set(tc.index, {
-                id: tc.id ?? "",
+              toolCallsMap.set(index, {
+                id: typeof tc.id === "string" ? tc.id : typeof tc.call_id === "string" ? tc.call_id : "",
                 type: "function",
                 function: {
-                  name: tc.function?.name ?? "",
-                  arguments: tc.function?.arguments ?? "",
+                  name: nameDelta,
+                  arguments: argumentDelta,
                 },
               });
             } else {
-              if (tc.id) existing.id = tc.id;
-              if (tc.function?.name) existing.function.name += tc.function.name;
-              if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
+              if (typeof tc.id === "string" && tc.id) existing.id = tc.id;
+              else if (typeof tc.call_id === "string" && tc.call_id) existing.id = tc.call_id;
+              if (nameDelta) existing.function.name += nameDelta;
+              if (argumentDelta) existing.function.arguments += argumentDelta;
             }
           }
         }
@@ -1275,7 +1335,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     const toolCalls: LLMToolCall[] = [];
     const sortedKeys = [...toolCallsMap.keys()].sort((a, b) => a - b);
     for (const key of sortedKeys) {
-      toolCalls.push(toolCallsMap.get(key)!);
+      const normalized = OpenAIProvider.normalizeToolCall(toolCallsMap.get(key), key);
+      if (normalized) toolCalls.push(normalized);
     }
 
     this.emitChatCompletionsReasoning(options, reasoningMetadata);
@@ -1283,7 +1344,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     return {
       content: content || null,
       toolCalls,
-      finishReason: finishReason === "tool_calls" ? "tool_calls" : finishReason,
+      finishReason: toolCalls.length > 0 ? "tool_calls" : finishReason,
       usage: streamUsage,
       ...(OpenAIProvider.hasReasoningMetadata(reasoningMetadata) ? { providerMetadata: reasoningMetadata } : {}),
     };

@@ -28,6 +28,16 @@ export class LocalSidecarProvider extends BaseLLMProvider {
     );
   }
 
+  private assertToolCallsAvailable(options: ChatOptions): void {
+    if (!options.tools?.length) return;
+    const config = sidecarModelService.getConfig();
+    if (sidecarModelService.getResolvedBackend() === "llama_cpp" && !config.enableNativeToolCalls) {
+      throw new Error(
+        "Local sidecar native tool calls are disabled. Open Local AI Model > Runtime Settings and enable Native Tool Calls before using tools with the local sidecar.",
+      );
+    }
+  }
+
   private applyRuntimeSettings(options: ChatOptions): ChatOptions {
     if (options.suppressModelParameters) return options;
     const config = sidecarModelService.getConfig();
@@ -46,6 +56,7 @@ export class LocalSidecarProvider extends BaseLLMProvider {
   }
 
   async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
+    this.assertToolCallsAvailable(options);
     const delegate = await this.createDelegate();
     return yield* delegate.chat(messages, {
       ...this.applyRuntimeSettings(options),
@@ -54,6 +65,7 @@ export class LocalSidecarProvider extends BaseLLMProvider {
   }
 
   async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    this.assertToolCallsAvailable(options);
     const delegate = await this.createDelegate();
     return delegate.chatComplete(messages, {
       ...this.applyRuntimeSettings(options),

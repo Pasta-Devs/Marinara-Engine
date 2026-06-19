@@ -1484,6 +1484,7 @@ export function HomeProfessorMariChat({
   const { data: connectionsRaw, isLoading: connectionsLoading } = useConnections();
   const sidecarModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
+  const sidecarNativeToolCalls = useSidecarStore((state) => state.config.enableNativeToolCalls);
   const fetchSidecarStatus = useSidecarStore((state) => state.fetchStatus);
   const trackAchievement = useTrackAchievement();
   const [chatId, setChatId] = useState<string | null>(null);
@@ -2336,7 +2337,7 @@ export function HomeProfessorMariChat({
                                       {connection.name || connection.id}
                                       {connection.id === LOCAL_SIDECAR_CONNECTION_ID && (
                                         <span className="ml-1 text-[0.625rem] font-normal text-[var(--muted-foreground)]">
-                                          JSON tools
+                                          {sidecarNativeToolCalls ? "native tools" : "tools off"}
                                         </span>
                                       )}
                                     </span>

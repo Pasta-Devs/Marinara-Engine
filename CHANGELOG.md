@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added a Local Model runtime toggle that starts llama.cpp with `--jinja` for OpenAI-compatible native tool calls.
 - Added tracker field locks for editable Roleplay HUD and Tracker Panel fields so manually pinned tracker values survive generated game-state updates.
 
 ### Changed

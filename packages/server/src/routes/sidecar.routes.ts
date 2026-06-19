@@ -80,6 +80,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
     topP: z.number().gt(0).max(1).optional(),
     topK: z.number().int().min(0).max(500).optional(),
     gpuLayers: z.number().int().min(-1).max(1024).optional(),
+    enableNativeToolCalls: z.boolean().optional(),
     runtimePreference: z.enum(SIDECAR_RUNTIME_PREFERENCES).optional(),
   });
 
