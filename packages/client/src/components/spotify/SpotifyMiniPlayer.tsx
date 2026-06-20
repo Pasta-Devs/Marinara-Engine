@@ -134,21 +134,21 @@ const spotifyKeys = {
   devices: ["spotify", "devices"] as const,
 };
 
-const SPOTIFY_GREEN_CLASS = "text-[oklch(0.72_0.18_145)]";
-const SPOTIFY_GREEN_BG_CLASS = "bg-[oklch(0.72_0.18_145)]";
-const MUSIC_PLAYER_SHELL_BORDER_CLASS = "border-[var(--marinara-music-player-shell-border)]";
-const MUSIC_PLAYER_SHELL_BG_CLASS = "bg-[var(--marinara-music-player-shell-bg)]";
-const MUSIC_PLAYER_BORDER_CLASS = "border-[var(--marinara-chat-chrome-panel-border)]";
-const MUSIC_PLAYER_BUTTON_BG_CLASS = "bg-[var(--marinara-chat-chrome-button-bg)]";
-const MUSIC_PLAYER_TILE_BG_CLASS = "bg-[var(--marinara-chat-chrome-highlight-bg)]";
-const MUSIC_PLAYER_TILE_RING_CLASS = "ring-[var(--marinara-chat-chrome-panel-border)]";
-const MUSIC_PLAYER_TEXT_CLASS = "text-[var(--marinara-chat-chrome-panel-title)]";
-const MUSIC_PLAYER_MUTED_CLASS = "text-[var(--marinara-chat-chrome-panel-muted)]";
-const MUSIC_PLAYER_ICON_CLASS = "text-[var(--marinara-chat-chrome-button-text)]";
-const MUSIC_PLAYER_ICON_HOVER_CLASS = "hover:text-[var(--marinara-chat-chrome-button-text-hover)]";
-const MUSIC_PLAYER_ACTION_BG_CLASS = "bg-[var(--marinara-chat-chrome-button-text-active)]";
-const MUSIC_PLAYER_ACTION_TEXT_CLASS = "text-[var(--marinara-chat-chrome-panel-bg)]";
-const MUSIC_PLAYER_PROGRESS_BG_CLASS = "bg-[var(--marinara-chat-chrome-panel-divider)]";
+const SPOTIFY_GREEN_CLASS = "text-[#1DB954]";
+const SPOTIFY_GREEN_BG_CLASS = "bg-[#1DB954]";
+const MUSIC_PLAYER_SHELL_BORDER_CLASS = "border-[#f7f3ef]/10";
+const MUSIC_PLAYER_SHELL_BG_CLASS = "bg-[#191414]/95";
+const MUSIC_PLAYER_BORDER_CLASS = "border-[#f7f3ef]/15";
+const MUSIC_PLAYER_BUTTON_BG_CLASS = "bg-[#f7f3ef]/5";
+const MUSIC_PLAYER_TILE_BG_CLASS = "bg-[#f7f3ef]/5";
+const MUSIC_PLAYER_TILE_RING_CLASS = "ring-[#f7f3ef]/10";
+const MUSIC_PLAYER_TEXT_CLASS = "text-[#f7f3ef]";
+const MUSIC_PLAYER_MUTED_CLASS = "text-[#b3b3b3]";
+const MUSIC_PLAYER_ICON_CLASS = "text-[#b3b3b3]";
+const MUSIC_PLAYER_ICON_HOVER_CLASS = "hover:bg-[#f7f3ef]/10 hover:text-[#f7f3ef]";
+const MUSIC_PLAYER_ACTION_BG_CLASS = "bg-[#f7f3ef]";
+const MUSIC_PLAYER_ACTION_TEXT_CLASS = "text-[#191414]";
+const MUSIC_PLAYER_PROGRESS_BG_CLASS = "bg-[#f7f3ef]/15";
 const REPEAT_TRACK_END_GRACE_MS = 15_000;
 const REPEAT_TRACK_REPLAY_COOLDOWN_MS = 8_000;
 const MANUAL_CONTROL_REPEAT_SUPPRESS_MS = 15_000;
@@ -764,12 +764,12 @@ export function SpotifyMiniPlayer({
   const spotifyVolumeStyle: RangeCssProperties = useMemo(
     () => ({
       "--range-progress": `${volumeDraft}%`,
-      "--range-track-color": "var(--marinara-chat-chrome-panel-divider)",
-      "--range-fill-color": "var(--marinara-chat-chrome-button-text-active)",
-      "--range-thumb-color": "var(--marinara-chat-chrome-button-text-active)",
+      "--range-track-color": "color-mix(in srgb, #1DB954 26%, transparent)",
+      "--range-fill-color": "#1DB954",
+      "--range-thumb-color": "#1DB954",
       "--range-thumb-size": "0.6875rem",
       "--range-track-height": "0.25rem",
-      "--range-thumb-shadow": "0 0 0 0.125rem var(--marinara-chat-chrome-panel-bg)",
+      "--range-thumb-shadow": "0 0 0 0.125rem #191414",
     }),
     [volumeDraft],
   );
@@ -783,7 +783,7 @@ export function SpotifyMiniPlayer({
         <button
           type="button"
           className={cn(
-            "flex w-full shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
+            "flex w-full shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-[#f7f3ef]/10",
             MUSIC_PLAYER_ICON_CLASS,
             MUSIC_PLAYER_ICON_HOVER_CLASS,
           )}
@@ -818,7 +818,6 @@ export function SpotifyMiniPlayer({
             "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
             MUSIC_PLAYER_ICON_CLASS,
             MUSIC_PLAYER_ICON_HOVER_CLASS,
-            volumeMuted && SPOTIFY_GREEN_CLASS,
           )}
           title={volumeMuted ? "Restore volume" : "Mute"}
         >
@@ -899,7 +898,7 @@ export function SpotifyMiniPlayer({
             type="button"
             onClick={() => void handlePlayPause()}
             className={cn(
-              "inline-flex h-7 w-7 items-center justify-center rounded-full shadow-[0_1px_8px_rgba(29,185,84,0.18)] transition-transform hover:scale-105 active:scale-95",
+              "inline-flex h-7 w-7 items-center justify-center rounded-full shadow-[0_1px_8px_rgba(255,255,255,0.18)] transition-transform hover:scale-105 active:scale-95",
               MUSIC_PLAYER_ACTION_BG_CLASS,
               MUSIC_PLAYER_ACTION_TEXT_CLASS,
             )}

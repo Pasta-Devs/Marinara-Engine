@@ -16,6 +16,7 @@ import { ApiError } from "../../../lib/api-client";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
 import { HelpTooltip } from "../../ui/HelpTooltip";
+import { SettingsSwitch } from "./SettingControls";
 
 const PREFERRED_PROMPT_KEY = "conversation.selfie";
 
@@ -372,21 +373,16 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
         )}
       </div>
 
-      <label className="flex cursor-pointer items-start gap-2 rounded-lg bg-[var(--background)]/45 px-2.5 py-2 ring-1 ring-[var(--border)]/70">
-        <input
-          type="checkbox"
-          checked={enabled}
-          disabled={loadingPrompt || !selectedKey}
-          onChange={(event) => setEnabled(event.target.checked)}
-          className="mt-0.5 h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"
-        />
-        <span className="min-w-0">
-          <span className="block text-xs font-medium text-[var(--foreground)]">Apply this override</span>
-          <span className="block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-            Turn this off to keep the template saved without using it.
-          </span>
-        </span>
-      </label>
+      <SettingsSwitch
+        label="Apply this override"
+        description="Turn this off to keep the template saved without using it."
+        checked={enabled}
+        disabled={loadingPrompt || !selectedKey}
+        onChange={setEnabled}
+        labelPosition="start"
+        className="justify-between rounded-lg bg-[var(--background)]/45 px-2.5 py-2 ring-1 ring-[var(--border)]/70"
+        labelClassName="text-xs font-medium text-[var(--foreground)]"
+      />
 
       {lastError && (
         <div className="flex items-start gap-1.5 rounded-lg bg-[var(--destructive)]/10 px-2.5 py-2 text-[0.625rem] text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20">

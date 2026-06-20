@@ -1556,8 +1556,7 @@ export function ChatRoleplaySurface({
             >
               <div
                 className={cn(
-                  "pointer-events-auto relative mx-auto w-full",
-                  centerCompact ? "px-3" : "max-w-(--mari-roleplay-message-column-width) px-3 md:px-0",
+                  "mari-roleplay-input-column pointer-events-auto relative mx-auto px-3 md:px-0",
                 )}
               >
                 {chatMeta.sceneStatus === "active" && (

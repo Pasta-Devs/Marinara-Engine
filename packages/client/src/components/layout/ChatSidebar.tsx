@@ -26,7 +26,6 @@ import {
   Square as SquareIcon,
   ArrowUpDown,
   Tag,
-  Pencil,
 } from "lucide-react";
 import { useBulkExportChats, useChats, useCreateChat, useDeleteChat, useDeleteChatGroup } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
@@ -40,6 +39,7 @@ import {
   useMoveChat,
 } from "../../hooks/use-chat-folders";
 import { useCharacters } from "../../hooks/use-characters";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useChatStore } from "../../stores/chat.store";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { useUIStore, type UserStatus } from "../../stores/ui.store";
@@ -52,6 +52,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 type ChatSortOption = "newest" | "oldest" | "name-asc" | "name-desc";
 
@@ -1098,14 +1099,14 @@ export function ChatSidebar() {
               placeholder={`Search ${activeTab === "conversation" ? "conversations" : activeTab === "game" ? "games" : "roleplays"}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+              className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
             />
           </div>
           <div className="relative">
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as ChatSortOption)}
-              className="mari-chrome-field h-full w-[6.5rem] appearance-none py-2 pl-2.5 pr-7 text-[0.6875rem]"
+              className="mari-chrome-field h-10 w-[6.5rem] appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title="Sort chats"
             >
               <option value="newest">Newest</option>
@@ -1268,12 +1269,12 @@ export function ChatSidebar() {
           </div>
         )}
 
-        <div className="stagger-children flex flex-col gap-0.5">
+        <div className="stagger-children flex flex-col gap-0.5 px-1">
           {activeModeHasChats && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleCreateFolder}
-                className="mari-chrome-control mari-chrome-control--small w-full justify-start text-[0.6875rem]"
+                className="mari-chrome-control mari-chrome-control--small flex-1 justify-center text-[0.6875rem]"
               >
                 <FolderPlus size="0.75rem" />
                 New Folder
@@ -1414,12 +1415,23 @@ function FolderRow({
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
   const [isDropTarget, setIsDropTarget] = useState(false);
+  const handleFolderRenameGesture = useFolderRenameGesture();
   const canToggleCollapse = !forceExpanded;
   const isExpanded = forceExpanded || !folder.collapsed;
+
+  useEffect(() => {
+    if (!renaming) setRenameValue(folder.name);
+  }, [folder.name, renaming]);
+
+  const beginRename = () => {
+    setRenameValue(folder.name);
+    setRenaming(true);
+  };
 
   return (
     <Reorder.Item
       value={folder.id}
+      layout="position"
       data-chat-folder-id={folder.id}
       dragListener={false}
       dragControls={dragControls}
@@ -1472,26 +1484,31 @@ function FolderRow({
           role="button"
           tabIndex={0}
           aria-expanded={isExpanded}
-          aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!canToggleCollapse) return;
-            onToggleCollapse(folder);
-          }}
+          aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+          title="Double-click or press F2 to rename."
+          onClick={(e) =>
+            handleFolderRenameGesture(folder.id, e, {
+              onSingleClick: () => {
+                if (canToggleCollapse) onToggleCollapse(folder);
+              },
+              onRename: beginRename,
+            })
+          }
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!canToggleCollapse) return;
-              onToggleCollapse(folder);
-            }
+            if (e.target !== e.currentTarget) return;
+            handleFolderRenameKeyDown(e, {
+              onSingleClick: () => {
+                if (canToggleCollapse) onToggleCollapse(folder);
+              },
+              onRename: beginRename,
+            });
           }}
           className="flex flex-1 items-center gap-1.5 min-w-0"
         >
           <ChevronRight
             size="0.75rem"
             className={cn(
-              "text-[var(--muted-foreground)] transition-transform shrink-0",
+              "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
               isExpanded && "rotate-90",
             )}
           />
@@ -1531,17 +1548,6 @@ function FolderRow({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setRenameValue(folder.name);
-            setRenaming(true);
-          }}
-          className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--accent)] group-hover:opacity-100 max-md:opacity-100"
-          title="Rename folder"
-        >
-          <Pencil size="0.75rem" className="text-[var(--muted-foreground)]" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
             onDelete(folder, chatCount);
           }}
           className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--destructive)]/20 group-hover:opacity-100 max-md:opacity-100"
@@ -1550,11 +1556,13 @@ function FolderRow({
         </button>
       </div>
       {/* Folder contents */}
-      {isExpanded && entries.length > 0 && (
-        <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pl-1">
-          {entries.map(renderChatRow)}
-        </div>
-      )}
+      <SmoothFolderContent
+        open={isExpanded && entries.length > 0}
+        className="ml-4 border-l border-[var(--border)]/20 pl-1"
+        innerClassName="flex flex-col gap-0.5"
+      >
+        {entries.map(renderChatRow)}
+      </SmoothFolderContent>
     </Reorder.Item>
   );
 }

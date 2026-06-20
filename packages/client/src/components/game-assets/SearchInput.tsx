@@ -29,7 +29,7 @@ export function SearchInput({ search, onSearch }: { search: string; onSearch: (v
       {!expanded && (
         <button
           onClick={() => setExpanded(true)}
-          className="rounded-lg border border-(--border) bg-(--background) p-1.5 text-(--muted-foreground) transition-colors hover:bg-(--accent) hover:text-(--foreground) sm:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-(--border) bg-(--background) text-(--muted-foreground) transition-colors hover:bg-(--accent) hover:text-(--foreground) sm:hidden"
           title="Search in folder"
         >
           <Search size="0.875rem" />
@@ -54,7 +54,7 @@ export function SearchInput({ search, onSearch }: { search: string; onSearch: (v
             }
           }}
           placeholder="Search in folder..."
-          className="h-8 w-48 rounded-lg border border-(--border) bg-(--background) pl-7 pr-7 text-sm text-(--foreground) outline-none transition-colors focus:border-(--foreground)/40 focus:ring-1 focus:ring-(--foreground)/15 max-sm:absolute max-sm:right-0 max-sm:top-1/2 max-sm:w-48 max-sm:-translate-y-1/2"
+          className="h-10 w-48 rounded-lg border border-(--border) bg-(--background) pl-7 pr-7 text-sm text-(--foreground) outline-none transition-colors focus:border-(--foreground)/40 focus:ring-1 focus:ring-(--foreground)/15 max-sm:absolute max-sm:right-0 max-sm:top-1/2 max-sm:w-48 max-sm:-translate-y-1/2 sm:h-8"
         />
         {expanded && (
           <button

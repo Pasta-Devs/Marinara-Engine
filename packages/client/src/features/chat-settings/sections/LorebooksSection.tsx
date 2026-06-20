@@ -73,17 +73,22 @@ export function LorebooksSection({
           />
         </label>
         <input
-          type="number"
-          min={0}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
           value={tokenBudgetDraft}
-          onChange={(event) => setTokenBudgetDraft(event.target.value)}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            if (!/^\d*$/.test(nextValue)) return;
+            setTokenBudgetDraft(nextValue);
+          }}
           onBlur={commitTokenBudget}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.currentTarget.blur();
             }
           }}
-          className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
         />
       </div>
 

@@ -97,7 +97,6 @@ export function ConversationMessageActions({
         icon={<Languages size="0.75rem" />}
         onClick={onTranslate}
         title={translatedText ? "Hide translation" : "Translate"}
-        className={translatedText ? "text-blue-400" : undefined}
         tabIndex={tabIdx}
       />
       <MsgAction icon={<Pencil size="0.75rem" />} onClick={onEdit} title="Edit" tabIndex={tabIdx} />
@@ -115,7 +114,11 @@ export function ConversationMessageActions({
           icon={isHiddenFromAI ? <Eye size="0.75rem" /> : <EyeOff size="0.75rem" />}
           onClick={onToggleHiddenFromAI}
           title={isHiddenFromAI ? "Unhide from AI" : "Hide from AI"}
-          className={isHiddenFromAI ? "text-amber-400" : undefined}
+          className={
+            isHiddenFromAI
+              ? "text-[var(--marinara-chat-chrome-button-text-active)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
+              : undefined
+          }
           tabIndex={tabIdx}
         />
       )}
@@ -141,7 +144,6 @@ export function ConversationMessageActions({
           icon={<Trash2 size="0.75rem" />}
           onClick={onDelete}
           title="Delete"
-          className="hover:text-[var(--destructive)]"
           tabIndex={tabIdx}
         />
       )}

@@ -6,6 +6,7 @@ import { useState, useMemo, useCallback, useRef, type ChangeEvent, type DragEven
 import { toast } from "sonner";
 import {
   Plus,
+  Copy,
   Download,
   Check,
   BookOpen,
@@ -17,16 +18,21 @@ import {
   ChevronRight,
   ChevronUp,
   FolderPlus,
-  Pencil,
   X,
   Trash2,
   Camera,
 } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
-import { useLorebooks, useDeleteLorebook, useUpdateLorebook, useUploadLorebookImage } from "../../hooks/use-lorebooks";
+import {
+  useLorebooks,
+  useCreateLorebook,
+  useDeleteLorebook,
+  useUpdateLorebook,
+  useUploadLorebookImage,
+} from "../../hooks/use-lorebooks";
 import { useCharacters, usePersonas } from "../../hooks/use-characters";
-import type { Lorebook, LorebookCategory } from "@marinara-engine/shared";
+import type { Lorebook, LorebookCategory, LorebookEntry, LorebookFolder } from "@marinara-engine/shared";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
@@ -39,7 +45,9 @@ import {
   useMoveLibraryItem,
   useUpdateLibraryFolder,
 } from "../../hooks/use-library-folders";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 const CATEGORIES: Array<{ id: LorebookCategory | "all" | "active"; label: string }> = [
   { id: "all", label: "All" },
@@ -62,6 +70,21 @@ const CATEGORY_COLORS: Record<string, string> = {
   all: "from-amber-400 to-orange-500",
 };
 
+function remapLorebookEntryRelationships(
+  relationships: Record<string, string> | null | undefined,
+  entryIdMap: Map<string, string>,
+) {
+  const remapped: Record<string, string> = {};
+  if (!relationships) return remapped;
+
+  for (const [sourceEntryId, relationshipType] of Object.entries(relationships)) {
+    const clonedEntryId = entryIdMap.get(sourceEntryId);
+    if (clonedEntryId) remapped[clonedEntryId] = relationshipType;
+  }
+
+  return remapped;
+}
+
 export function LorebooksPanel() {
   const [activeCategory, setActiveCategory] = useState<LorebookCategory | "all" | "active">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -79,6 +102,7 @@ export function LorebooksPanel() {
   const imageTargetLorebookIdRef = useRef<string | null>(null);
   const lorebookTouchDragRef = useRef<{ id: string; timer: number | null; active: boolean } | null>(null);
   const suppressLorebookClickRef = useRef(false);
+  const handleFolderRenameGesture = useFolderRenameGesture();
 
   // Active chat context for the "Active" filter
   const activeChat = useChatStore((s) => s.activeChat);
@@ -102,6 +126,7 @@ export function LorebooksPanel() {
   );
   const { data: rawCharacters } = useCharacters();
   const { data: rawPersonas } = usePersonas();
+  const createLorebook = useCreateLorebook();
   const deleteLorebook = useDeleteLorebook();
   const updateLorebook = useUpdateLorebook();
   const uploadLorebookImage = useUploadLorebookImage();
@@ -371,6 +396,108 @@ export function LorebooksPanel() {
     }
   }, []);
 
+  const handleDuplicateLorebook = useCallback(
+    async (lorebook: Lorebook) => {
+      try {
+        const [folders, entries] = await Promise.all([
+          api.get<LorebookFolder[]>(`/lorebooks/${lorebook.id}/folders`),
+          api.get<LorebookEntry[]>(`/lorebooks/${lorebook.id}/entries`),
+        ]);
+        const created = await createLorebook.mutateAsync({
+          name: `${lorebook.name} (Copy)`,
+          description: lorebook.description,
+          category: lorebook.category,
+          imagePath: lorebook.imagePath,
+          scanDepth: lorebook.scanDepth,
+          tokenBudget: lorebook.tokenBudget,
+          entryLimit: lorebook.entryLimit,
+          recursiveScanning: lorebook.recursiveScanning,
+          maxRecursionDepth: lorebook.maxRecursionDepth,
+          excludeFromVectorization: lorebook.excludeFromVectorization,
+          characterId: lorebook.characterId,
+          characterIds: lorebook.characterIds,
+          personaId: lorebook.personaId,
+          personaIds: lorebook.personaIds,
+          chatId: lorebook.chatId,
+          isGlobal: lorebook.isGlobal,
+          enabled: lorebook.enabled,
+          scope: lorebook.scope,
+          tags: lorebook.tags,
+          generatedBy: lorebook.generatedBy,
+          sourceAgentId: lorebook.sourceAgentId,
+        });
+        const createdId = created.id;
+        const folderIdMap = new Map<string, string>();
+        const pendingFolders = [...folders].sort((a, b) => a.order - b.order);
+
+        while (pendingFolders.length > 0) {
+          let createdInPass = false;
+          for (let index = pendingFolders.length - 1; index >= 0; index--) {
+            const folder = pendingFolders[index];
+            const parentFolderId = folder.parentFolderId ? folderIdMap.get(folder.parentFolderId) : null;
+            if (folder.parentFolderId && !parentFolderId) continue;
+
+            const createdFolder = await api.post<LorebookFolder>(`/lorebooks/${createdId}/folders`, {
+              name: folder.name,
+              enabled: folder.enabled,
+              parentFolderId,
+              order: folder.order,
+            });
+            folderIdMap.set(folder.id, createdFolder.id);
+            pendingFolders.splice(index, 1);
+            createdInPass = true;
+          }
+
+          if (!createdInPass) throw new Error("Could not copy lorebook folders");
+        }
+
+        if (entries.length > 0) {
+          const clonedEntries = entries.map((entry) => {
+            const clone: Partial<LorebookEntry> = { ...entry };
+            delete clone.id;
+            delete clone.lorebookId;
+            delete clone.createdAt;
+            delete clone.updatedAt;
+            delete clone.embedding;
+            clone.folderId = entry.folderId ? (folderIdMap.get(entry.folderId) ?? null) : null;
+            clone.relationships = {};
+            return clone;
+          });
+
+          const createdEntries = await api.post<LorebookEntry[]>(`/lorebooks/${createdId}/entries/bulk`, {
+            entries: clonedEntries,
+          });
+
+          const entryIdMap = new Map<string, string>();
+          entries.forEach((entry, index) => {
+            const createdEntry = createdEntries[index];
+            if (createdEntry) entryIdMap.set(entry.id, createdEntry.id);
+          });
+
+          const relationshipUpdates = entries
+            .map((entry, index) => {
+              const createdEntry = createdEntries[index];
+              if (!createdEntry) return null;
+
+              const relationships = remapLorebookEntryRelationships(entry.relationships, entryIdMap);
+              if (Object.keys(relationships).length === 0) return null;
+
+              return api.patch<LorebookEntry>(`/lorebooks/${createdId}/entries/${createdEntry.id}`, { relationships });
+            })
+            .filter((update): update is Promise<LorebookEntry> => Boolean(update));
+
+          await Promise.all(relationshipUpdates);
+        }
+
+        toast.success(`Copied "${lorebook.name}"`);
+        openLorebookDetail(createdId);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to copy lorebook");
+      }
+    },
+    [createLorebook, openLorebookDetail],
+  );
+
   const handleLorebookImageSelected = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -524,6 +651,7 @@ export function LorebooksPanel() {
               deleteLorebook.mutate(lb.id);
             }
           }}
+          onDuplicate={() => void handleDuplicateLorebook(lb)}
           onImagePick={() => handlePickLorebookImage(lb.id)}
           selectionMode={selectionMode}
           isSelected={selectedLorebookIds.has(lb.id)}
@@ -550,6 +678,7 @@ export function LorebooksPanel() {
       getCharacterNames,
       getDraggedLorebookIds,
       getPersonaNames,
+      handleDuplicateLorebook,
       handlePickLorebookImage,
       openLorebookDetail,
       selectedLorebookIds,
@@ -576,14 +705,14 @@ export function LorebooksPanel() {
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-amber-400/15 transition-all hover:shadow-lg hover:shadow-amber-400/25 active:scale-[0.98]"
           title="New"
         >
-          <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
+          <Plus size="0.8125rem" />
         </button>
         <button
           onClick={() => openModal("import-lorebook")}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title="Import"
         >
-          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+          <Download size="0.8125rem" />
         </button>
         <button
           onClick={() => {
@@ -596,7 +725,7 @@ export function LorebooksPanel() {
           )}
           title="Select"
         >
-          <Check size="0.8125rem" /> <span className="md:hidden">Select</span>
+          <Check size="0.8125rem" />
         </button>
       </div>
 
@@ -612,14 +741,14 @@ export function LorebooksPanel() {
             placeholder="Search lorebooks"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
           />
         </div>
         <div className="relative">
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as typeof sort)}
-            className="mari-chrome-field h-full appearance-none py-2 pl-2.5 pr-7 text-[0.6875rem]"
+            className="mari-chrome-field h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -769,13 +898,36 @@ export function LorebooksPanel() {
               className="flex flex-col rounded-lg transition-colors"
             >
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+                title="Double-click or press F2 to rename."
                 className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
-                onClick={() => setExpandedFolderId(isExpanded ? null : folder.id)}
+                onClick={(event) =>
+                  handleFolderRenameGesture(folder.id, event, {
+                    onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                    onRename: () => {
+                      setEditingFolderId(folder.id);
+                      setEditFolderName(folder.name);
+                    },
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  handleFolderRenameKeyDown(event, {
+                    onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                    onRename: () => {
+                      setEditingFolderId(folder.id);
+                      setEditFolderName(folder.name);
+                    },
+                  });
+                }}
               >
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -811,17 +963,6 @@ export function LorebooksPanel() {
                   <button
                     onClick={(event) => {
                       event.stopPropagation();
-                      setEditingFolderId(folder.id);
-                      setEditFolderName(folder.name);
-                    }}
-	                    className="mari-chrome-control mari-chrome-control--small p-1"
-	                    title="Rename folder"
-	                  >
-                    <Pencil size="0.6875rem" />
-                  </button>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
                       void confirmNonEmptyFolderDelete(folder.itemIds.length, {
                         title: "Delete Folder",
                         message: `Delete "${folder.name}"? Its ${folder.itemIds.length} lorebook${
@@ -842,15 +983,17 @@ export function LorebooksPanel() {
                   </button>
                 </div>
               </div>
-              {isExpanded && (
-                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
-                  {folderItems.length === 0 ? (
-                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop lorebooks here.</p>
-                  ) : (
-                    folderItems.map((lb) => renderLorebookRow(lb))
-                  )}
-                </div>
-              )}
+              <SmoothFolderContent
+                open={isExpanded}
+                className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
+                innerClassName="flex flex-col gap-0.5"
+              >
+                {folderItems.length === 0 ? (
+                  <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop lorebooks here.</p>
+                ) : (
+                  folderItems.map((lb) => renderLorebookRow(lb))
+                )}
+              </SmoothFolderContent>
             </div>
           );
         })}
@@ -934,6 +1077,7 @@ function LorebookRow({
   personaName,
   onClick,
   onDelete,
+  onDuplicate,
   onImagePick,
   selectionMode,
   isSelected,
@@ -950,6 +1094,7 @@ function LorebookRow({
   personaName?: string;
   onClick: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   onImagePick: () => void;
   selectionMode?: boolean;
   isSelected?: boolean;
@@ -1028,7 +1173,7 @@ function LorebookRow({
           </span>
         </button>
       )}
-      <div className="min-w-0 flex-1">
+      <div className={cn("min-w-0 flex-1", !selectionMode && "pr-16")}>
         <div className="flex items-center gap-1.5">
           <span className="truncate text-sm font-medium">{lorebook.name}</span>
           {!lorebook.enabled && (
@@ -1051,6 +1196,16 @@ function LorebookRow({
       </div>
       {!selectionMode && (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate();
+            }}
+            className="mari-chrome-control mari-chrome-control--small p-1.5"
+            title="Copy"
+          >
+            <Copy size="0.75rem" />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();

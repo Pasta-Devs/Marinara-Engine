@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 
 export interface GameCharacterSheetGameCard {
@@ -90,7 +91,7 @@ const FIELD_LABEL_CLASS = "text-[0.6875rem] font-semibold uppercase tracking-wid
 const TEXT_INPUT_CLASS =
   "w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)]";
 const NUMBER_INPUT_CLASS =
-  "w-full rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] px-2.5 py-1.5 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)]";
+  "w-full rounded-lg border border-transparent bg-[var(--marinara-chat-chrome-input-bg)] px-2.5 py-1.5 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)]";
 
 function normalizeTextValue(value: unknown) {
   if (typeof value === "string") return value;
@@ -569,24 +570,21 @@ export function GameCharacterSheet({
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block space-y-1.5">
                         <span className={FIELD_LABEL_CLASS}>Current HP</span>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           value={draft.hpValue}
-                          onChange={(e) =>
-                            setDraft((prev) => ({ ...prev, hpValue: parseInt(e.target.value, 10) || 0 }))
-                          }
+                          onCommit={(value) => setDraft((prev) => ({ ...prev, hpValue: value }))}
+                          min={0}
+                          selectOnFocus
                           className={NUMBER_INPUT_CLASS}
                         />
                       </label>
                       <label className="block space-y-1.5">
                         <span className={FIELD_LABEL_CLASS}>Max HP</span>
-                        <input
-                          type="number"
+                        <DraftNumberInput
                           value={draft.hpMax}
                           min={1}
-                          onChange={(e) =>
-                            setDraft((prev) => ({ ...prev, hpMax: Math.max(1, parseInt(e.target.value, 10) || 1) }))
-                          }
+                          onCommit={(value) => setDraft((prev) => ({ ...prev, hpMax: Math.max(1, value) }))}
+                          selectOnFocus
                           className={NUMBER_INPUT_CLASS}
                         />
                       </label>
@@ -601,10 +599,10 @@ export function GameCharacterSheet({
                             placeholder="STR"
                             className={TEXT_INPUT_CLASS}
                           />
-                          <input
-                            type="number"
+                          <DraftNumberInput
                             value={attr.value}
-                            onChange={(e) => updateAttribute(index, "value", parseInt(e.target.value, 10) || 0)}
+                            onCommit={(value) => updateAttribute(index, "value", value)}
+                            selectOnFocus
                             className={NUMBER_INPUT_CLASS}
                           />
                           <button

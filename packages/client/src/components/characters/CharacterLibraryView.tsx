@@ -4,7 +4,6 @@ import {
   ArrowUpDown,
   Download,
   Hash,
-  MessageCircle,
   Pencil,
   Plus,
   Search,
@@ -12,7 +11,6 @@ import {
   User,
 } from "lucide-react";
 import { useCharacters } from "../../hooks/use-characters";
-import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
 import { getCharacterTitle } from "../../lib/character-display";
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
@@ -20,9 +18,11 @@ import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
 import type { CharacterData } from "@marinara-engine/shared";
 
 const libraryToolbarButtonClass =
-  "mari-chrome-control mari-chrome-control--small h-7 min-w-0 px-2 text-[0.75rem]";
+  "mari-chrome-control h-10 min-w-0 px-3 text-[0.75rem] md:h-9";
 const libraryToolbarFieldClass =
-  "mari-chrome-field mari-chrome-field--compact h-7 w-full text-[0.75rem]";
+  "mari-chrome-field h-10 w-full text-[0.75rem] md:h-9";
+const libraryNewCharacterButtonClass =
+  "flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 px-3 text-[0.75rem] font-semibold text-white shadow-md shadow-pink-500/15 transition-all hover:shadow-lg hover:shadow-pink-500/25 active:scale-[0.98] md:h-9";
 
 type CharacterRow = {
   id: string;
@@ -120,7 +120,6 @@ function CharacterLibraryDetailCard({
   character: ParsedCharacterRow;
   onEdit: (id: string) => void;
 }) {
-  const { startChatFromCharacter, isStartingChat } = useStartChatFromCharacter();
   const characterName = getText(character.parsed.name) || "Unnamed";
   const characterTitle = getCharacterTitle({ name: characterName, comment: character.comment });
   const characterMeta = getCharacterMeta(character);
@@ -184,27 +183,8 @@ function CharacterLibraryDetailCard({
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button
-                type="button"
-                onClick={() =>
-                  startChatFromCharacter({
-                    characterId: character.id,
-                    characterName,
-                    mode: "roleplay",
-                    firstMessage: getText(character.parsed.first_mes),
-                    alternateGreetings: Array.isArray(character.parsed.alternate_greetings)
-                      ? character.parsed.alternate_greetings
-                      : [],
-                  })
-                }
-                disabled={isStartingChat}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-2.5 text-sm font-medium text-[var(--primary-foreground)] shadow-lg shadow-pink-500/15 transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <MessageCircle size="0.875rem" />
-                Start New Chat
-              </button>
-              <button
                 onClick={() => onEdit(character.id)}
-                className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-pink-500/15 transition-all hover:shadow-pink-500/25"
+                className="mari-chrome-control mari-chrome-control--primary px-4 py-2.5 text-sm"
               >
                 <Pencil size="0.875rem" />
                 Edit Character
@@ -414,17 +394,19 @@ export function CharacterLibraryView() {
           <div className="grid w-full grid-cols-2 gap-1.5 sm:ml-auto sm:w-72 lg:w-80">
             <button
               onClick={() => openModal("create-character")}
-              className={libraryToolbarButtonClass}
+              className={libraryNewCharacterButtonClass}
+              title="New character"
+              aria-label="New character"
             >
               <Plus size="0.75rem" />
-              New
             </button>
             <button
               onClick={() => openModal("import-character")}
               className={libraryToolbarButtonClass}
+              title="Import character"
+              aria-label="Import character"
             >
               <Download size="0.75rem" />
-              Import
             </button>
 
             <div className="relative min-w-0">

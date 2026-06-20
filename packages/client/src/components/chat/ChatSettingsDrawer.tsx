@@ -2460,10 +2460,8 @@ export function ChatSettingsDrawer({
             updateMeta.mutate({ id: chat.id, enableMemoryRecall: !effectiveValue });
           }}
           className={cn(
-            "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-            effectiveValue
-              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+            "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+            effectiveValue && "mari-chat-option-field--active",
           )}
         >
           <div className="flex-1 min-w-0">
@@ -2474,8 +2472,8 @@ export function ChatSettingsDrawer({
           </div>
           <div
             className={cn(
-              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-              effectiveValue ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+              "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+              effectiveValue && "mari-chat-option-switch--active",
             )}
           >
             <div
@@ -3661,10 +3659,8 @@ export function ChatSettingsDrawer({
                   <button
                     onClick={() => updateMeta.mutate({ id: chat.id, groupSpeakerColors: !metadata.groupSpeakerColors })}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.groupSpeakerColors
-                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                      metadata.groupSpeakerColors && "mari-chat-option-field--active",
                     )}
                   >
                     <div className="flex-1 min-w-0">
@@ -3676,8 +3672,8 @@ export function ChatSettingsDrawer({
                     </div>
                     <div
                       className={cn(
-                        "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        metadata.groupSpeakerColors ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                        "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                        metadata.groupSpeakerColors && "mari-chat-option-switch--active",
                       )}
                     >
                       <div
@@ -3745,10 +3741,8 @@ export function ChatSettingsDrawer({
                       })
                     }
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.groupTurnPromptEnabled !== false
-                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                      metadata.groupTurnPromptEnabled !== false && "mari-chat-option-field--active",
                     )}
                   >
                     <div className="min-w-0 flex-1">
@@ -3761,10 +3755,8 @@ export function ChatSettingsDrawer({
                     </div>
                     <div
                       className={cn(
-                        "ml-3 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        metadata.groupTurnPromptEnabled !== false
-                          ? "bg-[var(--primary)]"
-                          : "bg-[var(--muted-foreground)]/50",
+                        "mari-chat-option-switch ml-3 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                        metadata.groupTurnPromptEnabled !== false && "mari-chat-option-switch--active",
                       )}
                     >
                       <div
@@ -3783,10 +3775,8 @@ export function ChatSettingsDrawer({
                       })
                     }
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.groupSpeakerNamesInHistory === true
-                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                      metadata.groupSpeakerNamesInHistory === true && "mari-chat-option-field--active",
                     )}
                   >
                     <div className="min-w-0 flex-1">
@@ -3799,10 +3789,8 @@ export function ChatSettingsDrawer({
                     </div>
                     <div
                       className={cn(
-                        "ml-3 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        metadata.groupSpeakerNamesInHistory === true
-                          ? "bg-[var(--primary)]"
-                          : "bg-[var(--muted-foreground)]/50",
+                        "mari-chat-option-switch ml-3 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                        metadata.groupSpeakerNamesInHistory === true && "mari-chat-option-switch--active",
                       )}
                     >
                       <div
@@ -3875,10 +3863,8 @@ export function ChatSettingsDrawer({
                     updateMeta.mutate({ id: chat.id, autonomousMessages: !metadata.autonomousMessages });
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    metadata.autonomousMessages
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    metadata.autonomousMessages && "mari-chat-option-field--active",
                   )}
                 >
                   <div className="flex-1 min-w-0">
@@ -3889,8 +3875,8 @@ export function ChatSettingsDrawer({
                   </div>
                   <div
                     className={cn(
-                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      metadata.autonomousMessages ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      metadata.autonomousMessages && "mari-chat-option-switch--active",
                     )}
                   >
                     <div
@@ -3911,10 +3897,8 @@ export function ChatSettingsDrawer({
                     });
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    metadata.groupResponseOrder === "manual"
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    metadata.groupResponseOrder === "manual" && "mari-chat-option-field--active",
                   )}
                 >
                   <div className="flex-1 min-w-0">
@@ -3925,10 +3909,8 @@ export function ChatSettingsDrawer({
                   </div>
                   <div
                     className={cn(
-                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      metadata.groupResponseOrder === "manual"
-                        ? "bg-[var(--primary)]"
-                        : "bg-[var(--muted-foreground)]/50",
+                      "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      metadata.groupResponseOrder === "manual" && "mari-chat-option-switch--active",
                     )}
                   >
                     <div
@@ -3947,10 +3929,8 @@ export function ChatSettingsDrawer({
                       updateMeta.mutate({ id: chat.id, characterExchanges: !metadata.characterExchanges });
                     }}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.characterExchanges
-                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                      metadata.characterExchanges && "mari-chat-option-field--active",
                     )}
                   >
                     <div className="flex-1 min-w-0">
@@ -3961,8 +3941,8 @@ export function ChatSettingsDrawer({
                     </div>
                     <div
                       className={cn(
-                        "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        metadata.characterExchanges ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                        "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                        metadata.characterExchanges && "mari-chat-option-switch--active",
                       )}
                     >
                       <div
@@ -3985,10 +3965,8 @@ export function ChatSettingsDrawer({
                     }
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    conversationSchedulesEnabled
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    conversationSchedulesEnabled && "mari-chat-option-field--active",
                   )}
                 >
                   <div className="flex-1 min-w-0">
@@ -3999,8 +3977,8 @@ export function ChatSettingsDrawer({
                   </div>
                   <div
                     className={cn(
-                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      conversationSchedulesEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      conversationSchedulesEnabled && "mari-chat-option-switch--active",
                     )}
                   >
                     <div
@@ -4081,10 +4059,8 @@ export function ChatSettingsDrawer({
                     updateMeta.mutate({ id: chat.id, characterCommands: !conversationCommandsEnabled });
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    conversationCommandsEnabled
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    conversationCommandsEnabled && "mari-chat-option-field--active",
                   )}
                 >
                   <div className="min-w-0 flex-1">
@@ -4096,8 +4072,8 @@ export function ChatSettingsDrawer({
                   </div>
                   <div
                     className={cn(
-                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      conversationCommandsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                      "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      conversationCommandsEnabled && "mari-chat-option-switch--active",
                     )}
                   >
                     <div
@@ -4127,10 +4103,8 @@ export function ChatSettingsDrawer({
                             })
                           }
                           className={cn(
-                            "flex min-h-[4.125rem] items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
-                            enabled
-                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                            "mari-chat-option-field flex min-h-[4.125rem] items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
+                            enabled && "mari-chat-option-field--active",
                           )}
                           aria-pressed={enabled}
                         >
@@ -4144,8 +4118,8 @@ export function ChatSettingsDrawer({
                           </div>
                           <div
                             className={cn(
-                              "mt-0.5 h-4 w-7 shrink-0 rounded-full p-0.5 transition-colors",
-                              enabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                              "mari-chat-option-switch mt-0.5 h-4 w-7 shrink-0 rounded-full p-0.5 transition-colors",
+                              enabled && "mari-chat-option-switch--active",
                             )}
                           >
                             <div

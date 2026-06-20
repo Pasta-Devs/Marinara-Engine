@@ -2005,7 +2005,7 @@ export function BotBrowserView() {
                       setPage(1);
                     }}
                     placeholder="Search characters..."
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] py-2 pl-9 pr-8 text-sm text-[var(--foreground)] placeholder-[var(--muted-foreground)] outline-none transition-colors focus:border-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] py-0 pl-9 pr-8 text-sm text-[var(--foreground)] placeholder-[var(--muted-foreground)] outline-none transition-colors focus:border-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60 md:h-9"
                   />
                   {query && (
                     <button
@@ -2023,7 +2023,7 @@ export function BotBrowserView() {
                     setSort(e.target.value);
                     setPage(1);
                   }}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none"
+                  className="h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-0 text-xs text-[var(--foreground)] outline-none md:h-9"
                 >
                   {sortGroups.map((group) =>
                     group.label ? (
@@ -2047,7 +2047,7 @@ export function BotBrowserView() {
                 <button
                   onClick={() => setShowTagPanel((v) => !v)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors",
+                    "flex h-10 items-center gap-1.5 rounded-lg border px-3 py-0 text-xs transition-colors md:h-9",
                     showTagPanel || includeTags.length > 0 || excludeTags.length > 0
                       ? "border-[var(--primary)]/40 bg-[var(--primary)]/10 text-[var(--primary)]"
                       : "border-[var(--border)] bg-[var(--secondary)] hover:bg-[var(--accent)]",
@@ -2068,7 +2068,7 @@ export function BotBrowserView() {
                   <button
                     onClick={() => setShowFiltersPanel((v) => !v)}
                     className={cn(
-                      "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-colors",
+                      "flex h-10 items-center gap-1.5 rounded-lg border px-3 py-0 text-xs transition-colors md:h-9",
                       showFiltersPanel || hasActiveFeatures
                         ? "border-[var(--primary)]/40 bg-[var(--primary)]/10 text-[var(--primary)]"
                         : "border-[var(--border)] bg-[var(--secondary)] hover:bg-[var(--accent)]",

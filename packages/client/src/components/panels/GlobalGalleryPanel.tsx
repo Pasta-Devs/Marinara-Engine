@@ -2,12 +2,13 @@
 // Panel: Global Gallery — profile-wide images + flat folders
 // ──────────────────────────────────────────────
 import { useCallback, useMemo, useState } from "react";
-import { Upload, Download, Trash2, X, FolderPlus, Pencil, Check, Folder } from "lucide-react";
+import { Upload, Download, Trash2, X, FolderPlus, Check, Folder } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import {
   useGlobalGalleryImages,
   useGalleryFolders,
@@ -44,6 +45,7 @@ export function GlobalGalleryPanel() {
   const [renameValue, setRenameValue] = useState("");
   const [dragImageId, setDragImageId] = useState<string | null>(null);
   const [dragOverFolder, setDragOverFolder] = useState<FolderFilter | null>(null);
+  const handleFolderRenameGesture = useFolderRenameGesture();
 
   const counts = useMemo(() => {
     const byFolder = new Map<string, number>();
@@ -168,11 +170,39 @@ export function GlobalGalleryPanel() {
     [dragImageId, handleMove],
   );
 
-  const chip = (key: FolderFilter, label: string, count: number, dropTarget: boolean) => (
+  const chip = (key: FolderFilter, label: string, count: number, dropTarget: boolean, renamable = false) => (
     <button
       key={key}
       type="button"
-      onClick={() => setActiveFolder(key)}
+      onClick={(event) => {
+        if (!renamable) {
+          setActiveFolder(key);
+          return;
+        }
+        handleFolderRenameGesture(key, event, {
+          onSingleClick: () => setActiveFolder(key),
+          onRename: () => {
+            setActiveFolder(key);
+            setRenameValue(label);
+            setRenaming(true);
+          },
+        });
+      }}
+      onKeyDown={
+        renamable
+          ? (event) =>
+              handleFolderRenameKeyDown(event, {
+                onSingleClick: () => setActiveFolder(key),
+                onRename: () => {
+                  setActiveFolder(key);
+                  setRenameValue(label);
+                  setRenaming(true);
+                },
+              })
+          : undefined
+      }
+      aria-label={renamable ? `${label}. Press F2 to rename.` : label}
+      title={renamable ? `${label}. Double-click or press F2 to rename.` : undefined}
       onDragOver={dropTarget ? (e) => e.preventDefault() : undefined}
       onDragEnter={dropTarget ? () => setDragOverFolder(key) : undefined}
       onDragLeave={dropTarget ? () => setDragOverFolder((cur) => (cur === key ? null : cur)) : undefined}
@@ -211,7 +241,7 @@ export function GlobalGalleryPanel() {
       <div className="flex flex-wrap items-center gap-1.5">
         {chip("all", "All", counts.total, false)}
         {chip("unfiled", "Unfiled", counts.unfiled, true)}
-        {folders?.map((folder) => chip(folder.id, folder.name, counts.byFolder.get(folder.id) ?? 0, true))}
+        {folders?.map((folder) => chip(folder.id, folder.name, counts.byFolder.get(folder.id) ?? 0, true, true))}
         {creatingFolder ? (
           <span className="flex items-center gap-1">
             <input
@@ -293,27 +323,14 @@ export function GlobalGalleryPanel() {
               </button>
             </>
           ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setRenameValue(activeFolderObj.name);
-                  setRenaming(true);
-                }}
-                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-              >
-                <Pencil size="0.75rem" />
-                Rename
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleDeleteFolder()}
-                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
-              >
-                <Trash2 size="0.75rem" />
-                Delete folder
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => void handleDeleteFolder()}
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
+            >
+              <Trash2 size="0.75rem" />
+              Delete folder
+            </button>
           )}
         </div>
       )}

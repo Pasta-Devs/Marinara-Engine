@@ -85,8 +85,9 @@ export const TRACKER_PANEL_WIDTH_DEFAULT = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.sta
 export const TRACKER_PANEL_WIDTH_MIN = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.compact;
 export const TRACKER_PANEL_WIDTH_MAX = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.expanded;
 export const TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR = "#09090b";
-export const DEFAULT_APP_ACCENT_DARK = "#d4d4d4";
-export const DEFAULT_APP_ACCENT_LIGHT = "#1a1025";
+export const DEFAULT_APP_ACCENT_DARK = "#d4acfb";
+export const DEFAULT_APP_ACCENT_LIGHT = "#d4acfb";
+const LEGACY_DEFAULT_APP_ACCENTS = new Set(["#d4d4d4", "#1a1025"]);
 export const DEFAULT_CHAT_TEXT_DARK = "#d4d4d4";
 export const DEFAULT_CHAT_TEXT_LIGHT = "#1a1025";
 export const DEFAULT_CHAT_CHROME_TEXT_DARK = "#d4d4d4";
@@ -156,7 +157,8 @@ function normalizeScrollTop(value: unknown) {
 }
 
 function normalizeAppAccentColor(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return LEGACY_DEFAULT_APP_ACCENTS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
 function normalizeChatChromeTextColor(value: unknown) {
@@ -1690,7 +1692,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 56,
+      version: 57,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;

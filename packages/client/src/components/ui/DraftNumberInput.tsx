@@ -9,6 +9,11 @@ interface DraftNumberInputProps {
   integer?: boolean;
   selectOnFocus?: boolean;
   commitOnValidChange?: boolean;
+  disabled?: boolean;
+  ariaLabel?: string;
+  placeholder?: string;
+  title?: string;
+  id?: string;
 }
 
 export function DraftNumberInput({
@@ -20,6 +25,11 @@ export function DraftNumberInput({
   integer = true,
   selectOnFocus = false,
   commitOnValidChange = false,
+  disabled = false,
+  ariaLabel,
+  placeholder,
+  title,
+  id,
 }: DraftNumberInputProps) {
   const [draft, setDraft] = useState(String(value));
 
@@ -31,19 +41,29 @@ export function DraftNumberInput({
     const trimmed = raw.trim();
     if (!trimmed) return null;
 
+    const numericPattern = integer ? /^-?\d+$/ : /^-?(?:\d+\.?\d*|\.\d+)$/;
+    if (!numericPattern.test(trimmed)) return null;
+
     const parsed = Number(trimmed);
     const validNumber = Number.isFinite(parsed) && (!integer || Number.isInteger(parsed));
-    const inRange = validNumber && (min === undefined || parsed >= min) && (max === undefined || parsed <= max);
 
-    return inRange ? parsed : null;
+    return validNumber ? parsed : null;
+  };
+
+  const clampValue = (raw: number) => {
+    let next = raw;
+    if (min !== undefined && next < min) next = min;
+    if (max !== undefined && next > max) next = max;
+    return next;
   };
 
   const commit = () => {
     const parsed = parseDraft(draft);
 
     if (parsed !== null) {
-      onCommit(parsed);
-      setDraft(String(parsed));
+      const next = clampValue(parsed);
+      onCommit(next);
+      setDraft(String(next));
       return;
     }
 
@@ -53,8 +73,13 @@ export function DraftNumberInput({
   return (
     <input
       type="text"
-      inputMode={integer ? "numeric" : "decimal"}
+      inputMode={integer && (min === undefined || min < 0) ? "text" : integer ? "numeric" : "decimal"}
+      id={id}
       value={draft}
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      title={title}
+      disabled={disabled}
       onFocus={(e) => {
         if (selectOnFocus) e.target.select();
       }}
@@ -63,7 +88,7 @@ export function DraftNumberInput({
         setDraft(nextDraft);
         if (commitOnValidChange) {
           const parsed = parseDraft(nextDraft);
-          if (parsed !== null) onCommit(parsed);
+          if (parsed !== null) onCommit(clampValue(parsed));
         }
       }}
       onBlur={commit}

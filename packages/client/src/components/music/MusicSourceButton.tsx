@@ -36,6 +36,10 @@ export function MusicSourceGlyph({ source, className }: { source: MusicPlayerSou
 export function MusicSourceButton({ source, className }: { source: MusicPlayerSource; className?: string }) {
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
   const nextSource: MusicPlayerSource = source === "spotify" ? "youtube" : "spotify";
+  const sourceClasses =
+    source === "spotify"
+      ? "border-[#f7f3ef]/15 bg-[#f7f3ef]/5 text-[#1DB954] hover:border-[#f7f3ef]/30 hover:bg-[#f7f3ef]/10"
+      : "border-[#f7f3ef]/15 bg-[#f7f3ef]/5 text-[#FF0000] hover:border-[#f7f3ef]/30 hover:bg-[#f7f3ef]/10";
 
   return (
     <button
@@ -45,9 +49,9 @@ export function MusicSourceButton({ source, className }: { source: MusicPlayerSo
         setMusicPlayerSource(nextSource);
       }}
       className={cn(
-        "marinara-chat-toolbar-button inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] active:scale-95",
+        "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors active:scale-95",
+        sourceClasses,
         className,
-        source === "spotify" ? "text-[#1DB954]" : "text-[oklch(0.62_0.16_25)]",
       )}
       title={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}
       aria-label={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}

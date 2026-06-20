@@ -18,6 +18,7 @@ import {
   useReorderConnectionFolders,
   useMoveConnection,
 } from "../../hooks/use-connection-folders";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent } from "../../hooks/use-agents";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -35,7 +36,6 @@ import {
   Link,
   Check,
   Download,
-  Upload,
   Search,
   Shuffle,
   ExternalLink,
@@ -48,7 +48,6 @@ import {
   ChevronRight,
   FolderPlus,
   GripVertical,
-  Pencil,
   Camera,
   Sparkles,
   ImageIcon,
@@ -63,7 +62,9 @@ import {
 } from "../../lib/connection-transfer";
 import { toast } from "sonner";
 import { TTSConfigCard } from "./settings/TTSConfigCard";
+import { SettingsSwitch } from "./settings/SettingControls";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 /** Provider color pair for connection icons. Kept as one blue family by design. */
 const CONNECTION_ICON_COLORS = {
@@ -287,48 +288,20 @@ function SidecarCard() {
                 {trackerLocalCount}/{trackerAgents.length} built-in tracker agents currently point at the local model.
                 This changes which model they use when enabled; it does not enable the agents by itself.
               </p>
-              <button
-                type="button"
-                onClick={() => updateConfig({ useForTrackers: !config.useForTrackers })}
-                className="flex items-center gap-2.5 cursor-pointer select-none text-left"
-              >
-                <div className="relative shrink-0">
-                  <div
-                    className={cn(
-                      "h-4 w-7 rounded-full transition-colors",
-                      config.useForTrackers ? "bg-sky-400/70" : "bg-[var(--border)]",
-                    )}
-                  />
-                  <div
-                    className={cn(
-                      "absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
-                      config.useForTrackers && "translate-x-3",
-                    )}
-                  />
-                </div>
-                <span className="text-xs text-[var(--muted-foreground)]">Use for tracker agents (roleplay)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => updateConfig({ useForGameScene: !config.useForGameScene })}
-                className="flex items-center gap-2.5 cursor-pointer select-none text-left"
-              >
-                <div className="relative shrink-0">
-                  <div
-                    className={cn(
-                      "h-4 w-7 rounded-full transition-colors",
-                      config.useForGameScene ? "bg-sky-400/70" : "bg-[var(--border)]",
-                    )}
-                  />
-                  <div
-                    className={cn(
-                      "absolute top-0.5 left-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
-                      config.useForGameScene && "translate-x-3",
-                    )}
-                  />
-                </div>
-                <span className="text-xs text-[var(--muted-foreground)]">Use for game scene analysis</span>
-              </button>
+              <SettingsSwitch
+                label="Use for tracker agents (roleplay)"
+                checked={config.useForTrackers}
+                onChange={(checked) => updateConfig({ useForTrackers: checked })}
+                className="p-0 hover:bg-transparent"
+                labelClassName="text-xs text-[var(--muted-foreground)]"
+              />
+              <SettingsSwitch
+                label="Use for game scene analysis"
+                checked={config.useForGameScene}
+                onChange={(checked) => updateConfig({ useForGameScene: checked })}
+                className="p-0 hover:bg-transparent"
+                labelClassName="text-xs text-[var(--muted-foreground)]"
+              />
             </div>
           )}
           {!isDownloaded && (
@@ -569,7 +542,6 @@ function ConnectionRow({
   onDragStart,
   onDragEnd,
   onImagePick,
-  onExport,
 }: {
   conn: ConnectionRowData;
   isSelected: boolean;
@@ -580,7 +552,6 @@ function ConnectionRow({
   onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
   onDragEnd: () => void;
   onImagePick: () => void;
-  onExport: () => void;
 }) {
   const duplicateConnection = useDuplicateConnection();
   const deleteConnection = useDeleteConnection();
@@ -679,16 +650,6 @@ function ConnectionRow({
           <Copy size="0.75rem" />
         </button>
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onExport();
-          }}
-          className="mari-chrome-control mari-chrome-control--small p-1.5"
-          title="Export"
-        >
-          <Upload size="0.75rem" />
-        </button>
-        <button
           onClick={async (e) => {
             e.stopPropagation();
             if (
@@ -738,11 +699,22 @@ function ConnectionFolderRow({
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
   const [isDropTarget, setIsDropTarget] = useState(false);
+  const handleFolderRenameGesture = useFolderRenameGesture();
   const isExpanded = forceExpanded || !folder.collapsed;
+
+  useEffect(() => {
+    if (!renaming) setRenameValue(folder.name);
+  }, [folder.name, renaming]);
+
+  const beginRename = () => {
+    setRenameValue(folder.name);
+    setRenaming(true);
+  };
 
   return (
     <Reorder.Item
       value={folder.id}
+      layout="position"
       dragListener={false}
       dragControls={dragControls}
       as="div"
@@ -780,7 +752,24 @@ function ConnectionFolderRow({
     >
       {/* Folder header */}
       <div
-        onClick={() => onToggleCollapse(folder)}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+        title="Double-click or press F2 to rename."
+        onClick={(event) =>
+          handleFolderRenameGesture(folder.id, event, {
+            onSingleClick: () => onToggleCollapse(folder),
+            onRename: beginRename,
+          })
+        }
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          handleFolderRenameKeyDown(event, {
+            onSingleClick: () => onToggleCollapse(folder),
+            onRename: beginRename,
+          });
+        }}
         className="group relative flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-[var(--sidebar-accent)]/40"
       >
         <div
@@ -791,7 +780,10 @@ function ConnectionFolderRow({
         </div>
         <ChevronRight
           size="0.75rem"
-          className={cn("text-[var(--muted-foreground)] transition-transform", isExpanded && "rotate-90")}
+          className={cn(
+            "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+            isExpanded && "rotate-90",
+          )}
         />
         {renaming ? (
           <input
@@ -816,7 +808,7 @@ function ConnectionFolderRow({
             className="flex-1 bg-transparent text-xs font-medium text-[var(--foreground)] outline-none"
           />
         ) : (
-          <span className="flex-1 cursor-pointer truncate text-xs font-medium text-[var(--muted-foreground)]">
+          <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--muted-foreground)]">
             {folder.name}
           </span>
         )}
@@ -826,33 +818,24 @@ function ConnectionFolderRow({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setRenameValue(folder.name);
-            setRenaming(true);
-          }}
-          className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--accent)] group-hover:opacity-100 max-md:opacity-100"
-          title="Rename folder"
-        >
-          <Pencil size="0.75rem" className="text-[var(--muted-foreground)]" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
             onDelete(folder);
           }}
-          className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--destructive)]/20 group-hover:opacity-100 max-md:opacity-100"
+          className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger shrink-0 p-1 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100"
           title="Delete folder"
         >
-          <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+          <Trash2 size="0.75rem" />
         </button>
       </div>
       {/* Folder contents */}
-      {isExpanded && entries.length > 0 && (
-        <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pl-1">
-          {entries.map((c) => (
-            <div key={c.id}>{renderConnectionRow(c)}</div>
-          ))}
-        </div>
-      )}
+      <SmoothFolderContent
+        open={isExpanded && entries.length > 0}
+        className="ml-4 border-l border-[var(--border)]/20 pl-1"
+        innerClassName="flex flex-col gap-0.5"
+      >
+        {entries.map((c) => (
+          <div key={c.id}>{renderConnectionRow(c)}</div>
+        ))}
+      </SmoothFolderContent>
     </Reorder.Item>
   );
 }
@@ -1118,7 +1101,6 @@ export function ConnectionsPanel() {
         }}
         onDragEnd={() => setDraggedConnectionId(null)}
         onImagePick={() => handlePickConnectionImage(conn.id)}
-        onExport={() => void exportConnections([conn])}
       />
     );
   };
@@ -1136,29 +1118,35 @@ export function ConnectionsPanel() {
       {/* Action buttons */}
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={() => openModal("create-connection")}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-sky-400/15 transition-all hover:shadow-lg hover:shadow-sky-400/25 active:scale-[0.98]"
+          aria-label="Create connection"
           title="New"
         >
-          <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
+          <Plus size="0.8125rem" />
         </button>
         <button
+          type="button"
           onClick={() => openModal("import-connection")}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+          aria-label="Import connection"
           title="Import"
         >
-          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+          <Download size="0.8125rem" />
         </button>
         <button
+          type="button"
           onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
           disabled={connectionsList.length === 0}
           className={cn(
             "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
             selectionMode && "mari-chrome-control--selected",
           )}
+          aria-label={selectionMode ? "Exit connection selection mode" : "Select connections"}
           title="Select"
         >
-          <Check size="0.8125rem" /> <span className="md:hidden">Select</span>
+          <Check size="0.8125rem" />
         </button>
       </div>
 
@@ -1173,7 +1161,7 @@ export function ConnectionsPanel() {
           placeholder="Search connections..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
         />
       </div>
 

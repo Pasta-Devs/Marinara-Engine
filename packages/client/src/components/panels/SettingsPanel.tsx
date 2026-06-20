@@ -94,13 +94,20 @@ import {
 import { useClearAllData, useExpungeData, useUpdateChatMetadata, type ExpungeScope } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameAssetStore } from "../../stores/game-asset.store";
+import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
 import { chatKeys } from "../../hooks/use-chats";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ColorPicker } from "../ui/ColorPicker";
 import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../ui/TrackerSizeTierIcon";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
-import { ConversationSoundSetting, SettingsIntro, SettingsSection, ToggleSetting } from "./settings/SettingControls";
+import {
+  ConversationSoundSetting,
+  SettingsIntro,
+  SettingsSection,
+  SettingsSwitch,
+  ToggleSetting,
+} from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
@@ -108,6 +115,7 @@ import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatD
 import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
+import { HOST_DEVICE_FILE_MANAGER_MESSAGE } from "../../lib/host-device";
 
 type CustomFontFace = {
   filename: string;
@@ -847,12 +855,6 @@ function TrackerPanelAppearanceDrawer({
   const [drawerOpen, setDrawerOpen] = useState(true);
   const drawerId = React.useId();
 
-  const toggleTrackerPanel = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    setTrackerPanelEnabled(!trackerPanelEnabled);
-    if (!trackerPanelEnabled) setDrawerOpen(true);
-  };
-
   return (
     <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/34 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]">
       <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5">
@@ -871,26 +873,15 @@ function TrackerPanelAppearanceDrawer({
           </span>
         </div>
 
-        <button
-          type="button"
-          role="switch"
-          aria-checked={trackerPanelEnabled}
-          aria-label={trackerPanelEnabled ? "Disable Tracker Panel" : "Enable Tracker Panel"}
-          onClick={toggleTrackerPanel}
-          className={cn(
-            "inline-flex h-6 w-11 shrink-0 items-center rounded-full p-0.5 ring-1 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]",
-            trackerPanelEnabled
-              ? "bg-[var(--primary)]/80 ring-[var(--primary)]/45"
-              : "bg-[var(--secondary)] ring-[var(--border)]",
-          )}
-        >
-          <span
-            className={cn(
-              "h-5 w-5 rounded-full bg-[var(--background)] shadow-sm transition-transform",
-              trackerPanelEnabled ? "translate-x-5" : "translate-x-0",
-            )}
-          />
-        </button>
+        <SettingsSwitch
+          checked={trackerPanelEnabled}
+          onChange={(enabled) => {
+            setTrackerPanelEnabled(enabled);
+            if (enabled) setDrawerOpen(true);
+          }}
+          ariaLabel={trackerPanelEnabled ? "Disable Tracker Panel" : "Enable Tracker Panel"}
+          className="p-0 hover:bg-transparent"
+        />
 
         <button
           type="button"
@@ -1567,6 +1558,8 @@ function ImageGenerationSettings() {
 
 function GameAssetsSettings() {
   const rescanGameAssets = useGameAssetStore((s) => s.rescanAssets);
+  const openGameAssetsFolder = useOpenGameAssetsFolder();
+  const openGameAssetsBrowser = useUIStore((s) => s.openGameAssetsBrowser);
   const assetFileRef = useRef<HTMLInputElement>(null);
   const [assetCategory, setAssetCategory] = useState<GameAssetCategoryId>("backgrounds");
   const [assetSubcategory, setAssetSubcategory] = useState<string>(
@@ -1581,6 +1574,15 @@ function GameAssetsSettings() {
     setAssetSubcategory(GAME_ASSET_CATEGORY_BY_ID.get(nextCategory)?.defaultFolder ?? "custom");
     setAssetFiles([]);
     if (assetFileRef.current) assetFileRef.current.value = "";
+  };
+
+  const handleOpenGameAssetFolder = (subfolder: string) => {
+    openGameAssetsFolder.mutate(subfolder, {
+      onError: (error) => {
+        if (error instanceof Error && error.message === HOST_DEVICE_FILE_MANAGER_MESSAGE) return;
+        toast.error("Failed to open game assets folder.");
+      },
+    });
   };
 
   const handleGameAssetUpload = async () => {
@@ -1642,6 +1644,14 @@ function GameAssetsSettings() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <button
+            onClick={openGameAssetsBrowser}
+            className="mari-chrome-control mari-chrome-control--primary text-[0.6875rem]"
+            title="Open Asset Browser"
+          >
+            <Image size="0.75rem" />
+            Asset Browser
+          </button>
+          <button
             onClick={() => {
               rescanGameAssets()
                 .then(() => toast.success("Game assets rescanned."))
@@ -1655,7 +1665,7 @@ function GameAssetsSettings() {
           {GAME_ASSET_CATEGORIES.map((folder) => (
             <button
               key={folder.id}
-              onClick={() => api.post("/game-assets/open-folder", { subfolder: folder.id }).catch(() => {})}
+              onClick={() => handleOpenGameAssetFolder(folder.id)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[0.6875rem] font-medium capitalize text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             >
               <FolderOpen size="0.75rem" />
@@ -2913,7 +2923,7 @@ function BackgroundPicker({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search backgrounds..."
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] py-1.5 pl-7 pr-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/60 focus:border-[var(--primary)]/50"
+              className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] py-0 pl-7 pr-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/60 focus:border-[var(--primary)]/50 md:h-9"
             />
           </div>
           {searchQuery.trim() && (
@@ -3622,7 +3632,7 @@ const CSS_TEMPLATE = `/* ══════════════════�
   /* --sidebar: #0c0c12; */
 
   /* ── Shared Chat / Roleplay / Game Chrome ── */
-  /* --marinara-chat-chrome-accent: var(--foreground); */
+  /* --marinara-chat-chrome-accent: #d4acfb; */
   /* --marinara-chat-chrome-accent-gradient: linear-gradient(90deg, var(--marinara-chat-chrome-accent), var(--marinara-chat-chrome-accent)); */
   /* --marinara-chat-chrome-text: var(--foreground); */
   /* --marinara-chat-chrome-button-text-base: var(--marinara-chat-chrome-accent); */
@@ -3850,6 +3860,9 @@ function ExtensionsSettings() {
             <strong>JSON format:</strong>{" "}
             <code className="rounded bg-[var(--secondary)] px-1">{`{ "name": "...", "description": "...", "css": "..." }`}</code>
             . Extensions can inject custom CSS and/or JavaScript to modify the UI.
+          </div>
+          <div className="rounded-lg bg-[var(--secondary)]/35 p-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            Extensions can be downloaded from the official Marinara Engine Discord server.
           </div>
         </div>
       </SettingsSection>

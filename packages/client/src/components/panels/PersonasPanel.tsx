@@ -20,7 +20,6 @@ import {
   Plus,
   Trash2,
   User,
-  Pencil,
   Camera,
   ArrowUpDown,
   Download,
@@ -35,9 +34,11 @@ import {
   Tag,
 } from "lucide-react";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 type PersonaRow = {
   id: string;
@@ -128,6 +129,7 @@ export function PersonasPanel() {
   const [draggedPersonaId, setDraggedPersonaId] = useState<string | null>(null);
   const personaTouchDragRef = useRef<{ id: string; timer: number | null; active: boolean } | null>(null);
   const suppressPersonaClickRef = useRef(false);
+  const handleFolderRenameGesture = useFolderRenameGesture();
 
   const isActive = (p: PersonaRow) => p.isActive === true || p.isActive === "true";
 
@@ -484,14 +486,13 @@ export function PersonasPanel() {
           title="New"
         >
           <Plus size="0.8125rem" />
-          <span className="md:hidden">New</span>
         </button>
         <button
           onClick={() => openModal("import-persona")}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title="Import"
         >
-          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+          <Download size="0.8125rem" />
         </button>
         <button
           onClick={() => {
@@ -505,7 +506,6 @@ export function PersonasPanel() {
           title="Select"
         >
           <Check size="0.8125rem" />
-          <span className="md:hidden">Select</span>
         </button>
       </div>
 
@@ -520,14 +520,14 @@ export function PersonasPanel() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search personas"
-            className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
           />
         </div>
         <div className="relative">
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="mari-chrome-field h-full appearance-none py-2 pl-2.5 pr-7 text-[0.6875rem]"
+            className="mari-chrome-field h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -661,13 +661,36 @@ export function PersonasPanel() {
             >
               {/* Folder header */}
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${group.name}. Press F2 to rename.`}
+                title="Double-click or press F2 to rename."
                 className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
-                onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
+                onClick={(event) =>
+                  handleFolderRenameGesture(group.id, event, {
+                    onSingleClick: () => setExpandedGroupId(isExpanded ? null : group.id),
+                    onRename: () => {
+                      setEditingGroupId(group.id);
+                      setEditGroupName(group.name);
+                    },
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  handleFolderRenameKeyDown(event, {
+                    onSingleClick: () => setExpandedGroupId(isExpanded ? null : group.id),
+                    onRename: () => {
+                      setEditingGroupId(group.id);
+                      setEditGroupName(group.name);
+                    },
+                  });
+                }}
               >
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -704,17 +727,6 @@ export function PersonasPanel() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditingGroupId(group.id);
-                      setEditGroupName(group.name);
-                    }}
-	                    className="mari-chrome-control mari-chrome-control--small p-1"
-	                    title="Rename folder"
-	                  >
-                    <Pencil size="0.6875rem" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
                       void handleDeleteGroup(group);
                     }}
 	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
@@ -726,13 +738,16 @@ export function PersonasPanel() {
               </div>
 
               {/* Expanded member list */}
-              {isExpanded && (
-                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
-                  {folderMemberIds.length === 0 ? (
-                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop personas here.</p>
-                  ) : (
-                    <div className="flex flex-col gap-0.5">
-                      {folderMemberIds.map((pid) => {
+              <SmoothFolderContent
+                open={isExpanded}
+                className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
+                innerClassName="flex flex-col gap-0.5"
+              >
+                {folderMemberIds.length === 0 ? (
+                  <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop personas here.</p>
+                ) : (
+                  <div className="flex flex-col gap-0.5">
+                    {folderMemberIds.map((pid) => {
                         const p = personaMap.get(pid);
                         if (!p) return null;
                         const isBulkSelected = selectedPersonaIds.has(pid);
@@ -839,11 +854,10 @@ export function PersonasPanel() {
                             )}
                           </div>
                         );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
+                    })}
+                  </div>
+                )}
+              </SmoothFolderContent>
             </div>
           );
         })}
