@@ -85,6 +85,9 @@ export const TRACKER_PANEL_WIDTH_DEFAULT = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.sta
 export const TRACKER_PANEL_WIDTH_MIN = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.compact;
 export const TRACKER_PANEL_WIDTH_MAX = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.expanded;
 export const TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR = "#09090b";
+export const DEFAULT_APP_BACKGROUND_DARK = "#050312";
+export const DEFAULT_APP_BACKGROUND_LIGHT = "#faf8ff";
+const DEFAULT_APP_BACKGROUNDS = new Set([DEFAULT_APP_BACKGROUND_DARK, DEFAULT_APP_BACKGROUND_LIGHT]);
 export const DEFAULT_APP_ACCENT_DARK = "#d4acfb";
 export const DEFAULT_APP_ACCENT_LIGHT = "#d4acfb";
 const LEGACY_DEFAULT_APP_ACCENTS = new Set(["#d4d4d4", "#1a1025"]);
@@ -138,6 +141,10 @@ export function getDefaultAppAccentColor(theme: "dark" | "light") {
   return theme === "light" ? DEFAULT_APP_ACCENT_LIGHT : DEFAULT_APP_ACCENT_DARK;
 }
 
+export function getDefaultAppBackgroundColor(theme: "dark" | "light") {
+  return theme === "light" ? DEFAULT_APP_BACKGROUND_LIGHT : DEFAULT_APP_BACKGROUND_DARK;
+}
+
 export function getDefaultChatTextColor(theme: "dark" | "light") {
   return theme === "light" ? DEFAULT_CHAT_TEXT_LIGHT : DEFAULT_CHAT_TEXT_DARK;
 }
@@ -159,6 +166,11 @@ function normalizeScrollTop(value: unknown) {
 function normalizeAppAccentColor(value: unknown) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return LEGACY_DEFAULT_APP_ACCENTS.has(normalized.toLowerCase()) ? "" : normalized;
+}
+
+function normalizeAppBackgroundColor(value: unknown) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return DEFAULT_APP_BACKGROUNDS.has(normalized.toLowerCase()) ? "" : normalized;
 }
 
 function normalizeChatChromeTextColor(value: unknown) {
@@ -342,7 +354,9 @@ interface UIState {
   settingsTab: string;
   modal: { type: string; props?: Record<string, unknown> } | null;
   theme: "dark" | "light";
+  appBackgroundColor: string;
   appAccentColor: string;
+  appAccentRgbMode: boolean;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -487,7 +501,7 @@ interface UIState {
   narrationOpacity: number;
   /** Color for chat message text (empty = theme default) */
   chatFontColor: string;
-  /** Color for shared chat chrome text/icons in tracker widgets, toolbar buttons, and popovers (empty = scheme default) */
+  /** Color for non-action chrome copy in tracker widgets, folder labels, settings descriptors, and popovers (empty = scheme default) */
   chatChromeTextColor: string;
   /** Opacity for roleplay message backgrounds (0–100) */
   chatFontOpacity: number;
@@ -625,7 +639,9 @@ interface UIState {
   openModal: (type: string, props?: Record<string, unknown>) => void;
   closeModal: () => void;
   setTheme: (theme: "dark" | "light") => void;
+  setAppBackgroundColor: (color: string) => void;
   setAppAccentColor: (color: string) => void;
+  setAppAccentRgbMode: (enabled: boolean) => void;
   setChatBackground: (url: string | null) => void;
   setDefaultRoleplayBackground: (url: string) => void;
   setChatBackgroundBlur: (v: number) => void;
@@ -852,6 +868,7 @@ export function pickSyncedSettings(state: UIState) {
     trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
+    appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
@@ -977,7 +994,9 @@ export const useUIStore = create<UIState>()(
       settingsTab: "general",
       modal: null,
       theme: "dark" as const,
+      appBackgroundColor: "",
       appAccentColor: "",
+      appAccentRgbMode: true,
       chatBackground: null,
       defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
       chatBackgroundBlur: 0,
@@ -1181,7 +1200,9 @@ export const useUIStore = create<UIState>()(
       openModal: (type, props) => set({ modal: { type, props } }),
       closeModal: () => set({ modal: null }),
       setTheme: (theme) => set({ theme }),
+      setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
       setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
+      setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
       setChatBackground: (url) => set({ chatBackground: url }),
       setDefaultRoleplayBackground: (url) => set({ defaultRoleplayBackground: normalizeDefaultRoleplayBackground(url) }),
       setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
@@ -1692,7 +1713,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 57,
+      version: 60,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2087,6 +2108,15 @@ export const useUIStore = create<UIState>()(
         if (version <= 52 && persisted.convertLatexSymbols === undefined) {
           persisted.convertLatexSymbols = true;
         }
+        if (version <= 57 && persisted.appAccentRgbMode === undefined) {
+          persisted.appAccentRgbMode = true;
+        }
+        if (version <= 58 && persisted.appBackgroundColor === undefined) {
+          persisted.appBackgroundColor = "";
+        }
+        if (version <= 59) {
+          persisted.appAccentRgbMode = true;
+        }
         persisted.characterLibrarySort = normalizeCharacterLibrarySort(persisted.characterLibrarySort);
         persisted.characterPanelScrollTop = normalizeScrollTop(persisted.characterPanelScrollTop);
         persisted.characterLibraryScrollTop = normalizeScrollTop(persisted.characterLibraryScrollTop);
@@ -2101,6 +2131,8 @@ export const useUIStore = create<UIState>()(
           persisted.recentUserActivities = [];
         }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
+        persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
+        persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
@@ -2141,7 +2173,9 @@ export const useUIStore = create<UIState>()(
         trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
         trackerPanelSectionOrder: state.trackerPanelSectionOrder,
         theme: state.theme,
+        appBackgroundColor: state.appBackgroundColor,
         appAccentColor: state.appAccentColor,
+        appAccentRgbMode: state.appAccentRgbMode,
         chatBackground: state.chatBackground,
         defaultRoleplayBackground: state.defaultRoleplayBackground,
         chatBackgroundBlur: state.chatBackgroundBlur,

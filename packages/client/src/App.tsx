@@ -11,11 +11,16 @@ import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "./components/ui/ChibiProfessorMariEasterEgg";
 import { CsrfOriginWarningBanner } from "./components/diagnostics/CsrfOriginWarningBanner";
 import { Toaster } from "sonner";
-import { getDefaultChatChromeTextColor, useUIStore } from "./stores/ui.store";
+import {
+  getDefaultAppAccentColor,
+  getDefaultAppBackgroundColor,
+  getDefaultChatChromeTextColor,
+  useUIStore,
+} from "./stores/ui.store";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { api } from "./lib/api-client";
 import { forceRefreshSpa } from "./lib/browser-runtime";
-import { getCssColorFallback, isCssGradient } from "./lib/css-colors";
+import { getCssColorFallback, getCssGradientColorStops, isCssGradient } from "./lib/css-colors";
 import { useLegacyThemeMigration } from "./hooks/use-themes";
 import { useLegacyExtensionMigration } from "./hooks/use-extensions";
 import { useSettingsSync } from "./hooks/use-settings-sync";
@@ -42,6 +47,21 @@ type CustomFontFace = {
 };
 
 const registeredCustomFontFaceKeys = new Set<string>();
+const APP_ACCENT_CUSTOM_VARIABLES = [
+  "--primary",
+  "--ring",
+  "--accent",
+  "--sidebar-accent",
+  "--sidebar-accent-foreground",
+  "--glow-primary",
+  "--marinara-app-accent-solid",
+  "--marinara-app-accent-gradient",
+  "--marinara-chat-chrome-accent",
+  "--marinara-chat-chrome-accent-gradient",
+] as const;
+const ACCENT_RGB_TICK_MS = 120;
+const ACCENT_RGB_SOLID_CYCLE_MS = 5_200;
+const ACCENT_RGB_GRADIENT_STOP_MS = 4_500;
 
 function stripFontFamilyQuotes(family: string): string {
   const trimmed = family.trim();
@@ -73,6 +93,79 @@ function syncRangeSliderProgress(input: HTMLInputElement) {
   input.style.setProperty("--range-progress", `${Math.max(0, Math.min(100, percent))}%`);
 }
 
+function getSolidAccentGradient(accent: string) {
+  return `linear-gradient(90deg, color-mix(in srgb, ${accent} 72%, var(--background) 28%), ${accent}, color-mix(in srgb, ${accent} 76%, var(--foreground) 24%), ${accent})`;
+}
+
+function getAccentSurface(accent: string, theme: "dark" | "light") {
+  return `color-mix(in srgb, var(--secondary) ${theme === "light" ? "84%" : "78%"}, ${accent} ${
+    theme === "light" ? "16%" : "22%"
+  })`;
+}
+
+function getAccentGlow(accent: string, theme: "dark" | "light") {
+  return `color-mix(in srgb, ${accent} ${theme === "light" ? "12%" : "18%"}, transparent)`;
+}
+
+function applyAppAccentVariables({
+  root,
+  accent,
+  gradient,
+  surfaceAccent,
+  theme,
+}: {
+  root: HTMLElement;
+  accent: string;
+  gradient: string;
+  surfaceAccent: string;
+  theme: "dark" | "light";
+}) {
+  root.style.setProperty("--primary", accent);
+  root.style.setProperty("--ring", accent);
+  root.style.setProperty("--accent", getAccentSurface(surfaceAccent, theme));
+  root.style.setProperty("--sidebar-accent", `color-mix(in srgb, ${surfaceAccent} 12%, transparent)`);
+  root.style.setProperty("--sidebar-accent-foreground", accent);
+  root.style.setProperty("--glow-primary", getAccentGlow(surfaceAccent, theme));
+  root.style.setProperty("--marinara-app-accent-solid", accent);
+  root.style.setProperty("--marinara-app-accent-gradient", gradient);
+  root.style.setProperty("--marinara-chat-chrome-accent", accent);
+  root.style.setProperty("--marinara-chat-chrome-accent-gradient", gradient);
+}
+
+function getSolidRgbAccent(accent: string) {
+  const wave = Math.sin((performance.now() / ACCENT_RGB_SOLID_CYCLE_MS) * Math.PI * 2);
+  const mixAmount = Math.abs(wave) * 36;
+  const target = wave >= 0 ? "var(--foreground)" : "var(--background)";
+  return `color-mix(in srgb, ${accent} ${(100 - mixAmount).toFixed(2)}%, ${target} ${mixAmount.toFixed(2)}%)`;
+}
+
+function getGradientRgbAccent(stops: string[]) {
+  if (stops.length <= 1) return stops[0] ?? "var(--primary)";
+
+  const cycleMs = Math.max(ACCENT_RGB_GRADIENT_STOP_MS * stops.length, 9_000);
+  const position = ((performance.now() % cycleMs) / cycleMs) * stops.length;
+  const fromIndex = Math.floor(position) % stops.length;
+  const toIndex = (fromIndex + 1) % stops.length;
+  const rawProgress = position - Math.floor(position);
+  const easedProgress = (1 - Math.cos(rawProgress * Math.PI)) / 2;
+  const fromPercent = (100 - easedProgress * 100).toFixed(2);
+  const toPercent = (easedProgress * 100).toFixed(2);
+
+  return `color-mix(in srgb, ${stops[fromIndex]} ${fromPercent}%, ${stops[toIndex]} ${toPercent}%)`;
+}
+
+function clearCustomAppAccentVariables(root: HTMLElement) {
+  APP_ACCENT_CUSTOM_VARIABLES.forEach((variable) => root.style.removeProperty(variable));
+}
+
+function canRunAccentAnimation() {
+  return (
+    document.visibilityState === "visible" &&
+    document.hasFocus() &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 async function recoverFromVersionSkew(serverVersion: string) {
   if (sessionStorage.getItem(VERSION_RECOVERY_KEY) === serverVersion) {
     return;
@@ -92,7 +185,9 @@ export function App() {
   const language = useUIStore((s) => s.language);
   const visualTheme = useUIStore((s) => s.visualTheme);
   const fontFamily = useUIStore((s) => s.fontFamily);
+  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
+  const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
   const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
   useLegacyThemeMigration();
@@ -155,32 +250,123 @@ export function App() {
 
   useEffect(() => {
     const root = document.documentElement;
+    const background = appBackgroundColor.trim();
+    const defaultBackground = getDefaultAppBackgroundColor(theme);
+
+    if (background) {
+      root.style.setProperty("--background", getCssColorFallback(background, defaultBackground));
+      root.style.setProperty("--marinara-app-background-paint", background);
+    } else {
+      root.style.removeProperty("--background");
+      root.style.removeProperty("--marinara-app-background-paint");
+    }
+  }, [appBackgroundColor, theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
     const accent = appAccentColor.trim();
-    if (accent) {
-      if (isCssGradient(accent)) {
-        root.style.setProperty("--marinara-chat-chrome-accent", getCssColorFallback(accent, "#d4acfb"));
-        root.style.setProperty("--marinara-chat-chrome-accent-gradient", accent);
+    const defaultAccent = getDefaultAppAccentColor(theme);
+    const accentSource = accent || defaultAccent;
+    const solidAccent = getCssColorFallback(accentSource, defaultAccent);
+    const accentIsGradient = isCssGradient(accentSource);
+    const gradientStops = accentIsGradient ? getCssGradientColorStops(accentSource, solidAccent) : [solidAccent];
+
+    let accentAnimationTimer: ReturnType<typeof window.setInterval> | null = null;
+
+    const setAccentModeDataset = () => {
+      if (accentIsGradient) {
         root.dataset.marinaraChatChromeAccentMode = "gradient";
       } else {
-        root.style.setProperty("--marinara-chat-chrome-accent", accent);
-        root.style.removeProperty("--marinara-chat-chrome-accent-gradient");
         delete root.dataset.marinaraChatChromeAccentMode;
       }
-    } else {
-      root.style.removeProperty("--marinara-chat-chrome-accent");
-      root.style.removeProperty("--marinara-chat-chrome-accent-gradient");
-      delete root.dataset.marinaraChatChromeAccentMode;
+    };
+
+    const applyStaticAccent = () => {
+      if (!accent) {
+        clearCustomAppAccentVariables(root);
+        setAccentModeDataset();
+        return;
+      }
+
+      applyAppAccentVariables({
+        root,
+        accent: solidAccent,
+        gradient: accentIsGradient ? accentSource : getSolidAccentGradient(solidAccent),
+        surfaceAccent: solidAccent,
+        theme,
+      });
+      setAccentModeDataset();
+    };
+
+    const applyLiveAccent = () => {
+      const liveAccent =
+        accentIsGradient && gradientStops.length > 1 ? getGradientRgbAccent(gradientStops) : getSolidRgbAccent(solidAccent);
+
+      applyAppAccentVariables({
+        root,
+        accent: liveAccent,
+        gradient: getSolidAccentGradient(liveAccent),
+        surfaceAccent: accentIsGradient ? solidAccent : liveAccent,
+        theme,
+      });
+      setAccentModeDataset();
+    };
+
+    const stopAccentAnimation = () => {
+      if (accentAnimationTimer !== null) {
+        window.clearInterval(accentAnimationTimer);
+        accentAnimationTimer = null;
+      }
+      delete root.dataset.marinaraAccentAnimation;
+      applyStaticAccent();
+    };
+
+    const startAccentAnimation = () => {
+      root.dataset.marinaraAccentAnimation = accentIsGradient && gradientStops.length > 1 ? "gradient" : "solid";
+      applyLiveAccent();
+      if (accentAnimationTimer === null) {
+        accentAnimationTimer = window.setInterval(applyLiveAccent, ACCENT_RGB_TICK_MS);
+      }
+    };
+
+    const syncAccentAnimationState = () => {
+      if (appAccentRgbMode && canRunAccentAnimation()) {
+        startAccentAnimation();
+      } else {
+        stopAccentAnimation();
+      }
+    };
+
+    if (!appAccentRgbMode) {
+      applyStaticAccent();
     }
-  }, [appAccentColor]);
+    syncAccentAnimationState();
+    const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    document.addEventListener("visibilitychange", syncAccentAnimationState);
+    window.addEventListener("focus", syncAccentAnimationState);
+    window.addEventListener("blur", syncAccentAnimationState);
+    window.addEventListener("pageshow", syncAccentAnimationState);
+    window.addEventListener("pagehide", syncAccentAnimationState);
+    reducedMotionQuery.addEventListener("change", syncAccentAnimationState);
+
+    return () => {
+      document.removeEventListener("visibilitychange", syncAccentAnimationState);
+      window.removeEventListener("focus", syncAccentAnimationState);
+      window.removeEventListener("blur", syncAccentAnimationState);
+      window.removeEventListener("pageshow", syncAccentAnimationState);
+      window.removeEventListener("pagehide", syncAccentAnimationState);
+      reducedMotionQuery.removeEventListener("change", syncAccentAnimationState);
+      if (accentAnimationTimer !== null) {
+        window.clearInterval(accentAnimationTimer);
+      }
+      delete root.dataset.marinaraAccentAnimation;
+    };
+  }, [appAccentColor, appAccentRgbMode, theme]);
 
   useEffect(() => {
     const root = document.documentElement;
     const textColor = chatChromeTextColor.trim();
-    const variables = [
-      "--marinara-chat-chrome-text",
-      "--marinara-chat-chrome-button-text-base",
-      "--marinara-chat-chrome-highlight-text-base",
-    ];
+    const variables = ["--marinara-chat-chrome-text"];
 
     if (textColor) {
       const resolvedColor = getCssColorFallback(textColor, getDefaultChatChromeTextColor(theme));

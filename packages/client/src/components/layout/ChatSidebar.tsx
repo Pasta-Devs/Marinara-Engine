@@ -91,42 +91,49 @@ function getNextUnnamedFolderName(existingFolders: Array<{ name: string }>): str
 
 const MODE_CONFIG: Record<
   string,
-  { icon: React.ReactNode; label: string; shortLabel: string; bg: string; description: string; comingSoon?: boolean }
+  {
+    icon: React.ReactNode;
+    label: string;
+    shortLabel: string;
+    description: string;
+    logoModeClass: string;
+    comingSoon?: boolean;
+  }
 > = {
   conversation: {
     icon: <MessageSquare size="0.875rem" />,
     label: "Conversation",
     shortLabel: "CONVO",
-    bg: "linear-gradient(135deg, #4de5dd, #3ab8b1)",
     description: "A straightforward AI conversation — no roleplay elements.",
+    logoModeClass: "mari-chat-logo-mode--conversation",
   },
   roleplay: {
     icon: <BookOpen size="0.875rem" />,
     label: "Roleplay",
     shortLabel: "RP",
-    bg: "linear-gradient(135deg, #eb8951, #d97530)",
     description: "Immersive roleplay with characters, game state tracking, and world simulation.",
+    logoModeClass: "mari-chat-logo-mode--roleplay",
   },
   visual_novel: {
     icon: <Theater size="0.875rem" />,
     label: "Visual Novel",
     shortLabel: "VN",
-    bg: "linear-gradient(135deg, #e15c8c, #c94776)",
     description: "A full game experience with backgrounds, sprites, text boxes, and choices.",
+    logoModeClass: "mari-chat-logo-mode--game",
     comingSoon: true,
   },
   game: {
     icon: <Theater size="0.875rem" />,
     label: "Game",
     shortLabel: "GM",
-    bg: "linear-gradient(135deg, #e15c8c, #c94776)",
     description: "AI-managed singleplayer RPG with a Game Master, party, dice, maps, and quests.",
+    logoModeClass: "mari-chat-logo-mode--game",
   },
 };
 
 function ChatSidebarTitleIcon() {
   return (
-    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[linear-gradient(135deg,#4de5dd_0%,#eb8951_52%,#e15c8c_100%)] text-white shadow-sm">
+    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[linear-gradient(135deg,#4de5dd_0%,#eb8951_52%,#e15c8c_100%)] text-white shadow-sm">
       <MessageSquareText size="0.875rem" strokeWidth={2.35} />
     </div>
   );
@@ -796,16 +803,16 @@ export function ChatSidebar() {
         className={cn(
           "group relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition-all duration-150",
           multiSelectMode && isSelected
-            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+            ? "mari-chrome-accent-surface mari-accent-animated"
             : isActive
-              ? "bg-[var(--sidebar-accent)] shadow-sm"
-              : "hover:bg-[var(--sidebar-accent)]/60",
+              ? "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)] shadow-sm"
+              : "hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
           draggedChatId === chat.id && "opacity-50",
         )}
       >
         {/* Multi-select checkbox */}
         {multiSelectMode && (
-          <div className="shrink-0 text-[var(--primary)]">
+          <div className="mari-chrome-accent-icon mari-accent-animated shrink-0">
             {isSelected ? (
               <CheckSquare size="0.875rem" />
             ) : (
@@ -816,10 +823,7 @@ export function ChatSidebar() {
 
         {/* Active indicator */}
         {isActive && (
-          <span
-            className="absolute -left-0.5 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full"
-            style={{ background: cfg.bg }}
-          />
+          <span className="mari-chrome-accent-progress mari-accent-animated absolute -left-0.5 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full" />
         )}
 
         {/* Chat avatar(s) or mode icon fallback — with unread badge overlay */}
@@ -850,7 +854,7 @@ export function ChatSidebar() {
                       : "bg-gray-400";
               return (
                 <span
-                  className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-[1.5px] ring-[var(--sidebar-background)] ${color}`}
+                  className={`absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-[0.1875rem] ring-[1.5px] ring-[var(--sidebar-background)] ${color}`}
                 />
               );
             };
@@ -860,9 +864,10 @@ export function ChatSidebar() {
                 <div
                   className={cn(
                     "flex h-7 w-7 items-center justify-center rounded-lg text-xs transition-transform group-active:scale-90",
-                    isActive ? "text-white shadow-sm" : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
+                    isActive
+                      ? "mari-chrome-accent-tile mari-accent-animated shadow-sm"
+                      : "mari-chrome-accent-soft-tile mari-accent-animated",
                   )}
-                  style={isActive ? { background: cfg.bg } : undefined}
                 >
                   {cfg.icon}
                 </div>
@@ -873,7 +878,7 @@ export function ChatSidebar() {
               const a = avatars[0]!;
               return a.avatarUrl ? (
                 <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
-                  <span className="relative block h-7 w-7 overflow-hidden rounded-full">
+                  <span className="relative block h-7 w-7 overflow-hidden rounded-lg">
                     <img
                       src={a.avatarUrl}
                       alt={a.name}
@@ -885,7 +890,7 @@ export function ChatSidebar() {
                 </div>
               ) : (
                 <div className="relative h-7 w-7 flex-shrink-0 transition-transform group-active:scale-90">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--secondary)] text-[0.625rem] font-bold text-[var(--muted-foreground)]">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--secondary)] text-[0.625rem] font-bold text-[var(--muted-foreground)]">
                     {a.name[0]}
                   </div>
                   {statusDot(a.conversationStatus)}
@@ -901,7 +906,7 @@ export function ChatSidebar() {
                     <span
                       key={i}
                       className={cn(
-                        "absolute h-5 w-5 overflow-hidden rounded-full ring-2 ring-[var(--sidebar-background)]",
+                        "absolute h-5 w-5 overflow-hidden rounded-md ring-2 ring-[var(--sidebar-background)]",
                         i === 0 ? "top-0 left-0 z-10" : "bottom-0 right-0",
                       )}
                     >
@@ -916,7 +921,7 @@ export function ChatSidebar() {
                     <div
                       key={i}
                       className={cn(
-                        "absolute flex h-5 w-5 items-center justify-center rounded-full bg-[var(--secondary)] text-[0.5rem] font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--sidebar-background)]",
+                        "absolute flex h-5 w-5 items-center justify-center rounded-md bg-[var(--secondary)] text-[0.5rem] font-bold text-[var(--muted-foreground)] ring-2 ring-[var(--sidebar-background)]",
                         i === 0 ? "top-0 left-0 z-10" : "bottom-0 right-0",
                       )}
                     >
@@ -933,7 +938,7 @@ export function ChatSidebar() {
             const count = unreadCounts.get(chat.id) || 0;
             if (count === 0 || isActive) return null;
             return (
-              <span className="absolute -top-1 -right-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--sidebar-background)]">
+              <span className="absolute -top-1 -right-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--sidebar-background)]">
                 {count > 99 ? "99+" : count}
               </span>
             );
@@ -945,7 +950,7 @@ export function ChatSidebar() {
           <span
             className={cn(
               "block truncate text-sm",
-              isActive ? "font-medium text-[var(--sidebar-accent-foreground)]" : "text-[var(--sidebar-foreground)]",
+              isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
             )}
           >
             {chat.name}
@@ -954,7 +959,7 @@ export function ChatSidebar() {
 
         {/* Branch count badge */}
         {branchCount > 1 && (
-          <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          <span className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]">
             <GitBranch size="0.625rem" />
             {branchCount}
           </span>
@@ -991,18 +996,22 @@ export function ChatSidebar() {
   };
 
   return (
-    <nav data-component="ChatSidebar" aria-label="Chat navigation" className="mari-chat-sidebar flex h-full flex-col">
+    <nav
+      data-component="ChatSidebar"
+      aria-label="Chat navigation"
+      className="mari-chat-sidebar mari-chrome-token-scope flex h-full flex-col"
+    >
       {/* Header */}
       <div className="mari-sidebar-header relative flex h-12 items-center justify-between bg-[var(--card)]/80 px-4 backdrop-blur-sm">
         <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--border)]/30" />
         <div className="flex items-center gap-2.5">
           <ChatSidebarTitleIcon />
-          <h2 className="text-sm font-semibold text-[var(--foreground)]">Chats</h2>
+          <h2 className="mari-chrome-text-strong text-sm font-semibold">Chats</h2>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--primary)] active:scale-90 md:hidden"
+            className="mari-chrome-control mari-chrome-control--small mari-accent-animated p-1.5 active:scale-90 md:hidden"
             title="Close"
             aria-label="Close chats"
           >
@@ -1027,7 +1036,7 @@ export function ChatSidebar() {
                 data-chat-mode-tab={tab}
                 data-tour={`chat-mode-${tab}`}
                 className={cn(
-                  "mari-chrome-segmented__button overflow-visible px-2 py-2 text-xs leading-normal",
+                  "mari-chrome-segmented__button gap-1 overflow-visible px-1.5 py-2 text-[0.625rem] leading-normal",
                   isActive && "mari-chrome-segmented__button--selected",
                 )}
               >
@@ -1036,7 +1045,7 @@ export function ChatSidebar() {
                   {cfg.shortLabel}
                 </span>
                 {tabUnread > 0 && !isActive && (
-                  <span className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
+                  <span className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-md bg-red-500 px-0.5 text-[0.5rem] font-bold leading-none text-white">
                     {tabUnread > 99 ? "99+" : tabUnread}
                   </span>
                 )}
@@ -1056,8 +1065,10 @@ export function ChatSidebar() {
         />
         <button
           onClick={handleNewChatFromTab}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold text-white shadow-md shadow-black/10 transition-all hover:brightness-110 active:scale-[0.98]"
-          style={{ background: activeModeConfig.bg }}
+          className={cn(
+            "mari-chrome-control mari-chrome-control--primary mari-chat-mode-action flex-1 text-xs",
+            activeModeConfig.logoModeClass,
+          )}
           title={`New ${activeModeConfig.label}`}
           aria-label={`New ${activeModeConfig.label}`}
         >
@@ -1106,7 +1117,7 @@ export function ChatSidebar() {
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as ChatSortOption)}
-              className="mari-chrome-field h-10 w-[6.5rem] appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+              className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 w-[6.5rem] appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title="Sort chats"
             >
               <option value="newest">Newest</option>
@@ -1116,7 +1127,7 @@ export function ChatSidebar() {
             </select>
             <ArrowUpDown
               size="0.625rem"
-              className="mari-chrome-field-icon pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+              className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
             />
           </div>
         </div>
@@ -1128,8 +1139,8 @@ export function ChatSidebar() {
               className={cn(
                 "flex max-w-full items-center gap-1 rounded-lg px-1.5 py-1 text-[0.625rem] transition-colors",
                 activeTag
-                  ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
+                  ? "mari-chrome-accent-surface mari-accent-animated"
+                  : "mari-chrome-text-muted hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
               )}
               title={tagsExpanded ? "Collapse tags" : "Expand tags"}
             >
@@ -1158,8 +1169,8 @@ export function ChatSidebar() {
                 className={cn(
                   "max-w-full truncate rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
                   activeTag === tag
-                    ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
-                    : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]",
+                    ? "mari-chrome-accent-surface mari-accent-animated"
+                    : "mari-chrome-muted-badge hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
                 )}
                 title={tag}
               >
@@ -1183,7 +1194,7 @@ export function ChatSidebar() {
         data-chat-root-drop-zone
         className={cn(
           "flex-1 overflow-y-auto px-2 pb-1 pt-0 transition-colors",
-          isRootDropTarget && "bg-[var(--primary)]/5",
+          isRootDropTarget && "bg-[var(--marinara-chat-chrome-highlight-bg)]",
         )}
         onDragEnter={(event) => {
           if (!draggedChatId) return;
@@ -1237,7 +1248,7 @@ export function ChatSidebar() {
             <button
               onClick={() => void refetchChats()}
               disabled={isFetching}
-              className="mt-1 rounded-lg bg-[var(--primary)]/15 px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mari-chrome-control mari-chrome-control--compact mt-1 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isFetching ? "Checking..." : "Try Again"}
             </button>
@@ -1246,23 +1257,26 @@ export function ChatSidebar() {
 
         {displayChats.length === 0 && !isLoading && !chatsError && (
           <div className="flex flex-col items-center gap-2 px-3 py-12 text-center">
-            <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--secondary)]">
+            <div className="mari-chrome-accent-soft-tile mari-accent-animated animate-float flex h-12 w-12 items-center justify-center rounded-2xl">
               {activeTab === "conversation" ? (
-                <MessageSquare size="1.25rem" className="text-[var(--muted-foreground)]" />
+                <MessageSquare size="1.25rem" />
               ) : activeTab === "game" ? (
-                <Theater size="1.25rem" className="text-[var(--muted-foreground)]" />
+                <Theater size="1.25rem" />
               ) : (
-                <BookOpen size="1.25rem" className="text-[var(--muted-foreground)]" />
+                <BookOpen size="1.25rem" />
               )}
             </div>
-            <p className="text-xs text-[var(--muted-foreground)]">
+            <p className="mari-chrome-text-muted text-xs">
               {searchQuery.trim() || activeTag
                 ? `No ${activeTab === "conversation" ? "conversations" : activeTab === "game" ? "games" : "roleplays"} match the current filters`
                 : `No ${activeTab === "conversation" ? "conversations" : activeTab === "game" ? "games" : "roleplays"} yet`}
             </p>
             <button
               onClick={handleNewChatFromTab}
-              className="mt-1 rounded-lg bg-[var(--primary)]/15 px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25"
+              className={cn(
+                "mari-chrome-control mari-chrome-control--compact mari-chat-mode-action mt-1",
+                activeModeConfig.logoModeClass,
+              )}
             >
               + New {activeTab === "conversation" ? "Conversation" : activeTab === "game" ? "Game" : "Roleplay"}
             </button>
@@ -1466,7 +1480,7 @@ function FolderRow({
       }}
       className={cn(
         "flex flex-col rounded-lg transition-colors",
-        isDropTarget && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30",
+        isDropTarget && "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
       )}
     >
       {/* Folder header */}
@@ -1478,7 +1492,7 @@ function FolderRow({
           }}
           className="cursor-grab touch-none opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 max-md:opacity-100"
         >
-          <GripVertical size="0.625rem" className="text-[var(--muted-foreground)]" />
+          <GripVertical size="0.625rem" className="mari-chrome-accent-icon mari-accent-animated" />
         </div>
         <div
           role="button"
@@ -1508,7 +1522,7 @@ function FolderRow({
           <ChevronRight
             size="0.75rem"
             className={cn(
-              "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+              "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
               isExpanded && "rotate-90",
             )}
           />
@@ -1537,13 +1551,13 @@ function FolderRow({
               className="flex-1 bg-transparent text-xs font-medium text-[var(--foreground)] outline-none min-w-0"
             />
           ) : (
-            <span className="flex-1 cursor-pointer truncate text-xs font-medium text-[var(--muted-foreground)] min-w-0">
+            <span className="mari-chrome-text flex-1 min-w-0 cursor-pointer truncate text-xs font-medium">
               {folder.name}
             </span>
           )}
         </div>
         {entries.length > 0 && (
-          <span className="text-[0.5625rem] text-[var(--muted-foreground)] shrink-0">{entries.length}</span>
+          <span className="mari-chrome-text-muted shrink-0 text-[0.5625rem]">{entries.length}</span>
         )}
         <button
           onClick={(e) => {
@@ -1702,7 +1716,7 @@ function UserStatusFooter() {
           aria-label="Change activity status"
         >
           <span className={`h-2 w-2 shrink-0 rounded-full ${current.color}`} />
-          <span className="max-w-20 truncate text-xs text-[var(--sidebar-foreground)]">{current.label}</span>
+          <span className="mari-chrome-text max-w-20 truncate text-xs">{current.label}</span>
         </button>
         <input
           value={userActivity}

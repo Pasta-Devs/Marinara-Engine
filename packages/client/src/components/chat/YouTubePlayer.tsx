@@ -35,7 +35,7 @@ interface SearchResult {
 let ytApiPromise: Promise<void> | null = null;
 
 const MUSIC_NEUTRAL_BORDER_CLASS = "border-[#f7f3ef]/15";
-const MUSIC_NEUTRAL_SHELL_BORDER_CLASS = "border-[#f7f3ef]/10";
+const MUSIC_NEUTRAL_SHELL_BORDER_CLASS = "border-[#f7f3ef]/15";
 const MUSIC_NEUTRAL_SHELL_BG_CLASS = "bg-[#0f0f0f]/95";
 const MUSIC_NEUTRAL_BUTTON_BG_CLASS = "bg-[#f7f3ef]/5";
 const MUSIC_NEUTRAL_TILE_BG_CLASS = "bg-[#f7f3ef]/5";

@@ -148,7 +148,7 @@ function MountOnceWhenOpened({
         animate={open ? { opacity: 1, x: 0 } : { opacity: 0, x: 30 }}
         transition={{ duration: 0.2 }}
         className={cn(
-          "absolute inset-0 flex flex-col overflow-hidden bg-[var(--background)]",
+          "mari-app-background-paint absolute inset-0 flex flex-col overflow-hidden",
           open ? "z-20" : "z-10 pointer-events-none",
         )}
       >
@@ -736,7 +736,7 @@ export function AppShell() {
     <div
       data-component="AppShell"
       className={cn(
-        "mari-app fixed inset-0 flex overflow-hidden bg-[var(--background)] max-md:h-screen max-md:max-h-screen max-md:pb-[env(safe-area-inset-bottom)] max-md:pt-[env(safe-area-inset-top)] supports-[height:100dvh]:max-md:h-[100dvh] supports-[height:100dvh]:max-md:max-h-[100dvh]",
+        "mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden max-md:h-screen max-md:max-h-screen max-md:pb-[env(safe-area-inset-bottom)] max-md:pt-[env(safe-area-inset-top)] supports-[height:100dvh]:max-md:h-[100dvh] supports-[height:100dvh]:max-md:max-h-[100dvh]",
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
@@ -804,10 +804,10 @@ export function AppShell() {
         data-tour="chat-area"
         data-component="CenterContent"
         aria-label="Main content"
-        className="@container mari-main relative flex min-w-0 flex-1 flex-col overflow-hidden"
+        className="@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden"
       >
         <TopBar />
-        <div className="relative flex flex-1 flex-col overflow-hidden">
+        <div className="mari-app-background-paint relative flex flex-1 flex-col overflow-hidden">
           {/* Bot Browser — kept mounted once opened so state persists across close/reopen */}
           <MountOnceWhenOpened open={botBrowserOpen} overlay>
             <BotBrowserView />
@@ -817,7 +817,10 @@ export function AppShell() {
             <GameAssetsBrowserView />
           </MountOnceWhenOpened>
           <div
-            className={botBrowserOpen || gameAssetsBrowserOpen ? "hidden" : "flex flex-1 flex-col overflow-hidden"}
+            className={cn(
+              "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
+              (botBrowserOpen || gameAssetsBrowserOpen) && "hidden",
+            )}
             style={
               {
                 "--tracker-chat-avoid-left": `${trackerPanelSide === "left" ? trackerPanelChatAvoidance : 0}px`,

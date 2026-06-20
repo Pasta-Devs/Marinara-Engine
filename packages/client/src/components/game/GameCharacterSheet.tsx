@@ -493,8 +493,10 @@ export function GameCharacterSheet({
               )}
               {card.mood && (
                 <div className="mt-1.5 flex items-center gap-1.5">
-                  <Heart size={11} className="text-rose-400/70" />
-                  <span className="text-[0.6875rem] italic text-rose-400/70">{card.mood}</span>
+                  <Heart size={11} className="text-[var(--marinara-chat-chrome-panel-muted)]" />
+                  <span className="text-[0.6875rem] italic text-[var(--marinara-chat-chrome-panel-muted)]">
+                    {card.mood}
+                  </span>
                 </div>
               )}
               {card.status && (

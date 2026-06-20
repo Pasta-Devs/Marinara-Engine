@@ -8,6 +8,7 @@ import {
   DEFAULT_ROLEPLAY_BACKGROUND_URL,
   useUIStore,
   getDefaultAppAccentColor,
+  getDefaultAppBackgroundColor,
   getDefaultChatChromeTextColor,
   getDefaultChatTextColor,
   getTrackerPanelWidthForProfile,
@@ -134,6 +135,13 @@ const TABS = [
   { id: "import", label: "Import" },
   { id: "advanced", label: "Advanced" },
 ] as const;
+
+const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
+const SETTINGS_PRIMARY_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--primary text-xs";
+const SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS =
+  "mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected text-[0.625rem]";
+const SETTINGS_INLINE_ACCENT_BUTTON_CLASS =
+  "shrink-0 rounded-md border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] px-1.5 py-0.5 text-[0.5625rem] font-semibold text-[var(--marinara-chat-chrome-button-text-active)] transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] disabled:cursor-not-allowed disabled:opacity-45";
 
 const SETTINGS_COMPONENTS: Record<(typeof TABS)[number]["id"], React.FC> = {
   general: React.memo(GeneralSettings),
@@ -1060,7 +1068,7 @@ export function SettingsPanel() {
   mountedSettingsTabs.add(settingsTab);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="mari-settings-panel-chrome flex h-full flex-col">
       <div role="tablist" className="grid flex-shrink-0 grid-cols-2 gap-2 p-3 pb-2 md:grid-cols-3">
         {TABS.map((tab) => (
           <button
@@ -1336,16 +1344,13 @@ function GeneralSettings() {
             onChange={setIntuitiveSwipeNavigation}
             help="In Conversation and Roleplay modes, use Left/Right Arrow on desktop or horizontal touch swipes on mobile to move between alternate generations on the latest assistant message."
           />
-          <div
-            className={cn("pl-5 transition-opacity", intuitiveSwipeNavigation ? "" : "pointer-events-none opacity-45")}
-          >
-            <ToggleSetting
-              label="Reroll past the newest swipe"
-              checked={intuitiveSwipeRerollLatest}
-              onChange={setIntuitiveSwipeRerollLatest}
-              help="When intuitive swipes are enabled, pressing Right Arrow or swiping left on the newest swipe of the latest assistant message creates a new reroll."
-            />
-          </div>
+          <ToggleSetting
+            label="Reroll past the newest swipe"
+            checked={intuitiveSwipeRerollLatest}
+            onChange={setIntuitiveSwipeRerollLatest}
+            disabled={!intuitiveSwipeNavigation}
+            help="When intuitive swipes are enabled, pressing Right Arrow or swiping left on the newest swipe of the latest assistant message creates a new reroll."
+          />
           <ToggleSetting
             label="Up Arrow edits last message"
             checked={editLastMessageOnArrowUp}
@@ -1657,7 +1662,7 @@ function GameAssetsSettings() {
                 .then(() => toast.success("Game assets rescanned."))
                 .catch(() => toast.error("Failed to rescan game assets."));
             }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            className={SETTINGS_BUTTON_CLASS}
           >
             <RefreshCw size="0.75rem" />
             Rescan
@@ -1666,7 +1671,7 @@ function GameAssetsSettings() {
             <button
               key={folder.id}
               onClick={() => handleOpenGameAssetFolder(folder.id)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[0.6875rem] font-medium capitalize text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              className={cn(SETTINGS_BUTTON_CLASS, "capitalize")}
             >
               <FolderOpen size="0.75rem" />
               {folder.id}
@@ -1711,7 +1716,7 @@ function GameAssetsSettings() {
           />
           <button
             onClick={() => assetFileRef.current?.click()}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)]"
+            className={cn(SETTINGS_BUTTON_CLASS, "justify-center")}
           >
             <Upload size="0.875rem" />
             Choose Files
@@ -1720,10 +1725,9 @@ function GameAssetsSettings() {
             onClick={handleGameAssetUpload}
             disabled={assetUploading || assetFiles.length === 0}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold ring-1 transition-all",
-              assetUploading || assetFiles.length === 0
-                ? "cursor-not-allowed bg-[var(--muted)] text-[var(--muted-foreground)] ring-[var(--border)]"
-                : "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/30 hover:bg-[var(--primary)]/20",
+              SETTINGS_BUTTON_CLASS,
+              "justify-center",
+              assetUploading || assetFiles.length === 0 ? "" : "mari-chrome-control--selected",
             )}
           >
             {assetUploading ? <Loader2 size="0.875rem" className="animate-spin" /> : <Upload size="0.875rem" />}
@@ -1748,8 +1752,15 @@ function GameAssetsSettings() {
 function AppearanceSettings() {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const appBackgroundColor = useUIStore((s) => s.appBackgroundColor);
+  const setAppBackgroundColor = useUIStore((s) => s.setAppBackgroundColor);
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const setAppAccentColor = useUIStore((s) => s.setAppAccentColor);
+  const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
+  const setAppAccentRgbMode = useUIStore((s) => s.setAppAccentRgbMode);
+  const defaultAppBackgroundColor = getDefaultAppBackgroundColor(theme);
+  const displayedAppBackgroundColor =
+    appBackgroundColor.trim().toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : appBackgroundColor;
   const defaultAppAccentColor = getDefaultAppAccentColor(theme);
   const displayedAppAccentColor =
     appAccentColor.trim().toLowerCase() === defaultAppAccentColor.toLowerCase() ? "" : appAccentColor;
@@ -1763,6 +1774,13 @@ function AppearanceSettings() {
   const setChatBackgroundBlur = useUIStore((s) => s.setChatBackgroundBlur);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const updateMeta = useUpdateChatMetadata();
+  const handleAppBackgroundColorChange = useCallback(
+    (color: string) => {
+      const normalized = color.trim();
+      setAppBackgroundColor(normalized.toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : normalized);
+    },
+    [defaultAppBackgroundColor, setAppBackgroundColor],
+  );
   const handleAppAccentColorChange = useCallback(
     (color: string) => {
       const normalized = color.trim();
@@ -1930,7 +1948,7 @@ function AppearanceSettings() {
           {/* ── Visual Style ── */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5">
-              <Paintbrush size="0.75rem" className="text-[var(--muted-foreground)]" />
+              <Paintbrush size="0.75rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
               <span className="text-xs font-medium">Visual Style</span>
               <HelpTooltip text="Choose how the entire app looks. 'Marinara' uses a retro Y2K aesthetic with glow effects. 'SillyTavern' uses a clean, minimal look inspired by the original SillyTavern." />
             </div>
@@ -1982,15 +2000,34 @@ function AppearanceSettings() {
           </label>
 
           <ColorPicker
+            value={displayedAppBackgroundColor}
+            onChange={handleAppBackgroundColorChange}
+            gradient
+            compact
+            label="Background Color"
+            helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
+            emptyText={`Default ${defaultAppBackgroundColor}`}
+            emptyPreviewValue={defaultAppBackgroundColor}
+            clearLabel="Reset to default"
+          />
+
+          <ColorPicker
             value={displayedAppAccentColor}
             onChange={handleAppAccentColorChange}
             gradient
             compact
             label="Accent Color"
-            helpText="Colors the shared chat, roleplay, and game chrome: toolbar icons, button borders, focus rings, highlights, and panel outlines. Gradients unlock rainbow accents."
+            helpText="Colors the shared app accent layer: buttons, active icons, focus rings, highlights, panel outlines, and chat chrome."
             emptyText={`Default ${defaultAppAccentColor}`}
             emptyPreviewValue={defaultAppAccentColor}
             clearLabel="Reset to default"
+          />
+
+          <ToggleSetting
+            label="RGB Mode"
+            checked={appAccentRgbMode}
+            onChange={setAppAccentRgbMode}
+            help="Cycles the accent token itself. Solid accents gently brighten and darken; gradient accents slowly move color-to-color through the selected stops. Reduced-motion preferences are respected."
           />
 
           <label className="flex flex-col gap-1">
@@ -2018,7 +2055,7 @@ function AppearanceSettings() {
             )}
             <button
               onClick={() => api.post("/fonts/open-folder").catch(() => {})}
-              className="mt-1 inline-flex items-center gap-1.5 self-start rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              className={cn(SETTINGS_BUTTON_CLASS, "mt-1 self-start")}
             >
               <FolderOpen size="0.75rem" />
               Open Fonts Folder
@@ -2047,7 +2084,7 @@ function AppearanceSettings() {
               <button
                 onClick={() => googleFontMutation.mutate(googleFontName.trim())}
                 disabled={!googleFontName.trim() || googleFontMutation.isPending}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-[0.6875rem] font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--selected")}
               >
                 {googleFontMutation.isPending ? (
                   <Loader2 size="0.75rem" className="animate-spin" />
@@ -2205,7 +2242,7 @@ function AppearanceSettings() {
               gradient
               compact
               label="Chat Chrome Text Color"
-              helpText="Controls text in tracker widgets, shared toolbar buttons, and windows opened from chat buttons. Leave it on the scheme default to swap automatically between dark and light mode. Gradients use a compatible fallback where plain CSS color is required."
+              helpText="Controls ordinary chrome copy in tracker widgets, folder labels, settings descriptors, and windows opened from chat buttons. Accent-colored button text and active icons follow Accent Color instead. Gradients use a compatible fallback where plain CSS color is required."
               emptyText={`Scheme default ${getDefaultChatChromeTextColor(theme)}`}
               emptyPreviewValue={getDefaultChatChromeTextColor(theme)}
               clearLabel="Reset to default"
@@ -2344,7 +2381,7 @@ function AppearanceSettings() {
                     ) : opt.id === "circles" ? (
                       <div className="flex h-14 items-center px-3">
                         <div className="relative flex-1 rounded-2xl rounded-tl-sm bg-black/25 px-3 py-2">
-                          <div className="absolute left-2 top-2 h-2.5 w-2.5 rounded-full bg-gradient-to-br from-rose-400 to-orange-300 shadow-[0_0_0_2px_rgba(255,255,255,0.16)]" />
+                          <div className="mari-settings-accent-dot absolute left-2 top-2 h-2.5 w-2.5 rounded-full shadow-[0_0_0_2px_rgba(255,255,255,0.16)]" />
                           <div className="ml-4 h-1.5 w-14 rounded-full bg-white/20" />
                           <div className="mt-1.5 ml-4 h-1.5 w-20 rounded-full bg-white/12" />
                         </div>
@@ -2352,7 +2389,7 @@ function AppearanceSettings() {
                     ) : opt.id === "rectangles" ? (
                       <div className="flex h-14 items-center px-3">
                         <div className="relative flex-1 rounded-2xl rounded-tl-sm bg-black/25 py-2 pl-8 pr-3">
-                          <div className="absolute left-2 top-2 h-4 w-4 overflow-hidden rounded bg-gradient-to-b from-rose-400/75 via-orange-300/55 to-zinc-600/80 ring-1 ring-white/20">
+                          <div className="mari-settings-portrait-preview absolute left-2 top-2 h-4 w-4 overflow-hidden rounded ring-1 ring-white/20">
                             <div className="h-full w-full bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.24),transparent_58%)]" />
                           </div>
                           <div className="h-1.5 w-14 rounded-full bg-white/20" />
@@ -2361,7 +2398,7 @@ function AppearanceSettings() {
                       </div>
                     ) : (
                       <div className="flex h-14 items-stretch overflow-hidden bg-black/25">
-                        <div className="relative flex w-[42%] shrink-0 items-end justify-center overflow-hidden bg-[linear-gradient(155deg,rgba(251,146,60,0.96),rgba(244,114,182,0.78)_48%,rgba(39,39,42,0.96)_100%)]">
+                        <div className="mari-settings-scene-preview relative flex w-[42%] shrink-0 items-end justify-center overflow-hidden">
                           <div className="absolute left-1/2 top-2 h-4 w-4 -translate-x-1/2 rounded-full bg-orange-50/45 shadow-[0_0_12px_rgba(255,237,213,0.35)]" />
                           <div className="h-8 w-8 rounded-t-full bg-zinc-950/35" />
                           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[32%] backdrop-blur-[4px] [mask-image:linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.25)_28%,rgba(0,0,0,0.8)_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,rgba(0,0,0,0.25)_28%,rgba(0,0,0,0.8)_100%)]" />
@@ -2395,7 +2432,7 @@ function AppearanceSettings() {
                   ) : (
                     <div
                       className={cn(
-                        "shrink-0 border border-white/20 bg-gradient-to-b from-rose-300/85 via-fuchsia-300/65 to-slate-900/90 shadow-lg transition-all",
+                        "mari-settings-portrait-preview shrink-0 border border-white/20 shadow-lg transition-all",
                         roleplayAvatarStyle === "circles"
                           ? "rounded-full"
                           : roleplayAvatarStyle === "rectangles"
@@ -2409,7 +2446,7 @@ function AppearanceSettings() {
                     />
                   )}
                   <div
-                    className="shrink-0 rounded-full border border-white/20 bg-gradient-to-b from-violet-200/85 via-purple-200/70 to-slate-900/95 shadow-lg transition-all"
+                    className="mari-settings-scene-preview shrink-0 rounded-full border border-white/20 shadow-lg transition-all"
                     style={{
                       width: toPreviewRem(roleplaySpritePreview.width),
                       height: toPreviewRem(roleplaySpritePreview.height),
@@ -2478,7 +2515,7 @@ function AppearanceSettings() {
                     }}
                   />
                   <div
-                    className="shrink-0 rounded-full border border-white/20 bg-gradient-to-b from-rose-200/85 via-fuchsia-200/70 to-slate-900/95 shadow-lg transition-all"
+                    className="mari-settings-portrait-preview shrink-0 rounded-full border border-white/20 shadow-lg transition-all"
                     style={{
                       width: toPreviewRem(gameFullBodyPreview.width),
                       height: toPreviewRem(gameFullBodyPreview.height),
@@ -2598,7 +2635,7 @@ function AppearanceSettings() {
                   className={cn(
                     "rounded-md px-2 py-1 transition-colors",
                     activeGradientScheme === "dark"
-                      ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
+                      ? "mari-accent-animated bg-[var(--accent)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary)]/25"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                   )}
                 >
@@ -2610,7 +2647,7 @@ function AppearanceSettings() {
                   className={cn(
                     "rounded-md px-2 py-1 transition-colors",
                     activeGradientScheme === "light"
-                      ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
+                      ? "mari-accent-animated bg-[var(--accent)] text-[var(--primary)] shadow-sm ring-1 ring-[var(--primary)]/25"
                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                   )}
                 >
@@ -3013,7 +3050,7 @@ function BackgroundPicker({
                           <button
                             type="submit"
                             disabled={!renameInput.trim() || renameBg.isPending}
-                            className="shrink-0 rounded bg-[var(--primary)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--primary-foreground)] disabled:opacity-40"
+                            className={SETTINGS_INLINE_ACCENT_BUTTON_CLASS}
                           >
                             {renameBg.isPending ? "…" : "Save"}
                           </button>
@@ -3159,7 +3196,7 @@ function BackgroundPicker({
                         <button
                           onClick={() => addTag(bg.filename, bg.tags)}
                           disabled={!tagInput.trim()}
-                          className="shrink-0 rounded bg-[var(--primary)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--primary-foreground)] disabled:opacity-40"
+                          className={SETTINGS_INLINE_ACCENT_BUTTON_CLASS}
                         >
                           Add
                         </button>
@@ -3371,7 +3408,7 @@ function ThemesSettings() {
             <button
               onClick={handleSave}
               disabled={isSavingTheme}
-              className="flex items-center gap-1 rounded-md bg-[var(--primary)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              className={SETTINGS_COMPACT_PRIMARY_BUTTON_CLASS}
             >
               {isSavingTheme ? <Loader2 size="0.6875rem" className="animate-spin" /> : <Save size="0.6875rem" />}
               {isSavingTheme ? "Saving..." : "Save"}
@@ -3590,6 +3627,7 @@ function ThemesSettings() {
             <strong>Tip:</strong> CSS themes can override any CSS variable (e.g.{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--background</code>,{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--primary</code>,{" "}
+            <code className="rounded bg-[var(--secondary)] px-1">--marinara-app-accent-solid</code>,{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-accent</code>,{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-accent-gradient</code>,{" "}
             <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-surface-bg</code>) or add custom
@@ -3613,6 +3651,8 @@ const CSS_TEMPLATE = `/* ══════════════════�
   /* --foreground: #e4e4e7; */
   /* --primary: #a78bfa; */
   /* --primary-foreground: #fff; */
+  /* --marinara-app-accent-solid: var(--primary); */
+  /* --marinara-app-accent-gradient: linear-gradient(90deg, var(--marinara-app-accent-solid), color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%), var(--marinara-app-accent-solid)); */
 
   /* ── Surface Colors ── */
   /* --card: #111118; */
@@ -3632,9 +3672,9 @@ const CSS_TEMPLATE = `/* ══════════════════�
   /* --sidebar: #0c0c12; */
 
   /* ── Shared Chat / Roleplay / Game Chrome ── */
-  /* --marinara-chat-chrome-accent: #d4acfb; */
-  /* --marinara-chat-chrome-accent-gradient: linear-gradient(90deg, var(--marinara-chat-chrome-accent), var(--marinara-chat-chrome-accent)); */
-  /* --marinara-chat-chrome-text: var(--foreground); */
+  /* --marinara-chat-chrome-accent: var(--marinara-app-accent-solid); */
+  /* --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient); */
+  /* --marinara-chat-chrome-text: var(--foreground); Non-action chrome copy. */
   /* --marinara-chat-chrome-button-text-base: var(--marinara-chat-chrome-accent); */
   /* --marinara-chat-chrome-highlight-text-base: var(--marinara-chat-chrome-accent); */
   /* --marinara-chat-chrome-surface-bg: var(--card); */
@@ -4535,7 +4575,7 @@ function ImportSettings() {
         <div className="flex flex-col gap-2.5">
           <button
             onClick={() => openModal("st-bulk-import")}
-            className="flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)]/12 px-3 py-3 text-xs font-semibold text-[var(--primary)] ring-1 ring-[var(--primary)]/30 transition-all hover:bg-[var(--primary)]/18 active:scale-[0.98]"
+            className={cn(SETTINGS_PRIMARY_BUTTON_CLASS, "w-full gap-2")}
           >
             <Download size="1rem" />
             Import from SillyTavern Folder
@@ -4646,7 +4686,7 @@ function ImportButton({
   };
 
   return (
-    <label className="flex cursor-pointer items-center justify-center rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]">
+    <label className={cn(SETTINGS_BUTTON_CLASS, "cursor-pointer py-2.5")}>
       {label}
       <input type="file" accept={accept} onChange={handleImport} className="hidden" />
     </label>
@@ -5017,7 +5057,7 @@ function AdvancedSettings() {
           <button
             type="button"
             onClick={saveAdminSecret}
-            className="max-w-full shrink-0 whitespace-nowrap rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95"
+            className={cn(SETTINGS_PRIMARY_BUTTON_CLASS, "max-w-full shrink-0 whitespace-nowrap")}
           >
             <span className="flex min-w-0 items-center justify-center gap-1.5">
               <Save size="0.75rem" className="shrink-0" />
@@ -5037,7 +5077,7 @@ function AdvancedSettings() {
             <button
               onClick={() => updateCheck.refetch()}
               disabled={updateCheck.isFetching}
-              className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              className={SETTINGS_PRIMARY_BUTTON_CLASS}
             >
               {updateCheck.isFetching ? (
                 <>
@@ -5107,7 +5147,7 @@ function AdvancedSettings() {
                 <button
                   onClick={() => applyUpdate.mutate()}
                   disabled={applyUpdate.isPending}
-                  className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                  className={SETTINGS_PRIMARY_BUTTON_CLASS}
                 >
                   {applyUpdate.isPending ? (
                     <>
@@ -5132,7 +5172,7 @@ function AdvancedSettings() {
                       href={updateCheck.data.releaseUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95"
+                      className={SETTINGS_PRIMARY_BUTTON_CLASS}
                     >
                       <Download size="0.8125rem" />
                       Download v{updateCheck.data.latestVersion}
@@ -5358,7 +5398,7 @@ function AdvancedSettings() {
                         className={cn(
                           "flex h-4 w-4 shrink-0 items-center justify-center rounded-full ring-1 transition-colors",
                           option.checked
-                            ? "bg-[var(--primary)] text-[var(--primary-foreground)] ring-[var(--primary)]"
+                            ? "mari-accent-animated bg-[var(--accent)] text-[var(--primary)] ring-[var(--primary)]/35"
                             : "bg-[var(--background)]/45 text-transparent ring-[var(--border)]/70 group-hover:text-[var(--muted-foreground)]",
                         )}
                         aria-hidden="true"
@@ -5426,7 +5466,7 @@ function AdvancedSettings() {
           <button
             onClick={handleCreateBackup}
             disabled={creatingBackup}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-medium text-white transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+            className={SETTINGS_PRIMARY_BUTTON_CLASS}
           >
             {creatingBackup ? (
               <>

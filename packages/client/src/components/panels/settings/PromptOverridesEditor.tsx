@@ -397,10 +397,8 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
           onClick={() => void handleSave()}
           disabled={!canSave}
           className={cn(
-            "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50",
-            canSave
-              ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
-              : "bg-[var(--muted)] text-[var(--muted-foreground)]",
+            "mari-chrome-control flex-1 text-xs disabled:cursor-not-allowed",
+            canSave && "mari-chrome-control--selected",
           )}
         >
           {saveOverride.isPending ? <Loader2 size="0.8125rem" className="animate-spin" /> : <Save size="0.8125rem" />}
@@ -410,7 +408,7 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
           type="button"
           onClick={() => void handleReset()}
           disabled={!canReset}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--background)] px-3 py-2 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mari-chrome-control flex-1 text-xs disabled:cursor-not-allowed"
         >
           {resetOverride.isPending ? (
             <Loader2 size="0.8125rem" className="animate-spin" />

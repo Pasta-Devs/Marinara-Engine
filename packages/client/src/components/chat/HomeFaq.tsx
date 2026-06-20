@@ -470,12 +470,14 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
 ];
 
 const CATEGORY_STYLES: Record<string, string> = {
-  "Top Issue": "border-rose-400/30 bg-rose-500/12 text-rose-700 dark:text-rose-200",
+  "Top Issue": "border-[var(--destructive)]/30 bg-[var(--destructive)]/12 text-[var(--destructive)]",
   Setup: "border-amber-400/30 bg-amber-500/12 text-amber-700 dark:text-amber-200",
   Connections: "border-cyan-400/30 bg-cyan-500/12 text-cyan-700 dark:text-cyan-200",
   Core: "border-emerald-400/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-200",
-  Agents: "border-violet-400/30 bg-violet-500/12 text-violet-700 dark:text-violet-200",
-  Images: "border-fuchsia-400/30 bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-200",
+  Agents:
+    "border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]",
+  Images:
+    "border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]",
   "Game Mode": "border-orange-400/30 bg-orange-500/12 text-orange-700 dark:text-orange-200",
   Misc: "border-[var(--border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]",
 };

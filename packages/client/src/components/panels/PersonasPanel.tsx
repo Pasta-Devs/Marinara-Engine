@@ -482,7 +482,7 @@ export function PersonasPanel() {
       <div className="flex gap-2">
         <button
           onClick={handleCreate}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-emerald-400/15 transition-all hover:shadow-lg hover:shadow-emerald-400/25 active:scale-[0.98]"
+          className="mari-panel-gradient-button mari-panel-gradient--personas flex-1 text-xs"
           title="New"
         >
           <Plus size="0.8125rem" />
@@ -527,7 +527,7 @@ export function PersonasPanel() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortOption)}
-            className="mari-chrome-field h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -538,7 +538,7 @@ export function PersonasPanel() {
           </select>
           <ArrowUpDown
             size="0.625rem"
-            className="mari-chrome-field-icon pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
           />
         </div>
       </div>
@@ -690,7 +690,7 @@ export function PersonasPanel() {
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+                    "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -988,7 +988,7 @@ export function PersonasPanel() {
                   <Camera size="0.75rem" className="text-white" />
                 </div>
                 {active && (
-                  <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 shadow-sm">
+                  <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-md bg-emerald-400 shadow-sm">
                     <Check size="0.5rem" className="text-white" />
                   </div>
                 )}

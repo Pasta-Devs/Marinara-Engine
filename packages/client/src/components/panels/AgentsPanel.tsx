@@ -61,9 +61,8 @@ import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 type JsonRecord = Record<string, unknown>;
 const BUILT_IN_AGENT_TYPE_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 const AGENT_GRADIENT_SURFACE =
-  "bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 text-white shadow-purple-500/25";
-const AGENT_GRADIENT_BUTTON =
-  "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 text-white shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/25";
+  "mari-panel-gradient-surface mari-panel-gradient--agents text-[var(--mari-panel-gradient-text)]";
+const AGENT_GRADIENT_BUTTON = "mari-panel-gradient-button mari-panel-gradient--agents";
 
 function isJsonRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -655,14 +654,7 @@ export function AgentsPanel() {
       />
 
       <div className="flex gap-2">
-        <button
-          onClick={handleCreateAgent}
-          className={cn(
-            "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all hover:brightness-110 active:scale-[0.98]",
-            AGENT_GRADIENT_BUTTON,
-          )}
-          title="New"
-        >
+        <button onClick={handleCreateAgent} className={cn("flex-1 text-xs", AGENT_GRADIENT_BUTTON)} title="New">
           <Plus size="0.8125rem" />
         </button>
         <button
@@ -724,9 +716,7 @@ export function AgentsPanel() {
             New Folder
           </button>
         </div>
-        {agentFolders.length > 0 && (
-          <p className="mari-folder-helper">Drag and drop agents to folders</p>
-        )}
+        {agentFolders.length > 0 && <p className="mari-folder-helper">Drag and drop agents to folders</p>}
         {agentFolders.map((folder) => {
           const isEditing = editingFolderId === folder.id;
           const folderAgents = folder.itemIds
@@ -783,7 +773,7 @@ export function AgentsPanel() {
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+                    "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -830,9 +820,9 @@ export function AgentsPanel() {
                         if (expandedFolderId === folder.id) setExpandedFolderId(null);
                       });
                     }}
-	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
-	                    title="Delete folder"
-	                  >
+                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
+                    title="Delete folder"
+                  >
                     <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
                   </button>
                 </div>
@@ -1031,7 +1021,9 @@ function renderAgentCard({
       }}
       className={cn(
         "group relative flex cursor-pointer items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)]",
-        selectionMode && selected && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/40",
+        selectionMode &&
+          selected &&
+          "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
         isDragging && "opacity-50",
       )}
     >
@@ -1040,7 +1032,7 @@ function renderAgentCard({
           className={cn(
             "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
             selected
-              ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+              ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]"
               : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
           )}
         >
@@ -1093,8 +1085,8 @@ function renderAgentCard({
       {!selectionMode && (
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
           <button
-	            className="mari-chrome-control mari-chrome-control--small p-1.5"
-	            title="Copy agent"
+            className="mari-chrome-control mari-chrome-control--small p-1.5"
+            title="Copy agent"
             onClick={(event) => {
               event.stopPropagation();
               onDuplicate();
@@ -1104,8 +1096,8 @@ function renderAgentCard({
           </button>
           {onDelete && (
             <button
-	              className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
-	              title="Delete agent"
+              className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
+              title="Delete agent"
               onClick={(event) => {
                 event.stopPropagation();
                 void onDelete();

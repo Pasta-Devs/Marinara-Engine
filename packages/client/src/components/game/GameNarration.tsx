@@ -3302,7 +3302,7 @@ export function GameNarration({
         NARRATION_META_BTN,
         "relative",
         combatGenerationFailed
-          ? "border-rose-300/30 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
+          ? "border-[var(--destructive)]/30 bg-[var(--destructive)]/15 text-[var(--destructive)] hover:bg-[var(--destructive)]/25"
           : "border-amber-300/20 bg-amber-500/10 text-amber-100/90 hover:bg-amber-500/20",
         combatStarting && "cursor-wait opacity-80",
       )}
@@ -3318,7 +3318,7 @@ export function GameNarration({
         className={cn(
           "mt-2 flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs",
           combatGenerationFailed
-            ? "border-rose-300/25 bg-rose-500/10 text-rose-100"
+            ? "border-[var(--destructive)]/25 bg-[var(--destructive)]/10 text-[var(--destructive)]"
             : "border-amber-300/20 bg-amber-500/10 text-amber-100",
         )}
       >
@@ -3513,7 +3513,8 @@ export function GameNarration({
             seg.partyType === "side" && "bg-sky-500/15 text-sky-200/70",
             seg.partyType === "extra" && "bg-sky-500/15 text-sky-200/70",
             seg.partyType === "thought" && "bg-purple-500/15 text-purple-200/70",
-            seg.partyType === "whisper" && "bg-rose-500/15 text-rose-200/70",
+            seg.partyType === "whisper" &&
+              "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]",
           )}
         >
           {PARTY_TYPE_ICONS[seg.partyType] ?? ""} {seg.partyType}
@@ -3988,7 +3989,8 @@ export function GameNarration({
                               className={cn(
                                 "rounded-full px-1.5 py-0.5 text-[0.5rem] font-semibold uppercase tracking-wide",
                                 active.partyType === "thought" && "bg-purple-500/15 text-purple-200/70",
-                                active.partyType === "whisper" && "bg-rose-500/15 text-rose-200/70",
+                                active.partyType === "whisper" &&
+                                  "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]",
                               )}
                             >
                               {PARTY_TYPE_ICONS[active.partyType] ?? ""} {active.partyType}
@@ -4596,7 +4598,8 @@ export function GameNarration({
                               seg.partyType === "side" && "bg-sky-500/15 text-sky-200/70",
                               seg.partyType === "extra" && "bg-sky-500/15 text-sky-200/70",
                               seg.partyType === "thought" && "bg-purple-500/15 text-purple-200/70",
-                              seg.partyType === "whisper" && "bg-rose-500/15 text-rose-200/70",
+                              seg.partyType === "whisper" &&
+                                "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)]",
                             )}
                           >
                             {PARTY_TYPE_ICONS[seg.partyType] ?? ""} {seg.partyType}
@@ -5065,7 +5068,12 @@ function PartyOverlayBox({
     side: { border: "border-white/15", bg: "bg-black/75", icon: "💬", labelColor: "text-white/85" },
     extra: { border: "border-white/15", bg: "bg-black/75", icon: "💬", labelColor: "text-white/85" },
     thought: { border: "border-purple-400/20", bg: "bg-purple-950/70", icon: "💭", labelColor: "text-purple-200/80" },
-    whisper: { border: "border-rose-400/20", bg: "bg-rose-950/70", icon: "🤫", labelColor: "text-rose-200/80" },
+    whisper: {
+      border: "border-[var(--marinara-chat-chrome-button-border)]",
+      bg: "bg-[var(--marinara-chat-chrome-panel-bg)]",
+      icon: "🤫",
+      labelColor: "text-[var(--marinara-chat-chrome-panel-text)]",
+    },
   };
   const style = styleByType[line.type] ?? styleByType.side!;
 
@@ -5156,9 +5164,9 @@ const EXPRESSION_REACTIONS: Record<string, { symbol: string; color: string; effe
   mischievous: { symbol: "😈", color: "text-purple-300", effect: "pop" },
 
   // Affection
-  flirty: { symbol: "💗", color: "text-pink-400", effect: "heart" },
-  tender: { symbol: "💕", color: "text-pink-300", effect: "heart" },
-  loving: { symbol: "💕", color: "text-pink-300", effect: "heart" },
+  flirty: { symbol: "💗", color: "text-[var(--marinara-chat-chrome-panel-text)]", effect: "heart" },
+  tender: { symbol: "💕", color: "text-[var(--marinara-chat-chrome-panel-text)]", effect: "heart" },
+  loving: { symbol: "💕", color: "text-[var(--marinara-chat-chrome-panel-text)]", effect: "heart" },
 
   // Sadness
   sad: { symbol: "💧", color: "text-blue-300", effect: "tear" },
@@ -5761,7 +5769,7 @@ export function formatNarration(content: string, boldDialogue = true): string {
       const modifier = attrs.modifier ? `${attrs.stat || "modifier"} ${formatSignedNumber(attrs.modifier)}` : "";
       const turns = attrs.turns || attrs.duration ? `${attrs.turns || attrs.duration} turns` : "";
       return commandBadge(
-        "bg-rose-500/15 text-rose-200 ring-1 ring-rose-400/20",
+        "bg-[var(--destructive)]/15 text-[var(--destructive)] ring-1 ring-[var(--destructive)]/20",
         "✦ Status",
         [attrs.effect || attrs.name || "Effect", attrs.target ? `on ${attrs.target}` : "", turns, modifier]
           .filter(Boolean)
@@ -5801,7 +5809,7 @@ export function formatNarration(content: string, boldDialogue = true): string {
     .replace(/\[reputation:\s*([^\]]+)\]/gi, (_match, rawAttrs: string) => {
       const attrs = parseCommandAttributes(rawAttrs);
       return commandBadge(
-        "bg-fuchsia-500/15 text-fuchsia-200 ring-1 ring-fuchsia-400/20",
+        "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-text)] ring-1 ring-[var(--marinara-chat-chrome-button-border)]",
         "◆ Reputation",
         [attrs.npc, attrs.action].filter(Boolean).join(": "),
       );

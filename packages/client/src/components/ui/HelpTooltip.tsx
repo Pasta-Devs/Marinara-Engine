@@ -110,7 +110,7 @@ export function HelpTooltip({
         aria-label={label ? `Show help: ${label}` : "Show help"}
         aria-expanded={show}
         className={cn(
-          "inline-flex cursor-help items-center gap-1 rounded-full text-[var(--muted-foreground)] opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]/40",
+          "mari-chrome-accent-text-muted mari-accent-animated inline-flex cursor-help items-center gap-1 rounded-full opacity-70 transition-opacity hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
           buttonClassName,
         )}
         onMouseEnter={() => setShow(true)}

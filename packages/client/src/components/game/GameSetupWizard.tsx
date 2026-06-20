@@ -918,7 +918,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                   className={cn(
                     "rounded-full px-3 py-1 text-xs transition-colors",
                     rating === "nsfw"
-                      ? "bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/40"
+                      ? "bg-[var(--destructive)]/20 text-[var(--destructive)] ring-1 ring-[var(--destructive)]/40"
                       : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
                   )}
                 >

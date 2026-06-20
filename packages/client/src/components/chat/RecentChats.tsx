@@ -3,30 +3,36 @@
 // interacted chats on the homepage (compact row)
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
-import { MessageSquare, BookOpen } from "lucide-react";
+import { MessageSquare, BookOpen, Theater } from "lucide-react";
 import { useChats } from "../../hooks/use-chats";
 import { useCharacters } from "../../hooks/use-characters";
 import { useChatStore } from "../../stores/chat.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import type { Chat } from "@marinara-engine/shared";
 
-const MODE_BADGE: Record<string, { icon: React.ReactNode; bg: string; label: string }> = {
-  conversation: {
-    icon: <MessageSquare size="0.375rem" />,
-    bg: "linear-gradient(135deg, #4de5dd, #3ab8b1)",
-    label: "Conversation",
-  },
-  roleplay: {
-    icon: <BookOpen size="0.375rem" />,
-    bg: "linear-gradient(135deg, #eb8951, #d97530)",
-    label: "Roleplay",
-  },
-  visual_novel: {
-    icon: <BookOpen size="0.375rem" />,
-    bg: "linear-gradient(135deg, #e15c8c, #c94776)",
-    label: "Game",
-  },
-};
+const MODE_BADGE: Record<string, { icon: React.ReactNode; label: string; logoModeClass: string }> =
+  {
+    conversation: {
+      icon: <MessageSquare size="0.375rem" />,
+      label: "Conversation",
+      logoModeClass: "mari-chat-logo-mode--conversation",
+    },
+    roleplay: {
+      icon: <BookOpen size="0.375rem" />,
+      label: "Roleplay",
+      logoModeClass: "mari-chat-logo-mode--roleplay",
+    },
+    visual_novel: {
+      icon: <Theater size="0.375rem" />,
+      label: "Game",
+      logoModeClass: "mari-chat-logo-mode--game",
+    },
+    game: {
+      icon: <Theater size="0.375rem" />,
+      label: "Game",
+      logoModeClass: "mari-chat-logo-mode--game",
+    },
+  };
 
 export function RecentChats() {
   const { data: chats } = useChats();
@@ -57,9 +63,9 @@ export function RecentChats() {
   }, [chats]);
 
   return (
-    <div className="flex w-full max-w-md flex-col items-center gap-1.5">
+    <div className="mari-chrome-token-scope flex w-full max-w-md flex-col items-center gap-1.5">
       {recentChats.length === 0 ? (
-        <p className="rounded-lg border border-[var(--border)]/45 bg-[var(--card)]/45 px-3 py-1.5 text-xs text-[var(--muted-foreground)]/70">
+        <p className="rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] px-3 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
           No chats yet
         </p>
       ) : (
@@ -129,8 +135,10 @@ function RecentChatChip({
           </div>
         ) : (
           <div
-            className="flex h-5 w-5 items-center justify-center rounded-md text-white"
-            style={{ background: mode.bg }}
+            className={cn(
+              "mari-chat-mode-avatar flex h-5 w-5 items-center justify-center rounded-md",
+              mode.logoModeClass,
+            )}
           >
             {mode.icon}
           </div>
@@ -138,8 +146,10 @@ function RecentChatChip({
 
         {/* Tiny mode dot */}
         <div
-          className="absolute -top-0.5 -left-0.5 flex h-3 w-3 items-center justify-center rounded-full text-white ring-1 ring-[var(--card)]"
-          style={{ background: mode.bg }}
+          className={cn(
+            "mari-chat-mode-badge absolute -top-0.5 -left-0.5 flex h-3 w-3 items-center justify-center rounded-full ring-1 ring-[var(--card)]",
+            mode.logoModeClass,
+          )}
           title={mode.label}
         >
           {mode.icon}
@@ -147,7 +157,7 @@ function RecentChatChip({
       </div>
 
       {/* Chat name only */}
-      <span className="truncate text-[0.625rem] font-medium text-[var(--foreground)]">{chat.name}</span>
+      <span className="mari-chrome-text truncate text-[0.625rem] font-medium">{chat.name}</span>
     </button>
   );
 }

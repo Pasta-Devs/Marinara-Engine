@@ -10,6 +10,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
@@ -216,6 +217,72 @@ const GameSurface = lazy(async () => {
 });
 
 type FloatingPanelAnchor = { right: number; top: number } | null;
+
+type HomeGlistenStar = {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  duration: number;
+};
+
+function HomeStarfield() {
+  const [stars, setStars] = useState<HomeGlistenStar[]>([]);
+  const nextStarIdRef = useRef(0);
+
+  useEffect(() => {
+    let spawnTimer: number | null = null;
+    const removalTimers = new Set<number>();
+
+    const spawnStar = () => {
+      const duration = 4_200 + Math.random() * 2_400;
+      const star: HomeGlistenStar = {
+        id: nextStarIdRef.current,
+        x: 5 + Math.random() * 90,
+        y: 6 + Math.random() * 86,
+        size: 3 + Math.random() * 3.5,
+        duration,
+      };
+      nextStarIdRef.current += 1;
+
+      setStars((current) => [...current.slice(-9), star]);
+
+      const removalTimer = window.setTimeout(() => {
+        setStars((current) => current.filter((item) => item.id !== star.id));
+        removalTimers.delete(removalTimer);
+      }, duration + 250);
+      removalTimers.add(removalTimer);
+
+      spawnTimer = window.setTimeout(spawnStar, 700 + Math.random() * 1_600);
+    };
+
+    spawnTimer = window.setTimeout(spawnStar, 180);
+
+    return () => {
+      if (spawnTimer !== null) window.clearTimeout(spawnTimer);
+      removalTimers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
+  return (
+    <div className="mari-home-starfield" aria-hidden="true">
+      {stars.map((star) => (
+        <span
+          key={star.id}
+          className="mari-home-starfield__star"
+          style={
+            {
+              "--mari-home-star-x": `${star.x}%`,
+              "--mari-home-star-y": `${star.y}%`,
+              "--mari-home-star-size": `${star.size}px`,
+              "--mari-home-star-duration": `${star.duration}ms`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </div>
+  );
+}
 
 export function ChatArea() {
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -1764,7 +1831,7 @@ export function ChatArea() {
     return (
       <div
         data-component="ChatArea.RestoringChat"
-        className="flex flex-1 items-center justify-center overflow-hidden p-6"
+        className="mari-app-background-paint flex flex-1 items-center justify-center overflow-hidden p-6"
       >
         <div className="flex flex-col items-center gap-3 text-center">
           {!hasOpenError && (
@@ -1801,9 +1868,10 @@ export function ChatArea() {
         <HomeCreditsModal open={creditsOpen} onClose={() => setCreditsOpen(false)} />
         <div
           data-component="ChatArea.EmptyState"
-          className="flex flex-1 flex-col items-center overflow-y-auto p-1.5 sm:p-3 lg:p-3"
+          className="mari-app-background-paint mari-chrome-token-scope relative isolate flex flex-1 flex-col items-center overflow-y-auto p-1.5 sm:p-3 lg:p-3"
         >
-          <div className="flex w-full max-w-3xl flex-col items-center gap-1.5 py-0 sm:gap-2 lg:pt-0 lg:pb-2">
+          {showEmptyStateEffects && <HomeStarfield />}
+          <div className="relative z-[1] flex w-full max-w-3xl flex-col items-center gap-1.5 py-0 sm:gap-2 lg:pt-0 lg:pb-2">
             {/* Central hero */}
             <div className="relative">
               <div
@@ -1827,8 +1895,17 @@ export function ChatArea() {
             </div>
 
             <div className="text-center">
-              <h3 className="retro-glow-text text-base sm:text-xl font-bold tracking-tight">Marinara Engine</h3>
-              <p className="mt-0.5 text-[0.625rem] tracking-wide text-[var(--muted-foreground)]/35">v{APP_VERSION}</p>
+              <h3
+                className={cn(
+                  "mari-logo-gradient-text text-base font-bold sm:text-xl",
+                  isPageActive && "mari-logo-gradient-text--active",
+                )}
+              >
+                Marinara Engine
+              </h3>
+              <p className="mari-chrome-text-muted mt-0.5 text-[0.625rem] tracking-wide opacity-65">
+                v{APP_VERSION}
+              </p>
             </div>
 
             {/* Recent Chats */}
@@ -1848,14 +1925,14 @@ export function ChatArea() {
 
             {/* Footer */}
             <div className="flex w-full max-w-2xl flex-col items-center gap-1">
-              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center text-[0.625rem] leading-tight text-[var(--muted-foreground)]/55 sm:text-xs">
+              <div className="mari-chrome-text-muted flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 text-center text-[0.625rem] leading-tight sm:text-xs">
                 <span>
                   Created by{" "}
                   <a
                     href="https://spicymarinara.github.io/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline decoration-[var(--muted-foreground)]/30 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40"
+                    className="mari-chrome-text underline decoration-[var(--marinara-chat-chrome-panel-muted)]/30 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:decoration-[var(--marinara-chat-chrome-button-border-hover)]"
                   >
                     Marinara
                   </a>
@@ -1866,7 +1943,7 @@ export function ChatArea() {
                     href="https://linkapi.ai/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline decoration-[var(--muted-foreground)]/30 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40"
+                    className="mari-chrome-text underline decoration-[var(--marinara-chat-chrome-panel-muted)]/30 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:decoration-[var(--marinara-chat-chrome-button-border-hover)]"
                   >
                     LinkAPI
                   </a>
@@ -1877,7 +1954,7 @@ export function ChatArea() {
                     href="https://huntercolliex.carrd.co/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline decoration-[var(--muted-foreground)]/30 transition-colors hover:text-[var(--primary)] hover:decoration-[var(--primary)]/40"
+                    className="mari-chrome-text underline decoration-[var(--marinara-chat-chrome-panel-muted)]/30 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)] hover:decoration-[var(--marinara-chat-chrome-button-border-hover)]"
                   >
                     HunterCollieX
                   </a>

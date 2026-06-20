@@ -75,6 +75,14 @@ const MESSAGE_CHROME_ACTIVE_ICON_CLASS =
 const MESSAGE_CHROME_MARKER_LINE_CLASS = "bg-[var(--marinara-chat-chrome-button-border-active)]";
 const MESSAGE_CHROME_MARKER_TEXT_CLASS = "text-[var(--marinara-chat-chrome-highlight-text)]";
 const MESSAGE_CHROME_RING_CLASS = "ring-[var(--marinara-chat-chrome-focus-ring)]";
+const ROLEPLAY_USER_BUBBLE_PANEL_STRENGTH = 100;
+const ROLEPLAY_ASSISTANT_BUBBLE_PANEL_STRENGTH = 96;
+
+function getRoleplayPanelBubbleBackground(opacity: number, maxPanelStrength: number) {
+  const panelStrength = Math.max(0, Math.min(100, opacity * maxPanelStrength));
+  if (panelStrength <= 0) return "transparent";
+  return `color-mix(in srgb, var(--marinara-chat-chrome-panel-bg) ${panelStrength.toFixed(2)}%, transparent)`;
+}
 
 function isMessageQuickEditIgnoredTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -799,7 +807,6 @@ export const ChatMessage = memo(function ChatMessage({
     guideGenerations,
     boldDialogue,
     editMessageOnDoubleClick,
-    theme,
   } = useUIStore(
     useShallow((s) => ({
       chatFontSize: s.chatFontSize,
@@ -816,7 +823,6 @@ export const ChatMessage = memo(function ChatMessage({
       guideGenerations: s.guideGenerations,
       boldDialogue: s.boldDialogue ?? true,
       editMessageOnDoubleClick: s.editMessageOnDoubleClick,
-      theme: s.theme,
     })),
   );
   const isGuided = guideGenerations && hasDraftInput;
@@ -847,23 +853,15 @@ export const ChatMessage = memo(function ChatMessage({
     [roleplayAvatarScale],
   );
 
-  // Compute message bubble background with user-controlled opacity.
-  // Dark theme: neutral-900 (23,23,23) on dark bg → translucent dark bubble.
-  // Light theme: slightly grayer than --background (#faf8ff) so bubbles stay visible on light bg.
+  // Keep the top of the slider near the Chat Settings popover surface:
+  // solid enough to read, but still faintly translucent through the panel token.
   const { userBubbleBg, assistantBubbleBg } = useMemo(() => {
     const o = chatFontOpacity / 100;
-    if (theme === "light") {
-      // Higher base opacity in light mode so the bubble actually contrasts the page
-      return {
-        userBubbleBg: `rgba(225,220,235,${Math.min(1, 0.85 * o).toFixed(3)})`,
-        assistantBubbleBg: `rgba(238,234,245,${Math.min(1, 0.9 * o).toFixed(3)})`,
-      };
-    }
     return {
-      userBubbleBg: `rgba(23,23,23,${(0.7 * o).toFixed(3)})`,
-      assistantBubbleBg: `rgba(23,23,23,${(0.6 * o).toFixed(3)})`,
+      userBubbleBg: getRoleplayPanelBubbleBackground(o, ROLEPLAY_USER_BUBBLE_PANEL_STRENGTH),
+      assistantBubbleBg: getRoleplayPanelBubbleBackground(o, ROLEPLAY_ASSISTANT_BUBBLE_PANEL_STRENGTH),
     };
-  }, [chatFontOpacity, theme]);
+  }, [chatFontOpacity]);
 
   const [copied, setCopied] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -1418,7 +1416,14 @@ export const ChatMessage = memo(function ChatMessage({
   }, [isMergedGroup, characterMap, chatCharacterIds, expressionAvatarResolver, message]);
   const mergedNameColors = useMemo(() => {
     if (!isMergedGroup || !characterMap || !chatCharacterIds) return [];
-    const fallbackPalette = ["#c084fc", "#f472b6", "#fb923c", "#4ade80", "#60a5fa", "#facc15"];
+    const fallbackPalette = [
+      "var(--marinara-chat-chrome-text)",
+      "var(--marinara-chat-chrome-accent)",
+      "#fb923c",
+      "#4ade80",
+      "#60a5fa",
+      "#facc15",
+    ];
     return chatCharacterIds.map((id, i) => {
       const raw = characterMap.get(id)?.nameColor;
       return raw || fallbackPalette[i % fallbackPalette.length]!;
@@ -1854,13 +1859,13 @@ export const ChatMessage = memo(function ChatMessage({
                     compactAvatarFrameClass,
                     isUser
                       ? "bg-gradient-to-br from-neutral-500 to-neutral-600 ring-white/15"
-                      : "bg-gradient-to-br from-purple-500 to-pink-600 ring-purple-400/20",
+                      : "mari-chrome-accent-tile mari-accent-animated ring-[var(--marinara-chat-chrome-button-border-active)]",
                   )}
                 >
                   {isUser ? (
                     <User size={compactAvatarIconSize} className="text-white" />
                   ) : (
-                    <Bot size={compactAvatarIconSize} className="text-white" />
+                    <Bot size={compactAvatarIconSize} className="text-current" />
                   )}
                 </div>
               )}
@@ -1959,7 +1964,7 @@ export const ChatMessage = memo(function ChatMessage({
                       isUser ? "border-l border-white/8" : "border-r border-white/8",
                       isUser
                         ? "bg-gradient-to-b from-neutral-500/18 via-neutral-600/10 to-transparent"
-                        : "bg-gradient-to-b from-purple-500/18 via-pink-600/10 to-transparent",
+                        : "mari-chrome-accent-rail mari-accent-animated",
                     )}
                   >
                     <div
@@ -2018,13 +2023,13 @@ export const ChatMessage = memo(function ChatMessage({
                             "flex h-full w-full items-start justify-center pt-4",
                             isUser
                               ? "bg-gradient-to-b from-neutral-500/90 via-neutral-600/65 to-transparent"
-                              : "bg-gradient-to-b from-purple-500/90 via-pink-600/65 to-transparent",
+                              : "mari-chrome-accent-rail-strong mari-accent-animated",
                           )}
                         >
                           {isUser ? (
                             <User size="1.25rem" className="text-white" />
                           ) : (
-                            <Bot size="1.25rem" className="text-white" />
+                            <Bot size="1.25rem" className="text-[var(--primary-foreground)]" />
                           )}
                         </div>
                       )}

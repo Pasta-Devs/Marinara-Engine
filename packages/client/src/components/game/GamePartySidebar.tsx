@@ -206,8 +206,10 @@ export function GamePartySidebar({
                   </div>
                   {selectedCard.mood && (
                     <div className="mt-1.5 flex items-center gap-1">
-                      <Heart size={9} className="text-rose-400/60" />
-                      <span className="text-[0.5625rem] italic text-rose-300/50">{selectedCard.mood}</span>
+                      <Heart size={9} className="text-[var(--marinara-chat-chrome-panel-muted)]" />
+                      <span className="text-[0.5625rem] italic text-[var(--marinara-chat-chrome-panel-muted)]">
+                        {selectedCard.mood}
+                      </span>
                     </div>
                   )}
                 </div>

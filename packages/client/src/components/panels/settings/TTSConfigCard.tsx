@@ -901,7 +901,7 @@ export function TTSConfigCard() {
                 <button
                   onClick={() => void refetchVoices()}
                   disabled={fetchingVoices || !savedConfig?.enabled}
-                  className="flex shrink-0 items-center gap-1 rounded-xl bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] transition-colors hover:ring-rose-400/60 disabled:opacity-50"
+                  className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
                   title="Refresh voices from provider"
                 >
                   <RefreshCw size="0.75rem" className={cn(fetchingVoices && "animate-spin")} />
@@ -975,7 +975,7 @@ export function TTSConfigCard() {
                     <button
                       type="button"
                       onClick={() => handleRemoveVoiceAssignment(index)}
-                      className="flex h-9 items-center justify-center rounded-lg border border-[var(--border)] px-2 text-[var(--muted-foreground)] transition-colors hover:border-rose-400/50 hover:text-rose-300 sm:w-9"
+                      className="mari-chrome-control mari-chrome-control--small h-9 min-h-0 px-2 sm:w-9"
                       title="Remove character voice"
                     >
                       <X size="0.75rem" />
@@ -986,7 +986,7 @@ export function TTSConfigCard() {
                   type="button"
                   onClick={handleAddVoiceAssignment}
                   disabled={voiceOptions.length === 0 || characterOptions.length === 0 || allCharactersAssigned}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-rose-400/50 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mari-chrome-control w-full text-xs"
                 >
                   <Plus size="0.75rem" />
                   Add character voice
@@ -1055,7 +1055,7 @@ export function TTSConfigCard() {
                     type="button"
                     onClick={() => void refetchVoices()}
                     disabled={fetchingVoices || !savedConfig?.enabled}
-                    className="flex shrink-0 items-center justify-center gap-1 rounded-xl bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] transition-colors hover:ring-rose-400/60 disabled:opacity-50"
+                    className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
                     title="Refresh voices from provider"
                   >
                     <RefreshCw size="0.75rem" className={cn(fetchingVoices && "animate-spin")} />
@@ -1283,10 +1283,10 @@ export function TTSConfigCard() {
                 Saved
               </span>
             )}
-            {saveStatus === "error" && <span className="text-[0.6875rem] text-rose-400">Save failed</span>}
+            {saveStatus === "error" && <span className="text-[0.6875rem] text-[var(--destructive)]">Save failed</span>}
           </div>
           {previewError && (
-            <p className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-2.5 py-2 text-[0.6875rem] leading-relaxed text-rose-300">
+            <p className="rounded-lg border border-[var(--destructive)]/20 bg-[var(--destructive)]/10 px-2.5 py-2 text-[0.6875rem] leading-relaxed text-[var(--destructive)]">
               {previewError}
             </p>
           )}

@@ -22,7 +22,7 @@ const libraryToolbarButtonClass =
 const libraryToolbarFieldClass =
   "mari-chrome-field h-10 w-full text-[0.75rem] md:h-9";
 const libraryNewCharacterButtonClass =
-  "flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 px-3 text-[0.75rem] font-semibold text-white shadow-md shadow-pink-500/15 transition-all hover:shadow-lg hover:shadow-pink-500/25 active:scale-[0.98] md:h-9";
+  "mari-chrome-control mari-chrome-control--primary h-10 min-w-0 px-3 text-[0.75rem] md:h-9";
 
 type CharacterRow = {
   id: string;
@@ -130,7 +130,7 @@ function CharacterLibraryDetailCard({
   return (
     <div className="space-y-4">
       <div className="overflow-hidden rounded-[1.5rem] border border-[var(--border)]/50 bg-[var(--background)]/70 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.95)] sm:rounded-[2rem]">
-        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15">
+        <div className="mari-accent-soft-fill relative aspect-square overflow-hidden">
           {character.avatarPath ? (
             <img
               src={character.avatarPath}
@@ -365,7 +365,7 @@ export function CharacterLibraryView() {
     <div
       ref={libraryRootScrollRef}
       onScroll={handleLibraryScroll}
-      className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,114,182,0.14),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)] lg:overflow-hidden"
+      className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_color-mix(in_srgb,var(--primary)_14%,transparent),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)] lg:overflow-hidden"
     >
       <div className="sticky top-0 z-10 border-b border-[var(--border)]/40 bg-[var(--card)]/85 backdrop-blur-xl">
         <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
@@ -426,7 +426,10 @@ export function CharacterLibraryView() {
               <select
                 value={sort}
                 onChange={(event) => handleSortChange(event.target.value)}
-                className={cn(libraryToolbarFieldClass, "appearance-none pl-2.5 pr-7")}
+                className={cn(
+                  libraryToolbarFieldClass,
+                  "mari-chrome-sort-field mari-accent-animated appearance-none pl-2.5 pr-7",
+                )}
               >
                 <option value="name-asc">Name A-Z</option>
                 <option value="name-desc">Name Z-A</option>
@@ -436,7 +439,7 @@ export function CharacterLibraryView() {
               </select>
               <ArrowUpDown
                 size="0.6875rem"
-                className="mari-chrome-field-icon pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
+                className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
               />
             </div>
           </div>
@@ -459,7 +462,7 @@ export function CharacterLibraryView() {
 
           {!isLoading && sortedCharacters.length === 0 && (
             <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--border)]/60 bg-[var(--card)]/50 p-6 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-pink-400/20 to-rose-500/20 text-[var(--primary)]">
+              <div className="mari-accent-soft-fill flex h-14 w-14 items-center justify-center rounded-3xl text-[var(--primary)]">
                 <User size="1.5rem" />
               </div>
               <div>
@@ -489,13 +492,13 @@ export function CharacterLibraryView() {
                       type="button"
                       onClick={() => setSelectedCharacterId(char.id)}
                       className={cn(
-                        "group flex h-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--primary)]/35 hover:shadow-[0_24px_60px_-32px_rgba(244,114,182,0.45)] sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
+                        "group flex h-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--primary)]/35 hover:shadow-[0_24px_60px_-32px_color-mix(in_srgb,var(--primary)_45%,transparent)] sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
                         isActive
                           ? "border-[var(--primary)]/45 ring-1 ring-[var(--primary)]/25"
                           : "border-[var(--border)]/50",
                       )}
                     >
-                      <div className="relative h-24 w-24 shrink-0 overflow-hidden bg-gradient-to-br from-pink-400/25 via-rose-500/15 to-sky-400/15 sm:h-auto sm:w-full sm:aspect-square">
+                      <div className="mari-accent-soft-fill relative h-24 w-24 shrink-0 overflow-hidden sm:h-auto sm:w-full sm:aspect-square">
                         {char.avatarPath ? (
                           <img
                             src={char.avatarPath}
@@ -583,7 +586,7 @@ export function CharacterLibraryView() {
               <CharacterLibraryDetailCard character={selectedCharacter} onEdit={openCharacterDetailFromLibrary} />
             ) : (
               <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--border)]/60 bg-[var(--background)]/65 p-6 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-pink-400/20 to-rose-500/20 text-[var(--primary)]">
+                <div className="mari-accent-soft-fill flex h-14 w-14 items-center justify-center rounded-3xl text-[var(--primary)]">
                   <User size="1.5rem" />
                 </div>
                 <div>

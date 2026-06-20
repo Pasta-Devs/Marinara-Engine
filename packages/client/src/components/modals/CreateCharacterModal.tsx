@@ -90,12 +90,12 @@ export function CreateCharacterModal({ open, onClose }: Props) {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-pink-400 to-rose-500 shadow-lg shadow-pink-400/20 transition-transform hover:scale-105"
+          className="mari-chrome-accent-tile mari-accent-animated group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full transition-transform hover:scale-105"
         >
           {avatarDataUrl ? (
             <img src={avatarDataUrl} alt="Avatar" className="h-full w-full object-cover" />
           ) : (
-            <User size="2.25rem" className="text-white" />
+            <User size="2.25rem" className="text-current" />
           )}
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
             <Camera size="1.25rem" className="text-white" />

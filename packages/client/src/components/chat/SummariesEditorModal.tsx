@@ -376,7 +376,9 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
                   <span
                     className={cn(
                       "shrink-0 rounded-full px-1.5 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider max-md:hidden",
-                      entry.kind === "week" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400",
+                      entry.kind === "week"
+                        ? "mari-chrome-accent-surface mari-accent-animated"
+                        : "bg-blue-500/20 text-blue-400",
                     )}
                   >
                     {entry.kind}

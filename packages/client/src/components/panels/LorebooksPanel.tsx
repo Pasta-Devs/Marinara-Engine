@@ -702,7 +702,7 @@ export function LorebooksPanel() {
       <div className="flex gap-2">
         <button
           onClick={() => openModal("create-lorebook")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-amber-400/15 transition-all hover:shadow-lg hover:shadow-amber-400/25 active:scale-[0.98]"
+          className="mari-panel-gradient-button mari-panel-gradient--lorebooks flex-1 text-xs"
           title="New"
         >
           <Plus size="0.8125rem" />
@@ -748,7 +748,7 @@ export function LorebooksPanel() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as typeof sort)}
-            className="mari-chrome-field h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -759,7 +759,7 @@ export function LorebooksPanel() {
           </select>
           <ArrowUpDown
             size="0.625rem"
-            className="mari-chrome-field-icon pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
           />
         </div>
       </div>
@@ -927,7 +927,7 @@ export function LorebooksPanel() {
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+                    "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -949,9 +949,7 @@ export function LorebooksPanel() {
                       className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-amber-400/30"
                     />
                   ) : (
-                    <>
-                      <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
-                    </>
+                    <div className="mari-chrome-text-muted truncate text-xs font-medium">{folder.name}</div>
                   )}
                 </div>
                 {(folderFilterActive ? folderItems.length : folder.itemIds.length) > 0 && (

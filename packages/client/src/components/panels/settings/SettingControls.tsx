@@ -12,7 +12,7 @@ import { cn } from "../../../lib/utils";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 
 export function SettingsIntro({ children }: { children: ReactNode }) {
-  return <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{children}</p>;
+  return <p className="text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">{children}</p>;
 }
 
 export function SettingsSection({
@@ -49,7 +49,7 @@ export function SettingsSection({
               "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1",
               tone === "danger"
                 ? "bg-[var(--destructive)]/10 text-[var(--destructive)] ring-[var(--destructive)]/25"
-                : "bg-[var(--secondary)]/70 text-[var(--primary)] ring-[var(--border)]",
+                : "bg-[var(--secondary)]/70 text-[var(--marinara-chat-chrome-button-text-active)] ring-[var(--border)]",
             )}
           >
             {icon}
@@ -66,7 +66,9 @@ export function SettingsSection({
             {help && <HelpTooltip text={help} />}
           </div>
           {description && (
-            <div className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{description}</div>
+            <div className="mt-1 text-[0.625rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+              {description}
+            </div>
           )}
         </div>
       </div>
@@ -169,11 +171,13 @@ export function ToggleSetting({
   checked,
   onChange,
   help,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   help?: string;
+  disabled?: boolean;
 }) {
   return (
     <SettingsSwitch
@@ -181,6 +185,7 @@ export function ToggleSetting({
       checked={checked}
       onChange={onChange}
       help={help}
+      disabled={disabled}
       labelPosition="start"
       className="justify-between gap-3 p-1.5"
       labelClassName="text-xs"
@@ -235,7 +240,7 @@ export function SettingsCheckbox({
         )}
       </span>
       {description && (
-        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
           {description}
         </span>
       )}
@@ -311,6 +316,7 @@ export function SettingsSwitch({
         className={cn(
           "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]",
           checked ? "bg-[var(--primary)]/70" : "bg-[var(--border)]",
+          checked && "mari-accent-animated",
           disabled ? "cursor-not-allowed" : "cursor-pointer",
         )}
       >
@@ -335,7 +341,7 @@ export function SettingsSwitch({
         <label
           htmlFor={inputId}
           className={cn(
-            "mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]",
+            "mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]",
             disabled ? "cursor-not-allowed" : "cursor-pointer",
           )}
         >

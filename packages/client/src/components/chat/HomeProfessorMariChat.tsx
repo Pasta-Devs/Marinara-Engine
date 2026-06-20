@@ -877,7 +877,7 @@ function toolToneClasses(tone: ToolTone) {
     case "skill":
       return "border-[var(--primary)]/20 bg-[var(--primary)]/10";
     case "theme":
-      return "border-fuchsia-400/20 bg-fuchsia-400/10";
+      return "border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-highlight-bg)]";
     case "image":
       return "border-sky-400/20 bg-sky-400/10";
     case "wiki":
@@ -1298,7 +1298,7 @@ function ProfessorMariSkillsMenu({
       <div className="flex items-center justify-between gap-2 border-b border-[var(--border)]/60 px-3 py-2">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
-            <ArrowDown size="0.9rem" className="shrink-0 text-[var(--primary)]" />
+            <ArrowDown size="0.9rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
             <span className="truncate text-xs font-semibold text-[var(--foreground)]">Professor Mari Skills</span>
           </div>
           {hasSkills && (
@@ -1382,8 +1382,8 @@ function ProfessorMariSkillsMenu({
                       className={cn(
                         "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors",
                         skill.enabled
-                          ? "text-[var(--primary)] hover:bg-[var(--primary)]/10"
-                          : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                          ? "mari-chrome-accent-icon mari-accent-animated hover:bg-[var(--marinara-chat-chrome-highlight-bg)]"
+                          : "mari-chrome-text-muted hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
                         saving && "cursor-not-allowed opacity-55",
                       )}
                       aria-label={skill.enabled ? "Disable skill" : "Enable skill"}
@@ -2195,7 +2195,7 @@ export function HomeProfessorMariChat({
                         onClick={toggleSkillsMenu}
                         className={cn(
                           "inline-flex h-8 items-center gap-1 rounded-md px-2 text-[0.6875rem] font-semibold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
-                          "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                          "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
                         )}
                         title="Open skills"
                         aria-expanded={skillsMenuOpen}
@@ -2203,7 +2203,7 @@ export function HomeProfessorMariChat({
                         <ArrowDown size="0.75rem" />
                         <span className="max-[360px]:hidden">Skills</span>
                         {skills.length > 0 && (
-                          <span className="rounded-full bg-[var(--primary)]/12 px-1.5 py-0.5 text-[0.56rem] text-[var(--primary)]">
+                          <span className="mari-chrome-muted-badge px-1.5 py-0.5 text-[0.56rem]">
                             {activeSkillCount}
                           </span>
                         )}
@@ -2222,7 +2222,7 @@ export function HomeProfessorMariChat({
                         type="button"
                         onClick={() => void runRestart()}
                         disabled={isBusy}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="mari-chrome-accent-text-muted mari-accent-animated inline-flex items-center gap-1 rounded-md px-2 py-1 text-[0.6875rem] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                         title="Restart Professor Mari chat"
                       >
                         <RefreshCw size="0.75rem" />
@@ -2232,7 +2232,7 @@ export function HomeProfessorMariChat({
                         <button
                           type="button"
                           onClick={closeMobileFocusMode}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--border)]/70 bg-[var(--card)] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] sm:hidden"
+                          className="mari-chrome-control mari-chrome-control--small mari-accent-animated inline-flex h-8 w-8 items-center justify-center rounded-md p-0 sm:hidden"
                           aria-label="Close Professor Mari chat"
                           title="Close"
                         >

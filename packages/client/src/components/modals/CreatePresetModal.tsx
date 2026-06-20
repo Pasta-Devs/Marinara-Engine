@@ -61,8 +61,8 @@ export function CreatePresetModal({ open, onClose }: Props) {
     <Modal open={open} onClose={onClose} title="Create Preset" width="max-w-sm">
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 shadow-lg shadow-purple-400/20">
-            <FileText size="1.375rem" className="text-white" />
+          <div className="mari-panel-gradient-surface mari-panel-gradient--presets flex h-12 w-12 items-center justify-center rounded-xl">
+            <FileText size="1.375rem" className="text-current" />
           </div>
           <div className="flex-1">
             <p className="text-xs text-[var(--muted-foreground)]">

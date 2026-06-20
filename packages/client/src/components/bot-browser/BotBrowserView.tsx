@@ -1785,28 +1785,28 @@ export function BotBrowserView() {
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="mari-chrome-token-scope flex h-full flex-col overflow-hidden">
       {/* ═══ Header ═══ */}
-      <div className="relative flex h-12 flex-shrink-0 items-center gap-3 px-4">
+      <div className="relative flex h-12 flex-shrink-0 items-center gap-3 bg-[var(--card)]/80 px-4 backdrop-blur-sm">
         <div className="absolute inset-x-0 bottom-0 h-px bg-[var(--border)]/30" />
         <button
           onClick={closeBotBrowser}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          className="mari-chrome-control mari-chrome-control--small px-2 py-1.5 text-xs"
         >
           <ArrowLeft size="0.875rem" /> Back
         </button>
-        <h2 className="text-sm font-semibold text-[var(--foreground)]">Browser</h2>
+        <h2 className="mari-chrome-text-strong text-sm font-semibold">Browser</h2>
         <div className="relative ml-2">
           <button
             onClick={() => setSourceOpen((v) => !v)}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--accent)]"
+            className="mari-chrome-control mari-chrome-control--small px-3 py-1.5 text-xs"
           >
             <span>{provider.icon}</span>
             <span>{provider.name}</span>
             <ChevronDown size="0.625rem" className={cn("transition-transform", sourceOpen && "rotate-180")} />
           </button>
           {sourceOpen && (
-            <div className="absolute left-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-xl">
+            <div className="mari-chrome-selection-bar absolute left-0 top-full z-50 mt-1 min-w-[180px] overflow-hidden shadow-xl">
               {ALL_PROVIDERS.map((p) => (
                 <button
                   key={p.id}
@@ -1814,7 +1814,7 @@ export function BotBrowserView() {
                   className={cn(
                     "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs transition-colors",
                     p.id === sourceId
-                      ? "bg-[var(--primary)]/15 text-[var(--primary)] font-semibold"
+                      ? "mari-chrome-accent-surface mari-accent-animated font-semibold"
                       : "hover:bg-[var(--accent)]",
                   )}
                 >
@@ -1842,23 +1842,23 @@ export function BotBrowserView() {
       <div className="flex flex-1 overflow-hidden">
         {/* ═══ Tag Sidebar ═══ */}
         {showTagPanel && (
-          <div className="flex w-[260px] flex-shrink-0 flex-col border-r border-[var(--border)] bg-[var(--card)]/50">
-            <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-2">
-              <span className="flex items-center gap-1.5 text-xs font-semibold">
+          <div className="flex w-[260px] flex-shrink-0 flex-col border-r border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)]/80">
+            <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2">
+              <span className="mari-chrome-text-strong flex items-center gap-1.5 text-xs font-semibold">
                 <Tag size="0.75rem" /> Tags
               </span>
               <div className="flex items-center gap-1">
                 {(includeTags.length > 0 || excludeTags.length > 0) && (
                   <button
                     onClick={clearAllTags}
-                    className="rounded px-1.5 py-0.5 text-[0.6rem] text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
+                    className="mari-chrome-control mari-chrome-control--danger min-h-0 px-1.5 py-0.5 text-[0.6rem]"
                   >
                     Clear
                   </button>
                 )}
                 <button
                   onClick={() => setShowTagPanel(false)}
-                  className="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+                  className="mari-chrome-control mari-chrome-control--small min-h-0 p-0.5"
                 >
                   <X size="0.75rem" />
                 </button>
@@ -1876,11 +1876,11 @@ export function BotBrowserView() {
                   }
                 }}
                 placeholder="Search tags..."
-                className="w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-[var(--primary)]"
+                className="mari-chrome-field mari-chrome-field--compact w-full px-2.5 py-1.5 text-xs"
               />
             </div>
             {(includeTags.length > 0 || excludeTags.length > 0) && (
-              <div className="flex flex-wrap gap-1 border-b border-[var(--border)] px-3 pb-2">
+              <div className="flex flex-wrap gap-1 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 pb-2">
                 {includeTags.map((tag) => (
                   <span
                     key={`inc-${tag}`}
@@ -1937,7 +1937,7 @@ export function BotBrowserView() {
                   return (
                     <div
                       key={tag}
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-[var(--accent)]/50"
+                      className="mari-chrome-text flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors hover:bg-[var(--accent)]/50"
                     >
                       <button
                         onClick={() => toggleIncludeTag(tag)}
@@ -1995,7 +1995,7 @@ export function BotBrowserView() {
                 <div className="relative min-w-[200px] flex-1">
                   <Search
                     size="0.875rem"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+                    className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
                   />
                   <input
                     type="text"
@@ -2005,12 +2005,12 @@ export function BotBrowserView() {
                       setPage(1);
                     }}
                     placeholder="Search characters..."
-                    className="h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] py-0 pl-9 pr-8 text-sm text-[var(--foreground)] placeholder-[var(--muted-foreground)] outline-none transition-colors focus:border-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60 md:h-9"
+                    className="mari-chrome-field h-10 w-full py-0 pl-9 pr-8 text-sm md:h-9"
                   />
                   {query && (
                     <button
                       onClick={() => setQuery("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                      className="mari-chrome-control mari-chrome-control--small absolute right-1.5 top-1/2 h-7 min-h-0 w-7 -translate-y-1/2 p-0"
                     >
                       <X size="0.75rem" />
                     </button>
@@ -2023,7 +2023,7 @@ export function BotBrowserView() {
                     setSort(e.target.value);
                     setPage(1);
                   }}
-                  className="h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-0 text-xs text-[var(--foreground)] outline-none md:h-9"
+                  className="mari-chrome-field h-10 px-3 py-0 text-xs md:h-9"
                 >
                   {sortGroups.map((group) =>
                     group.label ? (
@@ -2047,15 +2047,15 @@ export function BotBrowserView() {
                 <button
                   onClick={() => setShowTagPanel((v) => !v)}
                   className={cn(
-                    "flex h-10 items-center gap-1.5 rounded-lg border px-3 py-0 text-xs transition-colors md:h-9",
+                    "mari-chrome-control h-10 px-3 py-0 text-xs md:h-9",
                     showTagPanel || includeTags.length > 0 || excludeTags.length > 0
-                      ? "border-[var(--primary)]/40 bg-[var(--primary)]/10 text-[var(--primary)]"
-                      : "border-[var(--border)] bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      ? "mari-chrome-control--selected"
+                      : "",
                   )}
                 >
                   <Tag size="0.75rem" /> Tags
                   {(includeTags.length > 0 || excludeTags.length > 0) && (
-                    <span className="rounded-full bg-[var(--primary)]/20 px-1.5 text-[0.6rem] font-semibold">
+                    <span className="rounded-md bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 text-[0.6rem] font-semibold">
                       {includeTags.length + excludeTags.length}
                     </span>
                   )}
@@ -2068,15 +2068,13 @@ export function BotBrowserView() {
                   <button
                     onClick={() => setShowFiltersPanel((v) => !v)}
                     className={cn(
-                      "flex h-10 items-center gap-1.5 rounded-lg border px-3 py-0 text-xs transition-colors md:h-9",
-                      showFiltersPanel || hasActiveFeatures
-                        ? "border-[var(--primary)]/40 bg-[var(--primary)]/10 text-[var(--primary)]"
-                        : "border-[var(--border)] bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                      "mari-chrome-control h-10 px-3 py-0 text-xs md:h-9",
+                      (showFiltersPanel || hasActiveFeatures) && "mari-chrome-control--selected",
                     )}
                   >
                     <SlidersHorizontal size="0.75rem" /> Filters
                     {hasActiveFeatures && (
-                      <span className="rounded-full bg-[var(--primary)]/20 px-1.5 text-[0.6rem] font-semibold">
+                      <span className="rounded-md bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 text-[0.6rem] font-semibold">
                         {activeFeatureCount}
                       </span>
                     )}
@@ -2092,7 +2090,7 @@ export function BotBrowserView() {
                   return (
                     <label
                       className={cn(
-                        "flex select-none items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs",
+                        "mari-chrome-control h-10 select-none px-3 py-0 text-xs md:h-9",
                         nsfwGreyedOut
                           ? "cursor-not-allowed opacity-40"
                           : effectiveNsfwAvailable
@@ -2147,7 +2145,7 @@ export function BotBrowserView() {
                           if (sourceId === "pygmalion") handlePygmalionLogout();
                           else if (sourceId === "chartavern") handleCtLogout();
                         }}
-                        className="flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-[0.65rem] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--destructive)]"
+                        className="mari-chrome-control mari-chrome-control--small px-2.5 py-2 text-[0.65rem] hover:text-[var(--destructive)]"
                         title="Log out"
                       >
                         <LogOut size="0.625rem" /> Logout
@@ -2156,7 +2154,7 @@ export function BotBrowserView() {
                   ) : (
                     <button
                       onClick={() => setShowLoginModal(true)}
-                      className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs transition-colors hover:bg-[var(--accent)]"
+                      className="mari-chrome-control h-10 px-3 py-0 text-xs md:h-9"
                     >
                       <LogIn size="0.75rem" /> Log In
                     </button>
@@ -2169,7 +2167,7 @@ export function BotBrowserView() {
 
                 <button
                   onClick={doSearch}
-                  className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-2 text-xs transition-colors hover:bg-[var(--accent)]"
+                  className="mari-chrome-control h-10 w-10 p-0 text-xs md:h-9 md:w-9"
                   title="Refresh"
                 >
                   <RefreshCw size="0.75rem" />
@@ -2178,10 +2176,10 @@ export function BotBrowserView() {
 
               {/* ═══ Filters panel ═══ */}
               {showFiltersPanel && (
-                <div className="flex flex-wrap gap-6 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 px-4 py-3">
+                <div className="mari-chrome-selection-bar flex flex-wrap gap-6 px-4 py-3">
                   {(provider.features.length > 0 || provider.extraToggles.length > 0) && (
                     <div className="flex flex-col gap-2">
-                      <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                      <span className="mari-chrome-text-muted text-[0.65rem] font-semibold uppercase tracking-wider">
                         Character Must Have
                       </span>
                       {provider.features.map((f) => (
@@ -2214,19 +2212,19 @@ export function BotBrowserView() {
                   )}
                   {(provider.hasSortDirection || provider.hasTokenFilters) && (
                     <div className="flex flex-col gap-2">
-                      <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                      <span className="mari-chrome-text-muted text-[0.65rem] font-semibold uppercase tracking-wider">
                         Advanced Options
                       </span>
                       {provider.hasSortDirection && (
                         <div className="flex items-center gap-2">
-                          <label className="w-24 text-xs text-[var(--muted-foreground)]">Sort Direction</label>
+                          <label className="mari-chrome-text-muted w-24 text-xs">Sort Direction</label>
                           <select
                             value={sortAsc ? "asc" : "desc"}
                             onChange={(e) => {
                               setSortAsc(e.target.value === "asc");
                               setPage(1);
                             }}
-                            className="rounded border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none"
+                            className="mari-chrome-field mari-chrome-field--compact px-2 py-1 text-xs"
                           >
                             <option value="desc">Descending</option>
                             <option value="asc">Ascending</option>
@@ -2236,7 +2234,7 @@ export function BotBrowserView() {
                       {provider.hasTokenFilters && (
                         <>
                           <div className="flex items-center gap-2">
-                            <label className="w-24 text-xs text-[var(--muted-foreground)]">Min Tokens</label>
+                            <label className="mari-chrome-text-muted w-24 text-xs">Min Tokens</label>
                             <input
                               type="number"
                               value={minTokens}
@@ -2245,11 +2243,11 @@ export function BotBrowserView() {
                                 setPage(1);
                               }}
                               placeholder="50"
-                              className="w-20 rounded border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none focus:border-[var(--primary)]"
+                              className="mari-chrome-field mari-chrome-field--compact w-20 px-2 py-1 text-xs"
                             />
                           </div>
                           <div className="flex items-center gap-2">
-                            <label className="w-24 text-xs text-[var(--muted-foreground)]">Max Output Tokens</label>
+                            <label className="mari-chrome-text-muted w-24 text-xs">Max Output Tokens</label>
                             <input
                               type="number"
                               value={maxTokens}
@@ -2258,7 +2256,7 @@ export function BotBrowserView() {
                                 setPage(1);
                               }}
                               placeholder="100000"
-                              className="w-20 rounded border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs outline-none focus:border-[var(--primary)]"
+                              className="mari-chrome-field mari-chrome-field--compact w-20 px-2 py-1 text-xs"
                             />
                           </div>
                         </>
@@ -2278,7 +2276,7 @@ export function BotBrowserView() {
                   <span className="text-sm text-[var(--destructive)]">{error}</span>
                   <button
                     onClick={doSearch}
-                    className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)]/15 px-4 py-2 text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25"
+                    className="mari-chrome-control mari-chrome-control--selected px-4 py-2 text-xs"
                   >
                     <RefreshCw size="0.75rem" /> Retry
                   </button>
@@ -2299,7 +2297,7 @@ export function BotBrowserView() {
                       <button
                         disabled={page <= 1}
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
+                        className="mari-chrome-control mari-chrome-control--small px-3 py-1.5 text-xs"
                       >
                         Previous
                       </button>
@@ -2310,7 +2308,7 @@ export function BotBrowserView() {
                       <button
                         disabled={page >= totalPages && totalPages > 1}
                         onClick={() => setPage((p) => p + 1)}
-                        className="rounded-lg px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
+                        className="mari-chrome-control mari-chrome-control--small px-3 py-1.5 text-xs"
                       >
                         Next
                       </button>
@@ -2349,21 +2347,21 @@ export function BotBrowserView() {
         >
           <div className="absolute inset-0 bg-black/60" onClick={() => setPendingDatacatSwitch(false)} />
           <div
-            className="relative w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+            className="mari-chrome-selection-bar relative w-full max-w-md shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+            <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3">
+              <h3 className="mari-chrome-text-strong flex items-center gap-2 text-sm font-bold">
                 <span className="text-amber-400">⚠️</span> DataCat is NSFW only
               </h3>
               <button
                 onClick={() => setPendingDatacatSwitch(false)}
-                className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                className="mari-chrome-control mari-chrome-control--small p-1"
               >
                 <X size="1rem" />
               </button>
             </div>
-            <div className="flex flex-col gap-3 p-5 text-sm text-[var(--foreground)]">
+            <div className="mari-chrome-text flex flex-col gap-3 p-5 text-sm">
               <p>
                 Every character on DataCat is tagged NSFW upstream, so the NSFW filter is locked on for this provider.
               </p>
@@ -2374,13 +2372,13 @@ export function BotBrowserView() {
                     setPendingDatacatSwitch(false);
                     performSwitch("datacat");
                   }}
-                  className="flex-1 rounded-lg bg-pink-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-pink-500"
+                  className="mari-panel-gradient-button mari-panel-gradient--browser flex-1 px-4 py-2 text-xs"
                 >
                   Continue to DataCat
                 </button>
                 <button
                   onClick={() => setPendingDatacatSwitch(false)}
-                  className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2 text-xs font-medium transition-colors hover:bg-[var(--accent)]"
+                  className="mari-chrome-control flex-1 px-4 py-2 text-xs"
                 >
                   Don't continue to DataCat
                 </button>
@@ -2438,12 +2436,12 @@ function LoginModal({
     >
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div
-        className="relative w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+        className="mari-chrome-selection-bar relative w-full max-w-md shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
-          <h3 className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]">
+        <div className="flex items-center justify-between border-b border-[var(--marinara-chat-chrome-panel-divider)] px-5 py-3">
+          <h3 className="mari-chrome-text-strong flex items-center gap-2 text-sm font-bold">
             {isPyg ? (
               <>
                 <KeyRound size="1rem" className="text-amber-400" /> Pygmalion Authentication
@@ -2454,10 +2452,7 @@ function LoginModal({
               </>
             )}
           </h3>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          >
+          <button onClick={onClose} className="mari-chrome-control mari-chrome-control--small p-1">
             <X size="1rem" />
           </button>
         </div>
@@ -2487,7 +2482,7 @@ function LoginModal({
                   disabled={isLoggedIn || loginLoading}
                   placeholder="Paste your Pygmalion auth token here"
                   rows={3}
-                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 font-mono text-xs outline-none transition-colors focus:border-[var(--primary)] disabled:opacity-50"
+                  className="mari-chrome-field w-full resize-y px-3 py-2 font-mono text-xs disabled:opacity-50"
                 />
               </div>
               <details open={showPygHelp} onToggle={(e) => setShowPygHelp((e.target as HTMLDetailsElement).open)}>
@@ -2534,10 +2529,7 @@ function LoginModal({
                     Save & Connect
                   </button>
                 ) : (
-                  <button
-                    onClick={onPygLogout}
-                    className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2 text-xs font-medium transition-colors hover:bg-[var(--accent)]"
-                  >
+                  <button onClick={onPygLogout} className="mari-chrome-control px-4 py-2 text-xs">
                     <LogOut size="0.75rem" /> Log Out
                   </button>
                 )}
@@ -2545,7 +2537,7 @@ function LoginModal({
                   href="https://pygmalion.chat"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2 text-xs font-medium transition-colors hover:bg-[var(--accent)]"
+                  className="mari-chrome-control px-4 py-2 text-xs"
                 >
                   <ExternalLink size="0.75rem" /> Website
                 </a>
@@ -2561,7 +2553,7 @@ function LoginModal({
                   disabled={isLoggedIn || loginLoading}
                   placeholder="Paste your session cookie value here"
                   rows={3}
-                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none transition-colors focus:border-[var(--primary)] disabled:opacity-50"
+                  className="mari-chrome-field w-full resize-y px-3 py-2 text-sm disabled:opacity-50"
                 />
               </div>
               <details open={showHelp} onToggle={(e) => setShowHelp((e.target as HTMLDetailsElement).open)}>
@@ -2606,10 +2598,7 @@ function LoginModal({
                     Save & Connect
                   </button>
                 ) : (
-                  <button
-                    onClick={onCtLogout}
-                    className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2 text-xs font-medium transition-colors hover:bg-[var(--accent)]"
-                  >
+                  <button onClick={onCtLogout} className="mari-chrome-control px-4 py-2 text-xs">
                     <LogOut size="0.75rem" /> Log Out
                   </button>
                 )}
@@ -2617,7 +2606,7 @@ function LoginModal({
                   href="https://character-tavern.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2 text-xs font-medium transition-colors hover:bg-[var(--accent)]"
+                  className="mari-chrome-control px-4 py-2 text-xs"
                 >
                   <ExternalLink size="0.75rem" /> CharacterTavern
                 </a>
@@ -2643,7 +2632,7 @@ function CardTile({ card, onClick }: { card: BrowseCard; onClick: () => void }) 
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-left transition-all hover:border-pink-500/40 hover:shadow-lg hover:shadow-pink-500/10 active:scale-[0.98]"
+      className="group flex flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] text-left transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:shadow-lg hover:shadow-[var(--glow-primary)] active:scale-[0.98]"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-[var(--secondary)]">
         {imgError || !card.avatarUrl ? (
@@ -2671,7 +2660,7 @@ function CardTile({ card, onClick }: { card: BrowseCard; onClick: () => void }) 
         {card.tagline && (
           <p className="line-clamp-2 text-xs text-[var(--muted-foreground)] opacity-70">{card.tagline}</p>
         )}
-        <div className="mt-auto flex items-center gap-2 pt-1.5 text-[0.65rem] text-pink-400/80">
+        <div className="mari-chrome-text-muted mt-auto flex items-center gap-2 pt-1.5 text-[0.65rem]">
           {card.stat1 > 0 && card.stat1Label && (
             <span className="flex items-center gap-0.5" title={card.stat1Label}>
               <Stat1Icon size="0.625rem" /> {fmtNum(card.stat1)}
@@ -2772,10 +2761,7 @@ function DetailView({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-        >
+        <button onClick={onBack} className="mari-chrome-control mari-chrome-control--small px-2 py-1.5 text-xs">
           <ChevronLeft size="0.875rem" /> Back to results
         </button>
         <div className="flex-1" />
@@ -2783,7 +2769,7 @@ function DetailView({
           href={card.externalUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+          className="mari-chrome-control mari-chrome-control--small px-2 py-1.5 text-xs"
         >
           <ExternalLink size="0.75rem" /> View on {provider.siteName}
         </a>
@@ -2841,7 +2827,7 @@ function DetailView({
               <button
                 onClick={() => onImport(card)}
                 disabled={importing}
-                className="flex items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2.5 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+                className="mari-panel-gradient-button mari-panel-gradient--browser px-4 py-2.5 text-xs"
               >
                 {importing ? <Loader2 size="0.875rem" className="animate-spin" /> : <Download size="0.875rem" />}
                 {importing ? "Importing..." : "Import"}
@@ -2849,12 +2835,12 @@ function DetailView({
               <button
                 onClick={handleDownloadPng}
                 disabled={downloading}
-                className="flex items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-4 py-2 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)] active:scale-95 disabled:opacity-50"
+                className="mari-chrome-control px-4 py-2 text-xs"
               >
                 {downloading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
                 {downloading ? "Building PNG..." : "Download as PNG"}
               </button>
-              <div className="flex flex-col gap-1 rounded-lg bg-[var(--secondary)] p-2.5 text-xs text-pink-400/80">
+              <div className="mari-chrome-text-muted flex flex-col gap-1 rounded-lg bg-[var(--secondary)] p-2.5 text-xs">
                 {card.stat1 > 0 && card.stat1Label && (
                   <span className="flex items-center gap-1.5">
                     {(() => {

@@ -383,8 +383,10 @@ export function getWeatherIconColor(weather: string | null | undefined) {
   if (text.includes("ash") || text.includes("volcanic") || text.includes("smoke")) return "text-stone-300";
   if (text.includes("ember") || text.includes("fire") || text.includes("inferno")) return "text-red-400";
   if (text.includes("wind") || text.includes("breez") || text.includes("gust")) return "text-teal-300";
-  if (text.includes("cherry") || text.includes("blossom") || text.includes("petal")) return "text-pink-300";
-  if (text.includes("aurora") || text.includes("northern light")) return "text-fuchsia-300";
+  if (text.includes("cherry") || text.includes("blossom") || text.includes("petal"))
+    return "text-[var(--marinara-chat-chrome-panel-text)]";
+  if (text.includes("aurora") || text.includes("northern light"))
+    return "text-[var(--marinara-chat-chrome-panel-text)]";
   if (text.includes("cloud") || text.includes("overcast") || text.includes("grey") || text.includes("gray"))
     return "text-zinc-300";
   if (text.includes("clear") || text.includes("sunny") || text.includes("bright")) return "text-yellow-300";

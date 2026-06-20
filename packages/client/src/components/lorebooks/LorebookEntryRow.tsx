@@ -650,7 +650,7 @@ export function LorebookEntryRow({
           className={cn(
             "relative inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[0.625rem] ring-1 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
             isVectorExcluded
-              ? "bg-rose-400/10 text-rose-400 ring-rose-400/20"
+              ? "bg-[var(--destructive)]/10 text-[var(--destructive)] ring-[var(--destructive)]/20"
               : isVectorized
                 ? "bg-emerald-400/10 text-emerald-400 ring-emerald-400/20"
                 : "bg-[var(--background)]/55 text-[var(--muted-foreground)] ring-[var(--border)] hover:text-[var(--foreground)]",

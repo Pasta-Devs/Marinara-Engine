@@ -583,7 +583,7 @@ export function CharacterEditor() {
             { name: "Satiety", value: 100, max: 100, color: "#f59e0b" },
             { name: "Energy", value: 100, max: 100, color: "#22c55e" },
             { name: "Hygiene", value: 100, max: 100, color: "#3b82f6" },
-            { name: "Mood", value: 100, max: 100, color: "#ec4899" },
+            { name: "Mood", value: 100, max: 100, color: "#eab308" },
           ],
           rpgStats,
         })
@@ -2351,7 +2351,7 @@ function SpritesTab({
               type="button"
               onClick={() => setSpriteGenOpen(true)}
               disabled={spriteGenerationUnavailable}
-              className="flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-purple-500/10 px-3 py-1.5 text-center text-[0.6875rem] font-medium leading-tight text-purple-400 ring-1 ring-purple-500/20 transition-all hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-40 max-md:flex-1 max-md:basis-[calc(50%-0.25rem)] max-md:px-2.5"
+              className="mari-chrome-accent-surface mari-accent-animated flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-center text-[0.6875rem] font-medium leading-tight transition-all disabled:cursor-not-allowed disabled:opacity-40 max-md:flex-1 max-md:basis-[calc(50%-0.25rem)] max-md:px-2.5"
               title={
                 spriteGenerationUnavailable ? spriteGenerationReason : "Generate sprites using AI image generation"
               }
@@ -2801,7 +2801,7 @@ function StatsTab({
               <button
                 type="button"
                 onClick={addAttribute}
-                className="flex items-center gap-1 rounded-lg bg-purple-500/15 px-2.5 py-1 text-[0.6875rem] font-medium text-purple-400 transition-colors hover:bg-purple-500/25"
+                className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
               >
                 <Plus size="0.75rem" />
                 Add
@@ -2890,7 +2890,7 @@ function ColorsTab({
         className={cn(
           "flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all",
           avatarUrl
-            ? "bg-purple-500/15 text-purple-400 hover:bg-purple-500/25 active:scale-[0.98]"
+            ? "mari-chrome-accent-surface mari-accent-animated active:scale-[0.98]"
             : "cursor-not-allowed bg-white/5 text-[var(--muted-foreground)]/50",
         )}
       >
@@ -2902,7 +2902,7 @@ function ColorsTab({
       <div className="rounded-xl border border-[var(--border)] bg-black/30 p-4 space-y-3">
         <p className="text-[0.625rem] font-medium uppercase tracking-widest text-[var(--muted-foreground)]">Preview</p>
         <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-600 ring-2 ring-purple-400/20">
+          <div className="mari-chrome-accent-tile mari-accent-animated flex h-10 w-10 shrink-0 items-center justify-center rounded-full ring-2 ring-[var(--marinara-chat-chrome-button-border-active)]">
             <User size="1rem" className="text-white" />
           </div>
           <div className="flex-1 space-y-1">

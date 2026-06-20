@@ -1595,7 +1595,7 @@ export function ConnectionEditor() {
           {localProvider !== "image_generation" && (
             <FieldGroup
               label="Max Parallel Agent Jobs"
-              icon={<SlidersHorizontal size="0.875rem" className="text-fuchsia-400" />}
+              icon={<SlidersHorizontal size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />}
               help="How many agent LLM requests Marinara may run at once for this connection. Higher values can speed up agent-heavy chats on providers that tolerate parallel calls."
             >
               <div className="flex items-center gap-3">
@@ -1625,7 +1625,7 @@ export function ConnectionEditor() {
           {localProvider !== "image_generation" && (
             <FieldGroup
               label="Prompt Preset Override"
-              icon={<FileText size="0.875rem" className="text-violet-400" />}
+              icon={<FileText size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
               help="Optional. When roleplay or visual novel chats use this connection, Marinara assembles this prompt preset instead of the chat's selected prompt preset. Conversation and game mode keep their built-in prompt flows."
             >
               <select
@@ -1654,7 +1654,7 @@ export function ConnectionEditor() {
           {localProvider !== "image_generation" && (
             <FieldGroup
               label="Default Chat Parameters"
-              icon={<Zap size="0.875rem" className="text-purple-400" />}
+              icon={<Zap size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
               help="Default generation settings for chats that use this connection. Individual chats can still override these in Chat Settings."
             >
               <SettingsSwitch
@@ -1818,7 +1818,7 @@ export function ConnectionEditor() {
           {localProvider !== "image_generation" && localProvider !== "claude_subscription" && (
             <FieldGroup
               label="Embedding Model"
-              icon={<Server size="0.875rem" className="text-violet-400" />}
+              icon={<Server size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
               help="Optional. The model used for generating embeddings when vectorizing lorebook entries. Leave empty to skip semantic matching. Examples: text-embedding-3-small, text-embedding-ada-002."
             >
               <input
@@ -1925,7 +1925,7 @@ export function ConnectionEditor() {
                 <button
                   onClick={handleTestImage}
                   disabled={testImageGeneration.isPending}
-                  className="flex items-center gap-1.5 rounded-xl bg-violet-400/10 px-4 py-2.5 text-xs font-medium text-violet-400 ring-1 ring-violet-400/20 transition-all hover:bg-violet-400/20 active:scale-[0.98] disabled:opacity-50"
+                  className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-medium transition-all active:scale-[0.98] disabled:opacity-50"
                   title={dirty ? "Save first to test image generation" : undefined}
                 >
                   {testImageGeneration.isPending ? (

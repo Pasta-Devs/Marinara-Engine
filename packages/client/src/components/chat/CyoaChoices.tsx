@@ -223,7 +223,7 @@ export function CyoaChoices({ messages }: Props) {
           <span>What will you do?</span>
         </div>
         {impersonateCyoaChoices && (
-          <span className="rounded-full border border-purple-400/20 bg-purple-500/10 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-purple-700 dark:text-purple-200">
+          <span className="mari-chrome-accent-surface mari-accent-animated rounded-full px-1.5 py-0.5 text-[0.5625rem] font-semibold">
             Impersonate
           </span>
         )}
@@ -262,14 +262,14 @@ export function CyoaChoices({ messages }: Props) {
                 value={choice.label}
                 onChange={(e) => updateDraftChoice(index, "label", e.target.value)}
                 placeholder={`Choice ${index + 1}`}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[0.6875rem] font-semibold text-purple-700 outline-none transition-colors focus:border-purple-400/40 dark:border-white/10 dark:bg-black/35 dark:text-purple-200"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[0.6875rem] font-semibold text-[var(--marinara-chat-chrome-panel-title)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] dark:border-white/10 dark:bg-black/35"
               />
               <textarea
                 value={choice.text}
                 onChange={(e) => updateDraftChoice(index, "text", e.target.value)}
                 rows={Math.min(Math.max(choice.text.split("\n").length, 2), 6)}
                 placeholder="Describe the action or dialogue sent when this choice is clicked."
-                className="mt-2 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--foreground)]/80 outline-none transition-colors focus:border-purple-400/40 dark:border-white/10 dark:bg-black/35 dark:text-white/75"
+                className="mt-2 w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--foreground)]/80 outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)] dark:border-white/10 dark:bg-black/35 dark:text-white/75"
               />
             </div>
           ))}
@@ -308,9 +308,9 @@ export function CyoaChoices({ messages }: Props) {
               type="button"
               onClick={() => handleChoice(choice.text)}
               disabled={isStreaming || isRerolling}
-              className="group relative rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-4 py-2.5 text-left backdrop-blur-md transition-all hover:border-purple-400/40 hover:bg-purple-500/10 hover:shadow-lg hover:shadow-purple-500/5 active:scale-[0.98] disabled:opacity-50 dark:border-white/10 dark:bg-black/50"
+              className="group relative rounded-xl border border-[var(--border)] bg-[var(--card)]/80 px-4 py-2.5 text-left backdrop-blur-md transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:shadow-lg active:scale-[0.98] disabled:opacity-50 dark:border-white/10 dark:bg-black/50"
             >
-              <span className="block text-[0.6875rem] font-semibold text-purple-700 group-hover:text-purple-600 dark:text-purple-300/90 dark:group-hover:text-purple-200">
+              <span className="mari-chrome-accent-text mari-accent-animated block text-[0.6875rem] font-semibold group-hover:text-[var(--marinara-chat-chrome-button-text-hover)]">
                 {choice.label}
               </span>
               <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--foreground)]/60 group-hover:text-[var(--foreground)]/80 dark:text-white/50 dark:group-hover:text-white/70">

@@ -589,25 +589,22 @@ export function CharactersPanel() {
     });
   }, []);
 
-  const handleExportSelected = useCallback(
-    async () => {
-      if (selectedCharacterIds.size === 0) return;
-      setExportingSelected(true);
-      try {
-        await api.downloadPost(
-          "/characters/export-bulk",
-          { ids: [...selectedCharacterIds], format: "native" },
-          "marinara-characters.zip",
-        );
-        toast.success(`Exported ${selectedCharacterIds.size} character${selectedCharacterIds.size === 1 ? "" : "s"}`);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to export characters");
-      } finally {
-        setExportingSelected(false);
-      }
-    },
-    [selectedCharacterIds],
-  );
+  const handleExportSelected = useCallback(async () => {
+    if (selectedCharacterIds.size === 0) return;
+    setExportingSelected(true);
+    try {
+      await api.downloadPost(
+        "/characters/export-bulk",
+        { ids: [...selectedCharacterIds], format: "native" },
+        "marinara-characters.zip",
+      );
+      toast.success(`Exported ${selectedCharacterIds.size} character${selectedCharacterIds.size === 1 ? "" : "s"}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to export characters");
+    } finally {
+      setExportingSelected(false);
+    }
+  }, [selectedCharacterIds]);
 
   const handleDeleteSelected = useCallback(async () => {
     const ids = [...selectedCharacterIds];
@@ -660,7 +657,7 @@ export function CharactersPanel() {
       <div className="flex gap-2">
         <button
           onClick={() => openModal("create-character")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-pink-500/15 transition-all hover:shadow-lg hover:shadow-pink-500/25 active:scale-[0.98]"
+          className="mari-panel-gradient-button mari-panel-gradient--characters flex-1 text-xs"
           title="New"
         >
           <Plus size="0.8125rem" />
@@ -693,10 +690,7 @@ export function CharactersPanel() {
       {/* Search + Sort */}
       <div className="flex gap-1.5">
         <div className="relative flex-1">
-          <Search
-            size="0.8125rem"
-            className="mari-chrome-field-icon absolute left-3 top-1/2 -translate-y-1/2"
-          />
+          <Search size="0.8125rem" className="mari-chrome-field-icon absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -708,7 +702,7 @@ export function CharactersPanel() {
           <select
             value={sort}
             onChange={(e) => setCharacterLibrarySort(e.target.value as CharacterLibrarySort)}
-            className="mari-chrome-field h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -719,7 +713,7 @@ export function CharactersPanel() {
           </select>
           <ArrowUpDown
             size="0.625rem"
-            className="mari-chrome-field-icon pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
           />
         </div>
       </div>
@@ -793,11 +787,7 @@ export function CharactersPanel() {
                 }}
                 className={cn(
                   "mari-chrome-control mari-chrome-control--compact group/tag cursor-pointer",
-                  included
-                    ? "mari-chrome-control--selected"
-                    : excluded
-                      ? "mari-chrome-control--danger"
-                      : "",
+                  included ? "mari-chrome-control--selected" : excluded ? "mari-chrome-control--danger" : "",
                 )}
               >
                 {tag}
@@ -876,7 +866,7 @@ export function CharactersPanel() {
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+                    "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -895,7 +885,7 @@ export function CharactersPanel() {
                       }}
                       onClick={(e) => e.stopPropagation()}
                       onBlur={() => handleRenameGroup(group.id)}
-                      className="w-full bg-transparent text-xs font-medium outline-none ring-1 ring-[var(--primary)]/30 rounded px-1 py-0.5"
+                      className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--marinara-chat-chrome-input-border-focus)]"
                     />
                   ) : (
                     <>
@@ -914,9 +904,9 @@ export function CharactersPanel() {
                       e.stopPropagation();
                       void handleDeleteGroup(group);
                     }}
-	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
-	                    title="Delete folder"
-	                  >
+                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
+                    title="Delete folder"
+                  >
                     <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
                   </button>
                 </div>
@@ -975,137 +965,139 @@ export function CharactersPanel() {
                         event.dataTransfer.setData("application/x-marinara-character-ids", JSON.stringify(ids));
                         event.dataTransfer.setData("text/plain", memberId);
                       }}
-                        onDragEnd={() => setDraggedCharacterId(null)}
-                        onTouchStart={(event) => startCharacterTouchDrag(event, memberId)}
-                        onTouchEnd={finishCharacterTouchDrag}
-                        role="button"
-                        tabIndex={0}
-                        className={cn(
-                          "group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]",
-                          selectionMode && isBulkSelected && "bg-[var(--primary)]/8 ring-1 ring-[var(--primary)]/40",
-                          draggedCharacterId === memberId && "opacity-50",
-                        )}
-                      >
-                        {selectionMode && (
-                          <button
-                            type="button"
-                            aria-label={isBulkSelected ? "Deselect character" : "Select character"}
-                            className={cn(
-                              "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-                              isBulkSelected
-                                ? "border-[var(--primary)] bg-[var(--primary)] text-white"
-                                : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
-                            )}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSelection(memberId);
-                            }}
-                          >
-                            <Check size="0.75rem" />
-                          </button>
-                        )}
-                        <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-pink-400 to-rose-500 text-white">
-                          <div className="absolute inset-0 overflow-hidden rounded-lg">
-                            {member.avatarPath ? (
-                              <img
-                                src={member.avatarPath}
-                                alt={memberName}
-                                loading="lazy"
-                                className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(memberAvatarCrop)}
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center">
-                                <User size="0.75rem" />
-                              </div>
-                            )}
-                          </div>
-                          {member.isFavorite && (
-                            <div
-                              aria-hidden="true"
-                              className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--background)] text-amber-300 shadow-sm ring-1 ring-[var(--border)]"
-                            >
-                              <Star size="0.5625rem" className="fill-current" />
+                      onDragEnd={() => setDraggedCharacterId(null)}
+                      onTouchStart={(event) => startCharacterTouchDrag(event, memberId)}
+                      onTouchEnd={finishCharacterTouchDrag}
+                      role="button"
+                      tabIndex={0}
+                      className={cn(
+                        "group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                        selectionMode &&
+                          isBulkSelected &&
+                          "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
+                        draggedCharacterId === memberId && "opacity-50",
+                      )}
+                    >
+                      {selectionMode && (
+                        <button
+                          type="button"
+                          aria-label={isBulkSelected ? "Deselect character" : "Select character"}
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                            isBulkSelected
+                              ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]"
+                              : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelection(memberId);
+                          }}
+                        >
+                          <Check size="0.75rem" />
+                        </button>
+                      )}
+                      <div className="mari-accent-gradient-fill relative flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--primary-foreground)]">
+                        <div className="absolute inset-0 overflow-hidden rounded-lg">
+                          {member.avatarPath ? (
+                            <img
+                              src={member.avatarPath}
+                              alt={memberName}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                              style={getAvatarCropStyle(memberAvatarCrop)}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <User size="0.75rem" />
                             </div>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <span
-                            className="block truncate text-[0.75rem] font-medium"
-                            style={
-                              memberNameColor
-                                ? memberNameColor.startsWith("linear-gradient")
-                                  ? {
-                                      background: memberNameColor,
-                                      backgroundRepeat: "no-repeat",
-                                      backgroundSize: "100% 100%",
-                                      WebkitBackgroundClip: "text",
-                                      WebkitTextFillColor: "transparent",
-                                      backgroundClip: "text",
-                                      color: "transparent",
-                                      display: "inline-block",
-                                    }
-                                  : { color: memberNameColor }
-                                : undefined
-                            }
+                        {member.isFavorite && (
+                          <div
+                            aria-hidden="true"
+                            className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-md bg-[var(--background)] text-amber-300 shadow-sm ring-1 ring-[var(--border)]"
                           >
-                            {memberName}
-                          </span>
-                          {memberTitle && (
-                            <span className="block truncate text-[0.5625rem] italic text-[var(--muted-foreground)]">
-                              {memberTitle}
-                            </span>
-                          )}
-                          {memberPreviewMetadata && (
-                            <span className="block truncate text-[0.5625rem] text-[var(--muted-foreground)]">
-                              {memberPreviewMetadata}
-                            </span>
-                          )}
-                          {memberTokenEstimate !== null && (
-                            <span
-                              className="flex items-center gap-1 text-[0.5625rem] text-[var(--muted-foreground)]"
-                              title="Estimated from character card text fields; actual tokenizer counts vary by model."
-                            >
-                              <Hash size="0.5rem" />
-                              {formatEstimatedTokens(memberTokenEstimate)}
-                            </span>
-                          )}
-                          {memberTags.length > 0 && (
-                            <span className="mt-0.5 flex flex-wrap gap-0.5">
-                              {memberTags.slice(0, 3).map((tag) => (
-                                <span
-                                  key={tag}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleIncludedTag(tag);
-                                  }}
-                                  className="cursor-pointer rounded-full bg-[var(--primary)]/8 px-1.5 py-px text-[0.5rem] font-medium text-[var(--primary)]/70 transition-all hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                              {memberTags.length > 3 && (
-                                <span className="rounded-full bg-[var(--secondary)] px-1.5 py-px text-[0.5rem] text-[var(--muted-foreground)]">
-                                  +{memberTags.length - 3}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </div>
-                        {!selectionMode && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void moveCharactersToFolder([memberId], null);
-                            }}
-                            className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
-                            title="Remove from folder"
-                          >
-                            <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
-                          </button>
+                            <Star size="0.5625rem" className="fill-current" />
+                          </div>
                         )}
                       </div>
-                    );
+                      <div className="min-w-0 flex-1">
+                        <span
+                          className="block truncate text-[0.75rem] font-medium"
+                          style={
+                            memberNameColor
+                              ? memberNameColor.startsWith("linear-gradient")
+                                ? {
+                                    background: memberNameColor,
+                                    backgroundRepeat: "no-repeat",
+                                    backgroundSize: "100% 100%",
+                                    WebkitBackgroundClip: "text",
+                                    WebkitTextFillColor: "transparent",
+                                    backgroundClip: "text",
+                                    color: "transparent",
+                                    display: "inline-block",
+                                  }
+                                : { color: memberNameColor }
+                              : undefined
+                          }
+                        >
+                          {memberName}
+                        </span>
+                        {memberTitle && (
+                          <span className="block truncate text-[0.5625rem] italic text-[var(--muted-foreground)]">
+                            {memberTitle}
+                          </span>
+                        )}
+                        {memberPreviewMetadata && (
+                          <span className="block truncate text-[0.5625rem] text-[var(--muted-foreground)]">
+                            {memberPreviewMetadata}
+                          </span>
+                        )}
+                        {memberTokenEstimate !== null && (
+                          <span
+                            className="mari-chrome-text-muted flex items-center gap-1 text-[0.5625rem]"
+                            title="Estimated from character card text fields; actual tokenizer counts vary by model."
+                          >
+                            <Hash size="0.5rem" />
+                            {formatEstimatedTokens(memberTokenEstimate)}
+                          </span>
+                        )}
+                        {memberTags.length > 0 && (
+                          <span className="mt-0.5 flex flex-wrap gap-0.5">
+                            {memberTags.slice(0, 3).map((tag) => (
+                              <span
+                                key={tag}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleIncludedTag(tag);
+                                }}
+                                className="mari-chrome-muted-badge cursor-pointer px-1.5 py-px text-[0.5rem] transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {memberTags.length > 3 && (
+                              <span className="rounded-full bg-[var(--secondary)] px-1.5 py-px text-[0.5rem] text-[var(--muted-foreground)]">
+                                +{memberTags.length - 3}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      {!selectionMode && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void moveCharactersToFolder([memberId], null);
+                          }}
+                          className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
+                          title="Remove from folder"
+                        >
+                          <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
+                        </button>
+                      )}
+                    </div>
+                  );
                 })}
               </SmoothFolderContent>
             </div>
@@ -1133,8 +1125,8 @@ export function CharactersPanel() {
 
       {!isLoading && filteredCharacters.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
-          <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400/20 to-rose-500/20">
-            <User size="1.25rem" className="text-[var(--primary)]" />
+          <div className="mari-chrome-accent-soft-tile mari-accent-animated animate-float flex h-12 w-12 items-center justify-center rounded-2xl">
+            <User size="1.25rem" />
           </div>
           <p className="text-xs text-[var(--muted-foreground)]">{search ? "No matches found" : "No characters yet"}</p>
         </div>
@@ -1155,11 +1147,11 @@ export function CharactersPanel() {
         }}
         className={cn(
           "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
-          draggedCharacterId && "ring-1 ring-[var(--primary)]/20",
+          draggedCharacterId && "ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
         )}
       >
         {draggedCharacterId && (
-          <div className="rounded-xl border border-dashed border-[var(--primary)]/35 bg-[var(--primary)]/5 px-3 py-2 text-[0.625rem] text-[var(--primary)]">
+          <div className="rounded-xl border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]">
             Drop here to move out of folder
           </div>
         )}
@@ -1198,7 +1190,9 @@ export function CharactersPanel() {
               onTouchEnd={finishCharacterTouchDrag}
               className={cn(
                 "group relative flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
-                selectionMode && isBulkSelected && "ring-1 ring-[var(--primary)]/40 bg-[var(--primary)]/8",
+                selectionMode &&
+                  isBulkSelected &&
+                  "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
                 draggedCharacterId === char.id && "opacity-50",
               )}
             >
@@ -1209,7 +1203,7 @@ export function CharactersPanel() {
                   className={cn(
                     "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
                     isBulkSelected
-                      ? "border-[var(--primary)] bg-[var(--primary)] text-white"
+                      ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]"
                       : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
                   )}
                   onClick={(e) => {
@@ -1221,7 +1215,7 @@ export function CharactersPanel() {
                 </button>
               )}
               {/* Avatar */}
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 text-white shadow-sm">
+              <div className="mari-accent-gradient-fill relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[var(--primary-foreground)] shadow-sm">
                 {avatarUrl ? (
                   <div className="absolute inset-0 overflow-hidden rounded-xl">
                     <img
@@ -1237,7 +1231,7 @@ export function CharactersPanel() {
                 {isFavorite && (
                   <div
                     aria-hidden="true"
-                    className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--background)] text-amber-300 shadow-sm ring-1 ring-[var(--border)]"
+                    className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-md bg-[var(--background)] text-amber-300 shadow-sm ring-1 ring-[var(--border)]"
                   >
                     <Star size="0.625rem" className="fill-current" />
                   </div>
@@ -1274,7 +1268,7 @@ export function CharactersPanel() {
                   <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{previewMetadata}</div>
                 )}
                 <div
-                  className="flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]"
+                  className="mari-chrome-text-muted flex items-center gap-1 text-[0.625rem]"
                   title="Estimated from character card text fields; actual tokenizer counts vary by model."
                 >
                   <Hash size="0.5625rem" />
@@ -1289,7 +1283,7 @@ export function CharactersPanel() {
                           e.stopPropagation();
                           toggleIncludedTag(tag);
                         }}
-                        className="cursor-pointer rounded-full bg-[var(--primary)]/8 px-1.5 py-px text-[0.5rem] font-medium text-[var(--primary)]/70 transition-all hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
+                        className="mari-chrome-muted-badge cursor-pointer px-1.5 py-px text-[0.5rem] transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
                       >
                         {tag}
                       </span>
@@ -1314,10 +1308,10 @@ export function CharactersPanel() {
                           toast.success(`Duplicated "${char.parsed?.name ?? "character"}"`);
                         },
                       });
-	                    }}
-	                    className="mari-chrome-control mari-chrome-control--small p-1.5"
-	                    title="Duplicate"
-	                  >
+                    }}
+                    className="mari-chrome-control mari-chrome-control--small p-1.5"
+                    title="Duplicate"
+                  >
                     <Copy size="0.75rem" />
                   </button>
                   <button
@@ -1335,9 +1329,9 @@ export function CharactersPanel() {
                       }
                       deleteCharacter.mutate(char.id);
                     }}
-	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
-	                    title="Delete"
-	                  >
+                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
+                    title="Delete"
+                  >
                     <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
                   </button>
                 </div>

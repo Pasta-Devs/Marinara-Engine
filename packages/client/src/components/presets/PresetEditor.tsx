@@ -98,7 +98,7 @@ type TabId = (typeof TABS)[number]["id"];
 const ROLE_COLORS: Record<string, string> = {
   system: "text-blue-400",
   user: "text-green-400",
-  assistant: "text-purple-400",
+  assistant: "mari-chrome-accent-text mari-accent-animated",
 };
 
 const ROLE_ICONS: Record<string, FC<{ size: string | number; className?: string }>> = {
@@ -357,7 +357,7 @@ export function PresetEditor() {
         >
           <ArrowLeft size="1.125rem" />
         </button>
-        <div className="mari-editor-icon-tile">
+        <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--presets">
           <FileText size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
         <input
@@ -574,7 +574,7 @@ function OverviewTab({
               className={cn(
                 "flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all",
                 wrapFormat === fmt
-                  ? "bg-purple-400/15 text-purple-400 ring-1 ring-purple-400/30"
+                  ? "mari-chrome-accent-surface mari-accent-animated"
                   : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
               )}
             >
@@ -893,7 +893,8 @@ function SectionsTab({
                       onClick={() => handleAddSection({ isMarker: true, markerType: type })}
                       className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--foreground)] hover:bg-[var(--accent)]"
                     >
-                      <Layers size="0.8125rem" className="text-purple-400" /> {MARKER_LABELS[type]}
+                      <Layers size="0.8125rem" className="mari-chrome-accent-icon mari-accent-animated" />{" "}
+                      {MARKER_LABELS[type]}
                     </button>
                   ))}
                 {injectableAgents.length > 0 && (
@@ -1050,7 +1051,7 @@ function SectionsTab({
 
             return (
               <div key={section.id}>
-                {showDropBefore && <div className="mx-2 mb-1 h-0.5 rounded-full bg-purple-400" />}
+                {showDropBefore && <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />}
                 <div
                   draggable={dragReady === idx}
                   onDragStart={(e) => handleDragStart(idx, e)}
@@ -1123,7 +1124,7 @@ function SectionsTab({
                     </span>
 
                     {isMarker && (
-                      <span className="shrink-0 rounded bg-violet-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-violet-400">
+                      <span className="mari-chrome-accent-surface mari-accent-animated shrink-0 rounded px-1.5 py-0.5 text-[0.5625rem] font-medium">
                         MARKER
                       </span>
                     )}
@@ -1232,11 +1233,11 @@ function SectionsTab({
                           const isAgentMarker = mc.type === "agent_data";
                           return isAgentMarker ? (
                             <div className="space-y-2">
-                              <div className="rounded-lg bg-[var(--primary)]/5 p-3 text-xs text-[var(--primary)]">
+                              <div className="rounded-lg bg-[var(--primary)]/5 p-3 text-xs text-[var(--marinara-chat-chrome-panel-title)]">
                                 Agent section: <strong>{section.name}</strong>
                                 <p className="mt-1 text-[var(--muted-foreground)]">
                                   The{" "}
-                                  <code className="rounded bg-black/20 px-1 py-0.5 text-[0.625rem] font-mono text-pink-300">
+                                  <code className="rounded bg-black/20 px-1 py-0.5 text-[0.625rem] font-mono text-[var(--marinara-chat-chrome-panel-text)]">
                                     {"{{agent::" + (mc.agentType ?? "agent") + "}}"}
                                   </code>{" "}
                                   macro will be replaced with the latest output from the agent at assembly time. You can
@@ -1256,7 +1257,7 @@ function SectionsTab({
                               />
                             </div>
                           ) : (
-                            <div className="rounded-lg bg-violet-400/5 p-3 text-xs text-violet-300">
+                            <div className="mari-chrome-text rounded-lg bg-[var(--marinara-chat-chrome-highlight-bg)] p-3 text-xs">
                               Marker type: <strong>{MARKER_LABELS[mc.type as MarkerType] ?? "Unknown"}</strong>
                               <p className="mt-1 text-[var(--muted-foreground)]">
                                 Content is auto-generated at assembly time from your characters, lorebooks, etc.
@@ -1338,7 +1339,7 @@ function SectionsTab({
                     </div>
                   )}
                 </div>
-                {showDropAfter && <div className="mx-2 mt-1 h-0.5 rounded-full bg-purple-400" />}
+                {showDropAfter && <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />}
               </div>
             );
           })
@@ -1685,12 +1686,12 @@ function VariableCard({
           {opts.length} options
         </span>
         {opts.length === 1 && !isMultiSelect && (
-          <span className="shrink-0 rounded bg-purple-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-purple-400">
+          <span className="mari-chrome-accent-surface mari-accent-animated shrink-0 rounded px-1.5 py-0.5 text-[0.5625rem] font-medium">
             boolean
           </span>
         )}
         {isMultiSelect && (
-          <span className="shrink-0 rounded bg-purple-400/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-purple-400">
+          <span className="mari-chrome-accent-surface mari-accent-animated shrink-0 rounded px-1.5 py-0.5 text-[0.5625rem] font-medium">
             {isRandomPick ? "random" : "multi"}
           </span>
         )}
@@ -1740,8 +1741,8 @@ function VariableCard({
           {opts.length === 1 && !isMultiSelect ? (
             <div className="space-y-1.5 rounded-lg bg-[var(--secondary)] p-2.5 ring-1 ring-[var(--border)]">
               <div className="flex items-center gap-1.5">
-                <ToggleLeft size="0.75rem" className="text-purple-400" />
-                <span className="text-[0.625rem] font-medium text-purple-400">Boolean Toggle</span>
+                <ToggleLeft size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
+                <span className="mari-chrome-accent-text mari-accent-animated text-[0.625rem] font-medium">Boolean Toggle</span>
               </div>
               <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
                 This variable has only one option, so it behaves as a Boolean toggle. Users can switch it on or off in
@@ -1752,14 +1753,14 @@ function VariableCard({
             <div className="space-y-2 rounded-lg bg-[var(--secondary)] p-2.5 ring-1 ring-[var(--border)]">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <ListChecks size="0.75rem" className="text-purple-400" />
+                  <ListChecks size="0.75rem" className="mari-chrome-accent-icon mari-accent-animated" />
                   <span className="text-[0.625rem] font-medium text-[var(--foreground)]">Multi-Select</span>
                 </div>
                 <button
                   onClick={() => update({ multiSelect: !isMultiSelect })}
                   className={cn(
                     "relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors",
-                    isMultiSelect ? "bg-purple-400" : "bg-[var(--border)]",
+                    isMultiSelect ? "mari-chrome-accent-progress mari-accent-animated" : "bg-[var(--border)]",
                   )}
                 >
                   <span
@@ -1813,7 +1814,7 @@ function VariableCard({
                         value={separatorValue}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => update({ separator: e.target.value })}
-                        className="w-20 rounded bg-[var(--background)] px-1.5 py-0.5 text-center font-mono text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-1 focus:ring-purple-400/50"
+                        className="w-20 rounded bg-[var(--background)] px-1.5 py-0.5 text-center font-mono text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-1 focus:ring-[var(--marinara-chat-chrome-input-border-focus)]"
                         placeholder=", "
                       />
                       <span className="text-[0.5625rem] text-[var(--muted-foreground)]">

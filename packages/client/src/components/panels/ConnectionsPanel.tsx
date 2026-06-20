@@ -605,7 +605,7 @@ function ConnectionRow({
         {(selectionMode ? isBulkSelected : isSelected) && (
           <div
             className={cn(
-              "absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full shadow-sm",
+              "absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-md shadow-sm",
               colors.badge,
             )}
           >
@@ -749,7 +749,8 @@ function ConnectionFolderRow({
       }}
       className={cn(
         "flex flex-col rounded-lg transition-colors",
-        isDropTarget && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30",
+        isDropTarget &&
+          "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
       )}
     >
       {/* Folder header */}
@@ -778,12 +779,12 @@ function ConnectionFolderRow({
           onPointerDown={(e) => dragControls.start(e)}
           className="cursor-grab touch-none opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100 max-md:opacity-100"
         >
-          <GripVertical size="0.625rem" className="text-[var(--muted-foreground)]" />
+          <GripVertical size="0.625rem" className="mari-chrome-accent-icon mari-accent-animated" />
         </div>
         <ChevronRight
           size="0.75rem"
           className={cn(
-            "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+            "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
             isExpanded && "rotate-90",
           )}
         />
@@ -1122,7 +1123,7 @@ export function ConnectionsPanel() {
         <button
           type="button"
           onClick={() => openModal("create-connection")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-sky-400/15 transition-all hover:shadow-lg hover:shadow-sky-400/25 active:scale-[0.98]"
+          className="mari-panel-gradient-button mari-panel-gradient--connections flex-1 text-xs"
           aria-label="Create connection"
           title="New"
         >
@@ -1305,7 +1306,7 @@ export function ConnectionsPanel() {
         }}
         className={cn(
           "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
-          draggedConnectionId && "ring-1 ring-[var(--primary)]/20",
+          draggedConnectionId && "ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
         )}
       >
         {unfiledConnections.map(renderConnectionRow)}

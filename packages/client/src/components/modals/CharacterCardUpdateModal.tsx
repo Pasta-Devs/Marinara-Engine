@@ -194,8 +194,8 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     <Modal open={open} onClose={closeAndAdvance} title="Review Character Card Updates" width="max-w-2xl">
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-fuchsia-500 shadow-lg shadow-violet-400/20">
-            <UserCog size="1.375rem" className="text-white" />
+          <div className="mari-chrome-accent-tile mari-accent-animated flex h-12 w-12 items-center justify-center rounded-xl">
+            <UserCog size="1.375rem" className="text-current" />
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium">

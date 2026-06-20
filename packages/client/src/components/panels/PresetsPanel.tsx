@@ -295,8 +295,8 @@ export function PresetsPanel() {
     return (presets as unknown as PresetRow[]).filter(
       (p) =>
         p.name.toLowerCase().includes(q) ||
-      (p.description ?? "").toLowerCase().includes(q) ||
-      (p.author ?? "").toLowerCase().includes(q),
+        (p.description ?? "").toLowerCase().includes(q) ||
+        (p.author ?? "").toLowerCase().includes(q),
     );
   }, [presets, search]);
   const presetSearchActive = search.trim().length > 0;
@@ -615,27 +615,24 @@ export function PresetsPanel() {
     [draggedPresetId, movePresetsToFolder],
   );
 
-  const startPresetTouchDrag = useCallback(
-    (event: TouchEvent, presetId: string) => {
-      const timer = window.setTimeout(() => {
-        presetTouchDragRef.current = { id: presetId, timer: null, active: true };
-        suppressPresetClickRef.current = true;
-        setDraggedPresetId(presetId);
-      }, 450);
-      presetTouchDragRef.current = { id: presetId, timer, active: false };
-      event.currentTarget.addEventListener(
-        "touchcancel",
-        () => {
-          const current = presetTouchDragRef.current;
-          if (current?.timer) window.clearTimeout(current.timer);
-          presetTouchDragRef.current = null;
-          setDraggedPresetId(null);
-        },
-        { once: true },
-      );
-    },
-    [],
-  );
+  const startPresetTouchDrag = useCallback((event: TouchEvent, presetId: string) => {
+    const timer = window.setTimeout(() => {
+      presetTouchDragRef.current = { id: presetId, timer: null, active: true };
+      suppressPresetClickRef.current = true;
+      setDraggedPresetId(presetId);
+    }, 450);
+    presetTouchDragRef.current = { id: presetId, timer, active: false };
+    event.currentTarget.addEventListener(
+      "touchcancel",
+      () => {
+        const current = presetTouchDragRef.current;
+        if (current?.timer) window.clearTimeout(current.timer);
+        presetTouchDragRef.current = null;
+        setDraggedPresetId(null);
+      },
+      { once: true },
+    );
+  }, []);
 
   const finishPresetTouchDrag = useCallback(
     (event: TouchEvent) => {
@@ -672,15 +669,15 @@ export function PresetsPanel() {
       return (
         <div
           key={preset.id}
-	          className={cn(
-	            "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
-	            selectionMode &&
-	              isBulkSelected &&
-	              "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
-	            isSelected &&
-	              "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
-	            draggedPresetId === preset.id && "opacity-50",
-	          )}
+          className={cn(
+            "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
+            selectionMode &&
+              isBulkSelected &&
+              "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
+            isSelected &&
+              "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
+            draggedPresetId === preset.id && "opacity-50",
+          )}
           draggable
           onDragStart={(event) => {
             const ids = getDraggedPresetIds(preset.id);
@@ -704,31 +701,29 @@ export function PresetsPanel() {
             {selectionMode && (
               <div
                 className={cn(
-	                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-	                  isBulkSelected
-	                    ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)]"
-	                    : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
-	                )}
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+                  isBulkSelected
+                    ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)]"
+                    : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+                )}
               >
                 <Check size="0.75rem" />
               </div>
             )}
-            <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 text-white shadow-sm">
+            <div className="mari-panel-gradient-surface mari-panel-gradient--presets relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm">
               <FileText size="1rem" />
               {isSelected && (
-                <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-purple-400 shadow-sm">
-                  <Check size="0.625rem" className="text-white" />
+                <div className="mari-panel-gradient-surface mari-panel-gradient--presets absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-md shadow-sm">
+                  <Check size="0.625rem" />
                 </div>
               )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="truncate text-sm font-medium">{preset.name}</span>
-	                {isDefault && (
-	                  <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">
-	                    DEFAULT
-	                  </span>
-	                )}
+                {isDefault && (
+                  <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">DEFAULT</span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
                 <span className="flex items-center gap-0.5">
@@ -750,9 +745,9 @@ export function PresetsPanel() {
                     event.stopPropagation();
                     selectPreset(preset.id);
                   }}
-	                  className={cn(
-	                    "mari-chrome-control mari-chrome-control--small p-1.5",
-	                    isSelected && "mari-chrome-control--selected",
+                  className={cn(
+                    "mari-chrome-control mari-chrome-control--small p-1.5",
+                    isSelected && "mari-chrome-control--selected",
                   )}
                   title={isSelected ? "Unassign from chat" : "Assign to chat"}
                   aria-label={isSelected ? "Unassign preset from chat" : "Assign preset to chat"}
@@ -841,7 +836,7 @@ export function PresetsPanel() {
         <button
           type="button"
           onClick={() => openModal("create-preset")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-purple-400/15 transition-all hover:shadow-lg hover:shadow-purple-400/25 active:scale-[0.98]"
+          className="mari-panel-gradient-button mari-panel-gradient--presets flex-1 text-xs"
           aria-label="Create preset"
           title="New"
         >
@@ -898,9 +893,7 @@ export function PresetsPanel() {
             New Folder
           </button>
         </div>
-        {presetFolders.length > 0 && (
-          <p className="mari-folder-helper">Drag and drop presets to folders</p>
-        )}
+        {presetFolders.length > 0 && <p className="mari-folder-helper">Drag and drop presets to folders</p>}
       </div>
 
       <PanelSection title="Presets" icon={<FileText size="0.8125rem" />}>
@@ -960,7 +953,7 @@ export function PresetsPanel() {
                   <ChevronRight
                     size="0.75rem"
                     className={cn(
-                      "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
+                      "mari-chrome-accent-icon mari-accent-animated shrink-0 transition-transform duration-200 ease-out",
                       isExpanded && "rotate-90",
                     )}
                   />
@@ -979,11 +972,11 @@ export function PresetsPanel() {
                         }}
                         onClick={(event) => event.stopPropagation()}
                         onBlur={() => handleRenameFolder(folder.id)}
-                        className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-purple-400/30"
+                        className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--marinara-chat-chrome-input-border-focus)]"
                       />
                     ) : (
                       <>
-                        <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
+                        <div className="mari-chrome-text truncate text-xs font-medium">{folder.name}</div>
                       </>
                     )}
                   </div>
@@ -1046,8 +1039,8 @@ export function PresetsPanel() {
         {/* Empty state */}
         {!isLoading && filteredPresets.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-400/20 to-violet-500/20">
-              <FileText size="1.25rem" className="text-purple-400" />
+            <div className="mari-panel-gradient-surface mari-panel-gradient--presets animate-float flex h-12 w-12 items-center justify-center rounded-2xl">
+              <FileText size="1.25rem" />
             </div>
             <p className="text-xs text-[var(--muted-foreground)]">
               {search ? "No matching presets" : "No presets yet"}
@@ -1071,7 +1064,7 @@ export function PresetsPanel() {
           }}
           className={cn(
             "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
-            draggedPresetId && "ring-1 ring-purple-400/20",
+            draggedPresetId && "ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
           )}
         >
           {rootPresets.map((preset) => renderPresetRow(preset))}
@@ -1257,7 +1250,7 @@ function RegexSection({
               }}
             >
               <button
-                className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:cursor-grabbing"
+                className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 cursor-grab rounded p-0.5 transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing"
                 title="Drag to reorder"
                 onClick={(event) => event.stopPropagation()}
                 onMouseDown={(event) => {
@@ -1298,12 +1291,8 @@ function RegexSection({
                   updateRegex.mutate({ id: script.id, enabled: !enabled });
                 }}
               >
-	                {enabled ? (
-	                  <ToggleRight size="0.875rem" />
-	                ) : (
-	                  <ToggleLeft size="0.875rem" />
-	                )}
-	              </button>
+                {enabled ? <ToggleRight size="0.875rem" /> : <ToggleLeft size="0.875rem" />}
+              </button>
               <button
                 type="button"
                 className="mari-chrome-control mari-chrome-control--small mt-0.5 shrink-0 p-1"
@@ -1452,12 +1441,8 @@ function FunctionsSection({
                   updateCustomTool.mutate({ id: tool.id, enabled: !enabled });
                 }}
               >
-	                {enabled ? (
-	                  <ToggleRight size="0.875rem" />
-	                ) : (
-	                  <ToggleLeft size="0.875rem" />
-	                )}
-	              </button>
+                {enabled ? <ToggleRight size="0.875rem" /> : <ToggleLeft size="0.875rem" />}
+              </button>
               <button
                 type="button"
                 className="mari-chrome-control mari-chrome-control--small mt-0.5 shrink-0 p-1"
@@ -1535,7 +1520,7 @@ function PanelSection({
         >
           <ChevronDown
             size="0.75rem"
-            className={cn("text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
+            className={cn("mari-chrome-accent-icon mari-accent-animated transition-transform", open && "rotate-180")}
           />
           <span className="text-[var(--marinara-chat-chrome-button-text)]">{icon}</span>
           {title}

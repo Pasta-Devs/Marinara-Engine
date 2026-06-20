@@ -2316,7 +2316,7 @@ function VectorizeSection({
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/30 p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Sparkles size="0.875rem" className="text-violet-400" />
+        <Sparkles size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />
         <h4 className="text-xs font-semibold">Semantic Search (Embeddings)</h4>
         <HelpTooltip text="Vectorize entries to enable semantic matching. Entries will be found by meaning, not just keywords. Requires a connection with an Embedding Model configured." />
       </div>
@@ -2362,7 +2362,7 @@ function VectorizeSection({
             <button
               onClick={handleVectorize}
               disabled={vectorizing || vectorizableEntryCount === 0 || !selectedConnectionId}
-              className="flex items-center gap-1.5 rounded-xl bg-violet-500/15 px-3 py-1.5 text-xs font-medium text-violet-400 ring-1 ring-violet-500/30 transition-all hover:bg-violet-500/25 active:scale-[0.98] disabled:opacity-50"
+              className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all active:scale-[0.98] disabled:opacity-50"
             >
               {vectorizing ? <Loader2 size="0.75rem" className="animate-spin" /> : <Sparkles size="0.75rem" />}
               {vectorizing

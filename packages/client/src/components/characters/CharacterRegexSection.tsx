@@ -228,7 +228,7 @@ export function CharacterRegexSection({
     <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold">
-          <Regex size="0.875rem" className="text-purple-400" />
+          <Regex size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />
           Regex Scripts
         </span>
         {characterId && (
@@ -236,13 +236,13 @@ export function CharacterRegexSection({
             <button
               type="button"
               onClick={handleCreate}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-purple-400/10 hover:text-purple-400"
+              className="mari-chrome-accent-text-muted mari-accent-animated rounded-lg p-1.5 transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
               title="Create regex"
             >
               <Plus size="0.8125rem" />
             </button>
             <label
-              className="inline-flex cursor-pointer items-center justify-center rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-purple-400/10 hover:text-purple-400"
+              className="mari-chrome-accent-text-muted mari-accent-animated inline-flex cursor-pointer items-center justify-center rounded-lg p-1.5 transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
               title="Import regexes from JSON"
             >
               <input type="file" accept="application/json" className="hidden" onChange={handleImport} />
@@ -252,7 +252,7 @@ export function CharacterRegexSection({
               type="button"
               onClick={handleExport}
               disabled={scopedScripts.length === 0}
-              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-purple-400/10 hover:text-purple-400 disabled:cursor-not-allowed disabled:opacity-35"
+              className="mari-chrome-accent-text-muted mari-accent-animated rounded-lg p-1.5 transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] disabled:cursor-not-allowed disabled:opacity-35"
               title="Export regexes to JSON"
             >
               <Download size="0.8125rem" />
@@ -289,7 +289,7 @@ export function CharacterRegexSection({
                       !enabled && "opacity-50",
                     )}
                   >
-                    <Regex size="0.875rem" className="mt-0.5 shrink-0 text-purple-400" />
+                    <Regex size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated mt-0.5 shrink-0" />
                     <button
                       type="button"
                       className="min-w-0 flex-1 text-left"
@@ -312,19 +312,19 @@ export function CharacterRegexSection({
                     </button>
                     <button
                       type="button"
-                      className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-purple-400"
+                      className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
                       title={enabled ? "Disable regex" : "Enable regex"}
                       onClick={() => updateRegex.mutate({ id: script.id, enabled: !enabled })}
                     >
                       {enabled ? (
-                        <ToggleRight size="0.875rem" className="text-purple-400" />
+                        <ToggleRight size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />
                       ) : (
                         <ToggleLeft size="0.875rem" className="text-[var(--muted-foreground)]" />
                       )}
                     </button>
                     <button
                       type="button"
-                      className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-purple-400"
+                      className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
                       title="Edit regex"
                       onClick={() => void openEditorGuarded(script.id)}
                     >

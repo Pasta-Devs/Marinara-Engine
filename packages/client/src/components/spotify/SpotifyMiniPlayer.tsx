@@ -136,8 +136,8 @@ const spotifyKeys = {
 
 const SPOTIFY_GREEN_CLASS = "text-[#1DB954]";
 const SPOTIFY_GREEN_BG_CLASS = "bg-[#1DB954]";
-const MUSIC_PLAYER_SHELL_BORDER_CLASS = "border-[#f7f3ef]/10";
-const MUSIC_PLAYER_SHELL_BG_CLASS = "bg-[#191414]/95";
+const MUSIC_PLAYER_SHELL_BORDER_CLASS = "border-[var(--marinara-music-player-shell-border)]";
+const MUSIC_PLAYER_SHELL_BG_CLASS = "bg-[var(--marinara-music-player-shell-bg)]";
 const MUSIC_PLAYER_BORDER_CLASS = "border-[#f7f3ef]/15";
 const MUSIC_PLAYER_BUTTON_BG_CLASS = "bg-[#f7f3ef]/5";
 const MUSIC_PLAYER_TILE_BG_CLASS = "bg-[#f7f3ef]/5";
