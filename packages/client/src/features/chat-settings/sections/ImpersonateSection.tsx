@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Drama, RotateCcw } from "lucide-react";
 import { DEFAULT_IMPERSONATE_PROMPT } from "@marinara-engine/shared";
 import { useUIStore } from "../../../stores/ui.store";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
+import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 
 interface ImpersonateSectionProps {
@@ -118,45 +119,27 @@ export function ImpersonateSection({ presets, connections }: ImpersonateSectionP
           </div>
 
           <div className="grid gap-1 border-t border-[var(--border)]/60 pt-1.5">
-            <label className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--accent)]/35">
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5 text-xs font-semibold">
-                  Skip agents
-                  <span onClick={(event) => event.preventDefault()}>
-                    <HelpTooltip text="When enabled, the agent pipeline (trackers, lorebook routers, etc.) is suppressed during impersonate so generations stay fast and don't trigger world-state mutations." />
-                  </span>
-                </span>
-                <span className="mt-0.5 block text-[0.65rem] leading-tight text-[var(--muted-foreground)]">
-                  Suppress trackers, routers, and other agent work.
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={blockAgents}
-                onChange={(event) => setBlockAgents(event.target.checked)}
-                className="h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
-              />
-            </label>
+            <SettingsSwitch
+              label="Skip agents"
+              help="When enabled, the agent pipeline (trackers, lorebook routers, etc.) is suppressed during impersonate so generations stay fast and don't trigger world-state mutations."
+              description="Suppress trackers, routers, and other agent work."
+              checked={blockAgents}
+              onChange={setBlockAgents}
+              labelPosition="start"
+              className="justify-between rounded-md px-2 py-1.5 text-left"
+              labelClassName="text-xs font-semibold"
+            />
 
-            <label className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--accent)]/35">
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5 text-xs font-semibold">
-                  Use CYOA as direction
-                  <span onClick={(event) => event.preventDefault()}>
-                    <HelpTooltip text="When enabled, clicking a CYOA option uses it as the direction for an impersonate generation instead of sending the option as a normal user message." />
-                  </span>
-                </span>
-                <span className="mt-0.5 block text-[0.65rem] leading-tight text-[var(--muted-foreground)]">
-                  Treat choices as impersonate guidance.
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={cyoaChoices}
-                onChange={(event) => setCyoaChoices(event.target.checked)}
-                className="h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
-              />
-            </label>
+            <SettingsSwitch
+              label="Use CYOA as direction"
+              help="When enabled, clicking a CYOA option uses it as the direction for an impersonate generation instead of sending the option as a normal user message."
+              description="Treat choices as impersonate guidance."
+              checked={cyoaChoices}
+              onChange={setCyoaChoices}
+              labelPosition="start"
+              className="justify-between rounded-md px-2 py-1.5 text-left"
+              labelClassName="text-xs font-semibold"
+            />
           </div>
 
           <p className="border-t border-[var(--border)]/60 px-2 pt-1.5 text-[0.65rem] leading-snug text-[var(--muted-foreground)]">

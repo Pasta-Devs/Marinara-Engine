@@ -4,7 +4,7 @@
 import { useCallback, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   Sparkles,
-  Pencil,
+  Copy,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -55,6 +55,8 @@ import {
   useMoveLibraryItem,
   useUpdateLibraryFolder,
 } from "../../hooks/use-library-folders";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 type JsonRecord = Record<string, unknown>;
 const BUILT_IN_AGENT_TYPE_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
@@ -148,6 +150,27 @@ function getAgentLibraryDisplayName(agent: AgentConfigRow) {
   return BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.name ?? agent.name;
 }
 
+function createDuplicateAgentInput(agent: AgentConfigRow) {
+  const settings = sanitizeAgentSettingsForTransfer(parseAgentSettings(agent.settings));
+  if (typeof settings.author !== "string" || !settings.author.trim()) {
+    settings.author = "Unknown";
+  }
+  const resultType = typeof settings.resultType === "string" ? settings.resultType : undefined;
+
+  return {
+    type: `${agent.type}-copy`,
+    name: `${getAgentLibraryDisplayName(agent)} (Copy)`,
+    description: agent.description,
+    phase: normalizeAgentPhaseForType(agent.type, agent.phase),
+    enabled: parseBooleanValue(agent.enabled),
+    connectionId: agent.connectionId,
+    imagePath: agent.imagePath,
+    promptTemplate: agent.promptTemplate,
+    settings,
+    ...(resultType ? { resultType } : {}),
+  };
+}
+
 function normalizeAgentImportEntry(entry: unknown) {
   const source = getFolderManifestConfig(entry);
   if (!isJsonRecord(source)) return null;
@@ -208,6 +231,7 @@ export function AgentsPanel() {
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
   const [draggedAgentId, setDraggedAgentId] = useState<string | null>(null);
+  const handleFolderRenameGesture = useFolderRenameGesture();
 
   const agentConfigRows = useMemo(() => (agentConfigs ?? []) as AgentConfigRow[], [agentConfigs]);
   const visibleAgentConfigs = useMemo(
@@ -401,6 +425,20 @@ export function AgentsPanel() {
     }
   }, [selectedAgents]);
 
+  const handleDuplicateAgent = useCallback(
+    async (agent: AgentConfigRow) => {
+      try {
+        const created = await createAgent.mutateAsync(createDuplicateAgentInput(agent));
+        const createdId = typeof created === "object" && created && "id" in created ? String(created.id) : null;
+        toast.success(`Copied "${getAgentLibraryDisplayName(agent)}"`);
+        if (createdId) openAgentDetail(createdId);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to copy agent");
+      }
+    },
+    [createAgent, openAgentDetail],
+  );
+
   const handleDeleteSelectedAgents = useCallback(async () => {
     const ids = selectedAgents.map((agent) => agent.id);
     if (ids.length === 0) return;
@@ -501,6 +539,7 @@ export function AgentsPanel() {
         imagePath: agent.imagePath ?? null,
         custom,
         openAgentDetail,
+        onDuplicate: () => void handleDuplicateAgent(agent),
         onImagePick: () => handlePickAgentImage(custom ? agent.id : agent.type),
         selectionMode,
         selected: selectedAgentIds.has(agent.id),
@@ -536,6 +575,7 @@ export function AgentsPanel() {
       draggedAgentId,
       getDraggedAgentIds,
       handlePickAgentImage,
+      handleDuplicateAgent,
       openAgentDetail,
       selectedAgentIds,
       selectionMode,
@@ -623,14 +663,14 @@ export function AgentsPanel() {
           )}
           title="New"
         >
-          <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
+          <Plus size="0.8125rem" />
         </button>
         <button
           onClick={() => agentImportInputRef.current?.click()}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title="Import agents"
         >
-          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+          <Download size="0.8125rem" />
         </button>
         <button
           onClick={() => {
@@ -644,7 +684,7 @@ export function AgentsPanel() {
           )}
           title="Select agents"
         >
-          <Check size="0.8125rem" /> <span className="md:hidden">Select</span>
+          <Check size="0.8125rem" />
         </button>
       </div>
 
@@ -664,7 +704,7 @@ export function AgentsPanel() {
           value={agentSearch}
           onChange={(event) => setAgentSearch(event.target.value)}
           placeholder="Search agents"
-          className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
         />
       </div>
 
@@ -714,13 +754,36 @@ export function AgentsPanel() {
               className="flex flex-col rounded-lg transition-colors"
             >
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${folder.name}. Press F2 to rename.`}
+                title="Double-click or press F2 to rename."
                 className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
-                onClick={() => setExpandedFolderId(isExpanded ? null : folder.id)}
+                onClick={(event) =>
+                  handleFolderRenameGesture(folder.id, event, {
+                    onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                    onRename: () => {
+                      setEditingFolderId(folder.id);
+                      setEditFolderName(folder.name);
+                    },
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  handleFolderRenameKeyDown(event, {
+                    onSingleClick: () => setExpandedFolderId(isExpanded ? null : folder.id),
+                    onRename: () => {
+                      setEditingFolderId(folder.id);
+                      setEditFolderName(folder.name);
+                    },
+                  });
+                }}
               >
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -754,17 +817,6 @@ export function AgentsPanel() {
                   <button
                     onClick={(event) => {
                       event.stopPropagation();
-                      setEditingFolderId(folder.id);
-                      setEditFolderName(folder.name);
-                    }}
-	                    className="mari-chrome-control mari-chrome-control--small p-1"
-	                    title="Rename folder"
-	                  >
-                    <Pencil size="0.6875rem" />
-                  </button>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
                       void confirmNonEmptyFolderDelete(folder.itemIds.length, {
                         title: "Delete Folder",
                         message: `Delete "${folder.name}"? Its ${folder.itemIds.length} agent${
@@ -785,15 +837,17 @@ export function AgentsPanel() {
                   </button>
                 </div>
               </div>
-              {isExpanded && (
-                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
-                  {folderAgents.length === 0 ? (
-                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop agents here.</p>
-                  ) : (
-                    folderAgents.map((agent) => renderFolderAgentCard(agent))
-                  )}
-                </div>
-              )}
+              <SmoothFolderContent
+                open={isExpanded}
+                className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
+                innerClassName="flex flex-col gap-0.5"
+              >
+                {folderAgents.length === 0 ? (
+                  <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop agents here.</p>
+                ) : (
+                  folderAgents.map((agent) => renderFolderAgentCard(agent))
+                )}
+              </SmoothFolderContent>
             </div>
           );
         })}
@@ -812,16 +866,18 @@ export function AgentsPanel() {
                 No {section.title.toLowerCase()} yet.
               </p>
             ) : (
-              visibleAgents.map((agent) =>
-                renderAgentCard({
+              visibleAgents.map((agent) => {
+                const sourceAgent = createBuiltInAgentConfigRow(agent, configByType.get(agent.id));
+                return renderAgentCard({
                   id: agent.id,
                   type: agent.id,
                   name: agent.name,
                   description: agent.description,
                   category: agent.category,
-                  imagePath: configByType.get(agent.id)?.imagePath ?? null,
+                  imagePath: sourceAgent.imagePath,
                   custom: false,
                   openAgentDetail,
+                  onDuplicate: () => void handleDuplicateAgent(sourceAgent),
                   onImagePick: () => handlePickAgentImage(agent.id),
                   selectionMode,
                   selected: selectedAgentIds.has(agent.id),
@@ -849,8 +905,8 @@ export function AgentsPanel() {
                       deleteAgent.mutate(agent.id);
                     }
                   },
-                }),
-              )
+                });
+              })
             )}
           </PanelSection>
         );
@@ -871,6 +927,7 @@ export function AgentsPanel() {
                 imagePath: agent.imagePath ?? null,
                 custom: true,
                 openAgentDetail,
+                onDuplicate: () => void handleDuplicateAgent(agent),
                 onImagePick: () => handlePickAgentImage(agent.id),
                 selectionMode,
                 selected: selectedAgentIds.has(agent.id),
@@ -923,6 +980,7 @@ function renderAgentCard({
   imagePath,
   custom,
   openAgentDetail,
+  onDuplicate,
   onImagePick,
   onDelete,
   selectionMode = false,
@@ -940,6 +998,7 @@ function renderAgentCard({
   imagePath?: string | null;
   custom: boolean;
   openAgentDetail: (id: string) => void;
+  onDuplicate: () => void;
   onImagePick: () => void;
   onDelete?: () => void;
   selectionMode?: boolean;
@@ -1035,13 +1094,13 @@ function renderAgentCard({
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
           <button
 	            className="mari-chrome-control mari-chrome-control--small p-1.5"
-	            title="Edit agent"
+	            title="Copy agent"
             onClick={(event) => {
               event.stopPropagation();
-              openAgentDetail(custom ? id : type);
+              onDuplicate();
             }}
           >
-            <Pencil size="0.75rem" />
+            <Copy size="0.75rem" />
           </button>
           {onDelete && (
             <button

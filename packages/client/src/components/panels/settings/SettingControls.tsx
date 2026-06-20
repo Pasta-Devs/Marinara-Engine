@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Bell, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { useUIStore } from "../../../stores/ui.store";
@@ -175,7 +175,17 @@ export function ToggleSetting({
   onChange: (v: boolean) => void;
   help?: string;
 }) {
-  return <SettingsCheckbox label={label} checked={checked} onChange={onChange} help={help} className="p-1" />;
+  return (
+    <SettingsSwitch
+      label={label}
+      checked={checked}
+      onChange={onChange}
+      help={help}
+      labelPosition="start"
+      className="justify-between gap-3 p-1.5"
+      labelClassName="text-xs"
+    />
+  );
 }
 
 export function SettingsCheckbox({
@@ -256,60 +266,97 @@ export function SettingsCheckbox({
   );
 }
 
-export function SettingsSwitch({
-  label,
-  checked,
-  onChange,
-  title,
-  description,
-  disabled = false,
-  labelPosition = "end",
-  className,
-  labelClassName,
-}: {
-  label?: ReactNode;
+type SettingsSwitchAccessibleLabel = { label: ReactNode; ariaLabel?: never } | { label?: undefined; ariaLabel: string };
+
+type SettingsSwitchProps = SettingsSwitchAccessibleLabel & {
   checked: boolean;
   onChange: (v: boolean) => void;
   title?: string;
   description?: ReactNode;
+  help?: string;
   disabled?: boolean;
   labelPosition?: "start" | "end";
   className?: string;
   labelClassName?: string;
-}) {
+};
+
+export function SettingsSwitch({
+  label,
+  checked,
+  onChange,
+  ariaLabel,
+  title,
+  description,
+  help,
+  disabled = false,
+  labelPosition = "end",
+  className,
+  labelClassName,
+}: SettingsSwitchProps) {
+  const inputId = useId();
+  const switchControl = (
+    <span className="relative inline-flex h-5 w-9 shrink-0">
+      <input
+        id={inputId}
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        aria-label={!label ? ariaLabel : undefined}
+        onChange={(e) => onChange(e.target.checked)}
+        className="peer sr-only"
+      />
+      <label
+        htmlFor={inputId}
+        title={title}
+        className={cn(
+          "relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]",
+          checked ? "bg-[var(--primary)]/70" : "bg-[var(--border)]",
+          disabled ? "cursor-not-allowed" : "cursor-pointer",
+        )}
+      >
+        <span
+          className={cn(
+            "pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--background)] shadow-sm ring-1 ring-[var(--border)] transition-transform",
+            checked && "translate-x-4",
+          )}
+        />
+      </label>
+    </span>
+  );
   const text = label ? (
     <span className={cn("min-w-0 text-sm", labelClassName)}>
-      <span className="block">{label}</span>
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <label htmlFor={inputId} className={cn("min-w-0", disabled ? "cursor-not-allowed" : "cursor-pointer")}>
+          {label}
+        </label>
+        {help && <HelpTooltip text={help} />}
+      </span>
       {description && (
-        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+        <label
+          htmlFor={inputId}
+          className={cn(
+            "mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]",
+            disabled ? "cursor-not-allowed" : "cursor-pointer",
+          )}
+        >
           {description}
-        </span>
+        </label>
       )}
     </span>
   ) : null;
 
   return (
-    <label
+    <div
       title={title}
       className={cn(
-        "flex cursor-pointer items-center gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--secondary)]/50",
+        "flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--secondary)]/50",
         disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
         className,
       )}
     >
       {labelPosition === "start" && text}
-      <span className="relative inline-flex h-5 w-9 shrink-0">
-        <input
-          type="checkbox"
-          checked={checked}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-          className="peer sr-only"
-        />
-        <span className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-[var(--primary)]/70 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]" />
-        <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--background)] shadow-sm ring-1 ring-[var(--border)] transition-transform peer-checked:translate-x-4" />
-      </span>
+      {switchControl}
       {labelPosition === "end" && text}
-    </label>
+    </div>
   );
 }

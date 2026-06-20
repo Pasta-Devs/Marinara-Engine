@@ -209,7 +209,7 @@
   --marinara-shell-edge-border: color-mix(in srgb, var(--foreground) 14%, var(--background) 86%);
   --marinara-music-player-shell-bg: var(--marinara-topbar-surface);
   --marinara-music-player-shell-border: var(--marinara-topbar-border);
-  --marinara-chat-chrome-accent: var(--foreground);
+  --marinara-chat-chrome-accent: #d4acfb;
   --marinara-chat-chrome-accent-gradient: linear-gradient(
     90deg,
     var(--marinara-chat-chrome-accent),
@@ -272,6 +272,13 @@
   --marinara-chat-chrome-input-bg: var(--marinara-chat-chrome-surface-bg);
   --marinara-chat-chrome-input-border: color-mix(in srgb, var(--marinara-chat-chrome-accent) 14%, transparent);
   --marinara-chat-chrome-input-border-focus: color-mix(in srgb, var(--marinara-chat-chrome-accent) 30%, transparent);
+  --marinara-chat-option-field-bg: var(--marinara-chat-chrome-button-bg);
+  --marinara-chat-option-field-bg-hover: var(--marinara-chat-chrome-button-bg-hover);
+  --marinara-chat-option-field-bg-active: var(--marinara-chat-chrome-button-bg-active);
+  --marinara-chat-option-field-border: var(--marinara-chat-chrome-button-border);
+  --marinara-chat-option-field-border-active: var(--marinara-chat-chrome-button-border-active);
+  --marinara-chat-option-field-ring: var(--marinara-chat-chrome-focus-ring);
+  --marinara-chat-option-switch-off: color-mix(in srgb, var(--muted-foreground) 48%, transparent);
   --marinara-editor-bg: var(--background);
   --marinara-editor-surface-bg: var(--marinara-chat-chrome-panel-bg);
   --marinara-editor-surface-bg-hover: var(--marinara-chat-chrome-surface-bg-hover);
@@ -570,6 +577,32 @@
     var(--marinara-chat-chrome-accent-gradient) border-box;
 }
 
+.marinara-chat-input-shell button:not(:disabled) {
+  color: color-mix(in srgb, var(--marinara-chat-chrome-accent) 58%, transparent);
+}
+
+.marinara-chat-input-shell button:disabled {
+  color: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
+}
+
+.marinara-chat-input-shell button:not(:disabled):hover,
+.marinara-chat-input-shell button:not(:disabled):focus-visible {
+  background-color: var(--marinara-chat-chrome-highlight-bg-hover);
+  color: var(--marinara-chat-chrome-button-text-hover);
+}
+
+.marinara-chat-input-shell button.bg-foreground\/10:not(:disabled),
+.marinara-chat-input-shell button:not(:disabled)[aria-expanded="true"],
+.marinara-chat-input-shell button:not(:disabled)[aria-pressed="true"] {
+  background-color: var(--marinara-chat-chrome-highlight-bg);
+  color: var(--marinara-chat-chrome-button-text-active);
+  box-shadow: 0 0 0 1px var(--marinara-chat-chrome-focus-ring);
+}
+
+.marinara-chat-input-shell .mari-chat-send-btn:not(:disabled) {
+  color: var(--marinara-chat-chrome-button-text-active);
+}
+
 .marinara-chat-popover.marinara-chat-toolbar-overflow-menu {
   border-radius: 0.5rem;
 }
@@ -780,6 +813,29 @@
   font-weight: 600;
 }
 
+.mari-chat-option-field {
+  border: 1px solid var(--marinara-chat-option-field-border);
+  background: var(--marinara-chat-option-field-bg);
+}
+
+.mari-chat-option-field:hover {
+  background: var(--marinara-chat-option-field-bg-hover);
+}
+
+.mari-chat-option-field--active {
+  border-color: var(--marinara-chat-option-field-border-active);
+  background: var(--marinara-chat-option-field-bg-active);
+  box-shadow: 0 0 0 1px var(--marinara-chat-option-field-ring);
+}
+
+.mari-chat-option-switch {
+  background: var(--marinara-chat-option-switch-off);
+}
+
+.mari-chat-option-switch--active {
+  background: var(--marinara-chat-chrome-accent);
+}
+
 [data-marinara-chat-chrome-accent-mode="gradient"] .mari-chrome-control:not(.mari-chrome-control--danger) {
   border-color: transparent;
   background:
@@ -880,8 +936,8 @@
 .mari-editor-icon-tile,
 .mari-editor-avatar-tile {
   display: flex;
-  height: 2.5rem;
-  width: 2.5rem;
+  height: 2.25rem;
+  width: 2.25rem;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -907,6 +963,7 @@
 .mari-editor-action {
   display: inline-flex;
   min-height: 2.25rem;
+  min-width: 2.25rem;
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
@@ -1083,8 +1140,8 @@
 
   .mari-editor-icon-tile,
   .mari-editor-avatar-tile {
-    height: 2.25rem;
-    width: 2.25rem;
+    height: 2rem;
+    width: 2rem;
     border-radius: 0.625rem;
   }
 
@@ -1097,8 +1154,9 @@
 
   .mari-editor-action {
     min-height: 2rem;
+    min-width: 2rem;
     border-radius: 0.625rem;
-    padding: 0.375rem 0.5rem;
+    padding: 0.375rem;
   }
 
   .mari-editor-action--primary {
@@ -1233,13 +1291,14 @@ input[type="range"]:disabled {
 }
 
 input[type="range"].mari-spotify-volume-slider {
-  --range-track-color: var(--marinara-chat-chrome-panel-divider);
-  --range-fill-color: var(--marinara-chat-chrome-button-text-active);
-  --range-thumb-color: var(--marinara-chat-chrome-button-text-active);
+  --range-track-color: color-mix(in srgb, #1db954 26%, transparent);
+  --range-fill-color: #1db954;
+  --range-thumb-color: #1db954;
   --range-thumb-size: 0.6875rem;
   --range-track-height: 0.25rem;
-  --range-thumb-shadow: 0 0 0 0.125rem var(--marinara-chat-chrome-panel-bg);
-  accent-color: var(--marinara-chat-chrome-button-text-active);
+  --range-thumb-shadow: 0 0 0 0.125rem #191414;
+
+  accent-color: #1db954;
 }
 
 input[type="range"].mari-spotify-volume-slider::-webkit-slider-runnable-track {
@@ -2663,6 +2722,10 @@ summary[class*="cursor-pointer"],
   width: min(100%, var(--mari-roleplay-message-column-width));
 }
 
+[data-chat-mode="roleplay"] .mari-roleplay-input-column {
+  width: min(100%, var(--mari-roleplay-message-column-width));
+}
+
 [data-chat-mode="roleplay"] .mari-roleplay-message-row {
   --mari-roleplay-avatar-slot: calc(2.5rem * var(--roleplay-avatar-scale, 1));
   --mari-roleplay-avatar-gap: 0.75rem;
@@ -2701,6 +2764,11 @@ summary[class*="cursor-pointer"],
 }
 
 @media (min-width: 768px) {
+  [data-chat-mode="roleplay"] .mari-roleplay-input-column > .mari-chat-input {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   [data-chat-mode="roleplay"] .mari-roleplay-message-row {
     display: grid;
     grid-template-columns:

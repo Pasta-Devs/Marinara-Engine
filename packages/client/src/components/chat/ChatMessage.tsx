@@ -59,11 +59,22 @@ import type { CharacterMap, ExpressionAvatarResolver, MessageSelectionToggle, Pe
 import { GenerationReplayDetailsModal, hasGenerationReplayDetails } from "./GenerationReplayDetailsModal";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
+import {
+  NEUTRAL_PANEL_HEADER,
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_TITLE,
+} from "../ui/neutral-surface-styles";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
+const MESSAGE_CHROME_ACTIVE_ICON_CLASS =
+  "text-[var(--marinara-chat-chrome-button-text-active)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]";
+const MESSAGE_CHROME_MARKER_LINE_CLASS = "bg-[var(--marinara-chat-chrome-button-border-active)]";
+const MESSAGE_CHROME_MARKER_TEXT_CLASS = "text-[var(--marinara-chat-chrome-highlight-text)]";
+const MESSAGE_CHROME_RING_CLASS = "ring-[var(--marinara-chat-chrome-focus-ring)]";
 
 function isMessageQuickEditIgnoredTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -86,8 +97,8 @@ function HiddenFromAIMessageButton({
   isHiddenExpanded: boolean;
 }) {
   const statusClassName = cn(
-    "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-amber-500/80",
-    roleplay && "text-amber-200/60",
+    "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-highlight-text)]",
+    roleplay && "opacity-80",
   );
 
   if (!canCollapse) {
@@ -104,9 +115,9 @@ function HiddenFromAIMessageButton({
         type="button"
         onClick={onExpand}
         className={cn(
-          "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-amber-500/80 transition-colors hover:bg-amber-500/10 hover:text-amber-400",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40",
-          roleplay && "text-amber-200/60 hover:bg-white/5 hover:text-amber-100/80",
+          "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-highlight-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+          roleplay && "opacity-80 hover:opacity-100",
         )}
         aria-label={isHiddenExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
         title={isHiddenExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
@@ -127,8 +138,8 @@ function HiddenFromAIMessageSummary({ roleplay, onExpand }: { roleplay?: boolean
         onExpand();
       }}
       className={cn(
-        "flex w-full items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-left text-[0.75rem] text-amber-600/90 transition-colors hover:bg-amber-500/15 dark:text-amber-200/75",
-        roleplay && "border-amber-200/15 bg-white/5 text-amber-100/70 hover:bg-white/10",
+        "flex w-full items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-left text-[0.75rem] text-[var(--marinara-chat-chrome-highlight-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
+        roleplay && "opacity-85 hover:opacity-100",
       )}
       title="Expand hidden from AI message"
       aria-label="Expand hidden from AI message"
@@ -1652,7 +1663,7 @@ export const ChatMessage = memo(function ChatMessage({
               }}
               aria-label="Delete message"
               className={cn(
-                "absolute -right-1 -top-1 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100",
+                "absolute -right-1 -top-1 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-foreground/10 hover:text-foreground/70 group-hover:opacity-100",
                 showActions && "opacity-100",
               )}
               title="Delete"
@@ -1712,7 +1723,7 @@ export const ChatMessage = memo(function ChatMessage({
                   onClick={() => onDelete(message.id)}
                   aria-label="Delete message"
                   className={cn(
-                    "absolute right-2 top-2 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100",
+                    "absolute right-2 top-2 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-foreground/10 hover:text-foreground/70 group-hover:opacity-100",
                     showActions && "opacity-100",
                   )}
                   title="Delete"
@@ -1908,11 +1919,11 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Conversation start marker */}
             {isConversationStart && (
               <div className="flex items-center gap-1.5 px-1 mb-1">
-                <span className="h-px flex-1 bg-amber-400/30" />
-                <span className="text-[0.5625rem] font-semibold uppercase tracking-widest text-amber-400/70">
+                <span className={cn("h-px flex-1", MESSAGE_CHROME_MARKER_LINE_CLASS)} />
+                <span className={cn("text-[0.5625rem] font-semibold uppercase tracking-widest", MESSAGE_CHROME_MARKER_TEXT_CLASS)}>
                   New Start
                 </span>
-                <span className="h-px flex-1 bg-amber-400/30" />
+                <span className={cn("h-px flex-1", MESSAGE_CHROME_MARKER_LINE_CLASS)} />
               </div>
             )}
 
@@ -1926,8 +1937,8 @@ export const ChatMessage = memo(function ChatMessage({
                   : "rounded-tl-sm text-white/90 ring-1 ring-white/8",
                 isGrouped && (isUser ? "rounded-tr-2xl" : "rounded-tl-2xl"),
                 isStreaming && "rpg-streaming",
-                isConversationStart && "ring-amber-400/30",
-                isHiddenFromAI && "ring-amber-300/35 saturate-75",
+                isConversationStart && MESSAGE_CHROME_RING_CLASS,
+                isHiddenFromAI && cn(MESSAGE_CHROME_RING_CLASS, "saturate-75"),
                 editing && "w-full",
               )}
               style={
@@ -2120,7 +2131,7 @@ export const ChatMessage = memo(function ChatMessage({
               )}
             >
               <ActionBtn
-                icon={copied ? "\u2713" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
+                icon={copied ? <Check size={MESSAGE_ACTION_ICON_SIZE} /> : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={handleCopy}
                 title="Copy"
                 dark
@@ -2129,7 +2140,6 @@ export const ChatMessage = memo(function ChatMessage({
                 icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() => translate(message.id, message.content, message.chatId)}
                 title={translatedText ? "Hide translation" : "Translate"}
-                className={translatedText ? "text-blue-400/80 hover:text-blue-300" : undefined}
                 dark
               />
               <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" dark />
@@ -2159,7 +2169,7 @@ export const ChatMessage = memo(function ChatMessage({
                 icon={<Flag size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() => onToggleConversationStart?.(message.id, isConversationStart)}
                 title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
-                className={isConversationStart ? "text-amber-400/80 hover:text-amber-300" : undefined}
+                className={isConversationStart ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
                 dark
               />
               {onToggleHiddenFromAI && (
@@ -2173,7 +2183,7 @@ export const ChatMessage = memo(function ChatMessage({
                   }
                   onClick={() => onToggleHiddenFromAI(message.id, isHiddenFromAI)}
                   title={isHiddenFromAI ? "Unhide from AI" : "Hide from AI"}
-                  className={isHiddenFromAI ? "text-amber-400/90 hover:text-amber-300" : undefined}
+                  className={isHiddenFromAI ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
                   dark
                 />
               )}
@@ -2222,7 +2232,6 @@ export const ChatMessage = memo(function ChatMessage({
                 icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() => onDelete?.(message.id)}
                 title="Delete"
-                className="hover:text-red-400"
                 dark
               />
               {ttsEnabled && (
@@ -2239,14 +2248,12 @@ export const ChatMessage = memo(function ChatMessage({
                         }
                         onClick={handlePauseResumeTTS}
                         title={isPausedThis ? "Resume speaking" : "Pause speaking"}
-                        className="text-sky-400 hover:text-sky-300"
                         dark
                       />
                       <ActionBtn
                         icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
                         onClick={handleRestartTTS}
                         title="Restart speaking"
-                        className="text-sky-400 hover:text-sky-300"
                         dark
                       />
                     </>
@@ -2271,7 +2278,6 @@ export const ChatMessage = memo(function ChatMessage({
                             ? "Stop speaking"
                             : "Speak"
                     }
-                    className={isSpeakingThis ? "text-sky-400 hover:text-sky-300" : undefined}
                     disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
                     dark
                   />
@@ -2434,11 +2440,11 @@ export const ChatMessage = memo(function ChatMessage({
           {/* Conversation start marker */}
           {isConversationStart && (
             <div className="flex items-center gap-1.5 px-2 mb-0.5">
-              <span className="h-px flex-1 bg-amber-500/30" />
-              <span className="text-[0.5625rem] font-semibold uppercase tracking-widest text-amber-500/70">
+              <span className={cn("h-px flex-1", MESSAGE_CHROME_MARKER_LINE_CLASS)} />
+              <span className={cn("text-[0.5625rem] font-semibold uppercase tracking-widest", MESSAGE_CHROME_MARKER_TEXT_CLASS)}>
                 New Start
               </span>
-              <span className="h-px flex-1 bg-amber-500/30" />
+              <span className={cn("h-px flex-1", MESSAGE_CHROME_MARKER_LINE_CLASS)} />
             </div>
           )}
 
@@ -2452,7 +2458,8 @@ export const ChatMessage = memo(function ChatMessage({
               isGrouped && isUser && "rounded-br-2xl rounded-tr-md",
               isGrouped && !isUser && "rounded-bl-2xl rounded-tl-md",
               isStreaming && "ring-2 ring-[var(--primary)]/20",
-              isConversationStart && "ring-1 ring-amber-500/30",
+              isConversationStart && cn("ring-1", MESSAGE_CHROME_RING_CLASS),
+              isHiddenFromAI && cn("ring-1 saturate-75", MESSAGE_CHROME_RING_CLASS),
               editing && "w-full",
             )}
             style={{ ...messageTextStyle, ...(boxBgColor ? { backgroundColor: boxBgColor } : {}) }}
@@ -2596,7 +2603,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
           >
             <ActionBtn
-              icon={copied ? "✓" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
+              icon={copied ? <Check size={MESSAGE_ACTION_ICON_SIZE} /> : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={handleCopy}
               title="Copy"
             />
@@ -2604,7 +2611,6 @@ export const ChatMessage = memo(function ChatMessage({
               icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={() => translate(message.id, message.content, message.chatId)}
               title={translatedText ? "Hide translation" : "Translate"}
-              className={translatedText ? "text-blue-500" : undefined}
             />
             <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" />
             {proseGuardianOriginalText && (
@@ -2631,7 +2637,7 @@ export const ChatMessage = memo(function ChatMessage({
               icon={<Flag size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={() => onToggleConversationStart?.(message.id, isConversationStart)}
               title={isConversationStart ? "Remove conversation start" : "Mark as new start"}
-              className={isConversationStart ? "text-amber-500" : undefined}
+              className={isConversationStart ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
             />
             {isLastAssistantMessage && !isUser && (
               <ActionBtn
@@ -2676,7 +2682,7 @@ export const ChatMessage = memo(function ChatMessage({
                 }
                 onClick={() => onToggleHiddenFromAI(message.id, isHiddenFromAI)}
                 title={isHiddenFromAI ? "Unhide from AI" : "Hide from AI"}
-                className={isHiddenFromAI ? "text-amber-400/90 hover:text-amber-300" : undefined}
+                className={isHiddenFromAI ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
                 dark
               />
             )}
@@ -2684,7 +2690,6 @@ export const ChatMessage = memo(function ChatMessage({
               icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={() => onDelete?.(message.id)}
               title="Delete"
-              className="hover:text-[var(--destructive)]"
             />
             {ttsEnabled && (
               <>
@@ -2700,13 +2705,11 @@ export const ChatMessage = memo(function ChatMessage({
                       }
                       onClick={handlePauseResumeTTS}
                       title={isPausedThis ? "Resume speaking" : "Pause speaking"}
-                      className="text-sky-500"
                     />
                     <ActionBtn
                       icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
                       onClick={handleRestartTTS}
                       title="Restart speaking"
-                      className="text-sky-500"
                     />
                   </>
                 )}
@@ -2730,7 +2733,6 @@ export const ChatMessage = memo(function ChatMessage({
                           ? "Stop speaking"
                           : "Speak"
                   }
-                  className={isSpeakingThis ? "text-sky-500" : undefined}
                   disabled={!hasTTSContent || (ttsBusy && !isSpeakingThis)}
                 />
               </>
@@ -2793,25 +2795,25 @@ function ThinkingModal({ thinking, onClose }: { thinking: string; onClose: () =>
       onClick={onClose}
     >
       <div
-        className="relative mx-4 flex max-h-[70vh] w-full max-w-xl flex-col rounded-xl bg-[var(--card)] shadow-2xl ring-1 ring-[var(--border)]"
+        className={cn(NEUTRAL_PANEL_SHELL, "relative mx-4 flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden")}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
-            <Brain size="0.875rem" className="text-[var(--muted-foreground)]" />
+        <div className={cn(NEUTRAL_PANEL_HEADER, "flex items-center justify-between gap-3 px-4 py-3")}>
+          <div className={cn(NEUTRAL_PANEL_TITLE, "text-sm")}>
+            <Brain size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
             Model Thoughts
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close thoughts"
-            className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            className="mari-chrome-control mari-chrome-control--small p-1.5"
           >
             <X size="0.875rem" />
           </button>
         </div>
-        <div className="overflow-y-auto px-4 py-3">
-          <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--muted-foreground)]">
+        <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "overflow-y-auto px-4 py-3")}>
+          <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-text)]">
             {thinking}
           </pre>
         </div>
@@ -2845,7 +2847,7 @@ function ActionBtn({
       aria-label={title}
       disabled={disabled}
       className={cn(
-        "rounded-md p-[0.35em] text-[0.8125rem] transition-all active:scale-90 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30",
+        "inline-flex h-[1.7em] w-[1.7em] shrink-0 items-center justify-center rounded-md p-0 text-[0.8125rem] leading-none transition-all active:scale-90 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-30",
         dark
           ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
           : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",

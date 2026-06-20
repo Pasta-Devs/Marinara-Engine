@@ -42,7 +42,9 @@ export function SwipeJumpControl({
   };
 
   const handleInputChange = (value: string) => {
+    if (!/^\d*$/.test(value)) return;
     setInputValue(value);
+    if (value === "") return;
     const displayIndex = Number.parseInt(value, 10);
     if (Number.isNaN(displayIndex) || displayIndex < 1 || displayIndex > swipeCount) return;
     setSwipeByDisplayIndex(displayIndex);
@@ -68,18 +70,23 @@ export function SwipeJumpControl({
       </label>
       <input
         id={inputId}
-        type="number"
-        min={1}
-        max={swipeCount}
+        type="text"
         inputMode="numeric"
+        pattern="[0-9]*"
         value={inputValue}
         onChange={(event) => handleInputChange(event.target.value)}
-        onBlur={() => setSwipeByDisplayIndex(Number.parseInt(inputValue, 10) || activeSwipeIndex + 1)}
+        onBlur={() => {
+          const parsed = Number.parseInt(inputValue, 10);
+          setSwipeByDisplayIndex(Number.isNaN(parsed) ? activeSwipeIndex + 1 : parsed);
+        }}
         onClick={(event) => event.stopPropagation()}
         onFocus={(event) => event.currentTarget.select()}
-        onKeyDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
         className={cn(
-          "h-[1.625rem] w-[3.25rem] rounded border border-[var(--border)] bg-[var(--background)]/70 px-1 text-center tabular-nums text-[0.75rem] outline-none transition-colors focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]/40",
+          "h-[1.375rem] w-9 rounded-full border border-transparent bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-center tabular-nums text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-panel-muted)] outline-none transition-[background-color,border-color,box-shadow,color] focus:border-[var(--marinara-chat-chrome-button-border-active)] focus:bg-[var(--marinara-chat-chrome-button-bg-active)]",
           inputClassName,
         )}
         aria-label={`Jump to swipe, 1 through ${swipeCount}`}

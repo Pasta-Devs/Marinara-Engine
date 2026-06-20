@@ -34,18 +34,20 @@ interface SearchResult {
 
 let ytApiPromise: Promise<void> | null = null;
 
-const MUSIC_NEUTRAL_BORDER_CLASS = "border-[var(--marinara-chat-chrome-panel-border)]";
-const MUSIC_NEUTRAL_SHELL_BORDER_CLASS = "border-[var(--marinara-music-player-shell-border)]";
-const MUSIC_NEUTRAL_SHELL_BG_CLASS = "bg-[var(--marinara-music-player-shell-bg)]";
-const MUSIC_NEUTRAL_BUTTON_BG_CLASS = "bg-[var(--marinara-chat-chrome-button-bg)]";
-const MUSIC_NEUTRAL_TILE_BG_CLASS = "bg-[var(--marinara-chat-chrome-highlight-bg)]";
-const MUSIC_NEUTRAL_TEXT_CLASS = "text-[var(--marinara-chat-chrome-panel-title)]";
-const MUSIC_NEUTRAL_MUTED_CLASS = "text-[var(--marinara-chat-chrome-panel-muted)]";
-const MUSIC_NEUTRAL_ICON_CLASS = "text-[var(--marinara-chat-chrome-button-text)]";
-const MUSIC_NEUTRAL_ICON_HOVER_CLASS = "hover:text-[var(--marinara-chat-chrome-button-text-hover)]";
-const MUSIC_NEUTRAL_PROGRESS_BG_CLASS = "bg-[var(--marinara-chat-chrome-panel-divider)]";
-const MUSIC_NEUTRAL_PROGRESS_FILL_CLASS = "bg-[var(--marinara-chat-chrome-accent)]";
-const YOUTUBE_LOGO_CLASS = "text-[oklch(0.62_0.16_25)]";
+const MUSIC_NEUTRAL_BORDER_CLASS = "border-[#f7f3ef]/15";
+const MUSIC_NEUTRAL_SHELL_BORDER_CLASS = "border-[#f7f3ef]/10";
+const MUSIC_NEUTRAL_SHELL_BG_CLASS = "bg-[#0f0f0f]/95";
+const MUSIC_NEUTRAL_BUTTON_BG_CLASS = "bg-[#f7f3ef]/5";
+const MUSIC_NEUTRAL_TILE_BG_CLASS = "bg-[#f7f3ef]/5";
+const MUSIC_NEUTRAL_TEXT_CLASS = "text-[#f7f3ef]";
+const MUSIC_NEUTRAL_MUTED_CLASS = "text-[#aaa]";
+const MUSIC_NEUTRAL_ICON_CLASS = "text-[#aaa]";
+const MUSIC_NEUTRAL_ICON_HOVER_CLASS = "hover:bg-[#f7f3ef]/10 hover:text-[#f7f3ef]";
+const MUSIC_NEUTRAL_PROGRESS_BG_CLASS = "bg-[#f7f3ef]/15";
+const MUSIC_NEUTRAL_PROGRESS_FILL_CLASS = "bg-[#FF0000]";
+const MUSIC_NEUTRAL_ACTION_BG_CLASS = "bg-[#f7f3ef]";
+const MUSIC_NEUTRAL_ACTION_TEXT_CLASS = "text-[#0f0f0f]";
+const YOUTUBE_LOGO_CLASS = "text-[#FF0000]";
 const MOBILE_WIDGET_COLLAPSED_SIZE = 48;
 const MOBILE_WIDGET_EXPANDED_MAX_WIDTH = 320;
 const MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER = 24;
@@ -405,7 +407,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
         step={1}
         value={playerVolume}
         onChange={(event) => setPlayerVolume(Number(event.target.value))}
-        className="h-1.5 w-full cursor-pointer accent-[var(--marinara-chat-chrome-accent)]"
+        className="h-1.5 w-full cursor-pointer accent-[#FF0000]"
         title="Volume"
         aria-label="YouTube volume"
       />
@@ -420,7 +422,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           className={cn(
             "flex h-7 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] ring-1",
             MUSIC_NEUTRAL_TILE_BG_CLASS,
-            "ring-[var(--marinara-chat-chrome-panel-border)]",
+            "ring-[#f7f3ef]/10",
           )}
         >
           {loading ? (
@@ -445,7 +447,11 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
         <button
           type="button"
           onClick={togglePlay}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-button-text-active)] text-[var(--marinara-chat-chrome-panel-bg)] shadow-[0_1px_8px_rgba(255,255,255,0.10)] transition-transform hover:scale-105 active:scale-95"
+          className={cn(
+            "inline-flex h-7 w-7 items-center justify-center rounded-full shadow-[0_1px_8px_rgba(255,255,255,0.18)] transition-transform hover:scale-105 active:scale-95",
+            MUSIC_NEUTRAL_ACTION_BG_CLASS,
+            MUSIC_NEUTRAL_ACTION_TEXT_CLASS,
+          )}
           aria-label={paused ? "Play" : "Pause"}
         >
           {paused ? <Play size="0.8125rem" className="translate-x-px" /> : <Pause size="0.8125rem" />}

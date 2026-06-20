@@ -13,13 +13,8 @@ import {
   useUpdateCharacter,
   useDuplicateCharacter,
 } from "../../hooks/use-characters";
-import { useUpdateChat, useCreateMessage, chatKeys } from "../../hooks/use-chats";
-import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
 import { api } from "../../lib/api-client";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
-import { useChatStore } from "../../stores/chat.store";
-import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
-import { useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Trash2,
@@ -33,21 +28,19 @@ import {
   Copy,
   Users,
   X,
-  UserPlus,
   UserMinus,
   ArrowUpDown,
-  Pencil,
   Tag,
-  MessageCircle,
-  Wand2,
   Hash,
   Star,
 } from "lucide-react";
 import { getCharacterTitle } from "../../lib/character-display";
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
+import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
+import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
 type CharacterRow = {
   id: string;
@@ -139,19 +132,6 @@ export function CharactersPanel() {
   const sort = useUIStore((s) => s.characterLibrarySort);
   const setCharacterLibrarySort = useUIStore((s) => s.setCharacterLibrarySort);
   const setCharacterPanelScrollTop = useUIStore((s) => s.setCharacterPanelScrollTop);
-  const activeChat = useChatStore((s) => s.activeChat);
-  const updateChat = useUpdateChat();
-  const createMessage = useCreateMessage(activeChat?.id ?? null);
-  const queryClient = useQueryClient();
-  const { startChatFromCharacter, isStartingChat } = useStartChatFromCharacter();
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    charId: string;
-    charName: string;
-    firstMes?: string;
-    altGreetings?: string[];
-  } | null>(null);
 
   const [search, setSearch] = useState("");
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
@@ -163,12 +143,7 @@ export function CharactersPanel() {
   const panelScrollFrameRef = useRef<number | null>(null);
   const characterTouchDragRef = useRef<{ id: string; timer: number | null; active: boolean } | null>(null);
   const suppressCharacterClickRef = useRef(false);
-  const [firstMesConfirm, setFirstMesConfirm] = useState<{
-    charId: string;
-    charName: string;
-    message: string;
-    alternateGreetings: string[];
-  } | null>(null);
+  const handleFolderRenameGesture = useFolderRenameGesture();
   const [includedTags, setIncludedTags] = useState<Set<string>>(new Set());
   const [excludedTags, setExcludedTags] = useState<Set<string>>(new Set());
   const [tagsExpanded, setTagsExpanded] = useState(false);
@@ -176,13 +151,6 @@ export function CharactersPanel() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
-
-  const chatCharacterIds: string[] = activeChat
-    ? ((typeof activeChat.characterIds === "string" ? JSON.parse(activeChat.characterIds) : activeChat.characterIds) ??
-      [])
-    : [];
-
-  const isConversation = (activeChat as unknown as { mode?: string })?.mode === "conversation";
 
   // Parse character data and filter by search
   const parsedCharacters = useMemo(() => {
@@ -485,69 +453,6 @@ export function CharactersPanel() {
     [],
   );
 
-  const toggleCharacter = (charId: string) => {
-    if (!activeChat) return;
-    const isActive = chatCharacterIds.includes(charId);
-    const newIds = isActive ? chatCharacterIds.filter((id: string) => id !== charId) : [...chatCharacterIds, charId];
-    if (newIds.length === 0) return;
-    updateChat.mutate(
-      { id: activeChat.id, characterIds: newIds },
-      {
-        onSuccess: () => {
-          if (isActive) return; // removing, not adding
-          if (isConversation) return; // no greeting in conversation mode
-          const charList = (characters ?? []) as CharacterRow[];
-          const char = charList.find((c) => c.id === charId);
-          if (!char) return;
-          try {
-            const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
-            const firstMes = (parsed as { first_mes?: string }).first_mes;
-            const altGreetings = (parsed as { alternate_greetings?: string[] }).alternate_greetings ?? [];
-            const name = (parsed as { name?: string }).name ?? "Unknown";
-            if (firstMes) {
-              setFirstMesConfirm({ charId, charName: name, message: firstMes, alternateGreetings: altGreetings });
-            }
-          } catch {
-            /* ignore */
-          }
-        },
-      },
-    );
-  };
-
-  const addFolderToChat = (memberIds: string[]) => {
-    if (!activeChat || memberIds.length === 0) return;
-    const merged = [...new Set([...chatCharacterIds, ...memberIds])];
-    const newlyAdded = memberIds.filter((id) => !chatCharacterIds.includes(id));
-    updateChat.mutate(
-      { id: activeChat.id, characterIds: merged },
-      {
-        onSuccess: () => {
-          // Skip greeting for conversation mode
-          if (isConversation) return;
-          // Find the first newly-added character with a first_mes
-          const charList = (characters ?? []) as CharacterRow[];
-          for (const charId of newlyAdded) {
-            const char = charList.find((c) => c.id === charId);
-            if (!char) continue;
-            try {
-              const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
-              const firstMes = (parsed as { first_mes?: string }).first_mes;
-              const altGreetings = (parsed as { alternate_greetings?: string[] }).alternate_greetings ?? [];
-              const name = (parsed as { name?: string }).name ?? "Unknown";
-              if (firstMes) {
-                setFirstMesConfirm({ charId, charName: name, message: firstMes, alternateGreetings: altGreetings });
-                break; // show one at a time
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-        },
-      },
-    );
-  };
-
   const handleCreateFolder = useCallback(() => {
     createGroup.mutate({ name: getNextUnnamedFolderName(parsedGroups), characterIds: [] });
   }, [createGroup, parsedGroups]);
@@ -736,19 +641,6 @@ export function CharactersPanel() {
     exitSelectionMode();
   }, [selectedCharacterIds, deleteCharacter, exitSelectionMode]);
 
-  const handleStartNewChat = useCallback(
-    (characterId: string, characterName: string, firstMessage?: string, alternateGreetings?: string[]) => {
-      startChatFromCharacter({
-        characterId,
-        characterName,
-        mode: "roleplay",
-        firstMessage,
-        alternateGreetings,
-      });
-    },
-    [startChatFromCharacter],
-  );
-
   return (
     <div
       ref={panelScrollRef}
@@ -771,14 +663,14 @@ export function CharactersPanel() {
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-400 to-rose-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-pink-500/15 transition-all hover:shadow-lg hover:shadow-pink-500/25 active:scale-[0.98]"
           title="New"
         >
-          <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
+          <Plus size="0.8125rem" />
         </button>
         <button
           onClick={() => openModal("import-character")}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title="Import"
         >
-          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+          <Download size="0.8125rem" />
         </button>
         <button
           onClick={() => {
@@ -795,7 +687,6 @@ export function CharactersPanel() {
           title="Select"
         >
           <Check size="0.8125rem" />
-          <span className="md:hidden">Select</span>
         </button>
       </div>
 
@@ -810,14 +701,14 @@ export function CharactersPanel() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder='Search characters or -tag:"tag name"'
-            className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
           />
         </div>
         <div className="relative">
           <select
             value={sort}
             onChange={(e) => setCharacterLibrarySort(e.target.value as CharacterLibrarySort)}
-            className="mari-chrome-field h-full appearance-none py-2 pl-2.5 pr-7 text-[0.6875rem]"
+            className="mari-chrome-field h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title="Sort order"
           >
             <option value="name-asc">A-Z</option>
@@ -956,13 +847,36 @@ export function CharactersPanel() {
             >
               {/* Folder header */}
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                aria-label={`${isExpanded ? "Collapse" : "Expand"} folder ${group.name}. Press F2 to rename.`}
+                title="Double-click or press F2 to rename."
                 className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
-                onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
+                onClick={(event) =>
+                  handleFolderRenameGesture(group.id, event, {
+                    onSingleClick: () => setExpandedGroupId(isExpanded ? null : group.id),
+                    onRename: () => {
+                      setEditingGroupId(group.id);
+                      setEditGroupName(group.name);
+                    },
+                  })
+                }
+                onKeyDown={(event) => {
+                  if (event.target !== event.currentTarget) return;
+                  handleFolderRenameKeyDown(event, {
+                    onSingleClick: () => setExpandedGroupId(isExpanded ? null : group.id),
+                    onRename: () => {
+                      setEditingGroupId(group.id);
+                      setEditGroupName(group.name);
+                    },
+                  });
+                }}
               >
                 <ChevronRight
                   size="0.75rem"
                   className={cn(
-                    "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200 ease-out",
                     isExpanded && "rotate-90",
                   )}
                 />
@@ -995,29 +909,6 @@ export function CharactersPanel() {
                   </span>
                 )}
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
-                  {activeChat && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addFolderToChat(group.memberIds);
-	                      }}
-	                      className="mari-chrome-control mari-chrome-control--small p-1"
-	                      title="Add all to chat"
-	                    >
-	                      <UserPlus size="0.6875rem" />
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingGroupId(group.id);
-                      setEditGroupName(group.name);
-                    }}
-	                    className="mari-chrome-control mari-chrome-control--small p-1"
-	                    title="Rename folder"
-	                  >
-                    <Pencil size="0.6875rem" />
-                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1032,70 +923,61 @@ export function CharactersPanel() {
               </div>
 
               {/* Expanded: show members */}
-              {isExpanded && (
-                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
-                  {folderMemberIds.length === 0 && (
-                    <div className="py-2 text-[0.625rem] text-[var(--muted-foreground)] italic">
-                      Drop characters here.
-                    </div>
-                  )}
-                  {folderMemberIds.map((memberId) => {
-                    const member = charMap.get(memberId);
-                    if (!member) return null;
-                    const fullMember = parsedCharacterMap.get(memberId);
-                    const isBulkSelected = selectedCharacterIds.has(memberId);
-                    const memberName = fullMember?.parsed.name ?? member.name;
-                    const memberTitle = fullMember
-                      ? getCharacterTitle({ name: memberName, comment: fullMember.comment })
-                      : getCharacterTitle(member);
-                    const memberPreviewMetadata = fullMember ? getCharacterPreviewMetadata(fullMember) : null;
-                    const memberTags = fullMember ? getCharacterTags(fullMember) : [];
-                    const memberTokenEstimate = fullMember ? estimateCharacterCardTokens(fullMember.parsed) : null;
-                    const memberNameColor = (fullMember?.parsed.extensions?.nameColor as string) || undefined;
-                    const memberAvatarCrop = fullMember?.parsed.extensions?.avatarCrop as AvatarCropValue | undefined;
-                    return (
-                      <div
-                        key={memberId}
-                        onClick={() => {
-                          if (suppressCharacterClickRef.current) return;
-                          if (selectionMode) {
-                            toggleSelection(memberId);
-                            return;
-                          }
-                          openCharacterDetailFromPanel(memberId);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key !== "Enter" && e.key !== " ") return;
-                          e.preventDefault();
-                          if (selectionMode) {
-                            toggleSelection(memberId);
-                            return;
-                          }
-                          openCharacterDetailFromPanel(memberId);
-                        }}
-                        draggable
-                        onDragStart={(event) => {
-                          const ids = getDraggedCharacterIds(memberId);
-                          setDraggedCharacterId(memberId);
-                          event.dataTransfer.effectAllowed = "move";
-                          event.dataTransfer.setData("application/x-marinara-character-ids", JSON.stringify(ids));
-                          event.dataTransfer.setData("text/plain", memberId);
-                        }}
+              <SmoothFolderContent
+                open={isExpanded}
+                className="ml-4 border-l border-[var(--border)]/20 pb-1 pl-1"
+                innerClassName="flex flex-col gap-0.5"
+              >
+                {folderMemberIds.length === 0 && (
+                  <div className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">
+                    Drop characters here.
+                  </div>
+                )}
+                {folderMemberIds.map((memberId) => {
+                  const member = charMap.get(memberId);
+                  if (!member) return null;
+                  const fullMember = parsedCharacterMap.get(memberId);
+                  const isBulkSelected = selectedCharacterIds.has(memberId);
+                  const memberName = fullMember?.parsed.name ?? member.name;
+                  const memberTitle = fullMember
+                    ? getCharacterTitle({ name: memberName, comment: fullMember.comment })
+                    : getCharacterTitle(member);
+                  const memberPreviewMetadata = fullMember ? getCharacterPreviewMetadata(fullMember) : null;
+                  const memberTags = fullMember ? getCharacterTags(fullMember) : [];
+                  const memberTokenEstimate = fullMember ? estimateCharacterCardTokens(fullMember.parsed) : null;
+                  const memberNameColor = (fullMember?.parsed.extensions?.nameColor as string) || undefined;
+                  const memberAvatarCrop = fullMember?.parsed.extensions?.avatarCrop as AvatarCropValue | undefined;
+                  return (
+                    <div
+                      key={memberId}
+                      onClick={() => {
+                        if (suppressCharacterClickRef.current) return;
+                        if (selectionMode) {
+                          toggleSelection(memberId);
+                          return;
+                        }
+                        openCharacterDetailFromPanel(memberId);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== " ") return;
+                        e.preventDefault();
+                        if (selectionMode) {
+                          toggleSelection(memberId);
+                          return;
+                        }
+                        openCharacterDetailFromPanel(memberId);
+                      }}
+                      draggable
+                      onDragStart={(event) => {
+                        const ids = getDraggedCharacterIds(memberId);
+                        setDraggedCharacterId(memberId);
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("application/x-marinara-character-ids", JSON.stringify(ids));
+                        event.dataTransfer.setData("text/plain", memberId);
+                      }}
                         onDragEnd={() => setDraggedCharacterId(null)}
                         onTouchStart={(event) => startCharacterTouchDrag(event, memberId)}
                         onTouchEnd={finishCharacterTouchDrag}
-                        onContextMenu={(e) => {
-                          if (selectionMode) return;
-                          e.preventDefault();
-                          setContextMenu({
-                            x: e.clientX,
-                            y: e.clientY,
-                            charId: memberId,
-                            charName: memberName,
-                            firstMes: fullMember?.parsed?.first_mes as string | undefined,
-                            altGreetings: (fullMember?.parsed?.alternate_greetings ?? []) as string[],
-                          });
-                        }}
                         role="button"
                         tabIndex={0}
                         className={cn(
@@ -1211,42 +1093,21 @@ export function CharactersPanel() {
                           )}
                         </div>
                         {!selectionMode && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartNewChat(
-                                  memberId,
-                                  memberName,
-                                  fullMember?.parsed?.first_mes as string | undefined,
-                                  (fullMember?.parsed?.alternate_greetings ?? []) as string[],
-                                );
-                              }}
-                              disabled={isStartingChat}
-                              className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] group-hover/member:opacity-100 disabled:cursor-not-allowed disabled:opacity-50 max-md:opacity-100"
-                              title="Start New Chat"
-                              aria-label={`Start New Chat with ${memberName}`}
-                            >
-                              <MessageCircle size="0.6875rem" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void moveCharactersToFolder([memberId], null);
-                              }}
-                              className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
-                              title="Remove from folder"
-                            >
-                              <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
-                            </button>
-                          </>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void moveCharactersToFolder([memberId], null);
+                            }}
+                            className="rounded p-0.5 opacity-0 transition-all hover:bg-[var(--destructive)]/15 group-hover/member:opacity-100"
+                            title="Remove from folder"
+                          >
+                            <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
+                          </button>
                         )}
                       </div>
                     );
-                  })}
-                </div>
-              )}
+                })}
+              </SmoothFolderContent>
             </div>
           );
         })}
@@ -1307,7 +1168,6 @@ export function CharactersPanel() {
           const charTitle = getCharacterTitle({ name: charName, comment: char.comment });
           const charTags = getCharacterTags(char);
           const charNameColor = (char.parsed.extensions?.nameColor as string) || undefined;
-          const isSelected = chatCharacterIds.includes(char.id);
           const isBulkSelected = selectedCharacterIds.has(char.id);
           const isFavorite = !!char.parsed.extensions?.fav;
           const avatarUrl = char.avatarPath;
@@ -1336,22 +1196,9 @@ export function CharactersPanel() {
               onDragEnd={() => setDraggedCharacterId(null)}
               onTouchStart={(event) => startCharacterTouchDrag(event, char.id)}
               onTouchEnd={finishCharacterTouchDrag}
-              onContextMenu={(e) => {
-                if (selectionMode) return;
-                e.preventDefault();
-                setContextMenu({
-                  x: e.clientX,
-                  y: e.clientY,
-                  charId: char.id,
-                  charName,
-                  firstMes: char.parsed?.first_mes as string | undefined,
-                  altGreetings: (char.parsed?.alternate_greetings ?? []) as string[],
-                });
-              }}
               className={cn(
                 "group relative flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
                 selectionMode && isBulkSelected && "ring-1 ring-[var(--primary)]/40 bg-[var(--primary)]/8",
-                isSelected && "ring-1 ring-[var(--primary)]/40 bg-[var(--primary)]/5",
                 draggedCharacterId === char.id && "opacity-50",
               )}
             >
@@ -1393,11 +1240,6 @@ export function CharactersPanel() {
                     className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--background)] text-amber-300 shadow-sm ring-1 ring-[var(--border)]"
                   >
                     <Star size="0.625rem" className="fill-current" />
-                  </div>
-                )}
-                {isSelected && (
-                  <div className="absolute -left-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--primary)] shadow-sm">
-                    <Check size="0.5625rem" className="text-white" />
                   </div>
                 )}
               </div>
@@ -1464,23 +1306,6 @@ export function CharactersPanel() {
               {/* Actions */}
               {!selectionMode && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
-                  {activeChat && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleCharacter(char.id);
-                      }}
-                      className={cn(
-                        "rounded-lg p-1.5 transition-all active:scale-90",
-                        isSelected
-                          ? "text-[var(--destructive)] hover:bg-[var(--destructive)]/15"
-                          : "text-[var(--muted-foreground)] hover:bg-[var(--primary)]/10 hover:text-[var(--primary)]",
-                      )}
-                      title={isSelected ? "Remove from chat" : "Add to chat"}
-                    >
-                      {isSelected ? <X size="0.75rem" /> : <Check size="0.75rem" />}
-                    </button>
-                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1522,12 +1347,6 @@ export function CharactersPanel() {
         })}
       </div>
 
-      {activeChat && !selectionMode && (
-        <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]/60">
-          Click to edit · Use ✓ to assign/remove from chat
-        </p>
-      )}
-
       {selectionMode && (
         <SelectionActionBar
           selectedCount={selectedCharacterIds.size}
@@ -1535,95 +1354,6 @@ export function CharactersPanel() {
           onDelete={handleDeleteSelected}
           exporting={exportingSelected}
         />
-      )}
-
-      {contextMenu &&
-        (() => {
-          const items: ContextMenuItem[] = [
-            {
-              label: "Quick Start Roleplay",
-              icon: <Wand2 size="0.75rem" />,
-              onSelect: () =>
-                handleStartNewChat(
-                  contextMenu.charId,
-                  contextMenu.charName,
-                  contextMenu.firstMes,
-                  contextMenu.altGreetings,
-                ),
-            },
-            {
-              label: "Quick Start Conversation",
-              icon: <MessageCircle size="0.75rem" />,
-              onSelect: () =>
-                startChatFromCharacter({
-                  characterId: contextMenu.charId,
-                  characterName: contextMenu.charName,
-                  mode: "conversation",
-                }),
-            },
-          ];
-          return <ContextMenu x={contextMenu.x} y={contextMenu.y} items={items} onClose={() => setContextMenu(null)} />;
-        })()}
-
-      {/* First message confirmation dialog */}
-      {firstMesConfirm && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 max-md:pt-[env(safe-area-inset-top)]"
-          onClick={() => setFirstMesConfirm(null)}
-        >
-          <div
-            className="relative mx-4 flex w-full max-w-sm flex-col rounded-xl bg-[var(--card)] shadow-2xl ring-1 ring-[var(--border)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-3">
-              <MessageCircle size="0.875rem" className="text-[var(--muted-foreground)]" />
-              <span className="text-sm font-semibold text-[var(--foreground)]">First Message</span>
-            </div>
-            <div className="px-4 py-3">
-              <p className="text-sm text-[var(--foreground)]">
-                Add <strong>{firstMesConfirm.charName}</strong>'s first message to the chat?
-              </p>
-              <p className="mt-2 max-h-32 overflow-y-auto rounded-lg bg-[var(--accent)]/50 px-3 py-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
-                {firstMesConfirm.message.length > 300
-                  ? firstMesConfirm.message.slice(0, 300) + "\u2026"
-                  : firstMesConfirm.message}
-              </p>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-[var(--border)] px-4 py-3">
-	                <button
-	                  onClick={() => setFirstMesConfirm(null)}
-	                  className="mari-chrome-control mari-chrome-control--small text-xs"
-	                >
-                Skip
-              </button>
-              <button
-                onClick={async () => {
-                  const msg = await createMessage.mutateAsync({
-                    role: "assistant",
-                    content: firstMesConfirm.message,
-                    characterId: firstMesConfirm.charId,
-                  });
-                  // Add alternate greetings as swipes on the first message
-                  if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
-                    for (const greeting of firstMesConfirm.alternateGreetings) {
-                      if (greeting.trim()) {
-                        await api.post(`/chats/${activeChat!.id}/messages/${msg.id}/swipes`, {
-                          content: greeting,
-                          silent: true,
-                        });
-                      }
-                    }
-                    queryClient.invalidateQueries({ queryKey: chatKeys.messages(activeChat!.id) });
-                  }
-                  setFirstMesConfirm(null);
-                }}
-                className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90"
-              >
-                Add Message
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

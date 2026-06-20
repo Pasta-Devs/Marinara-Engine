@@ -8,6 +8,8 @@ import {
   type EditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
 } from "../../../components/ui/GenerationParametersEditor";
+import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
+import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { useSaveConnectionDefaults } from "../../../hooks/use-connections";
 import { cn } from "../../../lib/utils";
 
@@ -87,93 +89,48 @@ export function AdvancedParametersSection({
             onChange={setParameters}
           />
           <div className="space-y-2 pt-3">
-            <button
-              type="button"
-              aria-pressed={Boolean(contextMessageLimit)}
-              onClick={() => {
-                if (contextMessageLimit) {
-                  onContextMessageLimitChange(null);
-                } else {
-                  onContextMessageLimitChange(50);
-                }
-              }}
+            <SettingsSwitch
+              label="Limit Context Messages"
+              description="Only send the last N messages to the model."
+              checked={Boolean(contextMessageLimit)}
+              onChange={(checked) => onContextMessageLimitChange(checked ? 50 : null)}
+              labelPosition="start"
               className={cn(
-                "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                "justify-between rounded-lg px-3 py-2.5 text-left",
                 contextMessageLimit
                   ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                   : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
               )}
-            >
-              <div>
-                <span className="text-xs font-medium">Limit Context Messages</span>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  Only send the last N messages to the model.
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
-                  contextMessageLimit ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                )}
-              >
-                <div
-                  className={cn(
-                    "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                    contextMessageLimit && "translate-x-3.5",
-                  )}
-                />
-              </div>
-            </button>
+              labelClassName="text-xs font-medium"
+            />
             {contextMessageLimit && (
               <div className="flex items-center gap-2 px-1">
-                <input
-                  type="number"
+                <DraftNumberInput
                   aria-label="Context message limit"
                   min={1}
                   max={9999}
                   value={contextMessageLimit}
-                  onChange={(event) => {
-                    const value = parseInt(event.target.value, 10);
-                    if (value > 0) {
-                      onContextMessageLimitChange(value);
-                    }
-                  }}
+                  onCommit={(value) => onContextMessageLimitChange(Math.max(1, Math.min(9999, value)))}
+                  selectOnFocus
                   className="w-20 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
                 />
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">messages</span>
               </div>
             )}
-            <button
-              type="button"
-              aria-pressed={excludeReasoningEnabled}
-              onClick={() => onExcludePastReasoningChange(!excludeReasoningEnabled)}
+            <SettingsSwitch
+              label="Exclude Past Reasoning"
+              description="Keep stored thinking/reasoning metadata out of future prompts."
+              checked={excludeReasoningEnabled}
+              onChange={onExcludePastReasoningChange}
+              labelPosition="start"
               className={cn(
-                "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                "justify-between rounded-lg px-3 py-2.5 text-left",
                 excludeReasoningEnabled
                   ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                   : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
               )}
-            >
-              <div>
-                <span className="text-xs font-medium">Exclude Past Reasoning</span>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  Keep stored thinking/reasoning metadata out of future prompts.
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
-                  excludeReasoningEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                )}
-              >
-                <div
-                  className={cn(
-                    "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                    excludeReasoningEnabled && "translate-x-3.5",
-                  )}
-                />
-              </div>
-            </button>
+              labelClassName="text-xs font-medium"
+            />
           </div>
           {connectionId && connectionId !== "random" && (
             <button

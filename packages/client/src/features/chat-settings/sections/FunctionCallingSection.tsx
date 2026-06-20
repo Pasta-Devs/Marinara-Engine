@@ -1,5 +1,6 @@
 import { Check, FilePlus2, Plus, Trash2, Wrench } from "lucide-react";
 import { cn } from "../../../lib/utils";
+import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { PickerDropdown } from "../PickerDropdown";
 
@@ -51,35 +52,20 @@ export function FunctionCallingSection({
       help="When enabled, the AI can call built-in tools like dice rolls, game state updates, and lorebook searches during conversation."
     >
       <div className="space-y-2">
-        <button
-          onClick={() => onEnableToolsChange(!enableTools)}
+        <SettingsSwitch
+          label="Enable Tool Use"
+          description="Allow AI to call functions (dice rolls, game state, etc.)"
+          checked={!!enableTools}
+          onChange={onEnableToolsChange}
+          labelPosition="start"
           className={cn(
-            "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+            "justify-between rounded-lg px-3 py-2.5 text-left",
             enableTools
               ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
               : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
           )}
-        >
-          <div>
-            <span className="text-xs font-medium">Enable Tool Use</span>
-            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-              Allow AI to call functions (dice rolls, game state, etc.)
-            </p>
-          </div>
-          <div
-            className={cn(
-              "h-5 w-9 overflow-hidden rounded-full p-0.5 transition-colors",
-              enableTools ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-            )}
-          >
-            <div
-              className={cn(
-                "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                enableTools && "translate-x-3.5",
-              )}
-            />
-          </div>
-        </button>
+          labelClassName="text-xs font-medium"
+        />
         <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1">
           {enableTools
             ? "If enabled, this chat can use globally enabled tools (or any tools you add below)."
