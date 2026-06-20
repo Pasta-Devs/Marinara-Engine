@@ -24,6 +24,8 @@ export interface RegexScript {
   flags: string;
   /** Only apply in prompt context (not displayed text) */
   promptOnly: boolean;
+  /** Prompt recipient character IDs this script is limited to (empty = all recipients) */
+  targetCharacterIds: string[];
   /** Execution order (lower = runs first) */
   order: number;
   /** Optional minimum message depth to apply (null = no limit) */

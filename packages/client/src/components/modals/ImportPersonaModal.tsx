@@ -17,6 +17,13 @@ function stringField(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function firstStringField(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string") return value;
+  }
+  return "";
+}
+
 function jsonStringField(value: unknown, fallback?: string) {
   if (typeof value === "string") return value;
   if (Array.isArray(value) || (value && typeof value === "object")) return JSON.stringify(value);
@@ -92,6 +99,9 @@ export function ImportPersonaModal({ open, onClose }: Props) {
         const data = await api.post<{ id?: string; error?: string }>("/characters/personas", {
           name,
           description: stringField(json.description),
+          creator: firstStringField(json.creator),
+          personaVersion: firstStringField(json.personaVersion, json.persona_version, json.character_version),
+          creatorNotes: firstStringField(json.creatorNotes, json.creator_notes),
           personality: stringField(json.personality),
           scenario: stringField(json.scenario),
           backstory: stringField(json.backstory),
@@ -102,7 +112,6 @@ export function ImportPersonaModal({ open, onClose }: Props) {
           boxColor: stringField(json.boxColor),
           trackerCardColors: jsonStringField(json.trackerCardColors),
           personaStats: stringField(json.personaStats),
-          altDescriptions: jsonStringField(json.altDescriptions, "[]"),
           tags: jsonStringField(json.tags, "[]"),
           savedStatusOptions: jsonStringField(json.savedStatusOptions, "[]"),
           avatarCrop: jsonStringField(json.avatarCrop, ""),

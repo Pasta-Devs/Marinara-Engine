@@ -10,6 +10,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { translateDraftText } from "../../lib/draft-translation";
 import { formatTextQuotes, type DiceRollResult } from "@marinara-engine/shared";
+import { getChatInputShellClass } from "../chat/chat-input-styles";
 
 interface Attachment {
   type: string;
@@ -333,37 +334,33 @@ export function GameInput({
 
   const riskyInterrupt = interruptMode === "risky";
   const forceInterrupt = interruptMode === "force";
+  const forceInterruptStyle = forceInterrupt
+    ? {
+        boxShadow: "0 0 18px -6px rgba(32, 194, 14, 0.6)",
+        backgroundColor: "rgba(32, 194, 14, 0.04)",
+        ["--tw-ring-color" as never]: "rgba(32, 194, 14, 0.45)",
+      }
+    : undefined;
 
   return (
     <div
-      className={cn(
-        inline ? "" : "border-t border-[var(--border)] bg-[var(--card)]",
-        riskyInterrupt &&
-          "rounded-xl ring-1 ring-red-500/40 bg-red-500/5 shadow-[0_0_18px_-6px_rgba(248,113,113,0.55)]",
-        forceInterrupt && "rounded-xl ring-1",
-      )}
-      style={
-        forceInterrupt
-          ? {
-              ...(inline ? {} : { minHeight: 61 }),
-              boxShadow: "0 0 18px -6px rgba(32, 194, 14, 0.6)",
-              backgroundColor: "rgba(32, 194, 14, 0.04)",
-              ["--tw-ring-color" as never]: "rgba(32, 194, 14, 0.45)",
-            }
-          : inline
-            ? undefined
-            : { minHeight: 61 }
-      }
+      className={cn(inline ? "" : "px-3 pb-3 pt-2")}
+      style={inline ? undefined : { minHeight: 61 }}
     >
       {/* Dice picker */}
       {showDice && (
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-[var(--border)] px-4 py-2">
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-1.5 border-b border-foreground/10 py-2",
+            inline ? "px-0" : "px-4",
+          )}
+        >
           {QUICK_DICE.map((d) => (
             <button
               type="button"
               key={d}
               onClick={() => handleDiceRoll(d)}
-              className="rounded bg-[var(--muted)]/30 px-2 py-1 text-xs font-mono text-[var(--foreground)]/70 hover:bg-[var(--muted)]/50 transition-colors"
+              className="rounded bg-foreground/10 px-2 py-1 text-xs font-mono text-foreground/70 transition-colors hover:bg-foreground/15"
             >
               🎲 {d}
             </button>
@@ -374,7 +371,7 @@ export function GameInput({
               value={customDice}
               onChange={(e) => setCustomDice(e.target.value)}
               placeholder="3d8+2"
-              className="h-[26px] w-16 rounded bg-[var(--muted)]/30 px-1.5 text-xs font-mono text-[var(--foreground)]/70 outline-none placeholder:text-[var(--muted-foreground)]/50"
+              className="h-[26px] w-16 rounded bg-foreground/10 px-1.5 text-xs font-mono text-foreground/70 outline-none ring-1 ring-foreground/10 placeholder:text-foreground/35 focus:ring-foreground/20"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && customDice.trim()) {
                   handleDiceRoll(customDice.trim());
@@ -390,7 +387,7 @@ export function GameInput({
                   setCustomDice("");
                 }
               }}
-              className="flex h-[26px] items-center rounded bg-[var(--muted)]/30 px-1.5 text-[var(--foreground)]/70 hover:bg-[var(--muted)]/50"
+              className="flex h-[26px] items-center rounded bg-foreground/10 px-1.5 text-foreground/70 hover:bg-foreground/15"
             >
               <Send size={14} />
             </button>
@@ -400,11 +397,11 @@ export function GameInput({
 
       {/* Attachment previews */}
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 border-b border-[var(--border)] px-4 py-2">
+        <div className="flex flex-wrap gap-1.5 border-b border-foreground/10 px-4 py-2">
           {attachments.map((att, i) => (
             <div
               key={i}
-              className="flex items-center gap-1 rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.625rem] ring-1 ring-[var(--border)]"
+              className="flex items-center gap-1 rounded-lg bg-foreground/10 px-2 py-1 text-[0.625rem] ring-1 ring-foreground/10"
             >
               {att.type.startsWith("image/") && (
                 <img src={att.data} alt={att.name} className="h-5 w-5 rounded object-cover" />
@@ -412,7 +409,7 @@ export function GameInput({
               <span className="max-w-[80px] truncate">{att.name}</span>
               <button
                 onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                className="text-[var(--muted-foreground)] hover:text-[var(--destructive)]"
+                className="text-foreground/45 hover:text-[var(--destructive)]"
               >
                 ✕
               </button>
@@ -422,14 +419,14 @@ export function GameInput({
       )}
 
       {pendingMoveLabel && (
-        <div className={cn("flex items-center", inline ? "px-0 pb-1" : "border-b border-[var(--border)] px-4 py-2")}>
-          <div className="flex min-w-0 items-center gap-1.5 rounded-lg border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 text-[0.6875rem] text-sky-100/90">
+        <div className={cn("flex items-center", inline ? "px-0 pb-1" : "border-b border-foreground/10 px-4 py-2")}>
+          <div className="flex min-w-0 items-center gap-1.5 rounded-lg border border-foreground/10 bg-foreground/10 px-2.5 py-1 text-[0.6875rem] text-foreground/80">
             <span className="shrink-0">📍</span>
             <span className="min-w-0 truncate">Destination: {pendingMoveLabel}</span>
             {onClearPendingMove && (
               <button
                 onClick={onClearPendingMove}
-                className="shrink-0 text-sky-100/60 transition-colors hover:text-sky-100"
+                className="shrink-0 text-foreground/45 transition-colors hover:text-foreground/80"
                 title="Clear destination"
               >
                 ✕
@@ -440,13 +437,26 @@ export function GameInput({
       )}
 
       {/* Main input */}
-      <div ref={inputBarRef} className={cn("relative flex items-center gap-1.5", inline ? "px-0 py-1" : "px-4 py-3")}>
+      <div
+        ref={inputBarRef}
+        className={getChatInputShellClass({
+          className: cn(
+            riskyInterrupt &&
+              "ring-1 ring-red-500/40 bg-red-500/5 shadow-[0_0_18px_-6px_rgba(248,113,113,0.55)]",
+            forceInterrupt && "ring-1",
+          ),
+          hasContent: text.trim().length > 0 || attachments.length > 0 || !!queuedDice || !!pendingMoveLabel,
+          inline,
+          layout: "game",
+        })}
+        style={forceInterruptStyle}
+      >
         {/* Left: Address selector + Attach files */}
         <div className="relative shrink-0">
           {addressMenuOpen && (
             <div
               ref={addressMenuRef}
-              className="absolute bottom-full left-0 z-20 mb-2 flex min-w-[11rem] flex-col gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)]/95 p-1.5 shadow-lg backdrop-blur"
+              className="absolute bottom-full left-0 z-20 mb-2 flex min-w-[11rem] flex-col gap-1 rounded-xl border border-foreground/10 bg-[var(--card)]/95 p-1.5 shadow-lg backdrop-blur"
             >
               {hasPartyMembers && (
                 <button
@@ -454,8 +464,8 @@ export function GameInput({
                   className={cn(
                     "flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
                     addressMode === "party"
-                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-200"
-                      : "text-[var(--foreground)]/75 hover:bg-black/5 hover:text-[var(--foreground)] dark:hover:bg-white/5",
+                      ? "bg-foreground/10 text-foreground/85 ring-1 ring-foreground/15"
+                      : "text-foreground/65 hover:bg-foreground/10 hover:text-foreground/85",
                   )}
                 >
                   <Users size={14} className="shrink-0" />
@@ -468,8 +478,8 @@ export function GameInput({
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
                   addressMode === "gm"
-                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-200"
-                    : "text-[var(--foreground)]/75 hover:bg-black/5 hover:text-[var(--foreground)] dark:hover:bg-white/5",
+                    ? "bg-foreground/10 text-foreground/85 ring-1 ring-foreground/15"
+                    : "text-foreground/65 hover:bg-foreground/10 hover:text-foreground/85",
                 )}
               >
                 <MessageCircle size={14} className="shrink-0" />
@@ -484,9 +494,9 @@ export function GameInput({
             className={cn(
               "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
               addressMode === "party"
-                ? "text-sky-400 hover:bg-foreground/10"
+                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
                 : addressMode === "gm"
-                  ? "text-amber-300 hover:bg-foreground/10"
+                  ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
                   : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
             )}
             title={
@@ -516,7 +526,7 @@ export function GameInput({
           className={cn(
             "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
             attachments.length
-              ? "text-blue-400 hover:bg-foreground/10"
+              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
               : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
           )}
           title="Attach files"
@@ -552,17 +562,17 @@ export function GameInput({
           }
           disabled={disabled}
           rows={1}
-          className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-[var(--foreground)] outline-none placeholder:text-foreground/30 disabled:opacity-50"
+          className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-foreground outline-none placeholder:text-foreground/30 disabled:opacity-50"
           style={{ minHeight: 36, maxHeight: 120 }}
         />
 
         {queuedDice && (
-          <div className="flex items-center self-stretch rounded-lg border border-[var(--border)] bg-[var(--muted)]/30 px-2 text-xs text-[var(--foreground)]/70">
+          <div className="flex items-center self-stretch rounded-lg border border-foreground/10 bg-foreground/10 px-2 text-xs text-foreground/70">
             🎲 {queuedDice}
             <button
               type="button"
               onClick={() => setQueuedDice(null)}
-              className="ml-1 text-[var(--muted-foreground)]/60 transition-colors hover:text-[var(--foreground)]"
+              className="ml-1 text-foreground/45 transition-colors hover:text-foreground/80"
               title="Clear queued roll"
             >
               ✕
@@ -590,8 +600,8 @@ export function GameInput({
           className={cn(
             "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
             showDice
-              ? "text-[var(--foreground)]/80 hover:bg-foreground/10"
-              : "text-[var(--foreground)]/50 hover:bg-foreground/10 hover:text-[var(--foreground)]/70",
+              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
+              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
             riskyInterrupt &&
               !queuedDice &&
               "animate-pulse text-red-300 ring-1 ring-red-400/60 shadow-[0_0_12px_-2px_rgba(248,113,113,0.85)] hover:text-red-200",
@@ -609,7 +619,7 @@ export function GameInput({
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
               emojiOpen
-                ? "text-foreground bg-foreground/10"
+                ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
             )}
             title="Emoji"
@@ -633,8 +643,8 @@ export function GameInput({
             className={cn(
               "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-all duration-200 active:scale-90",
               !disabled && text.trim() && !isTranslatingDraft
-                ? "text-[var(--foreground)]/50 hover:bg-foreground/10 hover:text-[var(--foreground)]/70"
-                : "text-[var(--muted-foreground)]/40",
+                ? "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70"
+                : "text-foreground/25",
             )}
             title="Translate draft"
           >
@@ -664,8 +674,8 @@ export function GameInput({
             (text.trim() || attachments.length > 0 || (pendingMoveLabel && addressMode === "scene") || queuedDice) &&
               !disabled &&
               !rollingQueuedDice
-              ? "text-[var(--foreground)]/50 hover:bg-foreground/10 hover:text-[var(--foreground)]/70 dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
-              : "text-[var(--muted-foreground)]/40 dark:text-white/30",
+              ? "text-foreground/70 hover:bg-foreground/10 hover:text-foreground/90"
+              : "text-foreground/25",
           )}
           aria-label="Send game turn"
         >

@@ -4,6 +4,7 @@
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { Pipette, Sparkles, X, Plus, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { isCssGradient, RAINBOW_GRADIENT_PRESET } from "../../lib/css-colors";
 
 interface ColorPickerProps {
   value: string;
@@ -18,6 +19,12 @@ interface ColorPickerProps {
   helpText?: string;
   /** Text shown when no color is set. */
   emptyText?: string;
+  /** Optional color/gradient shown in the preview when no explicit value is set. */
+  emptyPreviewValue?: string;
+  /** Text shown for the clear/reset action. */
+  clearLabel?: string;
+  /** Value restored by the clear/reset action. Defaults to empty string. */
+  clearValue?: string;
   /** Optional compact control shown beside the label. */
   headerAction?: ReactNode;
 }
@@ -48,6 +55,7 @@ const PRESETS = [
 
 /** Preset gradients */
 const GRADIENT_PRESETS = [
+  RAINBOW_GRADIENT_PRESET,
   "linear-gradient(90deg, #ff6b6b, #ffd93d)",
   "linear-gradient(90deg, #a29bfe, #fd79a8)",
   "linear-gradient(90deg, #6c5ce7, #00cec9)",
@@ -85,9 +93,12 @@ export function ColorPicker({
   label,
   helpText,
   emptyText = "No color set — uses default",
+  emptyPreviewValue = "",
+  clearLabel = "Clear",
+  clearValue = "",
   headerAction,
 }: ColorPickerProps) {
-  const isGradient = value.startsWith("linear-gradient");
+  const isGradient = isCssGradient(value);
   const [mode, setMode] = useState<"solid" | "gradient">(isGradient ? "gradient" : "solid");
   const [gradientStops, setGradientStops] = useState<string[]>(
     isGradient ? parseGradientStops(value) : ["#ff6b6b", "#ffd93d"],
@@ -99,7 +110,7 @@ export function ColorPicker({
 
   // Sync value → local state when value changes externally
   useEffect(() => {
-    if (value.startsWith("linear-gradient")) {
+    if (isCssGradient(value)) {
       setMode("gradient");
       setGradientStops(parseGradientStops(value));
       const angleMatch = value.match(/linear-gradient\((\d+)deg/);
@@ -157,14 +168,16 @@ export function ColorPicker({
   );
 
   const clearColor = useCallback(() => {
-    onChange("");
+    onChange(clearValue);
     setExpanded(false);
-  }, [onChange]);
+  }, [clearValue, onChange]);
 
-  const displayStyle = value
-    ? value.startsWith("linear-gradient")
-      ? { background: value }
-      : { backgroundColor: value }
+  const previewValue = value || emptyPreviewValue;
+  const showClear = clearValue ? value !== clearValue : !!value;
+  const displayStyle = previewValue
+    ? isCssGradient(previewValue)
+      ? { background: previewValue }
+      : { backgroundColor: previewValue }
     : { backgroundColor: "transparent" };
 
   return (
@@ -176,14 +189,14 @@ export function ColorPicker({
           {headerAction}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {value && (
+          {showClear && (
             <button
               type="button"
               onClick={clearColor}
               className="flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] transition-all hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
             >
               <X size="0.625rem" />
-              Clear
+              {clearLabel}
             </button>
           )}
         </div>
@@ -204,7 +217,7 @@ export function ColorPicker({
           className={cn("shrink-0 rounded-lg ring-1 ring-[var(--border)]", compact ? "h-6 w-6" : "h-8 w-8")}
           style={{
             ...displayStyle,
-            ...(!value && {
+            ...(!previewValue && {
               backgroundImage: "repeating-conic-gradient(var(--border) 0% 25%, transparent 0% 50%)",
               backgroundSize: "0.5rem 0.5rem",
             }),
@@ -269,7 +282,7 @@ export function ColorPicker({
                   <span
                     className="h-6 w-6 shrink-0 rounded-md ring-1 ring-[var(--border)]"
                     style={{
-                      backgroundColor: value && !value.startsWith("linear-gradient") ? value : "#6c5ce7",
+                      backgroundColor: previewValue && !isCssGradient(previewValue) ? previewValue : "#6c5ce7",
                     }}
                   />
                   <span className="min-w-0 text-xs font-medium text-[var(--foreground)]">Pick color</span>
@@ -278,7 +291,7 @@ export function ColorPicker({
                     ref={nativeRef}
                     type="color"
                     aria-label={`Pick ${label} color`}
-                    value={value && !value.startsWith("linear-gradient") ? getNativeColorValue(value) : "#6c5ce7"}
+                    value={!isCssGradient(previewValue) ? getNativeColorValue(previewValue) : "#6c5ce7"}
                     onChange={(e) => handleSolidChange(e.target.value)}
                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                   />
@@ -288,7 +301,7 @@ export function ColorPicker({
                   <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">Hex / CSS</span>
                   <input
                     aria-label={`${label} hex or CSS color`}
-                    value={value && !value.startsWith("linear-gradient") ? value : ""}
+                    value={value && !isCssGradient(value) ? value : ""}
                     onChange={(e) => handleSolidChange(e.target.value)}
                     placeholder="#hex or color name"
                     className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 font-mono text-xs outline-none transition-colors focus:border-[var(--primary)]/50"
@@ -406,6 +419,7 @@ export function ColorPicker({
                         value === g && "ring-2 ring-[var(--primary)] scale-105",
                       )}
                       style={{ background: g }}
+                      title={g === RAINBOW_GRADIENT_PRESET ? "Gay RGB rainbow" : g}
                     />
                   ))}
                 </div>

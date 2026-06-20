@@ -43,10 +43,19 @@ export const generationParametersSchema = z.object({
   maxContext: z.number().int().min(1).default(128000),
   frequencyPenalty: z.number().min(-2).max(2).default(0),
   presencePenalty: z.number().min(-2).max(2).default(0),
-  reasoningEffort: z.enum(["low", "medium", "high", "maximum"]).nullable().default(null),
+  reasoningEffort: z.enum(["low", "medium", "high", "xhigh", "maximum"]).nullable().default(null),
   verbosity: z.enum(["low", "medium", "high"]).nullable().default(null),
   serviceTier: z.enum(["flex", "priority"]).nullable().default(null),
   assistantPrefill: z.string().default(""),
+  customThinkingTags: z
+    .array(
+      z.object({
+        open: z.string().trim().min(1).max(120),
+        close: z.string().trim().min(1).max(120),
+      }),
+    )
+    .max(20)
+    .default([]),
   customParameters: z.record(z.unknown()).default({}),
   squashSystemMessages: z.boolean().default(true),
   showThoughts: z.boolean().default(true),
@@ -75,6 +84,9 @@ export const choiceOptionSchema = z.object({
   value: z.string(),
 });
 
+export const choiceDisplayModeSchema = z.enum(["auto", "buttons", "listbox"]);
+export const choiceOptionSortSchema = z.enum(["manual", "alphabetical"]);
+
 export const createChoiceBlockSchema = z.object({
   presetId: z.string(),
   variableName: z.string().min(1).max(100).regex(/^\w+$/, "Variable name must be alphanumeric/underscores only"),
@@ -83,6 +95,8 @@ export const createChoiceBlockSchema = z.object({
   multiSelect: z.boolean().default(false),
   separator: z.string().max(20).default(", "),
   randomPick: z.boolean().default(false),
+  displayMode: choiceDisplayModeSchema.default("auto"),
+  optionSort: choiceOptionSortSchema.default("manual"),
 });
 
 export const updateChoiceBlockSchema = z.object({
@@ -97,6 +111,8 @@ export const updateChoiceBlockSchema = z.object({
   multiSelect: z.boolean().optional(),
   separator: z.string().max(20).optional(),
   randomPick: z.boolean().optional(),
+  displayMode: choiceDisplayModeSchema.optional(),
+  optionSort: choiceOptionSortSchema.optional(),
 });
 
 // ── Groups ──

@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useState } from "react";
 import { AUDIO_MIME_MAP } from "@marinara-engine/shared";
-import { encodeAssetPath } from "./encode-asset-path";
+import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 
 /**
  * Audio player modal with MIME type hinting and download fallback.
@@ -27,14 +27,14 @@ export function AudioPlayerModal({ path, name, onClose }: { path: string; name: 
     return () => document.removeEventListener("keydown", handle);
   }, [onClose]);
 
-  const encodedPath = encodeAssetPath(path);
+  const assetUrl = gameAssetFileUrl(path) ?? "";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label={`Audio player: ${name}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <div
@@ -43,7 +43,7 @@ export function AudioPlayerModal({ path, name, onClose }: { path: string; name: 
       >
         <h3 className="mb-4 text-sm font-semibold text-(--foreground)">{name}</h3>
         <audio controls className="w-full" autoPlay onError={() => setPlayError(true)}>
-          <source src={`/api/game-assets/file/${encodedPath}`} type={mime} />
+          <source src={assetUrl} type={mime} />
           Your browser does not support the audio element.
         </audio>
         {playError && (
@@ -53,7 +53,7 @@ export function AudioPlayerModal({ path, name, onClose }: { path: string; name: 
         )}
         <div className="mt-4 flex justify-end gap-2">
           <a
-            href={`/api/game-assets/file/${encodedPath}`}
+            href={assetUrl}
             download={name}
             className="rounded-lg border border-(--border) bg-(--background) px-4 py-2 text-xs font-medium text-(--foreground) transition-colors hover:bg-(--accent)"
           >

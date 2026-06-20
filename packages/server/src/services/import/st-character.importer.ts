@@ -5,10 +5,13 @@ import type { DB } from "../../db/connection.js";
 import { characters as charactersTable } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
+import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
+import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
-import type { CharacterData } from "@marinara-engine/shared";
+import { isPatternSafe } from "@marinara-engine/shared";
+import type { CharacterData, CreateRegexScriptInput, RegexPlacement } from "@marinara-engine/shared";
 import { existsSync, mkdirSync } from "fs";
-import { writeFile } from "fs/promises";
+import { unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -26,6 +29,45 @@ function ensureAvatarDir() {
 
 function countEmbeddedLorebookEntries(book: unknown): number {
   return getCharacterBookEntries(book).length;
+}
+
+async function removeImportedAvatarFile(avatarPath: string | undefined) {
+  if (!avatarPath?.startsWith("/api/avatars/file/")) return;
+  const filename = avatarPath.split("/").pop();
+  if (!filename) return;
+  try {
+    await unlink(join(AVATAR_DIR, filename));
+  } catch (err) {
+    logger.warn(err, "Failed to roll back imported character avatar");
+  }
+}
+
+async function rollbackImportedCharacter(db: DB, characterId: string | undefined, avatarPath: string | undefined) {
+  if (!characterId) {
+    await removeImportedAvatarFile(avatarPath);
+    return;
+  }
+
+  const characterStorage = createCharactersStorage(db);
+  const lorebookStorage = createLorebooksStorage(db);
+  try {
+    const linkedLorebooks = (await lorebookStorage.listByCharacter(characterId)) as Array<{ id?: string }>;
+    for (const lorebook of linkedLorebooks) {
+      if (typeof lorebook.id === "string") {
+        await lorebookStorage.remove(lorebook.id);
+      }
+    }
+  } catch (err) {
+    logger.warn(err, "Failed to roll back imported character lorebook");
+  }
+
+  try {
+    await characterStorage.remove(characterId);
+  } catch (err) {
+    logger.warn(err, "Failed to roll back imported character");
+  }
+
+  await removeImportedAvatarFile(avatarPath);
 }
 
 /**
@@ -46,6 +88,74 @@ export interface STCharacterImportOptions {
   importEmbeddedLorebook?: boolean;
   tagImportMode?: STCharacterTagImportMode;
   existingTagKeys?: ReadonlySet<string>;
+  /** Where embedded regex scripts land: scoped to the character (default) or global. */
+  regexScriptScope?: "character" | "global";
+}
+
+// SillyTavern regex placement ids → our placement strings (1 = user input, 2 = AI output).
+function convertStPlacements(placement: unknown): RegexPlacement[] {
+  const out: RegexPlacement[] = [];
+  if (Array.isArray(placement)) {
+    for (const n of placement) {
+      if (n === 1 && !out.includes("user_input")) out.push("user_input");
+      else if (n === 2 && !out.includes("ai_output")) out.push("ai_output");
+    }
+  }
+  return out;
+}
+
+/**
+ * Convert a SillyTavern card's embedded `regex_scripts` into CreateRegexScriptInput
+ * rows scoped to the imported character. ST stores the pattern as `/source/flags`
+ * (or a bare source) and placements as numbers; scripts with an empty or
+ * ReDoS-prone source, or one that won't compile, are skipped.
+ */
+function convertStRegexScripts(
+  stScripts: unknown,
+  characterId: string,
+  scope: "character" | "global",
+): CreateRegexScriptInput[] {
+  if (!Array.isArray(stScripts)) return [];
+  const out: CreateRegexScriptInput[] = [];
+  for (const [index, entry] of stScripts.entries()) {
+    if (!entry || typeof entry !== "object") continue;
+    const s = entry as Record<string, unknown>;
+    const rawFind = typeof s.findRegex === "string" ? s.findRegex.trim() : "";
+    if (!rawFind) continue;
+    // ST patterns are usually `/source/flags`; fall back to treating the whole string as the source.
+    const delimited = /^\/(.*)\/([a-z]*)$/is.exec(rawFind);
+    const source = delimited ? delimited[1]! : rawFind;
+    if (!source || !isPatternSafe(source)) continue;
+    let flags = Array.from(new Set((delimited?.[2] || "gi").replace(/[^gimsuy]/g, ""))).join("");
+    if (!flags.includes("g")) flags += "g";
+    try {
+      new RegExp(source, flags);
+    } catch {
+      continue;
+    }
+    const placement = convertStPlacements(s.placement);
+    const resolvedPlacement: RegexPlacement[] = placement.length > 0 ? placement : ["ai_output"];
+    out.push({
+      name: typeof s.scriptName === "string" && s.scriptName.trim() ? s.scriptName.trim() : "Imported regex",
+      enabled: s.disabled !== true,
+      findRegex: source,
+      replaceString: typeof s.replaceString === "string" ? s.replaceString : "",
+      trimStrings: Array.isArray(s.trimStrings) ? s.trimStrings.filter((t): t is string => typeof t === "string") : [],
+      placement: resolvedPlacement,
+      flags,
+      // Imported scripts transform displayed messages, gated by the chat's Scoped
+      // Regex mode — they stay opt-in per chat rather than always rewriting prompts.
+      promptOnly: false,
+      targetCharacterIds: scope === "global" ? [] : [characterId],
+      // Preserve the card's authoring order so multi-script imports keep a stable
+      // execution/list order (all-zero ties leave it undefined). Gaps from skipped
+      // entries are harmless — list() only sorts by ascending order.
+      order: index,
+      minDepth: typeof s.minDepth === "number" ? s.minDepth : null,
+      maxDepth: typeof s.maxDepth === "number" ? s.maxDepth : null,
+    });
+  }
+  return out;
 }
 
 export type STCharacterTagImportMode = "all" | "none" | "existing";
@@ -171,10 +281,44 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
           updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
           skipVersionSnapshot: true,
         });
+      } else if (hasEmbeddedLorebook) {
+        throw new Error(
+          typeof result?.error === "string"
+            ? result.error
+            : "Character imported but the embedded lorebook could not be saved — the import has been rolled back.",
+        );
       }
     } catch (err) {
-      logger.warn(err, "Lorebook extraction failed for character import");
-      // Non-fatal — character was imported, just lorebook extraction failed
+      await rollbackImportedCharacter(db, charId, avatarPath);
+      logger.warn(err, "Rolled back character import after embedded lorebook import failed");
+      throw err;
+    }
+  }
+
+  // Import any regex scripts embedded in the ST card, scoped to this character.
+  if (charId) {
+    const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
+    const cardExtensions =
+      cardData.extensions && typeof cardData.extensions === "object"
+        ? (cardData.extensions as Record<string, unknown>)
+        : {};
+    const importedRegex = convertStRegexScripts(
+      cardExtensions.regex_scripts,
+      charId,
+      options?.regexScriptScope ?? "character",
+    );
+    if (importedRegex.length > 0) {
+      const regexStorage = createRegexScriptsStorage(db);
+      let created = 0;
+      for (const input of importedRegex) {
+        try {
+          await regexStorage.create(input);
+          created += 1;
+        } catch (err) {
+          logger.warn(err, "Failed to import an embedded regex script");
+        }
+      }
+      if (created > 0) logger.info("Imported %d embedded regex script(s) for character %s", created, charId);
     }
   }
 
@@ -213,11 +357,47 @@ export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImp
 }
 
 /**
+ * Guard a parsed CharX zip against decompression-bomb abuse before any
+ * `getData()` call materializes a decompressed entry into memory.
+ *
+ * adm-zip's `getData()` allocates the full uncompressed entry as a single
+ * Buffer, and the 256 MB multipart cap (`app.ts`) bounds only the
+ * *compressed* upload — DEFLATE reaches ~1000:1 on repetitive data, so a
+ * few-MB `.charx` can expand to multiple GB and OOM the shared process.
+ * Sizes are read off the central-directory headers (`entry.header.size`),
+ * not the decompressed stream, so we reject before paying the memory cost.
+ * Mirrors the `/marinara-package` cap in `import.routes.ts`. Throws on
+ * violation; callers wrap this so the route surfaces a 4xx-style failure
+ * instead of crashing.
+ */
+function assertCharXWithinLimits(zip: AdmZip): void {
+  const MAX_CHARX_ENTRIES = 512;
+  const MAX_CHARX_ENTRY_BYTES = 64 * 1024 * 1024;
+  const MAX_CHARX_TOTAL_BYTES = 256 * 1024 * 1024;
+  const entries = zip.getEntries();
+  if (entries.length > MAX_CHARX_ENTRIES) {
+    throw new Error(".charx file has too many entries");
+  }
+  let total = 0;
+  for (const entry of entries) {
+    const size = entry.header.size ?? 0;
+    if (size > MAX_CHARX_ENTRY_BYTES) {
+      throw new Error(".charx file has an entry that is too large");
+    }
+    total += size;
+    if (total > MAX_CHARX_TOTAL_BYTES) {
+      throw new Error(".charx file decompresses to too much data");
+    }
+  }
+}
+
+/**
  * Import a CharX (.charx) file — RisuAI Character Card V3 zip format.
  * Extracts card.json and the main icon asset from the zip.
  */
 export async function importCharX(buf: Buffer, db: DB, options?: STCharacterImportOptions) {
   const zip = new AdmZip(buf);
+  assertCharXWithinLimits(zip);
 
   // Extract card.json from root of the zip
   const cardJson = readCharXCardJson(zip);
@@ -268,6 +448,7 @@ export async function importCharX(buf: Buffer, db: DB, options?: STCharacterImpo
 export function inspectCharX(buf: Buffer): STCharacterImportPreview {
   try {
     const zip = new AdmZip(buf);
+    assertCharXWithinLimits(zip);
     const cardJson = readCharXCardJson(zip);
     if (!cardJson) {
       return {
@@ -428,28 +609,6 @@ function resolveCharXAsset(zip: AdmZip, uri: string, ext?: string): string | nul
   return `data:image/${mime};base64,${entry.getData().toString("base64")}`;
 }
 
-function normalizeAltDescriptions(raw: unknown): CharacterData["extensions"]["altDescriptions"] {
-  const entries = (() => {
-    if (Array.isArray(raw)) return raw;
-    if (typeof raw !== "string" || !raw.trim()) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  })();
-
-  return entries
-    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
-    .map((entry, index) => ({
-      id: typeof entry.id === "string" && entry.id.trim() ? entry.id : `extension-${index}`,
-      label: typeof entry.label === "string" ? entry.label : "Extension",
-      content: typeof entry.content === "string" ? entry.content : "",
-      active: entry.active !== false,
-    }));
-}
-
 function normalizeV2(raw: Record<string, unknown>): CharacterData {
   const rawExtensions =
     raw.extensions && typeof raw.extensions === "object" ? (raw.extensions as Record<string, unknown>) : {};
@@ -468,6 +627,7 @@ function normalizeV2(raw: Record<string, unknown>): CharacterData {
     character_version: String(raw.character_version ?? ""),
     alternate_greetings: Array.isArray(raw.alternate_greetings) ? raw.alternate_greetings.map(String) : [],
     extensions: {
+      ...rawExtensions,
       talkativeness: Number(rawExtensions.talkativeness ?? 0.5),
       fav: Boolean(rawExtensions.fav),
       world: String(rawExtensions.world ?? ""),
@@ -480,7 +640,6 @@ function normalizeV2(raw: Record<string, unknown>): CharacterData {
       },
       backstory: String(rawExtensions.backstory ?? ""),
       appearance: String(rawExtensions.appearance ?? ""),
-      altDescriptions: normalizeAltDescriptions(rawExtensions.altDescriptions ?? rawExtensions.descriptionExtensions),
     },
     character_book: normalizeCharacterBook(raw.character_book),
   };

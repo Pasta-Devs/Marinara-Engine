@@ -9,6 +9,7 @@
 import type { FastifyInstance } from "fastify";
 import { createExtensionSchema, updateExtensionSchema } from "@marinara-engine/shared";
 import { createExtensionsStorage } from "../services/storage/extensions.storage.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -19,12 +20,14 @@ export async function extensionsRoutes(app: FastifyInstance) {
     return storage.list();
   });
 
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Extension install/update/delete" })) return;
     const input = createExtensionSchema.parse(req.body);
     return storage.create(input);
   });
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Extension install/update/delete" })) return;
     if (!ID_PATTERN.test(req.params.id)) {
       return reply.status(404).send({ error: "Extension not found" });
     }
@@ -35,6 +38,7 @@ export async function extensionsRoutes(app: FastifyInstance) {
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Extension install/update/delete" })) return;
     if (!ID_PATTERN.test(req.params.id)) {
       return reply.status(404).send({ error: "Extension not found" });
     }

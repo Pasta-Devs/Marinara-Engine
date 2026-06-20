@@ -31,26 +31,6 @@ function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-function appendActiveAltDescriptions(description: string, altDescriptions: unknown): string {
-  try {
-    const parsed =
-      typeof altDescriptions === "string"
-        ? altDescriptions.trim()
-          ? (JSON.parse(altDescriptions) as Array<{ active?: boolean; content?: string }>)
-          : []
-        : Array.isArray(altDescriptions)
-          ? (altDescriptions as Array<{ active?: boolean; content?: string }>)
-          : [];
-    const activeDescriptions = parsed
-      .filter((item) => item?.active && typeof item.content === "string" && item.content.trim().length > 0)
-      .map((item) => item.content!.trim());
-    if (activeDescriptions.length === 0) return description;
-    return [description, ...activeDescriptions].filter((part) => part.trim().length > 0).join("\n");
-  } catch {
-    return description;
-  }
-}
-
 export function getChatCharacterIds(chat: { characterIds?: unknown } | null | undefined): string[] {
   if (!chat) return [];
 
@@ -86,10 +66,7 @@ export function parseCharacterMacroData(
     return {
       id: raw.id,
       name: getString(data.name) || "Unknown",
-      description: appendActiveAltDescriptions(
-        getString(data.description),
-        extensions?.altDescriptions ?? extensions?.descriptionExtensions,
-      ),
+      description: getString(data.description),
       personality: getString(data.personality),
       backstory: getString(extensions?.backstory),
       appearance: getString(extensions?.appearance),
@@ -109,7 +86,7 @@ export function parsePersonaMacroData(raw: Record<string, unknown> | null | unde
   return {
     personaId: getString(raw.id),
     name: getString(raw.name) || "User",
-    description: appendActiveAltDescriptions(getString(raw.description), raw.altDescriptions),
+    description: getString(raw.description),
     personality: getString(raw.personality),
     backstory: getString(raw.backstory),
     appearance: getString(raw.appearance),

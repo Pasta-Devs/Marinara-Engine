@@ -5,6 +5,12 @@
 /** Capability of a connected haptic device. */
 export type HapticCapability = "vibrate" | "rotate" | "oscillate" | "constrict" | "inflate" | "position";
 
+/** Chat-level intensity scaling for automatic haptic feedback. */
+export type HapticFeedbackSensitivity = "subtle" | "standard" | "intense";
+
+/** Optional pattern hint for automatic haptic commands. */
+export type HapticFeedbackPattern = "steady" | "tap" | "pulse" | "wave" | "ramp" | "impact";
+
 /** A connected haptic device (client-facing representation). */
 export interface HapticDevice {
   /** Buttplug device index */
@@ -35,4 +41,6 @@ export interface HapticDeviceCommand {
   intensity?: number;
   /** Duration in seconds — 0 or omitted means indefinite until next command */
   duration?: number;
+  /** Optional pattern hint expanded by the server for automatic feedback. */
+  pattern?: HapticFeedbackPattern;
 }

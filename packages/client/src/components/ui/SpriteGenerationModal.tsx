@@ -72,6 +72,14 @@ interface FailedMatchedFullBodyBatch {
   error: string;
 }
 
+type ImageConnectionOption = {
+  id: string;
+  name: string;
+  model?: string;
+  provider?: string;
+  defaultForAgents?: boolean | string;
+};
+
 interface SliceAdjustments {
   marginX: number;
   marginY: number;
@@ -176,6 +184,7 @@ type SpriteType = "expressions" | "full-body";
 const DEFAULT_SPRITE_PRESET: PresetKey = "6 (2×3)";
 const MATCHED_FULL_BODY_EXPRESSION_LIMIT = 16;
 const MATCHED_FULL_BODY_BATCH_SIZE = 4;
+const SPRITE_GENERATION_REQUEST_TIMEOUT_MS = 305_000;
 
 const FULL_BODY_POSE_PRESETS: Record<PresetKey, string[]> = {
   "1 (1×1)": ["idle"],
@@ -353,6 +362,32 @@ function getGenerationErrorMessage(err: unknown): string {
   return "Image generation failed";
 }
 
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "AbortError";
+}
+
+function isDefaultImageConnection(connection: ImageConnectionOption): boolean {
+  return connection.defaultForAgents === true || connection.defaultForAgents === "true";
+}
+
+async function postSpriteGenerationRequest<T>(body: unknown): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), SPRITE_GENERATION_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await api.post<T>("/sprites/generate-sheet", body, { signal: controller.signal });
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new Error(
+        "Sprite generation timed out after about 5 minutes. The image provider may still be busy; try again or use a faster image connection.",
+      );
+    }
+    throw err;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 function createGeneratedSpritesFromResult(
   result: GenerateSheetResult,
   grid: SpriteGrid,
@@ -504,7 +539,7 @@ export function SpriteGenerationModal({
   ]);
   const [matchExistingExpressions, setMatchExistingExpressions] = useState(false);
   const [nativeTransparentPng, setNativeTransparentPng] = useState(false);
-  const [noBackground, setNoBackground] = useState(true);
+  const [noBackground, setNoBackground] = useState(false);
   const [cleanupStrength, setCleanupStrength] = useState(35);
   const [connectionId, setConnectionId] = useState<string | null>(null);
 
@@ -536,9 +571,9 @@ export function SpriteGenerationModal({
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const imageConnections = useMemo(() => {
     if (!connectionsList) return [];
-    return (connectionsList as Array<{ id: string; name: string; model?: string; provider?: string }>).filter(
-      (c) => c.provider === "image_generation",
-    );
+    return (connectionsList as ImageConnectionOption[])
+      .filter((c) => c.provider === "image_generation")
+      .sort((a, b) => Number(isDefaultImageConnection(b)) - Number(isDefaultImageConnection(a)));
   }, [connectionsList]);
   const spriteGenerationUnavailable = spriteCapabilities?.spriteGenerationAvailable === false;
   const spriteGenerationReason = spriteCapabilities?.reason ?? "Sprite generation is unavailable on this platform.";
@@ -583,6 +618,18 @@ export function SpriteGenerationModal({
     () => (fullBodyExpressionMode ? matchedFullBodyExpressions : selectedExpressions.slice(0, generationCapacity)),
     [fullBodyExpressionMode, generationCapacity, matchedFullBodyExpressions, selectedExpressions],
   );
+  const assignmentOptions = useMemo(() => {
+    const fallbackOptions = spriteType === "full-body" && !fullBodyExpressionMode ? ALL_FULL_BODY_POSES : ALL_EXPRESSIONS;
+    const seen = new Set<string>();
+
+    return [...cappedSelectedExpressions, ...fallbackOptions]
+      .map(normalizeSpriteLabel)
+      .filter((label) => {
+        if (!label || seen.has(label)) return false;
+        seen.add(label);
+        return true;
+      });
+  }, [cappedSelectedExpressions, fullBodyExpressionMode, spriteType]);
   const previewColumnCount = generationGrid.cols;
   const canAdjustSlices = cells.some((cell) => !!cell.sourceSheetDataUrl);
   const activeFrameCell = activeFrameIndex === null ? null : (cells[activeFrameIndex] ?? null);
@@ -597,7 +644,8 @@ export function SpriteGenerationModal({
   );
 
   // Auto-select first image connection
-  const effectiveConnectionId = connectionId ?? imageConnections[0]?.id ?? null;
+  const defaultImageConnectionId = imageConnections.find(isDefaultImageConnection)?.id ?? null;
+  const effectiveConnectionId = connectionId ?? defaultImageConnectionId ?? imageConnections[0]?.id ?? null;
   const selectedImageConnection = useMemo(
     () => imageConnections.find((connection) => connection.id === effectiveConnectionId) ?? null,
     [effectiveConnectionId, imageConnections],
@@ -639,6 +687,8 @@ export function SpriteGenerationModal({
         : [...EXPRESSION_PRESETS[DEFAULT_SPRITE_PRESET].expressions],
     );
     setMatchExistingExpressions(false);
+    setNativeTransparentPng(false);
+    setNoBackground(false);
   }, [open, initialSpriteType]);
 
   // Reset reference image & appearance when the target character changes
@@ -657,6 +707,8 @@ export function SpriteGenerationModal({
     setFrameAdjustments(DEFAULT_SPRITE_FRAME_ADJUSTMENTS);
     setFramePreviewUrl(null);
     setMatchExistingExpressions(false);
+    setNativeTransparentPng(false);
+    setNoBackground(false);
     setError(null);
   }, [entityId, defaultAvatarUrl, defaultAppearance]);
 
@@ -751,8 +803,8 @@ export function SpriteGenerationModal({
         spriteType,
         fullBodyExpressionMode: matchedFullBodyMode,
         nativeTransparentPng,
-        // Keep server generation raw; client preview cleanup preserves originals.
-        noBackground: false,
+        noBackground,
+        cleanupStrength,
       };
 
       if (reviewImagePromptsBeforeSend) {
@@ -762,7 +814,7 @@ export function SpriteGenerationModal({
           if (!overrides) throw new SpritePromptReviewCancelledError();
           setPromptReviewSubmitting(true);
           try {
-            return await api.post<GenerateSheetResult>("/sprites/generate-sheet", {
+            return await postSpriteGenerationRequest<GenerateSheetResult>({
               ...payload,
               promptOverrides: overrides,
             });
@@ -772,13 +824,15 @@ export function SpriteGenerationModal({
         }
       }
 
-      return api.post<GenerateSheetResult>("/sprites/generate-sheet", payload);
+      return postSpriteGenerationRequest<GenerateSheetResult>(payload);
     },
     [
       appearance,
       effectiveConnectionId,
       effectiveReferenceImages,
       nativeTransparentPng,
+      noBackground,
+      cleanupStrength,
       openPromptReview,
       reviewImagePromptsBeforeSend,
       spriteType,
@@ -859,7 +913,7 @@ export function SpriteGenerationModal({
             remainingBatches: batches.slice(batchIndex + 1),
             error: message,
           });
-          setCleanupApplied(false);
+          setCleanupApplied(noBackground);
           setGenerationProgress(null);
           setStep(2);
           setError(`Batch ${batchIndex + 1} of ${batches.length} failed after one automatic retry: ${message}`);
@@ -871,12 +925,12 @@ export function SpriteGenerationModal({
       setGeneratedSheets(nextSheets);
       setGeneratedSheet(nextSheets[0]?.dataUrl ?? null);
       setFailedMatchedBatch(null);
-      setCleanupApplied(false);
+      setCleanupApplied(noBackground);
       setGenerationProgress(null);
       setError(null);
       setStep(2);
     },
-    [generateMatchedFullBodyBatch],
+    [generateMatchedFullBodyBatch, noBackground],
   );
 
   const handleGenerate = useCallback(async () => {
@@ -912,6 +966,7 @@ export function SpriteGenerationModal({
       setGeneratedSheet(generated.sheet?.dataUrl ?? null);
       setGeneratedSheets(generated.sheet ? [generated.sheet] : []);
       setCells(generated.cells);
+      setCleanupApplied(noBackground);
       setStep(2);
 
       const warnings: string[] = [];
@@ -944,6 +999,7 @@ export function SpriteGenerationModal({
     requestGeneratedSheet,
     generationGrid,
     spriteType,
+    noBackground,
   ]);
 
   const handleRetryFailedMatchedBatch = useCallback(async () => {
@@ -1347,6 +1403,7 @@ export function SpriteGenerationModal({
                     <option key={c.id} value={c.id}>
                       {c.name}
                       {c.model ? ` — ${c.model}` : ""}
+                      {isDefaultImageConnection(c) ? " (Default)" : ""}
                     </option>
                   ))}
                 </select>
@@ -1447,15 +1504,15 @@ export function SpriteGenerationModal({
                 onChange={(e) => {
                   const enabled = e.target.checked;
                   setNativeTransparentPng(enabled);
-                  if (enabled) setNoBackground(true);
+                  setNoBackground(enabled);
                 }}
                 className="mt-0.5 accent-[var(--primary)]"
               />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">Prefer transparent PNG</span>
                 <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                  Uses native transparent output when the selected model supports it, removes white-background wording
-                  from the prompt, then applies cleanup when transparent preview is enabled.
+                  Adds transparent-output instructions when the selected model supports them, then applies cleanup
+                  before review when needed.
                 </span>
                 {selectedModelIsGptImage2 && nativeTransparentPng && (
                   <span className="mt-1 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
@@ -1919,7 +1976,8 @@ export function SpriteGenerationModal({
                   )}
                 </div>
                 <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  Cleanup only runs when you press Apply Cleanup, using the current slices without regenerating.
+                  Cleanup is applied after generation when enabled. Use Apply Cleanup to rerun it on the current slices
+                  without regenerating.
                 </p>
                 {backgroundRemoverUnavailable && noBackground && (
                   <p className="mt-1 text-[0.625rem] text-amber-300/80">{backgroundRemoverReason}</p>
@@ -1999,7 +2057,7 @@ export function SpriteGenerationModal({
                 {selectedCount} selected)
               </label>
               <p className="mb-3 text-[0.625rem] text-[var(--muted-foreground)]">
-                Click an item to toggle selection. Edit names as needed. Only selected items will be saved.
+                Click an item to toggle selection. Assign or edit names as needed. Only selected items will be saved.
               </p>
               <div
                 className="grid gap-3"
@@ -2007,56 +2065,77 @@ export function SpriteGenerationModal({
                   gridTemplateColumns: `repeat(${previewColumnCount}, 1fr)`,
                 }}
               >
-                {cells.map((cell, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "group relative overflow-hidden rounded-xl border-2 transition-all",
-                      cell.selected ? "border-[var(--primary)] shadow-md" : "border-[var(--border)] opacity-50",
-                    )}
-                  >
-                    {/* Image */}
-                    <button onClick={() => handleCellToggle(i)} className="block w-full">
-                      <div className="aspect-square bg-[var(--secondary)]">
-                        <img src={cell.dataUrl} alt={cell.expression} className="h-full w-full object-contain" />
-                      </div>
-                    </button>
+                {cells.map((cell, i) => {
+                  const normalizedExpression = normalizeSpriteLabel(cell.expression);
+                  const cellAssignmentOptions =
+                    normalizedExpression && !assignmentOptions.includes(normalizedExpression)
+                      ? [normalizedExpression, ...assignmentOptions]
+                      : assignmentOptions;
 
-                    {/* Selected indicator */}
+                  return (
                     <div
+                      key={i}
                       className={cn(
-                        "absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full transition-colors",
-                        cell.selected ? "bg-[var(--primary)] text-white" : "bg-black/40 text-white/60",
+                        "group relative overflow-hidden rounded-xl border-2 transition-all",
+                        cell.selected ? "border-[var(--primary)] shadow-md" : "border-[var(--border)] opacity-50",
                       )}
                     >
-                      {cell.selected ? <Check size={12} /> : <X size={12} />}
-                    </div>
+                      {/* Image */}
+                      <button onClick={() => handleCellToggle(i)} className="block w-full">
+                        <div className="aspect-square bg-[var(--secondary)]">
+                          <img src={cell.dataUrl} alt={cell.expression} className="h-full w-full object-contain" />
+                        </div>
+                      </button>
 
-                    {/* Expression label */}
-                    <div className="p-1.5">
-                      <input
-                        value={cell.expression}
-                        onChange={(e) => handleCellRename(i, e.target.value)}
-                        className="w-full rounded bg-[var(--secondary)] px-2 py-1 text-center text-[0.6875rem] capitalize text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--primary)]/40"
-                      />
-                      <div className="mt-1 flex justify-center">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenCellFrame(i)}
-                          className={cn(
-                            "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                            activeFrameIndex === i &&
-                              "bg-[var(--primary)] text-white ring-[var(--primary)] hover:bg-[var(--primary)] hover:text-white",
-                          )}
-                          aria-label={`Frame ${cell.expression}`}
-                          title="Frame sprite"
+                      {/* Selected indicator */}
+                      <div
+                        className={cn(
+                          "absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full transition-colors",
+                          cell.selected ? "bg-[var(--primary)] text-white" : "bg-black/40 text-white/60",
+                        )}
+                      >
+                        {cell.selected ? <Check size={12} /> : <X size={12} />}
+                      </div>
+
+                      {/* Expression label */}
+                      <div className="space-y-1.5 p-1.5">
+                        <select
+                          value={normalizedExpression}
+                          onChange={(e) => handleCellRename(i, e.target.value)}
+                          className="w-full rounded bg-[var(--secondary)] px-2 py-1 text-center text-[0.6875rem] capitalize text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--primary)]/40"
+                          aria-label={`Assign expression for sprite ${i + 1}`}
                         >
-                          <Crop size={13} />
-                        </button>
+                          {cellAssignmentOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option.replace(/_/g, " ")}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={cell.expression}
+                          onChange={(e) => handleCellRename(i, e.target.value)}
+                          className="w-full rounded bg-[var(--secondary)]/70 px-2 py-1 text-center text-[0.625rem] text-[var(--muted-foreground)] outline-none focus:text-[var(--foreground)] focus:ring-1 focus:ring-[var(--primary)]/40"
+                          aria-label={`Sprite filename for ${cell.expression}`}
+                        />
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCellFrame(i)}
+                            className={cn(
+                              "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                              activeFrameIndex === i &&
+                                "bg-[var(--primary)] text-white ring-[var(--primary)] hover:bg-[var(--primary)] hover:text-white",
+                            )}
+                            aria-label={`Frame ${cell.expression}`}
+                            title="Frame sprite"
+                          >
+                            <Crop size={13} />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

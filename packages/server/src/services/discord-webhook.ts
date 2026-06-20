@@ -17,6 +17,7 @@ interface WebhookPayload {
   content: string;
   username?: string;
   avatar_url?: string;
+  allowed_mentions?: { parse: string[]; roles?: string[]; users?: string[] };
 }
 
 // ── Per-webhook rate-limit queue (Discord allows ~5 req/5s per webhook) ──
@@ -75,7 +76,8 @@ export function postToDiscordWebhook(
     // Discord caps content at 2000 chars
     const truncated = content.length > 1997 ? content.slice(0, 1997) + "..." : content;
 
-    const body: WebhookPayload = { content: truncated };
+    // Suppress @everyone/@here/role/user pings on relayed LLM/user content.
+    const body: WebhookPayload = { content: truncated, allowed_mentions: { parse: [] } };
     if (opts.username) body.username = opts.username.slice(0, 80);
     if (opts.avatarUrl) body.avatar_url = opts.avatarUrl;
 

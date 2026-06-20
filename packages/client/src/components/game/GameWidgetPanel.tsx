@@ -47,6 +47,20 @@ interface WidgetEditorDraft {
 /** Maximum number of custom HUD widgets displayed. */
 const MAX_WIDGETS = 4;
 
+const GAME_WIDGET_SHELL_CLASS =
+  "marinara-chat-popover overflow-hidden rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md transition-colors";
+const GAME_WIDGET_HEADER_CLASS =
+  "flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]";
+const GAME_WIDGET_TITLE_CLASS =
+  "flex-1 overflow-x-auto scrollbar-hide whitespace-nowrap text-[0.6875rem] font-semibold text-[var(--marinara-chat-chrome-panel-title)]";
+const GAME_WIDGET_MUTED_CLASS = "text-[var(--marinara-chat-chrome-panel-muted)]";
+const GAME_WIDGET_BODY_DIVIDER_CLASS = "border-t border-[var(--marinara-chat-chrome-panel-divider)]";
+const GAME_WIDGET_ICON_BUTTON_CLASS =
+  "flex h-5 w-5 items-center justify-center rounded-md text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]";
+const GAME_WIDGET_TRACK_CLASS = "bg-[var(--marinara-chat-chrome-panel-divider)]";
+const GAME_WIDGET_TILE_CLASS =
+  "border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-highlight-bg)]";
+
 const EMPTY_WIDGET_DRAFT: WidgetEditorDraft = {
   value: "",
   max: "",
@@ -309,25 +323,23 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
       <div className={cn("pointer-events-auto flex flex-col gap-1.5", position === "hud_right" && "items-end")}>
         {filtered.map((w) => {
           const isExpanded = expandedId === w.id;
-          const accent = w.accent ?? "#a78bfa";
 
           if (isExpanded) {
             return (
               <div
                 key={w.id}
-                className="w-40 overflow-hidden rounded-lg border bg-black/70 backdrop-blur-md transition-all"
-                style={{ borderColor: `${accent}30` }}
+                className={cn(GAME_WIDGET_SHELL_CLASS, "w-40 transition-all")}
                 data-game-skip-bg-nav="true"
               >
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-left">
                   {w.icon && <span className="text-xs">{w.icon}</span>}
-                  <span className="flex-1 truncate text-[0.6875rem] font-semibold" style={{ color: accent }}>
+                  <span className="flex-1 truncate text-[0.6875rem] font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
                     {w.label}
                   </span>
                   <button
                     type="button"
                     onClick={() => openEditor(w)}
-                    className="flex h-5 w-5 items-center justify-center rounded-full text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                    className={GAME_WIDGET_ICON_BUTTON_CLASS}
                     title={`Edit ${w.label}`}
                   >
                     <Pencil size={10} />
@@ -335,13 +347,13 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
                   <button
                     type="button"
                     onClick={() => setExpandedId(null)}
-                    className="flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white/40 transition-colors hover:bg-white/10 hover:text-white"
+                    className={cn(GAME_WIDGET_ICON_BUTTON_CLASS, "text-xs font-medium")}
                     title="Collapse widget"
                   >
                     ×
                   </button>
                 </div>
-                <div className="border-t px-2.5 py-2" style={{ borderColor: `${accent}15` }}>
+                <div className={cn(GAME_WIDGET_BODY_DIVIDER_CLASS, "px-2.5 py-2")}>
                   <WidgetBody widget={w} />
                 </div>
               </div>
@@ -352,8 +364,7 @@ export function MobileWidgetPanel({ widgets, position, chatId }: MobileWidgetPan
             <button
               key={w.id}
               onClick={() => setExpandedId(w.id)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border bg-black/60 text-base backdrop-blur-md transition-transform active:scale-95"
-              style={{ borderColor: `${accent}30` }}
+              className="marinara-chat-toolbar-button flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-base text-[var(--marinara-chat-chrome-button-text)] backdrop-blur-md transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:scale-95"
               title={w.label}
             >
               {w.icon || "📊"}
@@ -386,7 +397,6 @@ function WidgetCard({
   onEdit: (widget: HudWidget) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const accent = widget.accent ?? "#a78bfa";
   const { locked, toggleLocked, x, y, handleDragEnd } = useDraggablePanel(chatId, `widget:${widget.id}`);
 
   return (
@@ -396,11 +406,12 @@ function WidgetCard({
       dragElastic={0}
       dragConstraints={constraintsRef as RefObject<Element>}
       onDragEnd={handleDragEnd}
-      style={{ x, y, borderColor: `${accent}30` }}
+      style={{ x, y }}
       data-game-skip-bg-nav="true"
       className={cn(
-        "w-full overflow-hidden rounded-lg border bg-black/60 backdrop-blur-md transition-colors",
-        !locked && "cursor-grab ring-1 ring-white/20 active:cursor-grabbing",
+        GAME_WIDGET_SHELL_CLASS,
+        "w-full",
+        !locked && "cursor-grab ring-1 ring-[var(--marinara-chat-chrome-focus-ring)] active:cursor-grabbing",
       )}
     >
       {/* Header */}
@@ -414,33 +425,28 @@ function WidgetCard({
             setCollapsed((c) => !c);
           }
         }}
-        className="flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors hover:bg-white/5"
+        className={GAME_WIDGET_HEADER_CLASS}
       >
         {widget.icon && <span className="text-xs">{widget.icon}</span>}
-        <span
-          className="flex-1 overflow-x-auto scrollbar-hide whitespace-nowrap text-[0.6875rem] font-semibold"
-          style={{ color: accent }}
-        >
-          {widget.label}
-        </span>
+        <span className={GAME_WIDGET_TITLE_CLASS}>{widget.label}</span>
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             onEdit(widget);
           }}
-          className="flex h-5 w-5 items-center justify-center rounded-full text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+          className={GAME_WIDGET_ICON_BUTTON_CLASS}
           title={`Edit ${widget.label}`}
         >
           <Pencil size={10} />
         </button>
         <PanelLockButton locked={locked} onToggle={toggleLocked} size={10} />
-        <span className="text-[0.5rem] text-white/30">{collapsed ? "+" : "-"}</span>
+        <span className={cn("text-[0.5rem]", GAME_WIDGET_MUTED_CLASS)}>{collapsed ? "+" : "-"}</span>
       </div>
 
       {/* Body */}
       {!collapsed && (
-        <div className="border-t px-2.5 py-2" style={{ borderColor: `${accent}15` }}>
+        <div className={cn(GAME_WIDGET_BODY_DIVIDER_CLASS, "px-2.5 py-2")}>
           <WidgetBody widget={widget} />
         </div>
       )}
@@ -469,7 +475,7 @@ function WidgetBody({ widget }: { widget: HudWidget }) {
     case "timer":
       return <TimerWidget widget={widget} />;
     default:
-      return <p className="text-[0.625rem] text-white/40">Unknown widget type</p>;
+      return <p className={cn("text-[0.625rem]", GAME_WIDGET_MUTED_CLASS)}>Unknown widget type</p>;
   }
 }
 
@@ -945,10 +951,10 @@ function ProgressBarWidget({ widget }: { widget: HudWidget }) {
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-[0.5625rem]">
-        <span className="text-white/60">{value}</span>
-        <span className="text-white/30">/ {max}</span>
+        <span className="text-[var(--marinara-chat-chrome-panel-text)]">{value}</span>
+        <span className={GAME_WIDGET_MUTED_CLASS}>/ {max}</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+      <div className={cn("h-2 overflow-hidden rounded-full", GAME_WIDGET_TRACK_CLASS)}>
         <div
           className={cn("h-full rounded-full transition-all duration-700", isDanger && "animate-pulse")}
           style={{
@@ -978,7 +984,7 @@ function GaugeWidget({ widget }: { widget: HudWidget }) {
       <div className="relative h-12 w-24 overflow-hidden">
         {/* Track */}
         <div
-          className="absolute inset-0 rounded-t-full border-4 border-b-0 border-white/10"
+          className="absolute inset-0 rounded-t-full border-4 border-b-0 border-[var(--marinara-chat-chrome-panel-divider)]"
           style={{ borderTopColor: `${accent}20` }}
         />
         {/* Fill */}
@@ -991,7 +997,14 @@ function GaugeWidget({ widget }: { widget: HudWidget }) {
           }}
         />
       </div>
-      <span className={cn("mt-0.5 text-sm font-bold", isDanger ? "text-red-400" : "text-white/80")}>{value}</span>
+      <span
+        className={cn(
+          "mt-0.5 text-sm font-bold",
+          isDanger ? "text-red-400" : "text-[var(--marinara-chat-chrome-panel-title)]",
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -1013,7 +1026,7 @@ function RelationshipMeterWidget({ widget }: { widget: HudWidget }) {
           {currentMilestone.label}
         </p>
       )}
-      <div className="relative h-2 overflow-hidden rounded-full bg-white/10">
+      <div className={cn("relative h-2 overflow-hidden rounded-full", GAME_WIDGET_TRACK_CLASS)}>
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{
@@ -1025,13 +1038,13 @@ function RelationshipMeterWidget({ widget }: { widget: HudWidget }) {
         {milestones.map((m, i) => (
           <div
             key={`${m.at}-${i}`}
-            className="absolute top-0 h-full w-0.5 bg-white/20"
+            className="absolute top-0 h-full w-0.5 bg-[var(--marinara-chat-chrome-panel-divider)]"
             style={{ left: `${(m.at / Math.max(1, max)) * 100}%` }}
             title={m.label}
           />
         ))}
       </div>
-      <div className="mt-1 flex items-center justify-between text-[0.5rem] text-white/30">
+      <div className={cn("mt-1 flex items-center justify-between text-[0.5rem]", GAME_WIDGET_MUTED_CLASS)}>
         <span>0</span>
         <span>{max}</span>
       </div>
@@ -1061,7 +1074,7 @@ function StatBlockWidget({ widget }: { widget: HudWidget }) {
     <div className="grid grid-cols-2 gap-x-3 gap-y-1">
       {stats.map((s, i) => (
         <div key={s.name ?? i} className="flex items-center justify-between text-[0.5625rem]">
-          <span className="text-white/50">{s.name}</span>
+          <span className={GAME_WIDGET_MUTED_CLASS}>{s.name}</span>
           <span className="font-mono font-bold" style={{ color: accent }}>
             {s.value}
           </span>
@@ -1078,12 +1091,12 @@ function ListWidget({ widget }: { widget: HudWidget }) {
   return (
     <div className="space-y-0.5">
       {items.length === 0 ? (
-        <p className="text-[0.5625rem] italic text-white/30">Empty</p>
+        <p className={cn("text-[0.5625rem] italic", GAME_WIDGET_MUTED_CLASS)}>Empty</p>
       ) : (
         items.slice(0, 8).map((item, i) => (
           <div key={i} className="flex items-center gap-1.5 text-[0.5625rem]">
-            <span className="text-white/20">*</span>
-            <span className="text-white/70">{item}</span>
+            <span className="text-[var(--marinara-chat-chrome-panel-muted)]/55">*</span>
+            <span className="text-[var(--marinara-chat-chrome-panel-text)]">{item}</span>
           </div>
         ))
       )}
@@ -1109,7 +1122,9 @@ function InventoryGridWidget({ widget }: { widget: HudWidget }) {
             onClick={() => setActiveCategory(null)}
             className={cn(
               "shrink-0 rounded px-1.5 py-0.5 text-[0.5rem] transition-colors",
-              !activeCategory ? "bg-white/15 text-white/80" : "text-white/40 hover:text-white/60",
+              !activeCategory
+                ? "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]"
+                : "text-[var(--marinara-chat-chrome-panel-muted)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]",
             )}
           >
             All
@@ -1120,7 +1135,9 @@ function InventoryGridWidget({ widget }: { widget: HudWidget }) {
               onClick={() => setActiveCategory(cat)}
               className={cn(
                 "shrink-0 rounded px-1.5 py-0.5 text-[0.5rem] capitalize transition-colors",
-                activeCategory === cat ? "bg-white/15 text-white/80" : "text-white/40 hover:text-white/60",
+                activeCategory === cat
+                  ? "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]"
+                  : "text-[var(--marinara-chat-chrome-panel-muted)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]",
               )}
             >
               {cat}
@@ -1138,13 +1155,13 @@ function InventoryGridWidget({ widget }: { widget: HudWidget }) {
               key={i}
               className={cn(
                 "flex aspect-square items-center justify-center rounded border text-[0.5rem]",
-                item ? "border-white/15 bg-white/5" : "border-white/5 bg-white/[0.02]",
+                item ? GAME_WIDGET_TILE_CLASS : "border-[var(--marinara-chat-chrome-panel-divider)]/45 bg-transparent",
               )}
               title={item?.name}
             >
               {item ? (
                 <div className="flex w-full flex-col items-center overflow-hidden px-0.5 text-center">
-                  <span className="w-full whitespace-normal break-words text-white/70 [overflow-wrap:anywhere]">
+                  <span className="w-full whitespace-normal break-words text-[var(--marinara-chat-chrome-panel-text)] [overflow-wrap:anywhere]">
                     {item.name}
                   </span>
                   {item.quantity && item.quantity > 1 && (

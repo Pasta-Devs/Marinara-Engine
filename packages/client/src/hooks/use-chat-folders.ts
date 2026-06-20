@@ -15,6 +15,7 @@ export function useChatFolders() {
   return useQuery({
     queryKey: folderKeys.list(),
     queryFn: () => api.get<ChatFolder[]>("/chat-folders"),
+    placeholderData: (previousData) => previousData,
     staleTime: 2 * 60_000,
   });
 }

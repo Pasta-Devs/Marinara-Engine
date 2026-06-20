@@ -11,6 +11,7 @@ import {
   updatePromptGroupSchema,
   createChoiceBlockSchema,
   updateChoiceBlockSchema,
+  createFolderEntry,
   stripMacroComments,
   type LorebookEntryTimingState,
 } from "@marinara-engine/shared";
@@ -23,16 +24,36 @@ import { createCharactersStorage } from "../services/storage/characters.storage.
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import AdmZip from "adm-zip";
 
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
-}
-
 function cardPromptText(value: unknown): string {
   return typeof value === "string" ? stripMacroComments(value).trim() : "";
+}
+
+function safeAsciiDownloadName(value: string): string {
+  const cleaned = value
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/["\\/:*?<>|]+/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return cleaned || "preset";
+}
+
+async function buildPresetExportEnvelope(storage: ReturnType<typeof createPromptsStorage>, id: string) {
+  const preset = await storage.getById(id);
+  if (!preset) return null;
+  const [sections, groups, choiceBlocks] = await Promise.all([
+    storage.listSections(id),
+    storage.listGroups(id),
+    storage.listChoiceBlocksForPreset(id),
+  ]);
+  const envelope: ExportEnvelope = {
+    type: "marinara_preset",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: { preset, sections, groups, choiceBlocks },
+  };
+  return { preset, envelope };
 }
 
 export async function promptsRoutes(app: FastifyInstance) {
@@ -106,25 +127,16 @@ export async function promptsRoutes(app: FastifyInstance) {
   // ── Export ──
 
   app.get<{ Params: { id: string } }>("/:id/export", async (req, reply) => {
-    const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Preset not found" });
-    const [sections, groups, choiceBlocks] = await Promise.all([
-      storage.listSections(req.params.id),
-      storage.listGroups(req.params.id),
-      storage.listChoiceBlocksForPreset(req.params.id),
-    ]);
-    const envelope: ExportEnvelope = {
-      type: "marinara_preset",
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data: { preset, sections, groups, choiceBlocks },
-    };
+    const result = await buildPresetExportEnvelope(storage, req.params.id);
+    if (!result) return reply.status(404).send({ error: "Preset not found" });
+    const originalFilename = `${result.preset.name || "preset"}.marinara.json`;
+    const fallbackFilename = `${safeAsciiDownloadName(result.preset.name || "preset")}.marinara.json`;
     return reply
       .header(
         "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(preset.name || "preset")}.marinara.json"`,
+        `attachment; filename="${fallbackFilename}"; filename*=UTF-8''${encodeURIComponent(originalFilename)}`,
       )
-      .send(envelope);
+      .send(result.envelope);
   });
 
   app.post("/export-bulk", async (req, reply) => {
@@ -136,23 +148,16 @@ export async function promptsRoutes(app: FastifyInstance) {
     const zip = new AdmZip();
     let exportedCount = 0;
     for (const id of ids) {
-      const preset = await storage.getById(id);
-      if (!preset) continue;
-      const [sections, groups, choiceBlocks] = await Promise.all([
-        storage.listSections(id),
-        storage.listGroups(id),
-        storage.listChoiceBlocksForPreset(id),
-      ]);
-      const envelope: ExportEnvelope = {
-        type: "marinara_preset",
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        data: { preset, sections, groups, choiceBlocks },
-      };
-      zip.addFile(
-        `${toSafeExportName(preset.name || "preset", `preset-${exportedCount + 1}`)}.marinara.json`,
-        Buffer.from(JSON.stringify(envelope, null, 2), "utf-8"),
-      );
+      const result = await buildPresetExportEnvelope(storage, id);
+      if (!result) continue;
+      const entry = createFolderEntry({
+        folderName: "Presets",
+        itemName: result.preset.name || `preset-${exportedCount + 1}`,
+        itemKind: "marinara.preset",
+        config: result.envelope,
+        fallbackName: `preset-${exportedCount + 1}`,
+      });
+      zip.addFile(entry.path, Buffer.from(JSON.stringify(entry.manifest, null, 2), "utf-8"));
       exportedCount++;
     }
 

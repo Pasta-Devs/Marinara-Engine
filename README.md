@@ -101,7 +101,7 @@
 
 ## Latest Release
 
-Current stable release: **[v1.6.1](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v1.6.1)**.
+Current stable release: **[v2.0.0](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.0.0)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page. If you download an Android APK from a release, it is an optional WebView shell and still requires Marinara Engine to be running through Termux on the same Android device.
 
@@ -148,7 +148,7 @@ Character expression sprites with automatic emotion switching, custom scene back
 
 ### AI Agent System
 
-25+ built-in agents that run alongside your chat — world state tracking, quest management, combat, expression detection, background selection, narrative direction, prose analysis, Spotify DJ, CYOA choices, and more. All disabled by default; enable only what you want, or create custom agents.
+25+ built-in agents that run alongside your chat — world state tracking, quest management, combat, expression detection, background selection, narrative direction, prose analysis, Music DJ, CYOA choices, and more. All disabled by default; enable only what you want, or create custom agents.
 
 ### Prompt Engineering
 
@@ -170,6 +170,7 @@ Export individual chats or bulk transcript zips as JSONL or plain text. Fully lo
 | ---------------------------------------------------- | --------------------------------------------------------------- |
 | [docs/INSTALLATION.md](docs/INSTALLATION.md)         | Installation guide index (all platforms)                        |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md)       | Environment variables and `.env` reference                      |
+| [docs/IMAGE_GENERATION.md](docs/IMAGE_GENERATION.md) | Image provider setup, style profiles, and prompt cleanup        |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)   | Common issues and fixes                                         |
 | [docs/FAQ.md](docs/FAQ.md)                           | Frequently asked questions (LAN access, etc.)                   |
 | [docs/MACROS.md](docs/MACROS.md)                     | Prompt macro syntax, including weighted random choices          |

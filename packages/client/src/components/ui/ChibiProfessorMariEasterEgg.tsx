@@ -29,7 +29,7 @@ function showChibiProfessorMariToast() {
   rememberChibiProfessorMari();
   toast.custom(
     (toastId) => (
-      <div className="relative flex max-w-[360px] gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 pr-9 text-[var(--foreground)] shadow-lg">
+      <div className="relative flex max-w-[360px] gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 pr-9 text-[var(--foreground)] shadow-lg ring-1 ring-[var(--border)]/70">
         <button
           type="button"
           aria-label="Dismiss Professor Mari toast"
@@ -57,7 +57,14 @@ function showChibiProfessorMariToast() {
         </div>
       </div>
     ),
-    { duration: CHIBI_PROFESSOR_MARI_TOAST_DURATION_MS },
+    {
+      duration: CHIBI_PROFESSOR_MARI_TOAST_DURATION_MS,
+      style: {
+        background: "var(--card)",
+        border: "1px solid var(--border)",
+        color: "var(--foreground)",
+      },
+    },
   );
 }
 

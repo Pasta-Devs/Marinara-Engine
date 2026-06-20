@@ -9,13 +9,6 @@ export const depthPromptSchema = z.object({
   role: z.enum(["system", "user", "assistant"]).default("system"),
 });
 
-export const altDescriptionSchema = z.object({
-  id: z.string().default(""),
-  label: z.string().default("Extension"),
-  content: z.string().default(""),
-  active: z.boolean().default(true),
-});
-
 export const characterExtensionsSchema = z
   .object({
     talkativeness: z.number().min(0).max(1).default(0.5),
@@ -24,7 +17,6 @@ export const characterExtensionsSchema = z
     depth_prompt: depthPromptSchema.default({}),
     backstory: z.string().default(""),
     appearance: z.string().default(""),
-    altDescriptions: z.array(altDescriptionSchema).default([]),
   })
   .passthrough();
 

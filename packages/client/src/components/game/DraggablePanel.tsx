@@ -105,7 +105,7 @@ export function PanelLockButton({ locked, onToggle, size = 10, className }: Pane
       aria-label={locked ? "Unlock panel" : "Lock panel"}
       aria-pressed={!locked}
       className={cn(
-        "flex shrink-0 items-center justify-center text-white/30 transition-colors hover:text-white/70",
+        "flex shrink-0 items-center justify-center rounded-md text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]",
         className,
       )}
     >

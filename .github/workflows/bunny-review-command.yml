@@ -1,0 +1,112 @@
+name: Bunny Review Command
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  dispatch:
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/bunny-review') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+               github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch trusted Bunny reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+        run: |
+          # Keep this bootstrap deliberately inert: it only authorizes the slash command
+          # and dispatches the trusted reviewer workflow on the PR base ref.
+          # It must not checkout, install, or execute code from the pull request.
+          REVIEW_MODE=auto
+          if [[ "$COMMENT_BODY" =~ ^/bunny-review[[:space:]]+full([[:space:]]|$) ]]; then
+            REVIEW_MODE=full
+          fi
+          TARGET_REF="$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json baseRefName -q .baseRefName)"
+          PR_IS_DRAFT="$(gh pr view "$PR_NUM" --repo "${{ github.repository }}" --json isDraft -q .isDraft)"
+          if [ "$TARGET_REF" != "refactor" ] && [ "$TARGET_REF" != "main" ] && [ "$TARGET_REF" != "staging" ]; then
+            echo "::error::Unsupported Bunny review base ref: $TARGET_REF"
+            exit 1
+          fi
+          gh api "repos/${{ github.repository }}/contents/.github/workflows/bunny-review.yml?ref=$TARGET_REF" --silent >/dev/null || {
+            echo "::error::Bunny trusted workflow not found on base ref $TARGET_REF"
+            exit 1
+          }
+
+          COMMENT_DISPLAY="$(printf '%s' "$COMMENT_BODY" | tr '\r\n' '  ' | sed -e 's/\\/\\\\/g' -e 's/`/\\`/g')"
+          if [ "${#COMMENT_DISPLAY}" -gt 180 ]; then
+            COMMENT_DISPLAY="${COMMENT_DISPLAY:0:177}..."
+          fi
+
+          status_body() {
+            local title="$1"
+            local detail="$2"
+            printf '%s\n' \
+              '<!-- bunny-review:command-status -->' \
+              "## Bunny Review $title" \
+              '' \
+              "Command: \`$COMMENT_DISPLAY\`" \
+              "Mode: \`$REVIEW_MODE\`" \
+              "Requested by: \`$COMMENT_AUTHOR\`" \
+              "Target ref: \`$TARGET_REF\`" \
+              "Status: $detail"
+          }
+
+          upsert_status() {
+            local title="$1"
+            local detail="$2"
+            local body
+            body="$(status_body "$title" "$detail")"
+            local comment_id
+            comment_id="$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments?per_page=100" \
+              --paginate \
+              --jq '.[] | select(.body | contains("<!-- bunny-review:command-status -->")) | .id' \
+              | tail -n 1)"
+            if [ -n "$comment_id" ]; then
+              gh api \
+                --method PATCH \
+                "repos/${{ github.repository }}/issues/comments/$comment_id" \
+                -f body="$body" >/dev/null
+            else
+              gh api \
+                --method POST \
+                "repos/${{ github.repository }}/issues/$PR_NUM/comments" \
+                -f body="$body" >/dev/null
+            fi
+          }
+
+          upsert_status "Queued" "Command accepted; dispatching the trusted reviewer workflow." \
+            || echo "::warning::Unable to write Bunny command status before dispatch."
+
+          set +e
+          DISPATCH_OUTPUT="$(gh workflow run bunny-review.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$TARGET_REF" \
+            -f pr_number="$PR_NUM" \
+            -f comment_body="$COMMENT_BODY" \
+            -f review_mode="$REVIEW_MODE" \
+            -f requested_by="$COMMENT_AUTHOR" \
+            -f is_draft="$PR_IS_DRAFT" 2>&1)"
+          DISPATCH_RC=$?
+          set -e
+
+          if [ "$DISPATCH_RC" -ne 0 ]; then
+            upsert_status "Failed To Dispatch" "GitHub rejected the reviewer dispatch. Inspect the Bunny Review Command run log." \
+              || echo "::warning::Unable to write Bunny command dispatch failure status."
+            echo "$DISPATCH_OUTPUT"
+            exit "$DISPATCH_RC"
+          fi
+
+          upsert_status "Dispatched" "Reviewer workflow dispatched; waiting for Bunny Review to post results." \
+            || echo "::warning::Unable to write Bunny command dispatched status."

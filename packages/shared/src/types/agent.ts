@@ -2,6 +2,11 @@
 // Agent System Types
 // ──────────────────────────────────────────────
 
+import { BUILT_IN_AGENT_MANIFESTS } from "../features/agents/agent-registry.js";
+import type { AgentToolConfig, ToolDefinition } from "../features/function-calls/tool-definitions.js";
+import type { ChatMode } from "./chat.js";
+import type { WrapFormat } from "./prompt.js";
+
 /** When in the generation pipeline an agent runs. */
 export type AgentPhase =
   /** Before the main generation (can modify prompt context) */
@@ -10,6 +15,21 @@ export type AgentPhase =
   | "parallel"
   /** After the main response is complete (can modify it) */
   | "post_processing";
+
+const AGENT_PHASE_VALUES = new Set<AgentPhase>(["pre_generation", "parallel", "post_processing"]);
+
+export function normalizeAgentPhaseValue(value: unknown, fallback: AgentPhase = "post_processing"): AgentPhase {
+  return typeof value === "string" && AGENT_PHASE_VALUES.has(value as AgentPhase) ? (value as AgentPhase) : fallback;
+}
+
+export function normalizeAgentPhaseForType(
+  agentType: string,
+  configuredPhase: unknown,
+  fallback: AgentPhase = "post_processing",
+): AgentPhase {
+  if (agentType === "prose-guardian" || agentType === "continuity") return "post_processing";
+  return normalizeAgentPhaseValue(configuredPhase, fallback);
+}
 
 /** The result type an agent can produce. */
 export type AgentResultType =
@@ -24,20 +44,21 @@ export type AgentResultType =
   | "director_event"
   | "lorebook_update"
   | "character_card_update"
-  | "prompt_review"
   | "background_change"
   | "character_tracker_update"
   | "persona_stats_update"
   | "custom_tracker_update"
-  | "chat_summary"
   | "spotify_control"
+  | "youtube_control"
   | "haptic_command"
   | "cyoa_choices"
   | "secret_plot"
   | "game_master_narration"
   | "party_action"
   | "game_map_update"
-  | "game_state_transition";
+  | "game_state_transition"
+  | "prompt_patch"
+  | "frontend_theme_update";
 
 /** Configuration for a single agent. */
 export interface AgentConfig {
@@ -65,6 +86,158 @@ export interface AgentConfig {
   updatedAt: string;
 }
 
+export const DEFAULT_AGENT_AUTHOR = "Pasta Devs";
+export const DEFAULT_AGENT_PROMPT_TEMPLATE_ID = "default";
+
+/** A named prompt variant that can be selected per chat for an agent. */
+export interface AgentPromptTemplateOption {
+  id: string;
+  name: string;
+  promptTemplate: string;
+  description?: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+export function parseAgentSettingsRecord(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return isRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return isRecord(value) ? value : {};
+}
+
+export const AGENT_CONFIG_DELETED_SETTING_KEY = "deletedFromLibrary";
+
+export function isAgentConfigDeleted(settings: unknown): boolean {
+  return parseAgentSettingsRecord(settings)[AGENT_CONFIG_DELETED_SETTING_KEY] === true;
+}
+
+export function markAgentConfigDeletedSettings(settings: unknown): Record<string, unknown> {
+  return {
+    ...parseAgentSettingsRecord(settings),
+    [AGENT_CONFIG_DELETED_SETTING_KEY]: true,
+  };
+}
+
+function normalizePromptTemplateId(value: unknown, fallback: string): string {
+  const raw = typeof value === "string" ? value.trim() : "";
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+  return normalized || fallback;
+}
+
+function normalizePromptTemplateName(value: unknown, fallback: string): string {
+  const raw = typeof value === "string" ? value.trim() : "";
+  return raw || fallback;
+}
+
+function getUniquePromptTemplateId(id: string, usedIds: Set<string>): string {
+  let candidate = id;
+  let attempt = 2;
+  while (usedIds.has(candidate) || candidate === DEFAULT_AGENT_PROMPT_TEMPLATE_ID) {
+    candidate = `${id}-${attempt}`;
+    attempt++;
+  }
+  usedIds.add(candidate);
+  return candidate;
+}
+
+export function normalizeAgentPromptTemplateOptions(value: unknown): AgentPromptTemplateOption[] {
+  const entries = Array.isArray(value)
+    ? value
+    : isRecord(value)
+      ? Object.entries(value).map(([id, entry]) => (isRecord(entry) ? { ...entry, id } : entry))
+      : [];
+  const usedIds = new Set<string>();
+  const options: AgentPromptTemplateOption[] = [];
+
+  for (const [index, entry] of entries.entries()) {
+    if (!isRecord(entry)) continue;
+    const promptTemplate =
+      typeof entry.promptTemplate === "string"
+        ? entry.promptTemplate
+        : typeof entry.prompt === "string"
+          ? entry.prompt
+          : "";
+    if (!promptTemplate.trim()) continue;
+    const name = normalizePromptTemplateName(entry.name ?? entry.label, `Option ${index + 1}`);
+    const id = getUniquePromptTemplateId(normalizePromptTemplateId(entry.id, `option-${index + 1}`), usedIds);
+    const description = typeof entry.description === "string" ? entry.description.trim() : "";
+    options.push({
+      id,
+      name,
+      promptTemplate,
+      ...(description ? { description } : {}),
+    });
+  }
+
+  return options;
+}
+
+export function getAgentPromptTemplateOptions(input: {
+  promptTemplate?: string | null;
+  fallbackPromptTemplate?: string | null;
+  settings?: unknown;
+}): AgentPromptTemplateOption[] {
+  const settings = parseAgentSettingsRecord(input.settings);
+  const basePromptTemplate = input.promptTemplate?.trim() ? input.promptTemplate : (input.fallbackPromptTemplate ?? "");
+  const defaultName = normalizePromptTemplateName(settings.defaultPromptTemplateName, "Default");
+  const defaultDescription =
+    typeof settings.defaultPromptTemplateDescription === "string"
+      ? settings.defaultPromptTemplateDescription.trim()
+      : "";
+  return [
+    {
+      id: DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
+      name: defaultName,
+      promptTemplate: basePromptTemplate,
+      ...(defaultDescription ? { description: defaultDescription } : {}),
+    },
+    ...normalizeAgentPromptTemplateOptions(settings.promptTemplates),
+  ];
+}
+
+export function normalizeAgentPromptTemplateSelectionMap(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+  const selections: Record<string, string> = {};
+  for (const [agentType, promptTemplateId] of Object.entries(value)) {
+    if (typeof promptTemplateId !== "string") continue;
+    const cleanedType = agentType.trim();
+    const cleanedId = normalizePromptTemplateId(promptTemplateId, "");
+    if (!cleanedType || !cleanedId) continue;
+    selections[cleanedType] = cleanedId;
+  }
+  return selections;
+}
+
+export function resolveAgentPromptTemplate(input: {
+  agentType: string;
+  promptTemplate?: string | null;
+  fallbackPromptTemplate?: string | null;
+  settings?: unknown;
+  selectedPromptTemplateId?: string | null;
+}): string {
+  const selectedId = normalizePromptTemplateId(input.selectedPromptTemplateId, "");
+  if (!selectedId || selectedId === DEFAULT_AGENT_PROMPT_TEMPLATE_ID) {
+    return input.promptTemplate?.trim() ? input.promptTemplate : (input.fallbackPromptTemplate ?? "");
+  }
+  const option = getAgentPromptTemplateOptions(input).find((entry) => entry.id === selectedId);
+  return (
+    option?.promptTemplate ??
+    (input.promptTemplate?.trim() ? input.promptTemplate : (input.fallbackPromptTemplate ?? ""))
+  );
+}
+
 /** Result produced by an agent after execution. */
 export interface AgentResult {
   agentId: string;
@@ -81,16 +254,69 @@ export interface AgentResult {
   error: string | null;
 }
 
+export type AgentWriteApprovalKind = "lorebook_update" | "summary_update";
+
+export interface AgentWriteApprovalProposal {
+  kind: AgentWriteApprovalKind;
+  chatId: string;
+  agentType: string | null;
+  agentName: string;
+  title: string;
+  text: string;
+  payload?: Record<string, unknown>;
+  canRegenerate?: boolean;
+  createdAt?: string;
+}
+
+export interface AgentWriteApprovalEnvelope {
+  requiresApproval: true;
+  approval: AgentWriteApprovalProposal;
+}
+
+export interface AgentCallDebugMessage {
+  role: string;
+  content: string;
+  name?: string;
+}
+
+export interface AgentCallDebugEvent {
+  stage: "request" | "response" | "retry_request" | "retry_response" | "error";
+  agentId: string;
+  agentType: string;
+  agentName: string;
+  phase: string;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  messageCount: number;
+  messages?: AgentCallDebugMessage[];
+  tools?: string[];
+  round?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  reasoningTokens?: number;
+  totalTokens?: number;
+  durationMs?: number;
+  finishReason?: string | null;
+  response?: string;
+  responsePreview?: string;
+  error?: string;
+  batchedAgentTypes?: string[];
+}
+
 /** Shared context passed to every agent. */
 export interface AgentContext {
   chatId: string;
   chatMode: string;
+  /** Prompt wrapper format selected for this generation. */
+  wrapFormat?: WrapFormat;
   /** Recent chat history (last N messages) */
   recentMessages: Array<{
+    id?: string;
     role: string;
     content: string;
     characterId?: string;
-    /** Committed game state snapshot for this message (if any). */
+    /** Tracker state snapshot for this message (if any). */
     gameState?: import("./game-state.js").GameState | null;
   }>;
   /** The main response text (available for post-processing agents) */
@@ -146,6 +372,8 @@ export interface AgentContext {
   parallelResults?: AgentResult[];
   /** Whether internal agent LLM calls should use transport streaming. */
   streaming?: boolean;
+  /** Emits full agent call diagnostics for the client debug console. */
+  agentDebug?: (event: AgentCallDebugEvent) => void;
   /** Abort signal — when triggered, agent execution should stop. Typed as `any` to avoid DOM/Node lib dependency. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signal?: any;
@@ -163,25 +391,34 @@ export const BUILT_IN_AGENT_IDS = {
   ILLUSTRATOR: "illustrator",
   LOREBOOK_KEEPER: "lorebook-keeper",
   CARD_EVOLUTION_AUDITOR: "card-evolution-auditor",
-  PROMPT_REVIEWER: "prompt-reviewer",
   COMBAT: "combat",
   BACKGROUND: "background",
   CHARACTER_TRACKER: "character-tracker",
   PERSONA_STATS: "persona-stats",
   HTML: "html",
-  CHAT_SUMMARY: "chat-summary",
   SPOTIFY: "spotify",
-  EDITOR: "editor",
   KNOWLEDGE_RETRIEVAL: "knowledge-retrieval",
   KNOWLEDGE_ROUTER: "knowledge-router",
-  SCHEDULE_PLANNER: "schedule-planner",
-  RESPONSE_ORCHESTRATOR: "response-orchestrator",
-  AUTONOMOUS_MESSENGER: "autonomous-messenger",
   CUSTOM_TRACKER: "custom-tracker",
   HAPTIC: "haptic",
   CYOA: "cyoa",
-  SECRET_PLOT_DRIVER: "secret-plot-driver",
 } as const;
+
+export const RETIRED_BUILT_IN_AGENT_IDS = [
+  "prompt-reviewer",
+  "response-orchestrator",
+  "schedule-planner",
+  "chat-summary",
+  "autonomous-messenger",
+  "youtube",
+  "secret-plot-driver",
+] as const;
+
+const RETIRED_BUILT_IN_AGENT_ID_SET = new Set<string>(RETIRED_BUILT_IN_AGENT_IDS);
+
+export function isRetiredBuiltInAgentId(agentId: string): boolean {
+  return RETIRED_BUILT_IN_AGENT_ID_SET.has(agentId);
+}
 
 export type AgentCategory = "writer" | "tracker" | "misc";
 
@@ -189,348 +426,178 @@ export interface BuiltInAgentMeta {
   id: string;
   name: string;
   description: string;
+  author: string;
   phase: AgentPhase;
   enabledByDefault: boolean;
   /** Whether "Add as Prompt Section" should default to on when first created */
   defaultInjectAsSection?: boolean;
   category: AgentCategory;
+  /** Hide this built-in from public agent library and chat agent pickers. */
+  libraryHidden?: boolean;
+  /** Keep legacy configs recognized, but never run this built-in in generation pipelines. */
+  runtimeDisabled?: boolean;
+  modeAllowlist?: readonly ChatMode[];
+  promptTemplates?: AgentPromptTemplateOption[];
 }
 
-export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [
-  // ── Writer Agents ──
-  {
-    id: "prose-guardian",
-    name: "Prose Guardian",
-    description:
-      "Analyzes recent messages for repetition, rhetorical patterns, and sentence structure — then generates strict writing directives to force variety and freshness.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    category: "writer",
-  },
-  {
-    id: "continuity",
-    name: "Continuity Checker",
-    description: "Detects contradictions with established lore and facts.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "writer",
-  },
-  {
-    id: "director",
-    name: "Narrative Director",
-    description: "Introduces events, NPCs, and plot beats to keep the story moving.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    defaultInjectAsSection: true,
-    category: "writer",
-  },
-  {
-    id: "echo-chamber",
-    name: "Echo Chamber",
-    description: "Simulates a live streaming-style chat reacting to your roleplay in real time.",
-    phase: "parallel",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "prompt-reviewer",
-    name: "Prompt Reviewer",
-    description:
-      "Analyses your prompt preset for clarity, redundancy, and formatting issues, and suggests improvements.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    category: "writer",
-  },
+export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = BUILT_IN_AGENT_MANIFESTS.map((agent) => ({
+  id: agent.id,
+  name: agent.name,
+  description: agent.description,
+  author: agent.author ?? DEFAULT_AGENT_AUTHOR,
+  phase: normalizeAgentPhaseForType(agent.id, agent.phase),
+  enabledByDefault: agent.enabledByDefault,
+  ...(agent.defaultInjectAsSection !== undefined ? { defaultInjectAsSection: agent.defaultInjectAsSection } : {}),
+  category: agent.category,
+  ...(agent.libraryHidden !== undefined ? { libraryHidden: agent.libraryHidden } : {}),
+  ...(agent.runtimeDisabled !== undefined ? { runtimeDisabled: agent.runtimeDisabled } : {}),
+  ...(agent.modeAllowlist !== undefined ? { modeAllowlist: [...agent.modeAllowlist] } : {}),
+  ...(agent.promptTemplates !== undefined ? { promptTemplates: [...agent.promptTemplates] } : {}),
+}));
 
-  // ── Tracker Agents ──
-  {
-    id: "world-state",
-    name: "World State",
-    description: "Tracks date/time, weather, location, and present characters automatically.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    defaultInjectAsSection: true,
-    category: "tracker",
-  },
-  {
-    id: "expression",
-    name: "Expression Engine",
-    description: "Detects character emotions and selects VN sprites/expressions.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "tracker",
-  },
-  {
-    id: "quest",
-    name: "Quest Tracker",
-    description: "Manages quest objectives, completion states, and rewards.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    defaultInjectAsSection: true,
-    category: "tracker",
-  },
-  {
-    id: "background",
-    name: "Background",
-    description:
-      "Selects the most fitting background image for the current scene from your uploaded backgrounds, with optional image generation for missing locations.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "tracker",
-  },
-  {
-    id: "character-tracker",
-    name: "Character Tracker",
-    description:
-      "Tracks which characters are present in the scene, their mood, actions, appearance, outfit, thoughts, and per-character stats (HP, etc.).",
-    phase: "post_processing",
-    enabledByDefault: false,
-    defaultInjectAsSection: true,
-    category: "tracker",
-  },
-  {
-    id: "persona-stats",
-    name: "Persona Stats",
-    description:
-      "Tracks the player persona's status bars — Satiety, Energy, Hygiene, and other custom stats — with realistic changes based on narrative events.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    defaultInjectAsSection: true,
-    category: "tracker",
-  },
-  {
-    id: "custom-tracker",
-    name: "Custom Tracker",
-    description:
-      "Tracks user-defined fields (currencies, counters, flags, or any custom data). Add any fields you want the model to keep track of during the roleplay.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    defaultInjectAsSection: true,
-    category: "tracker",
-  },
-
-  // ── Misc Agents ──
-  {
-    id: "illustrator",
-    name: "Illustrator",
-    description: "Generates image prompts for key scenes (requires image generation API).",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "lorebook-keeper",
-    name: "Lorebook Keeper",
-    description:
-      "Automatically creates and updates lorebook entries based on story events, new characters, and world changes.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "card-evolution-auditor",
-    name: "Card Evolution Auditor",
-    description:
-      "Detects when character card fields (description, personality, scenario, etc.) have become outdated based on roleplay events and proposes edits for user approval.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "tracker",
-  },
-  {
-    id: "combat",
-    name: "Combat",
-    description: "Manages combat encounters, initiative, HP tracking, and turn-based actions.",
-    phase: "parallel",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "html",
-    name: "Immersive HTML",
-    description:
-      "Injects a prompt directive that encourages the model to include inline HTML, CSS, and JS for immersive in-world visual elements.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "chat-summary",
-    name: "Automated Chat Summary",
-    description:
-      "Automatically generates a rolling summary of the conversation every X user messages. Add to a chat for hands-free summary updates.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "spotify",
-    name: "Spotify DJ",
-    description:
-      "Analyzes the narrative mood and controls Spotify playback — searching tracks, adjusting volume, and cueing music to match the scene. Requires a Spotify Premium account and API credentials.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "editor",
-    name: "Consistency Editor",
-    description:
-      "Reads all agent data (tracker states, prose rules, continuity notes) and edits the model's response to fix factual errors, outfit/stat contradictions, repetition, and other inconsistencies.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "writer",
-  },
-  {
-    id: "knowledge-retrieval",
-    name: "Knowledge Retrieval",
-    description:
-      "Scans specified lorebooks for information relevant to the current conversation, summarizes the key data, and injects it into the prompt — a lightweight RAG pipeline without vector databases.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    category: "writer",
-  },
-  {
-    id: "knowledge-router",
-    name: "Knowledge Router",
-    description:
-      "Lower-cost alternative to Knowledge Retrieval. Reads a short catalog of lorebook entries (descriptions or content snippets), picks which ones are relevant to the current scene, and injects them verbatim — no per-entry summarization passes. Best for large lorebooks where you've written entry descriptions.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    category: "writer",
-  },
-
-  // ── Conversation Agents ──
-  {
-    id: "schedule-planner",
-    name: "Schedule Planner",
-    description:
-      "Generates a realistic weekly schedule for each character in Conversation mode based on their personality and description. Updates automatically each week.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    category: "tracker",
-  },
-  {
-    id: "response-orchestrator",
-    name: "Response Orchestrator",
-    description:
-      "For group Conversation chats — decides which character(s) should respond to a message based on context, personality, and relevance.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "autonomous-messenger",
-    name: "Autonomous Messenger",
-    description:
-      "Allows characters to send messages unprompted when the user has been inactive, based on personality traits like talkativeness and the character's current schedule.",
-    phase: "parallel",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "haptic",
-    name: "Love Toys Control",
-    description:
-      "Analyzes narrative content and controls connected intimate toys in real time. Requires Intiface Central running locally — connect your toy there first, then enable this agent.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "cyoa",
-    name: "CYOA Choices",
-    description:
-      "Generates interactive Choose Your Own Adventure choices after each assistant message. Click a choice to send it as your response. Roleplay mode only.",
-    phase: "post_processing",
-    enabledByDefault: false,
-    category: "misc",
-  },
-  {
-    id: "secret-plot-driver",
-    name: "Secret Plot Driver",
-    description:
-      "Secretly develops an overarching story arc and scene directions behind the scenes. The user never sees the actual plot — only a hint that something is unfolding. Creates long-term narrative structure with protagonist growth, mysteries, and pacing control.",
-    phase: "pre_generation",
-    enabledByDefault: false,
-    defaultInjectAsSection: true,
-    category: "writer",
-  },
-];
-
-export const BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS: Readonly<Record<string, number>> = {
-  director: 5,
-  illustrator: 5,
-  "lorebook-keeper": 8,
-  "card-evolution-auditor": 8,
-  "chat-summary": 5,
-};
+export const BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS: Readonly<Record<string, number>> = Object.fromEntries(
+  BUILT_IN_AGENT_MANIFESTS.flatMap((agent) => (agent.runInterval === undefined ? [] : [[agent.id, agent.runInterval]])),
+);
 
 export const DEFAULT_AGENT_CONTEXT_SIZE = 5;
 export const DEFAULT_AGENT_MAX_TOKENS = 4096;
 export const MIN_AGENT_MAX_TOKENS = 128;
 export const MAX_AGENT_MAX_TOKENS = 32768;
 
+export const CUSTOM_AGENT_CAPABILITY_IDS = [
+  "create_lorebooks",
+  "edit_lorebooks",
+  "edit_messages",
+  "edit_trackers",
+  "change_frontend_styling",
+  "trigger_image_generation",
+  "access_vectors",
+  "edit_main_prompt",
+] as const;
+
+export type CustomAgentCapability = (typeof CUSTOM_AGENT_CAPABILITY_IDS)[number];
+export type CustomAgentCapabilityMap = Partial<Record<CustomAgentCapability, boolean>>;
+
+const CUSTOM_AGENT_CAPABILITY_SET = new Set<string>(CUSTOM_AGENT_CAPABILITY_IDS);
+
+const CUSTOM_AGENT_RESULT_CAPABILITY: Partial<Record<AgentResultType, CustomAgentCapability>> = {
+  text_rewrite: "edit_messages",
+  lorebook_update: "edit_lorebooks",
+  character_tracker_update: "edit_trackers",
+  persona_stats_update: "edit_trackers",
+  custom_tracker_update: "edit_trackers",
+  game_state_update: "edit_trackers",
+  image_prompt: "trigger_image_generation",
+  prompt_patch: "edit_main_prompt",
+  frontend_theme_update: "change_frontend_styling",
+};
+
+function normalizeCapabilityMap(value: unknown): CustomAgentCapabilityMap {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const output: CustomAgentCapabilityMap = {};
+  for (const [key, enabled] of Object.entries(value as Record<string, unknown>)) {
+    if (!CUSTOM_AGENT_CAPABILITY_SET.has(key) || enabled !== true) continue;
+    output[key as CustomAgentCapability] = true;
+  }
+  return output;
+}
+
+export function normalizeCustomAgentCapabilities(
+  settings: Record<string, unknown> | null | undefined,
+): CustomAgentCapabilityMap {
+  const capabilities = normalizeCapabilityMap(settings?.customCapabilities ?? settings?.capabilities);
+  const enabledToolsValue = settings?.enabledTools;
+  const enabledTools = Array.isArray(enabledToolsValue) ? enabledToolsValue : [];
+  const resultType = typeof settings?.resultType === "string" ? settings.resultType : null;
+
+  if (settings?.lorebookWriteEnabled === true || enabledTools.includes("save_lorebook_entry")) {
+    capabilities.edit_lorebooks = true;
+  }
+
+  if (resultType && Object.prototype.hasOwnProperty.call(CUSTOM_AGENT_RESULT_CAPABILITY, resultType)) {
+    const capability = CUSTOM_AGENT_RESULT_CAPABILITY[resultType as AgentResultType];
+    if (capability) capabilities[capability] = true;
+  }
+
+  return capabilities;
+}
+
+export function customAgentHasCapability(
+  settings: Record<string, unknown> | null | undefined,
+  capability: CustomAgentCapability,
+): boolean {
+  return normalizeCustomAgentCapabilities(settings)[capability] === true;
+}
+
+export function getCustomAgentResultCapability(resultType: AgentResultType): CustomAgentCapability | null {
+  return CUSTOM_AGENT_RESULT_CAPABILITY[resultType] ?? null;
+}
+
 export function getDefaultBuiltInAgentSettings(agentType: string): Record<string, unknown> {
-  const builtIn = BUILT_IN_AGENTS.find((agent) => agent.id === agentType);
+  const builtIn = BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === agentType);
   const settings: Record<string, unknown> = {
     maxTokens: DEFAULT_AGENT_MAX_TOKENS,
+    ...(builtIn?.defaultSettings ?? {}),
   };
+
+  if (builtIn) {
+    settings.author = builtIn.author ?? DEFAULT_AGENT_AUTHOR;
+  }
+
+  if (builtIn?.promptTemplates?.length) {
+    settings.promptTemplates = [...builtIn.promptTemplates];
+  }
 
   if (builtIn?.defaultInjectAsSection) {
     settings.injectAsSection = true;
   }
 
-  const runInterval = BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[agentType];
-  if (runInterval !== undefined) {
-    settings.runInterval = runInterval;
-  }
-
-  if (agentType === "knowledge-retrieval" || agentType === "knowledge-router") {
-    settings.useChatActiveLorebooks = true;
+  if (builtIn?.runInterval !== undefined) {
+    settings.runInterval = builtIn.runInterval;
   }
 
   return settings;
 }
 
-/** Recommended default tools for each built-in agent type. */
-export const DEFAULT_AGENT_TOOLS: Record<string, string[]> = {
-  "world-state": ["update_game_state"],
-  "prose-guardian": [],
-  continuity: ["search_lorebook"],
-  expression: ["set_expression"],
-  "echo-chamber": [],
-  director: ["trigger_event"],
-  quest: ["update_game_state"],
-  illustrator: [],
-  "lorebook-keeper": ["search_lorebook"],
-  "card-evolution-auditor": [],
-  "prompt-reviewer": [],
-  combat: ["roll_dice", "update_game_state"],
-  background: [],
-  "character-tracker": ["update_game_state"],
-  "persona-stats": ["update_game_state"],
-  html: [],
-  "chat-summary": [],
-  // Also used server-side to identify Spotify tools that require token refresh.
-  spotify: [
-    "spotify_get_current_playback",
-    "spotify_get_playlists",
-    "spotify_get_playlist_tracks",
-    "spotify_search",
-    "spotify_play",
-    "spotify_set_volume",
-  ],
-  editor: [],
-  "knowledge-retrieval": ["search_lorebook"],
-  "knowledge-router": [],
-  "schedule-planner": [],
-  "response-orchestrator": [],
-  "autonomous-messenger": [],
-  "custom-tracker": ["update_game_state"],
-  haptic: [],
-  cyoa: [],
-  "secret-plot-driver": [],
+const OBSOLETE_BUILT_IN_PROMPT_TEMPLATE_IDS: Record<string, ReadonlySet<string>> = {
+  illustrator: new Set(["illustration", "sketch"]),
 };
+
+export function mergeBuiltInAgentSettings(agentType: string, settings: unknown): Record<string, unknown> {
+  const parsed = parseAgentSettingsRecord(settings);
+  const builtIn = BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === agentType);
+  if (!builtIn) return parsed;
+
+  const defaults = getDefaultBuiltInAgentSettings(agentType);
+  const merged: Record<string, unknown> = {
+    ...defaults,
+    ...parsed,
+  };
+
+  const defaultPromptTemplates = normalizeAgentPromptTemplateOptions(defaults.promptTemplates);
+  const savedPromptTemplates = normalizeAgentPromptTemplateOptions(parsed.promptTemplates);
+  const obsoleteIds = OBSOLETE_BUILT_IN_PROMPT_TEMPLATE_IDS[agentType] ?? new Set<string>();
+  const usedIds = new Set(defaultPromptTemplates.map((entry) => entry.id));
+  const customPromptTemplates = savedPromptTemplates.filter((entry) => {
+    if (obsoleteIds.has(entry.id) || usedIds.has(entry.id)) return false;
+    usedIds.add(entry.id);
+    return true;
+  });
+  const promptTemplates = [...defaultPromptTemplates, ...customPromptTemplates];
+
+  if (promptTemplates.length) {
+    merged.promptTemplates = promptTemplates;
+  } else {
+    delete merged.promptTemplates;
+  }
+
+  return merged;
+}
+
+/** Recommended default tools for each built-in agent type. */
+export const DEFAULT_AGENT_TOOLS: Record<string, string[]> = Object.fromEntries(
+  BUILT_IN_AGENT_MANIFESTS.map((agent) => [agent.id, [...(agent.defaultTools ?? [])]]),
+);
 
 /** Data shape for a lorebook_update agent result. */
 export interface LorebookUpdateResult {
@@ -591,328 +658,3 @@ export interface CharacterCardFieldUpdate {
 export interface CharacterCardUpdateResult {
   updates: CharacterCardFieldUpdate[];
 }
-
-// ──────────────────────────────────────────────
-// Function Calling / Tool Use Types
-// ──────────────────────────────────────────────
-
-/** JSON Schema subset for tool parameter definitions. */
-export interface ToolParameterSchema {
-  type: "object" | "string" | "number" | "boolean" | "array";
-  description?: string;
-  properties?: Record<string, ToolParameterProperty>;
-  required?: string[];
-  items?: ToolParameterProperty;
-}
-
-export interface ToolParameterProperty {
-  type: "string" | "number" | "boolean" | "array" | "object";
-  description?: string;
-  enum?: string[];
-  items?: ToolParameterProperty;
-  default?: unknown;
-}
-
-/** Definition of a tool/function that an agent can call. */
-export interface ToolDefinition {
-  /** Unique tool name (e.g. "get_weather", "roll_dice") */
-  name: string;
-  /** Human-readable description */
-  description: string;
-  /** JSON Schema for the parameters */
-  parameters: ToolParameterSchema;
-}
-
-/** A tool call made by the model during generation. */
-export interface ToolCall {
-  /** Server-assigned ID for tracking */
-  id: string;
-  /** Which tool to call */
-  name: string;
-  /** Parsed arguments */
-  arguments: Record<string, unknown>;
-}
-
-/** Result of executing a tool call. */
-export interface ToolResult {
-  /** Matches the ToolCall id */
-  toolCallId: string;
-  /** Tool name for display */
-  name: string;
-  /** Stringified result */
-  result: string;
-  /** Whether execution succeeded */
-  success: boolean;
-}
-
-/** A user-created custom function tool persisted in DB. */
-export interface CustomTool {
-  id: string;
-  name: string;
-  description: string;
-  parametersSchema: ToolParameterSchema;
-  executionType: "webhook" | "static" | "script";
-  webhookUrl: string | null;
-  staticResult: string | null;
-  scriptBody: string | null;
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** Extended AgentConfig with tool definitions. */
-export interface AgentToolConfig {
-  /** Tools this agent can use */
-  tools: ToolDefinition[];
-  /** How many tool calls are allowed per turn (0 = unlimited) */
-  maxCallsPerTurn: number;
-  /** Whether to allow parallel tool calls */
-  parallelCalls: boolean;
-}
-
-/** Built-in tool definitions available to all agents. */
-export const BUILT_IN_TOOLS: ToolDefinition[] = [
-  {
-    name: "roll_dice",
-    description:
-      "Roll dice using standard notation (e.g. 2d6, 1d20+5). Used for RPG mechanics, skill checks, and random outcomes.",
-    parameters: {
-      type: "object",
-      properties: {
-        notation: { type: "string", description: "Dice notation (e.g. '2d6', '1d20+5', '3d8-2')" },
-        reason: { type: "string", description: "Why the roll is being made (e.g. 'Perception check')" },
-      },
-      required: ["notation"],
-    },
-  },
-  {
-    name: "update_game_state",
-    description: "Update the current game state — character stats, inventory, quest progress, etc.",
-    parameters: {
-      type: "object",
-      properties: {
-        type: {
-          type: "string",
-          description: "Type of update",
-          enum: ["stat_change", "inventory_add", "inventory_remove", "quest_update", "location_change", "time_advance"],
-        },
-        target: { type: "string", description: "Who or what is being updated (character name or 'player')" },
-        key: { type: "string", description: "The specific stat/item/quest being changed" },
-        value: { type: "string", description: "The new value or change amount" },
-        description: { type: "string", description: "Human-readable description of the change" },
-      },
-      required: ["type", "target", "key", "value"],
-    },
-  },
-  {
-    name: "set_expression",
-    description: "Set a character's sprite expression for visual novel display.",
-    parameters: {
-      type: "object",
-      properties: {
-        characterName: { type: "string", description: "Name of the character" },
-        expression: { type: "string", description: "Expression name (e.g. happy, sad, angry, neutral)" },
-      },
-      required: ["characterName", "expression"],
-    },
-  },
-  {
-    name: "trigger_event",
-    description: "Trigger a narrative event — introduce an NPC, start a quest, change the scene, etc.",
-    parameters: {
-      type: "object",
-      properties: {
-        eventType: {
-          type: "string",
-          description: "Type of event",
-          enum: [
-            "npc_entrance",
-            "npc_exit",
-            "quest_start",
-            "quest_complete",
-            "scene_change",
-            "combat_start",
-            "combat_end",
-            "revelation",
-            "custom",
-          ],
-        },
-        description: { type: "string", description: "What happens in this event" },
-        involvedCharacters: { type: "array", items: { type: "string" }, description: "Names of characters involved" },
-      },
-      required: ["eventType", "description"],
-    },
-  },
-  {
-    name: "search_lorebook",
-    description: "Search the lorebook for relevant world-building information.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Search query — keywords, character names, locations, etc." },
-        category: { type: "string", description: "Optional category filter" },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "read_chat_summary",
-    description: "Read the current persisted chat summary for this chat.",
-    parameters: {
-      type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "append_chat_summary",
-    description: "Append durable memory text to the persisted chat summary for this chat.",
-    parameters: {
-      type: "object",
-      properties: {
-        text: {
-          type: "string",
-          description:
-            "Concise summary text to append. Include only durable facts, plans, preferences, or story developments.",
-        },
-      },
-      required: ["text"],
-    },
-  },
-  {
-    name: "read_chat_variable",
-    description:
-      "Read a chat-wide string variable by key. Use this for agent-private state or coordination with other agents in the same chat.",
-    parameters: {
-      type: "object",
-      properties: {
-        key: { type: "string", description: "Variable key to read" },
-      },
-      required: ["key"],
-    },
-  },
-  {
-    name: "write_chat_variable",
-    description:
-      "Write or replace a chat-wide string variable by key. Any agent in this chat can read the value if it knows the key.",
-    parameters: {
-      type: "object",
-      properties: {
-        key: { type: "string", description: "Variable key to write" },
-        value: { type: "string", description: "String value to store for this key" },
-      },
-      required: ["key", "value"],
-    },
-  },
-  {
-    name: "spotify_get_current_playback",
-    description:
-      "Get the user's current Spotify playback state, track, active device, and volume. Use this before changing music so you do not restart or replace a fitting track.",
-    parameters: {
-      type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "spotify_get_playlists",
-    description:
-      "Get the user's Spotify playlists and saved library. Returns playlist names and URIs. Use this FIRST to see what the user already has before searching.",
-    parameters: {
-      type: "object",
-      properties: {
-        limit: { type: "number", description: "Number of playlists to return (default: 20, max: 50)" },
-      },
-    },
-  },
-  {
-    name: "spotify_get_playlist_tracks",
-    description:
-      "Get track candidates from a specific playlist or the user's Liked Songs. By default, the server indexes/caches the full source and returns only a compact scored shortlist for the model. Supplying offset switches to raw page mode.",
-    parameters: {
-      type: "object",
-      properties: {
-        playlistId: {
-          type: "string",
-          description: "Playlist ID (from spotify_get_playlists), or 'liked' for the user's Liked Songs library",
-        },
-        query: {
-          type: "string",
-          description:
-            "Scene/mood search terms used to score candidates from the full cached playlist, e.g. 'tense battle orchestral' or 'quiet melancholy'.",
-        },
-        mood: {
-          type: "string",
-          description: "Optional short mood label to combine with query when choosing candidates.",
-        },
-        candidateLimit: {
-          type: "number",
-          description: "How many candidate tracks to return in candidate mode (default: 60, max: 80).",
-        },
-        limit: {
-          type: "number",
-          description: "Candidate count in default mode, or page size when offset is provided (page max: 50).",
-        },
-        offset: {
-          type: "number",
-          description:
-            "Optional raw-page offset. Only use for manual browsing; default mode is cached candidate selection.",
-        },
-      },
-      required: ["playlistId"],
-    },
-  },
-  {
-    name: "spotify_search",
-    description:
-      "Search Spotify for tracks matching a mood, genre, or specific query. Returns a list of track URIs. Prefer using the user's playlists/liked songs first.",
-    parameters: {
-      type: "object",
-      properties: {
-        query: {
-          type: "string",
-          description:
-            "Search query — mood keywords, genre, artist, or track name (e.g. 'dark ambient orchestral', 'battle music epic')",
-        },
-        limit: { type: "number", description: "Number of results to return (default: 5)" },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "spotify_play",
-    description:
-      "Play one or more tracks, or a playlist, on the user's active Spotify device. In game mode, pass one best track URI so it can loop until a new scene pick.",
-    parameters: {
-      type: "object",
-      properties: {
-        uri: {
-          type: "string",
-          description:
-            "Single Spotify URI to play (e.g. 'spotify:track:xxx' or 'spotify:playlist:xxx'). Use 'uris' instead when queueing multiple tracks.",
-        },
-        uris: {
-          type: "array",
-          items: { type: "string" },
-          description:
-            "Array of Spotify track URIs to play as a queue (e.g. ['spotify:track:xxx', 'spotify:track:yyy']). The first track plays immediately, the rest are queued.",
-        },
-        reason: { type: "string", description: "Why this track fits the current scene mood" },
-      },
-      required: [],
-    },
-  },
-  {
-    name: "spotify_set_volume",
-    description: "Set the playback volume on the user's active Spotify device (0-100).",
-    parameters: {
-      type: "object",
-      properties: {
-        volume: { type: "number", description: "Volume level (0-100)" },
-        reason: {
-          type: "string",
-          description: "Why the volume is being adjusted (e.g. 'quiet scene', 'intense battle')",
-        },
-      },
-      required: ["volume"],
-    },
-  },
-];

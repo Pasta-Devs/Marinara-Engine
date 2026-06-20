@@ -57,6 +57,7 @@ export function buildPartySystemPrompt(ctx: PartyPromptContext): string {
     ``,
     `Expression tags: Use [expression] to describe the character's facial expression/mood for the sprite display.`,
     `Default: happy, sad, smirk, angry, neutral, surprised, worried, amused, disgusted, flirty, bored, scared, determined, mischievous, cold, tender, thinking, eye_roll, deadpan`,
+    `When a character has available sprites listed below, choose an exact listed expression name or the closest listed expression. Do not invent a new expression label for that character.`,
     `The engine auto-selects built-in full-body poses like idle, thinking, cheer, battle stance, attack, defend, casting, hurt, and victory. Only use a pose-like tag when it is explicitly listed below for that character as a custom sprite alias.`,
     ...(ctx.characterSprites?.length
       ? [
@@ -64,7 +65,7 @@ export function buildPartySystemPrompt(ctx: PartyPromptContext): string {
           `Available sprites per character (prefer these expression names for accurate avatar display):`,
           ...ctx.characterSprites.map(
             (c) =>
-              `  ${c.name}: ${c.expressions.join(", ")}${c.fullBody.length > 0 ? ` | custom full-body aliases: ${c.fullBody.join(", ")}` : ""}`,
+              `  ${c.name}: ${(c.expressionChoices.length > 0 ? c.expressionChoices : c.expressions).join(", ")}${c.fullBody.length > 0 ? ` | custom full-body aliases: ${c.fullBody.join(", ")}` : ""}`,
           ),
         ]
       : []),

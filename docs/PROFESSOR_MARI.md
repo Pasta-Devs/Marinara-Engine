@@ -37,6 +37,7 @@ Implemented actions include:
 - Create new Conversation or Roleplay chats with a selected character.
 - Navigate to app panels and settings tabs.
 - Fetch existing characters, personas, lorebooks, chats, and presets so she can inspect their details before advising or editing.
+- Read public Fandom/MediaWiki pages
 
 When Mari creates something, she should ask for the important details first if your request is vague. When she updates something, she should fetch the current item first and change only the fields you asked her to change.
 
@@ -51,6 +52,7 @@ Helpful request shapes:
 - "Fetch my character Luna and make only her first message less generic."
 - "Make a lorebook from these world notes. Keep the entries short."
 - "Open the Connections panel and help me set up OpenRouter."
+- "Look up Nahida on the Genshin Impact Wiki and summarize her gameplay sections."
 
 For edits, name the item and the field or behavior you want changed. Requests like "rewrite this whole character" are riskier than "fetch Luna and tighten her greeting while keeping her personality the same."
 

@@ -115,6 +115,9 @@ const TEXT_EXTS = new Set([".txt", ".md", ".json", ".yaml", ".yml", ".js", ".ts"
 const VALID_CATEGORIES = new Set(Object.keys(CATEGORY_EXTENSIONS));
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const MAX_TEXT_BYTES = 10 * 1024 * 1024;
+const GENERATED_BACKGROUND_WIDTH = 1280;
+const GENERATED_BACKGROUND_HEIGHT = 720;
+const GENERATED_BACKGROUND_MAX_INPUT_PIXELS = 32_000_000;
 const MUSIC_STATES = ["exploration", "dialogue", "combat", "travel_rest"] as const;
 const MUSIC_STATE_SET = new Set<string>(MUSIC_STATES);
 const MUSIC_GENRE_SET = new Set<string>(MUSIC_GENRES);
@@ -251,6 +254,43 @@ function finishAssetUpload(category: string, subcategory: string, filename: stri
   const rel = `${category}/${subcategory}/${filename}`;
   const tag = rel.replace(/\.[^.]+$/, "").replace(/\//g, ":");
   return { tag, path: rel, manifestCount: manifest.count };
+}
+
+function shouldNormalizeGeneratedBackground(category: string, subcategory: string, ext: string) {
+  if (category !== "backgrounds") return false;
+  if (!subcategory.split("/").includes("generated")) return false;
+  return ext === ".png" || ext === ".jpg" || ext === ".jpeg" || ext === ".webp";
+}
+
+async function normalizeGeneratedBackgroundBuffer(buffer: Buffer, ext: string) {
+  const sharp = await getSharp();
+  if (!sharp) return buffer;
+
+  try {
+    const pipeline = sharp(buffer, {
+      limitInputPixels: GENERATED_BACKGROUND_MAX_INPUT_PIXELS,
+      failOn: "warning",
+    })
+      .rotate()
+      .resize(GENERATED_BACKGROUND_WIDTH, GENERATED_BACKGROUND_HEIGHT, { fit: "cover" });
+
+    if (ext === ".jpg" || ext === ".jpeg") {
+      return await pipeline.jpeg({ quality: 92 }).toBuffer();
+    }
+    if (ext === ".webp") {
+      return await pipeline.webp({ quality: 92 }).toBuffer();
+    }
+    return await pipeline.png().toBuffer();
+  } catch (error) {
+    logger.warn(error, "[game-assets] Failed to normalize generated background upload");
+    return buffer;
+  }
+}
+
+async function normalizeGeneratedBackgroundFile(category: string, subcategory: string, filePath: string, ext: string) {
+  if (!shouldNormalizeGeneratedBackground(category, subcategory, ext)) return;
+  const normalized = await normalizeGeneratedBackgroundBuffer(readFileSync(filePath), ext);
+  writeFileSync(filePath, normalized);
 }
 
 // ════════════════════════════════════════════════
@@ -421,6 +461,16 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
         });
       }
 
+      await normalizeGeneratedBackgroundFile(category, subcategory, target.targetPath, extname(target.safeName).toLowerCase());
+      const processedSize = statSync(target.targetPath).size;
+      if (processedSize > maxBytes) {
+        const { unlinkSync } = await import("fs");
+        unlinkSync(target.targetPath);
+        return reply.status(400).send({
+          error: `File too large after processing: ${file.filename} is ${(processedSize / 1024 / 1024).toFixed(1)} MB. Max size: ${maxLabel}.`,
+        });
+      }
+
       return finishAssetUpload(category, subcategory, target.safeName);
     }
 
@@ -440,7 +490,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     // Strip data URL prefix if present
     const base64Match = data.match(/^data:[^;]+;base64,(.+)$/);
     const rawBase64 = base64Match ? base64Match[1]! : data;
-    const buffer = Buffer.from(rawBase64, "base64");
+    let buffer = Buffer.from(rawBase64, "base64");
 
     const ext = extname(filename).toLowerCase();
     const isTextFile = TEXT_EXTS.has(ext);
@@ -450,6 +500,15 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     if (buffer.length > maxBytes) {
       return reply.status(400).send({
         error: `File too large: ${filename} is ${(buffer.length / 1024 / 1024).toFixed(1)} MB. Max size: ${maxLabel}.`,
+      });
+    }
+
+    if (shouldNormalizeGeneratedBackground(category, subcategory, ext)) {
+      buffer = await normalizeGeneratedBackgroundBuffer(buffer, ext);
+    }
+    if (buffer.length > maxBytes) {
+      return reply.status(400).send({
+        error: `File too large after processing: ${filename} is ${(buffer.length / 1024 / 1024).toFixed(1)} MB. Max size: ${maxLabel}.`,
       });
     }
 

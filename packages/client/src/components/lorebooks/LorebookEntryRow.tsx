@@ -7,17 +7,20 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Ban,
   ChevronDown,
   CheckCircle2,
   CheckSquare2,
   CircleDashed,
+  Copy,
   FileText,
   GripVertical,
   Hash,
@@ -34,7 +37,8 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { useUpdateLorebookEntry, useDeleteLorebookEntry } from "../../hooks/use-lorebooks";
+import { useUpdateLorebookEntry, useDeleteLorebookEntry, useDuplicateLorebookEntry } from "../../hooks/use-lorebooks";
+import { MacroTextarea } from "../ui/MacroTextarea";
 import type {
   LorebookEntry,
   LorebookFilterMode,
@@ -113,21 +117,23 @@ const STATUS_LABEL: Record<EntryStatus, string> = {
   normal: "Normal",
 };
 
-const STATUS_DESCRIPTION: Record<EntryStatus, string> = {
-  normal: "This entry is currently set to trigger normally, when key words are detected.",
-  constant: "This entry is constantly injected into the context.",
-  selective:
-    "This entry uses selective matching: primary keys must match with the secondary-key logic below before it is injected.",
-};
-
 const STATUS_DOT_COLOR: Record<EntryStatus, string> = {
   constant: "bg-amber-400",
   selective: "bg-violet-400",
   normal: "bg-emerald-400",
 };
 
-const ENTRY_STATUS_ORDER: EntryStatus[] = ["normal", "constant", "selective"];
+const STATUS_GUIDE: Array<{ status: EntryStatus; description: string }> = [
+  { status: "normal", description: "Triggers when primary keys match the scanned text." },
+  { status: "constant", description: "Injects every time this lorebook is active." },
+  { status: "selective", description: "Primary keys must match with the secondary-key logic." },
+];
+
 const ENTRY_AUTOSAVE_DELAY_MS = 850;
+const ENTRY_STATUS_MENU_WIDTH = 224;
+const ENTRY_STATUS_MENU_ESTIMATED_HEIGHT = 126;
+const ENTRY_STATUS_MENU_MARGIN = 10;
+const ENTRY_STATUS_MENU_GAP = 6;
 
 const FILTER_MODE_LABEL: Record<LorebookFilterMode, string> = {
   any: "Any",
@@ -161,11 +167,6 @@ const GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "lorebook_assistant", label: "Lorebook Assistant" },
 ];
 
-function getNextStatus(status: EntryStatus): EntryStatus {
-  const index = ENTRY_STATUS_ORDER.indexOf(status);
-  return ENTRY_STATUS_ORDER[(index + 1) % ENTRY_STATUS_ORDER.length] ?? "normal";
-}
-
 /** A compact lorebook-entry list row with inline-editable status / position / depth / order /
  *  probability / enable, plus an expandable drawer with the rest of the entry editor.
  */
@@ -193,6 +194,7 @@ export function LorebookEntryRow({
 }: Props) {
   const updateEntry = useUpdateLorebookEntry();
   const deleteEntry = useDeleteLorebookEntry();
+  const duplicateEntry = useDuplicateLorebookEntry();
 
   // ── Inline-control optimistic state ──
   // We keep a local mirror of the entry's fields so the inputs feel snappy
@@ -207,7 +209,11 @@ export function LorebookEntryRow({
   const [localUseRegex, setLocalUseRegex] = useState(entry.useRegex ?? false);
   const [showVectorStatus, setShowVectorStatus] = useState(false);
   const [showMobileControls, setShowMobileControls] = useState(false);
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [statusMenuPosition, setStatusMenuPosition] = useState({ top: 0, left: 0, width: ENTRY_STATUS_MENU_WIDTH });
   const mobileControlsRef = useRef<HTMLDivElement>(null);
+  const statusButtonRef = useRef<HTMLButtonElement>(null);
+  const statusMenuRef = useRef<HTMLDivElement>(null);
 
   // Re-sync local state when the upstream entry changes (e.g. after refetch)
   // so we don't show stale values, but avoid clobbering an in-flight edit.
@@ -248,6 +254,62 @@ export function LorebookEntryRow({
     };
   }, [showMobileControls]);
 
+  useLayoutEffect(() => {
+    if (!showStatusMenu) return;
+
+    const updateMenuPosition = () => {
+      const button = statusButtonRef.current;
+      if (!button) return;
+
+      const rect = button.getBoundingClientRect();
+      const width = Math.min(ENTRY_STATUS_MENU_WIDTH, window.innerWidth - ENTRY_STATUS_MENU_MARGIN * 2);
+      const menuHeight = statusMenuRef.current?.getBoundingClientRect().height ?? ENTRY_STATUS_MENU_ESTIMATED_HEIGHT;
+      const left = Math.min(
+        Math.max(rect.left, ENTRY_STATUS_MENU_MARGIN),
+        Math.max(ENTRY_STATUS_MENU_MARGIN, window.innerWidth - width - ENTRY_STATUS_MENU_MARGIN),
+      );
+      const top = Math.max(ENTRY_STATUS_MENU_MARGIN, rect.top - ENTRY_STATUS_MENU_GAP - menuHeight);
+
+      setStatusMenuPosition({ top, left, width });
+    };
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [showStatusMenu]);
+
+  useEffect(() => {
+    if (!showStatusMenu) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Node &&
+        !statusButtonRef.current?.contains(target) &&
+        !statusMenuRef.current?.contains(target)
+      ) {
+        setShowStatusMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowStatusMenu(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showStatusMenu]);
+
   const patch = useCallback(
     (changes: Partial<LorebookEntry>) => {
       updateEntry.mutate({ lorebookId, entryId: entry.id, ...changes });
@@ -258,17 +320,18 @@ export function LorebookEntryRow({
   const handleStatusChange = useCallback(
     (next: EntryStatus) => {
       setLocalStatus(next);
+      setShowStatusMenu(false);
       patch(statusToFlags(next));
     },
     [patch],
   );
 
-  const handleStatusCycle = useCallback(
+  const handleStatusMenuToggle = useCallback(
     (e: ReactMouseEvent) => {
       e.stopPropagation();
-      handleStatusChange(getNextStatus(localStatus));
+      setShowStatusMenu((current) => !current);
     },
-    [handleStatusChange, localStatus],
+    [],
   );
 
   const handleEnableToggle = useCallback(
@@ -316,6 +379,47 @@ export function LorebookEntryRow({
       deleteEntry.mutate({ lorebookId, entryId: entry.id });
     },
     [lorebookId, entry.id, deleteEntry],
+  );
+
+  const duplicateDisabled = duplicateEntry.isPending || updateEntry.isPending;
+
+  const handleDuplicate = useCallback(
+    (e: ReactMouseEvent) => {
+      e.stopPropagation();
+      if (duplicateDisabled) return;
+      // Clone from the row's current inline state (not the prop snapshot) so an edit made
+      // just before duplicating isn't dropped while its update/refetch is still in flight.
+      const { constant, selective } = statusToFlags(localStatus);
+      duplicateEntry.mutate({
+        lorebookId,
+        entry: {
+          ...entry,
+          name: localName.trim() || entry.name,
+          enabled: localEnabled,
+          constant,
+          selective,
+          position: localPosition,
+          depth: localDepth,
+          order: localOrder,
+          probability: localProbability === 100 ? null : localProbability,
+          useRegex: localUseRegex,
+        },
+      });
+    },
+    [
+      lorebookId,
+      entry,
+      localName,
+      localEnabled,
+      localStatus,
+      localPosition,
+      localDepth,
+      localOrder,
+      localProbability,
+      localUseRegex,
+      duplicateEntry,
+      duplicateDisabled,
+    ],
   );
 
   const showDepthInput = localPosition === 2;
@@ -448,14 +552,66 @@ export function LorebookEntryRow({
 
         {/* Status dot + name */}
         <button
+          ref={statusButtonRef}
           type="button"
-          onClick={handleStatusCycle}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-          title={`${STATUS_LABEL[localStatus]} entry. Tap to switch to ${STATUS_LABEL[getNextStatus(localStatus)]}.`}
-          aria-label={`${STATUS_LABEL[localStatus]} entry. Tap to switch to ${STATUS_LABEL[getNextStatus(localStatus)]}.`}
+          onClick={handleStatusMenuToggle}
+          className={cn(
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+            showStatusMenu && "bg-[var(--accent)]",
+          )}
+          aria-label={`Entry type: ${STATUS_LABEL[localStatus]}. Choose entry type.`}
+          aria-haspopup="menu"
+          aria-expanded={showStatusMenu}
         >
           <span className={cn("h-2.5 w-2.5 rounded-full", STATUS_DOT_COLOR[localStatus])} />
         </button>
+        {showStatusMenu &&
+          createPortal(
+            <div
+              ref={statusMenuRef}
+              role="menu"
+              aria-label="Choose entry type"
+              className="fixed z-[120] rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
+              style={{
+                left: statusMenuPosition.left,
+                top: statusMenuPosition.top,
+                width: statusMenuPosition.width,
+              }}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {STATUS_GUIDE.map(({ status, description }) => {
+                const selected = localStatus === status;
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selected}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStatusChange(status);
+                    }}
+                    className={cn(
+                      "flex w-full items-start gap-1.5 rounded-md px-1.5 py-1.5 text-left transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--ring)]",
+                      selected
+                        ? "bg-[var(--accent)] text-[var(--foreground)]"
+                        : "text-[var(--popover-foreground)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", STATUS_DOT_COLOR[status])} />
+                    <span className="min-w-0">
+                      <span className="block text-[0.6875rem] font-semibold leading-tight">{STATUS_LABEL[status]}</span>
+                      <span className="mt-0.5 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                        {description}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )}
         {previewMatch && (
           <span
             className={cn(
@@ -691,14 +847,28 @@ export function LorebookEntryRow({
           )}
         </div>
 
-        {/* Token estimate (compact) */}
-        <span
-          className="hidden shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] lg:inline-flex"
-          title={`~${estimateTokens(entry.content).toLocaleString()} tokens (estimated)`}
+        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {/* Token estimate (compact) */}
+          <span
+            className="hidden items-center gap-0.5 rounded px-1 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] lg:inline-flex"
+            title={`~${estimateTokens(entry.content).toLocaleString()} tokens (estimated)`}
+          >
+            <Hash size="0.5625rem" />
+            {estimateTokens(entry.content).toLocaleString()}
+          </span>
+        </div>
+
+        {/* Duplicate button (visible on hover, always on mobile) */}
+        <button
+          type="button"
+          aria-label="Duplicate entry"
+          title="Duplicate entry"
+          disabled={duplicateDisabled}
+          onClick={handleDuplicate}
+          className="shrink-0 rounded p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 disabled:cursor-not-allowed max-md:opacity-100"
         >
-          <Hash size="0.5625rem" />
-          {estimateTokens(entry.content).toLocaleString()}
-        </span>
+          <Copy size="0.75rem" />
+        </button>
 
         {/* Delete button (visible on hover, always on mobile) */}
         <button
@@ -1042,7 +1212,6 @@ function ExpandedDrawer({
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const saveNowRef = useRef<() => Promise<void>>(async () => {});
-  const drawerStatus = deriveStatus(entry);
 
   const clearAutosaveTimer = useCallback(() => {
     if (autosaveTimerRef.current) {
@@ -1162,68 +1331,66 @@ function ExpandedDrawer({
 
   return (
     <div
-      className="space-y-4 border-t border-[var(--border)] px-3 py-3 sm:px-4"
+      className="space-y-3 border-t border-[var(--border)] px-3 py-3 sm:px-4"
       onBlurCapture={(event) => {
         const nextTarget = event.relatedTarget;
         if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
         flushAutosave();
       }}
     >
-      <div className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/55 px-3 py-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
-        <span className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", STATUS_DOT_COLOR[drawerStatus])} />
-        <p>{STATUS_DESCRIPTION[drawerStatus]}</p>
+      <div className="grid items-start gap-3 lg:grid-cols-[minmax(12rem,0.9fr)_minmax(13rem,1fr)_minmax(14rem,1.1fr)]">
+        {/* Description */}
+        <FieldGroup
+          label="Description"
+          icon={FileText}
+          help="Brief summary of what this entry is about. Used by the Knowledge Router agent to decide whether to inject this entry — not sent to the main AI as content."
+        >
+          <MacroTextarea
+            value={form.description ?? ""}
+            onChange={(value) => update({ description: value })}
+            onBlur={flushAutosave}
+            rows={3}
+            className="w-full resize-y rounded-lg bg-[var(--secondary)] px-2.5 py-2 text-xs leading-5 ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+            placeholder="Brief summary for routing."
+            title="Edit Description"
+          />
+        </FieldGroup>
+
+        {/* Keys */}
+        <FieldGroup
+          label="Primary Keys"
+          icon={Key}
+          help="Keywords that trigger this entry. When any of these words appear in the chat, this entry's content is injected into the AI's context."
+        >
+          <KeysEditor keys={form.keys ?? []} onChange={(keys) => update({ keys })} />
+        </FieldGroup>
+
+        {/* Secondary Keys + Logic */}
+        <FieldGroup
+          label="Secondary Keys"
+          icon={Key}
+          help="Additional keywords used with AND/OR/NOT logic. 'AND' means both primary AND secondary must match. 'NOT' means primary must match but secondary must NOT."
+        >
+          <KeysEditor keys={form.secondaryKeys ?? []} onChange={(keys) => update({ secondaryKeys: keys })} />
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <label className="text-[0.6875rem] text-[var(--muted-foreground)]">Logic:</label>
+            {(["and", "or", "not"] as const).map((logic) => (
+              <button
+                key={logic}
+                onClick={() => update({ selectiveLogic: logic })}
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-[0.6875rem] font-medium transition-colors",
+                  form.selectiveLogic === logic
+                    ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                    : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)]",
+                )}
+              >
+                {logic.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </FieldGroup>
       </div>
-
-      {/* Description */}
-      <FieldGroup
-        label="Description"
-        icon={FileText}
-        help="Brief summary of what this entry is about. Used by the Knowledge Router agent to decide whether to inject this entry — not sent to the main AI as content."
-      >
-        <textarea
-          value={form.description ?? ""}
-          onChange={(e) => update({ description: e.target.value })}
-          onBlur={flushAutosave}
-          rows={2}
-          className="w-full resize-y rounded-lg bg-[var(--secondary)] px-2.5 py-2 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-          placeholder="Brief summary of what this entry is about (used by Knowledge Router agent)."
-        />
-      </FieldGroup>
-
-      {/* Keys */}
-      <FieldGroup
-        label="Primary Keys"
-        icon={Key}
-        help="Keywords that trigger this entry. When any of these words appear in the chat, this entry's content is injected into the AI's context."
-      >
-        <KeysEditor keys={form.keys ?? []} onChange={(keys) => update({ keys })} />
-      </FieldGroup>
-
-      {/* Secondary Keys + Logic */}
-      <FieldGroup
-        label="Secondary Keys"
-        icon={Key}
-        help="Additional keywords used with AND/OR/NOT logic. 'AND' means both primary AND secondary must match. 'NOT' means primary must match but secondary must NOT."
-      >
-        <KeysEditor keys={form.secondaryKeys ?? []} onChange={(keys) => update({ secondaryKeys: keys })} />
-        <div className="mt-2 flex items-center gap-3">
-          <label className="text-[0.6875rem] text-[var(--muted-foreground)]">Logic:</label>
-          {(["and", "or", "not"] as const).map((logic) => (
-            <button
-              key={logic}
-              onClick={() => update({ selectiveLogic: logic })}
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[0.6875rem] font-medium transition-colors",
-                form.selectiveLogic === logic
-                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)]",
-              )}
-            >
-              {logic.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </FieldGroup>
 
       <details className="rounded-lg border border-[var(--border)] bg-[var(--card)]/40 px-3 py-2">
         <summary className="cursor-pointer text-xs font-medium text-[var(--foreground)]">
@@ -1311,6 +1478,7 @@ function ExpandedDrawer({
           rows={5}
           placeholder="The content that will be injected into the prompt when this entry activates…"
           title="Edit Content"
+          showMacroReference
         />
         <p className="mt-1 flex items-center gap-1 text-[0.625rem] text-[var(--muted-foreground)]">
           <Hash size="0.5625rem" />~{estimateTokens(form.content ?? "").toLocaleString()} tokens
@@ -1350,81 +1518,88 @@ function ExpandedDrawer({
         />
       </div>
 
-      {/* Role (position/depth/order/probability live on the row header). */}
-      <FieldGroup
-        label="Role"
-        icon={Settings2}
-        help="Which role this entry's content is attributed to in the prompt (only meaningful when injected at depth)."
-      >
-        <select
-          value={form.role ?? "system"}
-          onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
-          className="w-full max-w-xs rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+      <div className="grid items-start gap-3 lg:grid-cols-[minmax(8rem,0.65fr)_minmax(18rem,1.5fr)_minmax(16rem,1.15fr)]">
+        {/* Role (position/depth/order/probability live on the row header). */}
+        <FieldGroup
+          label="Role"
+          icon={Settings2}
+          help="Which role this entry's content is attributed to in the prompt (only meaningful when injected at depth)."
         >
-          <option value="system">System</option>
-          <option value="user">User</option>
-          <option value="assistant">Assistant</option>
-        </select>
-      </FieldGroup>
+          <select
+            value={form.role ?? "system"}
+            onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
+            className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          >
+            <option value="system">System</option>
+            <option value="user">User</option>
+            <option value="assistant">Assistant</option>
+          </select>
+        </FieldGroup>
 
-      {/* Timing */}
-      <FieldGroup
-        label="Timing"
-        icon={Settings2}
-        help="Sticky = stays active for N messages after triggering. Cooldown = waits N messages before it can trigger again. Delay = waits N messages before first activation. Ephemeral = auto-disables after N activations (0 = unlimited)."
-      >
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <NumberField
-            label="Sticky"
-            value={form.sticky ?? 0}
-            onChange={(v) => update({ sticky: v || null })}
-            min={0}
-          />
-          <NumberField
-            label="Cooldown"
-            value={form.cooldown ?? 0}
-            onChange={(v) => update({ cooldown: v || null })}
-            min={0}
-          />
-          <NumberField label="Delay" value={form.delay ?? 0} onChange={(v) => update({ delay: v || null })} min={0} />
-          <NumberField
-            label="Ephemeral"
-            value={form.ephemeral ?? 0}
-            onChange={(v) => update({ ephemeral: v || null })}
-            min={0}
-          />
-        </div>
-      </FieldGroup>
-
-      {/* Group & Tag */}
-      <FieldGroup
-        label="Group & Tag"
-        icon={Settings2}
-        help="Group entries together so only one from the group activates at a time. Tags are for your own organization."
-      >
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Group</label>
-            <input
-              value={form.group ?? ""}
-              onChange={(e) => update({ group: e.target.value })}
-              onBlur={flushAutosave}
-              className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              placeholder="Group name"
+        {/* Timing */}
+        <FieldGroup
+          label="Timing"
+          icon={Settings2}
+          help="Sticky = stays active for N messages after triggering. Cooldown = waits N messages before it can trigger again. Delay = waits N messages before first activation. Ephemeral = auto-disables after N activations (0 = unlimited)."
+        >
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:gap-1.5">
+            <NumberField
+              label="Sticky"
+              value={form.sticky ?? 0}
+              onChange={(v) => update({ sticky: v || null })}
+              min={0}
+            />
+            <NumberField
+              label="Cooldown"
+              value={form.cooldown ?? 0}
+              onChange={(v) => update({ cooldown: v || null })}
+              min={0}
+            />
+            <NumberField
+              label="Delay"
+              value={form.delay ?? 0}
+              onChange={(v) => update({ delay: v || null })}
+              min={0}
+            />
+            <NumberField
+              label="Ephemeral"
+              value={form.ephemeral ?? 0}
+              onChange={(v) => update({ ephemeral: v || null })}
+              min={0}
             />
           </div>
-          <div>
-            <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Tag</label>
-            <input
-              value={form.tag ?? ""}
-              onChange={(e) => update({ tag: e.target.value })}
-              onBlur={flushAutosave}
-              className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              placeholder="e.g. location, item, lore"
-            />
+        </FieldGroup>
+
+        {/* Group & Tag */}
+        <FieldGroup
+          label="Group & Tag"
+          icon={Settings2}
+          help="Group entries together so only one from the group activates at a time. Tags are for your own organization."
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:gap-1.5">
+            <div>
+              <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Group</label>
+              <input
+                value={form.group ?? ""}
+                onChange={(e) => update({ group: e.target.value })}
+                onBlur={flushAutosave}
+                className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                placeholder="Group name"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[0.6875rem] text-[var(--muted-foreground)]">Tag</label>
+              <input
+                value={form.tag ?? ""}
+                onChange={(e) => update({ tag: e.target.value })}
+                onBlur={flushAutosave}
+                className="w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                placeholder="e.g. location, item, lore"
+              />
+            </div>
           </div>
-        </div>
-      </FieldGroup>
+        </FieldGroup>
+      </div>
 
       <div className="flex items-center justify-end border-t border-[var(--border)] pt-3">
         <span

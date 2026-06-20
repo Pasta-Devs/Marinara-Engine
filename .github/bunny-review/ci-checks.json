@@ -1,0 +1,6 @@
+{
+  "expected_checks": [
+    { "name": "pnpm-validate", "required": "always" },
+    { "name": "container-build-test", "required": "always" }
+  ]
+}

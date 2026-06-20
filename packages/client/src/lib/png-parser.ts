@@ -39,9 +39,15 @@ export async function parsePngCharacterCard(
 
   let offset = 8; // skip signature
   while (offset < bytes.length) {
-    // Read chunk length (4 bytes, big-endian)
-    const length = (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+    // Read chunk length (4 bytes, big-endian, UNSIGNED).
+    // A signed read lets a high-bit length (e.g. 0x80000000) go negative and pin the chunk-walk.
+    const length =
+      ((bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3]) >>> 0;
     offset += 4;
+
+    // Bail on a malformed/crafted length: offset already passed the length field,
+    // so type(4) + data(length) + CRC(4) must fit within the buffer.
+    if (offset + 4 + length + 4 > bytes.length) break;
 
     // Read chunk type (4 bytes)
     const type = String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
@@ -98,8 +104,10 @@ export async function parsePngCharacterCard(
       }
     }
 
-    // Skip chunk data + 4-byte CRC
-    offset += length + 4;
+    // Skip chunk data + 4-byte CRC; guard against a non-advancing cursor.
+    const nextOffset = offset + length + 4;
+    if (nextOffset <= offset) break;
+    offset = nextOffset;
 
     // Safety: stop at IEND
     if (type === "IEND") break;

@@ -4,11 +4,12 @@ import {
   lazy,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentProps,
   type CSSProperties,
-  type ReactNode,
+  type MouseEvent as ReactMouseEvent,
   type RefObject,
 } from "react";
 import {
@@ -19,36 +20,43 @@ import {
 } from "@marinara-engine/shared";
 import {
   BookOpen,
-  FolderOpen,
   FileText,
   Image,
   Loader2,
-  MoreHorizontal,
-  Move,
   PenLine,
   ScrollText,
   Settings2,
-  Swords,
   ChevronUp,
   ArrowRightLeft,
-  FlipHorizontal2,
   User,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { getConnectedChatDisplayName } from "../../lib/chat-display";
 import { playNotificationPing } from "../../lib/notification-sound";
+import { getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../lib/transcript-render-window";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useGameStateStore } from "../../stores/game-state.store";
-import { useLorebooks } from "../../hooks/use-lorebooks";
+import { useActiveLorebookEntries, useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { CyoaChoices } from "./CyoaChoices";
 import { ChatBranchSelector } from "./ChatBranchSelector";
+import {
+  CHAT_TOOLBAR_ICON_GAP_CLASS,
+  ChatToolbarButton,
+  ChatToolbarMenu,
+  getChatToolbarButtonClass,
+} from "./ChatToolbarControls";
+import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
-import { ActiveWorldInfoButton } from "./ActiveWorldInfoButton";
+import {
+  ROLEPLAY_POPOVER_SCROLL_AREA,
+  ROLEPLAY_POPOVER_SHELL,
+  ROLEPLAY_POPOVER_TITLE,
+} from "./roleplay-popover-styles";
 import type { SpriteDisplayMode } from "./sprite-display-modes";
 import type {
   CharacterMap,
@@ -96,13 +104,33 @@ const AuthorNotesPanel = lazy(async () => {
   return { default: module.AuthorNotesPanel };
 });
 
-const PANEL_BACKDROP =
-  "fixed inset-0 z-[9999] flex items-center justify-center p-4 max-md:pt-[max(1rem,env(safe-area-inset-top))]";
 const TRACKER_FOREGROUND_AVOIDANCE_CLASS =
   "md:pl-[var(--tracker-chat-avoid-left)] md:pr-[var(--tracker-chat-avoid-right)] md:transition-[padding] md:duration-200 md:ease-[cubic-bezier(0.16,1,0.3,1)]";
-const PANEL_CONTAINER =
-  "relative max-h-[calc(100dvh-4rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in";
 const roleplayNotificationSeenKeys = new Set<string>();
+const MOBILE_FLOATING_PANEL_PADDING = 8;
+
+type MobileFloatingPanelFrame = {
+  top: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+};
+
+function getMobileFloatingPanelFrame(
+  button: HTMLElement | null,
+  preferredWidth: number,
+): MobileFloatingPanelFrame | null {
+  if (!button || typeof window === "undefined") return null;
+  const rect = button.getBoundingClientRect();
+  const width = Math.min(preferredWidth, window.innerWidth - MOBILE_FLOATING_PANEL_PADDING * 2);
+  const left = Math.max(
+    MOBILE_FLOATING_PANEL_PADDING,
+    Math.min(rect.right - width, window.innerWidth - width - MOBILE_FLOATING_PANEL_PADDING),
+  );
+  const top = Math.max(MOBILE_FLOATING_PANEL_PADDING, rect.bottom);
+  const maxHeight = Math.max(160, window.innerHeight - top - MOBILE_FLOATING_PANEL_PADDING);
+  return { top, left, width, maxHeight };
+}
 
 function WeatherEffectsConnected() {
   const gs = useGameStateStore((s) => s.current);
@@ -280,92 +308,6 @@ function isHiddenFromUser(message: MessageWithSwipes) {
   return extra.hiddenFromUser === true;
 }
 
-function RpToolbarButton({
-  icon,
-  title,
-  onClick,
-  size,
-}: {
-  icon: ReactNode;
-  title: string;
-  onClick: () => void;
-  size?: "sm";
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-center rounded-full border bg-foreground/5 text-foreground/60 backdrop-blur-md transition-all hover:bg-foreground/10 hover:text-foreground",
-        size === "sm" ? "p-1" : "p-1.5",
-        "border-foreground/10",
-      )}
-      title={title}
-    >
-      {icon}
-    </button>
-  );
-}
-
-function ToolbarMenu({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const compact = useUIStore((s) => s.centerCompact);
-  const btnRef = useRef<HTMLDivElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
-
-  useLayoutEffect(() => {
-    if (!open || !btnRef.current) return;
-    const rect = btnRef.current.getBoundingClientRect();
-    setPos({
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-    });
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const handle = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (target instanceof Element && target.closest("[data-chat-branch-popover]")) return;
-      if (btnRef.current?.contains(target) || popRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, [open]);
-
-  return (
-    <>
-      <div className={cn("items-center gap-1.5 max-md:hidden", compact ? "hidden" : "flex")}>{children}</div>
-      <div className={cn("relative shrink-0", compact ? "block" : "block md:hidden")} ref={btnRef}>
-        <button
-          onClick={() => setOpen(!open)}
-          className={cn(
-            "flex w-9 items-center justify-center rounded-xl border bg-[var(--card)] p-1.5 text-foreground/60 backdrop-blur-md transition-all hover:bg-[var(--accent)] hover:text-foreground",
-            "border-foreground/10",
-            open && "bg-[var(--accent)] border-foreground/20 text-foreground",
-          )}
-          title="More options"
-        >
-          <MoreHorizontal size="0.9375rem" />
-        </button>
-        {open &&
-          createPortal(
-            <div
-              ref={popRef}
-              className="fixed z-[9999] flex w-9 flex-col items-center gap-0.5 rounded-xl border border-foreground/10 bg-[var(--card)] p-1 shadow-xl backdrop-blur-xl animate-message-in"
-              style={{ top: pos.top, right: pos.right }}
-              onClick={() => setOpen(false)}
-            >
-              {children}
-            </div>,
-            document.body,
-          )}
-      </div>
-    </>
-  );
-}
-
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
@@ -385,18 +327,40 @@ function ActiveContextLinksButton({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [mobileFrame, setMobileFrame] = useState<MobileFloatingPanelFrame | null>(null);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const compact = useUIStore((s) => s.centerCompact);
   const { data: lorebooks } = useLorebooks();
   const { data: presets } = usePresets();
+  const { data: activeLorebookScan, isLoading: activeLorebookScanLoading } = useActiveLorebookEntries(
+    chat?.id ?? null,
+    open && !!chat?.id,
+  );
 
   useEffect(() => {
     if (!open) return;
     const handle = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (ref.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !isMobile) return;
+    const update = () => setMobileFrame(getMobileFloatingPanelFrame(buttonRef.current, 288));
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [isMobile, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -413,7 +377,33 @@ function ActiveContextLinksButton({
   const characterIds = chatCharIds.filter((id) => !inactiveCharacterIds.includes(id));
   const activeLorebookIds = readStringArray(chatMeta.activeLorebookIds);
   const promptPresetId = typeof chat.promptPresetId === "string" ? chat.promptPresetId : null;
-  const hasLinks = characterIds.length > 0 || activeLorebookIds.length > 0 || !!promptPresetId;
+  const triggeredEntries = activeLorebookScan?.entries ?? [];
+  const skippedLorebookEntries = activeLorebookScan?.budgetSkippedEntries ?? [];
+  const visibleLorebookIds = Array.from(
+    new Set([
+      ...activeLorebookIds,
+      ...triggeredEntries.map((entry) => entry.lorebookId),
+      ...skippedLorebookEntries.map((entry) => entry.lorebookId),
+    ]),
+  );
+  const triggeredEntriesByLorebook = new Map<string, typeof triggeredEntries>();
+  for (const entry of triggeredEntries) {
+    const current = triggeredEntriesByLorebook.get(entry.lorebookId) ?? [];
+    current.push(entry);
+    triggeredEntriesByLorebook.set(entry.lorebookId, current);
+  }
+  const skippedEntriesByLorebook = new Map<string, typeof skippedLorebookEntries>();
+  for (const entry of skippedLorebookEntries) {
+    const current = skippedEntriesByLorebook.get(entry.lorebookId) ?? [];
+    current.push(entry);
+    skippedEntriesByLorebook.set(entry.lorebookId, current);
+  }
+  const hasLinks =
+    characterIds.length > 0 ||
+    visibleLorebookIds.length > 0 ||
+    triggeredEntries.length > 0 ||
+    skippedLorebookEntries.length > 0 ||
+    !!promptPresetId;
 
   if (!hasLinks) return null;
 
@@ -434,20 +424,84 @@ function ActiveContextLinksButton({
   };
 
   const itemClassName =
-    "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-foreground/80 transition-colors hover:bg-foreground/10 hover:text-foreground";
-  const iconClassName = "shrink-0 text-foreground/55";
+    "marinara-chat-popover__item flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]";
+  const iconClassName = "shrink-0 text-[var(--marinara-chat-chrome-panel-muted)]";
+  const entryClassName =
+    "flex min-w-0 items-center gap-1.5 rounded-md bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)] ring-1 ring-[var(--marinara-chat-chrome-panel-divider)]";
+  const activeContextContent = (
+    <>
+      <div className={cn(ROLEPLAY_POPOVER_TITLE, "px-2 pb-1")}>
+        <BookOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+        Active Context
+      </div>
+      <div className="space-y-1">
+        {characterIds.map((id, index) => (
+          <button key={id} type="button" role="menuitem" className={itemClassName} onClick={() => openCharacter(id)}>
+            <User size="0.8125rem" className={iconClassName} />
+            <span className="min-w-0 flex-1 truncate">{characterMap.get(id)?.name ?? `Character ${index + 1}`}</span>
+            <span className="shrink-0 text-[0.625rem] text-foreground/45">Card</span>
+          </button>
+        ))}
+        {visibleLorebookIds.map((id, index) => {
+          const entries = triggeredEntriesByLorebook.get(id) ?? [];
+          const skippedEntries = skippedEntriesByLorebook.get(id) ?? [];
+          return (
+            <div key={id} className="space-y-1">
+              <button type="button" role="menuitem" className={itemClassName} onClick={() => openLorebook(id)}>
+                <BookOpen size="0.8125rem" className={iconClassName} />
+                <span className="min-w-0 flex-1 truncate">{lorebookNameById.get(id) ?? `Lorebook ${index + 1}`}</span>
+                <span className="shrink-0 text-[0.625rem] text-foreground/45">
+                  {entries.length > 0 ? `${entries.length} hit${entries.length === 1 ? "" : "s"}` : "Lorebook"}
+                </span>
+              </button>
+              {entries.length > 0 && (
+                <div className="ml-6 space-y-1 border-l border-foreground/10 pl-2">
+                  {entries.map((entry) => (
+                    <div key={entry.id} className={entryClassName} title={entry.content || entry.name}>
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                      <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                      {entry.constant && (
+                        <span className="shrink-0 rounded bg-amber-400/15 px-1 py-0.5 text-[0.5rem] font-semibold text-amber-300">
+                          CONST
+                        </span>
+                      )}
+                      <span className="shrink-0 text-foreground/40">#{entry.order}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {skippedEntries.length > 0 && (
+                <div className="ml-6 rounded-md bg-amber-500/10 px-2 py-1 text-[0.625rem] leading-relaxed text-amber-100/80 ring-1 ring-amber-500/20">
+                  {skippedEntries.length} matching {skippedEntries.length === 1 ? "entry was" : "entries were"} skipped
+                  by token budget.
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {activeLorebookScanLoading && visibleLorebookIds.length > 0 && (
+          <div className="flex items-center gap-2 px-2 py-1.5 text-[0.625rem] text-foreground/50">
+            <Loader2 size="0.6875rem" className="animate-spin" />
+            Scanning active lorebook entries...
+          </div>
+        )}
+        {promptPresetId && (
+          <button type="button" role="menuitem" className={itemClassName} onClick={() => openPreset(promptPresetId)}>
+            <FileText size="0.8125rem" className={iconClassName} />
+            <span className="min-w-0 flex-1 truncate">{presetName ?? "Prompt preset"}</span>
+            <span className="shrink-0 text-[0.625rem] text-foreground/45">Preset</span>
+          </button>
+        )}
+      </div>
+    </>
+  );
 
   return (
     <div className="relative" ref={ref} onClick={(event) => event.stopPropagation()}>
       <button
+        ref={buttonRef}
         onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        )}
+        className={getChatToolbarButtonClass({ compact, open })}
         title="Active Context"
         aria-label="Active Context"
         aria-haspopup="menu"
@@ -455,50 +509,41 @@ function ActiveContextLinksButton({
       >
         <BookOpen size="0.875rem" />
       </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-2xl shadow-black/40 animate-message-in"
-        >
-          <div className="px-2 pb-1 text-[0.625rem] font-semibold uppercase text-foreground/45">Active Context</div>
-          <div className="space-y-1">
-            {characterIds.map((id, index) => (
-              <button
-                key={id}
-                type="button"
-                role="menuitem"
-                className={itemClassName}
-                onClick={() => openCharacter(id)}
-              >
-                <User size="0.8125rem" className={iconClassName} />
-                <span className="min-w-0 flex-1 truncate">
-                  {characterMap.get(id)?.name ?? `Character ${index + 1}`}
-                </span>
-                <span className="shrink-0 text-[0.625rem] text-foreground/45">Card</span>
-              </button>
-            ))}
-            {activeLorebookIds.map((id, index) => (
-              <button key={id} type="button" role="menuitem" className={itemClassName} onClick={() => openLorebook(id)}>
-                <BookOpen size="0.8125rem" className={iconClassName} />
-                <span className="min-w-0 flex-1 truncate">{lorebookNameById.get(id) ?? `Lorebook ${index + 1}`}</span>
-                <span className="shrink-0 text-[0.625rem] text-foreground/45">Lorebook</span>
-              </button>
-            ))}
-            {promptPresetId && (
-              <button
-                type="button"
-                role="menuitem"
-                className={itemClassName}
-                onClick={() => openPreset(promptPresetId)}
-              >
-                <FileText size="0.8125rem" className={iconClassName} />
-                <span className="min-w-0 flex-1 truncate">{presetName ?? "Prompt preset"}</span>
-                <span className="shrink-0 text-[0.625rem] text-foreground/45">Preset</span>
-              </button>
+      {open &&
+        (isMobile ? (
+          createPortal(
+            <div
+              ref={panelRef}
+              role="menu"
+              className={cn(ROLEPLAY_POPOVER_SHELL, ROLEPLAY_POPOVER_SCROLL_AREA, "fixed z-[9999] overflow-y-auto p-2")}
+              style={
+                mobileFrame
+                  ? {
+                      top: mobileFrame.top,
+                      left: mobileFrame.left,
+                      width: mobileFrame.width,
+                      maxHeight: mobileFrame.maxHeight,
+                    }
+                  : undefined
+              }
+            >
+              {activeContextContent}
+            </div>,
+            document.body,
+          )
+        ) : (
+          <div
+            ref={panelRef}
+            role="menu"
+            className={cn(
+              ROLEPLAY_POPOVER_SHELL,
+              ROLEPLAY_POPOVER_SCROLL_AREA,
+              "absolute right-0 top-full z-50 mt-2 max-h-[min(32rem,calc(100vh-6rem))] w-72 overflow-y-auto p-2",
             )}
+          >
+            {activeContextContent}
           </div>
-        </div>
-      )}
+        ))}
     </div>
   );
 }
@@ -510,6 +555,10 @@ function SummaryButton({
   summaryContextSize,
   summaryPromptTemplates,
   activeSummaryPromptTemplateId,
+  automaticSummaryEnabled,
+  activeAgentIds,
+  summaryRunInterval,
+  automaticSummariesAvailable,
   totalMessageCount,
 }: {
   chatId: string | null;
@@ -518,26 +567,59 @@ function SummaryButton({
   summaryContextSize: number;
   summaryPromptTemplates?: ComponentProps<typeof SummaryPopover>["promptTemplates"];
   activeSummaryPromptTemplateId?: string | null;
+  automaticSummaryEnabled: boolean;
+  activeAgentIds: string[];
+  summaryRunInterval?: number;
+  automaticSummariesAvailable: boolean;
   totalMessageCount: number;
 }) {
   const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [anchor, setAnchor] = useState<ComponentProps<typeof SummaryPopover>["anchor"]>(null);
   const compact = useUIStore((s) => s.centerCompact);
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const update = () => {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      setAnchor({
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
 
   if (!chatId) return null;
 
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
       <button
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : summary
-              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
-              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        )}
+        ref={buttonRef}
+        onClick={() => {
+          const rect = buttonRef.current?.getBoundingClientRect();
+          if (rect) {
+            setAnchor({
+              top: rect.top,
+              right: rect.right,
+              bottom: rect.bottom,
+              left: rect.left,
+              width: rect.width,
+            });
+          }
+          setOpen(!open);
+        }}
+        className={getChatToolbarButtonClass({ active: !!summary, compact, open })}
         title="Chat Summary"
       >
         <ScrollText size="0.875rem" />
@@ -551,7 +633,12 @@ function SummaryButton({
             contextSize={summaryContextSize}
             promptTemplates={summaryPromptTemplates}
             activePromptTemplateId={activeSummaryPromptTemplateId}
+            automaticSummaryEnabled={automaticSummaryEnabled}
+            activeAgentIds={activeAgentIds}
+            summaryRunInterval={summaryRunInterval}
+            automaticSummariesAvailable={automaticSummariesAvailable}
             totalMessageCount={totalMessageCount}
+            anchor={anchor}
             onClose={() => setOpen(false)}
           />
         </Suspense>
@@ -563,17 +650,34 @@ function SummaryButton({
 function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMeta: Record<string, any> }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [mobileFrame, setMobileFrame] = useState<MobileFloatingPanelFrame | null>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const compact = useUIStore((s) => s.centerCompact);
 
   useEffect(() => {
-    if (!open || isMobile) return;
+    if (!open) return;
     const handle = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
-  }, [open, isMobile]);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !isMobile) return;
+    const update = () => setMobileFrame(getMobileFloatingPanelFrame(buttonRef.current, 288));
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [isMobile, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -591,16 +695,9 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
   return (
     <div className="relative" ref={ref} onClick={(e) => e.stopPropagation()}>
       <button
+        ref={buttonRef}
         onClick={() => setOpen(!open)}
-        className={cn(
-          "flex items-center justify-center rounded-full border backdrop-blur-md transition-all",
-          compact ? "p-1" : "p-1.5",
-          open
-            ? "bg-foreground/15 border-foreground/20 text-foreground/90"
-            : hasNotes
-              ? "bg-foreground/10 border-foreground/25 text-foreground/80 hover:bg-foreground/15 hover:text-foreground"
-              : "bg-foreground/5 border-foreground/10 text-foreground/60 hover:bg-foreground/10 hover:text-foreground",
-        )}
+        className={getChatToolbarButtonClass({ active: hasNotes, compact, open })}
         title="Author's Notes"
       >
         <PenLine size="0.875rem" />
@@ -609,33 +706,41 @@ function AuthorNotesButton({ chatId, chatMeta }: { chatId: string | null; chatMe
         (isMobile ? (
           createPortal(
             <div
-              className={PANEL_BACKDROP}
+              ref={panelRef}
+              className={cn(ROLEPLAY_POPOVER_SHELL, ROLEPLAY_POPOVER_SCROLL_AREA, "fixed z-[9999] overflow-y-auto p-3")}
+              style={
+                mobileFrame
+                  ? {
+                      top: mobileFrame.top,
+                      left: mobileFrame.left,
+                      width: mobileFrame.width,
+                      maxHeight: mobileFrame.maxHeight,
+                    }
+                  : undefined
+              }
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
             >
-              <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-              <div className={PANEL_CONTAINER} onClick={(e) => e.stopPropagation()}>
-                <Suspense
-                  fallback={
-                    <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
-                      <Loader2 size="0.75rem" className="animate-spin" />
-                      Loading author's notes...
-                    </div>
-                  }
-                >
-                  <AuthorNotesPanel
-                    chatId={chatId}
-                    chatMeta={chatMeta}
-                    isMobile={isMobile}
-                    onClose={() => setOpen(false)}
-                  />
-                </Suspense>
-              </div>
+              <Suspense
+                fallback={
+                  <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
+                    <Loader2 size="0.75rem" className="animate-spin" />
+                    Loading author's notes...
+                  </div>
+                }
+              >
+                <AuthorNotesPanel
+                  chatId={chatId}
+                  chatMeta={chatMeta}
+                  isMobile={isMobile}
+                  onClose={() => setOpen(false)}
+                />
+              </Suspense>
             </div>,
             document.body,
           )
         ) : (
-          <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-2xl shadow-black/40 animate-message-in">
+          <div ref={panelRef} className={cn(ROLEPLAY_POPOVER_SHELL, "absolute right-0 top-full z-50 mt-2 w-72 p-3")}>
             <Suspense
               fallback={
                 <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
@@ -675,12 +780,14 @@ type RoleplaySurfaceProps = {
   spriteCharacterIds: string[];
   spriteDisplayModes: SpriteDisplayMode[];
   spriteExpressions: Record<string, string>;
-  expressionAvatarsEnabled: boolean;
   expressionAvatarResolver?: ExpressionAvatarResolver;
   spritePlacements: Record<string, SpritePlacement>;
   spriteScale: number;
+  expressionSpriteScale: number;
+  fullBodySpriteScale: number;
   spriteOpacity: number;
-  hasCustomSpritePlacements: boolean;
+  expressionSpriteOpacity: number;
+  fullBodySpriteOpacity: number;
   spriteArrangeMode: boolean;
   enabledAgentTypes: Set<string>;
   chatCharIds: string[];
@@ -699,8 +806,10 @@ type RoleplaySurfaceProps = {
   totalMessageCount: number;
   lastAssistantMessageId: string | null;
   settingsOpen: boolean;
+  settingsAnchor: ComponentProps<typeof ChatCommonOverlays>["settingsAnchor"];
   filesOpen: boolean;
   galleryOpen: boolean;
+  galleryAnchor: ComponentProps<typeof ChatCommonOverlays>["galleryAnchor"];
   wizardOpen: boolean;
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
@@ -732,9 +841,8 @@ type RoleplaySurfaceProps = {
   onAbandonScene: () => void;
   onForkScene: (sceneChatId: string, mode: SceneForkMode) => void;
   isForkingScene?: boolean;
-  onOpenSettings: () => void;
-  onOpenFiles: () => void;
-  onOpenGallery: () => void;
+  onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
+  onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
   onCloseSettings: () => void;
   onCloseFiles: () => void;
   onCloseGallery: () => void;
@@ -744,9 +852,9 @@ type RoleplaySurfaceProps = {
   onResetSpritePlacements: () => void;
   onSpriteSideChange: (side: SpriteSide) => void;
   onToggleSpriteArrange: () => void;
-  onToggleSpritePosition: () => void;
   onExpressionChange: (characterId: string, expression: string, options?: { immediate?: boolean }) => void;
-  onSpritePlacementChange: (characterId: string, placement: SpritePlacement) => void;
+  onSpritePlacementChange: (placementKey: string, placement: SpritePlacement) => void;
+  onFinishSpritePlacement: () => void;
   onDeleteConfirm: () => void;
   onDeleteSwipe: () => void;
   onDeleteMore: () => void;
@@ -776,12 +884,14 @@ export function ChatRoleplaySurface({
   spriteCharacterIds,
   spriteDisplayModes,
   spriteExpressions,
-  expressionAvatarsEnabled,
   expressionAvatarResolver,
   spritePlacements,
   spriteScale,
+  expressionSpriteScale,
+  fullBodySpriteScale,
   spriteOpacity,
-  hasCustomSpritePlacements,
+  expressionSpriteOpacity,
+  fullBodySpriteOpacity,
   spriteArrangeMode,
   enabledAgentTypes,
   chatCharIds,
@@ -800,8 +910,10 @@ export function ChatRoleplaySurface({
   totalMessageCount,
   lastAssistantMessageId,
   settingsOpen,
+  settingsAnchor,
   filesOpen,
   galleryOpen,
+  galleryAnchor,
   wizardOpen,
   peekPromptData,
   deleteDialogMessageId,
@@ -834,7 +946,6 @@ export function ChatRoleplaySurface({
   onForkScene,
   isForkingScene,
   onOpenSettings,
-  onOpenFiles,
   onOpenGallery,
   onCloseSettings,
   onCloseFiles,
@@ -845,9 +956,9 @@ export function ChatRoleplaySurface({
   onResetSpritePlacements,
   onSpriteSideChange,
   onToggleSpriteArrange,
-  onToggleSpritePosition,
   onExpressionChange,
   onSpritePlacementChange,
+  onFinishSpritePlacement,
   onDeleteConfirm,
   onDeleteSwipe,
   onDeleteMore,
@@ -859,6 +970,9 @@ export function ChatRoleplaySurface({
   onSelectAllBelowSelection,
   isGrouped,
 }: RoleplaySurfaceProps) {
+  const isStreamCommitted = useChatStore((s) => s.committedStreamChatIds.has(activeChatId));
+  const hasDraftInput = useChatStore((s) => s.currentInput.trim().length > 0);
+  const hasLiveStream = isStreaming && !isStreamCommitted;
   const linkedChatName = chat?.connectedChatId
     ? getConnectedChatDisplayName(allChats?.find((c) => c.id === chat.connectedChatId))
     : undefined;
@@ -868,18 +982,96 @@ export function ChatRoleplaySurface({
   const initialLoadSettledRef = useRef(false);
   const prevMessageKeysRef = useRef<Set<string>>(new Set());
   const seenMessageKeysRef = useRef(roleplayNotificationSeenKeys);
+  const topChromeRef = useRef<HTMLDivElement>(null);
+  const inputChromeRef = useRef<HTMLDivElement>(null);
+  const [chromeHeights, setChromeHeights] = useState({ top: 0, bottom: 0 });
   const hideEchoChamberOnMobile =
     sidebarOpen || rightPanelOpen || settingsOpen || filesOpen || galleryOpen || wizardOpen;
-  const overlaySpriteDisplayModes = expressionAvatarsEnabled
-    ? spriteDisplayModes.filter((mode) => mode !== "expressions")
-    : spriteDisplayModes;
-  const showSpriteOverlay =
-    expressionAgentEnabled && spriteCharacterIds.length > 0 && overlaySpriteDisplayModes.length > 0;
+  const showSpriteOverlay = expressionAgentEnabled && spriteCharacterIds.length > 0 && spriteDisplayModes.length > 0;
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const top = Math.ceil(topChromeRef.current?.getBoundingClientRect().height ?? 0);
+      const bottom = Math.ceil(inputChromeRef.current?.getBoundingClientRect().height ?? 0);
+      setChromeHeights((current) => (current.top === top && current.bottom === bottom ? current : { top, bottom }));
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    if (topChromeRef.current) observer.observe(topChromeRef.current);
+    if (inputChromeRef.current) observer.observe(inputChromeRef.current);
+    return () => observer.disconnect();
+  }, [activeChatId, centerCompact, chatMeta.enableAgents, chatMeta.sceneStatus, combatAgentEnabled]);
 
   useEffect(() => {
     initialLoadSettledRef.current = false;
     prevMessageKeysRef.current = new Set();
   }, [activeChatId]);
+
+  const [transcriptWindowStart, setTranscriptWindowStart] = useState<number | null>(null);
+  const pendingLoadMoreRevealRef = useRef<{
+    previousLength: number;
+    previousStartIndex: number;
+    previousEndIndex: number;
+  } | null>(null);
+
+  useEffect(() => {
+    setTranscriptWindowStart(null);
+    pendingLoadMoreRevealRef.current = null;
+  }, [activeChatId]);
+
+  const messagesLength = messages?.length ?? 0;
+  const transcriptWindow = useMemo(
+    () => getTranscriptRenderWindow(messages, { startIndex: transcriptWindowStart }),
+    [messages, transcriptWindowStart],
+  );
+
+  const showOlderTranscriptMessages = () => {
+    setTranscriptWindowStart((current) => {
+      const start = current ?? transcriptWindow.startIndex;
+      return Math.max(0, start - TRANSCRIPT_RENDER_WINDOW_STEP);
+    });
+  };
+
+  const showNewerTranscriptMessages = () => {
+    setTranscriptWindowStart((current) => {
+      const start = current ?? transcriptWindow.startIndex;
+      return Math.min(transcriptWindow.latestStartIndex, start + TRANSCRIPT_RENDER_WINDOW_STEP);
+    });
+  };
+
+  const jumpToLatestTranscriptMessages = () => {
+    setTranscriptWindowStart(null);
+  };
+
+  const handleLoadMoreClick = () => {
+    if (transcriptWindow.hiddenBeforeCount > 0) {
+      showOlderTranscriptMessages();
+      return;
+    }
+    pendingLoadMoreRevealRef.current = {
+      previousLength: messagesLength,
+      previousStartIndex: transcriptWindow.startIndex,
+      previousEndIndex: transcriptWindow.endIndex,
+    };
+    onLoadMore();
+  };
+
+  useLayoutEffect(() => {
+    const pending = pendingLoadMoreRevealRef.current;
+    if (!pending || isFetchingNextPage) return;
+    if (messagesLength <= pending.previousLength) {
+      pendingLoadMoreRevealRef.current = null;
+      return;
+    }
+
+    const addedCount = messagesLength - pending.previousLength;
+    const previousVisibleCount = Math.max(1, pending.previousEndIndex - pending.previousStartIndex);
+    const previousVisibleStart = pending.previousStartIndex + addedCount;
+    setTranscriptWindowStart(Math.max(0, previousVisibleStart - previousVisibleCount));
+    pendingLoadMoreRevealRef.current = null;
+  }, [isFetchingNextPage, messagesLength]);
 
   useEffect(() => {
     if (!messages) return;
@@ -919,9 +1111,26 @@ export function ChatRoleplaySurface({
     }
   }, [activeChatId, messages]);
 
+  const visibleMessages = transcriptWindow.messages;
+  const loadedMessageOffset = totalMessageCount - (messages?.length ?? 0);
+  const summaryActiveAgentIds = Array.isArray(chatMeta.activeAgentIds)
+    ? chatMeta.activeAgentIds.filter((agentId): agentId is string => typeof agentId === "string")
+    : [];
+  const automaticSummaryEnabled =
+    chatMeta.automaticSummaryEnabled === true ||
+    (chatMeta.enableAgents === true && summaryActiveAgentIds.includes("chat-summary"));
+  const summaryRunInterval =
+    typeof chatMeta.summaryRunInterval === "number" && Number.isFinite(chatMeta.summaryRunInterval)
+      ? chatMeta.summaryRunInterval
+      : undefined;
+
   return (
     <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
-      <div className="rpg-chat-area mari-chat-area relative flex flex-1 flex-col overflow-hidden">
+      <div
+        className="rpg-chat-area mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden"
+        data-chat-mode="roleplay"
+        style={{ isolation: "isolate" }}
+      >
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
@@ -932,21 +1141,25 @@ export function ChatRoleplaySurface({
               characterIds={spriteCharacterIds}
               messages={msgPayload}
               side={spritePosition}
-              spriteDisplayModes={overlaySpriteDisplayModes}
+              spriteDisplayModes={spriteDisplayModes}
               spriteExpressions={spriteExpressions}
               spritePlacements={spritePlacements}
               editing={spriteArrangeMode}
               spriteScale={spriteScale}
+              expressionSpriteScale={expressionSpriteScale}
+              fullBodySpriteScale={fullBodySpriteScale}
               spriteOpacity={spriteOpacity}
-              onExpressionChange={onExpressionChange}
+              expressionSpriteOpacity={expressionSpriteOpacity}
+              fullBodySpriteOpacity={fullBodySpriteOpacity}
               onPlacementChange={onSpritePlacementChange}
+              onFinishPlacement={onFinishSpritePlacement}
             />
           </Suspense>
         )}
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <>
+        <div className="relative flex flex-1 overflow-hidden">
+          <div className="relative flex flex-1 flex-col overflow-hidden">
+            <div ref={topChromeRef} className="pointer-events-none absolute inset-x-0 top-0 z-40">
               <div
                 data-tracker-panel-anchor="roleplay-hud"
                 className={cn(
@@ -976,14 +1189,17 @@ export function ChatRoleplaySurface({
                     </Suspense>
                   </div>
                 )}
-                <div className="pointer-events-auto ml-auto flex shrink-0 items-center gap-1.5">
+                <div
+                  data-roleplay-top-controls="right"
+                  className={cn("pointer-events-auto ml-auto flex shrink-0 items-center", CHAT_TOOLBAR_ICON_GAP_CLASS)}
+                >
                   <ChatBranchSelector
                     activeChatId={activeChatId}
                     activeChatName={chat?.name}
                     groupId={chat?.groupId ?? null}
                     variant="roleplay"
                   />
-                  <ToolbarMenu>
+                  <ChatToolbarMenu>
                     <SummaryButton
                       chatId={chat?.id ?? null}
                       summary={chatMeta.summary ?? null}
@@ -999,6 +1215,10 @@ export function ChatRoleplaySurface({
                           ? chatMeta.activeSummaryPromptTemplateId
                           : null
                       }
+                      automaticSummaryEnabled={automaticSummaryEnabled}
+                      activeAgentIds={summaryActiveAgentIds}
+                      summaryRunInterval={summaryRunInterval}
+                      automaticSummariesAvailable={chatMode === "roleplay"}
                       totalMessageCount={totalMessageCount}
                     />
                     <ActiveContextLinksButton
@@ -1007,45 +1227,21 @@ export function ChatRoleplaySurface({
                       chatCharIds={chatCharIds}
                       characterMap={characterMap}
                     />
-                    <ActiveWorldInfoButton chatId={chat?.id ?? null} />
                     <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                    <RpToolbarButton
-                      icon={<FolderOpen size="0.875rem" />}
-                      title="Manage Chat Files"
-                      onClick={onOpenFiles}
-                    />
-                    {showSpriteOverlay && (
-                      <RpToolbarButton
-                        icon={<Move size="0.875rem" />}
-                        title={spriteArrangeMode ? "Finish arranging sprites" : "Arrange sprites"}
-                        onClick={onToggleSpriteArrange}
-                      />
-                    )}
-                    {showSpriteOverlay && (
-                      <RpToolbarButton
-                        icon={<FlipHorizontal2 size="0.875rem" />}
-                        title={
-                          hasCustomSpritePlacements
-                            ? `Mirror sprites to the ${spritePosition === "left" ? "right" : "left"}`
-                            : `Sprite default side: ${spritePosition}`
-                        }
-                        onClick={onToggleSpritePosition}
-                      />
-                    )}
-                    <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
+                    <ChatToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                     {chat?.connectedChatId && (
-                      <RpToolbarButton
+                      <ChatToolbarButton
                         icon={<ArrowRightLeft size="0.875rem" />}
                         title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
                         onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
                       />
                     )}
-                    <RpToolbarButton
+                    <ChatToolbarButton
                       icon={<Settings2 size="0.875rem" />}
                       title="Chat Settings"
                       onClick={onOpenSettings}
                     />
-                  </ToolbarMenu>
+                  </ChatToolbarMenu>
                 </div>
               </div>
               <div
@@ -1057,29 +1253,34 @@ export function ChatRoleplaySurface({
               >
                 {chat && chatMeta.enableAgents && (
                   <div
-                    className="flex w-full items-center justify-between pb-1 pt-2"
+                    className="flex w-full min-w-0 items-start justify-between gap-1.5 pb-1 pt-2"
                     style={{
                       paddingLeft: "calc(0.5rem + var(--tracker-panel-hud-clear-left, 0px))",
                       paddingRight: "calc(0.5rem + var(--tracker-panel-hud-clear-right, 0px))",
                     }}
                   >
-                    <Suspense fallback={null}>
-                      <RoleplayHUD
-                        chatId={chat.id}
-                        characterCount={chatCharIds.length}
-                        layout="top"
-                        isStreaming={isStreaming}
-                        onRetriggerTrackers={onRerunTrackers}
-                        onRetryFailedAgents={onRetryFailedAgents}
-                        onRerunSingleTracker={onRerunSingleTracker}
-                        enabledAgentTypes={enabledAgentTypes}
-                        manualTrackers={!!chatMeta.manualTrackers}
-                        mobileCompact
-                        injectionSourceMessages={messages}
-                      />
-                    </Suspense>
-                    <div className="flex items-center gap-1.5">
-                      <ToolbarMenu>
+                    <div className="min-w-0 flex-1 overflow-x-auto">
+                      <Suspense fallback={null}>
+                        <RoleplayHUD
+                          chatId={chat.id}
+                          characterCount={chatCharIds.length}
+                          layout="top"
+                          isStreaming={isStreaming}
+                          onRetriggerTrackers={onRerunTrackers}
+                          onRetryFailedAgents={onRetryFailedAgents}
+                          onRerunSingleTracker={onRerunSingleTracker}
+                          enabledAgentTypes={enabledAgentTypes}
+                          manualTrackers={!!chatMeta.manualTrackers}
+                          mobileCompact
+                          injectionSourceMessages={messages}
+                        />
+                      </Suspense>
+                    </div>
+                    <div
+                      data-roleplay-top-controls="right"
+                      className={cn("ml-auto flex shrink-0 items-center", CHAT_TOOLBAR_ICON_GAP_CLASS)}
+                    >
+                      <ChatToolbarMenu>
                         <ChatBranchSelector
                           activeChatId={activeChatId}
                           activeChatName={chat?.name}
@@ -1104,6 +1305,10 @@ export function ChatRoleplaySurface({
                               ? chatMeta.activeSummaryPromptTemplateId
                               : null
                           }
+                          automaticSummaryEnabled={automaticSummaryEnabled}
+                          activeAgentIds={summaryActiveAgentIds}
+                          summaryRunInterval={summaryRunInterval}
+                          automaticSummariesAvailable={chatMode === "roleplay"}
                           totalMessageCount={totalMessageCount}
                         />
                         <ActiveContextLinksButton
@@ -1112,51 +1317,29 @@ export function ChatRoleplaySurface({
                           chatCharIds={chatCharIds}
                           characterMap={characterMap}
                         />
-                        <ActiveWorldInfoButton chatId={chat?.id ?? null} />
                         <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                        <RpToolbarButton
-                          icon={<FolderOpen size="0.875rem" />}
-                          title="Manage Chat Files"
-                          onClick={onOpenFiles}
-                        />
-                        {showSpriteOverlay && (
-                          <RpToolbarButton
-                            icon={<Move size="0.875rem" />}
-                            title={spriteArrangeMode ? "Finish arranging sprites" : "Arrange sprites"}
-                            onClick={onToggleSpriteArrange}
-                          />
-                        )}
-                        {showSpriteOverlay && (
-                          <RpToolbarButton
-                            icon={<FlipHorizontal2 size="0.875rem" />}
-                            title={
-                              hasCustomSpritePlacements
-                                ? `Mirror sprites to the ${spritePosition === "left" ? "right" : "left"}`
-                                : `Sprite default side: ${spritePosition}`
-                            }
-                            onClick={onToggleSpritePosition}
-                          />
-                        )}
-                        <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
+                        <ChatToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                         {chat?.connectedChatId && (
-                          <RpToolbarButton
+                          <ChatToolbarButton
                             icon={<ArrowRightLeft size="0.875rem" />}
                             title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
                             onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
                           />
                         )}
-                        <RpToolbarButton
+                        <ChatToolbarButton
                           icon={<Settings2 size="0.875rem" />}
                           title="Chat Settings"
                           onClick={onOpenSettings}
                         />
-                      </ToolbarMenu>
+                      </ChatToolbarMenu>
                     </div>
                   </div>
                 )}
                 {chat && !chatMeta.enableAgents && (
-                  <div className="flex w-full items-center justify-end gap-1.5 px-2 pb-1 pt-2">
-                    <ToolbarMenu>
+                  <div
+                    className={cn("flex w-full items-center justify-end px-2 pb-1 pt-2", CHAT_TOOLBAR_ICON_GAP_CLASS)}
+                  >
+                    <ChatToolbarMenu>
                       <ChatBranchSelector
                         activeChatId={activeChatId}
                         activeChatName={chat?.name}
@@ -1179,6 +1362,10 @@ export function ChatRoleplaySurface({
                             ? chatMeta.activeSummaryPromptTemplateId
                             : null
                         }
+                        automaticSummaryEnabled={automaticSummaryEnabled}
+                        activeAgentIds={summaryActiveAgentIds}
+                        summaryRunInterval={summaryRunInterval}
+                        automaticSummariesAvailable={chatMode === "roleplay"}
                         totalMessageCount={totalMessageCount}
                       />
                       <ActiveContextLinksButton
@@ -1187,31 +1374,25 @@ export function ChatRoleplaySurface({
                         chatCharIds={chatCharIds}
                         characterMap={characterMap}
                       />
-                      <ActiveWorldInfoButton chatId={chat?.id ?? null} />
                       <AuthorNotesButton chatId={chat?.id ?? null} chatMeta={chatMeta} />
-                      <RpToolbarButton
-                        icon={<FolderOpen size="0.875rem" />}
-                        title="Manage Chat Files"
-                        onClick={onOpenFiles}
-                      />
-                      <RpToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
+                      <ChatToolbarButton icon={<Image size="0.875rem" />} title="Gallery" onClick={onOpenGallery} />
                       {chat?.connectedChatId && (
-                        <RpToolbarButton
+                        <ChatToolbarButton
                           icon={<ArrowRightLeft size="0.875rem" />}
                           title={linkedChatName ? `Switch to ${linkedChatName}` : "Connected chat"}
                           onClick={() => useChatStore.getState().setActiveChatId(chat.connectedChatId!)}
                         />
                       )}
-                      <RpToolbarButton
+                      <ChatToolbarButton
                         icon={<Settings2 size="0.875rem" />}
                         title="Chat Settings"
                         onClick={onOpenSettings}
                       />
-                    </ToolbarMenu>
+                    </ChatToolbarMenu>
                   </div>
                 )}
               </div>
-            </>
+            </div>
 
             {encounterActive && (
               <Suspense fallback={null}>
@@ -1219,19 +1400,25 @@ export function ChatRoleplaySurface({
               </Suspense>
             )}
 
-            <div className={cn("relative z-10 flex-1 overflow-hidden", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
+            <div className={cn("absolute inset-0 z-10 overflow-hidden", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
               <div
                 ref={scrollRef}
                 data-chat-scroll
                 className={cn(
-                  "rpg-chat-messages-mobile mari-messages-scroll relative h-full overflow-y-auto overflow-x-hidden pb-1 pt-4",
-                  centerCompact ? "px-3" : "px-3 md:px-[15%]",
+                  "rpg-chat-messages-mobile mari-messages-scroll relative h-full overflow-y-auto overflow-x-hidden",
+                  centerCompact ? "px-3" : "px-3 md:px-8 lg:px-10 xl:px-12",
                 )}
+                style={{
+                  paddingTop: Math.max(16, chromeHeights.top + 12),
+                  paddingBottom: Math.max(16, chromeHeights.bottom + 12),
+                  scrollPaddingTop: Math.max(16, chromeHeights.top + 8),
+                  scrollPaddingBottom: Math.max(16, chromeHeights.bottom + 12),
+                }}
               >
                 {hasNextPage && (
                   <div className="mb-3 flex justify-center">
                     <button
-                      onClick={onLoadMore}
+                      onClick={handleLoadMoreClick}
                       disabled={isFetchingNextPage}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-foreground/10 bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-foreground/70 backdrop-blur-sm transition-all hover:bg-[var(--accent)] hover:text-foreground/90 disabled:opacity-50"
                     >
@@ -1245,15 +1432,25 @@ export function ChatRoleplaySurface({
                   </div>
                 )}
 
+                <TranscriptWindowControls
+                  hiddenBeforeCount={transcriptWindow.hiddenBeforeCount}
+                  hiddenAfterCount={transcriptWindow.hiddenAfterCount}
+                  onShowOlder={transcriptWindow.hiddenBeforeCount > 0 ? showOlderTranscriptMessages : undefined}
+                  className="pt-0"
+                />
+
                 {isLoading && (
                   <div className="flex flex-col items-center gap-3 py-12">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-white/60" />
                   </div>
                 )}
 
-                {messages?.map((msg, i) => {
+                {visibleMessages?.map((msg, i) => {
                   if (isHiddenFromUser(msg)) return null;
-                  const isRegenerating = isStreaming && regenerateMessageId === msg.id;
+                  const sourceIndex = transcriptWindow.startIndex + i;
+                  const messageDepth = (messages?.length ?? 0) - 1 - sourceIndex;
+                  const messageOrderIndex = loadedMessageOffset + sourceIndex;
+                  const isRegenerating = hasLiveStream && regenerateMessageId === msg.id;
                   return (
                     <div
                       key={msg.id}
@@ -1281,10 +1478,11 @@ export function ChatRoleplaySurface({
                           characterMap={characterMap}
                           personaInfo={personaInfo}
                           chatMode={chatMode}
-                          messageDepth={messages.length - 1 - i}
-                          messageIndex={totalMessageCount - messages.length + i + 1}
-                          messageOrderIndex={totalMessageCount - messages.length + i}
-                          isGrouped={isGrouped(i)}
+                          hasDraftInput={hasDraftInput}
+                          messageDepth={messageDepth}
+                          messageIndex={messageOrderIndex + 1}
+                          messageOrderIndex={messageOrderIndex}
+                          isGrouped={isGrouped(sourceIndex)}
                           groupChatMode={groupChatMode}
                           chatCharacterIds={chatCharIds}
                           expressionAvatarResolver={expressionAvatarResolver}
@@ -1310,10 +1508,11 @@ export function ChatRoleplaySurface({
                           characterMap={characterMap}
                           personaInfo={personaInfo}
                           chatMode={chatMode}
-                          messageDepth={messages.length - 1 - i}
-                          messageIndex={totalMessageCount - messages.length + i + 1}
-                          messageOrderIndex={totalMessageCount - messages.length + i}
-                          isGrouped={isGrouped(i)}
+                          hasDraftInput={hasDraftInput}
+                          messageDepth={messageDepth}
+                          messageIndex={messageOrderIndex + 1}
+                          messageOrderIndex={messageOrderIndex}
+                          isGrouped={isGrouped(sourceIndex)}
                           groupChatMode={groupChatMode}
                           chatCharacterIds={chatCharIds}
                           expressionAvatarResolver={expressionAvatarResolver}
@@ -1326,9 +1525,16 @@ export function ChatRoleplaySurface({
                   );
                 })}
 
-                {!isStreaming && <CyoaChoices messages={messages} />}
+                <TranscriptWindowControls
+                  hiddenBeforeCount={transcriptWindow.hiddenBeforeCount}
+                  hiddenAfterCount={transcriptWindow.hiddenAfterCount}
+                  onShowNewer={transcriptWindow.hiddenAfterCount > 0 ? showNewerTranscriptMessages : undefined}
+                  onJumpToLatest={transcriptWindow.hiddenAfterCount > 0 ? jumpToLatestTranscriptMessages : undefined}
+                />
 
-                {isStreaming && !regenerateMessageId && (
+                {!isStreaming && <CyoaChoices messages={visibleMessages} />}
+
+                {hasLiveStream && !regenerateMessageId && (
                   <StreamingIndicator
                     activeChatId={activeChatId}
                     chatCharIds={chatCharIds}
@@ -1344,8 +1550,16 @@ export function ChatRoleplaySurface({
               </div>
             </div>
 
-            <div className={cn("relative z-20", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}>
-              <div className={cn("relative", centerCompact ? "px-3" : "px-3 md:px-[12%]")}>
+            <div
+              ref={inputChromeRef}
+              className={cn("pointer-events-none absolute inset-x-0 bottom-0 z-30", TRACKER_FOREGROUND_AVOIDANCE_CLASS)}
+            >
+              <div
+                className={cn(
+                  "pointer-events-auto relative mx-auto w-full",
+                  centerCompact ? "px-3" : "max-w-(--mari-roleplay-message-column-width) px-3 md:px-0",
+                )}
+              >
                 {chatMeta.sceneStatus === "active" && (
                   <EndSceneBar
                     sceneChatId={activeChatId}
@@ -1356,21 +1570,11 @@ export function ChatRoleplaySurface({
                     isForking={isForkingScene}
                   />
                 )}
-                {combatAgentEnabled && (
-                  <div className="flex justify-center py-1">
-                    <button
-                      onClick={onStartEncounter}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs text-foreground/50 transition-all hover:bg-foreground/10 hover:text-orange-300"
-                      title="Start Combat Encounter"
-                    >
-                      <Swords size="0.875rem" />
-                      <span>Encounter</span>
-                    </button>
-                  </div>
-                )}
                 <ChatInput
                   key={activeChatId}
                   mode={isRoleplay ? "roleplay" : "conversation"}
+                  combatAgentEnabled={combatAgentEnabled}
+                  onStartEncounter={onStartEncounter}
                   characterNames={characterNames}
                   groupResponseOrder={
                     chatCharIds.length > 1 && groupChatMode === "individual"
@@ -1406,8 +1610,10 @@ export function ChatRoleplaySurface({
         chat={chat}
         activeChatId={activeChatId}
         settingsOpen={settingsOpen}
+        settingsAnchor={settingsAnchor}
         filesOpen={filesOpen}
         galleryOpen={galleryOpen}
+        galleryAnchor={galleryAnchor}
         wizardOpen={wizardOpen}
         peekPromptData={peekPromptData}
         deleteDialogMessageId={deleteDialogMessageId}

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import {
   ArrowLeft,
   ArrowUpDown,
@@ -8,7 +8,6 @@ import {
   Pencil,
   Plus,
   Search,
-  Sparkles,
   Star,
   User,
 } from "lucide-react";
@@ -17,13 +16,13 @@ import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-chara
 import { getCharacterTitle } from "../../lib/character-display";
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
-import { useUIStore } from "../../stores/ui.store";
+import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
 import type { CharacterData } from "@marinara-engine/shared";
 
-type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "favorites";
-
-const CHARACTER_LIBRARY_SORT_SESSION_KEY = "marinara:character-library-sort";
-const SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const satisfies SortOption[];
+const libraryToolbarButtonClass =
+  "mari-chrome-control mari-chrome-control--small h-7 min-w-0 px-2 text-[0.75rem]";
+const libraryToolbarFieldClass =
+  "mari-chrome-field mari-chrome-field--compact h-7 w-full text-[0.75rem]";
 
 type CharacterRow = {
   id: string;
@@ -114,27 +113,6 @@ function getCharacterSections(char: ParsedCharacterRow) {
   ].filter((section) => section.content);
 }
 
-function isSortOption(value: string | null): value is SortOption {
-  return SORT_OPTIONS.includes(value as SortOption);
-}
-
-function readSessionSort(): SortOption {
-  try {
-    const storedSort = window.sessionStorage.getItem(CHARACTER_LIBRARY_SORT_SESSION_KEY);
-    return isSortOption(storedSort) ? storedSort : "name-asc";
-  } catch {
-    return "name-asc";
-  }
-}
-
-function writeSessionSort(sort: SortOption) {
-  try {
-    window.sessionStorage.setItem(CHARACTER_LIBRARY_SORT_SESSION_KEY, sort);
-  } catch {
-    // Session storage can be unavailable in privacy modes; the control still works for the mounted view.
-  }
-}
-
 function CharacterLibraryDetailCard({
   character,
   onEdit,
@@ -184,7 +162,7 @@ function CharacterLibraryDetailCard({
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <span
-                  className="inline-flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+                  className="mari-chrome-muted-badge gap-1 px-2.5 py-1 text-[0.6875rem]"
                   title="Estimated from character card text fields; actual tokenizer counts vary by model."
                 >
                   <Hash size="0.75rem" />
@@ -261,12 +239,18 @@ export function CharacterLibraryView() {
   const closeCharacterLibrary = useUIStore((s) => s.closeCharacterLibrary);
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openModal = useUIStore((s) => s.openModal);
+  const selectedCharacterId = useUIStore((s) => s.characterLibrarySelectedId);
+  const setSelectedCharacterId = useUIStore((s) => s.setCharacterLibrarySelectedId);
+  const sort = useUIStore((s) => s.characterLibrarySort);
+  const setCharacterLibrarySort = useUIStore((s) => s.setCharacterLibrarySort);
+  const setCharacterLibraryScrollTop = useUIStore((s) => s.setCharacterLibraryScrollTop);
   const { data: characters, isLoading } = useCharacters();
 
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortOption>(readSessionSort);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
+  const libraryRootScrollRef = useRef<HTMLDivElement | null>(null);
+  const libraryListScrollRef = useRef<HTMLElement | null>(null);
+  const pendingLibraryScrollTopRef = useRef(0);
+  const libraryScrollFrameRef = useRef<number | null>(null);
 
   const parsedCharacters = useMemo(() => {
     if (!characters) return [];
@@ -277,8 +261,6 @@ export function CharacterLibraryView() {
     const query = parseCharacterSearchQuery(search);
 
     return parsedCharacters.filter((char) => {
-      const isFavorite = !!char.parsed.extensions?.fav;
-      if (favoritesOnly && !isFavorite) return false;
       const tags = getCharacterTags(char);
       const tagSet = new Set(tags.map((tag) => tag.toLowerCase()));
       if (query.excludedTags.some((tag) => tagSet.has(tag))) return false;
@@ -296,7 +278,7 @@ export function CharacterLibraryView() {
 
       return fields.some((value) => value.toLowerCase().includes(query.text));
     });
-  }, [favoritesOnly, parsedCharacters, search]);
+  }, [parsedCharacters, search]);
 
   const sortedCharacters = useMemo(() => {
     const list = [...filteredCharacters];
@@ -323,34 +305,94 @@ export function CharacterLibraryView() {
   }, [filteredCharacters, sort]);
 
   useEffect(() => {
-    setSelectedCharacterId((current) => {
-      if (current && sortedCharacters.some((char) => char.id === current)) {
-        return current;
-      }
-
-      return sortedCharacters[0]?.id ?? null;
-    });
-  }, [sortedCharacters]);
+    if (selectedCharacterId && sortedCharacters.some((char) => char.id === selectedCharacterId)) return;
+    setSelectedCharacterId(sortedCharacters[0]?.id ?? null);
+  }, [selectedCharacterId, setSelectedCharacterId, sortedCharacters]);
 
   const selectedCharacter = useMemo(
     () => sortedCharacters.find((char) => char.id === selectedCharacterId) ?? null,
     [selectedCharacterId, sortedCharacters],
   );
 
+  const getActiveLibraryScrollNode = useCallback(() => {
+    const candidates = [libraryRootScrollRef.current, libraryListScrollRef.current];
+    return (
+      candidates.find((node) => {
+        if (!node || node.scrollHeight <= node.clientHeight) return false;
+        const overflowY = window.getComputedStyle(node).overflowY;
+        return overflowY === "auto" || overflowY === "scroll";
+      }) ??
+      libraryRootScrollRef.current ??
+      libraryListScrollRef.current
+    );
+  }, []);
+
+  const rememberLibraryScroll = useCallback(() => {
+    const node = getActiveLibraryScrollNode();
+    if (!node) return;
+    pendingLibraryScrollTopRef.current = node.scrollTop;
+    setCharacterLibraryScrollTop(node.scrollTop);
+  }, [getActiveLibraryScrollNode, setCharacterLibraryScrollTop]);
+
+  const handleLibraryScroll = useCallback(
+    (event: UIEvent<HTMLElement>) => {
+      if (event.currentTarget !== event.target) return;
+      pendingLibraryScrollTopRef.current = event.currentTarget.scrollTop;
+      if (libraryScrollFrameRef.current !== null) return;
+      libraryScrollFrameRef.current = window.requestAnimationFrame(() => {
+        libraryScrollFrameRef.current = null;
+        setCharacterLibraryScrollTop(pendingLibraryScrollTopRef.current);
+      });
+    },
+    [setCharacterLibraryScrollTop],
+  );
+
+  useLayoutEffect(() => {
+    if (isLoading) return;
+    const restoreScroll = () => {
+      const scrollTop = useUIStore.getState().characterLibraryScrollTop;
+      for (const node of [libraryRootScrollRef.current, libraryListScrollRef.current]) {
+        if (!node) continue;
+        const maxScrollTop = Math.max(0, node.scrollHeight - node.clientHeight);
+        node.scrollTop = Math.min(scrollTop, maxScrollTop);
+      }
+    };
+    restoreScroll();
+    const frame = window.requestAnimationFrame(restoreScroll);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isLoading, sortedCharacters.length]);
+
+  useLayoutEffect(
+    () => () => {
+      if (libraryScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(libraryScrollFrameRef.current);
+      }
+    },
+    [],
+  );
+
+  const openCharacterDetailFromLibrary = (id: string) => {
+    rememberLibraryScroll();
+    setSelectedCharacterId(id);
+    openCharacterDetail(id, { preserveCharacterLibrary: true });
+  };
+
   const handleSortChange = (value: string) => {
-    if (!isSortOption(value)) return;
-    setSort(value);
-    writeSessionSort(value);
+    setCharacterLibrarySort(value as CharacterLibrarySort);
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,114,182,0.14),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)] lg:overflow-hidden">
+    <div
+      ref={libraryRootScrollRef}
+      onScroll={handleLibraryScroll}
+      className="flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(244,114,182,0.14),_transparent_30%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_26%),var(--background)] lg:overflow-hidden"
+    >
       <div className="sticky top-0 z-10 border-b border-[var(--border)]/40 bg-[var(--card)]/85 backdrop-blur-xl">
-        <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 px-3 py-2 md:px-6 md:py-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={closeCharacterLibrary}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)]/35 hover:text-[var(--primary)] md:h-10 md:w-10"
+              className="mari-chrome-control h-9 w-9 rounded-2xl p-0 md:h-10 md:w-10"
               title="Close library"
             >
               <ArrowLeft size="0.95rem" />
@@ -369,64 +411,40 @@ export function CharacterLibraryView() {
             </div>
           </div>
 
-          <div className="flex w-full items-center gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0 lg:w-auto lg:justify-end">
+          <div className="grid w-full grid-cols-2 gap-1.5 sm:ml-auto sm:w-72 lg:w-80">
             <button
               onClick={() => openModal("create-character")}
-              className="inline-flex min-w-[6.1rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:px-3 sm:py-2 sm:text-sm"
+              className={libraryToolbarButtonClass}
             >
-              <Plus size="0.8125rem" />
+              <Plus size="0.75rem" />
               New
             </button>
             <button
               onClick={() => openModal("import-character")}
-              className="inline-flex min-w-[6.1rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-[var(--secondary)] px-2.5 py-1.5 text-[0.8125rem] font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] sm:min-w-[8rem] sm:px-3 sm:py-2 sm:text-sm"
+              className={libraryToolbarButtonClass}
             >
-              <Download size="0.8125rem" />
+              <Download size="0.75rem" />
               Import
             </button>
-            <button
-              onClick={() => openModal("character-maker")}
-              className="inline-flex min-w-[6.35rem] shrink-0 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-500 px-2.5 py-1.5 text-[0.8125rem] font-medium text-white shadow-lg shadow-pink-500/15 transition-all hover:shadow-pink-500/25 sm:min-w-[8rem] sm:px-3 sm:py-2 sm:text-sm"
-            >
-              <Sparkles size="0.8125rem" />
-              AI Maker
-            </button>
-          </div>
-        </div>
 
-        <div className="flex flex-col gap-1.5 border-t border-[var(--border)]/30 px-3 py-2 md:px-6 md:py-3 sm:gap-3">
-          <div className="relative min-w-0 flex-1 sm:min-w-[16rem]">
-            <Search
-              size="0.8125rem"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-            />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder='Search names, tags, descriptions, or -tag:"tag name"'
-              className="w-full rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 py-2 pl-8.5 pr-3 text-[0.8125rem] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/70 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 md:py-2.5 md:pl-9 md:text-sm"
-            />
-          </div>
+            <div className="relative min-w-0">
+              <Search
+                size="0.75rem"
+                className="mari-chrome-field-icon pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
+              />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search characters"
+                className={cn(libraryToolbarFieldClass, "pl-7 pr-2.5 placeholder:text-[var(--muted-foreground)]/70")}
+              />
+            </div>
 
-          <div className="flex items-center gap-2 sm:flex-wrap">
-            <button
-              onClick={() => setFavoritesOnly((current) => !current)}
-              className={cn(
-                "inline-flex flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 py-1.5 text-[0.8125rem] font-medium transition-all sm:flex-none sm:px-3.5 sm:py-2 sm:text-sm",
-                favoritesOnly
-                  ? "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
-                  : "bg-[var(--secondary)]/80 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60 hover:text-[var(--foreground)]",
-              )}
-            >
-              <Star size="0.8125rem" className={favoritesOnly ? "fill-current" : ""} />
-              Favorites
-            </button>
-
-            <div className="relative min-w-0 flex-1 sm:w-auto sm:flex-none">
+            <div className="relative min-w-0">
               <select
                 value={sort}
                 onChange={(event) => handleSortChange(event.target.value)}
-                className="w-full appearance-none rounded-2xl border border-[var(--border)]/60 bg-[var(--secondary)]/80 py-2 pl-3 pr-8 text-[0.8125rem] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 md:py-2.5 md:pl-3.5 md:pr-9 md:text-sm"
+                className={cn(libraryToolbarFieldClass, "appearance-none pl-2.5 pr-7")}
               >
                 <option value="name-asc">Name A-Z</option>
                 <option value="name-desc">Name Z-A</option>
@@ -436,7 +454,7 @@ export function CharacterLibraryView() {
               </select>
               <ArrowUpDown
                 size="0.6875rem"
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
+                className="mari-chrome-field-icon pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
               />
             </div>
           </div>
@@ -444,7 +462,11 @@ export function CharacterLibraryView() {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-0 xl:grid-cols-[minmax(0,1.1fr)_28rem]">
-        <section className="min-h-0 overflow-visible px-4 py-4 md:px-6 lg:overflow-y-auto">
+        <section
+          ref={libraryListScrollRef}
+          onScroll={handleLibraryScroll}
+          className="min-h-0 overflow-visible px-4 py-4 md:px-6 lg:overflow-y-auto"
+        >
           {isLoading && (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((item) => (
@@ -461,7 +483,7 @@ export function CharacterLibraryView() {
               <div>
                 <h2 className="text-lg font-semibold text-[var(--foreground)]">No matching characters</h2>
                 <p className="mt-1 max-w-md text-sm text-[var(--muted-foreground)]">
-                  Try a different search, turn off favorites-only, or import a new card into the library.
+                  Try a different search, adjust sorting, or import a new card into the library.
                 </p>
               </div>
             </div>
@@ -538,7 +560,7 @@ export function CharacterLibraryView() {
 
                         <div className="mt-auto flex flex-wrap gap-1 sm:gap-1.5">
                           <span
-                            className="inline-flex items-center gap-1 rounded-full bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] sm:px-2 sm:py-1 sm:text-[0.625rem]"
+                            className="mari-chrome-muted-badge gap-1 px-1.5 py-0.5 text-[0.5625rem] sm:px-2 sm:py-1 sm:text-[0.625rem]"
                             title="Estimated from character card text fields; actual tokenizer counts vary by model."
                           >
                             <Hash size="0.5625rem" />
@@ -563,7 +585,7 @@ export function CharacterLibraryView() {
 
                     {isActive && (
                       <div className="col-span-full lg:hidden">
-                        <CharacterLibraryDetailCard character={char} onEdit={openCharacterDetail} />
+                        <CharacterLibraryDetailCard character={char} onEdit={openCharacterDetailFromLibrary} />
                       </div>
                     )}
                   </Fragment>
@@ -576,7 +598,7 @@ export function CharacterLibraryView() {
         <aside className="hidden min-h-0 overflow-visible border-t border-[var(--border)]/40 bg-[var(--card)]/65 backdrop-blur-xl lg:block lg:overflow-y-auto lg:border-l lg:border-t-0">
           <div className="space-y-4 p-4 md:p-6">
             {selectedCharacter ? (
-              <CharacterLibraryDetailCard character={selectedCharacter} onEdit={openCharacterDetail} />
+              <CharacterLibraryDetailCard character={selectedCharacter} onEdit={openCharacterDetailFromLibrary} />
             ) : (
               <div className="flex min-h-[18rem] flex-col items-center justify-center gap-3 rounded-[2rem] border border-dashed border-[var(--border)]/60 bg-[var(--background)]/65 p-6 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-pink-400/20 to-rose-500/20 text-[var(--primary)]">

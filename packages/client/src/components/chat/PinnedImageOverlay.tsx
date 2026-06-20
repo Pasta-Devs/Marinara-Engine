@@ -1,119 +1,243 @@
 // ──────────────────────────────────────────────
-// Pinned Image Overlay — Draggable/resizable floating images in the chat area
+// Pinned Image Overlay — Draggable floating images in the chat area
 // ──────────────────────────────────────────────
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Move, Download, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useGalleryStore } from "../../stores/gallery.store";
 import type { ChatImage } from "../../hooks/use-gallery";
+import { cn } from "../../lib/utils";
+import { getChatToolbarButtonClass } from "./ChatToolbarControls";
 
-function PinnedImageViewer({ image, onClose }: { image: ChatImage; onClose: () => void }) {
-  const isMobile = window.innerWidth < 640;
-  const initSize = isMobile ? Math.min(window.innerWidth - 32, window.innerHeight * 0.5) : 400;
-  const [pos, setPos] = useState({ x: 80, y: 80 });
-  const [size, setSize] = useState({ w: initSize, h: initSize });
+function getViewport() {
+  return {
+    width: typeof window === "undefined" ? 1024 : window.innerWidth,
+    height: typeof window === "undefined" ? 768 : window.innerHeight,
+  };
+}
+
+function getImageAspect(image: ChatImage) {
+  return image.width && image.height && image.width > 0 && image.height > 0 ? image.width / image.height : 1;
+}
+
+function getInitialSizeForAspect(aspect: number) {
+  const viewport = getViewport();
+  const isMobile = viewport.width < 640;
+  const maxWidth = isMobile ? viewport.width - 32 : Math.min(460, viewport.width * 0.36);
+  const maxHeight = isMobile ? viewport.height * 0.54 : viewport.height * 0.62;
+  let width = Math.min(maxWidth, maxHeight * aspect);
+  let height = width / aspect;
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * aspect;
+  }
+  return { w: Math.max(160, width), h: Math.max(120, height) };
+}
+
+function getInitialSize(image: ChatImage) {
+  return getInitialSizeForAspect(getImageAspect(image));
+}
+
+function clampPosition(pos: { x: number; y: number }, size: { w: number; h: number }) {
+  const viewport = getViewport();
+  return {
+    x: Math.max(8, Math.min(pos.x, viewport.width - size.w - 8)),
+    y: Math.max(8, Math.min(pos.y, viewport.height - size.h - 8)),
+  };
+}
+
+function clampSizeToViewport(width: number, aspect: number, pos: { x: number; y: number }) {
+  const viewport = getViewport();
+  const minWidth = viewport.width < 640 ? 120 : 160;
+  const minHeight = viewport.width < 640 ? 90 : 120;
+  const maxWidth = Math.max(minWidth, viewport.width - pos.x - 8);
+  const maxHeight = Math.max(minHeight, viewport.height - pos.y - 8);
+  const maxAspectWidth = maxHeight * aspect;
+  const nextWidth = Math.max(minWidth, Math.min(width, maxWidth, maxAspectWidth));
+  const nextHeight = Math.max(minHeight, nextWidth / aspect);
+  return { w: nextWidth, h: nextHeight };
+}
+
+function PinnedImageViewer({
+  image,
+  onClose,
+  offsetIndex,
+}: {
+  image: ChatImage;
+  onClose: () => void;
+  offsetIndex: number;
+}) {
+  const initialSize = getInitialSize(image);
+  const [pos, setPos] = useState(() =>
+    clampPosition(
+      {
+        x: (getViewport().width - initialSize.w) / 2 + offsetIndex * 24,
+        y: (getViewport().height - initialSize.h) / 2 + offsetIndex * 24,
+      },
+      initialSize,
+    ),
+  );
+  const [size, setSize] = useState(initialSize);
+  const [touchControlsVisible, setTouchControlsVisible] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-  const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
+  const resizeRef = useRef<{
+    startX: number;
+    startY: number;
+    origW: number;
+    origH: number;
+    aspect: number;
+  } | null>(null);
+  const touchControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Center on mount
+  const showTouchControls = useCallback(() => {
+    setTouchControlsVisible(true);
+    if (touchControlsTimerRef.current) clearTimeout(touchControlsTimerRef.current);
+    touchControlsTimerRef.current = setTimeout(() => setTouchControlsVisible(false), 2600);
+  }, []);
+
   useEffect(() => {
-    const s = isMobile ? Math.min(window.innerWidth - 32, window.innerHeight * 0.5) : 400;
-    setPos({ x: Math.max(16, (window.innerWidth - s) / 2), y: Math.max(16, (window.innerHeight - s) / 2) });
-  }, [isMobile]);
+    const handleResize = () => {
+      const nextSize = getInitialSize(image);
+      setSize(nextSize);
+      setPos((current) => clampPosition(current, nextSize));
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [image]);
+
+  useEffect(
+    () => () => {
+      if (touchControlsTimerRef.current) clearTimeout(touchControlsTimerRef.current);
+    },
+    [],
+  );
 
   const onDragStart = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
+      if (e.pointerType !== "mouse") showTouchControls();
       dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [pos],
+    [pos, showTouchControls],
   );
 
-  const onDragMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
-    const newX = Math.max(0, Math.min(dragRef.current.origX + dx, window.innerWidth - 48));
-    const newY = Math.max(0, Math.min(dragRef.current.origY + dy, window.innerHeight - 48));
-    setPos({ x: newX, y: newY });
-  }, []);
+  const onDragMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragRef.current) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      setPos(clampPosition({ x: dragRef.current.origX + dx, y: dragRef.current.origY + dy }, size));
+    },
+    [size],
+  );
 
-  const onDragEnd = useCallback(() => {
+  const onDragEnd = useCallback((e: React.PointerEvent) => {
     dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   }, []);
 
   const onResizeStart = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      resizeRef.current = { startX: e.clientX, startY: e.clientY, origW: size.w, origH: size.h };
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      if (e.pointerType !== "mouse") showTouchControls();
+      resizeRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origW: size.w,
+        origH: size.h,
+        aspect: size.w / size.h,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [size],
+    [showTouchControls, size],
   );
 
-  const onResizeMove = useCallback((e: React.PointerEvent) => {
-    if (!resizeRef.current) return;
-    const dx = e.clientX - resizeRef.current.startX;
-    const dy = e.clientY - resizeRef.current.startY;
-    setSize({
-      w: Math.max(150, Math.min(resizeRef.current.origW + dx, window.innerWidth - 16)),
-      h: Math.max(150, Math.min(resizeRef.current.origH + dy, window.innerHeight - 16)),
-    });
+  const onResizeMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!resizeRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const dx = e.clientX - resizeRef.current.startX;
+      const dy = e.clientY - resizeRef.current.startY;
+      const widthFromHorizontal = resizeRef.current.origW + dx;
+      const widthFromVertical = (resizeRef.current.origH + dy) * resizeRef.current.aspect;
+      setSize(clampSizeToViewport(Math.max(widthFromHorizontal, widthFromVertical), resizeRef.current.aspect, pos));
+    },
+    [pos],
+  );
+
+  const onResizeEnd = useCallback((e: React.PointerEvent) => {
+    resizeRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   }, []);
 
-  const onResizeEnd = useCallback(() => {
-    resizeRef.current = null;
-  }, []);
+  const handleImageLoad = useCallback(
+    (event: React.SyntheticEvent<HTMLImageElement>) => {
+      if (image.width && image.height) return;
+      const { naturalWidth, naturalHeight } = event.currentTarget;
+      if (!naturalWidth || !naturalHeight) return;
+      const nextSize = getInitialSizeForAspect(naturalWidth / naturalHeight);
+      setSize(nextSize);
+      setPos((current) => clampPosition(current, nextSize));
+    },
+    [image.height, image.width],
+  );
+  const controlsVisibilityClass = touchControlsVisible
+    ? "opacity-100"
+    : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100";
 
   return (
     <div
-      className="fixed z-[110] flex flex-col rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+      className="group fixed z-[110] cursor-grab select-none touch-none active:cursor-grabbing"
       style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
+      onPointerDown={onDragStart}
+      onPointerMove={onDragMove}
+      onPointerUp={onDragEnd}
+      onPointerCancel={onDragEnd}
+      aria-label="Pinned gallery image. Drag to move."
     >
-      {/* Title bar — draggable */}
-      <div
-        className="flex shrink-0 cursor-grab items-center gap-2 rounded-t-xl border-b border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5 active:cursor-grabbing select-none touch-none"
-        onPointerDown={onDragStart}
-        onPointerMove={onDragMove}
-        onPointerUp={onDragEnd}
-      >
-        <Move size="0.875rem" className="text-[var(--muted-foreground)]" />
-        <span className="flex-1 truncate text-[0.6875rem] font-medium">{image.prompt || "Gallery Image"}</span>
-        <a
-          href={image.url}
-          download
-          className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Download size="0.75rem" />
-        </a>
+      <div className="relative h-full w-full">
         <button
-          onClick={onClose}
-          className="rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          className={cn(
+            getChatToolbarButtonClass({
+              compact: true,
+              sizeClassName: "h-7 w-7",
+              className: "absolute -right-2 -top-2 z-10 shadow-lg transition-opacity duration-150",
+            }),
+            controlsVisibilityClass,
+          )}
+          aria-label="Dismiss pinned image"
         >
-          <X size="0.75rem" />
+          <X size="0.875rem" />
         </button>
-      </div>
-      {/* Image content */}
-      <div className="relative flex-1 overflow-hidden rounded-b-xl">
         <img
           src={image.url}
           alt={image.prompt || "Gallery image"}
-          className="h-full w-full object-contain"
+          className="h-full w-full rounded-lg object-contain shadow-2xl"
           draggable={false}
+          onLoad={handleImageLoad}
         />
-      </div>
-      {/* Resize handle */}
-      <div
-        className="absolute bottom-0 right-0 h-6 w-6 cursor-nwse-resize touch-none"
-        onPointerDown={onResizeStart}
-        onPointerMove={onResizeMove}
-        onPointerUp={onResizeEnd}
-      >
-        <svg viewBox="0 0 16 16" className="h-full w-full text-[var(--muted-foreground)]/40">
-          <path d="M14 14L8 14L14 8Z" fill="currentColor" />
-        </svg>
+        <div
+          className={cn(
+            "absolute -bottom-2 -right-2 z-10 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] shadow-lg transition-all duration-150 hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-95",
+            controlsVisibilityClass,
+          )}
+          aria-label="Resize pinned image"
+          tabIndex={0}
+          onPointerDown={onResizeStart}
+          onPointerMove={onResizeMove}
+          onPointerUp={onResizeEnd}
+          onPointerCancel={onResizeEnd}
+        >
+          <span className="h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-current" />
+        </div>
       </div>
     </div>
   );
@@ -130,8 +254,8 @@ export function PinnedImageOverlay({ activeChatId }: { activeChatId: string | nu
 
   return (
     <>
-      {visibleImages.map((img) => (
-        <PinnedImageViewer key={img.id} image={img} onClose={() => unpinImage(img.id)} />
+      {visibleImages.map((img, index) => (
+        <PinnedImageViewer key={img.id} image={img} offsetIndex={index} onClose={() => unpinImage(img.id)} />
       ))}
     </>
   );

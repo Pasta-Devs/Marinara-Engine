@@ -19,6 +19,8 @@ export const regexScripts = sqliteTable("regex_scripts", {
   flags: text("flags").notNull().default("gi"),
   /** Only apply in prompt context, not displayed text */
   promptOnly: text("prompt_only").notNull().default("false"),
+  /** JSON array of target recipient character IDs (empty = all recipients) */
+  targetCharacterIds: text("target_character_ids").notNull().default("[]"),
   /** Execution order (lower = first) */
   order: integer("order").notNull().default(0),
   /** Min message depth to apply (null = unlimited) */

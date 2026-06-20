@@ -6,6 +6,9 @@ import { useRegexScripts, type RegexScriptRow } from "./use-regex-scripts";
 import { applyRegexReplacement, formatTextQuotes, type RegexPlacement } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
 
+/** How character-scoped regex scripts apply at display time (mirrors card CSS modes). */
+export type ScopedRegexMode = "disabled" | "exclusive" | "chat";
+
 /**
  * Parses a RegexScriptRow from DB into a usable form.
  */
@@ -24,12 +27,21 @@ function parseScript(row: RegexScriptRow) {
       return [];
     }
   })();
+  const targetCharacterIds: string[] = (() => {
+    try {
+      const parsed = JSON.parse(row.targetCharacterIds);
+      return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
   return {
     ...row,
     enabledBool: row.enabled === "true",
     promptOnlyBool: row.promptOnly === "true",
     placements,
     trimStrings,
+    targetCharacterIds,
   };
 }
 
@@ -42,7 +54,15 @@ function applyScripts(
   text: string,
   scripts: ReturnType<typeof parseScript>[],
   placement: RegexPlacement,
-  options?: { promptOnly?: boolean; depth?: number; resolveMacros?: (value: string) => string },
+  options?: {
+    promptOnly?: boolean;
+    depth?: number;
+    resolveMacros?: (value: string) => string;
+    targetCharacterId?: string | null;
+    targetedOnly?: boolean;
+    scopedMode?: ScopedRegexMode;
+    characterId?: string | null;
+  },
 ): string {
   let result = text;
   for (const script of scripts) {
@@ -53,6 +73,25 @@ function applyScripts(
       if (!script.promptOnlyBool) continue;
     } else if (script.promptOnlyBool) {
       continue;
+    }
+
+    if (options?.targetedOnly && script.targetCharacterIds.length === 0) continue;
+    if (script.targetCharacterIds.length > 0) {
+      if (options?.promptOnly) {
+        // Prompt context: match the character whose prompt is being assembled.
+        if (!options.targetCharacterId || !script.targetCharacterIds.includes(options.targetCharacterId)) continue;
+      } else {
+        // Display context: gate the scoped script by the chat's tri-state mode —
+        // disabled → off; exclusive → only on a target character's own messages;
+        // chat → on every message.
+        const rawMode = options?.scopedMode;
+        const mode: ScopedRegexMode = rawMode === "exclusive" || rawMode === "chat" ? rawMode : "disabled";
+        if (mode === "disabled") continue;
+        if (mode === "exclusive") {
+          const charId = options?.characterId;
+          if (!charId || !script.targetCharacterIds.includes(charId)) continue;
+        }
+      }
     }
 
     // Depth range filtering
@@ -98,14 +137,23 @@ export function useApplyRegex() {
   }, [regexScripts]);
 
   const applyToAIOutput = useCallback(
-    (text: string, options?: { depth?: number; resolveMacros?: (value: string) => string }) =>
-      formatTextQuotes(applyScripts(text, parsedScripts, "ai_output", options), quoteFormat),
+    (
+      text: string,
+      options?: {
+        depth?: number;
+        resolveMacros?: (value: string) => string;
+        scopedMode?: ScopedRegexMode;
+        characterId?: string | null;
+      },
+    ) => formatTextQuotes(applyScripts(text, parsedScripts, "ai_output", options), quoteFormat),
     [parsedScripts, quoteFormat],
   );
 
   const applyToUserInput = useCallback(
-    (text: string, options?: { depth?: number; resolveMacros?: (value: string) => string }) =>
-      formatTextQuotes(applyScripts(text, parsedScripts, "user_input", options), quoteFormat),
+    (
+      text: string,
+      options?: { depth?: number; resolveMacros?: (value: string) => string; scopedMode?: ScopedRegexMode },
+    ) => formatTextQuotes(applyScripts(text, parsedScripts, "user_input", options), quoteFormat),
     [parsedScripts, quoteFormat],
   );
 
@@ -114,7 +162,12 @@ export function useApplyRegex() {
     (
       text: string,
       placement: RegexPlacement,
-      options?: { depth?: number; resolveMacros?: (value: string) => string },
+      options?: {
+        depth?: number;
+        resolveMacros?: (value: string) => string;
+        targetCharacterId?: string | null;
+        targetedOnly?: boolean;
+      },
     ) => applyScripts(text, parsedScripts, placement, { promptOnly: true, ...options }),
     [parsedScripts],
   );

@@ -48,10 +48,18 @@ export interface SceneAnalyzerContext {
   recentSpotifyTracks?: string[];
   /** Current ambient tag. */
   currentAmbient?: string | null;
+  /** Current tracked in-world location. */
+  currentLocation?: string | null;
   /** Current weather. */
   currentWeather: string | null;
   /** Current time of day. */
   currentTimeOfDay: string | null;
+  /** Game setup genre, e.g. fantasy, sci-fi, modern. */
+  genre?: string | null;
+  /** Game setup setting, e.g. medieval kingdom, cyberpunk city. */
+  setting?: string | null;
+  /** Short world overview, when available from game setup metadata. */
+  worldOverview?: string | null;
   /** Whether image generation is configured and this turn is allowed to request a rare CG illustration. */
   canGenerateIllustrations?: boolean;
   /** Whether image generation is configured for missing location/background assets. */
@@ -205,8 +213,16 @@ export function buildSceneAnalyzerUserPrompt(
   if (ctx) {
     parts.push(
       ``,
-      `Current: state=${ctx.currentState}, bg=${ctx.currentBackground ?? "none"}, weather=${ctx.currentWeather ?? "unset"}, time=${ctx.currentTimeOfDay ?? "unset"}`,
+      `Current: state=${ctx.currentState}, location=${ctx.currentLocation ?? "unset"}, bg=${ctx.currentBackground ?? "none"}, weather=${ctx.currentWeather ?? "unset"}, time=${ctx.currentTimeOfDay ?? "unset"}`,
     );
+    const worldContext = [
+      ctx.genre ? `genre=${compactPromptLabel(ctx.genre)}` : "",
+      ctx.setting ? `setting=${compactPromptLabel(ctx.setting)}` : "",
+      ctx.worldOverview ? `world=${compactPromptLabel(ctx.worldOverview)}` : "",
+    ].filter(Boolean);
+    if (worldContext.length > 0) {
+      parts.push(`World context: ${worldContext.join(", ")}`);
+    }
   }
 
   if (spotifyOptions.length > 0) {
@@ -249,7 +265,7 @@ export function buildSceneAnalyzerUserPrompt(
     `   Only include segments that HAVE at least one effect — omit empty segments.`,
     ...(canGenerateBackgrounds
       ? [
-          `5. GENERATED LOCATION BACKGROUNDS — If the narration enters a new location and none of the listed background tags fit, use backgrounds:generated:<short-location-slug>. This requests a normal reusable location background image.`,
+          `5. GENERATED LOCATION BACKGROUNDS — If the narration enters a new location and none of the listed background tags fit, use backgrounds:generated:<short-location-slug>. This requests a normal reusable location background image. The generated prompt MUST include concrete scenery plus any provided world context (genre, setting, current location, and time/weather when relevant). For example, a field in a medieval fantasy game should be a medieval fantasy field, not a modern farm.`,
         ]
       : []),
     ...((ctx?.turnNumber ?? 1) > 1
@@ -283,9 +299,11 @@ export function buildSceneAnalyzerUserPrompt(
     `- Cinematic directions are spice, not punctuation. Use at most 2 total directions per turn, and never more than 1 direction in any 3-beat span. Prefer none for routine dialogue.`,
     `- Use directions for real visual beats: a door slamming, a blade impact, thunder, a memory fracture, a kiss/reveal close-up, a panic spike, a scene transition, or a major emotional turn. Do not attach directions to every line.`,
     `- The background should stay the SAME as long as the characters remain in the same location. Only change it in a segment when characters physically move to a different place.`,
+    `- Generated reusable background prompts must be world-grounded scenery. Include concrete place details and any provided setting era/genre context; exclude characters, UI, text, and modern objects unless the world context supports them.`,
     ...(canGenerateIllustrations
       ? [
           `- Use "illustration" rarely. Most turns MUST keep it null. If you request it, the prompt must describe the exact illustrated moment, visible characters, player POV, mood, lighting, and composition.`,
+          `- "illustration.title" should be a short concrete visual title that names what the picture is of, not just why it matters.`,
           ...(imagePromptInstructions
             ? [`- When writing "illustration.prompt", obey these user image instructions: ${imagePromptInstructions}`]
             : []),
@@ -361,7 +379,7 @@ export function buildSceneAnalyzerUserPrompt(
       : []),
     ...(canGenerateIllustrations
       ? [
-          `,  "illustration": null OR {"segment":<0-${lines.length - 1}>,"prompt":"<important CG image prompt from player POV>","characters":["<visible named character>"],"reason":"<why this is CG-worthy>","slug":"<short-safe-slug>"}`,
+          `,  "illustration": null OR {"segment":<0-${lines.length - 1}>,"title":"<short concrete visual title>","prompt":"<important CG image prompt from player POV>","characters":["<visible named character>"],"reason":"<why this is CG-worthy>","slug":"<short-safe-slug>"}`,
         ]
       : []),
     `}`,

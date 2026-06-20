@@ -154,53 +154,57 @@ export async function generateImage(
   serviceHint: string,
   request: ImageGenRequest,
 ): Promise<ImageGenResult> {
-  const resolvedSource = resolveImageBackend(source, baseUrl, serviceHint, request.model);
-  const normalizedBaseUrl = normalizeImageUrl(baseUrl);
-  const scopedRequest = {
-    ...request,
-    allowLocalUrls:
-      request.allowLocalUrls ?? (await shouldAllowLocalUrlsForImageConnection(normalizedBaseUrl, resolvedSource)),
-  };
+  return withImageGenerationDeadline(
+    (async () => {
+      const resolvedSource = resolveImageBackend(source, baseUrl, serviceHint, request.model);
+      const normalizedBaseUrl = normalizeImageUrl(baseUrl);
+      const scopedRequest = {
+        ...request,
+        allowLocalUrls:
+          request.allowLocalUrls ?? (await shouldAllowLocalUrlsForImageConnection(normalizedBaseUrl, resolvedSource)),
+      };
 
-  switch (resolvedSource) {
-    case "openai":
-      return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
-    case "nanogpt":
-      return generateNanoGPT(normalizedBaseUrl, apiKey, scopedRequest);
-    case "openrouter":
-      return generateOpenRouter(normalizedBaseUrl, apiKey, scopedRequest);
-    case "pollinations":
-      return generatePollinations(scopedRequest);
-    case "stability":
-      return generateStability(normalizedBaseUrl, apiKey, scopedRequest);
-    case "togetherai":
-      return generateTogetherAI(normalizedBaseUrl, apiKey, scopedRequest);
-    case "novelai":
-      return generateNovelAI(normalizedBaseUrl, apiKey, scopedRequest);
-    case "horde":
-      return generateHorde(normalizedBaseUrl, apiKey, scopedRequest);
-    case "xai":
-      return generateXAI(normalizedBaseUrl, apiKey, scopedRequest);
-    case "comfyui":
-      return generateComfyUI(normalizedBaseUrl, scopedRequest);
-    case "runpod_comfyui": {
-      const endpointId = scopedRequest.imageEndpointId || "";
-      if (!endpointId) {
-        throw new Error(
-          "RunPod ComfyUI requires an endpoint ID. " +
-            "Enter your RunPod endpoint ID in the Endpoint ID field (e.g. 'abc123def456').",
-        );
+      switch (resolvedSource) {
+        case "openai":
+          return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
+        case "nanogpt":
+          return generateNanoGPT(normalizedBaseUrl, apiKey, scopedRequest);
+        case "openrouter":
+          return generateOpenRouter(normalizedBaseUrl, apiKey, scopedRequest);
+        case "pollinations":
+          return generatePollinations(scopedRequest);
+        case "stability":
+          return generateStability(normalizedBaseUrl, apiKey, scopedRequest);
+        case "togetherai":
+          return generateTogetherAI(normalizedBaseUrl, apiKey, scopedRequest);
+        case "novelai":
+          return generateNovelAI(normalizedBaseUrl, apiKey, scopedRequest);
+        case "horde":
+          return generateHorde(normalizedBaseUrl, apiKey, scopedRequest);
+        case "xai":
+          return generateXAI(normalizedBaseUrl, apiKey, scopedRequest);
+        case "comfyui":
+          return generateComfyUI(normalizedBaseUrl, scopedRequest);
+        case "runpod_comfyui": {
+          const endpointId = scopedRequest.imageEndpointId || "";
+          if (!endpointId) {
+            throw new Error(
+              "RunPod ComfyUI requires an endpoint ID. " +
+                "Enter your RunPod endpoint ID in the Endpoint ID field (e.g. 'abc123def456').",
+            );
+          }
+          return generateRunPodComfyUI(normalizedBaseUrl, endpointId, apiKey, scopedRequest);
+        }
+        case "automatic1111":
+          return generateAutomatic1111(normalizedBaseUrl, scopedRequest, serviceHint);
+        case "gemini_image":
+          return generateViaChatCompletions(normalizedBaseUrl, apiKey, scopedRequest);
+        default:
+          // Fallback: try OpenAI-compatible endpoint
+          return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
       }
-      return generateRunPodComfyUI(normalizedBaseUrl, endpointId, apiKey, scopedRequest);
-    }
-    case "automatic1111":
-      return generateAutomatic1111(normalizedBaseUrl, scopedRequest, serviceHint);
-    case "gemini_image":
-      return generateViaChatCompletions(normalizedBaseUrl, apiKey, scopedRequest);
-    default:
-      // Fallback: try OpenAI-compatible endpoint
-      return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
-  }
+    })(),
+  );
 }
 
 /**
@@ -222,6 +226,25 @@ export function saveImageToDisk(chatId: string, base64: string, ext: string): st
 const IMAGE_GEN_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS ?? 300_000);
 const MAX_IMAGE_RESPONSE_BYTES = 30 * 1024 * 1024;
 const LOCAL_IMAGE_BACKENDS = new Set(["comfyui", "automatic1111"]);
+
+class ImageGenerationDeadlineError extends Error {
+  constructor(timeoutMs: number) {
+    super(`Image generation timed out after ${Math.round(timeoutMs / 1000)} seconds`);
+    this.name = "ImageGenerationDeadlineError";
+  }
+}
+
+function withImageGenerationDeadline<T>(promise: Promise<T>): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new ImageGenerationDeadlineError(IMAGE_GEN_TIMEOUT)), IMAGE_GEN_TIMEOUT);
+    timeout.unref?.();
+  });
+
+  return Promise.race([promise, deadline]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
+}
 
 function normalizeImageUrl(url: string | URL): string {
   try {
@@ -268,11 +291,32 @@ function isOpenAIGptImageModel(model?: string): boolean {
   return !!model && /^gpt-image-(?:1|1\.5|2)(?:$|-)/i.test(model.trim());
 }
 
+function isOpenAIGptImage2Model(model?: string): boolean {
+  return !!model && /^gpt-image-2(?:$|-)/i.test(model.trim());
+}
+
 function supportsOpenAITransparentBackground(model?: string): boolean {
   const m = model?.trim().toLowerCase() ?? "";
   // OpenAI documents transparent backgrounds for GPT Image output generally,
   // but explicitly excludes GPT Image 2 from background: "transparent".
   return /^gpt-image-(?:1|1\.5)(?:$|-)/i.test(m);
+}
+
+const OPENAI_GPT_IMAGE_2_MIN_PIXELS = 1024 * 1024;
+const OPENAI_GPT_IMAGE_2_SIZE_MULTIPLE = 32;
+
+function roundUpToMultiple(value: number, multiple: number): number {
+  return Math.ceil(value / multiple) * multiple;
+}
+
+function openAIGptImage2Size(width: number, height: number): string {
+  const requestedPixels = width * height;
+  if (requestedPixels >= OPENAI_GPT_IMAGE_2_MIN_PIXELS) return `${width}x${height}`;
+
+  const scale = Math.sqrt(OPENAI_GPT_IMAGE_2_MIN_PIXELS / Math.max(1, requestedPixels));
+  const scaledWidth = roundUpToMultiple(width * scale, OPENAI_GPT_IMAGE_2_SIZE_MULTIPLE);
+  const scaledHeight = roundUpToMultiple(height * scale, OPENAI_GPT_IMAGE_2_SIZE_MULTIPLE);
+  return `${scaledWidth}x${scaledHeight}`;
 }
 
 function openAIImageSize(request: ImageGenRequest): string {
@@ -290,6 +334,10 @@ function openAIImageSize(request: ImageGenRequest): string {
     if (ratio > 1.12) return "1792x1024";
     if (ratio < 0.88) return "1024x1792";
     return "1024x1024";
+  }
+
+  if (isOpenAIGptImage2Model(model)) {
+    return openAIGptImage2Size(width, height);
   }
 
   // GPT Image models reject small custom dimensions such as 1024x576.
@@ -547,13 +595,21 @@ async function downloadImageUrl(imageUrl: string, allowLocalUrls = false): Promi
   return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
 }
 
+function openAITextPrompt(request: ImageGenRequest): string {
+  const prompt = request.prompt.trim();
+  const negativePrompt = request.negativePrompt?.trim();
+  if (!negativePrompt) return prompt;
+  return `${prompt}\n\nDo not include: ${negativePrompt}.`;
+}
+
 async function generateOpenAI(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
   const usesGptImageApi = isOpenAIGptImageModel(request.model);
   const references = openAIReferenceImages(request);
+  const prompt = openAITextPrompt(request);
 
   if (usesGptImageApi && references.length > 0) {
     const formData = new FormData();
-    formData.append("prompt", request.prompt);
+    formData.append("prompt", prompt);
     formData.append("n", "1");
     formData.append("size", openAIImageSize(request));
     formData.append("output_format", "png");
@@ -589,7 +645,7 @@ async function generateOpenAI(baseUrl: string, apiKey: string, request: ImageGen
 
   const url = openAIImagesUrl(baseUrl, "generations");
   const body: Record<string, unknown> = {
-    prompt: request.prompt,
+    prompt,
     n: 1,
     size: openAIImageSize(request),
   };

@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   ChevronRight,
   Plug,
@@ -16,9 +17,8 @@ import {
   Users,
   Loader2,
   Bot,
-  Wand2,
-  ArrowLeft,
   UserRound,
+  Sparkles,
 } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
@@ -27,13 +27,37 @@ import { useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
+import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../hooks/use-agents";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { api } from "../../lib/api-client";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
+import { getAgentRunIntervalMeta } from "../../lib/agent-cadence";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
-import type { Chat, ChatMode, ChatPreset } from "@marinara-engine/shared";
+import {
+  BUILT_IN_AGENTS,
+  CONVERSATION_COMMAND_KEYS,
+  DEFAULT_AGENT_CONTEXT_SIZE,
+  DEFAULT_AGENT_MAX_TOKENS,
+  DEFAULT_AGENT_PROMPTS,
+  DEFAULT_AGENT_TOOLS,
+  MIN_AGENT_MAX_TOKENS,
+  getAgentPromptTemplateOptions,
+  isAgentAvailableInChatMode,
+  isAgentConfigDeleted,
+  isAgentHiddenFromChatSettingsPicker,
+  isBuiltInAgentRuntimeDisabled,
+  isRetiredBuiltInAgentId,
+  mergeBuiltInAgentSettings,
+  normalizeAgentPhaseForType,
+  type AgentPhase,
+  type Chat,
+  type ChatMode,
+  type ChatPreset,
+  type ConversationCommandKey,
+  type Lorebook,
+} from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   CHAT_PARAMETER_DEFAULTS,
@@ -43,6 +67,21 @@ import {
   ROLEPLAY_PARAMETER_DEFAULTS,
   type EditableGenerationParameters,
 } from "../ui/GenerationParametersEditor";
+import {
+  NEUTRAL_PANEL_HEADER,
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_SUBTITLE,
+  NEUTRAL_PANEL_TITLE,
+} from "../ui/neutral-surface-styles";
+import {
+  AgentAddSetupFields,
+  applyAgentAddSetupToAgentSettings,
+  buildAgentAddMetadataPatch,
+  buildInitialAgentAddSetupState,
+  type AgentAddSetupState,
+  type AgentAddSpriteSubject,
+} from "./AgentAddSetupFields";
 
 // ─── Step definitions ─────────────────────────
 
@@ -50,43 +89,68 @@ interface WizardStep {
   key: string;
   title: string;
   body: string;
-
-  sprite: string;
-  spriteFlip?: boolean;
 }
 
-const ALL_STEPS: WizardStep[] = [
+const ROLEPLAY_STEPS: WizardStep[] = [
   {
     key: "connection",
-    title: "Choose a Connection",
-    body: "Which AI provider should this chat use? If you haven't set one up yet, you can do that from the Connections panel.",
-    sprite: "/sprites/mari/Mari_explaining.png",
+    title: "Name & Connection",
+    body: "Name the roleplay and choose which AI connection should answer.",
   },
   {
     key: "preset",
     title: "Pick a Preset",
     body: "Presets control the system prompt structure and generation parameters. The default preset works great for most chats!",
-    sprite: "/sprites/mari/Mari_thinking.png",
   },
   {
-    key: "persona",
-    title: "Select Your Persona",
-    body: "Your persona tells the AI who you are. Pick one or skip to stay anonymous.",
-    sprite: "/sprites/mari/Mari_greet.png",
-  },
-  {
-    key: "characters",
-    title: "Add Characters",
-    body: "Characters bring your chat to life! Add one or more characters for the AI to roleplay as.",
-    sprite: "/sprites/mari/Mari_point_middle_left.png",
+    key: "participants",
+    title: "Persona & Characters",
+    body: "Choose who you are and who joins the scene.",
   },
   {
     key: "lorebooks",
     title: "Attach Lorebooks",
     body: "Lorebooks inject world info and lore into the AI's context when relevant keywords appear. Optional but great for rich worlds!",
-    sprite: "/sprites/mari/Mari_point_up_left.png",
-    spriteFlip: true,
   },
+  {
+    key: "agents",
+    title: "Enable Agents",
+    body: "Optional agents can track details, polish prose, retrieve knowledge, or add special systems to this roleplay. You can add or remove them later as well!",
+  },
+];
+
+const CONVERSATION_STEPS: WizardStep[] = [
+  {
+    key: "connection",
+    title: "Name & Connection",
+    body: "Name the conversation and choose the connection characters should use.",
+  },
+  {
+    key: "participants",
+    title: "Persona & Characters",
+    body: "Choose your persona and the characters in this private DM or group chat.",
+  },
+  {
+    key: "automation",
+    title: "Automation",
+    body: "Decide whether characters can message first, use schedules, and send hidden commands.",
+  },
+];
+
+const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
+  id: ConversationCommandKey;
+  label: string;
+  description: string;
+}> = [
+  { id: "schedule_update", label: "Schedule Updates", description: "Let characters change their current status." },
+  { id: "cross_post", label: "Cross-Post", description: "Let characters redirect a message into another chat." },
+  { id: "selfie", label: "Selfies", description: "Let characters request generated selfies." },
+  { id: "memory", label: "Memories", description: "Let characters create memories for other characters." },
+  { id: "scene", label: "Scenes", description: "Let characters start an immersive scene." },
+  { id: "music", label: "Music", description: "Let characters play songs through the active Music Player." },
+  { id: "haptic", label: "Haptics", description: "Let characters control connected haptic devices." },
+  { id: "influence", label: "Influence", description: "Let characters influence a connected chat." },
+  { id: "note", label: "Notes", description: "Let characters save durable notes for a connected chat." },
 ];
 
 // ─── Main component ───────────────────────────
@@ -114,6 +178,211 @@ type ConnectionSetupOption = {
   provider?: string;
   defaultParameters?: unknown;
 };
+
+type AvailableAgent = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  phase: AgentPhase;
+  builtIn: boolean;
+  runtimeDisabled?: boolean;
+};
+
+type AgentAddPreview = {
+  agent: AvailableAgent;
+  config: AgentConfigRow | null;
+  contextSize: number;
+  maxTokens: number;
+  runInterval: number | null;
+  setup: AgentAddSetupState;
+};
+
+const WIZARD_PANEL_CLASS = cn(
+  NEUTRAL_PANEL_SHELL,
+  "pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden sm:max-h-[min(90dvh,44rem)]",
+);
+
+const WIZARD_FIELD_LABEL = "text-[0.6875rem] font-medium uppercase tracking-wider text-[var(--muted-foreground)]";
+const WIZARD_INPUT_CLASS =
+  "w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
+const WIZARD_GHOST_BUTTON_CLASS =
+  "rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]";
+const WIZARD_PRIMARY_BUTTON_CLASS =
+  "flex items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50";
+const WIZARD_SECONDARY_BUTTON_CLASS =
+  "flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50";
+
+function readChatMetadata(chat: Chat): Record<string, unknown> {
+  const raw = (chat as unknown as { metadata?: string | Record<string, unknown> }).metadata;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return raw ?? {};
+}
+
+function readConversationCommandToggles(value: unknown): Partial<Record<ConversationCommandKey, boolean>> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const source = value as Record<string, unknown>;
+  const toggles: Partial<Record<ConversationCommandKey, boolean>> = {};
+  for (const key of CONVERSATION_COMMAND_KEYS) {
+    if (typeof source[key] === "boolean") toggles[key] = source[key] as boolean;
+  }
+  return toggles;
+}
+
+function isConversationCommandToggleEnabled(
+  toggles: Partial<Record<ConversationCommandKey, boolean>>,
+  command: ConversationCommandKey,
+): boolean {
+  return toggles[command] !== false;
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number, max: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.max(1, Math.min(max, Math.trunc(value)));
+}
+
+function normalizeAgentMaxTokens(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_AGENT_MAX_TOKENS;
+  return Math.max(MIN_AGENT_MAX_TOKENS, Math.trunc(value));
+}
+
+function normalizeAgentMaxTokensInputValue(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return MIN_AGENT_MAX_TOKENS;
+  return Math.max(MIN_AGENT_MAX_TOKENS, Math.trunc(value));
+}
+
+function WizardBackdrop({ onClose }: { onClose: () => void }) {
+  return <div className="absolute inset-0 z-40 bg-black/45 backdrop-blur-[2px]" onClick={onClose} />;
+}
+
+function SetupWizardShell({
+  title,
+  steps,
+  step,
+  currentStep,
+  animationKey,
+  children,
+  onClose,
+  onBack,
+  onSkip,
+  onPrimary,
+  primaryLabel,
+  primaryIcon,
+  primaryDisabled,
+  secondaryAction,
+  busyContent,
+}: {
+  title: string;
+  steps: WizardStep[];
+  step: number;
+  currentStep: WizardStep;
+  animationKey: string | number;
+  children: React.ReactNode;
+  onClose: () => void;
+  onBack?: () => void;
+  onSkip?: () => void;
+  onPrimary: () => void;
+  primaryLabel: string;
+  primaryIcon?: React.ReactNode;
+  primaryDisabled?: boolean;
+  secondaryAction?: React.ReactNode;
+  busyContent?: React.ReactNode;
+}) {
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={animationKey}
+          initial={{ opacity: 0, y: 12, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -12, scale: 0.97 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className={WIZARD_PANEL_CLASS}
+        >
+          <div className={cn(NEUTRAL_PANEL_HEADER, "flex shrink-0 items-center justify-between")}>
+            <h3 className={NEUTRAL_PANEL_TITLE}>{title}</h3>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              aria-label="Close setup"
+            >
+              <X size="0.875rem" />
+            </button>
+          </div>
+
+          <div className={cn(NEUTRAL_PANEL_SCROLL_AREA, "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4")}>
+            <h4 className="text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h4>
+            <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-4")}>{currentStep.body}</p>
+            {children}
+          </div>
+
+          <div className="shrink-0 border-t border-[var(--border)]/70 px-5 py-3">
+            <div className="mb-3 flex items-center justify-center gap-1.5">
+              {steps.map((item, i) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  aria-label={`Go to ${item.title}`}
+                  disabled={i >= step}
+                  onClick={() => {
+                    if (i < step) {
+                      for (let index = step; index > i; index -= 1) onBack?.();
+                    }
+                  }}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all duration-300 disabled:cursor-default",
+                    i === step
+                      ? "w-5 bg-[var(--primary)]"
+                      : i < step
+                        ? "w-3 bg-[var(--primary)]/45 hover:bg-[var(--primary)]/70"
+                        : "w-1.5 bg-[var(--muted-foreground)]/25",
+                  )}
+                />
+              ))}
+            </div>
+
+            {busyContent ? (
+              busyContent
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  {onBack && (
+                    <button type="button" onClick={onBack} className={WIZARD_GHOST_BUTTON_CLASS}>
+                      Back
+                    </button>
+                  )}
+                  {onSkip && (
+                    <button type="button" onClick={onSkip} className={WIZARD_GHOST_BUTTON_CLASS}>
+                      Skip
+                    </button>
+                  )}
+                </div>
+                <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+                  {secondaryAction}
+                  <button
+                    type="button"
+                    onClick={onPrimary}
+                    disabled={primaryDisabled}
+                    className={WIZARD_PRIMARY_BUTTON_CLASS}
+                  >
+                    {primaryLabel}
+                    {primaryIcon}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
   const title = persona.comment?.trim();
@@ -176,12 +445,23 @@ function PersonaPicker({
   personas,
   value,
   onChange,
+  searchable = true,
 }: {
   personas: PersonaSetupOption[];
   value: string | null;
   onChange: (personaId: string | null) => void;
+  searchable?: boolean;
 }) {
   const selectedId = value ?? "";
+  const [search, setSearch] = useState("");
+  const filteredPersonas = useMemo(() => {
+    if (!search.trim()) return personas;
+    const query = search.toLowerCase();
+    return personas.filter((persona) => {
+      const title = getPersonaTitle(persona)?.toLowerCase() ?? "";
+      return persona.name.toLowerCase().includes(query) || title.includes(query);
+    });
+  }, [personas, search]);
 
   return (
     <div className="overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
@@ -204,8 +484,20 @@ function PersonaPicker({
 
       {personas.length > 0 && <div className="border-t border-[var(--border)]" />}
 
+      {searchable && personas.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+          <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search personas..."
+            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+          />
+        </div>
+      )}
+
       <div className="max-h-40 overflow-y-auto">
-        {personas.map((persona) => {
+        {filteredPersonas.map((persona) => {
           const isSelected = selectedId === persona.id;
           const title = getPersonaTitle(persona);
           return (
@@ -231,8 +523,10 @@ function PersonaPicker({
             </button>
           );
         })}
-        {personas.length === 0 && (
-          <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">No personas created yet.</p>
+        {filteredPersonas.length === 0 && (
+          <p className="px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+            {personas.length === 0 ? "No personas created yet." : "No matching personas."}
+          </p>
         )}
       </div>
     </div>
@@ -307,6 +601,9 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 // ──────────────────────────────────────────────
 
 function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
+  const [step, setStep] = useState(0);
+  const currentStep = CONVERSATION_STEPS[step]!;
+  const isLast = step === CONVERSATION_STEPS.length - 1;
   const { data: connections } = useConnections();
   const { data: allCharacters } = useCharacters();
   const { data: allPersonas } = usePersonas();
@@ -334,16 +631,23 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       (allCharacters ?? []) as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>,
     [allCharacters],
   );
-  const personas = (allPersonas ?? []) as Array<{
-    id: string;
-    name: string;
-    avatarPath: string | null;
-    comment?: string | null;
-  }>;
+  const personas = useMemo(
+    () =>
+      (allPersonas ?? []) as Array<{
+        id: string;
+        name: string;
+        avatarPath: string | null;
+        comment?: string | null;
+      }>,
+    [allPersonas],
+  );
   const metadata = useMemo(() => {
-    const raw = (chat as unknown as { metadata?: string | Record<string, unknown> }).metadata;
-    return typeof raw === "string" ? JSON.parse(raw) : (raw ?? {});
+    return readChatMetadata(chat);
   }, [chat]);
+  const [commandsEnabled, setCommandsEnabled] = useState(() => metadata.characterCommands !== false);
+  const [conversationCommandToggles, setConversationCommandToggles] = useState<
+    Partial<Record<ConversationCommandKey, boolean>>
+  >(() => readConversationCommandToggles(metadata.conversationCommandToggles));
   const connectionOptions = useMemo(
     () => filterLanguageGenerationConnections((connections ?? []) as ConnectionSetupOption[]),
     [connections],
@@ -455,6 +759,12 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
 
   const hasConnection = !!chat.connectionId;
   const hasCharacters = chatCharIds.length > 0;
+  const goBack = useCallback(() => {
+    setStep((value) => Math.max(0, value - 1));
+  }, []);
+  const goNext = useCallback(() => {
+    setStep((value) => Math.min(CONVERSATION_STEPS.length - 1, value + 1));
+  }, []);
 
   const handleStartChatting = useCallback(async () => {
     if (!hasConnection || !hasCharacters) return;
@@ -464,6 +774,8 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       id: chat.id,
       autonomousMessages: autonomousEnabled,
       conversationSchedulesEnabled: autonomousEnabled && generateSchedule,
+      characterCommands: commandsEnabled,
+      conversationCommandToggles,
       chatParameters: customizeParameters ? generationParameters : null,
       ...(savedPrompt ? { customSystemPrompt: savedPrompt } : {}),
     });
@@ -495,329 +807,379 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
     updateMeta,
     customizeParameters,
     generationParameters,
+    commandsEnabled,
+    conversationCommandToggles,
   ]);
 
-  return (
-    <>
-      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onFinish} />
+  const renderConnectionStep = () => (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <label className={WIZARD_FIELD_LABEL}>Name</label>
+        <input
+          type="text"
+          key={userEditedName ? "user" : chat.name}
+          defaultValue={chat.name}
+          onBlur={(event) => {
+            const value = event.target.value.trim();
+            if (value && value !== chat.name) {
+              setUserEditedName(true);
+              updateChat.mutate({ id: chat.id, name: value });
+            }
+          }}
+          placeholder="Conversation name"
+          className={WIZARD_INPUT_CLASS}
+        />
+      </div>
 
-      <div className="absolute inset-0 z-50 flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 16, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl sm:max-h-[min(90dvh,42rem)]"
+      <div className="space-y-1.5">
+        <label className={WIZARD_FIELD_LABEL}>Connection</label>
+        <select
+          value={chat.connectionId ?? ""}
+          onChange={(event) => setConnection(event.target.value || null)}
+          className={WIZARD_INPUT_CLASS}
         >
-          {/* Header */}
-          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">New Conversation</h3>
-            </div>
-            <button
-              onClick={onFinish}
-              className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-            >
-              <X size="0.875rem" />
-            </button>
-          </div>
+          <option value="">None</option>
+          <option value="random">Random</option>
+          {connectionOptions.map((connection) => (
+            <option key={connection.id} value={connection.id}>
+              {connection.name}
+            </option>
+          ))}
+        </select>
+        {connectionOptions.length === 0 && (
+          <button
+            onClick={() => {
+              openRightPanel("connections");
+              onFinish();
+            }}
+            className={WIZARD_SECONDARY_BUTTON_CLASS}
+          >
+            <Plug size="0.75rem" />
+            Set Up a Connection
+          </button>
+        )}
+        <SetupGenerationParametersPanel
+          enabled={customizeParameters}
+          value={generationParameters}
+          showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
+          onEnabledChange={setCustomizeParameters}
+          onChange={setGenerationParameters}
+        />
+      </div>
+    </div>
+  );
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
-            {/* Conversation name */}
-            <div className="space-y-1.5">
-              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                Name
-              </label>
-              <input
-                type="text"
-                key={userEditedName ? "user" : chat.name}
-                defaultValue={chat.name}
-                onBlur={(e) => {
-                  const val = e.target.value.trim();
-                  if (val && val !== chat.name) {
-                    setUserEditedName(true);
-                    updateChat.mutate({ id: chat.id, name: val });
-                  }
-                }}
-                placeholder="Conversation name"
-                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40 placeholder:text-[var(--muted-foreground)]"
-              />
-            </div>
+  const renderParticipantsStep = () => (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <label className={WIZARD_FIELD_LABEL}>Your Persona</label>
+        <PersonaPicker personas={personas} value={chat.personaId ?? null} onChange={setPersona} />
+      </div>
 
-            {/* Connection picker */}
-            <div className="space-y-1.5">
-              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                Connection
-              </label>
-              <select
-                value={chat.connectionId ?? ""}
-                onChange={(e) => setConnection(e.target.value || null)}
-                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-              >
-                <option value="">None</option>
-                <option value="random">🎲 Random</option>
-                {connectionOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              {connectionOptions.length === 0 && (
+      <div className="space-y-1.5">
+        <label className={WIZARD_FIELD_LABEL}>
+          {chatCharIds.length > 1 ? (
+            <span className="flex items-center gap-1.5">
+              <Users size="0.6875rem" />
+              Group Chat · {chatCharIds.length} members
+            </span>
+          ) : (
+            "Who do you want to message?"
+          )}
+        </label>
+
+        {chatCharIds.length > 0 && (
+          <div className="mb-1.5 flex flex-wrap gap-1.5">
+            {chatCharIds.map((cid) => {
+              const character = characters.find((entry) => entry.id === cid);
+              if (!character) return null;
+              const name = charName(character);
+              const title = getCharacterTitle(getCharacterInfo(character));
+              return (
                 <button
-                  onClick={() => {
-                    openRightPanel("connections");
-                    onFinish();
-                  }}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
+                  key={cid}
+                  onClick={() => toggleCharacter(cid)}
+                  className="group flex items-center gap-1.5 rounded-lg bg-[var(--primary)]/10 py-1 pl-1 pr-2.5 text-xs ring-1 ring-[var(--primary)]/25 transition-all hover:bg-[var(--destructive)]/15 hover:ring-[var(--destructive)]/30"
+                  title={title ? `${name} - ${title}` : name}
                 >
-                  <Plug size="0.75rem" />
-                  Set Up a Connection
-                </button>
-              )}
-              <SetupGenerationParametersPanel
-                enabled={customizeParameters}
-                value={generationParameters}
-                showOpenRouterServiceTier={selectedConnection?.provider === "openrouter"}
-                onEnabledChange={setCustomizeParameters}
-                onChange={setGenerationParameters}
-              />
-            </div>
-
-            {/* Persona picker (compact) */}
-            <div className="space-y-1.5">
-              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                Your Persona
-              </label>
-              <PersonaPicker personas={personas} value={chat.personaId ?? null} onChange={setPersona} />
-            </div>
-
-            {/* Character picker — main area */}
-            <div className="space-y-1.5">
-              <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                {chatCharIds.length > 1 ? (
-                  <span className="flex items-center gap-1.5">
-                    <Users size="0.6875rem" />
-                    Group Chat · {chatCharIds.length} members
-                  </span>
-                ) : (
-                  "Who do you want to message?"
-                )}
-              </label>
-
-              {/* Selected characters */}
-              {chatCharIds.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-1.5">
-                  {chatCharIds.map((cid) => {
-                    const c = characters.find((ch) => ch.id === cid);
-                    if (!c) return null;
-                    const name = charName(c);
-                    const title = getCharacterTitle(getCharacterInfo(c));
-                    return (
-                      <button
-                        key={cid}
-                        onClick={() => toggleCharacter(cid)}
-                        className="flex items-center gap-1.5 rounded-full bg-[var(--primary)]/15 pl-1 pr-2.5 py-1 text-xs ring-1 ring-[var(--primary)]/30 transition-all hover:bg-[var(--destructive)]/15 hover:ring-[var(--destructive)]/30 group"
-                        title={title ? `${name} - ${title}` : name}
-                      >
-                        {c.avatarPath ? (
-                          <CharacterAvatarImage
-                            character={c}
-                            src={c.avatarPath}
-                            alt={name}
-                            className="h-5 w-5 rounded-full"
-                          />
-                        ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5rem] font-bold">
-                            {name[0]}
-                          </div>
-                        )}
-                        <span className="truncate max-w-[6rem]">{name}</span>
-                        <X
-                          size="0.625rem"
-                          className="text-[var(--muted-foreground)] group-hover:text-[var(--destructive)]"
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Search */}
-              <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--secondary)]/50 overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2">
-                  <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search characters…"
-                    className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-                    autoFocus
-                  />
-                </div>
-                <div className="max-h-40 overflow-y-auto border-t border-[var(--border)]">
-                  {available.map((c) => {
-                    const info = getCharacterInfo(c);
-                    const title = getCharacterTitle(info);
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => toggleCharacter(c.id)}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                      >
-                        {c.avatarPath ? (
-                          <CharacterAvatarImage
-                            character={c}
-                            src={c.avatarPath}
-                            alt={info.name}
-                            className="h-7 w-7 rounded-full"
-                          />
-                        ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
-                            {info.name[0]}
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <span className="block truncate text-xs">{info.name}</span>
-                          {title && (
-                            <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                              {title}
-                            </span>
-                          )}
-                        </div>
-                        <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                      </button>
-                    );
-                  })}
-                  {available.length === 0 && (
-                    <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                      {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                        ? "All characters added."
-                        : "No matches."}
-                    </p>
+                  {character.avatarPath ? (
+                    <CharacterAvatarImage
+                      character={character}
+                      src={character.avatarPath}
+                      alt={name}
+                      className="h-5 w-5 rounded-md"
+                    />
+                  ) : (
+                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent)] text-[0.5rem] font-bold">
+                      {name[0]}
+                    </div>
                   )}
-                </div>
-              </div>
-            </div>
+                  <span className="max-w-[7rem] truncate">{name}</span>
+                  <X size="0.625rem" className="text-[var(--muted-foreground)] group-hover:text-[var(--destructive)]" />
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-            {/* Autonomous messages toggle */}
-            <div className="space-y-2">
+        <div className="overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search characters..."
+              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto border-t border-[var(--border)]">
+            {available.map((character) => {
+              const info = getCharacterInfo(character);
+              const title = getCharacterTitle(info);
+              return (
+                <button
+                  key={character.id}
+                  onClick={() => toggleCharacter(character.id)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+                >
+                  {character.avatarPath ? (
+                    <CharacterAvatarImage
+                      character={character}
+                      src={character.avatarPath}
+                      alt={info.name}
+                      className="h-7 w-7 rounded-md"
+                    />
+                  ) : (
+                    <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-[0.5625rem] font-bold">
+                      {info.name[0]}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-xs">{info.name}</span>
+                    {title && (
+                      <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{title}</span>
+                    )}
+                  </div>
+                  <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+                </button>
+              );
+            })}
+            {available.length === 0 && (
+              <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+                {characters.filter((character) => !chatCharIds.includes(character.id)).length === 0
+                  ? "All characters added."
+                  : "No matches."}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAutomationStep = () => (
+    <div className="space-y-2">
+      <button
+        onClick={() => setAutonomousEnabled((value) => !value)}
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+          autonomousEnabled
+            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+            : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+        )}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Bot
+            size="0.875rem"
+            className={autonomousEnabled ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+          />
+          <div>
+            <span className="text-xs font-medium">Autonomous Messages</span>
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+              Characters can message you first when you are inactive.
+            </p>
+          </div>
+        </div>
+        <div
+          className={cn(
+            "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+            autonomousEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+          )}
+        >
+          <div
+            className={cn(
+              "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+              autonomousEnabled && "translate-x-3.5",
+            )}
+          />
+        </div>
+      </button>
+
+      {autonomousEnabled && (
+        <button
+          onClick={() => setGenerateSchedule((value) => !value)}
+          className={cn(
+            "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+            generateSchedule
+              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+          )}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Loader2
+              size="0.875rem"
+              className={generateSchedule ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+            />
+            <div>
+              <span className="text-xs font-medium">Generate Schedules</span>
+              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                Optional routines for availability and delayed replies.
+              </p>
+            </div>
+          </div>
+          <div
+            className={cn(
+              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+              generateSchedule ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+            )}
+          >
+            <div
+              className={cn(
+                "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                generateSchedule && "translate-x-3.5",
+              )}
+            />
+          </div>
+        </button>
+      )}
+
+      <button
+        onClick={() => setCommandsEnabled((value) => !value)}
+        className={cn(
+          "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+          commandsEnabled
+            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+            : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+        )}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Sparkles
+            size="0.875rem"
+            className={commandsEnabled ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+          />
+          <div>
+            <span className="text-xs font-medium">Commands</span>
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+              Let characters use hidden actions like selfies, scenes, music, notes, and haptics.
+            </p>
+          </div>
+        </div>
+        <div
+          className={cn(
+            "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+            commandsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+          )}
+        >
+          <div
+            className={cn(
+              "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+              commandsEnabled && "translate-x-3.5",
+            )}
+          />
+        </div>
+      </button>
+
+      {commandsEnabled && (
+        <div className="grid gap-1.5 pt-1 sm:grid-cols-2">
+          {CONVERSATION_COMMAND_TOGGLE_OPTIONS.map((command) => {
+            const enabled = isConversationCommandToggleEnabled(conversationCommandToggles, command.id);
+            return (
               <button
-                onClick={() => setAutonomousEnabled((v) => !v)}
+                key={command.id}
+                type="button"
+                onClick={() =>
+                  setConversationCommandToggles((current) => ({
+                    ...current,
+                    [command.id]: !enabled,
+                  }))
+                }
+                aria-pressed={enabled}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                  autonomousEnabled
+                  "flex min-h-[4rem] items-start justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
+                  enabled
                     ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
                     : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
                 )}
               >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <Bot
-                    size="0.875rem"
-                    className={autonomousEnabled ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
-                  />
-                  <div>
-                    <span className="text-xs font-medium">Autonomous Messages</span>
-                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      Characters can message you first when you&apos;re inactive
-                    </p>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">{command.label}</span>
+                  <p className="mt-0.5 text-[0.59375rem] leading-snug text-[var(--muted-foreground)]">
+                    {command.description}
+                  </p>
                 </div>
                 <div
                   className={cn(
-                    "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                    autonomousEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    "mt-0.5 h-4 w-7 shrink-0 rounded-full p-0.5 transition-colors",
+                    enabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
                   )}
                 >
                   <div
                     className={cn(
-                      "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                      autonomousEnabled && "translate-x-3.5",
+                      "h-3 w-3 rounded-full bg-white shadow-sm transition-transform",
+                      enabled && "translate-x-3",
                     )}
                   />
                 </div>
               </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
-              {/* Generate Schedule sub-toggle */}
-              {autonomousEnabled && (
-                <button
-                  onClick={() => setGenerateSchedule((v) => !v)}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    generateSchedule
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-                  )}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Loader2
-                      size="0.875rem"
-                      className={generateSchedule ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
-                    />
-                    <div>
-                      <span className="text-xs font-medium">Generate Schedule</span>
-                      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                        Optional routines for availability and delayed replies
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className={cn(
-                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      generateSchedule ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                        generateSchedule && "translate-x-3.5",
-                      )}
-                    />
-                  </div>
-                </button>
-              )}
-            </div>
-          </div>
+  const content =
+    currentStep.key === "connection"
+      ? renderConnectionStep()
+      : currentStep.key === "participants"
+        ? renderParticipantsStep()
+        : renderAutomationStep();
 
-          {/* Footer */}
-          <div className="border-t border-[var(--border)] px-4 py-3">
-            {scheduleState === "idle" ? (
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={onFinish}
-                  className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-                >
-                  Skip
-                </button>
-                <button
-                  onClick={handleStartChatting}
-                  disabled={!hasConnection || !hasCharacters}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium shadow-sm transition-all active:scale-95",
-                    hasConnection && hasCharacters
-                      ? "bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90"
-                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed opacity-60",
-                  )}
-                >
-                  <MessageCircle size="0.75rem" />
-                  Start Chatting
-                </button>
-              </div>
-            ) : scheduleState === "generating" ? (
-              <div className="flex items-center justify-center gap-2 py-1">
-                <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
-                <span className="text-xs text-[var(--muted-foreground)]">
-                  Generating schedule{chatCharIds.length > 1 ? "s" : ""}… hang tight!
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center gap-2 py-1">
-                <Check size="0.875rem" className="text-emerald-400" />
-                <span className="text-xs text-emerald-400">Ready! Say hi to start the conversation.</span>
-              </div>
-            )}
-          </div>
-        </motion.div>
+  const busyContent =
+    scheduleState === "generating" ? (
+      <div className="flex items-center justify-center gap-2 py-1">
+        <Loader2 size="0.875rem" className="animate-spin text-[var(--primary)]" />
+        <span className="text-xs text-[var(--muted-foreground)]">
+          Generating schedule{chatCharIds.length > 1 ? "s" : ""}...
+        </span>
       </div>
+    ) : scheduleState === "done" ? (
+      <div className="flex items-center justify-center gap-2 py-1">
+        <Check size="0.875rem" className="text-emerald-400" />
+        <span className="text-xs text-emerald-400">Ready! Say hi to start the conversation.</span>
+      </div>
+    ) : null;
+
+  return (
+    <>
+      <WizardBackdrop onClose={onFinish} />
+      <SetupWizardShell
+        title="New Conversation"
+        steps={CONVERSATION_STEPS}
+        step={step}
+        currentStep={currentStep}
+        animationKey={`conversation-${currentStep.key}`}
+        onClose={onFinish}
+        onBack={step > 0 ? goBack : undefined}
+        onSkip={onFinish}
+        onPrimary={isLast ? handleStartChatting : goNext}
+        primaryLabel={isLast ? "Start Chatting" : "Next"}
+        primaryIcon={isLast ? <MessageCircle size="0.75rem" /> : <ChevronRight size="0.75rem" />}
+        primaryDisabled={isLast && (!hasConnection || !hasCharacters)}
+        busyContent={busyContent}
+      >
+        {content}
+      </SetupWizardShell>
     </>
   );
 }
@@ -827,7 +1189,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
 // ──────────────────────────────────────────────
 
 function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
-  const STEPS = ALL_STEPS;
+  const STEPS = ROLEPLAY_STEPS;
 
   const [step, setStep] = useState(0);
   const currentStep = STEPS[step]!;
@@ -843,9 +1205,13 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
+  const updateAgentConfig = useUpdateAgent();
+  const createAgent = useCreateAgent();
   const createMessage = useCreateMessage(chat.id);
   const queryClient = useQueryClient();
   const openRightPanel = useUIStore((s) => s.openRightPanel);
+  const roleplaySpriteScale = useUIStore((s) => s.roleplaySpriteScale);
+  const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
 
   // Fetch full preset data to check for choice blocks (variables)
   const { data: presetFull, isLoading: presetFullLoading } = usePresetFull(chat.promptPresetId ?? null);
@@ -856,21 +1222,28 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { data: allPersonas } = usePersonas();
   const { data: allCharacters } = useCharacters();
   const { data: lorebooks } = useLorebooks();
+  const { data: agentConfigs } = useAgentConfigs();
 
   // Chat-settings presets for the shortcut view
+  const supportsNarrativeDirectorSecretPlot = (chat as unknown as { mode?: string }).mode === "roleplay";
   const chatPresetMode = (
     (chat as unknown as { mode?: string }).mode === "visual_novel" ? "roleplay" : "roleplay"
   ) as ChatMode;
+  const activeChatMode = ((chat as unknown as { mode?: ChatMode }).mode ?? "roleplay") as ChatMode;
   const { data: chatPresetsData } = useChatPresets(chatPresetMode);
   const chatPresetList = useMemo(() => (chatPresetsData ?? []) as ChatPreset[], [chatPresetsData]);
   const applyChatPreset = useApplyChatPreset();
 
-  const personas = (allPersonas ?? []) as Array<{
-    id: string;
-    name: string;
-    avatarPath: string | null;
-    comment?: string | null;
-  }>;
+  const personas = useMemo(
+    () =>
+      (allPersonas ?? []) as Array<{
+        id: string;
+        name: string;
+        avatarPath: string | null;
+        comment?: string | null;
+      }>,
+    [allPersonas],
+  );
   const characters = useMemo(
     () =>
       (allCharacters ?? []) as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>,
@@ -890,8 +1263,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   );
 
   const metadata = useMemo(() => {
-    const raw = (chat as unknown as { metadata?: string | Record<string, unknown> }).metadata;
-    return typeof raw === "string" ? JSON.parse(raw) : (raw ?? {});
+    return readChatMetadata(chat);
   }, [chat]);
   const [customizeParameters, setCustomizeParameters] = useState(
     () => !!parseEditableGenerationParameters(metadata.chatParameters),
@@ -912,7 +1284,75 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
   }, [chat.characterIds]);
 
-  const activeLorebookIds: string[] = useMemo(() => metadata.activeLorebookIds ?? [], [metadata.activeLorebookIds]);
+  const activeLorebookIds: string[] = useMemo(
+    () =>
+      (Array.isArray(metadata.activeLorebookIds) ? metadata.activeLorebookIds : []).filter(
+        (id: unknown): id is string => typeof id === "string",
+      ),
+    [metadata.activeLorebookIds],
+  );
+  const activeAgentIds: string[] = useMemo(
+    () =>
+      (Array.isArray(metadata.activeAgentIds) ? metadata.activeAgentIds : []).filter(
+        (id: unknown): id is string => typeof id === "string",
+      ),
+    [metadata.activeAgentIds],
+  );
+  const agentsEnabled = metadata.enableAgents === true;
+  const agentConfigsByType = useMemo(() => {
+    const map = new Map<string, AgentConfigRow>();
+    for (const config of (agentConfigs ?? []) as AgentConfigRow[]) {
+      map.set(config.type, config);
+    }
+    return map;
+  }, [agentConfigs]);
+  const availableAgents = useMemo(() => {
+    const agents: AvailableAgent[] = [];
+    for (const agent of BUILT_IN_AGENTS) {
+      if (agent.libraryHidden) continue;
+      if (!isAgentAvailableInChatMode(activeChatMode, agent.id)) continue;
+      if (isAgentHiddenFromChatSettingsPicker(activeChatMode, agent.id)) continue;
+      const existing = agentConfigsByType.get(agent.id);
+      if (existing && isAgentConfigDeleted(existing.settings)) continue;
+      agents.push({
+        id: agent.id,
+        name: agent.name,
+        description: existing?.description ?? agent.description,
+        category: agent.category,
+        phase: normalizeAgentPhaseForType(agent.id, existing?.phase ?? agent.phase),
+        builtIn: true,
+        runtimeDisabled: isBuiltInAgentRuntimeDisabled(agent.id),
+      });
+    }
+    for (const config of (agentConfigs ?? []) as AgentConfigRow[]) {
+      if (isAgentConfigDeleted(config.settings)) continue;
+      if (isRetiredBuiltInAgentId(config.type)) continue;
+      if (BUILT_IN_AGENTS.some((agent) => agent.id === config.type)) continue;
+      agents.push({
+        id: config.type,
+        name: config.name,
+        description: config.description,
+        category: "custom",
+        phase: normalizeAgentPhaseForType(config.type, config.phase),
+        builtIn: false,
+        runtimeDisabled: false,
+      });
+    }
+    return agents;
+  }, [activeChatMode, agentConfigs, agentConfigsByType]);
+
+  const getPromptOptionsForAgent = useCallback(
+    (agentId: string) => {
+      const config = agentConfigsByType.get(agentId);
+      const settings = mergeBuiltInAgentSettings(agentId, config?.settings);
+      return getAgentPromptTemplateOptions({
+        promptTemplate: config?.promptTemplate || "",
+        fallbackPromptTemplate: DEFAULT_AGENT_PROMPTS[agentId] || "",
+        settings,
+      });
+    },
+    [agentConfigsByType],
+  );
 
   // Character name helper
   const charInfoMap = useMemo(() => {
@@ -939,10 +1379,38 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     [charInfoMap],
   );
 
+  const agentAddSpriteSubjects = useMemo<AgentAddSpriteSubject[]>(() => {
+    const selectedCharacters = chatCharIds
+      .map((characterId) => characters.find((character) => character.id === characterId))
+      .filter(
+        (character): character is { id: string; data: string; comment?: string | null; avatarPath: string | null } =>
+          Boolean(character),
+      );
+    const selectedPersona = chat.personaId ? personas.find((persona) => persona.id === chat.personaId) : null;
+    return [
+      ...selectedCharacters.map((character) => ({
+        id: character.id,
+        name: charName(character),
+        subtitle: charTitle(character),
+        avatarPath: character.avatarPath ?? null,
+      })),
+      ...(selectedPersona
+        ? [
+            {
+              id: selectedPersona.id,
+              name: selectedPersona.name,
+              subtitle: selectedPersona.comment || "Persona",
+              avatarPath: selectedPersona.avatarPath ?? null,
+            },
+          ]
+        : []),
+    ];
+  }, [chat.personaId, chatCharIds, charName, charTitle, characters, personas]);
+
   // Track whether the user has manually edited the chat name.
   // The roleplay wizard doesn't expose a name field, so this stays false
   // and we always auto-rename based on character selection.
-  const [userEditedName] = useState(false);
+  const [userEditedName, setUserEditedName] = useState(false);
 
   // Build an auto-generated chat name from character IDs
   const buildAutoName = useCallback(
@@ -1094,6 +1562,9 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");
   const [lbSearch, setLbSearch] = useState("");
+  const [agentSearch, setAgentSearch] = useState("");
+  const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
+  const [addingAgentToChat, setAddingAgentToChat] = useState(false);
 
   // On the preset step, wait for full preset data before allowing advance
   const isPresetStep = currentStep.key === "preset";
@@ -1111,21 +1582,149 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       setStep((s) => s + 1);
       setCharSearch("");
       setLbSearch("");
+      setAgentSearch("");
+      setAgentAddPreview(null);
     }
   }, [isLast, finishWizard, currentStep.key, chat.promptPresetId, presetFull?.choiceBlocks?.length]);
+
+  const previous = useCallback(() => {
+    setStep((s) => Math.max(0, s - 1));
+    setCharSearch("");
+    setLbSearch("");
+    setAgentSearch("");
+    setAgentAddPreview(null);
+  }, []);
+
+  const openAgentAddPreview = useCallback(
+    (agent: AvailableAgent) => {
+      const config = agentConfigsByType.get(agent.id) ?? null;
+      const mergedSettings = mergeBuiltInAgentSettings(agent.id, config?.settings);
+      const intervalMeta = getAgentRunIntervalMeta(agent.id, agent.builtIn);
+      setAgentAddPreview({
+        agent,
+        config,
+        contextSize: normalizePositiveInteger(mergedSettings.contextSize, DEFAULT_AGENT_CONTEXT_SIZE, 200),
+        maxTokens: normalizeAgentMaxTokens(mergedSettings.maxTokens),
+        runInterval: intervalMeta
+          ? normalizePositiveInteger(mergedSettings.runInterval, intervalMeta.defaultValue, intervalMeta.max)
+          : null,
+        setup: buildInitialAgentAddSetupState({
+          agentId: agent.id,
+          settings: mergedSettings,
+          metadata,
+          musicPlayerSource,
+          roleplaySpriteScale,
+          allowSecretPlot: supportsNarrativeDirectorSecretPlot,
+        }),
+      });
+    },
+    [agentConfigsByType, metadata, musicPlayerSource, roleplaySpriteScale, supportsNarrativeDirectorSecretPlot],
+  );
+
+  const removeAgentFromChat = useCallback(
+    (agentId: string) => {
+      updateMeta.mutate({
+        id: chat.id,
+        activeAgentIds: activeAgentIds.filter((id) => id !== agentId),
+      });
+      if (agentAddPreview?.agent.id === agentId) setAgentAddPreview(null);
+    },
+    [activeAgentIds, agentAddPreview?.agent.id, chat.id, updateMeta],
+  );
+
+  const confirmAddAgent = useCallback(async () => {
+    if (!agentAddPreview) return;
+    const { agent, config, contextSize, maxTokens, runInterval, setup } = agentAddPreview;
+    const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === agent.id) ?? null;
+    let nextSettings: Record<string, unknown> = {
+      ...mergeBuiltInAgentSettings(agent.id, config?.settings),
+      contextSize,
+      maxTokens: normalizeAgentMaxTokens(maxTokens),
+    };
+    const intervalMeta = getAgentRunIntervalMeta(agent.id, !!builtInMeta);
+    if (intervalMeta && runInterval != null) nextSettings.runInterval = runInterval;
+    nextSettings = applyAgentAddSetupToAgentSettings(agent.id, setup, nextSettings, {
+      allowSecretPlot: supportsNarrativeDirectorSecretPlot,
+    });
+    const nextEnabledTools = nextSettings.enabledTools;
+    if (
+      builtInMeta &&
+      (!Array.isArray(nextEnabledTools) || (agent.id === "spotify" && nextEnabledTools.length === 0))
+    ) {
+      nextSettings.enabledTools = DEFAULT_AGENT_TOOLS[agent.id] ?? [];
+    }
+
+    setAddingAgentToChat(true);
+    try {
+      if (config) {
+        await updateAgentConfig.mutateAsync({ id: config.id, enabled: true, settings: nextSettings });
+      } else if (builtInMeta) {
+        await createAgent.mutateAsync({
+          type: builtInMeta.id,
+          name: agent.name,
+          description: agent.description,
+          phase: normalizeAgentPhaseForType(agent.id, agent.phase),
+          enabled: true,
+          connectionId: null,
+          promptTemplate: "",
+          settings: nextSettings,
+        });
+      }
+
+      await updateMeta.mutateAsync({
+        id: chat.id,
+        enableAgents: true,
+        activeAgentIds: Array.from(new Set([...activeAgentIds, agent.id])),
+        ...buildAgentAddMetadataPatch(agent.id, setup, metadata, {
+          allowSecretPlot: supportsNarrativeDirectorSecretPlot,
+        }),
+      });
+      setAgentAddPreview(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not add this agent to the chat.");
+    } finally {
+      setAddingAgentToChat(false);
+    }
+  }, [
+    activeAgentIds,
+    agentAddPreview,
+    chat.id,
+    createAgent,
+    metadata,
+    supportsNarrativeDirectorSecretPlot,
+    updateAgentConfig,
+    updateMeta,
+  ]);
 
   // ─── Step content renderers ───────────────────
 
   function renderConnection() {
     return (
-      <div className="space-y-2">
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <label className={WIZARD_FIELD_LABEL}>Name</label>
+          <input
+            type="text"
+            key={userEditedName ? "user" : chat.name}
+            defaultValue={chat.name}
+            onBlur={(event) => {
+              const value = event.target.value.trim();
+              if (value && value !== chat.name) {
+                setUserEditedName(true);
+                updateChat.mutate({ id: chat.id, name: value });
+              }
+            }}
+            placeholder="Roleplay name"
+            className={WIZARD_INPUT_CLASS}
+          />
+        </div>
         <select
           value={chat.connectionId ?? ""}
           onChange={(e) => setConnection(e.target.value || null)}
-          className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+          className={WIZARD_INPUT_CLASS}
         >
           <option value="">None</option>
-          <option value="random">🎲 Random</option>
+          <option value="random">Random</option>
           {connectionOptions.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -1138,7 +1737,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
               openRightPanel("connections");
               onFinish();
             }}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-2 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
+            className={WIZARD_SECONDARY_BUTTON_CLASS}
           >
             <Plug size="0.8125rem" />
             Set Up a Connection
@@ -1160,7 +1759,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       <select
         value={chat.promptPresetId ?? ""}
         onChange={(e) => setPreset(e.target.value || null)}
-        className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2.5 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+        className={WIZARD_INPUT_CLASS}
       >
         <option value="">None</option>
         {((presets ?? []) as Array<{ id: string; name: string; isDefault?: boolean | string }>).map((p) => (
@@ -1290,6 +1889,30 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     );
   }
 
+  function renderParticipants() {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <label className={WIZARD_FIELD_LABEL}>Your Persona</label>
+          {renderPersona()}
+        </div>
+        <div className="space-y-1.5">
+          <label className={WIZARD_FIELD_LABEL}>
+            {chatCharIds.length > 1 ? (
+              <span className="flex items-center gap-1.5">
+                <Users size="0.6875rem" />
+                Characters · {chatCharIds.length}
+              </span>
+            ) : (
+              "Characters"
+            )}
+          </label>
+          {renderCharacters()}
+        </div>
+      </div>
+    );
+  }
+
   function renderLorebooks() {
     const available = ((lorebooks ?? []) as Array<{ id: string; name: string }>).filter(
       (lb) => !activeLorebookIds.includes(lb.id) && lb.name.toLowerCase().includes(lbSearch.toLowerCase()),
@@ -1360,20 +1983,352 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     );
   }
 
+  function renderAgents() {
+    const agentCategorySections = [
+      { category: "writer", title: "Writer Agents" },
+      { category: "tracker", title: "Tracker Agents" },
+      { category: "misc", title: "Misc Agents" },
+      { category: "custom", title: "Custom Agents" },
+    ] as const;
+    const filteredAgents = availableAgents.filter((agent) => {
+      const query = agentSearch.toLowerCase();
+      return (
+        agent.name.toLowerCase().includes(query) ||
+        agent.description.toLowerCase().includes(query) ||
+        agent.category.toLowerCase().includes(query)
+      );
+    });
+    const knownAgentCategories = new Set<string>(agentCategorySections.map((section) => section.category));
+    const unknownAgentCategories = Array.from(
+      new Set(filteredAgents.map((agent) => agent.category).filter((category) => !knownAgentCategories.has(category))),
+    );
+    const filteredAgentSections = [
+      ...agentCategorySections.map((section) => ({
+        ...section,
+        agents: filteredAgents.filter((agent) => agent.category === section.category),
+      })),
+      ...unknownAgentCategories.map((category) => ({
+        category,
+        title: category.trim()
+          ? `${category.replace(/[-_]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())} Agents`
+          : "Other Agents",
+        agents: filteredAgents.filter((agent) => agent.category === category),
+      })),
+    ].filter((section) => section.agents.length > 0);
+    const agentAddIntervalMeta = agentAddPreview
+      ? getAgentRunIntervalMeta(agentAddPreview.agent.id, agentAddPreview.agent.builtIn)
+      : null;
+
+    return (
+      <div className="space-y-3">
+        <button
+          onClick={() =>
+            updateMeta.mutate({
+              id: chat.id,
+              enableAgents: !agentsEnabled,
+              activeAgentIds: !agentsEnabled ? activeAgentIds : [],
+            })
+          }
+          className={cn(
+            "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+            agentsEnabled
+              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+          )}
+        >
+          <div className="min-w-0 flex-1">
+            <span className="text-xs font-medium">Enable Agents</span>
+            <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+              Add optional helpers to this roleplay. You can edit detailed agent menus later in Chat Settings.
+            </p>
+          </div>
+          <div
+            className={cn(
+              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+              agentsEnabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+            )}
+          >
+            <div
+              className={cn(
+                "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                agentsEnabled && "translate-x-3.5",
+              )}
+            />
+          </div>
+        </button>
+
+        {agentsEnabled && (
+          <>
+            {agentAddPreview && (
+              <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
+                <div className="flex items-start gap-2">
+                  <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-[var(--foreground)]">{agentAddPreview.agent.name}</p>
+                      <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] uppercase tracking-wide text-[var(--muted-foreground)]">
+                        {agentAddPreview.agent.builtIn ? agentAddPreview.agent.category : "custom"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+                      {agentAddPreview.agent.description || "No description available."}
+                    </p>
+                  </div>
+                </div>
+
+                {agentAddPreview.agent.runtimeDisabled ? (
+                  <p className="rounded-lg bg-[var(--accent)] px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                    This adds instructions to the Roleplay prompt without making a separate model call.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-1">
+                      <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                        Context Size
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={agentAddPreview.contextSize}
+                        onChange={(event) => {
+                          const value = parseInt(event.target.value, 10);
+                          setAgentAddPreview((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  contextSize: Number.isFinite(value)
+                                    ? Math.max(1, Math.min(200, value))
+                                    : DEFAULT_AGENT_CONTEXT_SIZE,
+                                }
+                              : current,
+                          );
+                        }}
+                        disabled={addingAgentToChat}
+                        className={WIZARD_INPUT_CLASS}
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                        Max Output Tokens
+                      </span>
+                      <input
+                        type="number"
+                        min={MIN_AGENT_MAX_TOKENS}
+                        value={agentAddPreview.maxTokens}
+                        onChange={(event) => {
+                          const value = parseInt(event.target.value, 10);
+                          setAgentAddPreview((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  maxTokens: normalizeAgentMaxTokensInputValue(
+                                    Number.isFinite(value) ? value : undefined,
+                                  ),
+                                }
+                              : current,
+                          );
+                        }}
+                        onBlur={() =>
+                          setAgentAddPreview((current) =>
+                            current ? { ...current, maxTokens: normalizeAgentMaxTokens(current.maxTokens) } : current,
+                          )
+                        }
+                        disabled={addingAgentToChat}
+                        className={WIZARD_INPUT_CLASS}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
+                  <label className="space-y-1">
+                    <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      {agentAddIntervalMeta.label}
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={agentAddIntervalMeta.max}
+                      value={agentAddPreview.runInterval}
+                      onChange={(event) => {
+                        const value = parseInt(event.target.value, 10);
+                        setAgentAddPreview((current) =>
+                          current
+                            ? {
+                                ...current,
+                                runInterval: Number.isFinite(value)
+                                  ? Math.max(1, Math.min(agentAddIntervalMeta.max, value))
+                                  : agentAddIntervalMeta.defaultValue,
+                              }
+                            : current,
+                        );
+                      }}
+                      disabled={addingAgentToChat}
+                      className={WIZARD_INPUT_CLASS}
+                    />
+                    <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
+                      {agentAddIntervalMeta.help}
+                    </span>
+                  </label>
+                )}
+
+                <AgentAddSetupFields
+                  agentId={agentAddPreview.agent.id}
+                  value={agentAddPreview.setup}
+                  disabled={addingAgentToChat}
+                  lorebooks={(lorebooks ?? []) as Lorebook[]}
+                  promptOptions={getPromptOptionsForAgent(agentAddPreview.agent.id)}
+                  spriteSubjects={agentAddSpriteSubjects}
+                  allowSecretPlotControls={supportsNarrativeDirectorSecretPlot}
+                  onChange={(patch) =>
+                    setAgentAddPreview((current) =>
+                      current ? { ...current, setup: { ...current.setup, ...patch } } : current,
+                    )
+                  }
+                />
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAgentAddPreview(null)}
+                    disabled={addingAgentToChat}
+                    className={WIZARD_GHOST_BUTTON_CLASS}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void confirmAddAgent()}
+                    disabled={addingAgentToChat}
+                    className={WIZARD_PRIMARY_BUTTON_CLASS}
+                  >
+                    {addingAgentToChat ? "Adding..." : "Add Agent"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
+                <input
+                  value={agentSearch}
+                  onChange={(event) => setAgentSearch(event.target.value)}
+                  placeholder="Search agents..."
+                  className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+                />
+              </div>
+              <div className="max-h-56 overflow-y-auto border-t border-[var(--border)]">
+                {filteredAgentSections.map((section) => {
+                  const activeCount = section.agents.filter((agent) => activeAgentIds.includes(agent.id)).length;
+                  return (
+                    <div key={section.category} className="border-b border-[var(--border)]/70 last:border-b-0">
+                      <div className="sticky top-0 z-10 flex items-center justify-between bg-[var(--secondary)]/95 px-3 py-1.5 backdrop-blur-sm">
+                        <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                          {section.title}
+                        </span>
+                        <span className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                          {activeCount > 0 ? `${activeCount}/${section.agents.length}` : section.agents.length}
+                        </span>
+                      </div>
+                      {section.agents.map((agent) => {
+                        const active = activeAgentIds.includes(agent.id);
+                        return (
+                          <button
+                            key={agent.id}
+                            type="button"
+                            onClick={() => (active ? removeAgentFromChat(agent.id) : openAgentAddPreview(agent))}
+                            className={cn(
+                              "flex w-full items-start gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+                              active && "bg-[var(--primary)]/10",
+                            )}
+                          >
+                            <Sparkles size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+                            <div className="min-w-0 flex-1">
+                              <span className="block truncate text-xs font-medium">{agent.name}</span>
+                              <span className="mt-0.5 line-clamp-2 block text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
+                                {agent.description}
+                              </span>
+                            </div>
+                            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                              {active ? "Added" : "Add"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                {filteredAgentSections.length === 0 && (
+                  <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {availableAgents.length === 0 ? "No agents available." : "No matching agents."}
+                  </p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
   const stepRenderers: Record<string, () => React.ReactNode> = {
     connection: renderConnection,
     preset: renderPreset,
-    persona: renderPersona,
-    characters: renderCharacters,
+    participants: renderParticipants,
     lorebooks: renderLorebooks,
+    agents: renderAgents,
   };
+
+  const shortcutStep: WizardStep = {
+    key: "shortcut",
+    title: "Use Settings Presets",
+    body: "Pick a saved chat-settings preset, your persona, and any characters in one compact setup pass.",
+  };
+  const shortcutContent = (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <label className={WIZARD_FIELD_LABEL}>Chat Preset</label>
+        <select
+          value={shortcutPresetId}
+          onChange={(event) => setShortcutPresetId(event.target.value)}
+          className={WIZARD_INPUT_CLASS}
+        >
+          {chatPresetList.length === 0 && <option value="">Loading...</option>}
+          {chatPresetList.map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {preset.isDefault ? "Default" : preset.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className={WIZARD_FIELD_LABEL}>Persona</label>
+        <PersonaPicker personas={personas} value={chat.personaId ?? null} onChange={setPersona} />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className={WIZARD_FIELD_LABEL}>
+          {chatCharIds.length > 1 ? (
+            <span className="flex items-center gap-1.5">
+              <Users size="0.6875rem" />
+              Characters · {chatCharIds.length}
+            </span>
+          ) : (
+            "Characters"
+          )}
+        </label>
+        {renderCharacters()}
+      </div>
+    </div>
+  );
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="absolute inset-0 z-40 bg-black/40 backdrop-blur-[3px]" onClick={onFinish} />
+      <WizardBackdrop onClose={onFinish} />
 
-      {/* Preset variable selection modal */}
       <ChoiceSelectionModal
         open={showChoiceModal}
         onClose={() => {
@@ -1381,309 +2336,60 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
           setStep((s) => s + 1);
           setCharSearch("");
           setLbSearch("");
+          setAgentSearch("");
+          setAgentAddPreview(null);
         }}
         presetId={chat.promptPresetId ?? null}
         chatId={chat.id}
       />
 
-      {/* Wizard card — centered (hidden while choice modal is open) */}
-      <div
-        className={cn(
-          "absolute inset-0 z-50 flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4",
-          showChoiceModal && "hidden",
-        )}
-      >
-        <AnimatePresence mode="wait">
-          {shortcutMode ? (
-            <motion.div
-              key="shortcut"
-              initial={{ opacity: 0, y: 12, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.97 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl sm:max-h-[min(90dvh,42rem)]"
-            >
-              {/* Header */}
-              <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-3">
-                <button
-                  onClick={() => setShortcutMode(false)}
-                  className="flex items-center gap-1.5 rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-                  aria-label="Back"
-                >
-                  <ArrowLeft size="0.875rem" />
-                </button>
-                <div className="flex items-center gap-1.5">
-                  <Wand2 size="0.875rem" className="text-[var(--primary)]" />
-                  <h3 className="text-sm font-semibold text-[var(--foreground)]">Quick Setup</h3>
-                </div>
-                <button
-                  onClick={onFinish}
-                  className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-                  aria-label="Close"
-                >
-                  <X size="0.875rem" />
-                </button>
-              </div>
-
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
-                <p className="text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
-                  Pick a preset, your persona, and any characters to instantly configure this roleplay.
-                </p>
-
-                {/* Chat Preset */}
-                <div className="space-y-1.5">
-                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                    Chat Preset
-                  </label>
-                  <select
-                    value={shortcutPresetId}
-                    onChange={(e) => setShortcutPresetId(e.target.value)}
-                    className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-                  >
-                    {chatPresetList.length === 0 && <option value="">Loading…</option>}
-                    {chatPresetList.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.isDefault ? "Default" : p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Persona */}
-                <div className="space-y-1.5">
-                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                    Persona
-                  </label>
-                  <PersonaPicker personas={personas} value={chat.personaId ?? null} onChange={setPersona} />
-                </div>
-
-                {/* Characters */}
-                <div className="space-y-1.5">
-                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)] uppercase tracking-wider">
-                    {chatCharIds.length > 1 ? (
-                      <span className="flex items-center gap-1.5">
-                        <Users size="0.6875rem" />
-                        Characters · {chatCharIds.length}
-                      </span>
-                    ) : (
-                      "Characters"
-                    )}
-                  </label>
-
-                  {chatCharIds.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-1.5">
-                      {chatCharIds.map((cid) => {
-                        const c = characters.find((ch) => ch.id === cid);
-                        if (!c) return null;
-                        const name = charName(c);
-                        const title = charTitle(c);
-                        return (
-                          <button
-                            key={cid}
-                            onClick={() => toggleCharacter(cid)}
-                            className="flex items-center gap-1.5 rounded-full bg-[var(--primary)]/15 pl-1 pr-2.5 py-1 text-xs ring-1 ring-[var(--primary)]/30 transition-all hover:bg-[var(--destructive)]/15 hover:ring-[var(--destructive)]/30 group"
-                            title={title ? `${name} - ${title}` : name}
-                          >
-                            {c.avatarPath ? (
-                              <CharacterAvatarImage
-                                character={c}
-                                src={c.avatarPath}
-                                alt={name}
-                                className="h-5 w-5 rounded-full"
-                              />
-                            ) : (
-                              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5rem] font-bold">
-                                {name[0]}
-                              </div>
-                            )}
-                            <span className="truncate max-w-[6rem]">{name}</span>
-                            <X
-                              size="0.625rem"
-                              className="text-[var(--muted-foreground)] group-hover:text-[var(--destructive)]"
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden">
-                    <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
-                      <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-                      <input
-                        value={charSearch}
-                        onChange={(e) => setCharSearch(e.target.value)}
-                        placeholder="Search characters…"
-                        className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-                      />
-                    </div>
-                    <div className="max-h-40 overflow-y-auto">
-                      {characters
-                        .filter((c) => {
-                          if (chatCharIds.includes(c.id)) return false;
-                          const query = charSearch.toLowerCase();
-                          const title = charTitle(c)?.toLowerCase() ?? "";
-                          return charName(c).toLowerCase().includes(query) || title.includes(query);
-                        })
-                        .map((c) => {
-                          const name = charName(c);
-                          const title = charTitle(c);
-                          return (
-                            <button
-                              key={c.id}
-                              onClick={() => toggleCharacter(c.id)}
-                              className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
-                            >
-                              {c.avatarPath ? (
-                                <CharacterAvatarImage
-                                  character={c}
-                                  src={c.avatarPath}
-                                  alt={name}
-                                  className="h-6 w-6 rounded-full"
-                                />
-                              ) : (
-                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
-                                  {name[0]}
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <span className="block truncate text-xs">{name}</span>
-                                {title && (
-                                  <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                                    {title}
-                                  </span>
-                                )}
-                              </div>
-                              <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
-                            </button>
-                          );
-                        })}
-                      {characters.filter((c) => {
-                        if (chatCharIds.includes(c.id)) return false;
-                        const query = charSearch.toLowerCase();
-                        const title = charTitle(c)?.toLowerCase() ?? "";
-                        return charName(c).toLowerCase().includes(query) || title.includes(query);
-                      }).length === 0 && (
-                        <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                          {characters.filter((c) => !chatCharIds.includes(c.id)).length === 0
-                            ? "All characters added."
-                            : "No matches."}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex shrink-0 items-center justify-between border-t border-[var(--border)] px-4 py-3">
-                <button
-                  onClick={() => setShortcutMode(false)}
-                  className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleShortcutApply}
-                  disabled={shortcutApplying || !shortcutPresetId}
-                  className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-                >
-                  {shortcutApplying ? (
-                    <>
-                      <Loader2 size="0.75rem" className="animate-spin" />
-                      Applying…
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 size="0.75rem" />
-                      Apply &amp; Start
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, y: 12, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.97 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="pointer-events-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl sm:max-h-[min(90dvh,42rem)]"
-            >
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3 pt-5">
-                {/* Sprite */}
-                <div className="mb-3 flex justify-center">
-                  <img
-                    src={currentStep.sprite}
-                    alt="Professor Mari"
-                    className="h-24 w-auto object-contain drop-shadow-lg sm:h-28"
-                    style={currentStep.spriteFlip ? { transform: "scaleX(-1)" } : undefined}
-                    draggable={false}
-                  />
-                </div>
-
-                {/* Title */}
-                <h3 className="mb-1 text-center text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h3>
-
-                {/* Body */}
-                <p className="mb-4 text-center text-xs leading-relaxed text-[var(--muted-foreground)]">
-                  {currentStep.body}
-                </p>
-
-                {/* Step content */}
-                <div>{stepRenderers[currentStep.key]?.()}</div>
-              </div>
-
-              <div className="shrink-0 border-t border-[var(--border)]/70 px-5 py-3">
-                {/* Progress dots */}
-                <div className="mb-3 flex items-center justify-center gap-1.5">
-                  {STEPS.map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "h-1.5 rounded-full transition-all duration-300",
-                        i === step
-                          ? "w-4 bg-[var(--primary)]"
-                          : i < step
-                            ? "w-1.5 bg-[var(--primary)]/40"
-                            : "w-1.5 bg-[var(--muted-foreground)]/20",
-                      )}
-                    />
-                  ))}
-                </div>
-
-                {/* Buttons */}
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    onClick={onFinish}
-                    className="rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-                  >
-                    Skip
-                  </button>
-                  <button
-                    onClick={() => setShortcutMode(true)}
-                    title="Apply a saved chat-settings preset and pick a persona + characters in one step"
-                    className="flex items-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/20"
-                  >
-                    <Wand2 size="0.75rem" />
-                    <span className="hidden xs:inline sm:inline">Use Settings Presets</span>
-                    <span className="inline xs:hidden sm:hidden">Presets</span>
-                  </button>
-                  <button
-                    onClick={next}
-                    disabled={nextDisabled}
-                    className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
-                  >
-                    {isLast ? "Done" : "Next"}
-                    {isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {!showChoiceModal &&
+        (shortcutMode ? (
+          <SetupWizardShell
+            title="Quick Setup"
+            steps={[shortcutStep]}
+            step={0}
+            currentStep={shortcutStep}
+            animationKey="roleplay-shortcut"
+            onClose={onFinish}
+            onBack={() => setShortcutMode(false)}
+            onSkip={onFinish}
+            onPrimary={handleShortcutApply}
+            primaryLabel={shortcutApplying ? "Applying..." : "Apply & Start"}
+            primaryIcon={shortcutApplying ? <Loader2 size="0.75rem" className="animate-spin" /> : undefined}
+            primaryDisabled={shortcutApplying || !shortcutPresetId}
+          >
+            {shortcutContent}
+          </SetupWizardShell>
+        ) : (
+          <SetupWizardShell
+            title="New Roleplay"
+            steps={STEPS}
+            step={step}
+            currentStep={currentStep}
+            animationKey={`roleplay-${currentStep.key}`}
+            onClose={onFinish}
+            onBack={step > 0 ? previous : undefined}
+            onSkip={onFinish}
+            onPrimary={next}
+            primaryLabel={isLast ? "Start" : "Next"}
+            primaryIcon={isLast ? <Check size="0.75rem" /> : <ChevronRight size="0.75rem" />}
+            primaryDisabled={nextDisabled}
+            secondaryAction={
+              <button
+                type="button"
+                onClick={() => setShortcutMode(true)}
+                title="Apply a saved chat-settings preset and pick a persona plus characters in one step"
+                className={WIZARD_SECONDARY_BUTTON_CLASS}
+              >
+                <span className="hidden xs:inline sm:inline">Use Settings Presets</span>
+                <span className="inline xs:hidden sm:hidden">Presets</span>
+              </button>
+            }
+          >
+            {stepRenderers[currentStep.key]?.()}
+          </SetupWizardShell>
+        ))}
     </>
   );
 }

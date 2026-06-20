@@ -61,6 +61,7 @@ class GameSpotifyError extends Error {
 const SPOTIFY_TRACK_INDEX_TTL_MS = 20 * 60_000;
 const SPOTIFY_TRACK_INDEX_CACHE_MAX = 24;
 const SPOTIFY_TRACK_INDEX_MAX_TRACKS = 2_500;
+const SPOTIFY_TRACK_PAGE_SIZE = 50;
 const SPOTIFY_PLAYBACK_SETTLE_MS = 650;
 const SPOTIFY_REPEAT_RETRY_DELAYS_MS = [0, 450, 900] as const;
 
@@ -200,6 +201,10 @@ function hashFraction(value: string): number {
   return Number.parseInt(hex, 16) / 0xffffffff;
 }
 
+function createSpotifySelectionVariant(): string {
+  return `${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function scoreSpotifyCandidate(track: SceneSpotifyTrackCandidate, phrase: string, tokens: string[]): number {
   const name = normalizeSpotifyText(track.name);
   const artist = normalizeSpotifyText(track.artist);
@@ -279,6 +284,7 @@ function selectSpotifyTrackCandidates(args: {
   limit: number;
   sourceKey: string;
   recentTrackUris?: readonly string[];
+  selectionVariant?: string;
 }): {
   candidates: SceneSpotifyTrackCandidate[];
   mode: string;
@@ -291,8 +297,12 @@ function selectSpotifyTrackCandidates(args: {
   const modeSuffix = pool.excludedRecentTrackCount > 0 ? "_fresh" : "";
   if (tokens.length === 0) {
     return {
-      candidates: sampleSpotifyTracksEvenly(pool.tracks, args.limit, `${args.sourceKey}:balanced`),
-      mode: `balanced_sample${modeSuffix}`,
+      candidates: sampleSpotifyTracksEvenly(
+        pool.tracks,
+        args.limit,
+        `${args.sourceKey}:balanced:${args.selectionVariant ?? ""}`,
+      ),
+      mode: `balanced_sample_rotating${modeSuffix}`,
       tokens,
       excludedRecentTrackCount: pool.excludedRecentTrackCount,
     };
@@ -302,7 +312,15 @@ function selectSpotifyTrackCandidates(args: {
     .map((track) => ({ ...track, score: scoreSpotifyCandidate(track, phrase, tokens) }))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const strong = scored.filter((track) => (track.score ?? 0) >= 2);
-  const selected: SceneSpotifyTrackCandidate[] = strong.slice(0, Math.max(0, Math.floor(args.limit * 0.8)));
+  const strongTarget = strong.length > 0 ? Math.max(1, Math.floor(args.limit * 0.75)) : 0;
+  const selected: SceneSpotifyTrackCandidate[] =
+    strongTarget > 0
+      ? sampleSpotifyTracksEvenly(
+          strong,
+          strongTarget,
+          `${args.sourceKey}:${phrase}:${args.selectionVariant ?? ""}:strong`,
+        )
+      : [];
   const seen = new Set(selected.map((track) => track.uri));
   const reserve = args.limit - selected.length;
 
@@ -310,14 +328,14 @@ function selectSpotifyTrackCandidates(args: {
     const fallback = sampleSpotifyTracksEvenly(
       pool.tracks.filter((track) => !seen.has(track.uri)),
       reserve,
-      `${args.sourceKey}:${phrase}:fallback`,
+      `${args.sourceKey}:${phrase}:${args.selectionVariant ?? ""}:fallback`,
     );
     selected.push(...fallback);
   }
 
   return {
     candidates: selected.slice(0, args.limit),
-    mode: `${strong.length > 0 ? "scored_candidates" : "balanced_sample"}${modeSuffix}`,
+    mode: `${strong.length > 0 ? "scored_candidates_rotating" : "balanced_sample_rotating"}${modeSuffix}`,
     tokens,
     excludedRecentTrackCount: pool.excludedRecentTrackCount,
   };
@@ -383,7 +401,7 @@ async function fetchSpotifyTrackIndex(
   let offset = 0;
   let total = 0;
   let fetchedItems = 0;
-  const batchSize = sourceKey === "liked" ? 50 : 100;
+  const batchSize = SPOTIFY_TRACK_PAGE_SIZE;
 
   while (offset < SPOTIFY_TRACK_INDEX_MAX_TRACKS) {
     const pageSize = Math.min(batchSize, SPOTIFY_TRACK_INDEX_MAX_TRACKS - offset);
@@ -528,12 +546,14 @@ export async function getGameSpotifyCandidates(args: {
   if (source.type === "liked" || source.type === "playlist") {
     const sourceKey = source.playlistId ?? "liked";
     const index = await fetchSpotifyTrackIndex(sourceKey, credentials);
+    const selectionVariant = createSpotifySelectionVariant();
     const selection = selectSpotifyTrackCandidates({
       tracks: index.tracks,
       query,
       limit,
       sourceKey,
       recentTrackUris: args.recentTrackUris,
+      selectionVariant,
     });
     return {
       enabled: true,

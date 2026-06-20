@@ -5,9 +5,9 @@ import { Check, Folder, FolderOpen, Minus, MoreHorizontal } from "lucide-react";
 import type { TreeNode } from "../../hooks/use-game-assets";
 import type { GameAssetSelectionStatus } from "../../lib/game-asset-selection";
 import { formatBytes, formatDate } from "../../lib/format";
+import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { CATEGORY_ICONS } from "./constants";
 import { FileIcon, isImage } from "./utils";
-import { encodeAssetPath } from "./encode-asset-path";
 
 /**
  * Props for the AssetGrid component.
@@ -109,21 +109,23 @@ export function AssetGrid({
                 else onSelectFile(node);
               }}
               className={
-                "group relative flex flex-col items-center gap-2 rounded-xl border bg-[var(--card)] p-[clamp(0.5rem,1.3vmin,0.875rem)] transition-all hover:border-[var(--primary)]/30 hover:shadow-sm " +
-                (isSelected ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/30" : "border-[var(--border)]")
+                "group relative flex flex-col items-center gap-2 rounded-xl border bg-[var(--card)] p-[clamp(0.5rem,1.3vmin,0.875rem)] transition-all hover:border-[var(--foreground)]/25 hover:shadow-sm " +
+                (isSelected
+                  ? "border-[var(--foreground)]/30 ring-2 ring-[var(--foreground)]/20"
+                  : "border-[var(--border)]")
               }
             >
               {/* Checkbox — files only, always visible */}
               {isFile && (
                 <label
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--background)] shadow-sm transition-colors hover:border-[var(--primary)]"
+                  className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-[var(--border)] bg-[var(--background)] shadow-sm transition-colors hover:border-[var(--foreground)]/30"
                 >
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => onToggleSelect(node)}
-                    className="h-3.5 w-3.5 accent-[var(--primary)]"
+                    className="h-3.5 w-3.5 accent-[var(--foreground)]"
                   />
                 </label>
               )}
@@ -137,8 +139,8 @@ export function AssetGrid({
                   className={
                     "absolute left-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors " +
                     (folderSelectionStatus === "excluded"
-                      ? "border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] hover:border-[var(--primary)]"
-                      : "border-[var(--primary)]/40 bg-[var(--primary)] text-white hover:opacity-90")
+                      ? "border-[var(--border)] bg-[var(--background)] text-[var(--muted-foreground)] hover:border-[var(--foreground)]/30"
+                      : "border-[var(--foreground)]/25 bg-[var(--foreground)]/10 text-[var(--foreground)] hover:bg-[var(--foreground)]/15")
                   }
                   title="Select assets for this game"
                   aria-label={`Select ${node.name} assets for this game`}
@@ -162,18 +164,18 @@ export function AssetGrid({
                   (() => {
                     const CategoryIcon = CATEGORY_ICONS[node.name] || Folder;
                     return (
-                      <CategoryIcon className="h-[52%] min-h-8 w-[52%] min-w-8 max-h-16 max-w-16 text-[var(--primary)]" />
+                      <CategoryIcon className="h-[52%] min-h-8 w-[52%] min-w-8 max-h-16 max-w-16 text-[var(--foreground)]/80" />
                     );
                   })()
                 ) : isImage(node.ext) ? (
                   <img
-                    src={`/api/game-assets/file/${encodeAssetPath(node.path)}`}
+                    src={gameAssetFileUrl(node.path) ?? ""}
                     alt={node.name}
                     className="h-full w-full object-cover"
                     loading="lazy"
                   />
                 ) : (
-                  <FileIcon ext={node.ext} className="h-8 w-8 text-[var(--primary)]" />
+                  <FileIcon ext={node.ext} className="h-8 w-8 text-[var(--foreground)]/80" />
                 )}
               </div>
               <span className="w-full truncate text-center text-xs text-[var(--foreground)]">{node.name}</span>
@@ -211,7 +213,7 @@ export function AssetGrid({
             }}
             className={
               `group grid ${gridColsClass} items-center gap-3 rounded-lg px-3 py-2 transition-colors ` +
-              (isSelected ? "bg-[var(--primary)]/10" : "hover:bg-[var(--accent)]")
+              (isSelected ? "bg-[var(--foreground)]/10" : "hover:bg-[var(--accent)]")
             }
           >
             {/* Checkbox — files only */}
@@ -221,7 +223,7 @@ export function AssetGrid({
                   type="checkbox"
                   checked={isSelected}
                   onChange={() => onToggleSelect(node)}
-                  className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"
+                  className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--foreground)]"
                 />
               )}
               {folderSelectionStatus && (
@@ -234,8 +236,8 @@ export function AssetGrid({
                   className={
                     "flex h-5 w-5 items-center justify-center rounded-full border transition-colors " +
                     (folderSelectionStatus === "excluded"
-                      ? "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--primary)]"
-                      : "border-[var(--primary)]/40 bg-[var(--primary)] text-white hover:opacity-90")
+                      ? "border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--foreground)]/30"
+                      : "border-[var(--foreground)]/25 bg-[var(--foreground)]/10 text-[var(--foreground)] hover:bg-[var(--foreground)]/15")
                   }
                   title="Select assets for this game"
                   aria-label={`Select ${node.name} assets for this game`}
@@ -248,12 +250,12 @@ export function AssetGrid({
             {node.type === "folder" ? (
               (() => {
                 const CategoryIcon = CATEGORY_ICONS[node.name] || Folder;
-                return <CategoryIcon size="1rem" className="shrink-0 text-[var(--primary)]" />;
+                return <CategoryIcon size="1rem" className="shrink-0 text-[var(--foreground)]/80" />;
               })()
             ) : isImage(node.ext) ? (
               <div className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded bg-[var(--accent)]">
                 <img
-                  src={`/api/game-assets/file/${encodeAssetPath(node.path)}`}
+                  src={gameAssetFileUrl(node.path) ?? ""}
                   alt=""
                   className="h-full w-full object-cover"
                   loading="lazy"

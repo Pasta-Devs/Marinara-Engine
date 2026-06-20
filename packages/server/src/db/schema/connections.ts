@@ -27,6 +27,7 @@ export const apiConnections = sqliteTable("api_connections", {
   /** Encrypted API key */
   apiKeyEncrypted: text("api_key_encrypted").notNull().default(""),
   model: text("model").notNull().default(""),
+  imagePath: text("image_path"),
   maxContext: integer("max_context").notNull().default(128000),
   isDefault: text("is_default").notNull().default("false"),
   /** Whether this connection is part of the random-selection pool */

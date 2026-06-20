@@ -1,4 +1,4 @@
-// Spotify DJ Mari - AI playlist composer
+// DJ Mari - Spotify playlist composer
 import { PROVIDERS } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
@@ -31,6 +31,14 @@ type MatchedTrack = SpotifyTrack & {
   requestedTitle: string;
   requestedArtist: string;
   reason?: string;
+};
+
+type SpotifyRepeatState = "off" | "track" | "context";
+
+type SpotifyPlaybackSnapshot = {
+  isPlaying: boolean;
+  repeatState: SpotifyRepeatState;
+  deviceId: string | null;
 };
 
 export type DjMariPlaylistResult = {
@@ -225,6 +233,63 @@ async function readSpotifyError(res: Response, fallback: string): Promise<string
   return text.slice(0, 300);
 }
 
+function normalizeSpotifyRepeatState(value: unknown): SpotifyRepeatState {
+  return value === "track" || value === "context" ? value : "off";
+}
+
+async function getSpotifyPlaybackSnapshot(
+  credentials: SpotifyCredentialsResult,
+): Promise<SpotifyPlaybackSnapshot | null> {
+  const res = await fetchSpotifyApi(credentials, "/me/player", { signal: AbortSignal.timeout(10_000) }).catch(
+    () => null,
+  );
+  if (!res || res.status === 204) return null;
+  if (!res.ok) {
+    logger.debug(
+      "[spotify/dj-mari] Playback snapshot failed (%d): %s",
+      res.status,
+      await readSpotifyError(res, "Spotify playback snapshot failed."),
+    );
+    return null;
+  }
+
+  const data = (await res.json().catch(() => null)) as {
+    is_playing?: boolean;
+    repeat_state?: string;
+    device?: { id?: string | null } | null;
+  } | null;
+  if (!data) return null;
+
+  return {
+    isPlaying: data.is_playing === true,
+    repeatState: normalizeSpotifyRepeatState(data.repeat_state),
+    deviceId: typeof data.device?.id === "string" && data.device.id.trim() ? data.device.id : null,
+  };
+}
+
+async function restoreSpotifyRepeatState(args: {
+  credentials: SpotifyCredentialsResult;
+  repeatState: SpotifyRepeatState;
+  deviceId?: string | null;
+}): Promise<{ restored: SpotifyRepeatState | null; error: string | null }> {
+  const query = new URLSearchParams({ state: args.repeatState });
+  if (args.deviceId) query.set("device_id", args.deviceId);
+
+  const res = await fetchSpotifyApi(args.credentials, `/me/player/repeat?${query.toString()}`, {
+    method: "PUT",
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+
+  if (res && (res.ok || res.status === 204)) {
+    return { restored: args.repeatState, error: null };
+  }
+
+  return {
+    restored: null,
+    error: res ? await readSpotifyError(res, "Spotify repeat restore failed.") : "Spotify repeat restore failed.",
+  };
+}
+
 async function fetchLikedSongExamples(credentials: SpotifyCredentialsResult): Promise<SpotifyTrack[]> {
   const res = await fetchSpotifyApi(
     credentials,
@@ -370,7 +435,7 @@ async function resolveProviderConnection(db: DB) {
   const connId = spotifyAgent?.connectionId ?? null;
   const conn = connId ? await connections.getWithKey(connId) : await connections.getDefaultForAgents();
   if (!conn) {
-    fail(400, "Configure a model connection for the Spotify DJ agent, or set a default agent connection.");
+    fail(400, "Configure a model connection for the Music DJ agent, or set a default agent connection.");
   }
 
   let baseUrl = conn.baseUrl;
@@ -627,13 +692,39 @@ async function startSpotifyPlaylistPlayback(args: {
   credentials: SpotifyCredentialsResult;
   playlistUri: string;
   deviceId?: string | null;
-}): Promise<{ started: boolean; error?: string | null }> {
+}): Promise<{
+  started: boolean;
+  error?: string | null;
+  repeatRestored?: SpotifyRepeatState | null;
+  repeatRestoreError?: string | null;
+}> {
   const deviceId = typeof args.deviceId === "string" && args.deviceId.trim() ? args.deviceId.trim() : null;
+  const beforePlayback = await getSpotifyPlaybackSnapshot(args.credentials);
+  const repeatToRestore = beforePlayback?.repeatState !== "off" ? beforePlayback?.repeatState : null;
 
-  if (deviceId) {
+  const playPlaylist = async () => {
+    const query = deviceId ? `?${new URLSearchParams({ device_id: deviceId })}` : "";
+    return fetchSpotifyApi(args.credentials, `/me/player/play${query}`, {
+      method: "PUT",
+      body: JSON.stringify({ context_uri: args.playlistUri }),
+      signal: AbortSignal.timeout(15_000),
+    });
+  };
+
+  let playRes = await playPlaylist();
+
+  if (!playRes.ok && playRes.status !== 204 && deviceId) {
+    const playError = await readSpotifyError(playRes, "Spotify could not start the new playlist.");
+    logger.debug(
+      "[spotify/dj-mari] Direct playlist playback failed on %s (%d): %s",
+      deviceId,
+      playRes.status,
+      playError,
+    );
+
     const transferRes = await fetchSpotifyApi(args.credentials, "/me/player", {
       method: "PUT",
-      body: JSON.stringify({ device_ids: [deviceId], play: false }),
+      body: JSON.stringify({ device_ids: [deviceId], play: beforePlayback?.isPlaying === true }),
       signal: AbortSignal.timeout(15_000),
     });
     if (!transferRes.ok && transferRes.status !== 204) {
@@ -643,14 +734,10 @@ async function startSpotifyPlaylistPlayback(args: {
         await readSpotifyError(transferRes, "Spotify transfer failed."),
       );
     }
+
+    playRes = await playPlaylist();
   }
 
-  const query = deviceId ? `?${new URLSearchParams({ device_id: deviceId })}` : "";
-  const playRes = await fetchSpotifyApi(args.credentials, `/me/player/play${query}`, {
-    method: "PUT",
-    body: JSON.stringify({ context_uri: args.playlistUri }),
-    signal: AbortSignal.timeout(15_000),
-  });
   if (!playRes.ok && playRes.status !== 204) {
     return {
       started: false,
@@ -658,7 +745,24 @@ async function startSpotifyPlaylistPlayback(args: {
     };
   }
 
-  return { started: true, error: null };
+  if (!repeatToRestore) return { started: true, error: null };
+
+  const repeat = await restoreSpotifyRepeatState({
+    credentials: args.credentials,
+    repeatState: repeatToRestore,
+    deviceId: deviceId ?? beforePlayback?.deviceId ?? null,
+  });
+
+  if (repeat.error) {
+    logger.debug("[spotify/dj-mari] Repeat restore failed: %s", repeat.error);
+  }
+
+  return {
+    started: true,
+    error: null,
+    repeatRestored: repeat.restored,
+    repeatRestoreError: repeat.error,
+  };
 }
 
 export async function composeDjMariPlaylist(args: {

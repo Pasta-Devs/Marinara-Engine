@@ -23,6 +23,18 @@ type AvatarGenerationResponse = {
   prompt: string;
 };
 
+type ImageConnectionOption = {
+  id: string;
+  name: string;
+  model?: string;
+  provider?: string;
+  defaultForAgents?: boolean | string;
+};
+
+function isDefaultImageConnection(connection: ImageConnectionOption): boolean {
+  return connection.defaultForAgents === true || connection.defaultForAgents === "true";
+}
+
 async function imageUrlToDataUrl(src: string): Promise<string> {
   if (src.startsWith("data:")) return src;
   const response = await fetch(src);
@@ -65,11 +77,12 @@ export function AvatarGenerationModal({
 
   const imageConnections = useMemo(() => {
     if (!connectionsList) return [];
-    return (connectionsList as Array<{ id: string; name: string; model?: string; provider?: string }>).filter(
-      (connection) => connection.provider === "image_generation",
-    );
+    return (connectionsList as ImageConnectionOption[])
+      .filter((connection) => connection.provider === "image_generation")
+      .sort((a, b) => Number(isDefaultImageConnection(b)) - Number(isDefaultImageConnection(a)));
   }, [connectionsList]);
-  const effectiveConnectionId = connectionId ?? imageConnections[0]?.id ?? null;
+  const defaultImageConnectionId = imageConnections.find(isDefaultImageConnection)?.id ?? null;
+  const effectiveConnectionId = connectionId ?? defaultImageConnectionId ?? imageConnections[0]?.id ?? null;
 
   useEffect(() => {
     if (!open) return;
@@ -188,6 +201,7 @@ export function AvatarGenerationModal({
                       <option key={connection.id} value={connection.id}>
                         {connection.name}
                         {connection.model ? ` - ${connection.model}` : ""}
+                        {isDefaultImageConnection(connection) ? " (Default)" : ""}
                       </option>
                     ))}
                   </select>

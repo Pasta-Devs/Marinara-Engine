@@ -59,6 +59,7 @@ export function QuestBoard({
               <QuestRow
                 key={`${quest.questEntryId}-${index}`}
                 quest={quest}
+                questIndex={index}
                 onUpdate={(updated) => onUpdateQuest(index, updated)}
                 onRemove={() => onRemoveQuest(index)}
                 deleteMode={deleteMode}

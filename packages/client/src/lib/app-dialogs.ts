@@ -4,6 +4,7 @@ import {
   type AppDialogState,
   type ConfirmDialogState,
   type PromptDialogState,
+  type ChoiceDialogState,
 } from "../stores/dialog.store";
 
 type ActiveDialogResolver = {
@@ -16,6 +17,7 @@ let activeResolver: ActiveDialogResolver | null = null;
 function resolveFallback(kind: AppDialogState["kind"]) {
   if (kind === "confirm") return false;
   if (kind === "prompt") return null;
+  if (kind === "choice") return null;
   return undefined;
 }
 
@@ -56,7 +58,7 @@ export function showAlertDialog(options: Omit<AlertDialogState, "kind">): Promis
   });
 }
 
-export function showConfirmDialog(options: Omit<ConfirmDialogState, "kind">): Promise<boolean> {
+export function showConfirmDialog(options: Omit<ConfirmDialogState, "kind" | "checkboxLabel">): Promise<boolean> {
   return openDialog<boolean>({
     kind: "confirm",
     confirmLabel: "Confirm",
@@ -65,10 +67,47 @@ export function showConfirmDialog(options: Omit<ConfirmDialogState, "kind">): Pr
   });
 }
 
+export function confirmNonEmptyFolderDelete(
+  itemCount: number,
+  options: Omit<ConfirmDialogState, "kind" | "checkboxLabel">,
+): Promise<boolean> {
+  if (itemCount <= 0) return Promise.resolve(true);
+  return showConfirmDialog(options);
+}
+
+export type ConfirmWithCheckboxResult = { confirmed: boolean; checked: boolean };
+
+/**
+ * Confirm dialog with an extra opt-in checkbox (e.g. "also delete subfolders").
+ * Resolves both whether the user confirmed and whether the box was ticked.
+ */
+export function showConfirmWithCheckbox(
+  options: Omit<ConfirmDialogState, "kind" | "checkboxLabel"> & { checkboxLabel: string },
+): Promise<ConfirmWithCheckboxResult> {
+  return openDialog<boolean | string>({
+    kind: "confirm",
+    confirmLabel: "Confirm",
+    cancelLabel: "Cancel",
+    ...options,
+  }).then((result) => ({
+    confirmed: result === true || result === "checked",
+    checked: result === "checked",
+  }));
+}
+
 export function showPromptDialog(options: Omit<PromptDialogState, "kind">): Promise<string | null> {
   return openDialog<string | null>({
     kind: "prompt",
     confirmLabel: "Confirm",
+    cancelLabel: "Cancel",
+    ...options,
+  });
+}
+
+/** A stacked-button choice dialog. Resolves the chosen `key`, or null if dismissed. */
+export function showChoiceDialog(options: Omit<ChoiceDialogState, "kind">): Promise<string | null> {
+  return openDialog<string | null>({
+    kind: "choice",
     cancelLabel: "Cancel",
     ...options,
   });

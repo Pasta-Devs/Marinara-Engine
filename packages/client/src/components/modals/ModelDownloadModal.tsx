@@ -369,10 +369,8 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     if (
       !Number.isFinite(parsedContextSize) ||
       parsedContextSize < 512 ||
-      parsedContextSize > 32768 ||
       !Number.isFinite(parsedMaxTokens) ||
       parsedMaxTokens < 64 ||
-      parsedMaxTokens > 32768 ||
       !Number.isFinite(parsedTemperature) ||
       parsedTemperature < 0 ||
       parsedTemperature > 2 ||
@@ -403,10 +401,8 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const generationSettingsValid =
     Number.isFinite(parsedContextSize) &&
     parsedContextSize >= 512 &&
-    parsedContextSize <= 32768 &&
     Number.isFinite(parsedMaxTokens) &&
     parsedMaxTokens >= 64 &&
-    parsedMaxTokens <= 32768 &&
     Number.isFinite(parsedTemperature) &&
     parsedTemperature >= 0 &&
     parsedTemperature <= 2 &&
@@ -736,7 +732,8 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                 <div className="mt-3 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
                   <div className="text-xs text-[var(--muted-foreground)]/70">
                     Max response tokens caps how much the local runtime can generate. If it is too large relative to the
-                    context window, Marinara has to trim more of the prompt to make room.
+                    context window, Marinara has to trim more of the prompt to make room. Marinara does not impose an
+                    upper limit here; the selected model and your hardware still decide what can actually run.
                   </div>
                   <button
                     onClick={handleApplyGenerationSettings}

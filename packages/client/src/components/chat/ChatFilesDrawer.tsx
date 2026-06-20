@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { X, Trash2, FileText, MessageSquare, Download, Pencil, Upload } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { getChatDisplayName } from "../../lib/chat-display";
 import { cn } from "../../lib/utils";
 import {
@@ -83,8 +83,14 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
 
   const handleRename = async (cf: Chat) => {
     const currentName = getChatDisplayName(cf);
-    const nextName = window.prompt("Rename branch:", currentName);
-    if (!nextName) return;
+    const nextName = await showPromptDialog({
+      title: "Rename Branch",
+      message: "Set a display name for this chat branch.",
+      defaultValue: currentName,
+      placeholder: "Branch name",
+      confirmLabel: "Rename",
+    });
+    if (nextName === null) return;
 
     const trimmed = nextName.trim();
     if (!trimmed || trimmed === currentName) return;
@@ -123,7 +129,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
     return (
       <>
         <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-        <div className="absolute right-0 top-0 z-50 flex h-full w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:pt-[env(safe-area-inset-top)]">
+        <div className="absolute bottom-3 right-3 top-14 z-50 flex w-[min(28rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:inset-x-2 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <h3 className="text-sm font-bold">Manage Chat Files</h3>
             <button
@@ -145,7 +151,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
                 disabled={exportChat.isPending}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
               >
-                <Download size="0.8125rem" />
+                <Upload size="0.8125rem" />
                 JSONL
               </button>
               <button
@@ -168,7 +174,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
               disabled={isImporting}
               className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
             >
-              <Upload size="0.8125rem" />
+              <Download size="0.8125rem" />
               {isImporting ? "Importing…" : "JSONL"}
             </button>
             <p className="mt-2 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">
@@ -194,7 +200,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
       <div className="absolute inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="absolute right-0 top-0 z-50 flex h-full w-80 max-md:w-full flex-col border-l border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:pt-[env(safe-area-inset-top)]">
+      <div className="absolute bottom-3 right-3 top-14 z-50 flex w-[min(28rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] shadow-2xl animate-fade-in-up max-md:inset-x-2 max-md:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:top-[calc(3.5rem+env(safe-area-inset-top))] max-md:w-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
           <h3 className="text-sm font-bold">Manage Chat Files</h3>
@@ -219,7 +225,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
               disabled={exportChat.isPending}
               className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
             >
-              <Download size="0.8125rem" />
+              <Upload size="0.8125rem" />
               JSONL
             </button>
             <button
@@ -247,7 +253,7 @@ export function ChatFilesDrawer({ chat, open, onClose }: ChatFilesDrawerProps) {
             disabled={isImporting}
             className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50"
           >
-            <Upload size="0.8125rem" />
+            <Download size="0.8125rem" />
             {isImporting ? "Importing…" : "JSONL"}
           </button>
           <p className="mt-2 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">

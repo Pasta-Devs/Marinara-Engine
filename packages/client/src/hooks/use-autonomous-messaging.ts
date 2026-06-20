@@ -9,8 +9,9 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import { recordUserMessageActivity } from "../lib/user-presence-activity";
+import { toAutonomousPresenceStatus } from "../lib/user-status";
 import { useChatStore } from "../stores/chat.store";
-import { useUIStore } from "../stores/ui.store";
+import { useUIStore, type UserStatus } from "../stores/ui.store";
 import { useGenerate } from "./use-generate";
 import { chatKeys } from "./use-chats";
 import { characterKeys } from "./use-characters";
@@ -88,10 +89,10 @@ export function useAutonomousMessaging(
   );
 
   const recordClientPresence = useCallback(
-    async (userStatus: "active" | "idle" | "dnd") => {
+    async (userStatus: UserStatus) => {
       if (!chatId) return;
       try {
-        await api.post("/conversation/activity/presence", { chatId, userStatus });
+        await api.post("/conversation/activity/presence", { chatId, userStatus: toAutonomousPresenceStatus(userStatus) });
       } catch {
         // non-critical
       }
@@ -129,7 +130,7 @@ export function useAutonomousMessaging(
       try {
         const result = await api.post<AutonomousCheckResult>("/conversation/autonomous/check", {
           chatId,
-          userStatus,
+          userStatus: toAutonomousPresenceStatus(userStatus),
         });
 
         // Refresh character data so sidebar status dots update

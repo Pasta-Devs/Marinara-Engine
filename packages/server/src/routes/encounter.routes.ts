@@ -20,6 +20,7 @@ import type {
   CombatPartyMember,
   CombatEnemy,
   CombatPlayerActions,
+  CombatActionResult,
   EncounterLogEntry,
 } from "@marinara-engine/shared";
 
@@ -99,6 +100,19 @@ function parseJSON(raw: string): unknown {
     }
   }
   throw new Error("Unbalanced JSON in AI response");
+}
+
+function fallbackActionResult(input: EncounterActionRequest): CombatActionResult {
+  return {
+    combatStats: {
+      party: input.combatStats.party,
+      enemies: input.combatStats.enemies,
+    },
+    playerActions: input.playerActions ?? { attacks: [], items: [] },
+    enemyActions: [],
+    partyActions: [],
+    narrative: "",
+  };
 }
 
 /** Build character context from the chat's character IDs. */
@@ -613,6 +627,8 @@ export async function encounterRoutes(app: FastifyInstance) {
       }
       debugLog("[debug/game/combat:init] parsed response:\n%s", JSON.stringify(combatState, null, 2));
 
+      await chats.patchMetadata(chatId, { encounterActive: true }, { touchUpdatedAt: false });
+
       return { combatState };
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -675,18 +691,18 @@ export async function encounterRoutes(app: FastifyInstance) {
       });
 
       if (!result.content) {
-        return reply.status(502).send({ error: "No response from AI" });
+        return { result: fallbackActionResult(req.body), invalid: true };
       }
 
       let actionResult: Record<string, unknown>;
       try {
         actionResult = parseJSON(result.content) as Record<string, unknown>;
       } catch {
-        return reply.status(502).send({ error: "AI returned invalid JSON for action result" });
+        return { result: fallbackActionResult(req.body), invalid: true };
       }
 
       if (!actionResult?.combatStats) {
-        return reply.status(502).send({ error: "Invalid action result returned by AI" });
+        return { result: fallbackActionResult(req.body), invalid: true };
       }
 
       // Validate that party/enemies are actual arrays — AI may return null, a string, or omit them
@@ -773,6 +789,8 @@ export async function encounterRoutes(app: FastifyInstance) {
         characterId: null,
         content: summary,
       });
+
+      await chats.patchMetadata(chatId, { encounterActive: false }, { touchUpdatedAt: false });
 
       return { summary, messageId: msg?.id ?? "" };
     } catch (err) {

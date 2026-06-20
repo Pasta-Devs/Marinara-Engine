@@ -29,7 +29,9 @@ export class LocalSidecarProvider extends BaseLLMProvider {
   }
 
   private applyRuntimeSettings(options: ChatOptions): ChatOptions {
+    if (options.suppressModelParameters) return options;
     const config = sidecarModelService.getConfig();
+    const structuredOutput = !!options.responseFormat || !!options.tools?.length;
     const requestedMaxTokens =
       typeof options.maxTokens === "number" && Number.isFinite(options.maxTokens)
         ? Math.max(1, Math.floor(options.maxTokens))
@@ -37,9 +39,9 @@ export class LocalSidecarProvider extends BaseLLMProvider {
     return {
       ...options,
       maxTokens: requestedMaxTokens !== undefined ? Math.min(requestedMaxTokens, config.maxTokens) : config.maxTokens,
-      temperature: config.temperature,
-      topP: config.topP,
-      topK: config.topK,
+      temperature: structuredOutput ? 0 : config.temperature,
+      topP: structuredOutput ? 1 : config.topP,
+      topK: structuredOutput ? 0 : config.topK,
     };
   }
 

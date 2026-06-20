@@ -4,6 +4,7 @@
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import {
@@ -38,6 +39,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
+  Plus,
   Layers,
   Music,
   ChevronDown,
@@ -47,6 +49,9 @@ import {
   Upload,
   Loader2,
   ImageIcon,
+  Shield,
+  ShieldCheck,
+  Shuffle,
 } from "lucide-react";
 import { useDeleteAgent } from "../../hooks/use-agents";
 import { useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
@@ -56,6 +61,7 @@ import {
   useDeleteKnowledgeSource,
 } from "../../hooks/use-knowledge-sources";
 import { cn } from "../../lib/utils";
+import { MacroTextarea } from "../ui/MacroTextarea";
 import {
   getAgentRunIntervalMeta,
   getCadenceInputValue,
@@ -66,20 +72,32 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import {
   BUILT_IN_AGENTS,
   BUILT_IN_TOOLS,
+  createFolderEntry,
   DEFAULT_AGENT_CONTEXT_SIZE,
   DEFAULT_AGENT_TOOLS,
   DEFAULT_AGENT_MAX_TOKENS,
+  DEFAULT_AGENT_AUTHOR,
+  CUSTOM_AGENT_CAPABILITY_IDS,
   DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   LOCAL_SIDECAR_CONNECTION_ID,
-  MAX_AGENT_MAX_TOKENS,
   MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
   MIN_AGENT_MAX_TOKENS,
   getDefaultBuiltInAgentSettings,
   getDefaultAgentPrompt,
+  mergeBuiltInAgentSettings,
+  normalizeAgentPhaseForType,
+  normalizeCustomAgentCapabilities,
+  normalizeAgentPromptTemplateOptions,
+  parseAgentSettingsRecord,
   type AgentPhase,
+  type AgentPromptTemplateOption,
   type AgentResultType,
+  type CustomAgentCapability,
+  type CustomAgentCapabilityMap,
   type ToolDefinition,
 } from "@marinara-engine/shared";
+import { sanitizeAgentSettingsForTransfer } from "../../lib/agent-transfer";
+import { downloadJsonFile } from "../../lib/download-json";
 
 function parseActivationKeywordsText(value: string): string[] {
   const seen = new Set<string>();
@@ -107,6 +125,12 @@ function createCustomAgentType(name: string): string {
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   return `custom-${slug}-${suffix}`;
 }
+
+const LOREBOOK_WRITE_TOOL_NAME = "save_lorebook_entry";
+const MESSAGE_EDIT_TOOL_NAME = "edit_chat_message";
+const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
+const DEFAULT_PROSE_GUARDIAN_AVOID =
+  "no repetition of any phrases or sentence structure from the last messages, if the last output started with dialogue line, this one needs to start with narration, no purple prose";
 
 // Mirrors the server's buildSpotifyRedirectUri rule: Spotify only accepts
 // https:// or http://127.0.0.1, so fall back to loopback whenever the page
@@ -143,23 +167,90 @@ const PHASE_META: Record<AgentPhase, { label: string; color: string; icon: typeo
   },
 };
 
+type NarrativeDirectorMode = "natural" | "random";
+
+function normalizeNarrativeDirectorMode(value: unknown): NarrativeDirectorMode {
+  return value === "random" ? "random" : "natural";
+}
+
 function normalizeAgentMaxTokensInput(value: string): number | "" {
   if (value === "") return "";
   const parsed = parseInt(value, 10);
   if (!Number.isFinite(parsed)) return "";
-  return Math.max(1, Math.min(MAX_AGENT_MAX_TOKENS, parsed));
+  return Math.max(1, parsed);
 }
 
 function clampAgentMaxTokens(value: number): number {
-  return Math.max(MIN_AGENT_MAX_TOKENS, Math.min(MAX_AGENT_MAX_TOKENS, Math.trunc(value)));
+  return Math.max(MIN_AGENT_MAX_TOKENS, Math.trunc(value));
 }
 
-type CustomAgentResultType = Extract<AgentResultType, "context_injection" | "text_rewrite">;
+type CustomAgentResultType = Extract<
+  AgentResultType,
+  | "context_injection"
+  | "text_rewrite"
+  | "lorebook_update"
+  | "character_tracker_update"
+  | "persona_stats_update"
+  | "custom_tracker_update"
+  | "game_state_update"
+  | "image_prompt"
+  | "prompt_patch"
+  | "frontend_theme_update"
+>;
+
+const CUSTOM_AGENT_CAPABILITY_META: Array<{
+  id: CustomAgentCapability;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "create_lorebooks",
+    label: "Create lorebooks",
+    description: "Allow this agent to create a new agent-made lorebook when its lore output has no target.",
+  },
+  {
+    id: "edit_lorebooks",
+    label: "Edit lorebooks",
+    description: "Allow lorebook entry writes or lorebook update results for selected lorebooks.",
+  },
+  {
+    id: "edit_messages",
+    label: "Edit messages",
+    description: "Allow Text Rewrite output to replace generated message content.",
+  },
+  {
+    id: "edit_trackers",
+    label: "Edit trackers",
+    description: "Allow tracker result types to update game, character, persona, or custom tracker state.",
+  },
+  {
+    id: "change_frontend_styling",
+    label: "Frontend styling",
+    description: "Allow temporary CSS effects from this agent during generation.",
+  },
+  {
+    id: "trigger_image_generation",
+    label: "Image generation",
+    description: "Allow image prompt output to trigger the configured image generator.",
+  },
+  {
+    id: "access_vectors",
+    label: "Vectors/embeddings",
+    description: "Mark this agent as allowed to use configured vector or embedding context.",
+  },
+  {
+    id: "edit_main_prompt",
+    label: "Main prompt edits",
+    description: "Allow prompt patch output to edit the prompt sent to the main generation model.",
+  },
+];
 
 const CUSTOM_AGENT_RESULT_TYPE_OPTIONS: Array<{
   id: CustomAgentResultType;
   label: string;
   description: string;
+  requiredCapability?: CustomAgentCapability;
+  requiredAnyCapability?: CustomAgentCapability[];
 }> = [
   {
     id: "context_injection",
@@ -170,11 +261,125 @@ const CUSTOM_AGENT_RESULT_TYPE_OPTIONS: Array<{
     id: "text_rewrite",
     label: "Text Rewrite",
     description: 'Runs after the reply and expects JSON with "editedText" plus "changes" to replace the message.',
+    requiredCapability: "edit_messages",
+  },
+  {
+    id: "lorebook_update",
+    label: "Lorebook Update",
+    description: 'Expects JSON with an "updates" array to create or update lorebook entries.',
+    requiredCapability: "edit_lorebooks",
+  },
+  {
+    id: "character_tracker_update",
+    label: "Character Tracker",
+    description: 'Expects JSON with "presentCharacters" to update the character tracker.',
+    requiredCapability: "edit_trackers",
+  },
+  {
+    id: "persona_stats_update",
+    label: "Persona Stats",
+    description: 'Expects JSON with "stats", "status", and "inventory" for persona tracker state.',
+    requiredCapability: "edit_trackers",
+  },
+  {
+    id: "custom_tracker_update",
+    label: "Custom Tracker",
+    description: 'Expects JSON with "fields" to replace custom tracker fields.',
+    requiredCapability: "edit_trackers",
+  },
+  {
+    id: "game_state_update",
+    label: "Game State",
+    description: "Expects structured game-state JSON for world-state style tracker updates.",
+    requiredCapability: "edit_trackers",
+  },
+  {
+    id: "image_prompt",
+    label: "Image Prompt",
+    description: 'Expects JSON with "shouldGenerate", "prompt", optional style, and characters.',
+    requiredCapability: "trigger_image_generation",
+  },
+  {
+    id: "prompt_patch",
+    label: "Prompt Patch",
+    description: 'Expects JSON with "operations" to append, prepend, or replace prompt sections.',
+    requiredCapability: "edit_main_prompt",
+  },
+  {
+    id: "frontend_theme_update",
+    label: "Frontend Style",
+    description: 'Expects JSON with "css" for a temporary frontend styling effect.',
+    requiredCapability: "change_frontend_styling",
   },
 ];
 
 function normalizeCustomResultType(value: unknown): CustomAgentResultType {
-  return value === "text_rewrite" ? "text_rewrite" : "context_injection";
+  return CUSTOM_AGENT_RESULT_TYPE_OPTIONS.some((option) => option.id === value)
+    ? (value as CustomAgentResultType)
+    : "context_injection";
+}
+
+function customCapabilityMapFromLocal(capabilities: CustomAgentCapabilityMap): CustomAgentCapabilityMap {
+  const enabled: CustomAgentCapabilityMap = {};
+  for (const capability of CUSTOM_AGENT_CAPABILITY_IDS) {
+    if (capabilities[capability] === true) enabled[capability] = true;
+  }
+  return enabled;
+}
+
+function resultTypeAllowedByCapabilities(
+  resultType: CustomAgentResultType,
+  capabilities: CustomAgentCapabilityMap,
+): boolean {
+  const option = CUSTOM_AGENT_RESULT_TYPE_OPTIONS.find((entry) => entry.id === resultType);
+  if (!option) return false;
+  if (option.requiredCapability) return capabilities[option.requiredCapability] === true;
+  if (option.requiredAnyCapability) return option.requiredAnyCapability.some((capability) => capabilities[capability]);
+  return true;
+}
+
+function createPromptOptionId(name: string, existingIds: Set<string>): string {
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/(^-|-$)/g, "") || "prompt";
+  let candidate = base;
+  let attempt = 2;
+  while (existingIds.has(candidate) || candidate === "default") {
+    candidate = `${base}-${attempt}`;
+    attempt++;
+  }
+  return candidate;
+}
+
+function createBlankPromptOption(existingOptions: AgentPromptTemplateOption[]): AgentPromptTemplateOption {
+  const existingIds = new Set(existingOptions.map((option) => option.id));
+  const name = `Prompt ${existingOptions.length + 1}`;
+  return {
+    id: createPromptOptionId(name, existingIds),
+    name,
+    promptTemplate: "",
+  };
+}
+
+function normalizeAuthor(value: unknown, fallback: string): string {
+  const author = typeof value === "string" ? value.trim() : "";
+  return author || fallback;
+}
+
+function normalizeOptionalNumber(value: unknown): number | "" {
+  return typeof value === "number" && Number.isFinite(value) ? value : "";
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number, max: number): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(1, Math.min(max, Math.trunc(numeric)));
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 }
 
 // ═══════════════════════════════════════════════
@@ -228,12 +433,19 @@ export function AgentEditor() {
   );
   const [customCadenceInputFocused, setCustomCadenceInputFocused] = useState(false);
   const [localPrompt, setLocalPrompt] = useState("");
+  const [localAuthor, setLocalAuthor] = useState("");
+  const [localPromptTemplates, setLocalPromptTemplates] = useState<AgentPromptTemplateOption[]>([]);
   const [localAgentEnabled, setLocalAgentEnabled] = useState(true);
   const [localResultType, setLocalResultType] = useState<CustomAgentResultType>("context_injection");
+  const [localCustomCapabilities, setLocalCustomCapabilities] = useState<CustomAgentCapabilityMap>({});
   const [localInjectAsSection, setLocalInjectAsSection] = useState(false);
   const [localIncludePreGenInjections, setLocalIncludePreGenInjections] = useState(false);
   const [localIncludeParallelResults, setLocalIncludeParallelResults] = useState(false);
   const [localEnabledTools, setLocalEnabledTools] = useState<string[]>([]);
+  const [toolsSectionOpen, setToolsSectionOpen] = useState(false);
+  const [localLorebookWriteEnabled, setLocalLorebookWriteEnabled] = useState(false);
+  const [localWritableLorebookId, setLocalWritableLorebookId] = useState("");
+  const [localMusicProvider, setLocalMusicProvider] = useState<"spotify" | "youtube">("spotify");
   const [localSpotifyClientId, setLocalSpotifyClientId] = useState("");
   const [localSourceLorebookIds, setLocalSourceLorebookIds] = useState<string[]>([]);
   const [localUseChatActiveLorebooks, setLocalUseChatActiveLorebooks] = useState(false);
@@ -241,8 +453,16 @@ export function AgentEditor() {
   const [localAutoGenerateAvatars, setLocalAutoGenerateAvatars] = useState(false);
   const [localAutoGenerateBackgrounds, setLocalAutoGenerateBackgrounds] = useState(false);
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
+  const [localIncludeCharacterAppearance, setLocalIncludeCharacterAppearance] = useState(false);
   const [localImagePositivePrompt, setLocalImagePositivePrompt] = useState("");
   const [localImageNegativePrompt, setLocalImageNegativePrompt] = useState("");
+  const [localProseGuardianBanned, setLocalProseGuardianBanned] = useState(DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
+  const [localProseGuardianAvoid, setLocalProseGuardianAvoid] = useState(DEFAULT_PROSE_GUARDIAN_AVOID);
+  const [localProseGuardianPrefer, setLocalProseGuardianPrefer] = useState("");
+  const [localProseGuardianHoldForRewrite, setLocalProseGuardianHoldForRewrite] = useState(true);
+  const [localDirectorMode, setLocalDirectorMode] = useState<NarrativeDirectorMode>("natural");
+  const [localSecretPlotEnabled, setLocalSecretPlotEnabled] = useState(false);
+  const [localSecretPlotRunInterval, setLocalSecretPlotRunInterval] = useState(8);
   const [spotifyStatus, setSpotifyStatus] = useState<{
     connected: boolean;
     expired: boolean;
@@ -256,8 +476,14 @@ export function AgentEditor() {
   const [spotifyPasteSubmitting, setSpotifyPasteSubmitting] = useState(false);
   const spotifyPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const spotifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [localYoutubeApiKey, setLocalYoutubeApiKey] = useState("");
+  const [youtubeConfigured, setYoutubeConfigured] = useState(false);
+  const [youtubeSaving, setYoutubeSaving] = useState(false);
+  const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
+  const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
   useEffect(() => {
     setEditorDirty(dirty);
   }, [dirty, setEditorDirty]);
@@ -273,16 +499,17 @@ export function AgentEditor() {
     if (dbConfig) {
       setLocalName(builtIn ? builtIn.name : dbConfig.name);
       setLocalDescription(dbConfig.description);
-      setLocalPhase(dbConfig.phase as AgentPhase);
+      setLocalPhase(normalizeAgentPhaseForType(agentType, dbConfig.phase));
       setLocalAgentEnabled(dbConfig.enabled !== "false");
       setLocalConnectionId(dbConfig.connectionId ?? "");
-      const settings = dbConfig.settings
-        ? typeof dbConfig.settings === "string"
-          ? JSON.parse(dbConfig.settings)
-          : dbConfig.settings
-        : {};
-      setLocalContextSize(settings.contextSize ?? "");
-      setLocalMaxTokens(settings.maxTokens ?? (defaultSettings.maxTokens as number | undefined) ?? "");
+      const settings = mergeBuiltInAgentSettings(agentType, dbConfig.settings);
+      const promptTemplateSource = settings.promptTemplates ?? defaultSettings.promptTemplates;
+      setLocalAuthor(
+        normalizeAuthor(settings.author, builtIn?.author ?? (isCustomAgent ? "Unknown" : DEFAULT_AGENT_AUTHOR)),
+      );
+      setLocalPromptTemplates(normalizeAgentPromptTemplateOptions(promptTemplateSource));
+      setLocalContextSize(normalizeOptionalNumber(settings.contextSize));
+      setLocalMaxTokens(normalizeOptionalNumber(settings.maxTokens) || (defaultSettings.maxTokens as number) || "");
       setLocalImageConnectionId((settings.imageConnectionId as string) ?? "");
       setLocalRunInterval(
         (settings.runInterval as number | undefined) ?? (defaultSettings.runInterval as number) ?? "",
@@ -298,18 +525,74 @@ export function AgentEditor() {
       setLocalInjectAsSection(
         (settings.injectAsSection as boolean | undefined) ?? defaultSettings.injectAsSection === true,
       );
-      setLocalEnabledTools(settings.enabledTools ?? DEFAULT_AGENT_TOOLS[dbConfig.type] ?? []);
-      setLocalSpotifyClientId(settings.spotifyClientId ?? "");
-      setLocalSourceLorebookIds(settings.sourceLorebookIds ?? []);
+      const enabledTools = Array.isArray(settings.enabledTools)
+        ? settings.enabledTools.filter((tool: unknown): tool is string => typeof tool === "string")
+        : (DEFAULT_AGENT_TOOLS[dbConfig.type] ?? []);
+      const writableLorebookId =
+        typeof settings.writableLorebookId === "string"
+          ? settings.writableLorebookId
+          : typeof settings.targetLorebookId === "string"
+            ? settings.targetLorebookId
+            : Array.isArray(settings.writableLorebookIds) && typeof settings.writableLorebookIds[0] === "string"
+              ? settings.writableLorebookIds[0]
+              : "";
+      setLocalEnabledTools(enabledTools);
+      setLocalLorebookWriteEnabled(
+        settings.lorebookWriteEnabled === true || enabledTools.includes(LOREBOOK_WRITE_TOOL_NAME),
+      );
+      setLocalWritableLorebookId(writableLorebookId);
+      setLocalMusicProvider(
+        settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube" ? "youtube" : "spotify",
+      );
+      setLocalSpotifyClientId(typeof settings.spotifyClientId === "string" ? settings.spotifyClientId : "");
+      setLocalSourceLorebookIds(normalizeStringArray(settings.sourceLorebookIds));
       setLocalUseChatActiveLorebooks(
         (settings.useChatActiveLorebooks as boolean | undefined) ?? defaultSettings.useChatActiveLorebooks === true,
       );
-      setLocalSourceFileIds(settings.sourceFileIds ?? []);
-      setLocalAutoGenerateAvatars(settings.autoGenerateAvatars ?? false);
-      setLocalAutoGenerateBackgrounds(settings.autoGenerateBackgrounds ?? false);
-      setLocalUseAvatarReferences(settings.useAvatarReferences ?? false);
+      setLocalSourceFileIds(normalizeStringArray(settings.sourceFileIds));
+      setLocalAutoGenerateAvatars(settings.autoGenerateAvatars === true);
+      setLocalAutoGenerateBackgrounds(settings.autoGenerateBackgrounds === true);
+      setLocalUseAvatarReferences(
+        (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
+      );
+      setLocalIncludeCharacterAppearance(
+        (settings.includeCharacterAppearance as boolean | undefined) ??
+          defaultSettings.includeCharacterAppearance === true,
+      );
       setLocalImagePositivePrompt((settings.imagePositivePrompt as string) ?? "");
       setLocalImageNegativePrompt((settings.imageNegativePrompt as string) ?? "");
+      setLocalProseGuardianBanned(
+        typeof settings.banned === "string"
+          ? settings.banned
+          : typeof defaultSettings.banned === "string"
+            ? defaultSettings.banned
+            : DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+      );
+      setLocalProseGuardianAvoid(
+        typeof settings.avoid === "string"
+          ? settings.avoid
+          : typeof defaultSettings.avoid === "string"
+            ? defaultSettings.avoid
+            : DEFAULT_PROSE_GUARDIAN_AVOID,
+      );
+      setLocalProseGuardianPrefer(
+        typeof settings.prefer === "string"
+          ? settings.prefer
+          : typeof defaultSettings.prefer === "string"
+            ? defaultSettings.prefer
+            : "",
+      );
+      setLocalProseGuardianHoldForRewrite(
+        (settings.holdForRewrite as boolean | undefined) ?? defaultSettings.holdForRewrite !== false,
+      );
+      setLocalDirectorMode(normalizeNarrativeDirectorMode(settings.directorMode ?? defaultSettings.directorMode));
+      setLocalSecretPlotEnabled(
+        (settings.secretPlotEnabled as boolean | undefined) ?? defaultSettings.secretPlotEnabled === true,
+      );
+      setLocalSecretPlotRunInterval(
+        normalizePositiveInteger(settings.secretPlotRunInterval ?? defaultSettings.secretPlotRunInterval, 8, 100),
+      );
+      setLocalCustomCapabilities(normalizeCustomAgentCapabilities(settings));
       setLocalResultType(normalizeCustomResultType(settings.resultType));
       setLocalIncludePreGenInjections(settings.includePreGenInjections === true);
       setLocalIncludeParallelResults(settings.includeParallelResults === true);
@@ -317,7 +600,9 @@ export function AgentEditor() {
     } else if (builtIn) {
       setLocalName(builtIn.name);
       setLocalDescription(builtIn.description);
-      setLocalPhase(builtIn.phase);
+      setLocalAuthor(builtIn.author ?? DEFAULT_AGENT_AUTHOR);
+      setLocalPromptTemplates(normalizeAgentPromptTemplateOptions(defaultSettings.promptTemplates));
+      setLocalPhase(normalizeAgentPhaseForType(builtIn.id, builtIn.phase));
       setLocalAgentEnabled(true);
       setLocalConnectionId("");
       setLocalImageConnectionId("");
@@ -334,17 +619,35 @@ export function AgentEditor() {
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
       setLocalAutoGenerateBackgrounds(false);
-      setLocalUseAvatarReferences(false);
+      setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
+      setLocalIncludeCharacterAppearance(defaultSettings.includeCharacterAppearance === true);
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
+      setLocalProseGuardianBanned(
+        typeof defaultSettings.banned === "string" ? defaultSettings.banned : DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+      );
+      setLocalProseGuardianAvoid(
+        typeof defaultSettings.avoid === "string" ? defaultSettings.avoid : DEFAULT_PROSE_GUARDIAN_AVOID,
+      );
+      setLocalProseGuardianPrefer(typeof defaultSettings.prefer === "string" ? defaultSettings.prefer : "");
+      setLocalProseGuardianHoldForRewrite(defaultSettings.holdForRewrite !== false);
+      setLocalDirectorMode(normalizeNarrativeDirectorMode(defaultSettings.directorMode));
+      setLocalSecretPlotEnabled(defaultSettings.secretPlotEnabled === true);
+      setLocalSecretPlotRunInterval(normalizePositiveInteger(defaultSettings.secretPlotRunInterval, 8, 100));
+      setLocalCustomCapabilities({});
       setLocalResultType("context_injection");
       setLocalIncludePreGenInjections(false);
       setLocalIncludeParallelResults(false);
+      setLocalLorebookWriteEnabled(false);
+      setLocalWritableLorebookId("");
+      setLocalMusicProvider(defaultSettings.musicProvider === "youtube" ? "youtube" : "spotify");
       setLocalPrompt("");
     } else {
       // Brand new custom agent — start empty
       setLocalName("New Agent");
       setLocalDescription("");
+      setLocalAuthor("");
+      setLocalPromptTemplates([]);
       setLocalPhase("post_processing");
       setLocalAgentEnabled(true);
       setLocalConnectionId("");
@@ -363,31 +666,46 @@ export function AgentEditor() {
       setLocalAutoGenerateAvatars(false);
       setLocalAutoGenerateBackgrounds(false);
       setLocalUseAvatarReferences(false);
+      setLocalIncludeCharacterAppearance(false);
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
+      setLocalProseGuardianBanned(DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
+      setLocalProseGuardianAvoid(DEFAULT_PROSE_GUARDIAN_AVOID);
+      setLocalProseGuardianPrefer("");
+      setLocalProseGuardianHoldForRewrite(true);
+      setLocalDirectorMode("natural");
+      setLocalSecretPlotEnabled(false);
+      setLocalSecretPlotRunInterval(8);
+      setLocalCustomCapabilities({});
       setLocalResultType("context_injection");
       setLocalIncludePreGenInjections(false);
       setLocalIncludeParallelResults(false);
+      setLocalLorebookWriteEnabled(false);
+      setLocalWritableLorebookId("");
+      setLocalMusicProvider("spotify");
       setLocalPrompt("");
     }
     setDirty(false);
     setSaveError(null);
-  }, [agentDetailId, dbConfig, builtIn, connections, customRunIntervalMeta?.defaultValue]);
+  }, [agentDetailId, dbConfig, builtIn, connections, customRunIntervalMeta?.defaultValue, isCustomAgent]);
 
-  // Fetch Spotify connection status when viewing a Spotify agent
+  // Fetch music connection status when viewing Music DJ.
   const isSpotifyAgent = agentDetailId === "spotify" || dbConfig?.type === "spotify";
+  const isMusicAgent = isSpotifyAgent;
+
+  const showsYoutubeSettings = isMusicAgent;
 
   // Lorebook Keeper agent — run interval setting
   const isLorebookKeeperAgent = agentDetailId === "lorebook-keeper" || dbConfig?.type === "lorebook-keeper";
+  // Card Evolution Auditor agent — run interval setting
+  const isCardEvolutionAuditorAgent =
+    agentDetailId === "card-evolution-auditor" || dbConfig?.type === "card-evolution-auditor";
 
-  // Narrative Director agent — run interval setting
+  // Narrative Director agent — one-shot story push setting
   const isDirectorAgent = agentDetailId === "director" || dbConfig?.type === "director";
 
   // Illustrator agent — run interval setting
   const isIllustratorAgent = agentDetailId === "illustrator" || dbConfig?.type === "illustrator";
-
-  // Chat Summary agent — uses "Triggers After" instead of context size
-  const isChatSummaryAgent = agentDetailId === "chat-summary" || dbConfig?.type === "chat-summary";
 
   // Knowledge Retrieval agent — lorebook source selector
   const isKnowledgeRetrievalAgent = agentDetailId === "knowledge-retrieval" || dbConfig?.type === "knowledge-retrieval";
@@ -395,6 +713,10 @@ export function AgentEditor() {
   const isKnowledgeRouterAgent = agentDetailId === "knowledge-router" || dbConfig?.type === "knowledge-router";
   // Background agent — can optionally generate missing roleplay backgrounds.
   const isBackgroundAgent = agentDetailId === "background" || dbConfig?.type === "background";
+  // Prose Guardian agent — exposes macro defaults used by its rewrite prompt.
+  const isProseGuardianAgent = agentDetailId === "prose-guardian" || dbConfig?.type === "prose-guardian";
+  // Continuity Checker agent — shares the rewrite reveal timing control.
+  const isContinuityAgent = agentDetailId === "continuity" || dbConfig?.type === "continuity";
 
   // Detect when both knowledge agents will actually run in parallel. Shows a
   // soft warning so users don't accidentally do overlapping work that bloats
@@ -437,7 +759,7 @@ export function AgentEditor() {
   const deleteSource = useDeleteKnowledgeSource();
   const fileInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (!isSpotifyAgent || !dbConfig?.id) {
+    if (!isMusicAgent || !dbConfig?.id) {
       setSpotifyStatus(null);
       return;
     }
@@ -454,7 +776,27 @@ export function AgentEditor() {
     return () => {
       cancelled = true;
     };
-  }, [isSpotifyAgent, dbConfig?.id]);
+  }, [isMusicAgent, dbConfig?.id]);
+
+  // Fetch YouTube key-configured status when viewing Music DJ or a legacy YouTube agent.
+  useEffect(() => {
+    if (!showsYoutubeSettings || !dbConfig?.id) {
+      setYoutubeConfigured(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/youtube/status?agentId=${encodeURIComponent(dbConfig.id)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setYoutubeConfigured(data.configured === true);
+      })
+      .catch(() => {
+        if (!cancelled) setYoutubeConfigured(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showsYoutubeSettings, dbConfig?.id]);
 
   // Clean up Spotify polling timers on unmount
   useEffect(() => {
@@ -498,7 +840,9 @@ export function AgentEditor() {
     if (!agentDetailId) return;
     setSaveError(null);
     const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
-    const savedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const agentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId;
+    const selectedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const savedPhase = normalizeAgentPhaseForType(agentType, selectedPhase);
     const mayIncludeTurnData = isEditingCustomAgent && savedPhase === "post_processing";
     const activationKeywords = isEditingCustomAgent ? parseActivationKeywordsText(localActivationKeywordsText) : [];
     const activationScanDepth =
@@ -508,17 +852,42 @@ export function AgentEditor() {
             1,
             Math.min(MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH, Math.floor(Number(localActivationScanDepth) || 1)),
           );
+    const customCapabilities = customCapabilityMapFromLocal(localCustomCapabilities);
+    if (isEditingCustomAgent && !resultTypeAllowedByCapabilities(localResultType, customCapabilities)) {
+      setSaveError("Enable the matching custom-agent ability before saving this result type.");
+      return;
+    }
+    const writableLorebookId = localWritableLorebookId.trim();
+    const lorebookWriterEnabled =
+      isEditingCustomAgent && localLorebookWriteEnabled && customCapabilities.edit_lorebooks === true;
+    if (lorebookWriterEnabled && !writableLorebookId) {
+      setSaveError("Select a target lorebook before enabling lorebook writing for this agent.");
+      return;
+    }
+    const effectiveEnabledTools = Array.from(
+      new Set(
+        lorebookWriterEnabled
+          ? [...localEnabledTools, LOREBOOK_WRITE_TOOL_NAME]
+          : localEnabledTools.filter((tool) => tool !== LOREBOOK_WRITE_TOOL_NAME),
+      ),
+    ).filter((tool) => customCapabilities.edit_messages === true || tool !== MESSAGE_EDIT_TOOL_NAME);
+    const savedAuthor = localAuthor.trim() || (builtIn ? DEFAULT_AGENT_AUTHOR : "Unknown");
+    const savedPromptTemplates = normalizeAgentPromptTemplateOptions(localPromptTemplates);
 
     // Preserve OAuth fields the form doesn't expose. The server replaces
     // `settings` wholesale, so anything we omit here would be wiped — and the
     // Spotify tokens live in settings rather than their own column.
-    const currentSettings: Record<string, unknown> = dbConfig?.settings
-      ? typeof dbConfig.settings === "string"
-        ? JSON.parse(dbConfig.settings as string)
-        : (dbConfig.settings as Record<string, unknown>)
-      : {};
+    const currentSettings: Record<string, unknown> = parseAgentSettingsRecord(dbConfig?.settings);
     const preservedSpotifyFields: Record<string, unknown> = {};
-    for (const key of ["spotifyAccessToken", "spotifyRefreshToken", "spotifyExpiresAt", "spotifyScope"]) {
+    for (const key of [
+      "spotifyAccessToken",
+      "spotifyRefreshToken",
+      "spotifyExpiresAt",
+      "spotifyScope",
+      // YouTube key is encrypted server-side and not exposed by the form — preserve it
+      // so a normal agent Save (e.g. toggling Enabled) doesn't wipe the stored key.
+      "youtubeApiKey",
+    ]) {
       if (currentSettings[key] !== undefined) preservedSpotifyFields[key] = currentSettings[key];
     }
 
@@ -531,6 +900,9 @@ export function AgentEditor() {
       promptTemplate: localPrompt,
       settings: {
         ...preservedSpotifyFields,
+        author: savedAuthor,
+        promptTemplates: savedPromptTemplates,
+        ...(isEditingCustomAgent ? { customCapabilities } : {}),
         ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
         ...(activationKeywords.length > 0
           ? {
@@ -542,9 +914,13 @@ export function AgentEditor() {
         ...(mayIncludeTurnData && localIncludeParallelResults ? { includeParallelResults: true } : {}),
         ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
         ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
-        ...(localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
-        ...(localInjectAsSection ? { injectAsSection: true } : {}),
-        enabledTools: localEnabledTools,
+        ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
+        ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
+        ...(isMusicAgent ? { musicProvider: localMusicProvider } : {}),
+        enabledTools: isMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
+        ...(lorebookWriterEnabled
+          ? { lorebookWriteEnabled: true, writableLorebookId, writableLorebookIds: [writableLorebookId] }
+          : {}),
         ...(localSpotifyClientId ? { spotifyClientId: localSpotifyClientId } : {}),
         ...(isKnowledgeRetrievalAgent || isKnowledgeRouterAgent
           ? { useChatActiveLorebooks: localUseChatActiveLorebooks }
@@ -558,7 +934,28 @@ export function AgentEditor() {
         ...(localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
         ...(localAutoGenerateBackgrounds ? { autoGenerateBackgrounds: true } : {}),
-        ...(localUseAvatarReferences ? { useAvatarReferences: true } : {}),
+        ...(isIllustratorAgent
+          ? {
+              useAvatarReferences: localUseAvatarReferences,
+              includeCharacterAppearance: localIncludeCharacterAppearance,
+            }
+          : {}),
+        ...(isProseGuardianAgent
+          ? {
+              banned: localProseGuardianBanned.trim() || DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+              avoid: localProseGuardianAvoid.trim() || DEFAULT_PROSE_GUARDIAN_AVOID,
+              prefer: localProseGuardianPrefer.trim(),
+              holdForRewrite: localProseGuardianHoldForRewrite,
+            }
+          : {}),
+        ...(isContinuityAgent ? { holdForRewrite: localProseGuardianHoldForRewrite } : {}),
+        ...(isDirectorAgent
+          ? {
+              directorMode: localDirectorMode,
+              secretPlotEnabled: localSecretPlotEnabled,
+              secretPlotRunInterval: localSecretPlotRunInterval,
+            }
+          : {}),
         ...(localImagePositivePrompt.trim() ? { imagePositivePrompt: localImagePositivePrompt.trim() } : {}),
         ...(localImageNegativePrompt.trim() ? { imageNegativePrompt: localImageNegativePrompt.trim() } : {}),
       },
@@ -593,11 +990,14 @@ export function AgentEditor() {
     localPhase,
     localAgentEnabled,
     localResultType,
+    localCustomCapabilities,
     localConnectionId,
     localImageConnectionId,
     localIncludePreGenInjections,
     localIncludeParallelResults,
     localPrompt,
+    localAuthor,
+    localPromptTemplates,
     localContextSize,
     localMaxTokens,
     localRunInterval,
@@ -605,6 +1005,9 @@ export function AgentEditor() {
     localActivationScanDepth,
     localInjectAsSection,
     localEnabledTools,
+    localLorebookWriteEnabled,
+    localWritableLorebookId,
+    localMusicProvider,
     localSpotifyClientId,
     localUseChatActiveLorebooks,
     localSourceLorebookIds,
@@ -612,18 +1015,146 @@ export function AgentEditor() {
     localAutoGenerateAvatars,
     localAutoGenerateBackgrounds,
     localUseAvatarReferences,
+    localIncludeCharacterAppearance,
+    localProseGuardianBanned,
+    localProseGuardianAvoid,
+    localProseGuardianPrefer,
+    localProseGuardianHoldForRewrite,
+    localDirectorMode,
+    localSecretPlotEnabled,
+    localSecretPlotRunInterval,
     localImagePositivePrompt,
     localImageNegativePrompt,
     dbConfig,
     builtIn,
     isCustomAgent,
     isNewCustomAgent,
+    isIllustratorAgent,
+    isProseGuardianAgent,
+    isContinuityAgent,
+    isDirectorAgent,
+    isMusicAgent,
     isKnowledgeRetrievalAgent,
     isKnowledgeRouterAgent,
     updateAgent,
     createAgent,
     openAgentDetail,
   ]);
+
+  const handleExportAgent = () => {
+    if (!agentDetailId) return;
+    const isEditingCustomAgent = isCustomAgent || isNewCustomAgent;
+    const agentType = dbConfig?.type ?? builtIn?.id ?? createCustomAgentType(localName);
+    const selectedPhase = isEditingCustomAgent && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    const savedPhase = normalizeAgentPhaseForType(agentType, selectedPhase);
+    const mayIncludeTurnData = isEditingCustomAgent && savedPhase === "post_processing";
+    const activationKeywords = isEditingCustomAgent ? parseActivationKeywordsText(localActivationKeywordsText) : [];
+    const activationScanDepth =
+      localActivationScanDepth === ""
+        ? DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH
+        : Math.max(
+            1,
+            Math.min(MAX_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH, Math.floor(Number(localActivationScanDepth) || 1)),
+          );
+    const customCapabilities = customCapabilityMapFromLocal(localCustomCapabilities);
+    if (isEditingCustomAgent && !resultTypeAllowedByCapabilities(localResultType, customCapabilities)) {
+      toast.error("Enable the matching custom-agent ability before exporting this result type.");
+      return;
+    }
+    const writableLorebookId = localWritableLorebookId.trim();
+    const lorebookWriterEnabled =
+      isEditingCustomAgent && localLorebookWriteEnabled && customCapabilities.edit_lorebooks === true;
+    const effectiveEnabledTools = Array.from(
+      new Set(
+        lorebookWriterEnabled
+          ? [...localEnabledTools, LOREBOOK_WRITE_TOOL_NAME]
+          : localEnabledTools.filter((tool) => tool !== LOREBOOK_WRITE_TOOL_NAME),
+      ),
+    ).filter((tool) => customCapabilities.edit_messages === true || tool !== MESSAGE_EDIT_TOOL_NAME);
+    const savedAuthor = localAuthor.trim() || (builtIn ? DEFAULT_AGENT_AUTHOR : "Unknown");
+    const savedPromptTemplates = normalizeAgentPromptTemplateOptions(localPromptTemplates);
+    const exportingMusicAgent = agentType === "spotify";
+    const settings = sanitizeAgentSettingsForTransfer({
+      author: savedAuthor,
+      promptTemplates: savedPromptTemplates,
+      ...(isEditingCustomAgent ? { customCapabilities } : {}),
+      ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
+      ...(activationKeywords.length > 0 ? { activationKeywords, activationScanDepth } : {}),
+      ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
+      ...(mayIncludeTurnData && localIncludeParallelResults ? { includeParallelResults: true } : {}),
+      ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
+      ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
+      ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
+      ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
+      ...(exportingMusicAgent ? { musicProvider: localMusicProvider } : {}),
+      enabledTools: exportingMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
+      ...(lorebookWriterEnabled
+        ? { lorebookWriteEnabled: true, writableLorebookId, writableLorebookIds: [writableLorebookId] }
+        : {}),
+      ...(localSpotifyClientId ? { spotifyClientId: localSpotifyClientId } : {}),
+      ...(isKnowledgeRetrievalAgent || isKnowledgeRouterAgent
+        ? { useChatActiveLorebooks: localUseChatActiveLorebooks }
+        : {}),
+      ...(localSourceLorebookIds.length > 0 ? { sourceLorebookIds: localSourceLorebookIds } : {}),
+      ...(isKnowledgeRetrievalAgent && localSourceFileIds.length > 0 ? { sourceFileIds: localSourceFileIds } : {}),
+      ...(localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
+      ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
+      ...(localAutoGenerateBackgrounds ? { autoGenerateBackgrounds: true } : {}),
+      ...(isIllustratorAgent
+        ? {
+            useAvatarReferences: localUseAvatarReferences,
+            includeCharacterAppearance: localIncludeCharacterAppearance,
+          }
+        : {}),
+      ...(isProseGuardianAgent
+        ? {
+            banned: localProseGuardianBanned.trim() || DEFAULT_PROSE_GUARDIAN_BANNED_WORDS,
+            avoid: localProseGuardianAvoid.trim() || DEFAULT_PROSE_GUARDIAN_AVOID,
+            prefer: localProseGuardianPrefer.trim(),
+            holdForRewrite: localProseGuardianHoldForRewrite,
+          }
+        : {}),
+      ...(isContinuityAgent ? { holdForRewrite: localProseGuardianHoldForRewrite } : {}),
+      ...(isDirectorAgent
+        ? {
+            directorMode: localDirectorMode,
+            secretPlotEnabled: localSecretPlotEnabled,
+            secretPlotRunInterval: localSecretPlotRunInterval,
+          }
+        : {}),
+      ...(localImagePositivePrompt.trim() ? { imagePositivePrompt: localImagePositivePrompt.trim() } : {}),
+      ...(localImageNegativePrompt.trim() ? { imageNegativePrompt: localImageNegativePrompt.trim() } : {}),
+    });
+    const agentEntry = createFolderEntry({
+      folderName: "Agents",
+      itemName: agentType,
+      itemKind: "marinara.agent",
+      config: {
+        type: agentType,
+        name: localName,
+        description: localDescription,
+        phase: savedPhase,
+        enabled: localAgentEnabled,
+        connectionId: null,
+        imagePath: null,
+        promptTemplate: localPrompt,
+        settings,
+        ...(isEditingCustomAgent ? { resultType: localResultType } : {}),
+      },
+      fallbackName: "agent",
+    });
+    downloadJsonFile(
+      {
+        kind: "marinara.agent-folder",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        folderName: "Agents",
+        agents: [agentEntry],
+      },
+      "marinara-agent.json",
+    );
+    toast.success(`Exported ${localName || "agent"}`);
+  };
 
   const handleResetPrompt = useCallback(() => {
     setLocalPrompt("");
@@ -637,10 +1168,91 @@ export function AgentEditor() {
 
   const markDirty = useCallback(() => setDirty(true), []);
 
-  const phaseMeta = PHASE_META[localPhase];
+  const handleMusicProviderChange = useCallback(
+    (provider: "spotify" | "youtube") => {
+      setLocalMusicProvider(provider);
+      setMusicPlayerSource(provider);
+      if (provider === "spotify" && localEnabledTools.length === 0) {
+        setLocalEnabledTools(DEFAULT_AGENT_TOOLS.spotify ?? []);
+      }
+      setDirty(true);
+    },
+    [localEnabledTools.length, setMusicPlayerSource],
+  );
+
+  const toggleCustomCapability = useCallback(
+    (capability: CustomAgentCapability) => {
+      setLocalCustomCapabilities((current) => {
+        const next = { ...current, [capability]: current[capability] !== true };
+        if (next[capability] !== true) {
+          const currentResultAllowed = resultTypeAllowedByCapabilities(localResultType, next);
+          if (!currentResultAllowed) {
+            setLocalResultType("context_injection");
+          }
+          if (capability === "edit_lorebooks") {
+            setLocalLorebookWriteEnabled(false);
+          }
+        }
+        return customCapabilityMapFromLocal(next);
+      });
+      markDirty();
+    },
+    [localResultType, markDirty],
+  );
+
+  const handleAddPromptTemplate = useCallback(() => {
+    setLocalPromptTemplates((options) => [...options, createBlankPromptOption(options)]);
+    markDirty();
+  }, [markDirty]);
+
+  const handleUpdatePromptTemplate = useCallback(
+    (id: string, patch: Partial<Pick<AgentPromptTemplateOption, "name" | "promptTemplate" | "description">>) => {
+      setLocalPromptTemplates((options) =>
+        options.map((option) => (option.id === id ? { ...option, ...patch } : option)),
+      );
+      markDirty();
+    },
+    [markDirty],
+  );
+
+  const handleRemovePromptTemplate = useCallback(
+    (id: string) => {
+      setLocalPromptTemplates((options) => options.filter((option) => option.id !== id));
+      markDirty();
+    },
+    [markDirty],
+  );
+
+  const currentAgentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId ?? "";
+  const normalizedLocalPhase = normalizeAgentPhaseForType(currentAgentType, localPhase);
+  const phaseMeta = PHASE_META[normalizedLocalPhase];
   const effectivePhase =
-    (isCustomAgent || isNewCustomAgent) && localResultType === "text_rewrite" ? "post_processing" : localPhase;
+    (isCustomAgent || isNewCustomAgent) && localResultType === "text_rewrite"
+      ? "post_processing"
+      : normalizedLocalPhase;
   const showTurnDataAccess = (isCustomAgent || isNewCustomAgent) && effectivePhase === "post_processing";
+  const visibleBuiltInTools = useMemo(
+    () =>
+      BUILT_IN_TOOLS.filter(
+        (tool) =>
+          tool.name !== LOREBOOK_WRITE_TOOL_NAME &&
+          (tool.name !== MESSAGE_EDIT_TOOL_NAME || localCustomCapabilities.edit_messages === true),
+      ),
+    [localCustomCapabilities.edit_messages],
+  );
+  const selectableCustomTools = useMemo(
+    () =>
+      (customToolsRaw as CustomToolRow[] | undefined)?.filter((tool) =>
+        isCustomToolSelectable(tool, customToolCapabilities),
+      ) ?? [],
+    [customToolsRaw, customToolCapabilities],
+  );
+  const visibleToolNames = useMemo(
+    () => new Set([...visibleBuiltInTools.map((tool) => tool.name), ...selectableCustomTools.map((tool) => tool.name)]),
+    [selectableCustomTools, visibleBuiltInTools],
+  );
+  const selectedVisibleToolCount = localEnabledTools.filter((toolName) => visibleToolNames.has(toolName)).length;
+  const availableVisibleToolCount = visibleToolNames.size;
 
   // ── Loading / not found ──
   if (!agentDetailId || (!builtIn && !dbConfig && agentDetailId !== "__new__")) {
@@ -670,18 +1282,18 @@ export function AgentEditor() {
   const isPending = updateAgent.isPending || createAgent.isPending;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
+    <div className="mari-editor-shell flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 max-md:gap-2 max-md:px-3">
+      <div className="mari-editor-header">
         <button
           type="button"
           onClick={handleClose}
           aria-label="Back to agents"
-          className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
+          className="mari-editor-action inline-flex"
         >
           <ArrowLeft size="1.125rem" />
         </button>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm max-md:h-8 max-md:w-8">
+        <div className="mari-editor-icon-tile">
           <Sparkles size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
         <input
@@ -690,36 +1302,46 @@ export function AgentEditor() {
             setLocalName(e.target.value);
             markDirty();
           }}
-          className="flex-1 bg-transparent text-lg font-semibold outline-none placeholder:text-[var(--muted-foreground)] max-md:text-base"
+          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
           placeholder="Agent name…"
         />
-        <div className="flex items-center gap-1.5 max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--border)]/30 max-md:pt-2">
+        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
           {saveError && (
-            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-red-400">
+            <span className="mari-editor-status mr-2 text-red-400">
               <AlertCircle size="0.6875rem" /> Save failed
             </span>
           )}
           {savedFlash && !dirty && (
-            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-emerald-400">
+            <span className="mari-editor-status mr-2 text-emerald-400">
               <Check size="0.6875rem" /> Saved
             </span>
           )}
-          {dirty && !saveError && <span className="mr-2 text-[0.625rem] font-medium text-amber-400">Unsaved</span>}
-          {isCustomAgent && dbConfig && (
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/15 active:scale-[0.98]"
-            >
-              <Trash2 size="0.8125rem" /> <span className="max-md:hidden">Delete</span>
-            </button>
-          )}
+          {dirty && !saveError && <span className="mari-editor-status mr-2 text-amber-400">Unsaved</span>}
           <button
             onClick={handleSave}
             disabled={isPending}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
+            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
           >
             <Save size="0.8125rem" /> <span className="max-md:hidden">Save</span>
           </button>
+          <button
+            onClick={handleExportAgent}
+            className="mari-editor-action inline-flex"
+            title="Export agent"
+            aria-label="Export agent"
+          >
+            <Upload size="0.9375rem" />
+          </button>
+          {isCustomAgent && dbConfig && (
+            <button
+              onClick={handleDelete}
+              className="mari-editor-action mari-editor-action--danger inline-flex"
+              title="Delete agent"
+              aria-label="Delete agent"
+            >
+              <Trash2 size="0.9375rem" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -779,23 +1401,40 @@ export function AgentEditor() {
       )}
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-y-auto p-6 max-md:p-4">
-        <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mari-editor-content max-md:p-4">
+        <div className="mari-editor-content-inner mari-editor-content-inner--wide space-y-6">
           {/* ── Description ── */}
           <FieldGroup
             label="Description"
             icon={<Info size="0.875rem" className="text-[var(--primary)]" />}
-            help="A short summary of what this agent does. Shown in the agents panel to help you identify each agent."
+            help="A short summary of what this agent does, plus author credit for the person or team who made it."
           >
-            <input
-              value={localDescription}
-              onChange={(e) => {
-                setLocalDescription(e.target.value);
-                markDirty();
-              }}
-              className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-              placeholder="What does this agent do…"
-            />
+            <div className="grid gap-3 sm:grid-cols-[1fr_14rem]">
+              <label className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Description</span>
+                <input
+                  value={localDescription}
+                  onChange={(e) => {
+                    setLocalDescription(e.target.value);
+                    markDirty();
+                  }}
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  placeholder="What does this agent do…"
+                />
+              </label>
+              <label className="flex min-w-0 flex-col gap-1.5">
+                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Author</span>
+                <input
+                  value={localAuthor}
+                  onChange={(e) => {
+                    setLocalAuthor(e.target.value);
+                    markDirty();
+                  }}
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  placeholder={builtIn ? DEFAULT_AGENT_AUTHOR : "Your name"}
+                />
+              </label>
+            </div>
           </FieldGroup>
 
           {/* Agent Status */}
@@ -841,13 +1480,13 @@ export function AgentEditor() {
           >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {(Object.entries(PHASE_META) as [AgentPhase, typeof phaseMeta][]).map(([phase, meta]) => {
-                const isActive = localPhase === phase;
+                const isActive = normalizedLocalPhase === phase;
                 const Icon = meta.icon;
                 return (
                   <button
                     key={phase}
                     onClick={() => {
-                      setLocalPhase(phase);
+                      setLocalPhase(normalizeAgentPhaseForType(currentAgentType, phase));
                       markDirty();
                     }}
                     className={cn(
@@ -868,27 +1507,71 @@ export function AgentEditor() {
 
           {(isCustomAgent || isNewCustomAgent) && (
             <FieldGroup
-              label="Result Type"
-              icon={<FileText size="0.875rem" className="text-[var(--primary)]" />}
-              help="Controls how Marinara interprets this custom agent's output. Use Text Rewrite for post-processing agents that edit the generated reply."
+              label="Custom Agent Abilities"
+              icon={<Sparkles size="0.875rem" className="text-[var(--primary)]" />}
+              help="Opt-in powers for custom agents. Result formats and runtime handlers stay blocked until the matching ability is enabled."
             >
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {CUSTOM_AGENT_CAPABILITY_META.map((capability) => {
+                  const enabled = localCustomCapabilities[capability.id] === true;
+                  return (
+                    <button
+                      key={capability.id}
+                      type="button"
+                      aria-pressed={enabled}
+                      onClick={() => toggleCustomCapability(capability.id)}
+                      className={cn(
+                        "flex items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                        enabled
+                          ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
+                          : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                      )}
+                    >
+                      {enabled ? (
+                        <ToggleRight size="1rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                      ) : (
+                        <ToggleLeft size="1rem" className="mt-0.5 shrink-0" />
+                      )}
+                      <span className="min-w-0">
+                        <span className="block font-semibold">{capability.label}</span>
+                        <span className="mt-0.5 block text-[0.625rem] leading-tight">{capability.description}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </FieldGroup>
+          )}
+
+          {(isCustomAgent || isNewCustomAgent) && (
+            <FieldGroup
+              label="Result Type"
+              icon={<FileText size="0.875rem" className="text-[var(--primary)]" />}
+              help="Controls how Marinara interprets this custom agent's output. Some result types require the matching ability toggle above."
+            >
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {CUSTOM_AGENT_RESULT_TYPE_OPTIONS.map((option) => {
                   const isActive = localResultType === option.id;
+                  const isAllowed = resultTypeAllowedByCapabilities(option.id, localCustomCapabilities);
                   return (
                     <button
                       key={option.id}
                       type="button"
+                      disabled={!isAllowed}
                       onClick={() => {
+                        if (!isAllowed) return;
                         setLocalResultType(option.id);
                         if (option.id === "text_rewrite") setLocalPhase("post_processing");
+                        if (option.id === "prompt_patch") setLocalPhase("pre_generation");
                         markDirty();
                       }}
                       className={cn(
                         "flex flex-col items-start gap-1 rounded-xl p-3 text-left text-xs ring-1 transition-all",
                         isActive
                           ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
-                          : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                          : isAllowed
+                            ? "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+                            : "cursor-not-allowed ring-[var(--border)] text-[var(--muted-foreground)] opacity-45",
                       )}
                     >
                       <span className="font-semibold">{option.label}</span>
@@ -970,6 +1653,74 @@ export function AgentEditor() {
             </FieldGroup>
           )}
 
+          {(isCustomAgent || isNewCustomAgent) && (
+            <FieldGroup
+              label="Lorebook Writer"
+              icon={<BookOpen size="0.875rem" className="text-amber-400" />}
+              help="Lets this custom agent call a function that creates or updates entries in one selected lorebook."
+            >
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  aria-pressed={localLorebookWriteEnabled}
+                  onClick={() => {
+                    if (localCustomCapabilities.edit_lorebooks !== true) return;
+                    setLocalLorebookWriteEnabled((value) => !value);
+                    markDirty();
+                  }}
+                  className={cn(
+                    "flex w-full items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                    localLorebookWriteEnabled
+                      ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
+                      : localCustomCapabilities.edit_lorebooks === true
+                        ? "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+                        : "cursor-not-allowed ring-[var(--border)] text-[var(--muted-foreground)] opacity-45",
+                  )}
+                >
+                  {localLorebookWriteEnabled ? (
+                    <ToggleRight size="1.25rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                  ) : (
+                    <ToggleLeft size="1.25rem" className="mt-0.5 shrink-0" />
+                  )}
+                  <span className="min-w-0">
+                    <span className="block font-semibold">Allow lorebook entry writes</span>
+                    <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                      {localCustomCapabilities.edit_lorebooks === true
+                        ? "The agent can only write to the lorebook selected below."
+                        : "Enable Edit lorebooks above before selecting a target."}
+                    </span>
+                  </span>
+                </button>
+
+                <div className="space-y-1.5">
+                  <p className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Target lorebook</p>
+                  {allLorebooks && allLorebooks.length > 0 ? (
+                    <select
+                      value={localWritableLorebookId}
+                      disabled={!localLorebookWriteEnabled || localCustomCapabilities.edit_lorebooks !== true}
+                      onChange={(event) => {
+                        setLocalWritableLorebookId(event.target.value);
+                        markDirty();
+                      }}
+                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    >
+                      <option value="">Select a lorebook</option>
+                      {allLorebooks.map((lorebook) => (
+                        <option key={lorebook.id} value={lorebook.id}>
+                          {lorebook.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[0.625rem] text-amber-200">
+                      Create a lorebook before enabling writes for this agent.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </FieldGroup>
+          )}
+
           {/* ── Connection Override ── */}
           <FieldGroup
             label="Connection Override"
@@ -1035,32 +1786,36 @@ export function AgentEditor() {
                 Illustrator image connection from Settings → Connections, if one is configured.
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
-                <label className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5">
                   <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                     Positive prompt / tags
                   </span>
-                  <textarea
+                  <MacroTextarea
                     value={localImagePositivePrompt}
-                    onChange={(e) => {
-                      setLocalImagePositivePrompt(e.target.value);
+                    onChange={(value) => {
+                      setLocalImagePositivePrompt(value);
                       markDirty();
                     }}
                     placeholder="masterpiece, best quality, detailed lighting"
+                    rows={3}
+                    title="Positive prompt / tags"
                     className="min-h-[5rem] resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
                   />
-                </label>
-                <label className="flex flex-col gap-1.5">
+                </div>
+                <div className="flex flex-col gap-1.5">
                   <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Negative prompt</span>
-                  <textarea
+                  <MacroTextarea
                     value={localImageNegativePrompt}
-                    onChange={(e) => {
-                      setLocalImageNegativePrompt(e.target.value);
+                    onChange={(value) => {
+                      setLocalImageNegativePrompt(value);
                       markDirty();
                     }}
                     placeholder="lowres, bad anatomy, text artifacts"
+                    rows={3}
+                    title="Negative prompt"
                     className="min-h-[5rem] resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
                   />
-                </label>
+                </div>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 Saved on the Illustrator agent. Positive tags are appended after the generated prompt; negative tags are
@@ -1077,11 +1832,27 @@ export function AgentEditor() {
                   }}
                   className="rounded border-[var(--border)] bg-[var(--secondary)] text-[var(--primary)] focus:ring-[var(--ring)]"
                 />
-                <span className="text-sm">Send character &amp; persona avatars as reference images</span>
+                <span className="text-sm">Send matching character &amp; persona avatars as reference images</span>
               </label>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Sends all character avatars in the scene plus your persona avatar to the image generator for visual
-                reference. Works best with providers that support reference images (NovelAI, Stability, A1111, ComfyUI).
+                Sends references only for characters or persona names matched in the Illustrator request. Works best
+                with providers that support reference images (NovelAI, Stability, A1111, ComfyUI).
+              </p>
+              <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={localIncludeCharacterAppearance}
+                  onChange={(e) => {
+                    setLocalIncludeCharacterAppearance(e.target.checked);
+                    markDirty();
+                  }}
+                  className="rounded border-[var(--border)] bg-[var(--secondary)] text-[var(--primary)] focus:ring-[var(--ring)]"
+                />
+                <span className="text-sm">Attach matching character appearance descriptions to image prompts</span>
+              </label>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                Adds only matched visible names as lines like Name&apos;s Appearance: card appearance. Characters can be
+                found from the full character database, even when they are not attached to the current chat.
               </p>
             </FieldGroup>
           )}
@@ -1194,7 +1965,7 @@ export function AgentEditor() {
                   </p>
                   {!localImageConnectionId && !defaultAgentImageConn && (
                     <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[0.625rem] text-amber-300">
-                      Add an image generation connection here or mark one as the default for agents in Connections.
+                      Add an image generation connection here or mark one as the default for Illustrator in Connections.
                     </p>
                   )}
                 </div>
@@ -1208,33 +1979,27 @@ export function AgentEditor() {
             help="Controls how much recent chat context the agent reads and how much output room it reserves. If max output is too high for the model context, prompt context can be trimmed."
           >
             <div className="grid gap-3 sm:grid-cols-2">
-              {!isChatSummaryAgent ? (
-                <div>
-                  <label className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-                    Context Size
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      min={1}
-                      max={200}
-                      value={localContextSize}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setLocalContextSize(v === "" ? "" : Math.max(1, Math.min(200, parseInt(v) || 1)));
-                        markDirty();
-                      }}
-                      placeholder={String(DEFAULT_AGENT_CONTEXT_SIZE)}
-                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    />
-                    <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
-                  </div>
+              <div>
+                <label className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  Context Size
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={localContextSize}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setLocalContextSize(v === "" ? "" : Math.max(1, Math.min(200, parseInt(v) || 1)));
+                      markDirty();
+                    }}
+                    placeholder={String(DEFAULT_AGENT_CONTEXT_SIZE)}
+                    className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
                 </div>
-              ) : (
-                <div className="rounded-xl bg-[var(--accent)]/50 px-3 py-2.5 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                  Chat Summary context size is managed in the Chat Summary panel inside each chat.
-                </div>
-              )}
+              </div>
               <div>
                 <label className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                   Max Output Tokens
@@ -1243,7 +2008,6 @@ export function AgentEditor() {
                   <input
                     type="number"
                     min={MIN_AGENT_MAX_TOKENS}
-                    max={MAX_AGENT_MAX_TOKENS}
                     value={localMaxTokens}
                     onChange={(e) => {
                       setLocalMaxTokens(normalizeAgentMaxTokensInput(e.target.value));
@@ -1261,17 +2025,136 @@ export function AgentEditor() {
                 </div>
               </div>
             </div>
-            {!isChatSummaryAgent && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Each agent only sees its own context size. When agents are batched together (same model), the highest
-                context size in the batch is used and output budgets are combined.
-              </p>
-            )}
+            <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+              Each agent only sees its own context size. When agents are batched together (same model), the highest
+              context size in the batch is used and output budgets are combined.
+            </p>
             <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
               For 8k local models, try {DEFAULT_AGENT_MAX_TOKENS.toLocaleString()} or lower so the agent prompt keeps
               enough room.
             </p>
           </FieldGroup>
+
+          {isProseGuardianAgent && (
+            <FieldGroup
+              label="Prose Guardian Defaults"
+              icon={<Shield size="0.875rem" className="text-[var(--primary)]" />}
+              help="These values fill the Prose Guardian prompt macros. Chat settings can override them for one chat."
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    Banned Words {"{{banned}}"}
+                  </span>
+                  <textarea
+                    value={localProseGuardianBanned}
+                    onChange={(e) => {
+                      setLocalProseGuardianBanned(e.target.value);
+                      markDirty();
+                    }}
+                    placeholder={DEFAULT_PROSE_GUARDIAN_BANNED_WORDS}
+                    rows={3}
+                    className="min-h-[5.5rem] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    Prefer In Writing {"{{prefer}}"}
+                  </span>
+                  <textarea
+                    value={localProseGuardianPrefer}
+                    onChange={(e) => {
+                      setLocalProseGuardianPrefer(e.target.value);
+                      markDirty();
+                    }}
+                    placeholder="Optional style notes, phrases, or authorial preferences."
+                    rows={3}
+                    className="min-h-[5.5rem] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                </label>
+              </div>
+              <label className="mt-3 flex flex-col gap-1.5">
+                <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                  Remove From Writing {"{{avoid}}"}
+                </span>
+                <textarea
+                  value={localProseGuardianAvoid}
+                  onChange={(e) => {
+                    setLocalProseGuardianAvoid(e.target.value);
+                    markDirty();
+                  }}
+                  placeholder={DEFAULT_PROSE_GUARDIAN_AVOID}
+                  rows={4}
+                  className="min-h-[6.5rem] resize-y rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+              </label>
+              <button
+                type="button"
+                aria-pressed={localProseGuardianHoldForRewrite}
+                onClick={() => {
+                  setLocalProseGuardianHoldForRewrite((value) => !value);
+                  markDirty();
+                }}
+                className={cn(
+                  "mt-3 flex w-full items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                  localProseGuardianHoldForRewrite
+                    ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
+                    : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                )}
+              >
+                {localProseGuardianHoldForRewrite ? (
+                  <ToggleRight size="1.25rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <ToggleLeft size="1.25rem" className="mt-0.5 shrink-0" />
+                )}
+                <span className="min-w-0">
+                  <span className="block font-semibold">Hold message until rewrite</span>
+                  <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                    {localProseGuardianHoldForRewrite
+                      ? "Show the working state, then reveal the rewritten message."
+                      : "Show the original response first, then replace it if Prose Guardian edits it."}
+                  </span>
+                </span>
+              </button>
+            </FieldGroup>
+          )}
+
+          {isContinuityAgent && (
+            <FieldGroup
+              label="Continuity Checker Defaults"
+              icon={<ShieldCheck size="0.875rem" className="text-[var(--primary)]" />}
+              help="Choose whether Continuity Checker should hold the raw response until its rewrite pass finishes. Chat settings can override this for one chat."
+            >
+              <button
+                type="button"
+                aria-pressed={localProseGuardianHoldForRewrite}
+                onClick={() => {
+                  setLocalProseGuardianHoldForRewrite((value) => !value);
+                  markDirty();
+                }}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                  localProseGuardianHoldForRewrite
+                    ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
+                    : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                )}
+              >
+                {localProseGuardianHoldForRewrite ? (
+                  <ToggleRight size="1.25rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <ToggleLeft size="1.25rem" className="mt-0.5 shrink-0" />
+                )}
+                <span className="min-w-0">
+                  <span className="block font-semibold">Hold message until rewrite</span>
+                  <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                    {localProseGuardianHoldForRewrite
+                      ? "Show the working state, then reveal the continuity-checked message."
+                      : "Show the original response first, then replace it if Continuity Checker edits it."}
+                  </span>
+                </span>
+              </button>
+            </FieldGroup>
+          )}
 
           {/* ── Triggers After (Chat Summary agent) ── */}
           {(isCustomAgent || isNewCustomAgent) && customRunIntervalMeta && (
@@ -1390,35 +2273,6 @@ export function AgentEditor() {
             </FieldGroup>
           )}
 
-          {isChatSummaryAgent && (
-            <FieldGroup
-              label="Triggers After"
-              icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
-              help="How many user messages must be sent since the last automatic summary before the agent triggers again. The context size for each summary generation is set in the Chat Summary panel in the chat itself."
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  min={1}
-                  max={200}
-                  value={localRunInterval}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setLocalRunInterval(v === "" ? "" : Math.max(1, Math.min(200, parseInt(v) || 1)));
-                    markDirty();
-                  }}
-                  placeholder="5"
-                  className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                />
-                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">user messages</span>
-              </div>
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                The automatic summary will trigger after this many user messages have been sent since the last summary
-                update.
-              </p>
-            </FieldGroup>
-          )}
-
           {/* ── Run Interval (Lorebook Keeper) ── */}
           {isLorebookKeeperAgent && (
             <FieldGroup
@@ -1443,21 +2297,146 @@ export function AgentEditor() {
                 <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                The agent runs once every N assistant messages instead of every response. Default: 8.
+                The chat/roleplay keeper runs once every N assistant messages instead of every response. Default: 8.
+                Game Mode uses a separate session-end Lorebook Keeper with different instructions.
               </p>
             </FieldGroup>
           )}
 
-          {/* ── Run Interval (Narrative Director / Illustrator) ── */}
-          {(isDirectorAgent || isIllustratorAgent) && (
+          {/* ── Run Interval (Card Evolution Auditor) ── */}
+          {isCardEvolutionAuditorAgent && (
+            <FieldGroup
+              label="Run Interval"
+              icon={<FileText size="0.875rem" className="text-[var(--primary)]" />}
+              help="How many assistant messages between Card Evolution Auditor checks. Higher values keep card review conservative and cheaper."
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={localRunInterval}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setLocalRunInterval(v === "" ? "" : Math.max(1, Math.min(100, parseInt(v) || 1)));
+                    markDirty();
+                  }}
+                  placeholder="8"
+                  className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                />
+                <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
+              </div>
+              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                The auditor proposes character card changes for manual approval only. It never applies edits by itself.
+              </p>
+            </FieldGroup>
+          )}
+
+          {isDirectorAgent && (
+            <FieldGroup
+              label="Story Push Mode"
+              icon={<Shuffle size="0.875rem" className="text-[var(--primary)]" />}
+              help="Choose what Push Story should ask the Narrative Director to create when you arm it in chat."
+            >
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 p-1">
+                {[
+                  {
+                    id: "natural" as const,
+                    label: "Natural",
+                    description: "Advance existing tension, goals, or scenario threads.",
+                  },
+                  {
+                    id: "random" as const,
+                    label: "Random Event",
+                    description: "Introduce a plausible surprise, complication, or opportunity.",
+                  },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => {
+                      setLocalDirectorMode(option.id);
+                      markDirty();
+                    }}
+                    className={cn(
+                      "rounded-lg px-3 py-2 text-left transition-all",
+                      localDirectorMode === option.id
+                        ? "bg-[var(--primary)]/15 text-[var(--foreground)] ring-1 ring-[var(--primary)]/40"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    <span className="block text-xs font-semibold">{option.label}</span>
+                    <span className="mt-0.5 block text-[0.625rem] leading-snug">{option.description}</span>
+                  </button>
+                ))}
+              </div>
+            </FieldGroup>
+          )}
+
+          {isDirectorAgent && (
+            <FieldGroup
+              label="Secret Plot"
+              icon={<Sparkles size="0.875rem" className="text-[var(--primary)]" />}
+              help="Default hidden arc maintenance for Roleplay chats that use Narrative Director."
+            >
+              <button
+                type="button"
+                aria-pressed={localSecretPlotEnabled}
+                onClick={() => {
+                  setLocalSecretPlotEnabled((value) => !value);
+                  markDirty();
+                }}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-xl p-3 text-left text-xs ring-1 transition-all",
+                  localSecretPlotEnabled
+                    ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--foreground)]"
+                    : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                )}
+              >
+                {localSecretPlotEnabled ? (
+                  <ToggleRight size="1.25rem" className="mt-0.5 shrink-0 text-emerald-400" />
+                ) : (
+                  <ToggleLeft size="1.25rem" className="mt-0.5 shrink-0" />
+                )}
+                <span className="min-w-0">
+                  <span className="block font-semibold">Maintain hidden arc</span>
+                  <span className="mt-0.5 block text-[0.625rem] leading-tight">
+                    Store and inject a spoilered long-term arc for Roleplay chats.
+                  </span>
+                </span>
+              </button>
+              {localSecretPlotEnabled && (
+                <div className="mt-3">
+                  <label className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+                    Run Interval
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={localSecretPlotRunInterval}
+                      onChange={(event) => {
+                        setLocalSecretPlotRunInterval(
+                          normalizePositiveInteger(event.target.value, localSecretPlotRunInterval, 100),
+                        );
+                        markDirty();
+                      }}
+                      className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    />
+                    <span className="text-[0.6875rem] text-[var(--muted-foreground)]">assistant messages</span>
+                  </div>
+                </div>
+              )}
+            </FieldGroup>
+          )}
+
+          {/* ── Run Interval (Illustrator) ── */}
+          {isIllustratorAgent && (
             <FieldGroup
               label="Run Interval"
               icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
-              help={
-                isIllustratorAgent
-                  ? "How many assistant messages between allowed Illustrator image generations. Set to 1 to allow it every message."
-                  : "How many assistant messages between each Narrative Director intervention. Higher values make the director less aggressive. Set to 1 to run every message."
-              }
+              help="How many assistant messages between allowed Illustrator image generations. Set to 1 to allow it every message."
             >
               <div className="flex items-center gap-3">
                 <input
@@ -1476,44 +2455,80 @@ export function AgentEditor() {
                 <span className="text-[0.6875rem] text-[var(--muted-foreground)]">messages</span>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                {isIllustratorAgent
-                  ? "The Illustrator can only create a new image once every N assistant messages. If it decides not to draw, the timer does not reset. Default: 5."
-                  : "The director only jumps in once every N assistant messages instead of steering every reply. Default: 5."}
+                The Illustrator can only create a new image once every N assistant messages. If it decides not to draw,
+                the timer does not reset. Default: 5.
               </p>
             </FieldGroup>
           )}
 
           {/* ── Inject as Prompt Section ── */}
-          <FieldGroup
-            label="Add as Prompt Section"
-            icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
-            help="When enabled, this agent's output becomes available as a marker section in prompt presets. Add the section in your preset to inject the agent's latest data into the prompt."
-          >
-            <button
-              onClick={() => {
-                setLocalInjectAsSection(!localInjectAsSection);
-                markDirty();
-              }}
-              className="flex items-center gap-3 rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)]"
+          {!isDirectorAgent && (
+            <FieldGroup
+              label="Add as Prompt Section"
+              icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
+              help="When enabled, this agent's output becomes available as a marker section in prompt presets. Add the section in your preset to inject the agent's latest data into the prompt."
             >
-              {localInjectAsSection ? (
-                <ToggleRight size="1.25rem" className="text-emerald-400" />
-              ) : (
-                <ToggleLeft size="1.25rem" className="text-[var(--muted-foreground)]" />
-              )}
-              <div className="text-left">
-                <p className="text-sm font-medium">{localInjectAsSection ? "Enabled" : "Disabled"}</p>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localInjectAsSection
-                    ? `"${localName}" appears as a section option in prompt presets`
-                    : "Agent output is not injected into prompts"}
+              <button
+                onClick={() => {
+                  setLocalInjectAsSection(!localInjectAsSection);
+                  markDirty();
+                }}
+                className="flex items-center gap-3 rounded-xl bg-[var(--secondary)] px-4 py-3 ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)]"
+              >
+                {localInjectAsSection ? (
+                  <ToggleRight size="1.25rem" className="text-emerald-400" />
+                ) : (
+                  <ToggleLeft size="1.25rem" className="text-[var(--muted-foreground)]" />
+                )}
+                <div className="text-left">
+                  <p className="text-sm font-medium">{localInjectAsSection ? "Enabled" : "Disabled"}</p>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localInjectAsSection
+                      ? `"${localName}" appears as a section option in prompt presets`
+                      : "Agent output is not injected into prompts"}
+                  </p>
+                </div>
+              </button>
+            </FieldGroup>
+          )}
+
+          {isMusicAgent && (
+            <FieldGroup
+              label="Music Player"
+              icon={<Music size="0.875rem" className="text-[var(--muted-foreground)]" />}
+              help="Choose which service Music DJ should use for future music picks. The same choice switches the visible player surface."
+            >
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+                  {(["spotify", "youtube"] as const).map((provider) => {
+                    const active = localMusicProvider === provider;
+                    return (
+                      <button
+                        key={provider}
+                        type="button"
+                        onClick={() => handleMusicProviderChange(provider)}
+                        className={cn(
+                          "rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                          active
+                            ? "bg-white/12 text-white shadow-sm"
+                            : "text-white/45 hover:bg-white/8 hover:text-white/75",
+                        )}
+                      >
+                        {provider === "spotify" ? "Spotify" : "YouTube"}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[0.625rem] text-white/40">
+                  Visible player: {musicPlayerSource === "spotify" ? "Spotify" : "YouTube"}. Saved provider:{" "}
+                  {localMusicProvider === "spotify" ? "Spotify" : "YouTube"}.
                 </p>
               </div>
-            </button>
-          </FieldGroup>
+            </FieldGroup>
+          )}
 
           {/* ── Spotify Settings (only shown for Spotify agent) ── */}
-          {(agentDetailId === "spotify" || dbConfig?.type === "spotify") && (
+          {isMusicAgent && (
             <FieldGroup
               label="Spotify Connection"
               icon={<Music size="0.875rem" className="text-green-400" />}
@@ -1808,6 +2823,129 @@ export function AgentEditor() {
                     machine over plain HTTP, register the loopback URI anyway and use the paste-back fallback that
                     appears under the Connect button — or set{" "}
                     <code className="text-white/40">SPOTIFY_REDIRECT_URI</code> to your HTTPS URL.
+                  </p>
+                </div>
+              </div>
+            </FieldGroup>
+          )}
+
+          {/* ── YouTube Settings (shown for Music DJ and legacy YouTube agent) ── */}
+          {showsYoutubeSettings && (
+            <FieldGroup
+              label="YouTube Connection"
+              icon={<Music size="0.875rem" className="text-red-400" />}
+              help="Plays mood-matched music from YouTube in an embedded in-app player. Needs a free YouTube Data API key — no Premium, no account login."
+            >
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[0.6875rem] font-medium text-white/60 mb-1">YouTube Data API Key</label>
+                  <input
+                    type="password"
+                    value={localYoutubeApiKey}
+                    onChange={(e) => {
+                      setLocalYoutubeApiKey(e.target.value);
+                      setYoutubeError(null);
+                    }}
+                    placeholder={
+                      youtubeConfigured
+                        ? "•••••••• key configured — paste a new one to replace"
+                        : "Paste your YouTube Data API key (AIza…)"
+                    }
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white placeholder-white/30 outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/20 font-mono"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={youtubeSaving || !localYoutubeApiKey.trim()}
+                    onClick={async () => {
+                      setYoutubeSaving(true);
+                      setYoutubeError(null);
+                      try {
+                        // agentId is optional — the server creates the built-in Music DJ
+                        // config if it doesn't exist yet, so the user never has to hit the
+                        // top-right Save first.
+                        const res = await fetch("/api/youtube/save-key", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ agentId: dbConfig?.id, apiKey: localYoutubeApiKey.trim() }),
+                        });
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => ({}));
+                          throw new Error(data.error ?? `Save failed (${res.status})`);
+                        }
+                        setYoutubeConfigured(true);
+                        setLocalYoutubeApiKey("");
+                        // Refresh the agent list so dbConfig (the new/updated config row) populates.
+                        qc.invalidateQueries({ queryKey: agentKeys.all });
+                      } catch (err) {
+                        setYoutubeError(err instanceof Error ? err.message : "Save failed");
+                      } finally {
+                        setYoutubeSaving(false);
+                      }
+                    }}
+                    className="rounded-lg bg-red-500/15 px-3 py-2 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {youtubeSaving ? "Saving…" : youtubeConfigured ? "Update Key" : "Save Key"}
+                  </button>
+
+                  {youtubeConfigured && (
+                    <>
+                      <span className="flex items-center gap-1.5 rounded-lg bg-green-500/10 px-3 py-2 text-xs font-medium text-green-400">
+                        <Check size="0.75rem" />
+                        API key configured
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!dbConfig?.id) return;
+                          await fetch("/api/youtube/disconnect", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ agentId: dbConfig.id }),
+                          });
+                          setYoutubeConfigured(false);
+                        }}
+                        className="text-xs text-white/50 hover:text-red-400"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {youtubeError && <p className="text-[0.6875rem] text-red-400">{youtubeError}</p>}
+
+                <div className="rounded-lg bg-white/5 p-3 text-[0.6875rem] text-white/50 leading-relaxed">
+                  <p className="mb-1 font-medium text-white/60">How to get a free key:</p>
+                  <ol className="ml-4 list-decimal space-y-1">
+                    <li>
+                      Open the{" "}
+                      <a
+                        href="https://console.cloud.google.com/apis/library/youtube.googleapis.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-red-400 hover:underline inline-flex items-center gap-0.5"
+                      >
+                        Google Cloud Console <ExternalLink size="0.5625rem" />
+                      </a>{" "}
+                      and create (or pick) a project.
+                    </li>
+                    <li>
+                      Enable the <strong>YouTube Data API v3</strong>.
+                    </li>
+                    <li>
+                      Go to <strong>Credentials → Create credentials → API key</strong>, then paste it above.
+                    </li>
+                    <li>
+                      Leave the key <strong>unrestricted</strong>, or restrict it only by <em>API</em> (YouTube Data API
+                      v3) — not by HTTP referrer. Search runs server-side, so a referrer restriction would block it.
+                    </li>
+                  </ol>
+                  <p className="mt-1 text-[0.625rem] text-white/30">
+                    The free quota (~100 searches/day) is plenty for a personal DJ. Enable the agent, then it picks
+                    music as the scene&apos;s mood shifts.
                   </p>
                 </div>
               </div>
@@ -2136,13 +3274,14 @@ export function AgentEditor() {
                 </span>
               </div>
             ) : (
-              <textarea
+              <MacroTextarea
                 value={localPrompt}
-                onChange={(e) => {
-                  setLocalPrompt(e.target.value);
+                onChange={(value) => {
+                  setLocalPrompt(value);
                   markDirty();
                 }}
                 rows={16}
+                title="Prompt Template"
                 placeholder="Write the system prompt for this agent…"
                 className="w-full resize-y rounded-xl bg-[var(--secondary)] px-4 py-3 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] max-h-[60vh] overflow-y-auto"
               />
@@ -2155,6 +3294,74 @@ export function AgentEditor() {
                   : "Write the full system prompt for this custom agent."}
             </p>
 
+            <div className="mt-4 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-[var(--foreground)]">Named prompt options</p>
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                    Chats can pick one of these without changing the agent globally.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddPromptTemplate}
+                  className="flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+                >
+                  <Plus size="0.6875rem" />
+                  Add option
+                </button>
+              </div>
+
+              {localPromptTemplates.length === 0 ? (
+                <p className="rounded-xl bg-[var(--secondary)]/60 px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                  No named options yet. The chat menu will show only the default prompt.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {localPromptTemplates.map((option, index) => (
+                    <div
+                      key={option.id}
+                      className="rounded-xl bg-[var(--secondary)]/70 p-3 ring-1 ring-[var(--border)]"
+                    >
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--background)] text-[0.6875rem] font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                          {index + 1}
+                        </span>
+                        <input
+                          value={option.name}
+                          onChange={(e) => handleUpdatePromptTemplate(option.id, { name: e.target.value })}
+                          className="min-w-0 flex-1 rounded-lg bg-[var(--background)] px-2.5 py-1.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                          placeholder="Option name"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePromptTemplate(option.id)}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                          title="Remove prompt option"
+                        >
+                          <Trash2 size="0.75rem" />
+                        </button>
+                      </div>
+                      <input
+                        value={option.description ?? ""}
+                        onChange={(e) => handleUpdatePromptTemplate(option.id, { description: e.target.value })}
+                        className="mb-2 w-full rounded-lg bg-[var(--background)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        placeholder="Short description shown in Chat Settings"
+                      />
+                      <MacroTextarea
+                        value={option.promptTemplate}
+                        onChange={(value) => handleUpdatePromptTemplate(option.id, { promptTemplate: value })}
+                        rows={7}
+                        title={option.name ? `${option.name} Prompt` : `Prompt Option ${index + 1}`}
+                        className="w-full resize-y rounded-lg bg-[var(--background)] px-3 py-2 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                        placeholder="Write the prompt template for this option…"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Default prompt preview removed — now shown inline above */}
           </FieldGroup>
 
@@ -2163,13 +3370,17 @@ export function AgentEditor() {
             label="Tools / Function Calling"
             icon={<Wrench size="0.875rem" className="text-[var(--primary)]" />}
             help="Select which tools this agent can use during generation. The AI can call these functions and receive results back for multi-step interactions."
+            collapsible
+            expanded={toolsSectionOpen}
+            onExpandedChange={setToolsSectionOpen}
+            summary={`${selectedVisibleToolCount}/${availableVisibleToolCount} enabled`}
           >
             <p className="text-[0.625rem] text-[var(--muted-foreground)] mb-3">
               Toggle tools on or off for this agent. When enabled for a chat, only selected tools will be available
               during generation.
             </p>
             <div className="space-y-2">
-              {BUILT_IN_TOOLS.map((tool: ToolDefinition) => (
+              {visibleBuiltInTools.map((tool: ToolDefinition) => (
                 <ToolCard
                   key={tool.name}
                   tool={tool}
@@ -2182,56 +3393,29 @@ export function AgentEditor() {
                   }}
                 />
               ))}
-              {(customToolsRaw as CustomToolRow[] | undefined)
-                ?.filter((tool) => isCustomToolSelectable(tool, customToolCapabilities))
-                .map((tool) => (
-                  <ToolCard
-                    key={tool.name}
-                    tool={{
-                      name: tool.name,
-                      description: tool.description,
-                      parameters: JSON.parse(tool.parametersSchema || "{}"),
-                    }}
-                    enabled={localEnabledTools.includes(tool.name)}
-                    onToggle={(name) => {
-                      setLocalEnabledTools((prev) =>
-                        prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
-                      );
-                      markDirty();
-                    }}
-                    isCustom
-                  />
-                ))}
+              {selectableCustomTools.map((tool) => (
+                <ToolCard
+                  key={tool.name}
+                  tool={{
+                    name: tool.name,
+                    description: tool.description,
+                    parameters: JSON.parse(tool.parametersSchema || "{}"),
+                  }}
+                  enabled={localEnabledTools.includes(tool.name)}
+                  onToggle={(name) => {
+                    setLocalEnabledTools((prev) =>
+                      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+                    );
+                    markDirty();
+                  }}
+                  isCustom
+                />
+              ))}
             </div>
             <p className="mt-2 text-[0.625rem] text-[var(--muted-foreground)]">
               Tool-use must also be enabled per chat via Chat Settings → "Enable Function Calling".
             </p>
           </FieldGroup>
-
-          {/* ── Agent Info Card ── */}
-          <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
-            <h3 className="mb-2 text-xs font-semibold text-[var(--foreground)]">About this Agent</h3>
-            <div className="space-y-1.5 text-[0.6875rem] text-[var(--muted-foreground)]">
-              <p>
-                <strong className="text-[var(--foreground)]">Type:</strong> {isCustomAgent ? "Custom" : agentDetailId}
-              </p>
-              <p>
-                <strong className="text-[var(--foreground)]">Phase:</strong> {phaseMeta.label} — {phaseMeta.description}
-              </p>
-              {(isCustomAgent || isNewCustomAgent) && (
-                <p>
-                  <strong className="text-[var(--foreground)]">Result Type:</strong>{" "}
-                  {CUSTOM_AGENT_RESULT_TYPE_OPTIONS.find((option) => option.id === localResultType)?.label ??
-                    localResultType}
-                </p>
-              )}
-              <p>
-                <strong className="text-[var(--foreground)]">DB Status:</strong>{" "}
-                {dbConfig ? `Persisted (ID: ${dbConfig.id})` : "Not yet saved — click Save to persist"}
-              </p>
-              <p className="text-[var(--muted-foreground)]">Add this agent to a Roleplay chat to use it.</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -2246,21 +3430,54 @@ function FieldGroup({
   label,
   icon,
   help,
+  collapsible = false,
+  expanded = true,
+  onExpandedChange,
+  summary,
   children,
 }: {
   label: string;
   icon?: React.ReactNode;
   help?: string;
+  collapsible?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  summary?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const contentVisible = !collapsible || expanded;
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        {icon}
-        <h3 className="text-xs font-semibold text-[var(--foreground)]">{label}</h3>
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => onExpandedChange?.(!expanded)}
+            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg py-1 text-left transition-colors hover:text-[var(--foreground)]"
+            aria-expanded={expanded}
+          >
+            {icon}
+            <h3 className="text-xs font-semibold text-[var(--foreground)]">{label}</h3>
+            {summary && (
+              <span className="ml-auto rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                {summary}
+              </span>
+            )}
+            {expanded ? (
+              <ChevronUp size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
+            ) : (
+              <ChevronDown size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
+            )}
+          </button>
+        ) : (
+          <>
+            {icon}
+            <h3 className="text-xs font-semibold text-[var(--foreground)]">{label}</h3>
+          </>
+        )}
         {help && <HelpTooltip text={help} />}
       </div>
-      {children}
+      {contentVisible && children}
     </div>
   );
 }

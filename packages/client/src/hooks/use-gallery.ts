@@ -17,9 +17,25 @@ export interface ChatImage {
   url: string;
 }
 
+export interface ChatAssetBrowserItem {
+  id: string;
+  kind: "chat-gallery" | "character-gallery" | "persona-gallery" | "sprite";
+  ownerType: "chat" | "character" | "persona";
+  ownerId: string;
+  ownerName: string;
+  name: string;
+  prompt: string;
+  width: number | null;
+  height: number | null;
+  createdAt: string | null;
+  url: string;
+  cardUrl: string;
+}
+
 const galleryKeys = {
   all: ["gallery"] as const,
   chat: (chatId: string) => ["gallery", chatId] as const,
+  assets: (chatId: string) => ["gallery", "assets", chatId] as const,
 };
 
 export function useGalleryImages(chatId: string | undefined) {
@@ -27,6 +43,15 @@ export function useGalleryImages(chatId: string | undefined) {
     queryKey: galleryKeys.chat(chatId!),
     queryFn: () => api.get<ChatImage[]>(`/gallery/${chatId}`),
     enabled: !!chatId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useChatAssetBrowser(chatId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: galleryKeys.assets(chatId!),
+    queryFn: () => api.get<ChatAssetBrowserItem[]>(`/gallery/assets/${chatId}`),
+    enabled: enabled && !!chatId,
     staleTime: 5 * 60_000,
   });
 }

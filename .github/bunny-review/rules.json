@@ -1,0 +1,173 @@
+{
+  "review_focus": [
+    "correctness",
+    "user-visible regressions",
+    "security and privacy",
+    "architecture boundaries",
+    "mode ownership",
+    "failure paths",
+    "missing regression tests",
+    "CI and deployment failures"
+  ],
+  "severity_policy": {
+    "blocking": "The PR should not merge because the changed behavior is broken, unsafe, or violates a hard architecture boundary.",
+    "high": "A likely production or data-loss regression, security/privacy issue, or serious cross-mode/persistence contract risk.",
+    "medium": "A concrete bug, edge case, maintainability trap, or missing test tied directly to changed behavior.",
+    "low": "A small but actionable correctness, proof, or maintainability risk tied to changed behavior.",
+    "nitpick": "Optional changed-line polish with no behavior risk, such as readability, naming, tiny duplication, stale comments, dead code, type clarity, or local consistency."
+  },
+  "nitpick_policy": {
+    "max_count": 2,
+    "line_scope": "changed-line only",
+    "risk": "No behavior-risk requirement; use for optional polish only."
+  },
+  "control_warn_types": {
+    "Proof Gap": "Important changed behavior lacks focused proof.",
+    "Review Limitation": "Bunny lacked full packet/context to prove a suspected issue.",
+    "CI Timing": "Expected checks were missing, pending, or not yet observable when posted.",
+    "Non-blocking Coverage": "Useful coverage or context note that should not block merge by itself."
+  },
+  "path_instructions": [
+    {
+      "name": "Shared contract package",
+      "prefixes": [
+        "packages/shared/"
+      ],
+      "guidance": [
+        "docs/ARCHITECTURE_MAP.md"
+      ],
+      "checks": [
+        "packages/shared stays runtime-agnostic: no React, DOM, Fastify, Drizzle, filesystem, network, or provider SDK imports. It holds only shared types, schemas, constants, and pure helpers.",
+        "When a contract changes, the shared types/schemas/constants change first, then client and server are updated to match. A shared change without matching consumer updates is a likely break.",
+        "Do not move client-only or server-only helpers into shared; keep it the cross-runtime contract, not a dumping ground."
+      ]
+    },
+    {
+      "name": "Client (frontend) conventions",
+      "prefixes": [
+        "packages/client/"
+      ],
+      "guidance": [
+        "packages/client/.instructions.md",
+        "docs/FRONTEND.md"
+      ],
+      "checks": [
+        "Server calls go through the @/lib/api-client wrapper (api.get/post/patch/delete/upload/download/stream/streamEvents), never raw fetch().",
+        "Async server access lives in React Query hooks; Zustand stores stay synchronous state plus actions. Only ui.store uses persist.",
+        "Navigation is state-based via ui.store (no URL router), new editors are lazy-loaded in AppShell, and there are no barrel/index files.",
+        "console.* is acceptable in client code (the browser has no Pino and production builds strip console.log); do not flag it here as a logging violation."
+      ]
+    },
+    {
+      "name": "Server (backend) conventions",
+      "prefixes": [
+        "packages/server/src/"
+      ],
+      "guidance": [
+        "CLAUDE.md",
+        "CONTRIBUTING.md"
+      ],
+      "checks": [
+        "Server code never uses console.log/warn/error. It imports the shared Pino logger from packages/server/src/lib/logger.ts and logs errors error-first: logger.error(err, \"message\").",
+        "Multi-argument logs use Pino format specifiers (%s, %d, %j) or a single template literal, not comma-separated arguments that Pino silently drops.",
+        "Fastify route files validate HTTP input and delegate domain decisions to services; storage, LLM, prompt, and game logic belong in services, not in route handlers.",
+        "Provider, storage, and transport changes preserve existing error contracts and self-hostable behavior; no fake success, silent catches, broad fallbacks, or response-shape drift."
+      ]
+    },
+    {
+      "name": "Mode separation",
+      "prefixes": [
+        "packages/client/src/components/game/",
+        "packages/client/src/components/chat/",
+        "packages/server/src/services/game/",
+        "packages/server/src/services/conversation/",
+        "packages/server/src/routes/game.routes.ts",
+        "packages/server/src/routes/conversation.routes.ts"
+      ],
+      "guidance": [
+        "docs/ARCHITECTURE_MAP.md",
+        "docs/GAME_MODE.md",
+        "docs/ROLEPLAY.md",
+        "docs/CONVERSATION.md"
+      ],
+      "checks": [
+        "Conversation, roleplay/visual-novel, and game behavior stay with their owning mode. Conversation must not know about game dice, GM tags, QTE, maps, or game combat.",
+        "Game mode must not depend on chat-mode UI except through shared primitives or explicitly shared feature components.",
+        "Shared generation or prompt changes (use-generate.ts, generate.routes.ts, services/prompt) must not silently alter the behavior of an unrelated mode."
+      ]
+    },
+    {
+      "name": "Generation, prompt, and parser pipeline",
+      "prefixes": [
+        "packages/server/src/routes/generate.routes.ts",
+        "packages/server/src/services/prompt/",
+        "packages/server/src/services/llm/",
+        "packages/client/src/hooks/use-generate.ts",
+        "packages/client/src/lib/api-client.ts"
+      ],
+      "guidance": [
+        "docs/ARCHITECTURE_MAP.md",
+        "docs/GENERATION_PARAMETERS.md"
+      ],
+      "checks": [
+        "SSE/streaming changes preserve the token and event contract on both ends: api.stream/streamEvents on the client and the onToken/event emitters in generate.routes.ts on the server.",
+        "Prompt assembly changes are evaluated against every chat mode that shares the path, not only the mode being edited.",
+        "Parser, tag-stripper, or JSON-extraction changes must not eat legitimate content. Prefer root-cause fixes over blanket trailing-character strips, and confirm a negative control (content that should pass through untouched)."
+      ]
+    },
+    {
+      "name": "Storage, migrations, and import/export",
+      "prefixes": [
+        "packages/server/src/db/",
+        "packages/server/src/services/storage/",
+        "packages/server/src/services/import/"
+      ],
+      "guidance": [
+        "docs/FILE_STORAGE_MIGRATION.md"
+      ],
+      "checks": [
+        "Parent records must not collect IDs, metadata, counts, or relationships from child rows that later skip import or fail to persist.",
+        "Pre-scan logic should use the same eligibility criteria as the write loop, especially for imports, migrations, and rollback-sensitive storage paths.",
+        "Existing user data and SillyTavern/Marinara exports must remain importable; old persisted shapes still need to load.",
+        "file-backed-store autosave and JSON snapshot durability must survive partial writes and rollback without leaving inconsistent message, chat, character, branch, or asset metadata."
+      ]
+    },
+    {
+      "name": "Build, CI, and deployment",
+      "prefixes": [
+        "Dockerfile",
+        "Dockerfile.lite",
+        "docker-compose.yml",
+        ".github/"
+      ],
+      "guidance": [
+        "docs/installation/containers.md",
+        "CONTRIBUTING.md"
+      ],
+      "checks": [
+        "Container and image changes must keep the app buildable and runnable; the pnpm-validate and container-build-test checks must still pass.",
+        "Workflow changes stay narrow, testable, and least-privilege; pull_request_target dispatchers must not check out or execute pull-request code.",
+        "If CI check-run names change, mirror them in .github/bunny-review/ci-checks.json so Bunny gates on the real checks."
+      ]
+    },
+    {
+      "name": "Docs, version truth, and agent guidance",
+      "prefixes": [
+        "README",
+        "docs/",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md"
+      ],
+      "guidance": [
+        "CONTRIBUTING.md"
+      ],
+      "checks": [
+        "Durable feature-area additions update the relevant docs or architecture map; a behavior change that makes an existing doc misleading should fix that doc in the same PR.",
+        "Version-bearing files stay in sync. Root package.json is canonical; the per-package package.json files, packages/shared/src/constants/defaults.ts, and the win/android version files must not drift.",
+        "Workflow and agent-guidance changes remain concrete, testable, and narrow."
+      ]
+    }
+  ]
+}

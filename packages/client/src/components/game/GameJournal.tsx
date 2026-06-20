@@ -54,6 +54,7 @@ interface GameJournalProps {
   npcPortraitGenerationEnabled?: boolean;
   generatingNpcPortraitNames?: Set<string>;
   onNpcRemove?: (npcName: string) => Promise<void> | void;
+  embedded?: boolean;
 }
 
 type TabId = "all" | "npcs" | "locations" | "inventory" | "library" | "notes";
@@ -171,6 +172,7 @@ export function GameJournal({
   npcPortraitGenerationEnabled = false,
   generatingNpcPortraitNames,
   onNpcRemove,
+  embedded = false,
 }: GameJournalProps) {
   const [journal, setJournal] = useState<Journal | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("all");
@@ -257,24 +259,38 @@ export function GameJournal({
 
   if (!journal) {
     return (
-      <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-        <div className="text-sm text-white/60">Loading journal...</div>
+      <div
+        className={
+          embedded
+            ? "flex min-h-40 items-center justify-center"
+            : "absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+        }
+      >
+        <div className="text-sm text-[var(--muted-foreground)]">Loading journal...</div>
       </div>
     );
   }
 
   return (
-    <div className="absolute inset-0 z-40 flex flex-col bg-black/85 backdrop-blur-md">
+    <div
+      className={
+        embedded
+          ? "flex min-h-0 flex-1 flex-col bg-transparent"
+          : "absolute inset-0 z-40 flex flex-col bg-black/85 backdrop-blur-md"
+      }
+    >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h2 className="text-sm font-bold text-white/90">📖 Adventure Journal</h2>
-        <button
-          onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-        >
-          <X size={14} />
-        </button>
-      </div>
+      {!embedded && (
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+          <h2 className="text-sm font-bold text-white/90">Adventure Journal</h2>
+          <button
+            onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Tabs — horizontally scrollable on mobile */}
       <div className="overflow-x-auto border-b border-white/10 px-4 py-2 scrollbar-hide [-webkit-overflow-scrolling:touch]">
@@ -288,7 +304,7 @@ export function GameJournal({
                 className={cn(
                   "flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[0.625rem] font-medium transition-colors",
                   activeTab === tab.id
-                    ? "bg-[var(--primary)]/20 text-[var(--primary)]"
+                    ? "bg-white/10 text-white/85"
                     : "text-white/50 hover:bg-white/5 hover:text-white/70",
                 )}
               >
@@ -464,7 +480,7 @@ function NpcsView({
                       }}
                       disabled={portraitGenerating}
                       className={cn(
-                        "absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/75 text-[var(--primary)] opacity-0 ring-1 ring-white/15 transition-opacity disabled:cursor-wait md:group-hover/journal-avatar:opacity-100",
+                        "absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-black/75 text-white/75 opacity-0 ring-1 ring-white/15 transition-opacity disabled:cursor-wait md:group-hover/journal-avatar:opacity-100",
                         (portraitGenerating || mobilePortraitActionsNpc === entry.npc.name.trim().toLowerCase()) &&
                           "max-md:opacity-100",
                       )}

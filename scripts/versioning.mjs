@@ -36,6 +36,19 @@ function updateJsonVersion(content, version) {
   return replaceOrThrow(content, /"version":\s*"[^"]+"/, `"version": "${version}"`, "package version");
 }
 
+function updateWebManifestVersion(content, version) {
+  if (/"version":\s*"[^"]+"/.test(content)) {
+    return updateJsonVersion(content, version);
+  }
+
+  return replaceOrThrow(
+    content,
+    /("description":\s*"[^"]+",)/,
+    `$1\n  "version": "${version}",`,
+    "web manifest description",
+  );
+}
+
 function updateSharedDefaults(content, version) {
   return replaceOrThrow(
     content,
@@ -113,6 +126,10 @@ const DERIVED_VERSION_FILES = [
   {
     path: "packages/shared/package.json",
     render: (content, version) => updateJsonVersion(content, version),
+  },
+  {
+    path: "packages/client/public/manifest.json",
+    render: (content, version) => updateWebManifestVersion(content, version),
   },
   {
     path: "packages/shared/src/constants/defaults.ts",

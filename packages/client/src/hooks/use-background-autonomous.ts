@@ -11,8 +11,10 @@ import type { AvatarCropValue } from "../lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
+import { toAutonomousPresenceStatus } from "../lib/user-status";
 import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
+import { showConversationLocalNotification } from "../lib/local-notifications";
 import { playNotificationPing } from "../lib/notification-sound";
 import { chatKeys } from "./use-chats";
 import { characterKeys } from "./use-characters";
@@ -22,6 +24,7 @@ interface AutonomousCheckResult {
   characterIds: string[];
   reason: string;
   inactivityMs: number;
+  generationStartedAt?: number;
 }
 
 interface BusyDelayResult {
@@ -60,7 +63,7 @@ function parseMeta(chat: RawChat): Record<string, unknown> {
 export function useBackgroundAutonomousPolling() {
   const qc = useQueryClient();
   const pollTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const busyDelayTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const busyDelayTimers = useRef<Map<ReturnType<typeof setTimeout>, { chatId: string; startedAt?: number }>>(new Map());
   const generatingForRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
 
@@ -105,13 +108,16 @@ export function useBackgroundAutonomousPolling() {
       });
 
       const userStatus = useUIStore.getState().userStatus;
+      const autonomousPresenceStatus = toAutonomousPresenceStatus(userStatus);
 
       // Don't trigger autonomous messages when user is DND
       if (userStatus === "dnd" || backgroundChats.length === 0) {
         if (userStatus === "dnd" && backgroundChats.length > 0) {
           await Promise.allSettled(
             backgroundChats.map((chat) =>
-              api.post("/conversation/activity/presence", { chatId: chat.id, userStatus }).catch(() => {}),
+              api
+                .post("/conversation/activity/presence", { chatId: chat.id, userStatus: autonomousPresenceStatus })
+                .catch(() => {}),
             ),
           );
         }
@@ -127,11 +133,12 @@ export function useBackgroundAutonomousPolling() {
         try {
           const result = await api.post<AutonomousCheckResult>("/conversation/autonomous/check", {
             chatId: chat.id,
-            userStatus,
+            userStatus: autonomousPresenceStatus,
           });
 
           if (result.shouldTrigger && result.characterIds.length > 0) {
             const characterId = result.characterIds[0]!;
+            const generationStartedAt = result.generationStartedAt;
 
             // Check busy delay
             const delay = await api.post<BusyDelayResult>("/conversation/busy-delay", { chatId: chat.id, characterId });
@@ -147,6 +154,12 @@ export function useBackgroundAutonomousPolling() {
                 if (useChatStore.getState().abortControllers.has(chat.id)) {
                   shouldClearAutonomousFlag = false;
                   generatingForRef.current.delete(chat.id);
+                  await api
+                    .post("/conversation/autonomous/clear-in-progress", {
+                      chatId: chat.id,
+                      startedAt: generationStartedAt,
+                    })
+                    .catch(() => {});
                   return;
                 }
 
@@ -207,6 +220,12 @@ export function useBackgroundAutonomousPolling() {
                 // Add floating avatar notification bubble
                 useChatStore.getState().addNotification(chat.id, charName, charAvatar, charAvatarCrop);
 
+                void showConversationLocalNotification({
+                  enabled: useUIStore.getState().conversationBrowserNotifications,
+                  characterName: charName,
+                  tag: `marinara-conversation-${chat.id}`,
+                });
+
                 // Show a global toast so the user knows even from a different chat
                 toast(`${charName} sent you a message`, { icon: "💬" });
               } catch {
@@ -214,7 +233,10 @@ export function useBackgroundAutonomousPolling() {
               } finally {
                 if (!receivedTokens && shouldClearAutonomousFlag) {
                   try {
-                    await api.post("/conversation/activity/assistant", { chatId: chat.id });
+                    await api.post("/conversation/autonomous/clear-in-progress", {
+                      chatId: chat.id,
+                      startedAt: generationStartedAt,
+                    });
                   } catch {
                     /* non-critical */
                   }
@@ -228,7 +250,7 @@ export function useBackgroundAutonomousPolling() {
                 busyDelayTimers.current.delete(timerId);
                 doGenerate();
               }, delay.delayMs);
-              busyDelayTimers.current.add(timerId);
+              busyDelayTimers.current.set(timerId, { chatId: chat.id, startedAt: generationStartedAt });
             } else {
               doGenerate();
             }
@@ -253,7 +275,15 @@ export function useBackgroundAutonomousPolling() {
     return () => {
       mountedRef.current = false;
       clearTimeout(pollTimerRef.current);
-      for (const t of delayTimers) clearTimeout(t);
+      for (const [timer, lock] of delayTimers) {
+        clearTimeout(timer);
+        void api
+          .post("/conversation/autonomous/clear-in-progress", {
+            chatId: lock.chatId,
+            startedAt: lock.startedAt,
+          })
+          .catch(() => {});
+      }
       delayTimers.clear();
     };
   }, [qc]); // Only depends on qc (which is stable) — timer lifecycle is self-managed

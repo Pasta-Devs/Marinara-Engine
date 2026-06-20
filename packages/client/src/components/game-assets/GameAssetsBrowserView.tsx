@@ -35,7 +35,7 @@ import { FileEditorModal } from "./FileEditorModal";
 import { ActionDropdown } from "./ActionDropdown";
 import { DEFAULT_DESCRIPTIONS } from "./constants";
 import { isImage, isAudio, isEditableText, countItems } from "./utils";
-import { encodeAssetPath } from "./encode-asset-path";
+import { resolveGameAssetFileUrl } from "../../lib/game-asset-urls";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
@@ -62,7 +62,7 @@ function sameFolderSelection(a: readonly string[], b: readonly string[]): boolea
 }
 
 /**
- * Full-screen overlay for browsing, previewing, and managing game assets.
+ * Browser for previewing and managing game assets.
  *
  * Features:
  * - Folder tree sidebar with expand/collapse
@@ -74,7 +74,13 @@ function sameFolderSelection(a: readonly string[], b: readonly string[]): boolea
  * - Inline folder description editing
  * - Keyboard shortcuts: Ctrl+A (select all), Esc (clear selection)
  */
-export function GameAssetsBrowserView() {
+export function GameAssetsBrowserView({
+  embedded = false,
+  onClose,
+}: {
+  embedded?: boolean;
+  onClose?: () => void;
+} = {}) {
   const { data: tree, isLoading } = useGameAssetTree();
   const createFolder = useCreateGameAssetFolder();
   const deleteFolder = useDeleteGameAssetFolder();
@@ -435,9 +441,11 @@ export function GameAssetsBrowserView() {
     [copyAsset, selectedPath],
   );
 
-  const handleDownload = useCallback((node: TreeNode) => {
+  const handleDownload = useCallback(async (node: TreeNode) => {
+    const assetUrl = await resolveGameAssetFileUrl(node.path);
+    if (!assetUrl) return;
     const a = document.createElement("a");
-    a.href = `/api/game-assets/file/${encodeAssetPath(node.path)}`;
+    a.href = assetUrl;
     a.download = node.name;
     document.body.appendChild(a);
     a.click();
@@ -476,7 +484,7 @@ export function GameAssetsBrowserView() {
           });
         }
         items.push(
-          { label: "Download", onSelect: () => handleDownload(node) },
+          { label: "Download", onSelect: () => void handleDownload(node) },
           {
             label: "Rename",
             onSelect: () => {
@@ -636,8 +644,10 @@ export function GameAssetsBrowserView() {
     }
   }, [updateDescription, selectedPath, descriptionValue]);
 
+  const closeAction = onClose ?? (showGameCloseButton ? closeGameAssetsBrowser : undefined);
+
   return (
-    <div className="flex h-full flex-col bg-[var(--background)]">
+    <div className={cn("flex h-full flex-col", embedded ? "bg-transparent" : "bg-[var(--background)]")}>
       {/* Toolbar */}
       <Toolbar
         breadcrumb={breadcrumb}
@@ -663,7 +673,7 @@ export function GameAssetsBrowserView() {
         onBreadcrumbClick={(path) => setSelectedPath(path)}
         listColumns={listColumns}
         onToggleColumn={(col) => setListColumns((prev) => ({ ...prev, [col]: !prev[col] }))}
-        onClose={showGameCloseButton ? closeGameAssetsBrowser : undefined}
+        onClose={closeAction}
         assetSelection={
           canSelectGameAssets
             ? {
@@ -676,8 +686,8 @@ export function GameAssetsBrowserView() {
       />
 
       {canSelectGameAssets && assetSelectionMode && (
-        <div className="flex min-h-[36px] items-center gap-3 border-b border-[var(--border)]/40 bg-[var(--primary)]/5 px-4 py-1.5">
-          <span className="text-xs font-medium text-[var(--primary)]">Game asset selection</span>
+        <div className="flex min-h-[36px] items-center gap-3 border-b border-[var(--border)]/40 bg-[var(--foreground)]/5 px-4 py-1.5">
+          <span className="text-xs font-medium text-[var(--foreground)]/80">Game asset selection</span>
           <span className="text-xs text-[var(--muted-foreground)]">
             {gameAssetExcludedFolders.length === 0
               ? "All folders included"
@@ -711,12 +721,12 @@ export function GameAssetsBrowserView() {
                   if (e.key === "Escape") setEditingDescription(false);
                 }}
                 placeholder="What is this folder for?"
-                className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/50"
+                className="flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs text-[var(--foreground)] outline-none focus:border-[var(--foreground)]/30/50"
                 maxLength={500}
               />
               <button
                 onClick={handleSaveDescription}
-                className="rounded-md bg-[var(--primary)] px-2 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                className="rounded-md bg-[var(--secondary)] px-2 py-1 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
               >
                 Save
               </button>
@@ -751,8 +761,8 @@ export function GameAssetsBrowserView() {
 
       {/* Bulk action bar */}
       {selectedPaths.size > 0 && (
-        <div className="flex min-h-[36px] items-center gap-3 border-b border-[var(--border)]/40 bg-[var(--primary)]/5 px-4 py-1.5">
-          <span className="text-xs font-medium text-[var(--primary)]">
+        <div className="flex min-h-[36px] items-center gap-3 border-b border-[var(--border)]/40 bg-[var(--foreground)]/5 px-4 py-1.5">
+          <span className="text-xs font-medium text-[var(--foreground)]/80">
             {selectedPaths.size} file{selectedPaths.size !== 1 ? "s" : ""} selected
           </span>
           <div className="ml-auto flex items-center gap-1.5">
@@ -827,7 +837,7 @@ export function GameAssetsBrowserView() {
         <div
           className={cn(
             "relative flex flex-1 flex-col overflow-hidden transition-colors",
-            dragOver && "bg-[var(--primary)]/5",
+            dragOver && "bg-[var(--foreground)]/5",
           )}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -860,9 +870,9 @@ export function GameAssetsBrowserView() {
           )}
           {dragOver && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <div className="rounded-2xl border-2 border-dashed border-[var(--primary)]/30 bg-[var(--primary)]/5 px-8 py-6 text-center">
-                <Upload size="2rem" className="mx-auto mb-2 text-[var(--primary)]" />
-                <p className="text-sm font-medium text-[var(--primary)]">Drop files to upload</p>
+              <div className="rounded-2xl border-2 border-dashed border-[var(--foreground)]/25 bg-[var(--foreground)]/5 px-8 py-6 text-center">
+                <Upload size="2rem" className="mx-auto mb-2 text-[var(--foreground)]/80" />
+                <p className="text-sm font-medium text-[var(--foreground)]/80">Drop files to upload</p>
               </div>
             </div>
           )}
@@ -912,7 +922,7 @@ export function GameAssetsBrowserView() {
                             className={
                               "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border " +
                               (childIncluded
-                                ? "border-[var(--primary)]/40 bg-[var(--primary)] text-white"
+                                ? "border-[var(--foreground)]/25 bg-[var(--foreground)]/10 text-[var(--foreground)]"
                                 : "border-[var(--border)] text-[var(--muted-foreground)]")
                             }
                           >
@@ -940,7 +950,7 @@ export function GameAssetsBrowserView() {
                       <button
                         type="button"
                         onClick={() => handleIncludeSubfolders(subfolders)}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--accent)]"
+                        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium text-[var(--foreground)]/80 transition-colors hover:bg-[var(--accent)]"
                       >
                         Include all subfolders
                       </button>
@@ -954,7 +964,7 @@ export function GameAssetsBrowserView() {
                     }}
                     className={cn(
                       "flex w-full items-center justify-between px-3 py-1.5 text-left text-xs font-medium transition-colors hover:bg-[var(--accent)]",
-                      status === "excluded" ? "text-[var(--primary)]" : "text-[var(--destructive)]",
+                      status === "excluded" ? "text-[var(--foreground)]/80" : "text-[var(--destructive)]",
                     )}
                   >
                     {status === "excluded" ? "Include this folder" : "Remove this folder from game"}
@@ -1073,7 +1083,7 @@ export function GameAssetsBrowserView() {
                     className={cn(
                       "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
                       modalValue === f.path
-                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                        ? "bg-[var(--foreground)]/10 text-[var(--foreground)]/80"
                         : "text-[var(--foreground)] hover:bg-[var(--accent)]",
                     )}
                   >
@@ -1101,7 +1111,7 @@ export function GameAssetsBrowserView() {
                 onChange={(e) => setModalValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && modalValue.trim() && handleModalConfirm()}
                 placeholder={modal.type === "create-folder" ? "Folder name" : "New name"}
-                className="mb-4 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50 focus:ring-1 focus:ring-[var(--primary)]/20"
+                className="mb-4 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--foreground)]/30/50 focus:ring-1 focus:ring-[var(--foreground)]/20/20"
               />
             )}
 
@@ -1129,7 +1139,7 @@ export function GameAssetsBrowserView() {
                   "rounded-lg px-4 py-2 text-xs font-medium transition-opacity hover:opacity-90",
                   modal.type === "delete" || modal.type === "bulk-delete"
                     ? "bg-[var(--destructive)] text-white"
-                    : "bg-[var(--primary)] text-white",
+                    : "bg-[var(--secondary)] text-[var(--foreground)] ring-1 ring-[var(--border)]",
                   modal.type === "delete" &&
                     modal.node.type === "folder" &&
                     countItems(modal.node) > 0 &&

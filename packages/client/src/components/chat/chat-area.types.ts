@@ -22,6 +22,7 @@ export type CharacterMap = Map<
 >;
 
 export type PersonaInfo = {
+  id?: string;
   name: string;
   description?: string;
   personality?: string;
@@ -38,6 +39,8 @@ export type PersonaInfo = {
 export type PeekPromptData = {
   messages: Array<{ role: string; content: string }>;
   parameters: unknown;
+  source?: "cached" | "live_preview" | "raw_messages";
+  exact?: boolean;
   generationInfo?: {
     model?: string;
     provider?: string;

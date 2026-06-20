@@ -470,6 +470,7 @@ const SCENE_ANALYSIS_SCHEMA = {
       type: ["object", "null"] as const,
       properties: {
         segment: { type: "number" as const },
+        title: { type: "string" as const },
         prompt: { type: "string" as const },
         characters: {
           type: "array" as const,

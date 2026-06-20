@@ -349,6 +349,43 @@ export function createChatsStorage(db: DB) {
       });
     },
 
+    /**
+     * Patch metadata and the denormalized `characterIds` column together inside a single per-chat
+     * critical section. Both columns are written in one row update under the same metadata patch queue
+     * as `patchMetadata`, so a concurrent metadata-queued writer can neither interleave between the two
+     * writes nor leave `characterIds` reflecting an older party than the queued-final metadata. The
+     * updater receives the fresh metadata and returns the metadata patch plus the `characterIds` array
+     * to mirror; the reloaded chat returned reflects both writes. Used by the game party handlers.
+     */
+    async patchMetadataWithCharacterIds(
+      id: string,
+      updater: (
+        current: MetadataPatch,
+      ) =>
+        | { metadata: MetadataPatch; characterIds: string[] }
+        | Promise<{ metadata: MetadataPatch; characterIds: string[] }>,
+      opts: { touchUpdatedAt?: boolean } = {},
+    ) {
+      return withMetadataPatchQueue(id, async () => {
+        const existing = await this.getById(id);
+        if (!existing) return null;
+
+        const current = parseMetadata(existing.metadata);
+        const { metadata: patch, characterIds } = await updater({ ...current });
+        const merged = { ...current, ...patch };
+
+        await db
+          .update(chats)
+          .set({
+            metadata: JSON.stringify(merged),
+            characterIds: JSON.stringify(characterIds),
+            ...(opts.touchUpdatedAt !== false && { updatedAt: now() }),
+          })
+          .where(eq(chats.id, id));
+        return this.getById(id);
+      });
+    },
+
     async markAutonomousUnread(id: string, input?: { characterId?: string | null; count?: number }) {
       const timestamp = now();
       return this.patchMetadata(id, (current) => {

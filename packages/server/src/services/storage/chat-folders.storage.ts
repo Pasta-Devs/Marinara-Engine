@@ -34,7 +34,7 @@ export function createChatFoldersStorage(db: DB) {
         await tx.insert(chatFolders).values({
           id,
           name: input.name,
-          mode: input.mode as "conversation" | "roleplay" | "visual_novel",
+          mode: input.mode as "conversation" | "roleplay" | "visual_novel" | "game",
           color: input.color ?? "",
           sortOrder: 0,
           collapsed: "false",

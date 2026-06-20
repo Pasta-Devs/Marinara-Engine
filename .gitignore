@@ -38,6 +38,9 @@ packages/server/data/
 # Logs
 *.log
 
+# Temporary tests
+*.test.ts
+
 # Custom agents (personal)
 .github/agents/qa.agent.md
 

@@ -27,6 +27,8 @@ export interface APIConnection {
   baseUrl: string;
   /** Model identifier (e.g. "gpt-4o", "claude-sonnet-4-20250514") */
   model: string;
+  /** Optional custom picture shown in the Connections panel */
+  imagePath: string | null;
   /** Maximum context window size for this model */
   maxContext: number;
   /** Whether this connection is the default */

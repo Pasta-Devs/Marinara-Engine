@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Regex Scripts — Prompt Application
 // ──────────────────────────────────────────────
-import { applyRegexReplacement } from "@marinara-engine/shared";
+import { applyRegexReplacement, isPatternSafe } from "@marinara-engine/shared";
 
 type RegexPlacement = "ai_output" | "user_input";
 
@@ -13,6 +13,7 @@ type RegexScriptLike = {
   trimStrings?: unknown;
   placement?: unknown;
   promptOnly?: unknown;
+  targetCharacterIds?: unknown;
   minDepth?: unknown;
   maxDepth?: unknown;
 };
@@ -26,6 +27,8 @@ type RegexMacroResolver = (value: string) => string;
 
 type ApplyRegexScriptOptions = {
   resolveMacros?: RegexMacroResolver;
+  targetCharacterId?: string | null;
+  targetedOnly?: boolean;
 };
 
 function isEnabled(value: unknown): boolean {
@@ -60,6 +63,17 @@ function parseTrimStrings(value: unknown): string[] {
   }
 }
 
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parseStringArray(parsed);
+  } catch {
+    return [];
+  }
+}
+
 function depthValue(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -81,6 +95,13 @@ export function applyRegexScriptsToPromptText(
     if (!isPromptOnly(script.promptOnly)) continue;
     if (!parsePlacement(script.placement).includes(placement)) continue;
 
+    const targetCharacterIds = parseStringArray(script.targetCharacterIds);
+    if (options?.targetedOnly && targetCharacterIds.length === 0) continue;
+    if (targetCharacterIds.length > 0) {
+      const targetCharacterId = options?.targetCharacterId;
+      if (!targetCharacterId || !targetCharacterIds.includes(targetCharacterId)) continue;
+    }
+
     const minDepth = depthValue(script.minDepth);
     const maxDepth = depthValue(script.maxDepth);
     if (minDepth != null && depth < minDepth) continue;
@@ -88,6 +109,9 @@ export function applyRegexScriptsToPromptText(
 
     const findRegex = typeof script.findRegex === "string" ? resolveScriptString(script.findRegex, options) : "";
     if (!findRegex) continue;
+    // Skip ReDoS-prone patterns instead of compiling + running them against every
+    // prompt message with no timeout — mirrors the lorebook keyword-scan posture.
+    if (!isPatternSafe(findRegex)) continue;
 
     try {
       const flags = typeof script.flags === "string" ? script.flags : "";

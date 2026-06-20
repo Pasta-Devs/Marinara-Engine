@@ -6,6 +6,7 @@ import { Modal } from "../ui/Modal";
 import { Download, FileJson, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
+import { getFolderImportEntries, getFolderManifestConfig } from "@marinara-engine/shared";
 
 interface Props {
   open: boolean;
@@ -30,28 +31,43 @@ export function ImportPresetModal({ open, onClose }: Props) {
       try {
         const text = await file.text();
         const json = JSON.parse(text);
+        const manifestEntries = getFolderImportEntries(json, ["presets"]);
+        const nativePresetEnvelopes = manifestEntries
+          .map((entry) => getFolderManifestConfig(entry))
+          .filter(
+            (entry): entry is Record<string, unknown> =>
+              !!entry &&
+              typeof entry === "object" &&
+              !Array.isArray(entry) &&
+              (entry as Record<string, unknown>).type === "marinara_preset",
+          );
 
-        // Detect Marinara native export format vs SillyTavern format
-        const isMarinara = json.type === "marinara_preset" && json.version === 1;
-        const endpoint = isMarinara ? "/import/marinara" : "/import/st-preset";
-        const payload = isMarinara
-          ? {
-              ...json,
+        if (nativePresetEnvelopes.length > 0) {
+          for (const envelope of nativePresetEnvelopes) {
+            const data = await api.post<{ success: boolean; error?: string }>("/import/marinara", {
+              ...envelope,
               timestampOverrides: {
                 createdAt: file.lastModified,
                 updatedAt: file.lastModified,
               },
-            }
-          : {
-              ...json,
-              __filename: file.name.replace(/\.json$/i, ""),
-              timestampOverrides: {
-                createdAt: file.lastModified,
-                updatedAt: file.lastModified,
-              },
-            };
+            });
+            nextResults.push({
+              filename: file.name,
+              success: data.success,
+              message: data.success ? "Imported preset" : (data.error ?? "Import failed"),
+            });
+          }
+          continue;
+        }
 
-        const data = await api.post<{ success: boolean; error?: string }>(endpoint, payload);
+        const data = await api.post<{ success: boolean; error?: string }>("/import/st-preset", {
+          ...json,
+          __filename: file.name.replace(/\.json$/i, ""),
+          timestampOverrides: {
+            createdAt: file.lastModified,
+            updatedAt: file.lastModified,
+          },
+        });
         nextResults.push({
           filename: file.name,
           success: data.success,

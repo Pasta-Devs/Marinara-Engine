@@ -4,7 +4,14 @@
 // avoid double-animation under React.StrictMode.
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import {
+  NEUTRAL_PANEL_HEADER,
+  NEUTRAL_PANEL_SCROLL_AREA,
+  NEUTRAL_PANEL_SHELL,
+  NEUTRAL_PANEL_TITLE,
+} from "./neutral-surface-styles";
 
 interface ModalProps {
   open: boolean;
@@ -70,7 +77,7 @@ export function Modal({ open, onClose, title, children, width = "max-w-md", cont
 
   const isEntering = animating === "enter";
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       role="dialog"
@@ -89,40 +96,43 @@ export function Modal({ open, onClose, title, children, width = "max-w-md", cont
     >
       {/* Backdrop */}
       <div
-        className="mari-modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="mari-modal-backdrop absolute inset-0 bg-black/55 backdrop-blur-[2px]"
         style={{
           opacity: isEntering ? 1 : 0,
           transition: "opacity 150ms ease-out",
         }}
       />
 
-      {/* Panel - OS Window style */}
+      {/* Panel */}
       <div
-        className={`mari-modal-panel os-window relative flex w-full flex-col ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)] shadow-2xl shadow-black/50`}
+        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]`}
         style={{
           opacity: isEntering ? 1 : 0,
           transform: isEntering ? "scale(1) translateY(0)" : "scale(0.97) translateY(6px)",
           transition: "opacity 150ms ease-out, transform 150ms ease-out",
         }}
       >
-        {/* Pastel gradient title bar */}
-        <div className="pastel-gradient h-[0.1875rem]" />
         {/* Header */}
-        <div className="shrink-0 flex items-center justify-between border-b border-[var(--border)]/30 px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-[var(--foreground)]">{title}</h2>
+        <div className={`shrink-0 flex items-center justify-between ${NEUTRAL_PANEL_HEADER}`}>
+          <h2 className={NEUTRAL_PANEL_TITLE}>{title}</h2>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)]"
+            className="rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]"
           >
             <X size="1rem" />
           </button>
         </div>
 
         {/* Content */}
-        <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+        <div
+          ref={contentRef}
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 ${NEUTRAL_PANEL_SCROLL_AREA}`}
+        >
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -81,7 +81,7 @@ export function getDepthInjectedEntries(activatedEntries: ActivatedEntry[]): Arr
 
 /**
  * Inject depth-based entries into a message array.
- * Depth 0 = after the last message, depth 1 = before the last message, etc.
+ * Depth 0 = after the latest message, depth 1 = before the last message, etc.
  */
 export function injectAtDepth(
   messages: PromptMessage[],

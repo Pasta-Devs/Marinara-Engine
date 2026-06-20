@@ -27,7 +27,7 @@ export async function chatFoldersRoutes(app: FastifyInstance) {
   }>("/", async (req, reply) => {
     const { name, mode, color } = req.body;
     if (!name?.trim()) return reply.status(400).send({ error: "Name is required" });
-    if (!["conversation", "roleplay", "visual_novel"].includes(mode)) {
+    if (!["conversation", "roleplay", "visual_novel", "game"].includes(mode)) {
       return reply.status(400).send({ error: "Invalid mode" });
     }
     const folder = await storage.create({ name: name.trim(), mode, color });

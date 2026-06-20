@@ -31,6 +31,7 @@ export function createRegexScriptsStorage(db: DB) {
         placement: JSON.stringify(input.placement),
         flags: input.flags ?? "gi",
         promptOnly: String(input.promptOnly ?? false),
+        targetCharacterIds: JSON.stringify(input.targetCharacterIds ?? []),
         order: input.order ?? 0,
         minDepth: input.minDepth ?? null,
         maxDepth: input.maxDepth ?? null,
@@ -50,6 +51,9 @@ export function createRegexScriptsStorage(db: DB) {
       if (data.placement !== undefined) updateFields.placement = JSON.stringify(data.placement);
       if (data.flags !== undefined) updateFields.flags = data.flags;
       if (data.promptOnly !== undefined) updateFields.promptOnly = String(data.promptOnly);
+      if (data.targetCharacterIds !== undefined) {
+        updateFields.targetCharacterIds = JSON.stringify(data.targetCharacterIds);
+      }
       if (data.order !== undefined) updateFields.order = data.order;
       if (data.minDepth !== undefined) updateFields.minDepth = data.minDepth;
       if (data.maxDepth !== undefined) updateFields.maxDepth = data.maxDepth;

@@ -85,6 +85,11 @@ const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; descripti
   { value: "existing", label: "Existing only", description: "Keep tags already in Marinara." },
 ];
 
+const REGEX_SCOPE_OPTIONS: Array<{ value: "character" | "global"; label: string; description: string }> = [
+  { value: "character", label: "Character only", description: "Scripts apply only to each bot." },
+  { value: "global", label: "Global", description: "Add to Presets → Regexes for every chat." },
+];
+
 type ApiErrorPayload = {
   error?: unknown;
   message?: unknown;
@@ -150,6 +155,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [error, setError] = useState("");
   const [characterTagImportMode, setCharacterTagImportMode] = useState<TagImportMode>("all");
+  const [regexScriptScope, setRegexScriptScope] = useState<"character" | "global">("character");
   const qc = useQueryClient();
 
   const reset = useCallback(() => {
@@ -169,6 +175,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
     setProgress(null);
     setError("");
     setCharacterTagImportMode("all");
+    setRegexScriptScope("character");
   }, []);
 
   const handleClose = useCallback(() => {
@@ -309,7 +316,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
         body: JSON.stringify({
           folderPath: folderPath.trim(),
           folderToken,
-          options: { ...selection, characterTagImportMode },
+          options: { ...selection, characterTagImportMode, regexScriptScope },
         }),
       });
 
@@ -365,7 +372,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
       setError(err instanceof Error ? `Import failed: ${err.message}` : "Import failed — server error");
       setPhase("preview");
     }
-  }, [characterTagImportMode, folderPath, folderToken, qc, selection]);
+  }, [characterTagImportMode, regexScriptScope, folderPath, folderToken, qc, selection]);
 
   const hasAnySelected = Object.values(selection).some((ids) => ids.length > 0);
   const builtinPresetCount = scanResult?.presets.filter((item) => item.isBuiltin).length ?? 0;
@@ -572,6 +579,40 @@ export function STBulkImportModal({ open, onClose }: Props) {
                           value={option.value}
                           checked={characterTagImportMode === option.value}
                           onChange={() => setCharacterTagImportMode(option.value)}
+                          className="sr-only"
+                        />
+                        <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
+                        <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                          {option.description}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {scanResult.characters.length > 0 && (
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+                  <p className="text-xs font-medium text-[var(--foreground)]">Imported regex scripts</p>
+                  <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+                    Keep each bot's embedded find/replace scripts scoped to that character, or add them globally.
+                  </p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {REGEX_SCOPE_OPTIONS.map((option) => (
+                      <label
+                        key={option.value}
+                        className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+                          regexScriptScope === option.value
+                            ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                            : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="bulkRegexScriptScope"
+                          value={option.value}
+                          checked={regexScriptScope === option.value}
+                          onChange={() => setRegexScriptScope(option.value)}
                           className="sr-only"
                         />
                         <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>

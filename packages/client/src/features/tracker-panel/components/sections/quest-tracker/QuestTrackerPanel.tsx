@@ -5,7 +5,7 @@ import { TrackerReadabilityVeil } from "../../controls/TrackerProfileChrome";
 import { QuestBoard } from "./QuestBoard";
 
 const QUEST_PANEL_CLASS =
-  "relative z-10 overflow-hidden border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_6%,transparent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]";
+  "relative z-10 overflow-hidden border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_6%,transparent))] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]";
 const QUEST_PANEL_TEXTURE_CLASS =
   "pointer-events-none absolute inset-x-1 bottom-1 top-6 z-0 opacity-[0.1] [background-image:radial-gradient(circle,color-mix(in_srgb,var(--foreground)_42%,transparent)_1px,transparent_1.25px)] [background-size:5px_5px]";
 

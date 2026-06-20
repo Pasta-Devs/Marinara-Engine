@@ -23,6 +23,8 @@ import {
 } from "../../../lib/tracker-card-colors";
 import { useTrackerGameState } from "../../../features/tracker-panel/hooks/use-tracker-game-state";
 import {
+  addAliasLookups,
+  addExactNameLookups,
   normalizeLookupText,
   normalizeMaybeJsonStringArray,
 } from "../../../features/tracker-panel/lib/tracker-metadata";
@@ -234,14 +236,21 @@ export function TrackerCardColorSettings() {
       : [];
     const charactersById = new Map(characterRows.map((character) => [character.id, character]));
     const idByLookupText = new Map<string, string>();
+    const activeChatCharacterIds = normalizeMaybeJsonStringArray(
+      (activeChat as { characterIds?: unknown } | null | undefined)?.characterIds,
+    );
+    const activeChatCharacterIdSet = new Set(activeChatCharacterIds);
+    const displayRows = characterRows.map((character) => ({
+      character,
+      display: parseCharacterDisplayData(character),
+    }));
+    const chatDisplayRows = displayRows.filter(({ character }) => activeChatCharacterIdSet.has(character.id));
+    const fallbackDisplayRows = displayRows.filter(({ character }) => !activeChatCharacterIdSet.has(character.id));
 
-    for (const character of characterRows) {
-      const display = parseCharacterDisplayData(character);
-      const nameKey = normalizeLookupText(display.name);
-      const commentKey = normalizeLookupText(display.comment);
-      if (nameKey && !idByLookupText.has(nameKey)) idByLookupText.set(nameKey, character.id);
-      if (commentKey && !idByLookupText.has(commentKey)) idByLookupText.set(commentKey, character.id);
-    }
+    addExactNameLookups(chatDisplayRows, idByLookupText);
+    addAliasLookups(chatDisplayRows, idByLookupText);
+    addExactNameLookups(fallbackDisplayRows, idByLookupText);
+    addAliasLookups(fallbackDisplayRows, idByLookupText);
 
     const nextTargets: TrackerCardColorTarget[] = [];
     const chatPersonaId =
@@ -278,9 +287,6 @@ export function TrackerCardColorSettings() {
     }
 
     const presentCharacterIds = new Set<string>();
-    const activeChatCharacterIds = normalizeMaybeJsonStringArray(
-      (activeChat as { characterIds?: unknown } | null | undefined)?.characterIds,
-    );
     for (const id of activeChatCharacterIds) {
       if (charactersById.has(id)) presentCharacterIds.add(id);
     }

@@ -147,6 +147,8 @@ export interface SceneSegmentEffect {
 export interface SceneIllustrationRequest {
   /** 0-based narration segment where the illustration should replace the background. */
   segment?: number;
+  /** Short visual title for the illustrated moment. */
+  title?: string;
   /** Image-generation prompt describing the important moment. */
   prompt: string;
   /** Names of visible referenced characters, if known. */

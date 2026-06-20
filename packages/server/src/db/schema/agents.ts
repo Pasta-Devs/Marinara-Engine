@@ -11,6 +11,7 @@ export const agentConfigs = sqliteTable("agent_configs", {
   phase: text("phase", { enum: ["pre_generation", "parallel", "post_processing"] }).notNull(),
   enabled: text("enabled").notNull().default("true"),
   connectionId: text("connection_id"),
+  imagePath: text("image_path"),
   promptTemplate: text("prompt_template").notNull().default(""),
   /** JSON object for agent-specific settings */
   settings: text("settings").notNull().default("{}"),

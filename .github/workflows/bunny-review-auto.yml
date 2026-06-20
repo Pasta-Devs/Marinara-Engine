@@ -1,0 +1,80 @@
+name: Bunny Review Auto Dispatch
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited]
+
+permissions:
+  actions: write
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: bunny-review-auto-dispatch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    if: >
+      github.event.pull_request.base.ref == 'refactor' ||
+      github.event.pull_request.base.ref == 'main' ||
+      github.event.pull_request.base.ref == 'staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch trusted Bunny reviewer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REQUESTED_BY: ${{ github.event.sender.login }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_IS_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PREVIOUS_BASE_REF: ${{ github.event.changes.base.ref.from }}
+        run: |
+          # This pull_request_target workflow is intentionally a dispatcher only.
+          # It must not checkout, install, or execute code from the pull request.
+          TARGET_REF="$PR_BASE_REF"
+          if [ "$TARGET_REF" != "refactor" ] && [ "$TARGET_REF" != "main" ] && [ "$TARGET_REF" != "staging" ]; then
+            echo "::error::Unsupported Bunny review base ref: $TARGET_REF"
+            exit 1
+          fi
+          REVIEW_MODE=auto
+
+          if [ "$EVENT_ACTION" = "edited" ] && [ -z "$PREVIOUS_BASE_REF" ]; then
+            echo "Skipping Bunny auto dispatch for pull request metadata edit."
+            exit 0
+          fi
+
+          if [ "$EVENT_ACTION" = "ready_for_review" ]; then
+            echo "Pull request became ready for review; dispatching Bunny even if this SHA was reviewed while draft."
+            REVIEW_MODE=full
+          elif [ "$EVENT_ACTION" = "edited" ] && [ -n "$PREVIOUS_BASE_REF" ]; then
+            echo "Base ref changed from $PREVIOUS_BASE_REF to $PR_BASE_REF; dispatching Bunny review for the new diff base."
+          else
+            LAST_REVIEWED_SHA="$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments?per_page=100" \
+              --paginate \
+              --jq '.[] | select(.body | contains("<!-- bunny-review:walkthrough -->")) | .body' \
+              | sed -n 's/.*<!-- bunny-review:last-reviewed-sha=\([0-9a-f]\{40\}\) -->.*/\1/p' \
+              | tail -n 1)"
+            if [ -n "$LAST_REVIEWED_SHA" ] && [ "$LAST_REVIEWED_SHA" = "$PR_HEAD_SHA" ]; then
+              echo "Skipping Bunny auto dispatch because head $PR_HEAD_SHA was already reviewed."
+              exit 0
+            fi
+          fi
+
+          gh api "repos/${{ github.repository }}/contents/.github/workflows/bunny-review.yml?ref=$TARGET_REF" --silent >/dev/null || {
+            echo "::error::Bunny trusted workflow not found on base ref $TARGET_REF"
+            exit 1
+          }
+
+          gh workflow run bunny-review.yml \
+            --repo "${{ github.repository }}" \
+            --ref "$TARGET_REF" \
+            -f pr_number="$PR_NUM" \
+            -f comment_body="auto pull_request_target dispatch" \
+            -f review_mode="$REVIEW_MODE" \
+            -f requested_by="$REQUESTED_BY" \
+            -f is_draft="$PR_IS_DRAFT" \
+            -f last_reviewed_sha="${LAST_REVIEWED_SHA:-}"

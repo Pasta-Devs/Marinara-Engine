@@ -7,10 +7,17 @@ import type {
   PresentCharacter,
   QuestProgress,
 } from "@marinara-engine/shared";
+import {
+  inventoryTrackerLockPrefix,
+  removeTrackerArrayItemLocks,
+  removeTrackerCharacterLocks,
+  removeTrackerQuestLocks,
+} from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
 import { useGameStateStore } from "../../../stores/game-state.store";
 import type { GameStatePatchField } from "../../../hooks/use-game-state-patcher";
 import { getCharacterFeatureKey } from "../lib/character-tracker-data";
+import { useTrackerFieldLockUpdater } from "./use-tracker-field-lock-updater";
 
 function makeManualTrackerId() {
   const id =
@@ -43,6 +50,7 @@ export function useTrackerMutations({
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const avatarUploadSerialRef = useRef(0);
   const avatarUploadTokenByCharacterRef = useRef(new Map<string, number>());
+  const updateFieldLocks = useTrackerFieldLockUpdater({ chatId: activeChatId, patchField });
 
   const openAvatarUpload = useCallback((index: number) => {
     setAvatarUploadIndex(index);
@@ -131,13 +139,14 @@ export function useTrackerMutations({
       const removed = presentCharacters[index];
       if (removed) {
         removeFeaturedCharacterCard(getCharacterFeatureKey(removed, index));
+        updateFieldLocks((locks) => removeTrackerCharacterLocks(locks, removed, index));
       }
       patchField(
         "presentCharacters",
         presentCharacters.filter((_, characterIndex) => characterIndex !== index),
       );
     },
-    [patchField, presentCharacters, removeFeaturedCharacterCard],
+    [patchField, presentCharacters, removeFeaturedCharacterCard, updateFieldLocks],
   );
 
   const addCharacter = useCallback(() => {
@@ -174,8 +183,9 @@ export function useTrackerMutations({
   const removeInventoryItem = useCallback(
     (index: number) => {
       updateInventory(inventory.filter((_, itemIndex) => itemIndex !== index));
+      updateFieldLocks((locks) => removeTrackerArrayItemLocks(locks, inventoryTrackerLockPrefix(), index));
     },
-    [inventory, updateInventory],
+    [inventory, updateFieldLocks, updateInventory],
   );
 
   const addInventoryItem = useCallback(() => {
@@ -198,9 +208,11 @@ export function useTrackerMutations({
 
   const removeQuest = useCallback(
     (index: number) => {
+      const removed = quests[index];
+      if (removed) updateFieldLocks((locks) => removeTrackerQuestLocks(locks, removed, index));
       updateQuests(quests.filter((_, questIndex) => questIndex !== index));
     },
-    [quests, updateQuests],
+    [quests, updateFieldLocks, updateQuests],
   );
 
   const addQuest = useCallback(() => {

@@ -44,6 +44,7 @@ export function createCustomToolsStorage(db: DB) {
         webhookUrl: input.webhookUrl ?? null,
         staticResult: input.staticResult ?? null,
         scriptBody: input.scriptBody ?? null,
+        includeHiddenContext: String(input.includeHiddenContext ?? false),
         enabled: String(input.enabled ?? true),
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -64,6 +65,9 @@ export function createCustomToolsStorage(db: DB) {
       if (data.webhookUrl !== undefined) updateFields.webhookUrl = data.webhookUrl;
       if (data.staticResult !== undefined) updateFields.staticResult = data.staticResult;
       if (data.scriptBody !== undefined) updateFields.scriptBody = data.scriptBody;
+      if (data.includeHiddenContext !== undefined) {
+        updateFields.includeHiddenContext = String(data.includeHiddenContext);
+      }
       if (data.enabled !== undefined) {
         updateFields.enabled = String(data.enabled);
       }

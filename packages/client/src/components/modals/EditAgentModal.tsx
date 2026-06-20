@@ -7,7 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import { useConnections } from "../../hooks/use-connections";
 import { Loader2, Sparkles, Save } from "lucide-react";
-import { LOCAL_SIDECAR_CONNECTION_ID, type AgentPhase } from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, normalizeAgentPhaseForType, type AgentPhase } from "@marinara-engine/shared";
 
 export interface AgentData {
   id?: string;
@@ -54,7 +54,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
       setForm({
         name: agent.name ?? "",
         description: agent.description ?? "",
-        phase: (agent.phase as AgentPhase) ?? "post_processing",
+        phase: normalizeAgentPhaseForType(agent.type, agent.phase),
         connectionId: agent.connectionId ?? "",
         promptTemplate: agent.promptTemplate ?? "",
       });
@@ -87,7 +87,7 @@ export function EditAgentModal({ open, onClose, agent }: Props) {
     const payload = {
       name: form.name,
       description: form.description,
-      phase: form.phase,
+      phase: normalizeAgentPhaseForType(agent.type, form.phase),
       connectionId: form.connectionId || null,
       promptTemplate: form.promptTemplate,
     };

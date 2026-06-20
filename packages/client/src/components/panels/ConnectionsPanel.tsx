@@ -1,13 +1,14 @@
 // ──────────────────────────────────────────────
 // Panel: API Connections (polished, with folders)
 // ──────────────────────────────────────────────
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type ChangeEvent } from "react";
 import { Reorder, useDragControls } from "framer-motion";
 import {
   useConnections,
   useDuplicateConnection,
   useDeleteConnection,
   useUpdateConnection,
+  useUploadConnectionImage,
 } from "../../hooks/use-connections";
 import {
   useConnectionFolders,
@@ -27,13 +28,15 @@ import {
   getDefaultAgentPrompt,
   type ConnectionFolder,
 } from "@marinara-engine/shared";
-import { showConfirmDialog } from "../../lib/app-dialogs";
-import { Modal } from "../ui/Modal";
+import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import {
   Plus,
   Trash2,
   Link,
   Check,
+  Download,
+  Upload,
+  Search,
   Shuffle,
   ExternalLink,
   X,
@@ -44,33 +47,47 @@ import {
   ChevronUp,
   ChevronRight,
   FolderPlus,
-  FolderOpen,
   GripVertical,
   Pencil,
+  Camera,
+  Sparkles,
+  ImageIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
+import { downloadZipFile } from "../../lib/download-zip";
+import {
+  CONNECTION_EXPORT_WARNING,
+  createConnectionExportEnvelope,
+  type ConnectionTransferRow,
+} from "../../lib/connection-transfer";
 import { toast } from "sonner";
 import { TTSConfigCard } from "./settings/TTSConfigCard";
+import { SelectionActionBar } from "../ui/SelectionActionBar";
 
-/** Provider → gradient color pair for connection icons. */
-const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; badge: string }> = {
-  openai: { from: "from-emerald-400", to: "to-teal-500", ring: "ring-emerald-400/40", badge: "bg-emerald-400" },
-  anthropic: { from: "from-orange-400", to: "to-amber-500", ring: "ring-orange-400/40", badge: "bg-orange-400" },
-  google: { from: "from-blue-400", to: "to-indigo-500", ring: "ring-blue-400/40", badge: "bg-blue-400" },
-  google_vertex: { from: "from-cyan-400", to: "to-blue-500", ring: "ring-cyan-400/40", badge: "bg-cyan-400" },
-  mistral: { from: "from-violet-400", to: "to-purple-500", ring: "ring-violet-400/40", badge: "bg-violet-400" },
-  cohere: { from: "from-rose-400", to: "to-pink-500", ring: "ring-rose-400/40", badge: "bg-rose-400" },
-  openrouter: { from: "from-sky-400", to: "to-cyan-500", ring: "ring-sky-400/40", badge: "bg-sky-400" },
-  xai: { from: "from-neutral-300", to: "to-zinc-600", ring: "ring-zinc-300/40", badge: "bg-zinc-300" },
-  custom: { from: "from-gray-400", to: "to-slate-500", ring: "ring-gray-400/40", badge: "bg-gray-400" },
-  image_generation: {
-    from: "from-fuchsia-400",
-    to: "to-pink-500",
-    ring: "ring-fuchsia-400/40",
-    badge: "bg-fuchsia-400",
-  },
+/** Provider color pair for connection icons. Kept as one blue family by design. */
+const CONNECTION_ICON_COLORS = {
+  from: "from-sky-400",
+  to: "to-blue-500",
+  ring: "ring-sky-400/40",
+  badge: "bg-sky-400",
 };
-const DEFAULT_COLOR = { from: "from-sky-400", to: "to-blue-500", ring: "ring-sky-400/40", badge: "bg-sky-400" };
+const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; badge: string }> = {
+  openai: CONNECTION_ICON_COLORS,
+  openai_chatgpt: CONNECTION_ICON_COLORS,
+  anthropic: CONNECTION_ICON_COLORS,
+  claude_subscription: CONNECTION_ICON_COLORS,
+  google: CONNECTION_ICON_COLORS,
+  google_vertex: CONNECTION_ICON_COLORS,
+  mistral: CONNECTION_ICON_COLORS,
+  cohere: CONNECTION_ICON_COLORS,
+  openrouter: CONNECTION_ICON_COLORS,
+  nanogpt: CONNECTION_ICON_COLORS,
+  xai: CONNECTION_ICON_COLORS,
+  custom: CONNECTION_ICON_COLORS,
+  image_generation: CONNECTION_ICON_COLORS,
+};
+const DEFAULT_COLOR = CONNECTION_ICON_COLORS;
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
@@ -80,6 +97,14 @@ function formatBytes(bytes: number): string {
 function formatRuntimeVariantLabel(variant: string | null): string | null {
   if (!variant) return null;
   return variant.replace(/-/g, " ");
+}
+
+function getNextUnnamedFolderName(existingFolders: Array<{ name: string }>): string {
+  const names = new Set(existingFolders.map((folder) => folder.name.trim().toLowerCase()).filter(Boolean));
+  if (!names.has("unnamed")) return "unnamed";
+  let index = 2;
+  while (names.has(`unnamed ${index}`)) index += 1;
+  return `unnamed ${index}`;
 }
 
 function SidecarCard() {
@@ -94,7 +119,10 @@ function SidecarCard() {
     modelSize,
     startupError,
     failedRuntimeVariant,
+    curatedModels,
+    downloadProgress,
     setShowDownloadModal,
+    startDownload,
     updateConfig,
     fetchStatus,
   } = useSidecarStore();
@@ -103,7 +131,10 @@ function SidecarCard() {
   const [expanded, setExpanded] = useState(false);
   const activeModelName = isDownloaded ? modelDisplayName : null;
   const backendLabel = config.backend === "mlx" ? "MLX" : "GGUF";
-  const trackerAgents = useMemo(() => BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker"), []);
+  const trackerAgents = useMemo(
+    () => BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker" && !agent.libraryHidden),
+    [],
+  );
   const trackerLocalCount = useMemo(() => {
     const configs = (agentConfigs ?? []) as Array<{ type: string; connectionId: string | null }>;
     const byType = new Map(configs.map((cfg) => [cfg.type, cfg.connectionId]));
@@ -162,15 +193,30 @@ function SidecarCard() {
     setShowDownloadModal(true);
   };
 
+  const handleDownloadNow = () => {
+    const quantization =
+      curatedModels.find((model) => model.quantization === "q4_k_m")?.quantization ??
+      curatedModels[0]?.quantization ??
+      "q4_k_m";
+    void startDownload(quantization);
+  };
+
+  const isDownloading = downloadProgress?.status === "downloading";
+
   return (
     <div
       className={cn(
-        "rounded-xl border border-purple-400/20 bg-gradient-to-br from-purple-500/5 to-fuchsia-500/5 p-3 transition-all",
-        expanded && "border-purple-400/30",
+        "rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3 transition-all",
+        expanded && "border-sky-400/30",
       )}
     >
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-fuchsia-500 text-white shadow-sm">
+      <div
+        className={cn("flex items-center gap-2.5", !isDownloaded && "cursor-pointer")}
+        onClick={() => {
+          if (!isDownloaded) setExpanded(true);
+        }}
+      >
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
           <BrainCircuit size="1rem" />
         </div>
         <div className="min-w-0 flex-1">
@@ -191,15 +237,23 @@ function SidecarCard() {
         </div>
         <div className="flex items-center gap-1.5">
           <button
-            onClick={openLocalModelSettings}
-            className="rounded-lg p-1.5 text-purple-400 transition-all hover:bg-purple-400/15 active:scale-90"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              openLocalModelSettings();
+            }}
+            className="mari-chrome-control mari-chrome-control--small p-1.5"
             title="Open local model settings"
           >
             <Settings2 size="0.8125rem" />
           </button>
           <button
-            onClick={() => setExpanded((v) => !v)}
-            className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setExpanded((v) => !v);
+            }}
+            className="mari-chrome-control mari-chrome-control--small p-1"
             title={expanded ? "Collapse" : "Expand"}
           >
             {expanded ? <ChevronUp size="0.875rem" /> : <ChevronDown size="0.875rem" />}
@@ -210,23 +264,23 @@ function SidecarCard() {
       {expanded && (
         <>
           {isDownloaded && (
-            <div className="mt-2.5 flex flex-col gap-1.5 border-t border-purple-400/10 pt-2.5">
+            <div className="mt-2.5 flex flex-col gap-1.5 border-t border-sky-400/10 pt-2.5">
               <button
                 type="button"
-                onClick={() => void handleAssignTrackersToLocal()}
-                disabled={assigningTrackers}
-                className="flex items-center justify-between gap-3 rounded-lg border border-purple-400/15 bg-purple-400/8 px-3 py-2 text-left transition-all hover:bg-purple-400/12 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+	                onClick={() => void handleAssignTrackersToLocal()}
+	                disabled={assigningTrackers}
+	                className="mari-chrome-control w-full justify-between gap-3 px-3 py-2 text-left"
+	              >
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-medium text-purple-200">Use local model for all tracker agents</div>
+	                  <div className="text-xs font-medium">Use local model for all tracker agents</div>
                   <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
                     Assigns the built-in local model as the connection override for every built-in tracker agent.
                   </div>
                 </div>
                 {assigningTrackers ? (
-                  <BrainCircuit size="0.875rem" className="animate-pulse text-purple-300" />
+                  <BrainCircuit size="0.875rem" className="animate-pulse text-sky-300" />
                 ) : (
-                  <Link size="0.875rem" className="text-purple-300" />
+                  <Link size="0.875rem" className="text-sky-300" />
                 )}
               </button>
               <p className="px-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -242,7 +296,7 @@ function SidecarCard() {
                   <div
                     className={cn(
                       "h-4 w-7 rounded-full transition-colors",
-                      config.useForTrackers ? "bg-purple-400/70" : "bg-[var(--border)]",
+                      config.useForTrackers ? "bg-sky-400/70" : "bg-[var(--border)]",
                     )}
                   />
                   <div
@@ -263,7 +317,7 @@ function SidecarCard() {
                   <div
                     className={cn(
                       "h-4 w-7 rounded-full transition-colors",
-                      config.useForGameScene ? "bg-purple-400/70" : "bg-[var(--border)]",
+                      config.useForGameScene ? "bg-sky-400/70" : "bg-[var(--border)]",
                     )}
                   />
                   <div
@@ -274,6 +328,25 @@ function SidecarCard() {
                   />
                 </div>
                 <span className="text-xs text-[var(--muted-foreground)]">Use for game scene analysis</span>
+              </button>
+            </div>
+          )}
+          {!isDownloaded && (
+            <div className="mt-2.5 flex flex-col gap-2 border-t border-sky-400/10 pt-2.5">
+              <button
+                type="button"
+	                onClick={handleDownloadNow}
+	                disabled={isDownloading}
+	                className="mari-chrome-control w-full px-3 py-2 text-xs"
+	              >
+                {isDownloading ? "Downloading..." : "Download now"}
+              </button>
+              <button
+                type="button"
+	                onClick={openLocalModelSettings}
+	                className="mari-chrome-control mari-chrome-control--compact w-full text-center"
+	              >
+                Choose model options
               </button>
             </div>
           )}
@@ -290,10 +363,10 @@ function SidecarCard() {
               )}
               <button
                 onClick={() => {
-                  openLocalModelSettings();
-                }}
-                className="mt-2 rounded-lg bg-amber-500/15 px-2.5 py-1 text-[0.6875rem] font-medium text-amber-200 transition-colors hover:bg-amber-500/25"
-              >
+	                  openLocalModelSettings();
+	                }}
+	                className="mari-chrome-control mari-chrome-control--small mt-2 text-[0.6875rem]"
+	              >
                 Open Local AI Model
               </button>
             </div>
@@ -308,23 +381,206 @@ type ConnectionRowData = {
   id: string;
   name: string;
   provider: string;
+  baseUrl?: string;
   model: string;
+  imagePath?: string | null;
   useForRandom?: string;
+  isDefault?: boolean | string;
+  defaultForAgents?: boolean | string;
+  enableCaching?: boolean | string;
+  cachingAtDepth?: number;
+  embeddingModel?: string | null;
+  embeddingBaseUrl?: string | null;
+  embeddingConnectionId?: string | null;
+  openrouterProvider?: string | null;
+  imageGenerationSource?: string | null;
+  comfyuiWorkflow?: string | null;
+  imageService?: string | null;
+  imageEndpointId?: string | null;
+  defaultParameters?: string | null;
+  promptPresetId?: string | null;
+  maxContext?: number;
+  maxTokensOverride?: number | null;
+  maxParallelJobs?: number;
+  claudeFastMode?: boolean | string;
   folderId?: string | null;
 };
+
+function connectionMatchesSearch(conn: ConnectionRowData, query: string) {
+  if (!query) return true;
+  const haystack = [
+    conn.name,
+    conn.provider,
+    conn.model,
+    conn.baseUrl,
+    conn.imageService,
+    conn.imageGenerationSource,
+    conn.openrouterProvider,
+    conn.embeddingModel,
+  ]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
+function formatDefaultConnectionOption(connection: ConnectionRowData, fallbackModelLabel: string): string {
+  const model = connection.model?.trim() || fallbackModelLabel;
+  return `${connection.name} - ${model}`;
+}
+
+function DefaultAgentConnectionCard({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
+  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const updateConnection = useUpdateConnection();
+  const agentConnections = useMemo(
+    () => connectionsList.filter((conn) => conn.provider !== "image_generation"),
+    [connectionsList],
+  );
+  const defaultConnection =
+    agentConnections.find(
+      (conn) =>
+        conn.provider !== "image_generation" && (conn.defaultForAgents === true || conn.defaultForAgents === "true"),
+    ) ?? null;
+  const hasConnections = agentConnections.length > 0;
+
+  const handleDefaultChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextConnectionId = event.target.value;
+    if (nextConnectionId === defaultConnection?.id) return;
+    if (!nextConnectionId) {
+      if (defaultConnection) {
+        updateConnection.mutate({ id: defaultConnection.id, defaultForAgents: false });
+      }
+      return;
+    }
+    updateConnection.mutate({ id: nextConnectionId, defaultForAgents: true });
+  };
+
+  return (
+    <div className="rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3">
+      <div className="flex items-center gap-2.5 max-sm:items-start">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
+          <Sparkles size="1rem" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium">Default for Agents</div>
+          <select
+            value={defaultConnection?.id ?? ""}
+            onChange={handleDefaultChange}
+            disabled={updateConnection.isPending || (!hasConnections && !defaultConnection)}
+            className="mt-1 w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.75rem] text-[var(--foreground)] ring-1 ring-[var(--border)] transition focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Default agent connection"
+          >
+            <option value="">{hasConnections ? "No default agent connection" : "No text connections available"}</option>
+            {agentConnections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {formatDefaultConnectionOption(connection, "No model set")}
+              </option>
+            ))}
+          </select>
+        </div>
+        {defaultConnection && (
+          <button
+            type="button"
+            onClick={() => openConnectionDetail(defaultConnection.id)}
+            className="mari-chrome-control mari-chrome-control--small p-1.5"
+            title="Open default agent connection"
+          >
+            <Settings2 size="0.8125rem" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DefaultIllustratorConnectionCard({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
+  const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
+  const updateConnection = useUpdateConnection();
+  const illustratorConnections = useMemo(
+    () => connectionsList.filter((conn) => conn.provider === "image_generation"),
+    [connectionsList],
+  );
+  const defaultConnection =
+    illustratorConnections.find(
+      (conn) =>
+        conn.provider === "image_generation" && (conn.defaultForAgents === true || conn.defaultForAgents === "true"),
+    ) ?? null;
+  const hasConnections = illustratorConnections.length > 0;
+
+  const handleDefaultChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextConnectionId = event.target.value;
+    if (nextConnectionId === defaultConnection?.id) return;
+    if (!nextConnectionId) {
+      if (defaultConnection) {
+        updateConnection.mutate({ id: defaultConnection.id, defaultForAgents: false });
+      }
+      return;
+    }
+    updateConnection.mutate({ id: nextConnectionId, defaultForAgents: true });
+  };
+
+  return (
+    <div className="rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3">
+      <div className="flex items-center gap-2.5 max-sm:items-start">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
+          <ImageIcon size="1rem" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium">Default for Illustrator</div>
+          <select
+            value={defaultConnection?.id ?? ""}
+            onChange={handleDefaultChange}
+            disabled={updateConnection.isPending || (!hasConnections && !defaultConnection)}
+            className="mt-1 w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.75rem] text-[var(--foreground)] ring-1 ring-[var(--border)] transition focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Default Illustrator connection"
+          >
+            <option value="">
+              {hasConnections ? "No default Illustrator connection" : "No image connections available"}
+            </option>
+            {illustratorConnections.map((connection) => (
+              <option key={connection.id} value={connection.id}>
+                {formatDefaultConnectionOption(connection, "Image generation")}
+              </option>
+            ))}
+          </select>
+        </div>
+        {defaultConnection && (
+          <button
+            type="button"
+            onClick={() => openConnectionDetail(defaultConnection.id)}
+            className="mari-chrome-control mari-chrome-control--small p-1.5"
+            title="Open default Illustrator connection"
+          >
+            <Settings2 size="0.8125rem" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ConnectionRow({
   conn,
   isSelected,
+  isBulkSelected,
+  selectionMode,
   onClickRow,
-  onMove,
-  showMoveButton,
+  isDragging,
+  onDragStart,
+  onDragEnd,
+  onImagePick,
+  onExport,
 }: {
   conn: ConnectionRowData;
   isSelected: boolean;
+  isBulkSelected: boolean;
+  selectionMode: boolean;
   onClickRow: () => void;
-  onMove: () => void;
-  showMoveButton: boolean;
+  isDragging: boolean;
+  onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+  onImagePick: () => void;
+  onExport: () => void;
 }) {
   const duplicateConnection = useDuplicateConnection();
   const deleteConnection = useDeleteConnection();
@@ -333,24 +589,47 @@ function ConnectionRow({
 
   const inRandomPool = conn.useForRandom === "true";
   const colors = PROVIDER_COLORS[conn.provider] ?? DEFAULT_COLOR;
+  const iconContent = conn.imagePath ? (
+    <img src={conn.imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
+  ) : (
+    <Link size="1rem" />
+  );
+  const iconClasses = cn(
+    "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-white shadow-sm",
+    conn.imagePath ? "bg-[var(--muted)]" : `${colors.from} ${colors.to}`,
+  );
 
   return (
     <div
       onClick={onClickRow}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       className={cn(
         "group relative flex cursor-pointer items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)]",
         isSelected && `ring-1 ${colors.ring} bg-[var(--sidebar-accent)]/50`,
+        selectionMode && isBulkSelected && "ring-1 ring-[var(--border)] bg-[var(--sidebar-accent)]/70",
+        isDragging && "opacity-50",
       )}
     >
-      <div
-        className={cn(
-          "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm",
-          colors.from,
-          colors.to,
-        )}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onImagePick();
+        }}
+	        className={cn(
+	          iconClasses,
+	          "transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]",
+	        )}
+        title={conn.imagePath ? "Replace connection picture" : "Upload connection picture"}
+        aria-label={conn.imagePath ? "Replace connection picture" : "Upload connection picture"}
       >
-        <Link size="1rem" />
-        {isSelected && (
+        {iconContent}
+        <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+          <Camera size="0.875rem" />
+        </span>
+        {(selectionMode ? isBulkSelected : isSelected) && (
           <div
             className={cn(
               "absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full shadow-sm",
@@ -360,7 +639,7 @@ function ConnectionRow({
             <Check size="0.625rem" className="text-white" />
           </div>
         )}
-      </div>
+      </button>
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium" title={conn.name}>
           {conn.name}
@@ -369,7 +648,7 @@ function ConnectionRow({
           {conn.provider} • {conn.model || "No model set"}
         </div>
       </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-foreground/10 transition-opacity group-hover:opacity-100 max-md:opacity-100">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -378,25 +657,13 @@ function ConnectionRow({
           className={cn(
             "rounded-lg p-1.5 transition-all active:scale-90",
             inRandomPool
-              ? "bg-amber-400/15 text-amber-400"
-              : "text-[var(--muted-foreground)] hover:bg-amber-400/10 hover:text-amber-400",
+              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
+              : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/75",
           )}
           title={inRandomPool ? "In random pool (click to remove)" : "Add to random pool"}
         >
           <Shuffle size="0.75rem" />
         </button>
-        {showMoveButton && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMove();
-            }}
-            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-90"
-            title="Move to folder"
-          >
-            <FolderOpen size="0.75rem" />
-          </button>
-        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -406,10 +673,20 @@ function ConnectionRow({
               },
             });
           }}
-          className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-sky-400/10 hover:text-sky-400 active:scale-90"
+          className="mari-chrome-control mari-chrome-control--small p-1.5"
           title="Duplicate"
         >
           <Copy size="0.75rem" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onExport();
+          }}
+          className="mari-chrome-control mari-chrome-control--small p-1.5"
+          title="Export"
+        >
+          <Upload size="0.75rem" />
         </button>
         <button
           onClick={async (e) => {
@@ -426,7 +703,7 @@ function ConnectionRow({
             }
             deleteConnection.mutate(conn.id);
           }}
-          className="rounded-lg p-1.5 transition-all hover:bg-[var(--destructive)]/15 active:scale-90"
+          className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
           title="Delete"
         >
           <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
@@ -439,24 +716,68 @@ function ConnectionRow({
 function ConnectionFolderRow({
   folder,
   entries,
+  forceExpanded = false,
   renderConnectionRow,
   onToggleCollapse,
   onRename,
   onDelete,
+  draggedConnectionId,
+  onDropConnection,
 }: {
   folder: ConnectionFolder;
   entries: ConnectionRowData[];
+  forceExpanded?: boolean;
   renderConnectionRow: (conn: ConnectionRowData) => React.ReactNode;
   onToggleCollapse: (folder: ConnectionFolder) => void;
   onRename: (id: string, name: string) => void;
   onDelete: (folder: ConnectionFolder) => void;
+  draggedConnectionId: string | null;
+  onDropConnection: (connectionIds: string[], folderId: string | null) => void;
 }) {
   const dragControls = useDragControls();
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(folder.name);
+  const [isDropTarget, setIsDropTarget] = useState(false);
+  const isExpanded = forceExpanded || !folder.collapsed;
 
   return (
-    <Reorder.Item value={folder.id} dragListener={false} dragControls={dragControls} as="div" className="flex flex-col">
+    <Reorder.Item
+      value={folder.id}
+      dragListener={false}
+      dragControls={dragControls}
+      as="div"
+      onDragEnter={(event) => {
+        if (!draggedConnectionId) return;
+        event.preventDefault();
+        setIsDropTarget(true);
+      }}
+      onDragOver={(event) => {
+        if (!draggedConnectionId) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsDropTarget(false);
+        }
+      }}
+      onDrop={(event) => {
+        if (!draggedConnectionId) return;
+        event.preventDefault();
+        const connectionId =
+          event.dataTransfer.getData("application/x-marinara-connection-id") ||
+          event.dataTransfer.getData("text/plain") ||
+          draggedConnectionId;
+        const payload = event.dataTransfer.getData("application/x-marinara-connection-ids");
+        const connectionIds = payload ? (JSON.parse(payload) as string[]) : [connectionId];
+        if (connectionIds.length > 0) onDropConnection(connectionIds, folder.id);
+        setIsDropTarget(false);
+      }}
+      className={cn(
+        "flex flex-col rounded-lg transition-colors",
+        isDropTarget && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30",
+      )}
+    >
       {/* Folder header */}
       <div
         onClick={() => onToggleCollapse(folder)}
@@ -470,12 +791,7 @@ function ConnectionFolderRow({
         </div>
         <ChevronRight
           size="0.75rem"
-          className={cn("text-[var(--muted-foreground)] transition-transform", !folder.collapsed && "rotate-90")}
-        />
-        <div
-          className="h-2 w-2 rounded-full flex-shrink-0"
-          style={{ backgroundColor: folder.color || "#6b7280" }}
-          title={folder.name}
+          className={cn("text-[var(--muted-foreground)] transition-transform", isExpanded && "rotate-90")}
         />
         {renaming ? (
           <input
@@ -530,7 +846,7 @@ function ConnectionFolderRow({
         </button>
       </div>
       {/* Folder contents */}
-      {!folder.collapsed && entries.length > 0 && (
+      {isExpanded && entries.length > 0 && (
         <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pl-1">
           {entries.map((c) => (
             <div key={c.id}>{renderConnectionRow(c)}</div>
@@ -543,6 +859,8 @@ function ConnectionFolderRow({
 
 export function ConnectionsPanel() {
   const { data: connections, isLoading } = useConnections();
+  const uploadConnectionImage = useUploadConnectionImage();
+  const deleteConnection = useDeleteConnection();
   const activeChat = useChatStore((s) => s.activeChat);
 
   const activeConnectionId = activeChat?.connectionId ?? null;
@@ -559,12 +877,20 @@ export function ConnectionsPanel() {
   const reorderFoldersMut = useReorderConnectionFolders();
   const moveConnectionMut = useMoveConnection();
 
-  // Folder UI state
-  const [creatingFolder, setCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [movingConnectionId, setMovingConnectionId] = useState<string | null>(null);
+  const [draggedConnectionId, setDraggedConnectionId] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [exportingSelected, setExportingSelected] = useState(false);
+  const connectionImageInputRef = useRef<HTMLInputElement>(null);
+  const imageTargetConnectionIdRef = useRef<string | null>(null);
 
   const connectionsList = useMemo(() => (connections as ConnectionRowData[] | undefined) ?? [], [connections]);
+  const filteredConnections = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return connectionsList.filter((connection) => connectionMatchesSearch(connection, query));
+  }, [connectionsList, search]);
+  const searchActive = search.trim().length > 0;
 
   // Sorted folder list + local order for optimistic drag-to-reorder
   const sortedFolders = useMemo(() => {
@@ -581,7 +907,7 @@ export function ConnectionsPanel() {
   const { unfiledConnections, folderConnectionsMap } = useMemo(() => {
     const unfiled: ConnectionRowData[] = [];
     const map = new Map<string, ConnectionRowData[]>();
-    for (const c of connectionsList) {
+    for (const c of filteredConnections) {
       const fid = c.folderId ?? null;
       if (fid && sortedFolders.some((f) => f.id === fid)) {
         const arr = map.get(fid) ?? [];
@@ -592,24 +918,10 @@ export function ConnectionsPanel() {
       }
     }
     return { unfiledConnections: unfiled, folderConnectionsMap: map };
-  }, [connectionsList, sortedFolders]);
+  }, [filteredConnections, sortedFolders]);
 
   const handleCreateFolder = () => {
-    const name = newFolderName.trim();
-    if (!name) {
-      setCreatingFolder(false);
-      setNewFolderName("");
-      return;
-    }
-    createFolderMut.mutate(
-      { name },
-      {
-        onSuccess: () => {
-          setNewFolderName("");
-          setCreatingFolder(false);
-        },
-      },
-    );
+    createFolderMut.mutate({ name: getNextUnnamedFolderName(sortedFolders) });
   };
 
   const handleFolderReorder = (newOrder: string[]) => {
@@ -628,9 +940,12 @@ export function ConnectionsPanel() {
   };
 
   const handleDeleteFolder = async (folder: ConnectionFolder) => {
-    const ok = await showConfirmDialog({
+    const connectionCount = connectionsList.filter((connection) => connection.folderId === folder.id).length;
+    const ok = await confirmNonEmptyFolderDelete(connectionCount, {
       title: "Delete Folder",
-      message: `Delete folder "${folder.name}"? Connections inside will move back to Unfiled.`,
+      message: `Delete "${folder.name}"? Its ${connectionCount} connection${
+        connectionCount === 1 ? "" : "s"
+      } will move back to Unfiled.`,
       confirmLabel: "Delete",
       tone: "destructive",
     });
@@ -638,80 +953,254 @@ export function ConnectionsPanel() {
     deleteFolderMut.mutate(folder.id);
   };
 
-  const handleMoveConnection = (connectionId: string, folderId: string | null) => {
-    moveConnectionMut.mutate({ connectionId, folderId });
-    setMovingConnectionId(null);
+  const getDraggedConnectionIds = useCallback(
+    (connectionId: string) =>
+      selectionMode && selectedConnectionIds.has(connectionId) ? Array.from(selectedConnectionIds) : [connectionId],
+    [selectedConnectionIds, selectionMode],
+  );
+
+  const toggleConnectionSelection = useCallback((connectionId: string) => {
+    setSelectedConnectionIds((current) => {
+      const next = new Set(current);
+      if (next.has(connectionId)) next.delete(connectionId);
+      else next.add(connectionId);
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedConnectionIds(new Set());
+  }, []);
+
+  const handleDropConnectionsToFolder = (connectionIds: string[], folderId: string | null) => {
+    const ids = Array.from(new Set(connectionIds.filter(Boolean)));
+    for (const connectionId of ids) {
+      moveConnectionMut.mutate({ connectionId, folderId });
+    }
+    setDraggedConnectionId(null);
   };
+
+  const handlePickConnectionImage = useCallback((connectionId: string) => {
+    imageTargetConnectionIdRef.current = connectionId;
+    if (connectionImageInputRef.current) {
+      connectionImageInputRef.current.value = "";
+      connectionImageInputRef.current.click();
+    }
+  }, []);
+
+  const handleConnectionImageSelected = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      const connectionId = imageTargetConnectionIdRef.current;
+      if (!file || !connectionId) return;
+
+      if (!file.type.startsWith("image/")) {
+        imageTargetConnectionIdRef.current = null;
+        toast.error("Choose an image file for the connection picture");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const image = typeof reader.result === "string" ? reader.result : "";
+        if (!image) {
+          toast.error("Could not read that image");
+          return;
+        }
+
+        try {
+          await uploadConnectionImage.mutateAsync({ id: connectionId, image });
+          toast.success("Connection picture updated");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to upload connection picture");
+        } finally {
+          imageTargetConnectionIdRef.current = null;
+        }
+      };
+      reader.onerror = () => {
+        imageTargetConnectionIdRef.current = null;
+        toast.error("Could not read that image");
+      };
+      reader.readAsDataURL(file);
+    },
+    [uploadConnectionImage],
+  );
+
+  const exportConnections = useCallback(async (connectionsToExport: ConnectionRowData[]) => {
+    if (connectionsToExport.length === 0) return;
+
+    const confirmed = await showConfirmDialog({
+      title: "Export Connection Data",
+      message: CONNECTION_EXPORT_WARNING,
+      confirmLabel: "Export",
+      cancelLabel: "Close",
+    });
+    if (!confirmed) return;
+
+    const envelope = createConnectionExportEnvelope(connectionsToExport as ConnectionTransferRow[]);
+    if (connectionsToExport.length > 1) {
+      downloadZipFile(
+        [{ path: "marinara-connections.json", content: JSON.stringify(envelope, null, 2) }],
+        "marinara-connections.zip",
+      );
+    } else {
+      const filename = `${sanitizeExportFilenamePart(connectionsToExport[0]?.name, "connection")}.connection.json`;
+      downloadJsonFile(envelope, filename);
+    }
+    toast.success(`Exported ${connectionsToExport.length} connection${connectionsToExport.length === 1 ? "" : "s"}`);
+  }, []);
+
+  const handleExportSelected = useCallback(async () => {
+    if (selectedConnectionIds.size === 0) return;
+    setExportingSelected(true);
+    try {
+      await exportConnections(connectionsList.filter((connection) => selectedConnectionIds.has(connection.id)));
+    } finally {
+      setExportingSelected(false);
+    }
+  }, [connectionsList, exportConnections, selectedConnectionIds]);
+
+  const handleDeleteSelected = useCallback(async () => {
+    const ids = [...selectedConnectionIds];
+    if (ids.length === 0) return;
+
+    if (
+      !(await showConfirmDialog({
+        title: "Delete Connections",
+        message: `Delete ${ids.length} connection${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
+        confirmLabel: "Delete",
+        tone: "destructive",
+      }))
+    ) {
+      return;
+    }
+
+    const results = await Promise.allSettled(ids.map((id) => deleteConnection.mutateAsync(id)));
+    const failedIds = ids.filter((_, index) => results[index]?.status === "rejected");
+    const deletedCount = ids.length - failedIds.length;
+
+    if (deletedCount > 0) {
+      toast.success(`Deleted ${deletedCount} connection${deletedCount === 1 ? "" : "s"}`);
+    }
+
+    if (failedIds.length > 0) {
+      setSelectedConnectionIds(new Set(failedIds));
+      toast.error(`Failed to delete ${failedIds.length} connection${failedIds.length === 1 ? "" : "s"}`);
+      return;
+    }
+
+    exitSelectionMode();
+  }, [deleteConnection, exitSelectionMode, selectedConnectionIds]);
 
   const renderConnectionRow = (conn: ConnectionRowData) => {
     const isSelected = activeConnectionId === conn.id;
+    const isBulkSelected = selectedConnectionIds.has(conn.id);
     return (
       <ConnectionRow
         key={conn.id}
         conn={conn}
         isSelected={isSelected}
-        onClickRow={() => openConnectionDetail(conn.id)}
-        onMove={() => setMovingConnectionId(conn.id)}
-        showMoveButton={sortedFolders.length > 0}
+        isBulkSelected={isBulkSelected}
+        selectionMode={selectionMode}
+        onClickRow={() => {
+          if (selectionMode) toggleConnectionSelection(conn.id);
+          else openConnectionDetail(conn.id);
+        }}
+        isDragging={draggedConnectionId === conn.id}
+        onDragStart={(event) => {
+          const ids = getDraggedConnectionIds(conn.id);
+          setDraggedConnectionId(conn.id);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("application/x-marinara-connection-ids", JSON.stringify(ids));
+          event.dataTransfer.setData("application/x-marinara-connection-id", conn.id);
+          event.dataTransfer.setData("text/plain", conn.id);
+        }}
+        onDragEnd={() => setDraggedConnectionId(null)}
+        onImagePick={() => handlePickConnectionImage(conn.id)}
+        onExport={() => void exportConnections([conn])}
       />
     );
   };
 
-  const movingConnection = movingConnectionId
-    ? (connectionsList.find((c) => c.id === movingConnectionId) ?? null)
-    : null;
-
   return (
-    <div className="flex flex-col gap-2 p-3">
+    <div className="flex min-h-full flex-col gap-2 p-3">
+      <input
+        ref={connectionImageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleConnectionImageSelected}
+      />
+
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => openModal("create-connection")}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-400 to-blue-500 px-3 py-2.5 text-xs font-medium text-white shadow-md shadow-sky-400/15 transition-all hover:shadow-lg hover:shadow-sky-400/25 active:scale-[0.98]"
+          title="New"
+        >
+          <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
+        </button>
+        <button
+          onClick={() => openModal("import-connection")}
+          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+          title="Import"
+        >
+          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+        </button>
+        <button
+          onClick={() => (selectionMode ? exitSelectionMode() : setSelectionMode(true))}
+          disabled={connectionsList.length === 0}
+          className={cn(
+            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
+            selectionMode && "mari-chrome-control--selected",
+          )}
+          title="Select"
+        >
+          <Check size="0.8125rem" /> <span className="md:hidden">Select</span>
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search
+          size="0.8125rem"
+          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+        />
+        <input
+          type="text"
+          placeholder="Search connections..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+        />
+      </div>
+
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleCreateFolder}
+            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
+          >
+            <FolderPlus size="0.75rem" />
+            New Folder
+          </button>
+        </div>
+
+        {sortedFolders.length > 0 && (
+          <p className="mari-folder-helper">Drag and drop connections to folders</p>
+        )}
+      </div>
+
       {/* ── Local Model (Sidecar) ── */}
       {import.meta.env.VITE_MARINARA_LITE !== "true" && <SidecarCard />}
 
       {/* ── Text to Speech ── */}
       <TTSConfigCard />
 
-      <button
-        onClick={() => openModal("create-connection")}
-        className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all active:scale-[0.98] bg-gradient-to-r from-sky-400 to-blue-500 text-white shadow-md shadow-sky-400/15 hover:shadow-lg hover:shadow-sky-400/25"
-      >
-        <Plus size="0.8125rem" />
-        Add Connection
-      </button>
-
-      {/* ── New folder button / inline input ── */}
-      {creatingFolder ? (
-        <div className="flex items-center gap-1.5 rounded-lg border border-[var(--border)]/40 bg-[var(--secondary)]/30 px-2.5 py-1.5">
-          <FolderPlus size="0.75rem" className="text-[var(--muted-foreground)]" />
-          <input
-            autoFocus
-            value={newFolderName}
-            onChange={(e) => setNewFolderName(e.target.value)}
-            placeholder="Folder name"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreateFolder();
-              if (e.key === "Escape") {
-                setCreatingFolder(false);
-                setNewFolderName("");
-              }
-            }}
-            onBlur={() => {
-              if (newFolderName.trim()) handleCreateFolder();
-              else {
-                setCreatingFolder(false);
-                setNewFolderName("");
-              }
-            }}
-            className="flex-1 bg-transparent text-xs text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
-          />
-        </div>
-      ) : (
-        <button
-          onClick={() => setCreatingFolder(true)}
-          className="flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-all hover:bg-[var(--sidebar-accent)]/40 hover:text-[var(--foreground)]"
-        >
-          <FolderPlus size="0.75rem" />
-          New Folder
-        </button>
-      )}
+      <DefaultAgentConnectionCard connectionsList={connectionsList} />
+      <DefaultIllustratorConnectionCard connectionsList={connectionsList} />
 
       {isLoading && (
         <div className="flex flex-col gap-2 py-2">
@@ -727,6 +1216,15 @@ export function ConnectionsPanel() {
             <Link size="1.25rem" className="text-sky-400" />
           </div>
           <p className="text-xs text-[var(--muted-foreground)]">No connections yet</p>
+        </div>
+      )}
+
+      {!isLoading && connectionsList.length > 0 && filteredConnections.length === 0 && (
+        <div className="flex flex-col items-center gap-2 py-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+            <Search size="1.25rem" />
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)]">No connections match your search</p>
         </div>
       )}
 
@@ -750,14 +1248,14 @@ export function ConnectionsPanel() {
               href="https://linkapi.ai/"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg bg-sky-400/15 px-3 py-1.5 text-xs font-medium text-sky-400 transition-all hover:bg-sky-400/25"
+              className="mari-chrome-control mari-chrome-control--small text-xs"
             >
               <ExternalLink size="0.75rem" />
               Visit LinkAPI
             </a>
             <button
               onClick={dismissLinkApiBanner}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-all hover:bg-[var(--secondary)]"
+              className="mari-chrome-control mari-chrome-control--small text-xs"
             >
               <X size="0.75rem" />
               Dismiss permanently
@@ -779,15 +1277,19 @@ export function ConnectionsPanel() {
             const folder = sortedFolders.find((f) => f.id === folderId);
             if (!folder) return null;
             const folderEntries = folderConnectionsMap.get(folderId) ?? [];
+            if (searchActive && folderEntries.length === 0) return null;
             return (
               <ConnectionFolderRow
                 key={folderId}
                 folder={folder}
                 entries={folderEntries}
+                forceExpanded={searchActive && folderEntries.length > 0}
                 renderConnectionRow={renderConnectionRow}
                 onToggleCollapse={handleToggleCollapse}
                 onRename={handleRenameFolder}
                 onDelete={handleDeleteFolder}
+                draggedConnectionId={draggedConnectionId}
+                onDropConnection={handleDropConnectionsToFolder}
               />
             );
           })}
@@ -795,7 +1297,29 @@ export function ConnectionsPanel() {
       )}
 
       {/* Unfiled connections */}
-      <div className="stagger-children flex flex-col gap-1">{unfiledConnections.map(renderConnectionRow)}</div>
+      <div
+        onDragOver={(event) => {
+          if (draggedConnectionId) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          const payload = event.dataTransfer.getData("application/x-marinara-connection-ids");
+          const fallbackId =
+            event.dataTransfer.getData("application/x-marinara-connection-id") ||
+            event.dataTransfer.getData("text/plain") ||
+            draggedConnectionId;
+          handleDropConnectionsToFolder(payload ? (JSON.parse(payload) as string[]) : fallbackId ? [fallbackId] : [], null);
+        }}
+        className={cn(
+          "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
+          draggedConnectionId && "ring-1 ring-[var(--primary)]/20",
+        )}
+      >
+        {unfiledConnections.map(renderConnectionRow)}
+      </div>
 
       {activeChat && (
         <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]/60">
@@ -803,41 +1327,14 @@ export function ConnectionsPanel() {
         </p>
       )}
 
-      {/* ── Move to Folder Modal ── */}
-      <Modal
-        open={movingConnectionId !== null}
-        onClose={() => setMovingConnectionId(null)}
-        title="Move to Folder"
-        width="max-w-xs"
-      >
-        {movingConnection && (
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={() => handleMoveConnection(movingConnection.id, null)}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all hover:bg-[var(--accent)]",
-                !movingConnection.folderId && "bg-[var(--accent)] font-medium",
-              )}
-            >
-              <Link size="0.75rem" className="text-[var(--muted-foreground)]" />
-              Unfiled
-            </button>
-            {sortedFolders.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => handleMoveConnection(movingConnection.id, f.id)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-all hover:bg-[var(--accent)]",
-                  movingConnection.folderId === f.id && "bg-[var(--accent)] font-medium",
-                )}
-              >
-                <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: f.color || "#6b7280" }} />
-                {f.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </Modal>
+      {selectionMode && (
+        <SelectionActionBar
+          selectedCount={selectedConnectionIds.size}
+          onExport={() => void handleExportSelected()}
+          onDelete={handleDeleteSelected}
+          exporting={exportingSelected}
+        />
+      )}
     </div>
   );
 }

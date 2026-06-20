@@ -19,8 +19,10 @@ import {
   Music2,
   Volume2,
   VolumeX,
+  Feather,
+  RotateCcw,
 } from "lucide-react";
-import type { GameSetupConfig, GameGmMode } from "@marinara-engine/shared";
+import { DEFAULT_GAME_SYSTEM_PROMPT, type GameSetupConfig, type GameGmMode } from "@marinara-engine/shared";
 import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
 import { cn, getAvatarCropStyle, parseAvatarCropJson, type AvatarCropValue } from "../../lib/utils";
@@ -31,6 +33,11 @@ import {
   ROLEPLAY_PARAMETER_DEFAULTS,
   type EditableGenerationParameters,
 } from "../ui/GenerationParametersEditor";
+import {
+  createDefaultGameHudWidget,
+  GameWidgetSetupEditor,
+  normalizeGameHudWidgets,
+} from "./GameWidgetSetupEditor";
 import { useConnections } from "../../hooks/use-connections";
 import { usePersonas } from "../../hooks/use-characters";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -122,6 +129,14 @@ const PREFERENCE_SUGGESTIONS = [
   "Make NPCs memorable",
   "Keep it short",
 ];
+
+const GAME_SETUP_FIELD_LABEL = "mb-1.5 block text-xs font-medium text-[var(--foreground)]";
+const GAME_SETUP_INPUT_CLASS =
+  "w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40";
+const GAME_SETUP_GHOST_BUTTON_CLASS =
+  "flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]";
+const GAME_SETUP_PRIMARY_BUTTON_CLASS =
+  "flex items-center gap-1 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
 type GameSpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
@@ -304,6 +319,13 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
   const [activeLorebookIds, setActiveLorebookIds] = useState<string[]>([]);
   const [lbSearch, setLbSearch] = useState("");
   const [enableCustomWidgets, setEnableCustomWidgets] = useState(true);
+  const [manualWidgetSetupEnabled, setManualWidgetSetupEnabled] = useState(false);
+  const [customHudWidgets, setCustomHudWidgets] = useState(() =>
+    normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
+  );
+  const [gameSpecialInstructions, setGameSpecialInstructions] = useState("");
+  const [customGamePromptEnabled, setCustomGamePromptEnabled] = useState(false);
+  const [gameSystemPromptDraft, setGameSystemPromptDraft] = useState(DEFAULT_GAME_SYSTEM_PROMPT);
   const [language, setLanguage] = useState("English");
   const [startMuted, setStartMuted] = useState(false);
   const [expandedLearnedOptions, setExpandedLearnedOptions] = useState<Record<LearnedOptionGroup, boolean>>({
@@ -415,7 +437,8 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
     [personas, personaSearch],
   );
 
-  const steps = ["Genre & Setting", "Party & GM", "You & Model", "Goals"];
+  const steps = ["Connection", "World", "Party", "Goals", "Lorebooks", "Features", "GM"];
+  const currentStepName = steps[step] ?? steps[0]!;
   const learnedGenres = useMemo(
     () => filterLearnedOptions(learnedGameSetupOptions?.genres, [...GENRES, ...genres]),
     [genres, learnedGameSetupOptions?.genres],
@@ -507,6 +530,14 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
 
   const handleComplete = () => {
     if (isLoading || !canStart) return;
+    const trimmedGameSystemPrompt = gameSystemPromptDraft.trim();
+    const customGameSystemPrompt =
+      customGamePromptEnabled &&
+      trimmedGameSystemPrompt &&
+      trimmedGameSystemPrompt !== DEFAULT_GAME_SYSTEM_PROMPT.trim()
+        ? trimmedGameSystemPrompt
+        : null;
+    const trimmedGameSpecialInstructions = gameSpecialInstructions.trim();
     if (startMuted) {
       useGameAssetStore.getState().setAudioMuted(true);
     }
@@ -544,6 +575,8 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
         imageConnectionId: enableSpriteGeneration && imageConnectionId ? imageConnectionId : undefined,
         activeLorebookIds: activeLorebookIds.length > 0 ? activeLorebookIds : undefined,
         enableCustomWidgets,
+        customHudWidgets:
+          enableCustomWidgets && manualWidgetSetupEnabled ? normalizeGameHudWidgets(customHudWidgets) : undefined,
         enableSpotifyDj: enableSpotifyDj || undefined,
         spotifySourceType: enableSpotifyDj ? gameSpotifySourceType : undefined,
         spotifyPlaylistId:
@@ -559,6 +592,8 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
         enableLorebookKeeper: enableLorebookKeeper || undefined,
         language: normalizedLanguage || undefined,
         generationParameters: customizeParameters ? generationParameters : undefined,
+        gameSystemPrompt: customGameSystemPrompt,
+        gameSpecialInstructions: trimmedGameSpecialInstructions || null,
       },
       preferences,
       {
@@ -569,45 +604,126 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
   };
 
   return (
-    <Modal open={true} onClose={onCancel} title="New Game Setup" width="max-w-lg">
-      {/* Step indicator */}
-      <div className="mb-5 flex items-center gap-2">
-        {steps.map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <button
-              onClick={() => i < step && setStep(i)}
-              className={cn(
-                "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors",
-                i <= step ? "bg-[var(--primary)] text-white" : "bg-[var(--secondary)] text-[var(--muted-foreground)]",
-                i < step && "cursor-pointer hover:opacity-80",
-              )}
-            >
-              {i + 1}
-            </button>
-            <span className={cn("text-xs", i <= step ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]")}>
-              {s}
-            </span>
-            {i < steps.length - 1 && <div className="h-px w-4 bg-[var(--border)]" />}
-          </div>
-        ))}
+    <Modal open={true} onClose={onCancel} title="New Game" width="max-w-lg">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-[var(--foreground)]">{currentStepName}</h3>
       </div>
 
       {/* Step content */}
       <div className="mb-5 space-y-4">
         {step === 0 && (
           <>
-            {/* Game Name */}
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">Game Name</label>
+              <label className={GAME_SETUP_FIELD_LABEL}>Game Name</label>
               <input
                 type="text"
                 value={gameName}
                 onChange={(e) => setGameName(e.target.value)}
-                placeholder="Name your adventure…"
-                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
+                placeholder="Name your adventure..."
+                className={GAME_SETUP_INPUT_CLASS}
               />
             </div>
 
+            <div>
+              <label className={GAME_SETUP_FIELD_LABEL}>
+                <Plug size={12} className="mr-1 inline" />
+                Connection
+              </label>
+              <select
+                value={gmConnectionId ?? ""}
+                onChange={(e) => setGmConnectionId(e.target.value || null)}
+                className={GAME_SETUP_INPUT_CLASS}
+              >
+                <option value="">Select a connection...</option>
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.model ? ` - ${c.model}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[0.6875rem] leading-relaxed text-amber-800 dark:text-amber-100">
+                Use a strong model for the initial world generation. You can change it later in Chat Settings.
+              </p>
+              <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
+                <button
+                  onClick={() => setCustomizeParameters((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                >
+                  <div>
+                    <span className="block text-xs font-medium text-[var(--foreground)]">Customize Parameters</span>
+                    <span className="block text-[0.575rem] text-[var(--muted-foreground)]">
+                      Leave this off to use the selected connection&apos;s saved defaults for the game.
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      "h-5 w-9 rounded-full p-0.5 transition-colors",
+                      customizeParameters ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white transition-transform",
+                        customizeParameters && "translate-x-3.5",
+                      )}
+                    />
+                  </div>
+                </button>
+                {customizeParameters && (
+                  <div className="mt-3 border-t border-[var(--border)] pt-3">
+                    <GenerationParametersFields
+                      value={generationParameters}
+                      showOpenRouterServiceTier={selectedGmConnection?.provider === "openrouter"}
+                      onChange={setGenerationParameters}
+                    />
+                  </div>
+                )}
+              </div>
+              {connections.length === 0 && (
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  No connections configured. Add one in Settings - Connections.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className={GAME_SETUP_FIELD_LABEL}>
+                Scene Effects Connection
+                <span className="ml-1 text-[0.575rem] text-[var(--muted-foreground)]">(optional)</span>
+              </label>
+              <select
+                value={sceneModelValue ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "local") {
+                    setUseLocalScene(true);
+                    setSceneConnectionId(null);
+                  } else {
+                    setUseLocalScene(false);
+                    setSceneConnectionId(v || null);
+                  }
+                }}
+                className={GAME_SETUP_INPUT_CLASS}
+              >
+                <option value="">Skip - use inline tags from GM</option>
+                {sidecarAvailable && <option value="local">Local Model (Gemma)</option>}
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.model ? ` - ${c.model}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[0.575rem] text-[var(--muted-foreground)]">
+                Handles backgrounds, music, weather, and cinematic effects after each GM turn.
+              </p>
+            </div>
+          </>
+        )}
+
+        {step === 1 && (
+          <>
             {/* Genre — multi-select */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
@@ -849,7 +965,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
           </>
         )}
 
-        {step === 1 && (
+        {step === 2 && (
           <>
             {/* GM Mode */}
             <div>
@@ -1035,18 +1151,13 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                 </div>
               </div>
             </div>
-          </>
-        )}
 
-        {step === 2 && (
-          <>
             {/* Persona */}
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
+              <label className={GAME_SETUP_FIELD_LABEL}>
                 <User size={12} className="mr-1 inline" />
-                Your Persona
+                Player&apos;s Persona
               </label>
-              {/* Selected persona */}
               {personaId &&
                 (() => {
                   const p = personas.find((x) => x.id === personaId);
@@ -1061,7 +1172,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                           avatarCrop: parseAvatarCropJson(p.avatarCrop),
                         }}
                       />
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <span className="block truncate text-xs">{p.name}</span>
                         {title && (
                           <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">{title}</span>
@@ -1077,17 +1188,17 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                     </div>
                   );
                 })()}
-              <div className="rounded-lg ring-1 ring-[var(--border)] bg-[var(--card)] overflow-hidden">
+              <div className="overflow-hidden rounded-lg bg-[var(--card)] ring-1 ring-[var(--border)]">
                 <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
                   <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
                   <input
                     value={personaSearch}
                     onChange={(e) => setPersonaSearch(e.target.value)}
-                    placeholder="Search personas or titles…"
-                    className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+                    placeholder="Search personas or titles..."
+                    className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
                   />
                 </div>
-                <div className="max-h-28 overflow-y-auto">
+                <div className="max-h-32 overflow-y-auto">
                   {filteredPersonas.map((p) => {
                     const title = getPersonaTitle(p);
                     return (
@@ -1106,7 +1217,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                             avatarCrop: parseAvatarCropJson(p.avatarCrop),
                           }}
                         />
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <span className="block truncate text-xs">{p.name}</span>
                           {title && (
                             <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1126,111 +1237,11 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                 </div>
               </div>
             </div>
+          </>
+        )}
 
-            {/* GM Model */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
-                <Plug size={12} className="mr-1 inline" />
-                GM / Party Model
-              </label>
-              <select
-                value={gmConnectionId ?? ""}
-                onChange={(e) => setGmConnectionId(e.target.value || null)}
-                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
-              >
-                <option value="">Select a connection…</option>
-                {connections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.model ? ` — ${c.model}` : ""}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[0.6875rem] leading-relaxed text-amber-800 dark:border-amber-500/25 dark:text-amber-100">
-                <span className="font-semibold text-amber-900 dark:text-amber-200">Warning!</span> It&apos;s recommended
-                you use a strong model (any SOTA one; the newest Opus, Gemini, GPT) for the initial generation for the
-                best experience. You can change the model later, after the initial generation (in Chat Settings -&gt;
-                Connection).
-              </p>
-              <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
-                <button
-                  onClick={() => setCustomizeParameters((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-3 text-left"
-                >
-                  <div>
-                    <span className="block text-xs font-medium text-[var(--foreground)]">Customize Parameters</span>
-                    <span className="block text-[0.575rem] text-[var(--muted-foreground)]">
-                      Leave this off to use the selected connection&apos;s saved defaults for the initial world build
-                      and game chat.
-                    </span>
-                  </div>
-                  <div
-                    className={cn(
-                      "h-5 w-9 rounded-full p-0.5 transition-colors",
-                      customizeParameters ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "h-4 w-4 rounded-full bg-white transition-transform",
-                        customizeParameters && "translate-x-3.5",
-                      )}
-                    />
-                  </div>
-                </button>
-                {customizeParameters && (
-                  <div className="mt-3 border-t border-[var(--border)] pt-3">
-                    <GenerationParametersFields
-                      value={generationParameters}
-                      showOpenRouterServiceTier={selectedGmConnection?.provider === "openrouter"}
-                      onChange={setGenerationParameters}
-                    />
-                  </div>
-                )}
-              </div>
-              {connections.length === 0 && (
-                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  No connections configured. Add one in Settings → Connections.
-                </p>
-              )}
-            </div>
-
-            {/* Scene Effects Model — unified dropdown */}
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
-                Scene Effects Model
-                <span className="ml-1 text-[0.575rem] text-[var(--muted-foreground)]">(optional)</span>
-              </label>
-              <select
-                value={sceneModelValue ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "local") {
-                    setUseLocalScene(true);
-                    setSceneConnectionId(null);
-                  } else {
-                    setUseLocalScene(false);
-                    setSceneConnectionId(v || null);
-                  }
-                }}
-                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
-              >
-                <option value="">Skip — use inline tags from GM</option>
-                {sidecarAvailable && <option value="local">Local Model (Gemma)</option>}
-                {connections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.model ? ` — ${c.model}` : ""}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-[0.575rem] text-[var(--muted-foreground)]">
-                {sceneModelValue === "local"
-                  ? "Gemma handles backgrounds, music, weather, and cinematic effects. The GM handles narration, widgets, and expressions."
-                  : "Handles backgrounds, music, weather, and cinematic effects after each GM turn. If skipped, the GM model handles scene tags inline."}
-              </p>
-            </div>
-
+        {step === 5 && (
+          <>
             {/* Game Features */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">Game Features</label>
@@ -1252,9 +1263,9 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                         className={enableSpotifyDj ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
                       />
                       <div className="min-w-0">
-                        <span className="block text-xs font-medium text-[var(--foreground)]">Spotify DJ Music</span>
+                        <span className="block text-xs font-medium text-[var(--foreground)]">Music DJ</span>
                         <span className="block text-[0.575rem] text-[var(--muted-foreground)]">
-                          Use Spotify music for this game instead of local music assets
+                          Use the Music DJ for this game instead of local music assets
                         </span>
                       </div>
                     </div>
@@ -1350,7 +1361,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                           )}
                           {spotifyPlaylistsQuery.isError && (
                             <span className="text-[0.5625rem] text-amber-400/90">
-                              Connect Spotify in the Spotify DJ agent to load playlist names.
+                              Connect Spotify in the Music DJ agent to load playlist names.
                             </span>
                           )}
                         </label>
@@ -1480,7 +1491,11 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
             {/* Custom Widgets Toggle */}
             <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
               <button
-                onClick={() => setEnableCustomWidgets(!enableCustomWidgets)}
+                onClick={() => {
+                  const nextEnabled = !enableCustomWidgets;
+                  setEnableCustomWidgets(nextEnabled);
+                  if (!nextEnabled) setManualWidgetSetupEnabled(false);
+                }}
                 className="flex w-full items-center justify-between gap-2 text-left"
               >
                 <div className="flex items-center gap-2">
@@ -1509,6 +1524,44 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                   />
                 </div>
               </button>
+              {enableCustomWidgets && (
+                <div className="mt-3 space-y-3 border-t border-[var(--border)] pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setManualWidgetSetupEnabled((enabled) => !enabled)}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-all",
+                      manualWidgetSetupEnabled
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <div>
+                      <p className="text-xs font-medium text-[var(--foreground)]">Build Widget Setup</p>
+                      <p className="text-[0.55rem] text-[var(--muted-foreground)]">
+                        Choose the starting HUD widgets yourself.
+                      </p>
+                    </div>
+                    <div
+                      className={cn(
+                        "flex h-5 w-8 items-center rounded-full px-0.5 transition-colors",
+                        manualWidgetSetupEnabled ? "bg-[var(--primary)]" : "bg-[var(--secondary)]",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "h-4 w-4 rounded-full bg-white transition-transform",
+                          manualWidgetSetupEnabled && "translate-x-3.5",
+                        )}
+                      />
+                    </div>
+                  </button>
+
+                  {manualWidgetSetupEnabled && (
+                    <GameWidgetSetupEditor widgets={customHudWidgets} onChange={setCustomHudWidgets} />
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1577,7 +1630,11 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                 onForget={(value) => forgetGameSetupOption("preferences", value)}
               />
             </div>
+          </>
+        )}
 
+        {step === 4 && (
+          <>
             {/* Lorebooks */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
@@ -1647,7 +1704,11 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                 </div>
               </div>
             </div>
+          </>
+        )}
 
+        {step === 5 && (
+          <>
             {/* Start Muted */}
             <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
               <button
@@ -1682,53 +1743,162 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
             </div>
           </>
         )}
+
+        {step === 6 && (
+          <>
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--foreground)]">
+                <Feather size={12} />
+                Extra Instructions
+              </label>
+              <textarea
+                value={gameSpecialInstructions}
+                onChange={(event) => setGameSpecialInstructions(event.target.value)}
+                placeholder="Write in the style of Terry Pratchett."
+                rows={4}
+                maxLength={2000}
+                className="w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-all placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]/40"
+              />
+              <div className="mt-1 flex justify-end text-[0.5625rem] text-[var(--muted-foreground)]">
+                {gameSpecialInstructions.length}/2000
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
+              <button
+                type="button"
+                onClick={() => setCustomGamePromptEnabled((enabled) => !enabled)}
+                className="flex w-full items-center justify-between gap-2 text-left"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <Feather
+                    size={14}
+                    className={customGamePromptEnabled ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--foreground)]">GM Prompt</p>
+                    <p className="text-[0.55rem] text-[var(--muted-foreground)]">
+                      {customGamePromptEnabled ? "Custom prompt will replace the default" : "Using default game prompt"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-full bg-[var(--background)] px-2 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                    {customGamePromptEnabled ? "Custom" : "Default"}
+                  </span>
+                  <div
+                    className={cn(
+                      "flex h-5 w-8 items-center rounded-full px-0.5 transition-colors",
+                      customGamePromptEnabled ? "bg-[var(--primary)]" : "bg-[var(--secondary)]",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white transition-transform",
+                        customGamePromptEnabled && "translate-x-3.5",
+                      )}
+                    />
+                  </div>
+                </div>
+              </button>
+
+              {customGamePromptEnabled && (
+                <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
+                  <textarea
+                    value={gameSystemPromptDraft}
+                    onChange={(event) => setGameSystemPromptDraft(event.target.value)}
+                    rows={10}
+                    maxLength={16000}
+                    className="max-h-72 min-h-48 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-all placeholder:text-[var(--muted-foreground)]/50 focus:ring-[var(--primary)]/40"
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                      Resetting or leaving this unchanged keeps the built-in default.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setGameSystemPromptDraft(DEFAULT_GAME_SYSTEM_PROMPT)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    >
+                      <RotateCcw size={11} />
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Warning when model not selected */}
-      {step === steps.length - 1 && !canStart && (
-        <p className="mb-3 text-[0.6875rem] text-[var(--destructive)]">
-          Select a GM model on the &quot;You &amp; Model&quot; step before starting.
-        </p>
-      )}
-
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-[var(--border)]/30 pt-4">
-        <button
-          onClick={step === 0 ? onCancel : () => setStep(step - 1)}
-          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--secondary)]"
-        >
-          <ArrowLeft size={14} />
-          {step === 0 ? "Cancel" : "Back"}
-        </button>
+      <div className="sticky bottom-0 -mx-5 -mb-4 border-t border-[var(--border)]/30 bg-[var(--card)] px-5 pb-4 pt-3 shadow-[0_-12px_18px_rgba(0,0,0,0.18)]">
+        <div className="mb-3 flex items-center justify-center gap-1.5">
+          {steps.map((s, i) => (
+            <button
+              key={s}
+              type="button"
+              aria-label={`Go to ${s}`}
+              aria-current={i === step ? "step" : undefined}
+              disabled={i >= step}
+              onClick={() => {
+                if (i < step) setStep(i);
+              }}
+              className={cn(
+                "h-1.5 rounded-full transition-all duration-300 disabled:cursor-default",
+                i === step
+                  ? "w-5 bg-[var(--primary)]"
+                  : i < step
+                    ? "w-3 bg-[var(--primary)]/45 hover:bg-[var(--primary)]/70"
+                    : "w-1.5 bg-[var(--muted-foreground)]/25",
+              )}
+            />
+          ))}
+        </div>
 
-        {step < steps.length - 1 ? (
-          <button
-            onClick={() => setStep(step + 1)}
-            className="flex items-center gap-1 rounded-lg bg-[var(--primary)]/15 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25"
-          >
-            Next
-            <ArrowRight size={14} />
-          </button>
-        ) : (
-          <button
-            onClick={handleComplete}
-            disabled={isLoading || !canStart}
-            className="flex items-center gap-1 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            title={!canStart ? "Select a GM model on the You & Model step" : undefined}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Generating World…
-              </>
-            ) : (
-              <>
-                <Wand2 size={14} />
-                Start Game
-              </>
-            )}
-          </button>
+        {step === steps.length - 1 && !canStart && (
+          <p className="mb-3 text-center text-[0.6875rem] text-[var(--destructive)]">
+            Select a connection on the first step before starting.
+          </p>
         )}
+
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={step === 0 ? onCancel : () => setStep(step - 1)}
+            className={GAME_SETUP_GHOST_BUTTON_CLASS}
+          >
+            <ArrowLeft size={14} />
+            {step === 0 ? "Cancel" : "Back"}
+          </button>
+
+          {step < steps.length - 1 ? (
+            <button type="button" onClick={() => setStep(step + 1)} className={GAME_SETUP_PRIMARY_BUTTON_CLASS}>
+              Next
+              <ArrowRight size={14} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={isLoading || !canStart}
+              className={GAME_SETUP_PRIMARY_BUTTON_CLASS}
+              title={!canStart ? "Select a connection on the first step" : undefined}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Generating World…
+                </>
+              ) : (
+                <>
+                  <Wand2 size={14} />
+                  Start Game
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </Modal>
   );

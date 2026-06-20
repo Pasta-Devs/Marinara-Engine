@@ -4,7 +4,7 @@
 // Positions itself within the chat area, respecting sidebar, right panel,
 // HUD widget position (top/left/right), and the top bar.
 // ──────────────────────────────────────────────
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { X, Trash2 } from "lucide-react";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -14,6 +14,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useChat } from "../../hooks/use-chats";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
+import { ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
 
 const MESSAGE_INTERVAL_MS = 30_000; // 30 s between reveals
 const NAME_COLORS = [
@@ -21,14 +22,14 @@ const NAME_COLORS = [
   "text-blue-400",
   "text-green-400",
   "text-yellow-400",
-  "text-purple-400",
-  "text-pink-400",
   "text-cyan-400",
   "text-orange-400",
   "text-emerald-400",
-  "text-rose-400",
-  "text-indigo-400",
   "text-amber-400",
+  "text-teal-400",
+  "text-lime-400",
+  "text-sky-400",
+  "text-stone-300",
 ];
 
 const CORNERS: EchoChamberSide[] = ["top-left", "top-right", "bottom-left", "bottom-right"];
@@ -36,10 +37,85 @@ const CORNERS: EchoChamberSide[] = ["top-left", "top-right", "bottom-left", "bot
 // Layout constants (px)
 const WIDGET_BAR_H = 76; // top HUD toolbar: py-2 (16px) + widget buttons h-[3.75rem] (60px)
 const INPUT_BOX_H = 72; // bottom chat input area height
-const GAP = 8; // breathing room
+const HUD_EDGE_GAP = 16; // Aligns with the roleplay HUD edge padding.
+const FLOATING_EDGE_GAP = 16;
+const TOP_BUTTON_GAP = 6; // Matches the tracker panel gap below the top controls.
+const DESKTOP_PANEL_WIDTH = 236;
+const ROLEPLAY_AREA_SELECTOR = ".rpg-chat-area";
+const ROLEPLAY_TOP_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
+const ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR = '[data-roleplay-top-controls="right"]';
 
 interface EchoChamberPanelProps {
   hiddenOnMobile?: boolean;
+}
+
+function readVisibleRect(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0 || window.getComputedStyle(element).display === "none") return null;
+  return rect;
+}
+
+function findVisibleHud(): HTMLElement | null {
+  const els = document.querySelectorAll<HTMLElement>(".rpg-hud");
+  for (const el of els) {
+    if (readVisibleRect(el)) return el;
+  }
+  return null;
+}
+
+function findVisibleElement(selector: string): HTMLElement | null {
+  const els = document.querySelectorAll<HTMLElement>(selector);
+  for (const el of els) {
+    if (readVisibleRect(el)) return el;
+  }
+  return null;
+}
+
+function getRoleplayAreaRect() {
+  return document.querySelector<HTMLElement>(ROLEPLAY_AREA_SELECTOR)?.getBoundingClientRect() ?? null;
+}
+
+function getDesktopAlignmentElement(isLeft: boolean) {
+  return isLeft
+    ? (findVisibleHud() ?? findVisibleElement(ROLEPLAY_TOP_ANCHOR_SELECTOR))
+    : findVisibleElement(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR);
+}
+
+function getTopChromeBottomOffset(containerRect: DOMRect, alignmentRect: DOMRect | null) {
+  const candidates: number[] = [];
+  const anchors = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR));
+  anchors.forEach((anchor) => {
+    const rect = readVisibleRect(anchor);
+    if (rect) candidates.push(Math.ceil(rect.bottom - containerRect.top + TOP_BUTTON_GAP));
+  });
+  if (alignmentRect) candidates.push(Math.ceil(alignmentRect.bottom - containerRect.top + TOP_BUTTON_GAP));
+
+  return candidates.length > 0 ? Math.max(TOP_BUTTON_GAP, ...candidates) : WIDGET_BAR_H + TOP_BUTTON_GAP;
+}
+
+function getDesktopPanelPosition(isTop: boolean, isLeft: boolean): CSSProperties {
+  const containerRect = getRoleplayAreaRect();
+  const alignmentElement = getDesktopAlignmentElement(isLeft);
+  const alignmentRect = alignmentElement ? readVisibleRect(alignmentElement) : null;
+  const edgeOffset = alignmentRect && containerRect ? Math.max(0, Math.round(alignmentRect.left - containerRect.left)) : null;
+  const rightEdgeOffset =
+    alignmentRect && containerRect ? Math.max(0, Math.round(containerRect.right - alignmentRect.right)) : null;
+  const topOffset = isTop && containerRect ? getTopChromeBottomOffset(containerRect, alignmentRect) : undefined;
+
+  return {
+    ...(topOffset !== undefined && { top: topOffset }),
+    ...(!isTop && { bottom: INPUT_BOX_H + FLOATING_EDGE_GAP }),
+    ...(isLeft && {
+      left: edgeOffset !== null ? `${edgeOffset}px` : `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-left, 0px))`,
+    }),
+    ...(!isLeft && {
+      right:
+        rightEdgeOffset !== null
+          ? `${rightEdgeOffset}px`
+          : `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-right, 0px))`,
+    }),
+    width: `${DESKTOP_PANEL_WIDTH}px`,
+  };
 }
 
 /** Tiny 4-square grid icon; the active corner is highlighted. */
@@ -53,7 +129,9 @@ function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChang
           onClick={() => onChange(c)}
           className={cn(
             "h-[0.4375rem] w-[0.4375rem] rounded-[0.09375rem] transition-colors",
-            c === current ? "bg-purple-400" : "bg-white/15 hover:bg-white/30",
+            c === current
+              ? "bg-[var(--marinara-chat-chrome-button-text-hover)]"
+              : "bg-[var(--marinara-chat-chrome-highlight-bg)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
           )}
           title={c.replace("-", " ")}
         />
@@ -187,27 +265,19 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   }, [echoMessages]);
 
   // ── Compute position style relative to the chat area container ──
-  const [posStyle, setPosStyle] = useState<Record<string, number | undefined>>({});
+  const [posStyle, setPosStyle] = useState<CSSProperties>({});
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   useEffect(() => {
     if (!echoChamberOpen) return;
     // On mobile, position below the HUD bar.
     if (typeof window !== "undefined" && window.innerWidth < 768) {
-      const findVisibleHud = (): HTMLElement | null => {
-        const els = document.querySelectorAll<HTMLElement>(".rpg-hud");
-        for (const el of els) {
-          if (el.getBoundingClientRect().height > 0) return el;
-        }
-        return null;
-      };
-
       const update = () => {
         const hudEl = findVisibleHud();
         // Position relative to container, so measure HUD bottom relative to rpg-chat-area
         const container = hudEl?.closest(".rpg-chat-area");
         const containerTop = container?.getBoundingClientRect().top ?? 0;
-        const hudBottom = hudEl ? hudEl.getBoundingClientRect().bottom - containerTop : 56;
+        const hudBottom = hudEl ? hudEl.getBoundingClientRect().bottom - containerTop : WIDGET_BAR_H;
         setPosStyle({ top: hudBottom + 8, left: 16, right: 16 });
       };
 
@@ -225,17 +295,69 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     // Desktop: position within the chat area container (absolute, not fixed)
     const isTop = echoChamberSide.startsWith("top");
     const isLeft = echoChamberSide.endsWith("left");
-    const topOffset = isTop ? WIDGET_BAR_H + GAP : undefined;
-    const bottomOffset = !isTop ? INPUT_BOX_H + GAP : undefined;
-    const leftOffset = isLeft ? GAP : undefined;
-    const rightOffset = !isLeft ? GAP : undefined;
-    setPosStyle({
-      ...(topOffset !== undefined && { top: topOffset }),
-      ...(bottomOffset !== undefined && { bottom: bottomOffset }),
-      ...(leftOffset !== undefined && { left: leftOffset }),
-      ...(rightOffset !== undefined && { right: rightOffset }),
-    });
+    const update = () => {
+      setPosStyle(getDesktopPanelPosition(isTop, isLeft));
+    };
+
+    update();
+
+    let frame = 0;
+    let discoveryObserver: MutationObserver | null = null;
+    const observedTargets = new Set<HTMLElement>();
+    const observer = new ResizeObserver(() => scheduleUpdate());
+    const observeTargets = () => {
+      const roleplayAreas = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_AREA_SELECTOR));
+      const topAnchors = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR));
+      const topRightControls = Array.from(
+        document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR),
+      );
+      const huds = Array.from(document.querySelectorAll<HTMLElement>(".rpg-hud"));
+      const targets = [...roleplayAreas, ...topAnchors, ...topRightControls, ...huds];
+      targets.forEach((target) => {
+        if (observedTargets.has(target)) return;
+        observer.observe(target);
+        observedTargets.add(target);
+      });
+      return roleplayAreas.length > 0 && (isLeft ? huds.length > 0 : topRightControls.length > 0);
+    };
+    function scheduleUpdate() {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const foundTargets = observeTargets();
+        update();
+        if (foundTargets) {
+          discoveryObserver?.disconnect();
+          discoveryObserver = null;
+        }
+      });
+    }
+
+    scheduleUpdate();
+    discoveryObserver = new MutationObserver(() => scheduleUpdate());
+    discoveryObserver.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      discoveryObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+    };
   }, [echoChamberOpen, echoChamberSide]);
+
+  useEffect(() => {
+    if (!echoChamberOpen || !echoEnabled || (isMobile && hiddenOnMobile)) return;
+
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => {
+        const scrollEl = scrollRef.current;
+        if (!scrollEl) return;
+        scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: "auto" });
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [echoChamberOpen, echoEnabled, hiddenOnMobile, isMobile]);
 
   if (!echoChamberOpen || !echoEnabled || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);
@@ -243,21 +365,24 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   return (
     <div
       className={cn(
-        "absolute z-[60] flex flex-col rounded-xl border border-white/[0.04] shadow-lg",
-        "pointer-events-auto w-60 max-md:w-auto max-h-44 max-md:max-h-28",
+        ROLEPLAY_POPOVER_SHELL,
+        "absolute z-[60] flex flex-col",
+        "pointer-events-auto max-md:w-auto md:w-[14.75rem] md:max-h-[22rem] max-md:max-h-28",
       )}
-      style={{ ...posStyle, background: "rgba(10, 10, 22, 0.35)", backdropFilter: "blur(14px)" }}
+      style={posStyle}
     >
       {/* Header — live dot, corner picker, close */}
       <div className="flex items-center justify-between px-2 py-1">
-        <span className="flex items-center gap-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-purple-400/60">
+        <span className="flex items-center gap-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
           </span>
           Echo
           {visibleMessages.length > 0 && (
-            <span className="ml-0.5 text-[0.5625rem] font-normal text-white/25">{visibleMessages.length}</span>
+            <span className="ml-0.5 text-[0.5625rem] font-normal text-[var(--marinara-chat-chrome-panel-muted)]">
+              {visibleMessages.length}
+            </span>
           )}
         </span>
         <div className="flex items-center gap-1.5">
@@ -274,7 +399,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
                   /* best-effort */
                 }
               }}
-              className="rounded p-0.5 text-white/20 transition-colors hover:bg-white/10 hover:text-white/50"
+              className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
               title="Clear messages"
             >
               <Trash2 size="0.5625rem" />
@@ -286,7 +411,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
           </span>
           <button
             onClick={toggleEchoChamber}
-            className="rounded p-0.5 text-white/20 transition-colors hover:bg-white/10 hover:text-white/50"
+            className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
           >
             <X size="0.625rem" />
           </button>
@@ -296,7 +421,9 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       {/* Scrollable message area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 pb-1.5 scrollbar-thin">
         {visibleMessages.length === 0 ? (
-          <p className="py-1.5 text-center text-[0.625rem] text-white/25">Waiting for reactions…</p>
+          <p className="py-1.5 text-center text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)]">
+            Waiting for reactions…
+          </p>
         ) : (
           <div className="flex flex-col gap-0.5">
             {visibleMessages.map((msg, i) => (
@@ -304,8 +431,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
                 <span className={cn("text-[0.6875rem] font-bold", nameColorMap.get(msg.characterName))}>
                   {msg.characterName}
                 </span>
-                <span className="text-[0.6875rem] text-white/30">: </span>
-                <span className="text-[0.6875rem] leading-snug text-white/60">{msg.reaction}</span>
+                <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">: </span>
+                <span className="text-[0.6875rem] leading-snug text-[var(--marinara-chat-chrome-panel-text)]">
+                  {msg.reaction}
+                </span>
               </div>
             ))}
           </div>

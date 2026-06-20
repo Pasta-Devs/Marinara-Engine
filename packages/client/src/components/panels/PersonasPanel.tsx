@@ -22,33 +22,30 @@ import {
   User,
   Pencil,
   Camera,
-  Star,
   ArrowUpDown,
   Download,
   Search,
-  Sparkles,
   FolderPlus,
-  FolderOpen,
   ChevronDown,
   ChevronRight,
   Copy,
-  Users,
   X,
   Check,
-  UserPlus,
   UserMinus,
   Tag,
 } from "lucide-react";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../lib/utils";
-import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
-import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
+import { SelectionActionBar } from "../ui/SelectionActionBar";
 
 type PersonaRow = {
   id: string;
   name: string;
   comment?: string;
+  creator?: string;
+  personaVersion?: string;
+  creatorNotes?: string;
   description: string;
   personality: string;
   scenario: string;
@@ -63,14 +60,41 @@ type PersonaRow = {
 };
 
 type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string };
-type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[]; isSynthetic?: boolean };
+type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[] };
 
 type SortOption = "name-asc" | "name-desc" | "newest" | "oldest" | "tokens";
-const UNGROUPED_PERSONA_GROUP_ID = "__ungrouped-personas__";
+
+function getNextUnnamedFolderName(folders: Array<{ name: string }>) {
+  const names = new Set(folders.map((folder) => folder.name.toLowerCase()));
+  if (!names.has("unnamed")) return "unnamed";
+  let index = 2;
+  while (names.has(`unnamed ${index}`)) index++;
+  return `unnamed ${index}`;
+}
+
+function parseDroppedPersonaIds(payload: string): unknown {
+  if (!payload) return undefined;
+  try {
+    return JSON.parse(payload);
+  } catch {
+    return undefined;
+  }
+}
 
 function estimateTokens(p: PersonaRow): number {
   const text = [p.description, p.personality, p.scenario, p.backstory, p.appearance].join("");
   return Math.ceil(text.length / 4);
+}
+
+function getPersonaPreviewMetadata(p: PersonaRow): string | null {
+  const parts: string[] = [];
+  const creator = p.creator?.trim() ?? "";
+  const version = p.personaVersion?.trim() ?? "";
+
+  if (creator) parts.push(`by ${creator}`);
+  if (version) parts.push(`v${version}`);
+
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 export function PersonasPanel() {
@@ -97,16 +121,13 @@ export function PersonasPanel() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
-  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
-  // Groups state
-  const [groupsExpanded, setGroupsExpanded] = useState(true);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
-  const [creatingGroup, setCreatingGroup] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
-  const [assigningToGroup, setAssigningToGroup] = useState<string | null>(null);
+  const [draggedPersonaId, setDraggedPersonaId] = useState<string | null>(null);
+  const personaTouchDragRef = useRef<{ id: string; timer: number | null; active: boolean } | null>(null);
+  const suppressPersonaClickRef = useRef(false);
 
   const isActive = (p: PersonaRow) => p.isActive === true || p.isActive === "true";
 
@@ -191,8 +212,7 @@ export function PersonasPanel() {
 
   const parsedGroups = useMemo<ParsedPersonaGroupRow[]>(() => {
     if (!personaGroupsRaw) return [];
-    const assignedIds = new Set<string>();
-    const realGroups = (personaGroupsRaw as PersonaGroupRow[]).map((g) => {
+    return (personaGroupsRaw as PersonaGroupRow[]).map((g) => {
       const memberIds = (() => {
         try {
           return JSON.parse(g.personaIds);
@@ -200,56 +220,141 @@ export function PersonasPanel() {
           return [];
         }
       })() as string[];
-      for (const id of memberIds) assignedIds.add(id);
       return {
         ...g,
         memberIds,
       };
     });
-    const ungroupedMemberIds = rawList
-      .filter((persona) => !assignedIds.has(persona.id))
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((persona) => persona.id);
-    if (ungroupedMemberIds.length === 0) return realGroups;
-    return [
-      ...realGroups,
-      {
-        id: UNGROUPED_PERSONA_GROUP_ID,
-        name: "Ungrouped",
-        description: "Personas not assigned to any group",
-        personaIds: JSON.stringify(ungroupedMemberIds),
-        memberIds: ungroupedMemberIds,
-        isSynthetic: true,
-      },
-    ];
-  }, [personaGroupsRaw, rawList]);
+  }, [personaGroupsRaw]);
 
-  const handleCreateGroup = useCallback(() => {
-    const name = newGroupName.trim();
-    if (!name) return;
-    createPGroup.mutate({ name, personaIds: [] });
-    setNewGroupName("");
-    setCreatingGroup(false);
-  }, [newGroupName, createPGroup]);
+  const folderedPersonaIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const folder of parsedGroups) {
+      for (const id of folder.memberIds) ids.add(id);
+    }
+    return ids;
+  }, [parsedGroups]);
+
+  const handleCreateFolder = useCallback(() => {
+    createPGroup.mutate({ name: getNextUnnamedFolderName(parsedGroups), personaIds: [] });
+  }, [createPGroup, parsedGroups]);
 
   const handleRenameGroup = useCallback(
     (groupId: string) => {
       const name = editGroupName.trim();
-      if (!name) return;
-      updatePGroup.mutate({ id: groupId, name });
+      if (name) updatePGroup.mutate({ id: groupId, name });
       setEditingGroupId(null);
       setEditGroupName("");
     },
     [editGroupName, updatePGroup],
   );
 
-  const toggleGroupMember = useCallback(
-    (groupId: string, personaId: string, currentMembers: string[]) => {
-      const isMember = currentMembers.includes(personaId);
-      const newMembers = isMember ? currentMembers.filter((id) => id !== personaId) : [...currentMembers, personaId];
-      updatePGroup.mutate({ id: groupId, personaIds: newMembers });
+  const handleDeleteGroup = useCallback(
+    async (group: ParsedPersonaGroupRow) => {
+      const memberCount = group.memberIds.length;
+      const ok = await confirmNonEmptyFolderDelete(memberCount, {
+        title: "Delete Folder",
+        message: `Delete "${group.name}"? Its ${memberCount} persona${
+          memberCount === 1 ? "" : "s"
+        } will stay in the library and move out of the folder.`,
+        confirmLabel: "Delete",
+        tone: "destructive",
+      });
+      if (!ok) return;
+      deletePGroup.mutate(group.id);
+      if (expandedGroupId === group.id) setExpandedGroupId(null);
     },
-    [updatePGroup],
+    [deletePGroup, expandedGroupId],
+  );
+
+  const getDraggedPersonaIds = useCallback(
+    (personaId: string) =>
+      selectionMode && selectedPersonaIds.has(personaId) ? Array.from(selectedPersonaIds) : [personaId],
+    [selectedPersonaIds, selectionMode],
+  );
+
+  const movePersonasToFolder = useCallback(
+    async (personaIds: string[], folderId: string | null) => {
+      const ids = Array.from(new Set(personaIds.filter(Boolean)));
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      const targetFolder = folderId ? parsedGroups.find((folder) => folder.id === folderId) : null;
+      const updates = parsedGroups
+        .map((folder) => {
+          const withoutPersona = folder.memberIds.filter((id) => !idSet.has(id));
+          const nextMembers =
+            targetFolder && folder.id === targetFolder.id
+              ? [...withoutPersona, ...ids.filter((id) => !withoutPersona.includes(id))]
+              : withoutPersona;
+          if (
+            nextMembers.length === folder.memberIds.length &&
+            nextMembers.every((id, index) => id === folder.memberIds[index])
+          ) {
+            return null;
+          }
+          return updatePGroup.mutateAsync({ id: folder.id, personaIds: nextMembers });
+        })
+        .filter((promise): promise is Promise<unknown> => promise !== null);
+      if (updates.length > 0) await Promise.all(updates);
+    },
+    [parsedGroups, updatePGroup],
+  );
+
+  const handlePersonaDrop = useCallback(
+    (folderId: string | null, personaIds?: unknown) => {
+      const ids = Array.isArray(personaIds)
+        ? personaIds.filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+        : draggedPersonaId
+          ? [draggedPersonaId]
+          : [];
+      if (ids.length === 0) return;
+      void movePersonasToFolder(ids, folderId);
+      setDraggedPersonaId(null);
+    },
+    [draggedPersonaId, movePersonasToFolder],
+  );
+
+  const startPersonaTouchDrag = useCallback((event: React.TouchEvent, personaId: string) => {
+    const timer = window.setTimeout(() => {
+      personaTouchDragRef.current = { id: personaId, timer: null, active: true };
+      suppressPersonaClickRef.current = true;
+      setDraggedPersonaId(personaId);
+    }, 450);
+    personaTouchDragRef.current = { id: personaId, timer, active: false };
+    event.currentTarget.addEventListener(
+      "touchcancel",
+      () => {
+        const current = personaTouchDragRef.current;
+        if (current?.timer) window.clearTimeout(current.timer);
+        personaTouchDragRef.current = null;
+        setDraggedPersonaId(null);
+      },
+      { once: true },
+    );
+  }, []);
+
+  const finishPersonaTouchDrag = useCallback(
+    (event: React.TouchEvent) => {
+      const current = personaTouchDragRef.current;
+      if (!current) return;
+      if (current.timer) window.clearTimeout(current.timer);
+      personaTouchDragRef.current = null;
+      if (!current.active) return;
+      const touch = event.changedTouches[0];
+      const target = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : null;
+      const folderElement = target?.closest("[data-persona-folder-id]") as HTMLElement | null;
+      const rootElement = target?.closest("[data-persona-folder-root]") as HTMLElement | null;
+      if (folderElement?.dataset.personaFolderId) {
+        void movePersonasToFolder(getDraggedPersonaIds(current.id), folderElement.dataset.personaFolderId);
+      } else if (rootElement) {
+        void movePersonasToFolder(getDraggedPersonaIds(current.id), null);
+      }
+      setDraggedPersonaId(null);
+      window.setTimeout(() => {
+        suppressPersonaClickRef.current = false;
+      }, 0);
+    },
+    [getDraggedPersonaIds, movePersonasToFolder],
   );
 
   const filteredList = useMemo(() => {
@@ -296,6 +401,13 @@ export function PersonasPanel() {
     }
   }, [filteredList, sort]);
 
+  const visibleRootPersonas = useMemo(
+    () => list.filter((persona) => !folderedPersonaIds.has(persona.id)),
+    [list, folderedPersonaIds],
+  );
+  const visiblePersonaById = useMemo(() => new Map(list.map((persona) => [persona.id, persona])), [list]);
+  const folderFilterActive = search.trim().length > 0 || activeTag !== null || favFilter !== "all";
+
   const exitSelectionMode = useCallback(() => {
     setSelectionMode(false);
     setSelectedPersonaIds(new Set());
@@ -311,15 +423,14 @@ export function PersonasPanel() {
   }, []);
 
   const handleExportSelected = useCallback(
-    async (format: ExportFormatChoice) => {
+    async () => {
       if (selectedPersonaIds.size === 0) return;
       setExportingSelected(true);
-      setExportDialogOpen(false);
       try {
         await api.downloadPost(
           "/characters/personas/export-bulk",
-          { ids: [...selectedPersonaIds], format },
-          format === "compatible" ? "compatible-personas.zip" : "marinara-personas.zip",
+          { ids: [...selectedPersonaIds], format: "native" },
+          "marinara-personas.zip",
         );
         toast.success(`Exported ${selectedPersonaIds.size} persona${selectedPersonaIds.size === 1 ? "" : "s"}`);
       } catch (error) {
@@ -331,132 +442,40 @@ export function PersonasPanel() {
     [selectedPersonaIds],
   );
 
+  const handleDeleteSelected = useCallback(async () => {
+    const ids = [...selectedPersonaIds];
+    if (ids.length === 0) return;
+
+    if (
+      !(await showConfirmDialog({
+        title: "Delete Personas",
+        message: `Delete ${ids.length} persona${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
+        confirmLabel: "Delete",
+        tone: "destructive",
+      }))
+    ) {
+      return;
+    }
+
+    const results = await Promise.allSettled(ids.map((id) => deletePersona.mutateAsync(id)));
+    const failedIds = ids.filter((_, index) => results[index]?.status === "rejected");
+    const deletedCount = ids.length - failedIds.length;
+
+    if (deletedCount > 0) {
+      toast.success(`Deleted ${deletedCount} persona${deletedCount === 1 ? "" : "s"}`);
+    }
+
+    if (failedIds.length > 0) {
+      setSelectedPersonaIds(new Set(failedIds));
+      toast.error(`Failed to delete ${failedIds.length} persona${failedIds.length === 1 ? "" : "s"}`);
+      return;
+    }
+
+    exitSelectionMode();
+  }, [deletePersona, exitSelectionMode, selectedPersonaIds]);
+
   return (
-    <div className="flex flex-col gap-2 p-3">
-      {/* Header help */}
-      <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
-        Your personas
-        <HelpTooltip text="Personas are your different identities. The active persona determines how the AI refers to you and sees your description, personality, backstory, and appearance. Great for switching between different player characters!" />
-      </div>
-
-      {/* Search + Sort */}
-      <div className="flex gap-1.5">
-        <div className="relative flex-1">
-          <Search
-            size="0.8125rem"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-          />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search personas"
-            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-8 pr-3 text-xs outline-none transition-colors placeholder:text-[var(--muted-foreground)]/50 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-          />
-        </div>
-        <div className="relative">
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            className="h-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--secondary)] py-2 pl-2.5 pr-7 text-[0.6875rem] outline-none transition-colors focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
-            title="Sort order"
-          >
-            <option value="name-asc">A-Z</option>
-            <option value="name-desc">Z-A</option>
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="tokens">Tokens</option>
-          </select>
-          <ArrowUpDown
-            size="0.625rem"
-            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-          />
-        </div>
-      </div>
-
-      {/* Active / Inactive filter */}
-      <div className="flex gap-1">
-        {(["all", "active", "inactive"] as const).map((opt) => (
-          <button
-            key={opt}
-            onClick={() => setFavFilter(opt)}
-            className={cn(
-              "flex items-center gap-1 rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
-              favFilter === opt
-                ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30"
-                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-          >
-            {opt === "active" && <Star size="0.5625rem" />}
-            {opt === "all" ? "All" : opt === "active" ? "Active" : "Inactive"}
-          </button>
-        ))}
-      </div>
-
-      {/* Tag filter bar */}
-      {allTags.length > 0 && (
-        <div className="space-y-1">
-          <button
-            onClick={() => setTagsExpanded(!tagsExpanded)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[0.625rem] font-medium transition-all",
-              activeTag
-                ? "bg-emerald-400/15 text-emerald-400"
-                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-          >
-            <Tag size="0.625rem" />
-            Tags ({allTags.length}){activeTag && <span className="ml-0.5 opacity-70">· {activeTag}</span>}
-            <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
-          </button>
-          {tagsExpanded && (
-            <div className="flex flex-wrap gap-1">
-              {activeTag && (
-                <button
-                  onClick={() => setActiveTag(null)}
-                  className="flex items-center gap-1 rounded-full bg-[var(--destructive)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/20"
-                >
-                  <X size="0.5rem" /> Clear
-                </button>
-              )}
-              {allTags.map((tag) => (
-                <div
-                  key={tag}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setActiveTag(activeTag === tag ? null : tag)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setActiveTag(activeTag === tag ? null : tag);
-                    }
-                  }}
-                  className={cn(
-                    "group/tag flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.625rem] font-medium transition-all cursor-pointer",
-                    activeTag === tag
-                      ? "bg-emerald-400/20 text-emerald-400 ring-1 ring-emerald-400/30"
-                      : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                  )}
-                >
-                  <Tag size="0.5rem" />
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTag(tag);
-                    }}
-                    className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-[var(--destructive)]/20 hover:text-[var(--destructive)]"
-                    title={`Delete tag "${tag}"`}
-                  >
-                    <X size="0.5rem" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
+    <div className="flex min-h-full flex-col gap-2 p-3">
       {/* Actions */}
       <div className="flex gap-2">
         <button
@@ -469,31 +488,19 @@ export function PersonasPanel() {
         </button>
         <button
           onClick={() => openModal("import-persona")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
+          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
           title="Import"
         >
           <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
         </button>
         <button
-          onClick={() => openModal("persona-maker")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] active:scale-[0.98]"
-          title="AI Maker"
-        >
-          <Sparkles size="0.8125rem" /> <span className="md:hidden">Maker</span>
-        </button>
-        <button
           onClick={() => {
             if (selectionMode) exitSelectionMode();
-            else {
-              setAssigningToGroup(null);
-              setSelectionMode(true);
-            }
+            else setSelectionMode(true);
           }}
           className={cn(
-            "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all",
-            selectionMode
-              ? "bg-emerald-400/15 text-emerald-400 ring-1 ring-emerald-400/30"
-              : "bg-[var(--secondary)] text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
+            selectionMode && "mari-chrome-control--selected",
           )}
           title="Select"
         >
@@ -502,293 +509,345 @@ export function PersonasPanel() {
         </button>
       </div>
 
-      {selectionMode && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-3 py-2">
-          <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {selectedPersonaIds.size} selected
-          </span>
-          <button
-            onClick={() => setSelectedPersonaIds(new Set(list.map((persona) => persona.id)))}
-            disabled={list.length === 0}
-            className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-emerald-400 transition-colors hover:bg-[var(--accent)] disabled:opacity-40"
+      {/* Search + Sort */}
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <Search
+            size="0.8125rem"
+            className="mari-chrome-field-icon absolute left-3 top-1/2 -translate-y-1/2"
+          />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search personas"
+            className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortOption)}
+            className="mari-chrome-field h-full appearance-none py-2 pl-2.5 pr-7 text-[0.6875rem]"
+            title="Sort order"
           >
-            Select visible
-          </button>
+            <option value="name-asc">A-Z</option>
+            <option value="name-desc">Z-A</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="tokens">Tokens</option>
+          </select>
+          <ArrowUpDown
+            size="0.625rem"
+            className="mari-chrome-field-icon pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setSelectedPersonaIds(new Set())}
-            disabled={selectedPersonaIds.size === 0}
-            className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+            onClick={handleCreateFolder}
+            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
           >
-            Clear
-          </button>
-          <button
-            onClick={() => setExportDialogOpen(true)}
-            disabled={selectedPersonaIds.size === 0 || exportingSelected}
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[0.625rem] font-medium text-white transition-all hover:opacity-90 disabled:opacity-40"
-          >
-            <Download size="0.6875rem" />
-            {exportingSelected ? "Exporting..." : "Export ZIP"}
-          </button>
-          <button
-            onClick={exitSelectionMode}
-            className="rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            Done
+            <FolderPlus size="0.75rem" />
+            New Folder
           </button>
         </div>
-      )}
+        {parsedGroups.length > 0 && <p className="mari-folder-helper">Drag and drop personas to folders</p>}
+      </div>
 
-      <ExportFormatDialog
-        open={exportDialogOpen}
-        title="Export Personas"
-        description="Native keeps Marinara persona metadata. Compatible exports simple persona JSON for other tools."
-        compatibleDescription="Exports persona fields directly without the Marinara wrapper."
-        onClose={() => setExportDialogOpen(false)}
-        onSelect={handleExportSelected}
-      />
+      {/* Filters */}
+      <div className="flex flex-wrap gap-1">
+        {(["all", "active", "inactive"] as const).map((opt) => (
+          <button
+            key={opt}
+            onClick={() => setFavFilter(opt)}
+            className={cn(
+              "mari-chrome-control mari-chrome-control--compact",
+              favFilter === opt && "mari-chrome-control--selected",
+            )}
+          >
+            {opt === "all" ? "All" : opt === "active" ? "Active" : "Inactive"}
+          </button>
+        ))}
+        {allTags.length > 0 && (
+          <button
+            onClick={() => setTagsExpanded(!tagsExpanded)}
+            className={cn(
+              "mari-chrome-control mari-chrome-control--compact",
+              activeTag && "mari-chrome-control--selected",
+            )}
+          >
+            <Tag size="0.625rem" />
+            Tags ({allTags.length})
+            <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
+          </button>
+        )}
+      </div>
+
+      {allTags.length > 0 && tagsExpanded && (
+        <div className="flex flex-wrap gap-1">
+          {activeTag && (
+            <button
+              onClick={() => setActiveTag(null)}
+              className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--danger"
+            >
+              <X size="0.5rem" /> Clear
+            </button>
+          )}
+          {allTags.map((tag) => (
+            <div
+              key={tag}
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveTag(activeTag === tag ? null : tag)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setActiveTag(activeTag === tag ? null : tag);
+                }
+              }}
+              className={cn(
+                "mari-chrome-control mari-chrome-control--compact group/tag cursor-pointer",
+                activeTag === tag && "mari-chrome-control--selected",
+              )}
+            >
+              {tag}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteTag(tag);
+                }}
+                className="ml-0.5 rounded-full p-0.5 transition-colors hover:bg-[var(--destructive)]/20 hover:text-[var(--destructive)]"
+                title={`Delete tag "${tag}"`}
+              >
+                <X size="0.5rem" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Hidden file input for avatar uploads */}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
-      {/* ── Groups Section ── */}
-      <div className="mt-1">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setGroupsExpanded(!groupsExpanded)}
-            className="flex items-center gap-1.5 px-1 py-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
-          >
-            {groupsExpanded ? <ChevronDown size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-            <Users size="0.6875rem" />
-            Groups ({parsedGroups.length})
-          </button>
-          <button
-            onClick={() => {
-              setCreatingGroup(true);
-              setGroupsExpanded(true);
-            }}
-            className="rounded-lg p-1 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--primary)]"
-            title="Create group"
-          >
-            <FolderPlus size="0.8125rem" />
-          </button>
-        </div>
-
-        {groupsExpanded && (
-          <div className="flex flex-col gap-1 pt-1">
-            {/* Inline create */}
-            {creatingGroup && (
-              <div className="flex items-center gap-1.5 rounded-xl bg-[var(--secondary)] p-2 ring-1 ring-[var(--border)]">
-                <FolderOpen size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                <input
-                  autoFocus
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleCreateGroup();
-                    if (e.key === "Escape") {
-                      setCreatingGroup(false);
-                      setNewGroupName("");
-                    }
-                  }}
-                  placeholder="Group name…"
-                  className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]/50"
+      <div className="flex flex-col gap-0.5">
+        {/* Folder rows */}
+        {parsedGroups.map((group) => {
+          const folderMemberIds = folderFilterActive
+            ? group.memberIds.filter((personaId) => visiblePersonaById.has(personaId))
+            : group.memberIds;
+          if (folderFilterActive && folderMemberIds.length === 0) return null;
+          const isExpanded = (folderFilterActive && folderMemberIds.length > 0) || expandedGroupId === group.id;
+          const isEditing = editingGroupId === group.id;
+          return (
+            <div
+              key={group.id}
+              data-persona-folder-id={group.id}
+              onDragOver={(event) => {
+                if (draggedPersonaId) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const payload = event.dataTransfer.getData("application/x-marinara-persona-ids");
+                handlePersonaDrop(group.id, parseDroppedPersonaIds(payload));
+              }}
+              className="flex flex-col rounded-lg transition-colors"
+            >
+              {/* Folder header */}
+              <div
+                className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
+                onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
+              >
+                <ChevronRight
+                  size="0.75rem"
+                  className={cn(
+                    "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    isExpanded && "rotate-90",
+                  )}
                 />
-                <button onClick={handleCreateGroup} className="rounded p-0.5 text-emerald-400 hover:bg-emerald-400/10">
-                  <Plus size="0.75rem" />
-                </button>
-                <button
-                  onClick={() => {
-                    setCreatingGroup(false);
-                    setNewGroupName("");
-                  }}
-                  className="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-                >
-                  <X size="0.75rem" />
-                </button>
-              </div>
-            )}
-
-            {/* Group rows */}
-            {parsedGroups.map((group) => {
-              const isExpanded = expandedGroupId === group.id;
-              const isSynthetic = group.isSynthetic === true;
-              return (
-                <div key={group.id} className="rounded-xl bg-[var(--secondary)]/60 ring-1 ring-[var(--border)]/50">
-                  {/* Group header */}
-                  <div
-                    className="flex cursor-pointer items-center gap-1.5 px-2.5 py-2"
-                    onClick={() => setExpandedGroupId(isExpanded ? null : group.id)}
-                  >
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setExpandedGroupId(isExpanded ? null : group.id);
+                <div className="min-w-0 flex-1">
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      value={editGroupName}
+                      onChange={(e) => setEditGroupName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") {
+                          setEditingGroupId(null);
+                          setEditGroupName("");
+                        }
                       }}
-                      className="shrink-0 text-[var(--muted-foreground)]"
-                    >
-                      {isExpanded ? <ChevronDown size="0.75rem" /> : <ChevronRight size="0.75rem" />}
-                    </button>
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={() => handleRenameGroup(group.id)}
+                      className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-emerald-400/30"
+                    />
+                  ) : (
+                    <>
+                      <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{group.name}</div>
+                    </>
+                  )}
+                </div>
+                {folderMemberIds.length > 0 && (
+                  <span className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)]">
+                    {folderMemberIds.length}
+                  </span>
+                )}
 
-                    {editingGroupId === group.id ? (
-                      <input
-                        autoFocus
-                        value={editGroupName}
-                        onChange={(e) => setEditGroupName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRenameGroup(group.id);
-                          if (e.key === "Escape") {
-                            setEditingGroupId(null);
-                            setEditGroupName("");
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onBlur={() => handleRenameGroup(group.id)}
-                        className="min-w-0 flex-1 bg-transparent text-xs font-medium outline-none"
-                      />
-                    ) : (
-                      <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                        {group.name} <span className="text-[var(--muted-foreground)]">({group.memberIds.length})</span>
-                      </span>
-                    )}
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingGroupId(group.id);
+                      setEditGroupName(group.name);
+                    }}
+	                    className="mari-chrome-control mari-chrome-control--small p-1"
+	                    title="Rename folder"
+	                  >
+                    <Pencil size="0.6875rem" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDeleteGroup(group);
+                    }}
+	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
+	                    title="Delete folder"
+	                  >
+                    <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
+                  </button>
+                </div>
+              </div>
 
-                    {/* Actions */}
-                    {!isSynthetic && (
-                      <div className="flex items-center gap-0.5">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (assigningToGroup !== group.id) exitSelectionMode();
-                            setAssigningToGroup(assigningToGroup === group.id ? null : group.id);
-                          }}
-                          className={cn(
-                            "rounded-lg p-1 transition-colors",
-                            assigningToGroup === group.id
-                              ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                              : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                          )}
-                          title="Assign personas"
-                        >
-                          <UserPlus size="0.75rem" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingGroupId(group.id);
-                            setEditGroupName(group.name);
-                          }}
-                          className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                          title="Rename"
-                        >
-                          <Pencil size="0.75rem" />
-                        </button>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (
-                              !(await showConfirmDialog({
-                                title: "Delete Group",
-                                message: `Delete group "${group.name}"?`,
-                                confirmLabel: "Delete",
-                                tone: "destructive",
-                              }))
-                            ) {
-                              return;
-                            }
-                            deletePGroup.mutate(group.id);
-                            if (expandedGroupId === group.id) setExpandedGroupId(null);
-                            if (assigningToGroup === group.id) setAssigningToGroup(null);
-                          }}
-                          className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
-                          title="Delete group"
-                        >
-                          <Trash2 size="0.75rem" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Expanded member list */}
-                  {isExpanded && (
-                    <div className="border-t border-[var(--border)]/50 px-2.5 py-1.5">
-                      {group.memberIds.length === 0 ? (
-                        <p className="py-1 text-[0.625rem] italic text-[var(--muted-foreground)]">
-                          No members — use <UserPlus size="0.5rem" className="inline" /> to assign personas
-                        </p>
-                      ) : (
-                        <div className="flex flex-col gap-0.5">
-                          {group.memberIds.map((pid) => {
-                            const p = personaMap.get(pid);
-                            if (!p) return null;
-                            return (
-                              <div
-                                key={pid}
-                                onClick={() => openPersonaDetail(pid)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault();
-                                    openPersonaDetail(pid);
-                                  }
+              {/* Expanded member list */}
+              {isExpanded && (
+                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
+                  {folderMemberIds.length === 0 ? (
+                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop personas here.</p>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      {folderMemberIds.map((pid) => {
+                        const p = personaMap.get(pid);
+                        if (!p) return null;
+                        const isBulkSelected = selectedPersonaIds.has(pid);
+                        const personaMetadata = getPersonaPreviewMetadata(p);
+                        return (
+                          <div
+                            key={pid}
+                            onClick={() => {
+                              if (suppressPersonaClickRef.current) return;
+                              if (selectionMode) {
+                                toggleSelection(pid);
+                                return;
+                              }
+                              openPersonaDetail(pid);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (selectionMode) {
+                                  toggleSelection(pid);
+                                  return;
+                                }
+                                openPersonaDetail(pid);
+                              }
+                            }}
+                            draggable
+                            onDragStart={(event) => {
+                              const ids = getDraggedPersonaIds(pid);
+                              setDraggedPersonaId(pid);
+                              event.dataTransfer.effectAllowed = "move";
+                              event.dataTransfer.setData("application/x-marinara-persona-ids", JSON.stringify(ids));
+                              event.dataTransfer.setData("text/plain", pid);
+                            }}
+                            onDragEnd={() => setDraggedPersonaId(null)}
+                            onTouchStart={(event) => startPersonaTouchDrag(event, pid)}
+                            onTouchEnd={finishPersonaTouchDrag}
+                            role="button"
+                            tabIndex={0}
+	                            className={cn(
+	                              "group/member flex cursor-pointer items-center gap-2 rounded-lg p-1.5 text-xs transition-all hover:bg-[var(--sidebar-accent)]",
+	                              selectionMode &&
+	                                isBulkSelected &&
+	                                "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
+	                              draggedPersonaId === pid && "opacity-50",
+	                            )}
+                          >
+                            {selectionMode && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelection(pid);
                                 }}
-                                role="button"
-                                tabIndex={0}
-                                className="group/member flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-xs transition-all hover:bg-[var(--sidebar-accent)]"
+                                className={cn(
+	                                  "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+	                                  isBulkSelected
+	                                    ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[var(--marinara-chat-chrome-button-text-active)]"
+	                                    : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+	                                )}
+                                aria-label={isBulkSelected ? "Deselect persona" : "Select persona"}
                               >
-                                <div className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
-                                  {p.avatarPath ? (
-                                    <img
-                                      src={p.avatarPath}
-                                      alt=""
-                                      className="h-full w-full rounded-lg object-cover"
-                                      style={getAvatarCropStyle(parseAvatarCropJson(p.avatarCrop))}
-                                    />
-                                  ) : (
-                                    <User size="0.625rem" />
-                                  )}
+                                <Check size="0.75rem" />
+                              </button>
+                            )}
+                            <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 text-white">
+                              {p.avatarPath ? (
+                                <img
+                                  src={p.avatarPath}
+                                  alt=""
+                                  className="h-full w-full rounded-lg object-cover"
+                                  style={getAvatarCropStyle(parseAvatarCropJson(p.avatarCrop))}
+                                />
+                              ) : (
+                                <User size="0.625rem" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[0.75rem] font-medium">{p.name}</div>
+                              {p.comment && (
+                                <div className="truncate text-[0.5625rem] italic text-[var(--muted-foreground)]">
+                                  {p.comment}
                                 </div>
-                                <span className="min-w-0 flex-1 truncate">{p.name}</span>
-                                {!isSynthetic && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleGroupMember(group.id, pid, group.memberIds);
-                                    }}
-                                    className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] group-hover/member:opacity-100 max-md:opacity-100"
-                                    title="Remove from group"
-                                  >
-                                    <UserMinus size="0.625rem" />
-                                  </button>
-                                )}
+                              )}
+                              {personaMetadata && (
+                                <div className="truncate text-[0.5625rem] text-[var(--muted-foreground)]">
+                                  {personaMetadata}
+                                </div>
+                              )}
+                              <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                                {p.description || "No description"}
                               </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                            </div>
+                            {!selectionMode && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void movePersonasToFolder([pid], null);
+                                }}
+                                className="rounded p-0.5 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)] group-hover/member:opacity-100 max-md:opacity-100"
+                                title="Remove from folder"
+                              >
+                                <UserMinus size="0.625rem" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-              );
-            })}
-
-            {parsedGroups.length === 0 && !creatingGroup && (
-              <p className="px-1 py-1 text-[0.625rem] italic text-[var(--muted-foreground)]">No groups yet</p>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })}
       </div>
-
-      {/* Assign-to-group banner */}
-      {assigningToGroup && (
-        <div className="flex items-center gap-2 rounded-xl bg-[var(--primary)]/10 px-3 py-2 text-xs ring-1 ring-[var(--primary)]/30">
-          <Users size="0.8125rem" className="text-[var(--primary)]" />
-          <span className="flex-1">
-            Click personas to add/remove from{" "}
-            <strong>{parsedGroups.find((g) => g.id === assigningToGroup)?.name}</strong>
-          </span>
-          <button onClick={() => setAssigningToGroup(null)} className="rounded p-0.5 hover:bg-[var(--accent)]">
-            <X size="0.8125rem" />
-          </button>
-        </div>
-      )}
 
       {isLoading && (
         <div className="flex flex-col gap-2 py-2">
@@ -807,32 +866,65 @@ export function PersonasPanel() {
         </div>
       )}
 
-      <div className="stagger-children flex flex-col gap-1">
-        {list.map((persona) => {
+      <div
+        data-persona-folder-root
+        onDragOver={(event) => {
+          if (draggedPersonaId) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+          }
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          const payload = event.dataTransfer.getData("application/x-marinara-persona-ids");
+          handlePersonaDrop(null, parseDroppedPersonaIds(payload));
+        }}
+        className={cn(
+          "stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors",
+          draggedPersonaId && "ring-1 ring-emerald-400/20",
+        )}
+      >
+        {draggedPersonaId && (
+          <div className="rounded-xl border border-dashed border-emerald-400/35 bg-emerald-400/5 px-3 py-2 text-[0.625rem] text-emerald-300">
+            Drop here to move out of folder
+          </div>
+        )}
+        {visibleRootPersonas.map((persona) => {
           const active = isActive(persona);
           const isBulkSelected = selectedPersonaIds.has(persona.id);
-          const targetGroup = assigningToGroup ? parsedGroups.find((g) => g.id === assigningToGroup) : null;
-          const isInTargetGroup = targetGroup ? targetGroup.memberIds.includes(persona.id) : false;
+          const personaMetadata = getPersonaPreviewMetadata(persona);
 
           return (
             <div
               key={persona.id}
-              className={cn(
-                "group relative flex items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
-                selectionMode && isBulkSelected && "ring-1 ring-emerald-400/40 bg-emerald-400/8",
-                active && "ring-1 ring-emerald-400/40 bg-emerald-400/5",
-                assigningToGroup && isInTargetGroup && "ring-1 ring-violet-500/50 bg-violet-500/10",
-                assigningToGroup && !isInTargetGroup && "opacity-60 hover:opacity-100",
-              )}
+	              className={cn(
+	                "group relative flex items-center gap-3 rounded-xl p-2.5 transition-all hover:bg-[var(--sidebar-accent)] cursor-pointer",
+	                selectionMode &&
+	                  isBulkSelected &&
+	                  "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
+	                active &&
+	                  "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
+	                draggedPersonaId === persona.id && "opacity-50",
+	              )}
               onClick={() => {
+                if (suppressPersonaClickRef.current) return;
                 if (selectionMode) {
                   toggleSelection(persona.id);
-                } else if (assigningToGroup && targetGroup) {
-                  toggleGroupMember(assigningToGroup, persona.id, targetGroup.memberIds);
                 } else {
                   openPersonaDetail(persona.id);
                 }
               }}
+              draggable
+              onDragStart={(event) => {
+                const ids = getDraggedPersonaIds(persona.id);
+                setDraggedPersonaId(persona.id);
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("application/x-marinara-persona-ids", JSON.stringify(ids));
+                event.dataTransfer.setData("text/plain", persona.id);
+              }}
+              onDragEnd={() => setDraggedPersonaId(null)}
+              onTouchStart={(event) => startPersonaTouchDrag(event, persona.id)}
+              onTouchEnd={finishPersonaTouchDrag}
             >
               {selectionMode && (
                 <button
@@ -883,7 +975,7 @@ export function PersonasPanel() {
                 </div>
                 {active && (
                   <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 shadow-sm">
-                    <Star size="0.5rem" className="text-white" />
+                    <Check size="0.5rem" className="text-white" />
                   </div>
                 )}
               </button>
@@ -896,12 +988,11 @@ export function PersonasPanel() {
                     {persona.comment}
                   </div>
                 )}
+                {personaMetadata && (
+                  <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{personaMetadata}</div>
+                )}
                 <div className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
-                  {assigningToGroup
-                    ? isInTargetGroup
-                      ? "In group — click to remove"
-                      : "Click to add to group"
-                    : persona.description || "No description"}
+                  {persona.description || "No description"}
                 </div>
               </div>
 
@@ -913,11 +1004,11 @@ export function PersonasPanel() {
                       onClick={(e) => {
                         e.stopPropagation();
                         activatePersona.mutate(persona.id);
-                      }}
-                      className="rounded-lg p-1.5 text-emerald-400 transition-all active:scale-90 hover:bg-emerald-400/10"
-                      title="Set as active"
-                    >
-                      <Star size="0.75rem" />
+	                      }}
+	                      className="mari-chrome-control mari-chrome-control--small mari-chrome-control--selected p-1.5"
+	                      title="Set as active"
+	                    >
+                      <Check size="0.75rem" />
                     </button>
                   )}
                   <button
@@ -928,10 +1019,10 @@ export function PersonasPanel() {
                           toast.success(`Duplicated "${persona.name}"`);
                         },
                       });
-                    }}
-                    className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all active:scale-90 hover:bg-sky-400/10 hover:text-sky-400"
-                    title="Duplicate"
-                  >
+	                      }}
+	                    className="mari-chrome-control mari-chrome-control--small p-1.5"
+	                    title="Duplicate"
+	                  >
                     <Copy size="0.75rem" />
                   </button>
                   <button
@@ -949,9 +1040,9 @@ export function PersonasPanel() {
                       }
                       deletePersona.mutate(persona.id);
                     }}
-                    className="rounded-lg p-1.5 transition-all hover:bg-[var(--destructive)]/15 active:scale-90"
-                    title="Delete"
-                  >
+	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
+	                    title="Delete"
+	                  >
                     <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
                   </button>
                 </div>
@@ -960,6 +1051,15 @@ export function PersonasPanel() {
           );
         })}
       </div>
+
+      {selectionMode && (
+        <SelectionActionBar
+          selectedCount={selectedPersonaIds.size}
+          onExport={() => void handleExportSelected()}
+          onDelete={handleDeleteSelected}
+          exporting={exportingSelected}
+        />
+      )}
     </div>
   );
 }

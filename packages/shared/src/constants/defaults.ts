@@ -4,7 +4,7 @@
 import type { GenerationParameters } from "../types/prompt.js";
 
 /** App version — single source of truth. */
-export const APP_VERSION = "1.6.1";
+export const APP_VERSION = "2.0.0";
 
 /** Stable synthetic connection id for the built-in local llama sidecar. */
 export const LOCAL_SIDECAR_CONNECTION_ID = "__local_sidecar__";
@@ -29,6 +29,7 @@ export const DEFAULT_GENERATION_PARAMS: GenerationParameters = {
   verbosity: null,
   serviceTier: null,
   assistantPrefill: "",
+  customThinkingTags: [],
   customParameters: {},
   squashSystemMessages: true,
   showThoughts: true,
@@ -53,8 +54,20 @@ export const MAX_FILE_SIZES = {
 export const LIMITS = {
   /** Max messages to include in context for agents */
   AGENT_CONTEXT_MESSAGES: 20,
-  /** Max lorebook entries that can be injected */
+  /** Legacy default for the previous global lorebook entry cap. Prefer LOREBOOK_ENTRY_LIMIT_* for new code. */
   MAX_LOREBOOK_ENTRIES: 100,
+  /** Default max active entries a single lorebook may contribute per generation. */
+  LOREBOOK_ENTRY_LIMIT_DEFAULT: 100,
+  /** Minimum configurable active-entry limit for a lorebook. */
+  LOREBOOK_ENTRY_LIMIT_MIN: 1,
+  /** Maximum configurable active-entry limit for a lorebook. */
+  LOREBOOK_ENTRY_LIMIT_MAX: 1000,
+  /**
+   * Default keyword-scan depth (messages back) for the per-turn lorebook scan
+   * when neither the entry nor its lorebook sets one. An explicit per-entry or
+   * per-lorebook scanDepth of 0 ("scan all") still scans the full history.
+   */
+  LOREBOOK_DEFAULT_SCAN_DEPTH: 10,
   /** Default global lorebook token budget per generation. 0 means unlimited when explicitly configured per chat. */
   DEFAULT_LOREBOOK_TOKEN_BUDGET: 8192,
   /** Default summary trigger: every N messages */

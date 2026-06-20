@@ -2,16 +2,24 @@
 // Routes: Agents
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { existsSync } from "fs";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { extname, join } from "path";
 import {
   createAgentConfigSchema,
   updateAgentConfigSchema,
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
   getDefaultBuiltInAgentSettings,
+  normalizeAgentPhaseForType,
 } from "@marinara-engine/shared";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { DATA_DIR } from "../utils/data-dir.js";
+import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { z } from "zod";
+
+const AGENT_IMAGES_DIR = join(DATA_DIR, "agents", "images");
 
 const updateAgentRunSchema = z.object({
   resultData: z.unknown(),
@@ -21,6 +29,7 @@ const secretPlotArcSchema = z
   .object({
     description: z.string().optional(),
     protagonistArc: z.string().optional(),
+    characterArc: z.string().optional(),
     completed: z.boolean().optional(),
   })
   .passthrough();
@@ -78,6 +87,28 @@ function normalizeRunInterval(value: unknown, fallback: number, max = 100): numb
   return Number.isFinite(parsed) && parsed >= 1 ? Math.min(max, Math.floor(parsed)) : fallback;
 }
 
+function parseImageUpload(image: string): { buffer: Buffer; hintedExt: string } {
+  let base64 = image;
+  let hintedExt = "png";
+  if (base64.startsWith("data:")) {
+    const match = base64.match(/^data:image\/([\w.+-]+);base64,/i);
+    if (match?.[1]) {
+      hintedExt = match[1].replace("+xml", "");
+      base64 = base64.slice(base64.indexOf(",") + 1);
+    }
+  }
+  return { buffer: Buffer.from(base64, "base64"), hintedExt };
+}
+
+function getSafeAgentImagePath(filename: string): string | null {
+  if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
+  try {
+    return assertInsideDir(AGENT_IMAGES_DIR, join(AGENT_IMAGES_DIR, filename));
+  } catch {
+    return null;
+  }
+}
+
 export async function agentsRoutes(app: FastifyInstance) {
   const storage = createAgentsStorage(app.db);
   const chats = createChatsStorage(app.db);
@@ -90,9 +121,10 @@ export async function agentsRoutes(app: FastifyInstance) {
       type: builtIn.id,
       name: builtIn.name,
       description: builtIn.description,
-      phase: builtIn.phase,
+      phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
       enabled: builtIn.enabledByDefault,
       connectionId: null,
+      imagePath: null,
       promptTemplate: "",
       settings: {
         ...getDefaultBuiltInAgentSettings(builtIn.id),
@@ -103,6 +135,20 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   app.get("/", async () => {
     return storage.list();
+  });
+
+  app.get<{ Params: { filename: string } }>("/images/file/:filename", async (req, reply) => {
+    const filepath = getSafeAgentImagePath(req.params.filename);
+    if (!filepath || !existsSync(filepath)) return reply.status(404).send({ error: "Image not found" });
+
+    const buffer = await readFile(filepath);
+    const imageInfo = isAllowedImageBuffer(buffer, extname(filepath));
+    if (!imageInfo) return reply.status(404).send({ error: "Image not found" });
+
+    return reply
+      .header("Content-Type", imageInfo.mimeType)
+      .header("Cache-Control", "public, max-age=31536000, immutable")
+      .send(buffer);
   });
 
   /** Get editable custom-agent outputs for a roleplay chat. */
@@ -118,6 +164,9 @@ export async function agentsRoutes(app: FastifyInstance) {
     if (!builtIn) return reply.status(404).send({ error: "Unknown agent type" });
 
     const defaults = getDefaultBuiltInAgentSettings(agentType);
+    if (defaults.runInterval === undefined) {
+      return reply.status(404).send({ error: "Agent does not use run intervals" });
+    }
     const fallback = normalizeRunInterval(defaults.runInterval, 1);
     const config = await storage.getByType(agentType);
     const settings = { ...defaults, ...parseAgentSettings(config?.settings) };
@@ -187,9 +236,42 @@ export async function agentsRoutes(app: FastifyInstance) {
     return storage.update(req.params.id, data);
   });
 
+  app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
+    const config = (await storage.getById(req.params.id)) ?? (await getOrCreateConfigByType(req.params.id));
+    if (!config) return reply.status(404).send({ error: "Agent not found" });
+
+    const body = req.body as { image?: string };
+    if (!body.image) return reply.status(400).send({ error: "No image data provided" });
+
+    const { buffer, hintedExt } = parseImageUpload(body.image);
+    const imageInfo = isAllowedImageBuffer(buffer, `.${hintedExt}`);
+    if (!imageInfo) return reply.status(400).send({ error: "Unsupported or invalid agent image" });
+
+    const ext = extensionFromImageMime(imageInfo.mimeType);
+    await mkdir(AGENT_IMAGES_DIR, { recursive: true });
+    const filename = `agent-${config.id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}.${ext}`;
+    const filepath = assertInsideDir(AGENT_IMAGES_DIR, join(AGENT_IMAGES_DIR, filename));
+    await writeFile(filepath, buffer);
+
+    const updated = await storage.update(config.id, { imagePath: `/api/agents/images/file/${filename}` });
+    if (!updated) return reply.status(404).send({ error: "Agent not found" });
+    return updated;
+  });
+
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     try {
-      await storage.remove(req.params.id);
+      const builtInByType = BUILT_IN_AGENTS.find((agent) => agent.id === req.params.id);
+      const existing = builtInByType ? null : await storage.getById(req.params.id);
+      const existingBuiltInType =
+        existing && BUILT_IN_AGENTS.some((agent) => agent.id === existing.type) ? existing.type : null;
+
+      if (builtInByType || existingBuiltInType) {
+        await storage.softDeleteBuiltIn(builtInByType?.id ?? existingBuiltInType!);
+      } else {
+        await storage.remove(req.params.id);
+      }
       return reply.status(204).send();
     } catch (err) {
       req.log.error(err, "Failed to delete agent %s", req.params.id);
@@ -216,11 +298,15 @@ export async function agentsRoutes(app: FastifyInstance) {
       type: builtIn.id,
       name: builtIn.name,
       description: builtIn.description,
-      phase: builtIn.phase,
+      phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
       enabled: !builtIn.enabledByDefault,
       connectionId: null,
+      imagePath: null,
       promptTemplate: "",
-      settings: builtIn.defaultInjectAsSection ? { injectAsSection: true } : {},
+      settings: {
+        ...getDefaultBuiltInAgentSettings(builtIn.id),
+        ...(DEFAULT_AGENT_TOOLS[builtIn.id]?.length ? { enabledTools: DEFAULT_AGENT_TOOLS[builtIn.id] } : {}),
+      },
     });
   });
 
@@ -239,17 +325,20 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.delete<{ Params: { chatId: string } }>("/runs/:chatId", async (req, reply) => {
     const chatId = req.params.chatId;
 
-    // Before wiping all memory, preserve the secret-plot-driver's overarching arc.
-    // Scene directions + pacing are cleared (ephemeral per-generation), but the arc
-    // is a long-term structure that only clears when the agent is removed from the chat.
-    let preservedArc: unknown = null;
-    let secretPlotConfigId: string | null = null;
+    // Before wiping all memory, preserve Narrative Director's secret plot arc.
+    // The arc is long-term structure that only clears when the Director is removed from the chat.
+    let preservedArc: unknown;
+    let preservedConfigId: string | null = null;
     try {
-      const secretPlotConfig = await storage.getByType("secret-plot-driver");
-      if (secretPlotConfig) {
-        secretPlotConfigId = secretPlotConfig.id;
-        const mem = await storage.getMemory(secretPlotConfigId, chatId);
-        if (mem.overarchingArc) preservedArc = mem.overarchingArc;
+      for (const type of ["director", "secret-plot-driver"]) {
+        const config = await storage.getByType(type);
+        if (!config) continue;
+        const mem = await storage.getMemory(config.id, chatId);
+        if (mem.overarchingArc !== undefined && mem.overarchingArc !== null) {
+          preservedArc = mem.overarchingArc;
+          preservedConfigId = config.id;
+          break;
+        }
       }
     } catch {
       /* non-critical */
@@ -259,9 +348,9 @@ export async function agentsRoutes(app: FastifyInstance) {
     await storage.clearMemoryForChat(chatId);
 
     // Restore the overarching arc
-    if (preservedArc && secretPlotConfigId) {
+    if (preservedArc !== undefined && preservedConfigId) {
       try {
-        await storage.setMemory(secretPlotConfigId, chatId, "overarchingArc", preservedArc);
+        await storage.setMemory(preservedConfigId, chatId, "overarchingArc", preservedArc);
       } catch {
         /* non-critical */
       }
@@ -296,7 +385,10 @@ export async function agentsRoutes(app: FastifyInstance) {
     }
     let normalizedPatch: Record<string, unknown>;
     try {
-      normalizedPatch = req.params.agentType === "secret-plot-driver" ? normalizeSecretPlotMemoryPatch(patch) : patch;
+      normalizedPatch =
+        req.params.agentType === "director" || req.params.agentType === "secret-plot-driver"
+          ? normalizeSecretPlotMemoryPatch(patch)
+          : patch;
     } catch (err) {
       if (err instanceof z.ZodError) {
         return reply.status(400).send({

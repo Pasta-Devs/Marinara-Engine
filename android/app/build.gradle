@@ -22,8 +22,8 @@ android {
         applicationId "com.marinara.engine"
         minSdk 24
         targetSdk 34
-        versionCode 18
-        versionName "1.6.1"
+        versionCode 19
+        versionName "2.0.0"
         buildConfigField "String", "MARINARA_SERVER_URL", "\"http://127.0.0.1:${marinaraPort}\""
     }
 

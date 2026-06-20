@@ -1,13 +1,122 @@
-import { Volume2 } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Bell, Volume2 } from "lucide-react";
+import { toast } from "sonner";
 import { useUIStore } from "../../../stores/ui.store";
+import {
+  getLocalNotificationPermission,
+  requestLocalNotificationPermission,
+  type LocalNotificationPermission,
+} from "../../../lib/local-notifications";
 import { playNotificationPing } from "../../../lib/notification-sound";
+import { cn } from "../../../lib/utils";
 import { HelpTooltip } from "../../ui/HelpTooltip";
+
+export function SettingsIntro({ children }: { children: ReactNode }) {
+  return <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">{children}</p>;
+}
+
+export function SettingsSection({
+  title,
+  description,
+  help,
+  icon,
+  children,
+  className,
+  contentClassName,
+  tone = "default",
+}: {
+  title: string;
+  description?: ReactNode;
+  help?: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  contentClassName?: string;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <section
+      className={cn(
+        "overflow-hidden rounded-lg border bg-[var(--background)]/35 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]",
+        tone === "danger" ? "border-[var(--destructive)]/30 bg-[var(--destructive)]/5" : "border-[var(--border)]/70",
+        className,
+      )}
+    >
+      <div className="flex items-start gap-2 px-3 py-2.5">
+        {icon && (
+          <span
+            className={cn(
+              "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md ring-1",
+              tone === "danger"
+                ? "bg-[var(--destructive)]/10 text-[var(--destructive)] ring-[var(--destructive)]/25"
+                : "bg-[var(--secondary)]/70 text-[var(--primary)] ring-[var(--border)]",
+            )}
+          >
+            {icon}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <div
+            className={cn(
+              "inline-flex items-center gap-1 text-xs font-semibold",
+              tone === "danger" ? "text-[var(--destructive)]" : "text-[var(--foreground)]",
+            )}
+          >
+            {title}
+            {help && <HelpTooltip text={help} />}
+          </div>
+          {description && (
+            <div className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{description}</div>
+          )}
+        </div>
+      </div>
+      <div className={cn("border-t border-[var(--border)]/60 px-3 pb-3 pt-2.5", contentClassName)}>{children}</div>
+    </section>
+  );
+}
 
 export function ConversationSoundSetting() {
   const convoNotificationSound = useUIStore((s) => s.convoNotificationSound);
   const setConvoNotificationSound = useUIStore((s) => s.setConvoNotificationSound);
   const rpNotificationSound = useUIStore((s) => s.rpNotificationSound);
   const setRpNotificationSound = useUIStore((s) => s.setRpNotificationSound);
+  const gameNotificationSound = useUIStore((s) => s.gameNotificationSound);
+  const setGameNotificationSound = useUIStore((s) => s.setGameNotificationSound);
+  const conversationBrowserNotifications = useUIStore((s) => s.conversationBrowserNotifications);
+  const setConversationBrowserNotifications = useUIStore((s) => s.setConversationBrowserNotifications);
+  const [browserPermission, setBrowserPermission] = useState<LocalNotificationPermission>("default");
+
+  useEffect(() => {
+    let cancelled = false;
+    void getLocalNotificationPermission().then((permission) => {
+      if (!cancelled) setBrowserPermission(permission);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleBrowserNotificationToggle = (enabled: boolean) => {
+    if (!enabled) {
+      setConversationBrowserNotifications(false);
+      return;
+    }
+
+    void requestLocalNotificationPermission().then((permission) => {
+      setBrowserPermission(permission);
+      if (permission === "granted") {
+        setConversationBrowserNotifications(true);
+        toast.success("Browser notifications enabled for background replies.");
+        return;
+      }
+      setConversationBrowserNotifications(false);
+      toast.error(
+        permission === "unsupported"
+          ? "Browser notifications are not available in this environment."
+          : "Browser notification permission was not granted.",
+      );
+    });
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -32,6 +141,25 @@ export function ConversationSoundSetting() {
           if (v) playNotificationPing();
         }}
       />
+      <ToggleSetting
+        label="Game mode"
+        checked={gameNotificationSound}
+        onChange={(v) => {
+          setGameNotificationSound(v);
+          if (v) playNotificationPing();
+        }}
+        help="Play when a Game turn finishes loading."
+      />
+      <div className="mt-1 flex items-center gap-1.5">
+        <Bell size="0.75rem" className="text-[var(--muted-foreground)]" />
+        <span className="text-xs font-medium">Browser Notifications</span>
+        <HelpTooltip text="Show an operating-system browser notification when a background Conversation reply arrives while Marinara is not focused. Message content is hidden." />
+      </div>
+      <ToggleSetting
+        label="Background replies"
+        checked={conversationBrowserNotifications && browserPermission === "granted"}
+        onChange={handleBrowserNotificationToggle}
+      />
     </div>
   );
 }
@@ -47,20 +175,141 @@ export function ToggleSetting({
   onChange: (v: boolean) => void;
   help?: string;
 }) {
-  return (
-    <label className="flex items-center gap-2.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"
-      />
-      <span className="text-xs">{label}</span>
-      {help && (
-        <span onClick={(e) => e.preventDefault()}>
-          <HelpTooltip text={help} />
+  return <SettingsCheckbox label={label} checked={checked} onChange={onChange} help={help} className="p-1" />;
+}
+
+export function SettingsCheckbox({
+  label,
+  checked,
+  onChange,
+  help,
+  description,
+  disabled = false,
+  tone = "default",
+  align = "start",
+  className,
+  labelClassName,
+}: {
+  label: ReactNode;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  help?: string;
+  description?: ReactNode;
+  disabled?: boolean;
+  tone?: "default" | "danger";
+  align?: "start" | "between";
+  className?: string;
+  labelClassName?: string;
+}) {
+  const input = (
+    <input
+      type="checkbox"
+      checked={checked}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+      className={cn(
+        "h-3.5 w-3.5 shrink-0 rounded border-[var(--border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]",
+        tone === "danger" ? "accent-[var(--destructive)]" : "accent-[var(--primary)]",
+        align === "start" && "mt-0.5",
+      )}
+    />
+  );
+  const text = (
+    <span className={cn("min-w-0 text-xs", labelClassName)}>
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <span className="min-w-0">{label}</span>
+        {help && (
+          <span onClick={(e) => e.preventDefault()}>
+            <HelpTooltip text={help} />
+          </span>
+        )}
+      </span>
+      {description && (
+        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+          {description}
         </span>
       )}
+    </span>
+  );
+
+  return (
+    <label
+      className={cn(
+        "flex cursor-pointer rounded-lg transition-colors hover:bg-[var(--secondary)]/50",
+        align === "between" ? "items-center justify-between gap-3 p-1.5" : "items-start gap-2.5 p-1.5",
+        disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
+        className,
+      )}
+    >
+      {align === "between" ? (
+        <>
+          {text}
+          {input}
+        </>
+      ) : (
+        <>
+          {input}
+          {text}
+        </>
+      )}
+    </label>
+  );
+}
+
+export function SettingsSwitch({
+  label,
+  checked,
+  onChange,
+  title,
+  description,
+  disabled = false,
+  labelPosition = "end",
+  className,
+  labelClassName,
+}: {
+  label?: ReactNode;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  title?: string;
+  description?: ReactNode;
+  disabled?: boolean;
+  labelPosition?: "start" | "end";
+  className?: string;
+  labelClassName?: string;
+}) {
+  const text = label ? (
+    <span className={cn("min-w-0 text-sm", labelClassName)}>
+      <span className="block">{label}</span>
+      {description && (
+        <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+          {description}
+        </span>
+      )}
+    </span>
+  ) : null;
+
+  return (
+    <label
+      title={title}
+      className={cn(
+        "flex cursor-pointer items-center gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--secondary)]/50",
+        disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
+        className,
+      )}
+    >
+      {labelPosition === "start" && text}
+      <span className="relative inline-flex h-5 w-9 shrink-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-[var(--primary)]/70 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--ring)]" />
+        <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-[var(--background)] shadow-sm ring-1 ring-[var(--border)] transition-transform peer-checked:translate-x-4" />
+      </span>
+      {labelPosition === "end" && text}
     </label>
   );
 }

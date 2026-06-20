@@ -217,6 +217,23 @@ export function normalizePlayerStatsForQuestMerge(value: unknown): PlayerStats &
   };
 }
 
+export function compactQuestProgressForContext(value: unknown): QuestProgress[] {
+  return normalizeQuestCollectionForQuestMerge(value).flatMap((quest) => {
+    if (quest.completed) return [];
+
+    const objectives = quest.objectives.filter((objective) => !objective.completed);
+    if (quest.objectives.length > 0 && objectives.length === 0) return [];
+
+    return [
+      {
+        ...quest,
+        completed: false,
+        objectives,
+      },
+    ];
+  });
+}
+
 export function applyQuestUpdatesToPlayerStats(
   value: unknown,
   updatesValue: unknown,

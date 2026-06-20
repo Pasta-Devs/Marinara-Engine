@@ -13,6 +13,7 @@ export interface CustomToolRow {
   webhookUrl: string | null;
   staticResult: string | null;
   scriptBody: string | null;
+  includeHiddenContext: string;
   enabled: string;
   createdAt: string;
   updatedAt: string;

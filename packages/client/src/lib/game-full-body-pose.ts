@@ -1,3 +1,5 @@
+import { resolveSpriteExpression } from "./sprite-expression-match";
+
 type FullBodySpriteLike = {
   expression: string;
 };
@@ -7,7 +9,10 @@ function normalizePoseToken(value?: string | null): string {
     value
       ?.trim()
       .toLowerCase()
-      .replace(/[\s-]+/g, "_") ?? ""
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") ?? ""
   );
 }
 
@@ -36,6 +41,14 @@ function pickFirstAvailable(
   return first.done ? undefined : first.value;
 }
 
+function resolveAvailablePose(availablePoses: Set<string>, expression?: string | null): string | undefined {
+  const match = resolveSpriteExpression(
+    [...availablePoses].map((pose) => ({ expression: pose })),
+    expression,
+  );
+  return match?.expression;
+}
+
 export function resolveDialogueFullBodyPose(
   expression?: string | null,
   sprites?: readonly FullBodySpriteLike[] | null,
@@ -54,7 +67,10 @@ export function resolveDialogueFullBodyPose(
     return pickFirstAvailable(availablePoses, "cheer", "idle");
   }
 
-  return pickFirstAvailable(availablePoses, normalizedExpression, "idle");
+  return (
+    (normalizedExpression ? resolveAvailablePose(availablePoses, normalizedExpression) : undefined) ??
+    pickFirstAvailable(availablePoses, "idle")
+  );
 }
 
 export function resolveCombatFullBodyPose(
@@ -77,6 +93,9 @@ export function resolveCombatFullBodyPose(
     case "victory":
       return pickFirstAvailable(availablePoses, "victory", "cheer", "battle_stance", "idle");
     default:
-      return pickFirstAvailable(availablePoses, normalizedPose, "battle_stance", "idle");
+      return (
+        (normalizedPose ? resolveAvailablePose(availablePoses, normalizedPose) : undefined) ??
+        pickFirstAvailable(availablePoses, "battle_stance", "idle")
+      );
   }
 }

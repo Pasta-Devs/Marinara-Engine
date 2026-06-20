@@ -6,7 +6,7 @@
 // ──────────────────────────────────────────────
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bug, ChevronDown, ChevronUp, X, CheckCircle2, XCircle, Clock, Wrench } from "lucide-react";
+import { Bug, ChevronDown, ChevronUp, X, CheckCircle2, XCircle, Clock, Wrench, FileText } from "lucide-react";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
@@ -26,6 +26,7 @@ export function AgentDebugPanel() {
   const setupEntries = debugLog.filter((e) => e.agents && !e.results);
   const resultEntries = debugLog.filter((e) => e.results);
   const toolEntries = debugLog.filter((e) => e.toolCall || e.toolResult);
+  const callEntries = debugLog.filter((e) => e.agentCall);
 
   return (
     <motion.div
@@ -81,6 +82,38 @@ export function AgentDebugPanel() {
             className="overflow-hidden rounded-b-lg border border-t-0 border-[var(--border)] bg-[var(--card)] shadow-lg shadow-black/20"
           >
             <div className="max-h-72 overflow-y-auto p-2 flex flex-col gap-2 text-xs">
+              {/* Agent model calls */}
+              {callEntries.map((entry, i) => {
+                const call = entry.agentCall!;
+                const payload =
+                  call.stage === "request" || call.stage === "retry_request"
+                    ? formatAgentCallMessages(call.messages)
+                    : call.responsePreview || call.response || call.error || "";
+                return (
+                  <div key={`agent-call-${i}`} className="rounded-md bg-[var(--muted)]/30 p-2">
+                    <div className="mb-1 flex items-center gap-1.5 font-semibold text-cyan-400">
+                      <FileText size="0.75rem" className="shrink-0" />
+                      <span>{formatAgentCallStage(call.stage)}</span>
+                      <span className="truncate font-medium text-[var(--foreground)]">{call.agentName}</span>
+                    </div>
+                    <div className="mb-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      <span className="truncate">{call.model}</span>
+                      <span>{call.messageCount} msg</span>
+                      <span>{call.maxTokens.toLocaleString()} max</span>
+                      {call.round != null && <span>round {call.round}</span>}
+                      {call.durationMs != null && <span>{(call.durationMs / 1000).toFixed(1)}s</span>}
+                      {formatAgentCallTokens(call) && <span>{formatAgentCallTokens(call)}</span>}
+                      {call.batchedAgentTypes?.length ? <span>batch: {call.batchedAgentTypes.join(", ")}</span> : null}
+                    </div>
+                    {payload && (
+                      <pre className="max-h-28 overflow-y-auto whitespace-pre-wrap break-words rounded bg-black/10 p-1.5 font-mono text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+                        {payload.length > 2500 ? `${payload.slice(0, 2500)}...` : payload}
+                      </pre>
+                    )}
+                  </div>
+                );
+              })}
+
               {/* Batch setup info */}
               {setupEntries.map((entry, i) => (
                 <div key={`setup-${i}`} className="rounded-md bg-[var(--muted)]/30 p-2">
@@ -152,7 +185,7 @@ export function AgentDebugPanel() {
 
                 return (
                   <div key={`tool-${i}`} className="rounded-md bg-[var(--muted)]/30 p-2">
-                    <div className="mb-1 flex items-center gap-1.5 font-semibold text-violet-400">
+                    <div className="mb-1 flex items-center gap-1.5 font-semibold text-[var(--muted-foreground)]">
                       <Wrench size="0.75rem" className="shrink-0" />
                       <span>{call ? "Tool Call" : "Tool Result"}</span>
                       <span className={cn("truncate font-medium", failed && "text-red-400")}>{name}</span>
@@ -174,7 +207,7 @@ export function AgentDebugPanel() {
               })}
 
               {/* Fallback: show lastResults when no debug log entries */}
-              {resultEntries.length === 0 && toolEntries.length === 0 && lastResults.size > 0 && (
+              {callEntries.length === 0 && resultEntries.length === 0 && toolEntries.length === 0 && lastResults.size > 0 && (
                 <div className="rounded-md bg-[var(--muted)]/30 p-2">
                   <div className="font-semibold text-blue-400 mb-1">Last Agent Results</div>
                   <div className="flex flex-col gap-0.5">
@@ -208,6 +241,43 @@ export function AgentDebugPanel() {
       </AnimatePresence>
     </motion.div>
   );
+}
+
+function formatAgentCallStage(stage: string): string {
+  switch (stage) {
+    case "request":
+      return "Prompt";
+    case "response":
+      return "Response";
+    case "retry_request":
+      return "Retry Prompt";
+    case "retry_response":
+      return "Retry Response";
+    case "error":
+      return "Error";
+    default:
+      return stage;
+  }
+}
+
+function formatAgentCallTokens(call: {
+  promptTokens?: number;
+  completionTokens?: number;
+  reasoningTokens?: number;
+  totalTokens?: number;
+}): string {
+  const parts = [
+    call.promptTokens != null ? `p ${call.promptTokens.toLocaleString()}` : null,
+    call.completionTokens != null ? `c ${call.completionTokens.toLocaleString()}` : null,
+    call.reasoningTokens != null ? `r ${call.reasoningTokens.toLocaleString()}` : null,
+    call.totalTokens != null ? `t ${call.totalTokens.toLocaleString()}` : null,
+  ].filter(Boolean);
+  return parts.join(" / ");
+}
+
+function formatAgentCallMessages(messages?: Array<{ role: string; content: string; name?: string }>): string {
+  if (!messages?.length) return "";
+  return messages.map((message) => `[${message.role}${message.name ? `:${message.name}` : ""}]\n${message.content}`).join("\n\n");
 }
 
 function formatPhase(phase: string): string {

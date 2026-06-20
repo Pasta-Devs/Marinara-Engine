@@ -50,5 +50,21 @@ export function createCharacterGalleryStorage(db: DB) {
     async remove(id: string) {
       await db.delete(characterImages).where(eq(characterImages.id, id));
     },
+
+    async setTag(
+      id: string,
+      patch: { customKind: "emoji" | "sticker" | null; customName: string | null; width?: number; height?: number },
+    ) {
+      await db
+        .update(characterImages)
+        .set({
+          customKind: patch.customKind,
+          customName: patch.customName,
+          ...(patch.width !== undefined ? { width: patch.width } : {}),
+          ...(patch.height !== undefined ? { height: patch.height } : {}),
+        })
+        .where(eq(characterImages.id, id));
+      return this.getById(id);
+    },
   };
 }

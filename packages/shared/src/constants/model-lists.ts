@@ -13,34 +13,68 @@ export interface KnownModel {
   maxOutput: number;
 }
 
+const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|\d{2,})/;
+
+export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
+  const normalized = model.toLowerCase();
+  return (
+    CLAUDE_ADAPTIVE_ONLY_OPUS_RE.test(normalized) ||
+    normalized.includes("claude-fable-5") ||
+    normalized.includes("claude-mythos-5")
+  );
+}
+
+export function supportsXhighReasoningEffort(model: string): boolean {
+  const normalized = model.toLowerCase();
+  return (
+    normalized.startsWith("gpt-5.5") ||
+    normalized.startsWith("gpt-5.4") ||
+    normalized === "grok-4.20-multi-agent" ||
+    isClaudeAdaptiveOnlyNoSamplingModel(normalized)
+  );
+}
+
 // ── OpenAI (from #model_openai_select) ──
 
 export const OPENAI_MODELS: KnownModel[] = [
   // GPT-5.5
   { id: "gpt-5.5", name: "gpt-5.5", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.5-2026-04-23", name: "gpt-5.5-2026-04-23", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-5.5-pro", name: "gpt-5.5-pro", context: 1050000, maxOutput: 128000 },
   // GPT-5.4
   { id: "gpt-5.4", name: "gpt-5.4", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.4-2026-03-05", name: "gpt-5.4-2026-03-05", context: 1050000, maxOutput: 128000 },
   // GPT-5.4 Pro (Responses API only)
   { id: "gpt-5.4-pro", name: "gpt-5.4-pro", context: 1050000, maxOutput: 128000 },
   { id: "gpt-5.4-pro-2026-03-05", name: "gpt-5.4-pro-2026-03-05", context: 1050000, maxOutput: 128000 },
+  // GPT-5.4 smaller variants
+  { id: "gpt-5.4-mini", name: "gpt-5.4-mini", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.4-mini-2026-03-17", name: "gpt-5.4-mini-2026-03-17", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.4-nano", name: "gpt-5.4-nano", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.4-nano-2026-03-17", name: "gpt-5.4-nano-2026-03-17", context: 400000, maxOutput: 128000 },
   // GPT-5.2
-  { id: "gpt-5.2", name: "gpt-5.2", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5.2-2025-12-11", name: "gpt-5.2-2025-12-11", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5.2-chat-latest", name: "gpt-5.2-chat-latest", context: 1000000, maxOutput: 32768 },
+  { id: "gpt-5.2", name: "gpt-5.2", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.2-2025-12-11", name: "gpt-5.2-2025-12-11", context: 400000, maxOutput: 128000 },
+  {
+    id: "gpt-5.2-chat-latest",
+    name: "gpt-5.2-chat-latest (deprecated Aug 10 2026)",
+    context: 128000,
+    maxOutput: 16384,
+  },
   // GPT-5.1
-  { id: "gpt-5.1", name: "gpt-5.1", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5.1-2025-11-13", name: "gpt-5.1-2025-11-13", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5.1-chat-latest", name: "gpt-5.1-chat-latest", context: 1000000, maxOutput: 32768 },
+  { id: "gpt-5.1", name: "gpt-5.1", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.1-2025-11-13", name: "gpt-5.1-2025-11-13", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.1-chat-latest", name: "gpt-5.1-chat-latest", context: 128000, maxOutput: 16384 },
   // GPT-5
-  { id: "gpt-5", name: "gpt-5", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-2025-08-07", name: "gpt-5-2025-08-07", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-chat-latest", name: "gpt-5-chat-latest", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-mini", name: "gpt-5-mini", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-mini-2025-08-07", name: "gpt-5-mini-2025-08-07", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5-nano", name: "gpt-5-nano", context: 1000000, maxOutput: 16384 },
-  { id: "gpt-5-nano-2025-08-07", name: "gpt-5-nano-2025-08-07", context: 1000000, maxOutput: 16384 },
+  { id: "gpt-5", name: "gpt-5", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-2025-08-07", name: "gpt-5-2025-08-07", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-chat-latest", name: "gpt-5-chat-latest", context: 128000, maxOutput: 16384 },
+  { id: "gpt-5-mini", name: "gpt-5-mini", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-mini-2025-08-07", name: "gpt-5-mini-2025-08-07", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-nano", name: "gpt-5-nano", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5-nano-2025-08-07", name: "gpt-5-nano-2025-08-07", context: 400000, maxOutput: 128000 },
+  // ChatGPT instant model exposed through the OpenAI API
+  { id: "chat-latest", name: "chat-latest", context: 400000, maxOutput: 128000 },
   // GPT-4o
   { id: "gpt-4o", name: "gpt-4o", context: 128000, maxOutput: 16384 },
   { id: "gpt-4o-2024-11-20", name: "gpt-4o-2024-11-20", context: 128000, maxOutput: 16384 },
@@ -103,15 +137,18 @@ export const OPENAI_MODELS: KnownModel[] = [
 // ── Anthropic / Claude (from #model_claude_select) ──
 
 export const ANTHROPIC_MODELS: KnownModel[] = [
+  { id: "claude-fable-5", name: "claude-fable-5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-mythos-5", name: "claude-mythos-5 (limited access)", context: 1000000, maxOutput: 128000 },
+  { id: "claude-opus-4-8", name: "claude-opus-4-8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "claude-opus-4-7", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 32000 },
-  { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6", context: 1000000, maxOutput: 32000 },
+  { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6", context: 1000000, maxOutput: 64000 },
   { id: "claude-opus-4-5", name: "claude-opus-4-5", context: 1000000, maxOutput: 32000 },
   { id: "claude-opus-4-5-20251101", name: "claude-opus-4-5-20251101", context: 1000000, maxOutput: 32000 },
   { id: "claude-sonnet-4-5", name: "claude-sonnet-4-5", context: 1000000, maxOutput: 16000 },
   { id: "claude-sonnet-4-5-20250929", name: "claude-sonnet-4-5-20250929", context: 1000000, maxOutput: 16000 },
-  { id: "claude-haiku-4-5", name: "claude-haiku-4-5", context: 200000, maxOutput: 8192 },
-  { id: "claude-haiku-4-5-20251001", name: "claude-haiku-4-5-20251001", context: 200000, maxOutput: 8192 },
+  { id: "claude-haiku-4-5", name: "claude-haiku-4-5", context: 200000, maxOutput: 64000 },
+  { id: "claude-haiku-4-5-20251001", name: "claude-haiku-4-5-20251001", context: 200000, maxOutput: 64000 },
   { id: "claude-opus-4-1", name: "claude-opus-4-1", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-1-20250805", name: "claude-opus-4-1-20250805", context: 200000, maxOutput: 32000 },
   { id: "claude-opus-4-0", name: "claude-opus-4-0", context: 200000, maxOutput: 32000 },
@@ -136,12 +173,14 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
 // to the current tool-eligible families to avoid offering retired aliases that
 // the subscription path no longer accepts.
 export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
+  { id: "claude-fable-5", name: "Claude Fable 5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-opus-4-8", name: "Claude Opus 4.8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "Claude Opus 4.7", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-6", name: "Claude Opus 4.6", context: 1000000, maxOutput: 32000 },
-  { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", context: 1000000, maxOutput: 32000 },
+  { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", context: 1000000, maxOutput: 64000 },
   { id: "claude-opus-4-5", name: "Claude Opus 4.5", context: 1000000, maxOutput: 32000 },
   { id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", context: 1000000, maxOutput: 16000 },
-  { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", context: 200000, maxOutput: 8192 },
+  { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", context: 200000, maxOutput: 64000 },
 ];
 
 // ── OpenAI (ChatGPT login via Codex auth) ──
@@ -149,13 +188,17 @@ export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
 // catalog when authenticated. This curated fallback keeps the selector useful
 // before the user has run `codex login`.
 export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
-  { id: "gpt-5.2", name: "GPT-5.2", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5.1", name: "GPT-5.1", context: 1000000, maxOutput: 32768 },
-  { id: "gpt-5", name: "GPT-5", context: 1000000, maxOutput: 32768 },
+  { id: "gpt-5.5", name: "GPT-5.5", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-5.4", name: "GPT-5.4", context: 1050000, maxOutput: 128000 },
+  { id: "gpt-5.4-mini", name: "GPT-5.4 Mini", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.3-codex-spark", name: "GPT-5.3 Codex Spark", context: 400000, maxOutput: 128000 },
   { id: "gpt-5.3-codex", name: "GPT-5.3 Codex", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.2-codex", name: "GPT-5.2 Codex", context: 400000, maxOutput: 128000 },
-  { id: "gpt-5.1-codex", name: "GPT-5.1 Codex", context: 400000, maxOutput: 128000 },
   { id: "gpt-5-codex", name: "GPT-5 Codex", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.2", name: "GPT-5.2 (deprecated in Codex ChatGPT sign-in)", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.2-codex", name: "GPT-5.2 Codex", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.1", name: "GPT-5.1", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5.1-codex", name: "GPT-5.1 Codex", context: 400000, maxOutput: 128000 },
+  { id: "gpt-5", name: "GPT-5", context: 400000, maxOutput: 128000 },
   { id: "gpt-4o", name: "GPT-4o", context: 128000, maxOutput: 16384 },
   { id: "chatgpt-4o-latest", name: "ChatGPT 4o Latest", context: 128000, maxOutput: 16384 },
 ];
@@ -163,12 +206,32 @@ export const OPENAI_CHATGPT_MODELS: KnownModel[] = [
 // ── Google AI Studio (from #model_google_select) ──
 
 export const GOOGLE_MODELS: KnownModel[] = [
+  // Gemini 3.5
+  { id: "gemini-3.5-flash", name: "gemini-3.5-flash", context: 1000000, maxOutput: 65536 },
   // Gemini 3.1
   { id: "gemini-3.1-pro-preview", name: "gemini-3.1-pro-preview", context: 1000000, maxOutput: 65536 },
+  {
+    id: "gemini-3.1-pro-preview-customtools",
+    name: "gemini-3.1-pro-preview-customtools",
+    context: 1000000,
+    maxOutput: 65536,
+  },
+  { id: "gemini-3.1-pro", name: "gemini-3.1-pro", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-3.1-flash-lite", name: "gemini-3.1-flash-lite", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-3.1-flash-lite-preview", name: "gemini-3.1-flash-lite-preview", context: 1000000, maxOutput: 65536 },
+  { id: "gemini-3.1-flash-image", name: "gemini-3.1-flash-image", context: 65535, maxOutput: 8192 },
   { id: "gemini-3.1-flash-image-preview", name: "gemini-3.1-flash-image-preview", context: 65535, maxOutput: 8192 },
   // Gemini 3.0
   { id: "gemini-3-pro-preview", name: "gemini-3-pro-preview", context: 1000000, maxOutput: 65536 },
+  {
+    id: "gemini-3-pro-preview-customtools",
+    name: "gemini-3-pro-preview-customtools",
+    context: 1000000,
+    maxOutput: 65536,
+  },
+  { id: "gemini-3-flash", name: "gemini-3-flash", context: 1000000, maxOutput: 65536 },
   { id: "gemini-3-pro-image-preview", name: "gemini-3-pro-image-preview", context: 65535, maxOutput: 8192 },
+  { id: "gemini-3-pro-image", name: "gemini-3-pro-image", context: 65535, maxOutput: 8192 },
   { id: "gemini-3-flash-preview", name: "gemini-3-flash-preview", context: 1000000, maxOutput: 65536 },
   // Gemini 2.5
   { id: "gemini-2.5-pro", name: "gemini-2.5-pro", context: 1000000, maxOutput: 65536 },
@@ -269,6 +332,12 @@ export const MISTRAL_MODELS: KnownModel[] = [];
 // ── Cohere (from #model_cohere_select) ──
 
 export const COHERE_MODELS: KnownModel[] = [
+  // Command A family
+  { id: "command-a-plus-08-2025", name: "command-a-plus-08-2025", context: 128000, maxOutput: 64000 },
+  { id: "command-a-reasoning-08-2025", name: "command-a-reasoning-08-2025", context: 256000, maxOutput: 32000 },
+  { id: "command-a-translate-08-2025", name: "command-a-translate-08-2025", context: 8192, maxOutput: 8192 },
+  { id: "command-a-03-2025", name: "command-a-03-2025", context: 256000, maxOutput: 8192 },
+  { id: "command-a-vision-07-2025", name: "command-a-vision-07-2025", context: 128000, maxOutput: 8192 },
   // Stable
   { id: "c4ai-aya-23-8b", name: "c4ai-aya-23-8b", context: 8192, maxOutput: 4096 },
   { id: "c4ai-aya-23", name: "c4ai-aya-23", context: 8192, maxOutput: 4096 },
@@ -283,8 +352,6 @@ export const COHERE_MODELS: KnownModel[] = [
   { id: "command-r-08-2024", name: "command-r-08-2024", context: 128000, maxOutput: 4096 },
   { id: "command-r-plus-08-2024", name: "command-r-plus-08-2024", context: 128000, maxOutput: 4096 },
   { id: "command-r7b-12-2024", name: "command-r7b-12-2024", context: 128000, maxOutput: 4096 },
-  { id: "command-a-03-2025", name: "command-a-03-2025", context: 256000, maxOutput: 8192 },
-  { id: "command-a-vision-07-2025", name: "command-a-vision-07-2025", context: 256000, maxOutput: 8192 },
   // Nightly
   { id: "command-light-nightly", name: "command-light-nightly", context: 4096, maxOutput: 4096 },
   { id: "command-nightly", name: "command-nightly", context: 128000, maxOutput: 4096 },
@@ -299,10 +366,24 @@ export const OPENROUTER_MODELS: KnownModel[] = [];
 export const XAI_MODELS: KnownModel[] = [
   // Official xAI docs recommend Grok 4.3 for standard chat API usage.
   { id: "grok-4.3", name: "Grok 4.3", context: 1000000, maxOutput: 0 },
+  { id: "grok-4.3-latest", name: "Grok 4.3 Latest", context: 1000000, maxOutput: 0 },
+  { id: "grok-latest", name: "Grok Latest", context: 1000000, maxOutput: 0 },
+  { id: "grok-4-latest", name: "Grok 4 Latest", context: 256000, maxOutput: 0 },
+  { id: "grok-4", name: "Grok 4", context: 256000, maxOutput: 0 },
+  { id: "grok-4-0709", name: "Grok 4 0709", context: 256000, maxOutput: 0 },
   // Reasoning docs mention this model as auto-reasoning without configurable effort.
   { id: "grok-4-1-fast", name: "Grok 4.1 Fast", context: 2000000, maxOutput: 0 },
+  { id: "grok-4-fast-reasoning", name: "Grok 4 Fast Reasoning", context: 2000000, maxOutput: 0 },
+  { id: "grok-4-fast-non-reasoning", name: "Grok 4 Fast Non-Reasoning", context: 2000000, maxOutput: 0 },
+  { id: "grok-fast-latest", name: "Grok Fast Latest", context: 2000000, maxOutput: 0 },
   // Multi-agent research model; uses Responses API and reasoning.effort for 4 vs 16 agents.
   { id: "grok-4.20-multi-agent", name: "Grok 4.20 Multi-Agent", context: 2000000, maxOutput: 0 },
+  // Specialized xAI API models.
+  { id: "grok-build-0.1", name: "Grok Build 0.1", context: 256000, maxOutput: 0 },
+  { id: "grok-build-latest", name: "Grok Build Latest", context: 256000, maxOutput: 0 },
+  { id: "grok-code-fast-1", name: "Grok Code Fast 1", context: 256000, maxOutput: 0 },
+  { id: "grok-code-fast-1-0825", name: "Grok Code Fast 1 0825", context: 256000, maxOutput: 0 },
+  { id: "grok-code-fast-1-0831", name: "Grok Code Fast 1 0831", context: 256000, maxOutput: 0 },
 ];
 
 // ── Additional providers with static lists in SillyTavern ──
@@ -519,6 +600,8 @@ const IMAGE_GEN_MODELS: KnownModel[] = [
   // OpenAI
   { id: "gpt-image-2", name: "GPT Image 2", context: 0, maxOutput: 0 },
   { id: "gpt-image-1.5", name: "GPT Image 1.5", context: 0, maxOutput: 0 },
+  { id: "chatgpt-image-latest", name: "ChatGPT Image Latest", context: 0, maxOutput: 0 },
+  { id: "gpt-image-1-mini", name: "GPT Image 1 Mini", context: 0, maxOutput: 0 },
   { id: "dall-e-3", name: "DALL-E 3", context: 0, maxOutput: 0 },
   { id: "dall-e-2", name: "DALL-E 2", context: 0, maxOutput: 0 },
   { id: "gpt-image-1", name: "GPT Image 1", context: 0, maxOutput: 0 },
@@ -554,6 +637,7 @@ const IMAGE_GEN_MODELS: KnownModel[] = [
     maxOutput: 0,
   },
   // xAI / Grok Imagine
+  { id: "grok-4.1-fast-image", name: "Grok 4.1 Fast Image", context: 0, maxOutput: 0 },
   { id: "grok-imagine-image", name: "Grok Imagine Image", context: 0, maxOutput: 0 },
   { id: "grok-2-image", name: "Grok 2 Image", context: 0, maxOutput: 0 },
   // NovelAI
@@ -635,4 +719,21 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
  */
 export function findKnownModel(provider: APIProvider, modelId: string): KnownModel | undefined {
   return MODEL_LISTS[provider]?.find((m) => m.id === modelId);
+}
+
+function normalizeProviderForCatalog(provider: APIProvider | string): APIProvider | null {
+  const normalized = provider.replace(/-/g, "_");
+  return normalized in MODEL_LISTS ? (normalized as APIProvider) : null;
+}
+
+export function shouldSuppressUnknownModelParameters(
+  provider: APIProvider | string | null | undefined,
+  modelId: string | null | undefined,
+): boolean {
+  if (!provider || !modelId?.trim()) return false;
+  const normalizedProvider = normalizeProviderForCatalog(provider);
+  if (!normalizedProvider) return false;
+  const catalog = MODEL_LISTS[normalizedProvider];
+  if (!catalog || catalog.length === 0) return false;
+  return !findKnownModel(normalizedProvider, modelId.trim());
 }

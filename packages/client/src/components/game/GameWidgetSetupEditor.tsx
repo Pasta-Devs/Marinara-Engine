@@ -1,0 +1,576 @@
+// ──────────────────────────────────────────────
+// Game: HUD Widget Setup Editor
+// ──────────────────────────────────────────────
+import { useMemo, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import type { HudWidget, HudWidgetConfig, HudWidgetType } from "@marinara-engine/shared";
+import { cn } from "../../lib/utils";
+
+export const MAX_GAME_SETUP_WIDGETS = 4;
+
+const WIDGET_TYPES: readonly HudWidgetType[] = [
+  "progress_bar",
+  "gauge",
+  "relationship_meter",
+  "counter",
+  "stat_block",
+  "list",
+  "inventory_grid",
+  "timer",
+];
+
+const DEFAULT_ACCENTS: Record<HudWidgetType, string> = {
+  progress_bar: "#a78bfa",
+  gauge: "#22c55e",
+  relationship_meter: "#f472b6",
+  counter: "#38bdf8",
+  stat_block: "#f59e0b",
+  list: "#14b8a6",
+  inventory_grid: "#94a3b8",
+  timer: "#fb7185",
+};
+
+const DEFAULT_ICONS: Record<HudWidgetType, string> = {
+  progress_bar: "◆",
+  gauge: "◔",
+  relationship_meter: "♥",
+  counter: "#",
+  stat_block: "▦",
+  list: "☰",
+  inventory_grid: "▣",
+  timer: "◷",
+};
+
+function isHudWidgetType(value: unknown): value is HudWidgetType {
+  return (
+    value === "progress_bar" ||
+    value === "gauge" ||
+    value === "relationship_meter" ||
+    value === "counter" ||
+    value === "stat_block" ||
+    value === "list" ||
+    value === "inventory_grid" ||
+    value === "timer"
+  );
+}
+
+function formatWidgetTypeLabel(type: HudWidgetType) {
+  return type
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function slugifyWidgetId(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 48) || "widget"
+  );
+}
+
+function nextWidgetId(base: string, widgets: readonly HudWidget[]) {
+  const used = new Set(widgets.map((widget) => widget.id));
+  const stem = slugifyWidgetId(base);
+  let candidate = stem;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${stem}_${suffix++}`;
+  }
+  return candidate;
+}
+
+function parseNumber(value: unknown, fallback: number, min?: number) {
+  const parsed = typeof value === "string" && value.trim() ? Number(value.trim()) : value;
+  const numeric = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : fallback;
+  return typeof min === "number" ? Math.max(min, numeric) : numeric;
+}
+
+function defaultWidgetConfig(type: HudWidgetType): HudWidgetConfig {
+  switch (type) {
+    case "progress_bar":
+      return { startingValue: 100, value: 100, max: 100 };
+    case "gauge":
+      return { startingValue: 50, value: 50, max: 100, dangerBelow: 25 };
+    case "relationship_meter":
+      return { startingValue: 50, value: 50, max: 100 };
+    case "counter":
+      return { count: 0 };
+    case "stat_block":
+      return { stats: [{ name: "Status", value: "Stable" }] };
+    case "list":
+      return { items: [] };
+    case "inventory_grid":
+      return { slots: 8, contents: [] };
+    case "timer":
+      return { seconds: 60, running: false };
+  }
+}
+
+function normalizeConfig(type: HudWidgetType, config: unknown): HudWidgetConfig {
+  const source = config && typeof config === "object" && !Array.isArray(config) ? (config as HudWidgetConfig) : {};
+  const fallback = defaultWidgetConfig(type);
+
+  if (type === "progress_bar" || type === "gauge" || type === "relationship_meter") {
+    const max = parseNumber(source.max, fallback.max ?? 100, 1);
+    const value = Math.max(0, Math.min(max, parseNumber(source.value ?? source.startingValue, fallback.value ?? 0)));
+    return {
+      ...source,
+      max,
+      value,
+      startingValue: parseNumber(source.startingValue ?? value, value, 0),
+    };
+  }
+
+  if (type === "counter") {
+    return { ...source, count: Math.round(parseNumber(source.count, 0)) };
+  }
+
+  if (type === "stat_block") {
+    const stats = Array.isArray(source.stats)
+      ? source.stats
+          .map((stat) => {
+            const rawValue = (stat as { value?: unknown }).value;
+            return {
+              name: String((stat as { name?: unknown }).name ?? "").trim(),
+              value: typeof rawValue === "number" || typeof rawValue === "string" ? rawValue : "",
+            };
+          })
+          .filter((stat) => stat.name)
+      : (fallback.stats ?? []);
+    return { ...source, stats };
+  }
+
+  if (type === "list") {
+    return {
+      ...source,
+      items: Array.isArray(source.items) ? source.items.map((item) => String(item).trim()).filter(Boolean) : [],
+    };
+  }
+
+  if (type === "inventory_grid") {
+    return {
+      ...source,
+      slots: Math.round(parseNumber(source.slots, 8, 1)),
+      contents: Array.isArray(source.contents) ? source.contents : [],
+    };
+  }
+
+  return {
+    ...source,
+    seconds: Math.round(parseNumber(source.seconds, 60, 0)),
+    running: source.running === true,
+  };
+}
+
+export function createDefaultGameHudWidget(type: HudWidgetType, widgets: readonly HudWidget[]): HudWidget {
+  const label = formatWidgetTypeLabel(type);
+  return {
+    id: nextWidgetId(label, widgets),
+    type,
+    label,
+    icon: DEFAULT_ICONS[type],
+    position: widgets.filter((widget) => widget.position === "hud_left").length <=
+      widgets.filter((widget) => widget.position === "hud_right").length
+      ? "hud_left"
+      : "hud_right",
+    accent: DEFAULT_ACCENTS[type],
+    config: defaultWidgetConfig(type),
+  };
+}
+
+export function normalizeGameHudWidgets(value: unknown): HudWidget[] {
+  if (!Array.isArray(value)) return [];
+  const normalized: HudWidget[] = [];
+  const usedIds = new Set<string>();
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || normalized.length >= MAX_GAME_SETUP_WIDGETS) continue;
+    const raw = entry as Partial<HudWidget>;
+    const type = isHudWidgetType(raw.type) ? raw.type : "progress_bar";
+    const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : formatWidgetTypeLabel(type);
+    const preferredId =
+      typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : nextWidgetId(label, normalized);
+    const id = usedIds.has(preferredId) ? nextWidgetId(label, normalized) : preferredId;
+    usedIds.add(id);
+    normalized.push({
+      id,
+      type,
+      label,
+      icon: typeof raw.icon === "string" ? raw.icon.slice(0, 8) : DEFAULT_ICONS[type],
+      position: raw.position === "hud_right" ? "hud_right" : "hud_left",
+      accent: typeof raw.accent === "string" && raw.accent.trim() ? raw.accent.trim() : DEFAULT_ACCENTS[type],
+      config: normalizeConfig(type, raw.config),
+    });
+  }
+
+  return normalized;
+}
+
+interface GameWidgetSetupEditorProps {
+  widgets: HudWidget[];
+  onChange: (widgets: HudWidget[]) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }: GameWidgetSetupEditorProps) {
+  const [newWidgetType, setNewWidgetType] = useState<HudWidgetType>("progress_bar");
+  const normalizedWidgets = useMemo(() => normalizeGameHudWidgets(widgets), [widgets]);
+  const canAddWidget = normalizedWidgets.length < MAX_GAME_SETUP_WIDGETS;
+
+  const replaceWidget = (widgetId: string, patch: Partial<HudWidget>) => {
+    onChange(
+      normalizedWidgets.map((widget) => {
+        if (widget.id !== widgetId) return widget;
+        const type = patch.type ?? widget.type;
+        return {
+          ...widget,
+          ...patch,
+          type,
+          config: patch.type && patch.type !== widget.type ? defaultWidgetConfig(patch.type) : widget.config,
+        };
+      }),
+    );
+  };
+
+  const updateWidgetConfig = (widgetId: string, patch: Partial<HudWidgetConfig>) => {
+    onChange(
+      normalizedWidgets.map((widget) =>
+        widget.id === widgetId ? { ...widget, config: normalizeConfig(widget.type, { ...widget.config, ...patch }) } : widget,
+      ),
+    );
+  };
+
+  const addWidget = () => {
+    if (!canAddWidget || disabled) return;
+    onChange([...normalizedWidgets, createDefaultGameHudWidget(newWidgetType, normalizedWidgets)]);
+  };
+
+  return (
+    <div className={cn("space-y-3", className)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          {normalizedWidgets.length}/{MAX_GAME_SETUP_WIDGETS} widgets
+        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <select
+            value={newWidgetType}
+            onChange={(event) => setNewWidgetType(event.target.value as HudWidgetType)}
+            disabled={disabled || !canAddWidget}
+            className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] disabled:opacity-50"
+          >
+            {WIDGET_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {formatWidgetTypeLabel(type)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={addWidget}
+            disabled={disabled || !canAddWidget}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Plus size="0.75rem" />
+            <span>Add</span>
+          </button>
+        </div>
+      </div>
+
+      {normalizedWidgets.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+          No widgets selected.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {normalizedWidgets.map((widget) => (
+            <div key={widget.id} className="rounded-lg bg-[var(--background)]/75 p-3 ring-1 ring-[var(--border)]">
+              <div className="grid gap-2 sm:grid-cols-[3.25rem_minmax(0,1fr)_9rem_auto] sm:items-end">
+                <label className="space-y-1">
+                  <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Icon</span>
+                  <input
+                    value={widget.icon ?? ""}
+                    maxLength={8}
+                    disabled={disabled}
+                    onChange={(event) => replaceWidget(widget.id, { icon: event.target.value })}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Label</span>
+                  <input
+                    value={widget.label}
+                    disabled={disabled}
+                    onChange={(event) => replaceWidget(widget.id, { label: event.target.value })}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Type</span>
+                  <select
+                    value={widget.type}
+                    disabled={disabled}
+                    onChange={(event) => replaceWidget(widget.id, { type: event.target.value as HudWidgetType })}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+                  >
+                    {WIDGET_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {formatWidgetTypeLabel(type)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => onChange(normalizedWidgets.filter((entry) => entry.id !== widget.id))}
+                  disabled={disabled}
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--destructive)]/25 px-3 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
+                  aria-label={`Remove ${widget.label}`}
+                >
+                  <Trash2 size="0.875rem" />
+                </button>
+              </div>
+
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Side</span>
+                  <select
+                    value={widget.position}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      replaceWidget(widget.id, { position: event.target.value === "hud_right" ? "hud_right" : "hud_left" })
+                    }
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+                  >
+                    <option value="hud_left">Left HUD</option>
+                    <option value="hud_right">Right HUD</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Accent</span>
+                  <input
+                    type="color"
+                    value={/^#[0-9a-f]{6}$/i.test(widget.accent ?? "") ? widget.accent : DEFAULT_ACCENTS[widget.type]}
+                    disabled={disabled}
+                    onChange={(event) => replaceWidget(widget.id, { accent: event.target.value })}
+                    className="h-9 w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2 py-1"
+                  />
+                </label>
+              </div>
+
+              <WidgetConfigFields
+                widget={widget}
+                disabled={disabled}
+                onConfigChange={(patch) => updateWidgetConfig(widget.id, patch)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WidgetConfigFields({
+  widget,
+  disabled,
+  onConfigChange,
+}: {
+  widget: HudWidget;
+  disabled?: boolean;
+  onConfigChange: (patch: Partial<HudWidgetConfig>) => void;
+}) {
+  if (widget.type === "progress_bar" || widget.type === "gauge" || widget.type === "relationship_meter") {
+    const value = parseNumber(widget.config.value ?? widget.config.startingValue, 0, 0);
+    const max = parseNumber(widget.config.max, 100, 1);
+    return (
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <label className="space-y-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Value</span>
+          <input
+            type="number"
+            min={0}
+            value={value}
+            disabled={disabled}
+            onChange={(event) => {
+              const next = parseNumber(event.target.value, value, 0);
+              onConfigChange({ value: next, startingValue: next });
+            }}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          />
+        </label>
+        <label className="space-y-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Max</span>
+          <input
+            type="number"
+            min={1}
+            value={max}
+            disabled={disabled}
+            onChange={(event) => onConfigChange({ max: parseNumber(event.target.value, max, 1) })}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          />
+        </label>
+      </div>
+    );
+  }
+
+  if (widget.type === "counter") {
+    return (
+      <label className="mt-2 block space-y-1">
+        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Count</span>
+        <input
+          type="number"
+          value={parseNumber(widget.config.count, 0)}
+          disabled={disabled}
+          onChange={(event) => onConfigChange({ count: Math.round(parseNumber(event.target.value, 0)) })}
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+        />
+      </label>
+    );
+  }
+
+  if (widget.type === "stat_block") {
+    const stats = Array.isArray(widget.config.stats) ? widget.config.stats : [];
+    return (
+      <div className="mt-2 space-y-2">
+        {stats.map((stat, index) => (
+          <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_auto]">
+            <input
+              value={stat.name}
+              disabled={disabled}
+              onChange={(event) => {
+                const next = stats.map((entry, entryIndex) =>
+                  entryIndex === index ? { ...entry, name: event.target.value } : entry,
+                );
+                onConfigChange({ stats: next });
+              }}
+              placeholder="Stat"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+            />
+            <input
+              value={String(stat.value ?? "")}
+              disabled={disabled}
+              onChange={(event) => {
+                const next = stats.map((entry, entryIndex) =>
+                  entryIndex === index ? { ...entry, value: event.target.value } : entry,
+                );
+                onConfigChange({ stats: next });
+              }}
+              placeholder="Value"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+            />
+            <button
+              type="button"
+              onClick={() => onConfigChange({ stats: stats.filter((_, entryIndex) => entryIndex !== index) })}
+              disabled={disabled}
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--destructive)]/25 px-3 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
+              aria-label="Remove stat"
+            >
+              <Trash2 size="0.75rem" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onConfigChange({ stats: [...stats, { name: "", value: "" }] })}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+        >
+          <Plus size="0.75rem" />
+          <span>Add Stat</span>
+        </button>
+      </div>
+    );
+  }
+
+  if (widget.type === "list") {
+    const items = Array.isArray(widget.config.items) ? widget.config.items : [];
+    return (
+      <label className="mt-2 block space-y-1">
+        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Items</span>
+        <textarea
+          value={items.join("\n")}
+          disabled={disabled}
+          rows={3}
+          onChange={(event) =>
+            onConfigChange({
+              items: event.target.value
+                .split(/\r?\n/)
+                .map((item) => item.trim())
+                .filter(Boolean)
+                .slice(0, 5),
+            })
+          }
+          className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+        />
+      </label>
+    );
+  }
+
+  if (widget.type === "inventory_grid") {
+    const contents = Array.isArray(widget.config.contents) ? widget.config.contents : [];
+    return (
+      <div className="mt-2 grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)]">
+        <label className="space-y-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Slots</span>
+          <input
+            type="number"
+            min={1}
+            value={parseNumber(widget.config.slots, 8, 1)}
+            disabled={disabled}
+            onChange={(event) => onConfigChange({ slots: Math.round(parseNumber(event.target.value, 8, 1)) })}
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          />
+        </label>
+        <label className="space-y-1">
+          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Contents</span>
+          <textarea
+            value={contents.map((item) => item.name).join("\n")}
+            disabled={disabled}
+            rows={3}
+            onChange={(event) =>
+              onConfigChange({
+                contents: event.target.value
+                  .split(/\r?\n/)
+                  .map((name) => name.trim())
+                  .filter(Boolean)
+                  .map((name) => ({ name, quantity: 1 })),
+              })
+            }
+            className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+          />
+        </label>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+      <label className="space-y-1">
+        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Seconds</span>
+        <input
+          type="number"
+          min={0}
+          value={parseNumber(widget.config.seconds, 60, 0)}
+          disabled={disabled}
+          onChange={(event) => onConfigChange({ seconds: Math.round(parseNumber(event.target.value, 60, 0)) })}
+          className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)]"
+        />
+      </label>
+      <label className="flex items-center gap-2 self-end rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)]">
+        <input
+          type="checkbox"
+          checked={widget.config.running === true}
+          disabled={disabled}
+          onChange={(event) => onConfigChange({ running: event.target.checked })}
+          className="h-4 w-4 rounded border-[var(--border)]"
+        />
+        Running
+      </label>
+    </div>
+  );
+}

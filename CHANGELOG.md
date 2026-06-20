@@ -4,18 +4,34 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Added
+
+- Added tracker field locks for editable Roleplay HUD and Tracker Panel fields so manually pinned tracker values survive generated game-state updates.
+
+### Changed
+
+- Moved AI-assisted character, persona, lorebook, preset creation, and preset review workflows to Professor Mari.
+
+### Removed
+
+- Removed the deprecated standalone character, persona, and lorebook maker modals and their dedicated generation routes.
+- Removed the Preset editor's standalone review tab and dedicated preset-review route.
+
 ## [1.6.1]
 
 ### Added
 
 - Added a Marinara-specific AI agent workflow overlay, adapted from the Chai Agent Workflow Pack, covering proof discipline, bugfix/feature lanes, issue filing, PR gates, and risky-work claim boundaries.
 - Added a None option for Roleplay message avatars so messages can render without avatar attachments.
+- Added default starting values for numeric Game HUD widgets, with setup/editor clamps that keep start values within the configured max.
+- Added a prompt override editor for registered prompt templates, including conversation selfie overrides, collapsible settings, and draft preservation.
+- Added shared drag-and-drop image upload dropzones for character avatars, chat gallery images, and background imports.
 - Added a manual Game Mode combat start control with confirmation so players can trigger encounter setup when a scene should enter combat.
 - Added a General quote-format preference for straight or curly dialogue quotes and apostrophes, with editor/input formatting support across chat, presets, characters, and personas.
 - Added conditional prompt macros, macro comment blocks, and Macro Reference guidance so presets and character/persona cards can keep author-only notes or branch prompt text by speaker/character.
 - Added Roleplay TTS narrator voice support and speaker-tagged dialogue voice routing so grouped character dialogue can queue per-character voice requests.
 - Added Roleplay Expression Avatar controls so Expression Engine selections can replace character avatars for matching messages, with sprite expression blocks hidden when avatar replacement is enabled.
-- Added Roleplay Spotify DJ source controls matching Game Mode so chats can choose playlist, liked-song, artist, or wider Spotify selection behavior.
+- Added Roleplay Music DJ source controls matching Game Mode so chats can choose playlist, liked-song, artist, or wider Spotify selection behavior.
 - Added an Illustrator run interval setting so scene illustrations are only eligible after a configurable number of assistant messages, and only successful image generations reset the interval.
 - Added Roleplay quick-edit gestures: double-click on desktop or double-tap on mobile opens a message editor.
 - Added a Chat Settings context toggle for excluding stored provider reasoning from future prompt context, enabled by default.
@@ -29,11 +45,13 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Removed the Conversation, Roleplay, and Game mode shortcuts from the topbar because the sidebar already owns mode navigation.
 - Widened the Glued Side Panel roleplay avatar presentation so the portrait strip has more visual presence.
+- Improved sprite wand cleanup with halo edge cleanup, clean/paint brush tools, unified brush controls, and better multi-pointer handling.
+- Polished Tracker Panel visual controls, thought bubbles, persona/tracker card styling, responsive world-state temperature display, and color preview restore/legacy tint behavior.
 - Improved Game Mode combat setup so encounter generation can run in the background after scene analysis, with debug logging and a wait state only when the player reaches combat before setup is ready.
 - Removed unreliable met/unmet status tracking from Game Mode NPC prompt context.
 - Improved Roleplay group chat Individual mode prompting so only the currently responding character card is included, other characters' prior messages are treated as user-side context, and the turn-owner instruction can be toggled.
 - Improved Roleplay streaming so the Streaming Speed slider uses a real typewriter reveal cadence instead of dumping fast server token bursts onto the screen.
-- Improved Roleplay Spotify DJ execution so it can trigger in Roleplay chats, respect its configured context/source constraints, strip large playlists into song candidates, and recover playable tracks from grouped post-generation agent results.
+- Improved Roleplay Music DJ execution so it can trigger in Roleplay chats, respect its configured context/source constraints, strip large playlists into song candidates, and recover playable tracks from grouped post-generation agent results.
 - Unified Roleplay Agents & Actions plus Roleplay/Conversation input toolbar icon styling around the neutral grey-white treatment used by the emoji picker.
 - Polished mobile Roleplay/Conversation input toolbar controls with larger touch targets while keeping desktop density compact.
 - Updated the Roleplay input placeholder to invite writing a response without naming the active characters.
@@ -44,9 +62,15 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Fixed mobile Conversation chats where optional toolbar actions could squeeze the message textarea down until it appeared missing on narrow phone viewports.
+- Fixed tracker character-card lookup so active-chat card aliases from title/comment text resolve tracker rows before out-of-chat fallback cards, keeping group-chat tracker portraits and color settings attached to the intended character.
+- Fixed character tracker refreshes preserving user-uploaded NPC portraits and portrait framing across agent updates, including first snapshot writes.
+- Fixed the Roleplay HUD temperature chip so it respects the shared Tracker Panel Celsius/Fahrenheit display setting.
 - Added a stale client artifact cleanup step for the obsolete tracker data sidebar folder so installs, updates, checks, and builds are not tripped up by leftover local files after the tracker panel refactor.
 - Fixed Docker builds so the stale client artifact cleanup script is available before dependency install/build scripts run.
 - Fixed streaming Roleplay messages in Glued Side Panel avatar mode so the avatar frame keeps the selected scale and is revealed by the growing message instead of rescaling while tokens arrive.
+- Fixed Quest Board state merges so tracker updates no longer revert quest progress or keep completed empty-objective quests.
+- Fixed profile export/import fallback handling for large assets so profile exports can recover cleanly when embedded asset payloads are too large.
 - Fixed Windows installer updates for existing shallow release checkouts by fetching the resolved release commit before checkout.
 - Fixed mobile Game Mode character and party controls so sheet actions stay compact, long character names can remain accessible, and crowded party rosters collapse into a scrollable mobile party picker.
 - Fixed mobile Game Mode choice prompts so large choice sets stay readable and scroll inside the available play area instead of squishing buttons or pushing custom input off-screen.
@@ -56,7 +80,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Fixed quote formatting and macro parsing so curly quotes do not break macro conditions, and quote-formatting no longer pushes editor cursors to the end while typing.
 - Fixed macro comments in character and persona card fields so `{{// ...}}` text is stripped before prompt assembly.
 - Fixed Roleplay prompt/debug routing around transformed group-chat messages so `<last_message>` follows the actual latest visible message and generated responses trim leading blank lines/spaces before line breaks.
-- Fixed Roleplay Spotify DJ false failure toasts after successful queueing, malformed-summary handling, and missing playable-track extraction.
+- Fixed Roleplay Music DJ false failure toasts after successful queueing, malformed-summary handling, and missing playable-track extraction.
 - Fixed Advanced Settings layout issues, including the Admin Access save button escaping its bounds and tooltip/expand icons crowding each other in non-Game chat settings.
 - Fixed gradient character names in Roleplay generated messages so the text uses the gradient instead of rendering as a solid gradient block.
 - Fixed rare Professor Mari toast visits so they can be dismissed.
@@ -81,6 +105,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added explicit Illustrator try-again controls when image generation fails, including a toast action and a persistent Roleplay HUD retry button. ([#797](https://github.com/Pasta-Devs/Marinara-Engine/issues/797))
 - Added Local Model sidecar as a first-class embedding source, including an Embedding Connection option, lorebook vectorization support, and a stable `/api/sidecar/v1/embeddings` endpoint. ([#780](https://github.com/Pasta-Devs/Marinara-Engine/issues/780))
 - Added opt-in Turn Data Access settings for custom post-processing agents so they can receive current-turn pre-generation injections and parallel agent results without exposing that data to existing agents by default. ([#778](https://github.com/Pasta-Devs/Marinara-Engine/issues/778))
+- Added Memory Recall export/import for moving chat recall data between profiles or installs.
+- Added weighted random macro choices for SillyTavern-style random prompt variants.
 - Added a native Appearance background blur slider for Roleplay and Game mode backgrounds. ([#763](https://github.com/Pasta-Devs/Marinara-Engine/issues/763))
 - Added excluded-tag filtering for the character browser, including `-tag:"tag name"` search syntax and exclude toggles in the character tag picker. ([#702](https://github.com/Pasta-Devs/Marinara-Engine/issues/702))
 - Added a server-side autonomous conversation scheduler so enabled characters can generate restrained scheduled messages while the browser poller is absent, with client-presence checks to avoid duplicate client/server generations. ([#698](https://github.com/Pasta-Devs/Marinara-Engine/issues/698))
@@ -124,6 +150,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Fixed Game Mode asset generation prompt review, NPC portrait matching, sprite recovery, Professor-name avatar matching, and command-prompt regeneration replay.
 - Fixed Game Session Log flicker, deletion offsets, manual deletion persistence, and dice-roll dismissal when advancing dialogue.
 - Fixed Game Mode weather, storm ambience, sun overlay behavior, CYOA live updates, skill checks, inventory notifications, combat voice audio, mobile party access, tracker refreshes, and tracker edit persistence.
+- Fixed CJK Google font shard loading and scene-summary max-token overrides.
+- Fixed manual chat file deletion persistence and regenerate replay for command prompts.
 - Fixed Conversation disconnection aborts on Docker, markdown block preservation, hidden-message regeneration crashes, Up Arrow recall behavior, role editing, DM schedule inheritance, random connection schedule generation, and connected-chat placeholder branch names.
 - Fixed character avatar uploads preserving unsaved drafts, chat folder click targets, drag reorder behavior, text selection while dragging, folder storage atomicity, and Professor Mari continuation after tool/fetch work.
 - Fixed OpenAI ChatGPT request shape and SSE parsing, compressed provider JSON decoding (`gzip`, raw `gzip`, and Brotli), Gemini gzip decoding, provider identity handling, NovelAI V4 prompt/model handling, ComfyUI numeric workflow placeholders, Horde image endpoints, and Pygmalion avatar content-type fallback.
@@ -154,13 +182,13 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Per-connection max parallel agent job controls, allowing agent-heavy chats to split same-connection work across multiple LLM calls.
 - Editable Game Session History map JSON in the current-session spoiler section.
 - Markdown rendering and live preview for Game journal notes.
+- Tracker Data Sidebar for viewing and editing live tracker data from the side panel.
 - `/emote name="Character" expression="expression"` for listing and manually switching roleplay sprite expressions.
 - Duplicate action for individual prompt preset blocks.
 - Close controls for Game mode choice prompts and quick-time event windows.
 - Agent tool calls for reading and replacing chat-wide string variables.
 - OpenRouter as an image generation service through the existing image connection flow.
 - Game setup can now review, edit, or remove generated HUD widgets and custom stat fields before the first turn starts.
-- Character cards now support Persona-style Description Extensions, with active blocks appended to prompt descriptions.
 - Game mode NPC side banter now spreads long runs across later VN segments, reducing oversized popup stacks.
 - Roleplay Writer Agents can now pause before the main reply so their prompt injections can be reviewed and edited.
 - Game Session Logs now highlight entries included in a pending multi-message deletion.
@@ -665,7 +693,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Changed
 
-- **Personas Panel Redesign** — Search, sort, active/inactive filter, plus New, Import, and AI Maker action buttons.
+- **Personas Panel Redesign** — Search, sort, active/inactive filter, plus New and Import action buttons.
 - **Quick Switcher Vertical Alignment** — Desktop quick switchers anchor to the input box container's top border.
 - **Conversation Edit Simplification** — Removed keyboard shortcuts from message editing; explicit cancel/save buttons only.
 - **Blank Line Collapsing** — Runs of 3+ consecutive newlines collapsed to a double newline.

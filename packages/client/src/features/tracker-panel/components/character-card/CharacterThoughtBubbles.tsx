@@ -5,6 +5,7 @@ import type { TrackerPanelSide } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
 import { visibleText } from "../../lib/tracker-display";
 import { InlineEdit } from "../controls/InlineControls";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 
 type ThoughtBubbleSize = "short" | "medium" | "long";
 
@@ -138,11 +139,14 @@ function ThoughtBubble({
   value,
   onSave,
   tailSide = "left",
+  lockKey,
 }: {
   value: string | null | undefined;
   onSave?: (value: string) => void;
   tailSide?: "left" | "right";
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const tailOnLeft = tailSide === "left";
   const thoughtText = visibleText(value, "Thoughts").replace(/\s+/g, " ");
   const thoughtBubbleSize = getThoughtBubbleSize(thoughtText);
@@ -170,7 +174,7 @@ function ThoughtBubble({
           <span
             key={sizeClass}
             className={cn(
-              "animate-pulse rounded-full bg-[color-mix(in_srgb,var(--card)_82%,var(--background)_18%)] ring-1 ring-[var(--primary)]/28 shadow-[0_0_8px_color-mix(in_srgb,var(--primary)_18%,transparent)] backdrop-blur-md",
+              "animate-pulse rounded-full bg-[color-mix(in_srgb,var(--card)_82%,var(--background)_18%)] ring-1 ring-[var(--foreground)]/18 shadow-[0_0_8px_color-mix(in_srgb,var(--foreground)_10%,transparent)] backdrop-blur-md",
               sizeClass,
             )}
             style={{ animationDelay: `${index * 140}ms` }}
@@ -179,7 +183,7 @@ function ThoughtBubble({
       </div>
       <span
         className={cn(
-          "pointer-events-none absolute top-[0.8125rem] z-[1] h-4 w-4 rounded-full bg-[color-mix(in_srgb,var(--card)_82%,var(--background)_18%)] ring-1 ring-[var(--primary)]/28 shadow-[0_0_10px_color-mix(in_srgb,var(--primary)_18%,transparent)] backdrop-blur-xl",
+          "pointer-events-none absolute top-[0.8125rem] z-[1] h-4 w-4 rounded-full bg-[color-mix(in_srgb,var(--card)_82%,var(--background)_18%)] ring-1 ring-[var(--foreground)]/18 shadow-[0_0_10px_color-mix(in_srgb,var(--foreground)_10%,transparent)] backdrop-blur-xl",
           tailOnLeft ? "left-[0.4375rem]" : "right-[0.4375rem]",
         )}
       />
@@ -191,7 +195,7 @@ function ThoughtBubble({
       />
       <div
         className={cn(
-          "relative z-[2] overflow-hidden border border-[var(--primary)]/24 bg-[color-mix(in_srgb,var(--card)_86%,var(--background)_14%)] text-[var(--foreground)] shadow-[0_0_16px_color-mix(in_srgb,var(--primary)_14%,transparent),0_8px_18px_rgba(0,0,0,0.22)] backdrop-blur-xl [container-type:inline-size]",
+          "relative z-[2] overflow-hidden border border-[var(--foreground)]/16 bg-[color-mix(in_srgb,var(--card)_86%,var(--background)_14%)] text-[var(--foreground)] shadow-[0_0_16px_color-mix(in_srgb,var(--foreground)_8%,transparent),0_8px_18px_rgba(0,0,0,0.22)] backdrop-blur-xl [container-type:inline-size]",
           thoughtBubbleSize === "short" &&
             "inline-flex min-h-10 w-fit min-w-[4.5rem] max-w-[9.5rem] rounded-full px-4 py-2",
           thoughtBubbleSize === "medium" &&
@@ -200,7 +204,7 @@ function ThoughtBubble({
         )}
         style={thoughtBubbleStyle}
       >
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_12%,transparent),transparent_46%,color-mix(in_srgb,var(--accent)_12%,transparent))]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--foreground)_7%,transparent),transparent_46%,color-mix(in_srgb,var(--accent)_10%,transparent))]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[var(--foreground)]/12" />
         <div
           className={cn(
@@ -214,7 +218,7 @@ function ThoughtBubble({
               onSave={onSave}
               placeholder="Thoughts"
               className={cn(
-                "px-0 py-0 font-medium italic [--foreground:color-mix(in_srgb,var(--foreground)_94%,var(--primary)_6%)] [--muted-foreground:color-mix(in_srgb,var(--muted-foreground)_82%,var(--foreground)_18%)] hover:bg-[var(--primary)]/12",
+                "px-0 py-0 font-medium italic [--foreground:color-mix(in_srgb,var(--foreground)_96%,var(--muted-foreground)_4%)] [--muted-foreground:color-mix(in_srgb,var(--muted-foreground)_82%,var(--foreground)_18%)] hover:bg-[var(--foreground)]/8",
                 compactThoughtBubble && "w-fit max-w-full",
                 thoughtBubbleSize === "short" && "min-h-6 min-w-0 text-center",
                 thoughtBubbleSize === "medium" && "min-w-0",
@@ -226,11 +230,12 @@ function ThoughtBubble({
               previewLineCount={thoughtTextFit.previewLineCount}
               previewClassName={thoughtTextFit.previewClassName}
               previewStyle={thoughtTextStyle}
+              {...lock}
             />
           ) : (
             <p
               className={cn(
-                "break-words font-medium italic text-[color-mix(in_srgb,var(--foreground)_94%,var(--primary)_6%)]",
+                "break-words font-medium italic text-[color-mix(in_srgb,var(--foreground)_96%,var(--muted-foreground)_4%)]",
                 compactThoughtBubble && "w-fit max-w-full",
                 thoughtTextFit.previewClassName,
               )}
@@ -253,6 +258,7 @@ export function InlineThoughtBubble({
   surfaceClassName,
   tailSide = "right",
   variant = "default",
+  lockKey,
 }: {
   value: string | null | undefined;
   onSave?: (value: string) => void;
@@ -261,7 +267,9 @@ export function InlineThoughtBubble({
   surfaceClassName?: string;
   tailSide?: "left" | "right";
   variant?: "default" | "featured";
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const tailOnLeft = tailSide === "left";
   const thoughtText = visibleText(value, "Thoughts").replace(/\s+/g, " ");
   const thoughtTextFit = getThoughtTextFit(thoughtText, getThoughtBubbleSize(thoughtText));
@@ -293,14 +301,14 @@ export function InlineThoughtBubble({
         <>
           <span
             className={cn(
-              "pointer-events-none absolute z-0 rounded-full border border-[var(--primary)]/28 bg-[color-mix(in_srgb,var(--card)_72%,var(--primary)_28%)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_10%,transparent)]",
+              "pointer-events-none absolute z-0 rounded-full border border-[var(--foreground)]/18 bg-[color-mix(in_srgb,var(--card)_80%,var(--foreground)_20%)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_10%,transparent)]",
               "top-3.5 h-2.5 w-2.5",
               tailOnLeft ? "left-1.5" : "right-1.5",
             )}
           />
           <span
             className={cn(
-              "pointer-events-none absolute top-[1.8rem] z-0 h-1.5 w-1.5 rounded-full border border-[var(--primary)]/24 bg-[color-mix(in_srgb,var(--card)_74%,var(--primary)_26%)]",
+              "pointer-events-none absolute top-[1.8rem] z-0 h-1.5 w-1.5 rounded-full border border-[var(--foreground)]/16 bg-[color-mix(in_srgb,var(--card)_82%,var(--foreground)_18%)]",
               tailOnLeft ? "left-0.5" : "right-0.5",
             )}
           />
@@ -311,7 +319,7 @@ export function InlineThoughtBubble({
           "relative z-[1] min-w-0 overflow-hidden border",
           isFeaturedVariant
             ? "max-h-[3.25rem] rounded-[1.05rem] border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_24%,transparent)] bg-[linear-gradient(150deg,color-mix(in_srgb,var(--tracker-profile-surface-solid)_78%,var(--tracker-profile-display-solid)_12%)_0%,color-mix(in_srgb,var(--tracker-profile-surface-solid)_72%,var(--tracker-profile-accent-solid)_10%)_54%,color-mix(in_srgb,var(--background)_34%,var(--tracker-profile-surface-solid)_66%)_100%)] px-2.5 py-1 text-[color:var(--tracker-profile-text)] shadow-[0_3px_8px_color-mix(in_srgb,var(--background)_22%,transparent),0_0_6px_color-mix(in_srgb,var(--tracker-profile-accent-solid)_7%,transparent),inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]"
-            : "rounded-[1.2rem] border-[var(--primary)]/22 bg-[color-mix(in_srgb,var(--card)_84%,var(--background)_16%)] px-2.5 py-1.5 shadow-[0_6px_12px_rgba(0,0,0,0.18),inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)] backdrop-blur-xl",
+            : "rounded-[1.2rem] border-[var(--foreground)]/16 bg-[color-mix(in_srgb,var(--card)_84%,var(--background)_16%)] px-2.5 py-1.5 shadow-[0_6px_12px_rgba(0,0,0,0.18),inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)] backdrop-blur-xl",
           surfaceClassName,
         )}
       >
@@ -320,7 +328,7 @@ export function InlineThoughtBubble({
             "pointer-events-none absolute inset-0 rounded-[inherit]",
             isFeaturedVariant
               ? "bg-[radial-gradient(circle_at_30%_18%,color-mix(in_srgb,var(--foreground)_7%,transparent),transparent_34%),radial-gradient(circle_at_88%_92%,color-mix(in_srgb,var(--tracker-profile-accent-solid)_9%,transparent),transparent_46%),linear-gradient(180deg,transparent_52%,color-mix(in_srgb,var(--background)_18%,transparent)_100%)]"
-              : "bg-[radial-gradient(circle_at_28%_18%,color-mix(in_srgb,var(--foreground)_8%,transparent),transparent_38%),linear-gradient(135deg,color-mix(in_srgb,var(--primary)_8%,transparent),transparent_52%,color-mix(in_srgb,var(--accent)_8%,transparent))]",
+              : "bg-[radial-gradient(circle_at_28%_18%,color-mix(in_srgb,var(--foreground)_8%,transparent),transparent_38%),linear-gradient(135deg,color-mix(in_srgb,var(--foreground)_6%,transparent),transparent_52%,color-mix(in_srgb,var(--accent)_8%,transparent))]",
           )}
         />
         <div className="relative z-[1] min-w-0">
@@ -330,7 +338,7 @@ export function InlineThoughtBubble({
               onSave={onSave}
               placeholder="Thoughts"
               className={cn(
-                "w-full px-0 py-0 font-medium italic [--foreground:color-mix(in_srgb,var(--foreground)_94%,var(--primary)_6%)] [--muted-foreground:color-mix(in_srgb,var(--muted-foreground)_82%,var(--foreground)_18%)] hover:bg-[var(--primary)]/12",
+                "w-full px-0 py-0 font-medium italic [--foreground:color-mix(in_srgb,var(--foreground)_96%,var(--muted-foreground)_4%)] [--muted-foreground:color-mix(in_srgb,var(--muted-foreground)_82%,var(--foreground)_18%)] hover:bg-[var(--foreground)]/8",
                 isFeaturedVariant &&
                   "[--foreground:color-mix(in_srgb,var(--tracker-profile-text)_94%,var(--tracker-profile-accent-solid)_6%)] [--muted-foreground:color-mix(in_srgb,var(--tracker-profile-muted-text)_84%,var(--tracker-profile-text)_16%)] hover:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_10%,transparent)]",
                 editMinHeightClassName,
@@ -340,11 +348,12 @@ export function InlineThoughtBubble({
               previewLineCount={previewLineCount}
               previewClassName={thoughtTextFit.previewClassName}
               previewStyle={thoughtTextStyle}
+              {...lock}
             />
           ) : (
             <p
               className={cn(
-                "break-words font-medium italic text-[color-mix(in_srgb,var(--foreground)_94%,var(--primary)_6%)]",
+                "break-words font-medium italic text-[color-mix(in_srgb,var(--foreground)_96%,var(--muted-foreground)_4%)]",
                 isFeaturedVariant && "text-[color:var(--tracker-profile-text)]",
                 getThoughtPreviewClampClass(previewLineCount),
                 thoughtTextFit.previewClassName,
@@ -366,12 +375,14 @@ export function ExternalThoughtBubble({
   onSave,
   panelSide,
   bubbleRef,
+  lockKey,
 }: {
   anchorRef: RefObject<HTMLElement | null>;
   value: string | null | undefined;
   onSave?: (value: string) => void;
   panelSide: TrackerPanelSide;
   bubbleRef?: RefObject<HTMLDivElement | null>;
+  lockKey?: string;
 }) {
   const reducedMotion = useReducedMotion();
   const [position, setPosition] = useState<{
@@ -465,7 +476,12 @@ export function ExternalThoughtBubble({
         transformOrigin: position.outsideSide === "left" ? "right 1.5rem" : "left 1.5rem",
       }}
     >
-      <ThoughtBubble value={value} onSave={onSave} tailSide={position.outsideSide === "left" ? "right" : "left"} />
+      <ThoughtBubble
+        value={value}
+        onSave={onSave}
+        tailSide={position.outsideSide === "left" ? "right" : "left"}
+        lockKey={lockKey}
+      />
     </motion.div>,
     document.body,
   );

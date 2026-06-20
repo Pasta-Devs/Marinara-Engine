@@ -164,6 +164,8 @@ export function createPromptsStorage(db: DB) {
           multiSelect: v.multiSelect === "true",
           separator: v.separator,
           randomPick: v.randomPick === "true",
+          displayMode: v.displayMode === "buttons" || v.displayMode === "listbox" ? v.displayMode : "auto",
+          optionSort: v.optionSort === "alphabetical" ? "alphabetical" : "manual",
         });
       }
 
@@ -374,6 +376,8 @@ export function createPromptsStorage(db: DB) {
         multiSelect: String(input.multiSelect ?? false),
         separator: input.separator ?? ", ",
         randomPick: String(input.randomPick ?? false),
+        displayMode: input.displayMode ?? "auto",
+        optionSort: input.optionSort ?? "manual",
         sortOrder: maxOrder + 100,
         createdAt: now(),
       });
@@ -389,6 +393,8 @@ export function createPromptsStorage(db: DB) {
       if (data.multiSelect !== undefined) updateFields.multiSelect = String(data.multiSelect);
       if (data.separator !== undefined) updateFields.separator = data.separator;
       if (data.randomPick !== undefined) updateFields.randomPick = String(data.randomPick);
+      if (data.displayMode !== undefined) updateFields.displayMode = data.displayMode;
+      if (data.optionSort !== undefined) updateFields.optionSort = data.optionSort;
       await db.update(choiceBlocks).set(updateFields).where(eq(choiceBlocks.id, id));
       const rows = await db.select().from(choiceBlocks).where(eq(choiceBlocks.id, id));
       return rows[0] ?? null;

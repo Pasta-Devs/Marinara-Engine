@@ -39,6 +39,16 @@ export function useQuoteFormatter() {
 
       const formatted = formatTextQuotes(value, quoteFormat);
 
+      if (selection && activeInput && activeInput.value !== formatted) {
+        activeInput.value = formatted;
+        const max = formatted.length;
+        activeInput.setSelectionRange(
+          Math.min(selection.start, max),
+          Math.min(selection.end, max),
+          selection.direction,
+        );
+      }
+
       if (selection && typeof window !== "undefined") {
         if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current);
         restoreFrameRef.current = window.requestAnimationFrame(() => {

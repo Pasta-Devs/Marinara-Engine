@@ -146,9 +146,11 @@ async function executeGroup(
   onResult?: AgentResultCallback,
 ): Promise<AgentResult[]> {
   const groupContext = buildAgentContext(group.agents[0]!, context);
-  // Separate tool-using agents (can't be batched) from regular agents
-  const toolAgents = group.agents.filter((a) => a.toolContext?.tools.length);
-  const batchAgents = group.agents.filter((a) => !a.toolContext?.tools.length);
+  // Separate tool-using agents (can't be batched) from regular agents.
+  // Spotify post-processing is intentionally batched as JSON intent first; playback
+  // is applied after parsing the grouped response so it cannot fire early mid-agent.
+  const toolAgents = group.agents.filter((a) => shouldUseToolsDuringAgentExecution(a));
+  const batchAgents = group.agents.filter((a) => !shouldUseToolsDuringAgentExecution(a));
 
   logger.debug("[agent-pipeline] executeGroup: %d batchable, %d tool-using %j", batchAgents.length, toolAgents.length, {
     batch: batchAgents.map((a) => a.type),
@@ -165,31 +167,31 @@ async function executeGroup(
     }
   };
 
-  const allResults: AgentResult[] = [];
+  const batchResultsPromise =
+    batchAgents.length > 0
+      ? executeAgentBatch(batchAgents, groupContext, group.provider, group.model).then((results) => {
+          for (const result of results) {
+            safeOnResult(result);
+          }
+          return results;
+        })
+      : Promise.resolve([] as AgentResult[]);
+  const toolResultsPromise = Promise.all(
+    toolAgents.map((agent) =>
+      executeAgent(agent, buildAgentContext(agent, context), agent.provider, agent.model, agent.toolContext).then((result) => {
+        safeOnResult(result);
+        return result;
+      }),
+    ),
+  );
 
-  // Run regular agents as a batch
-  if (batchAgents.length > 0) {
-    const batchResults = await executeAgentBatch(batchAgents, groupContext, group.provider, group.model);
-    for (const result of batchResults) {
-      safeOnResult(result);
-    }
-    allResults.push(...batchResults);
-  }
+  const [batchResults, toolResults] = await Promise.all([batchResultsPromise, toolResultsPromise]);
+  return [...batchResults, ...toolResults];
+}
 
-  // Run tool-using agents individually (they need the tool loop)
-  for (const agent of toolAgents) {
-    const result = await executeAgent(
-      agent,
-      buildAgentContext(agent, context),
-      agent.provider,
-      agent.model,
-      agent.toolContext,
-    );
-    safeOnResult(result);
-    allResults.push(result);
-  }
-
-  return allResults;
+function shouldUseToolsDuringAgentExecution(agent: ResolvedAgent): boolean {
+  if (!agent.toolContext?.tools.length) return false;
+  return !(agent.phase === "post_processing" && agent.type === "spotify");
 }
 
 /**
@@ -284,13 +286,26 @@ export async function runPreGenerationAgents(
   for (const result of results) {
     if (!result.success) continue;
 
-    // prose-guardian & director produce text to inject
-    if (result.type === "context_injection" || result.type === "director_event") {
+    // Director and context-injection agents produce text to inject.
+    if (result.type === "director_event") {
+      const text =
+        typeof result.data === "string"
+          ? result.data
+          : typeof (result.data as any)?.direction === "string"
+            ? (result.data as any).direction
+            : typeof (result.data as any)?.text === "string"
+              ? (result.data as any).text
+              : "";
+      const agentName = agents.find((agent) => agent.type === result.agentType)?.name;
+      if (text.trim()) injections.push({ agentType: result.agentType, agentName, text: text.trim() });
+      continue;
+    }
+
+    if (result.type === "context_injection") {
       const text = typeof result.data === "string" ? result.data : ((result.data as any)?.text ?? "");
       const agentName = agents.find((agent) => agent.type === result.agentType)?.name;
       if (text) injections.push({ agentType: result.agentType, agentName, text });
     }
-    // prompt_review is informational — the onResult callback streams it
   }
 
   return injections;

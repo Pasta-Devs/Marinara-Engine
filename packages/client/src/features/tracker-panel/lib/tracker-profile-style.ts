@@ -18,13 +18,13 @@ import {
 import { visibleText } from "./tracker-display";
 
 const TRACKER_CARD_NEUTRAL_SURFACE_TOP =
-  "var(--tracker-card-neutral-surface-top, color-mix(in srgb, color-mix(in srgb, var(--secondary) 66%, var(--accent) 34%) 91%, var(--primary) 9%))";
+  "var(--tracker-card-neutral-surface-top, color-mix(in srgb, var(--secondary) 90%, var(--foreground) 10%))";
 const TRACKER_CARD_NEUTRAL_SURFACE_BOTTOM =
-  "var(--tracker-card-neutral-surface-bottom, color-mix(in srgb, color-mix(in srgb, var(--secondary) 78%, var(--accent) 22%) 94%, var(--muted-foreground) 6%))";
+  "var(--tracker-card-neutral-surface-bottom, color-mix(in srgb, var(--background) 88%, var(--foreground) 12%))";
 const TRACKER_CARD_NEUTRAL_MATERIAL =
-  "var(--tracker-card-neutral-material, color-mix(in srgb, color-mix(in srgb, var(--secondary) 68%, var(--accent) 32%) 89%, var(--primary) 11%))";
+  "var(--tracker-card-neutral-material, color-mix(in srgb, var(--secondary) 86%, var(--foreground) 14%))";
 const TRACKER_CARD_NEUTRAL_LIFT =
-  "var(--tracker-card-neutral-lift, color-mix(in srgb, var(--muted-foreground) 72%, var(--primary) 28%))";
+  "var(--tracker-card-neutral-lift, color-mix(in srgb, var(--muted-foreground) 78%, var(--foreground) 22%))";
 
 export function getSolidCssColor(value: string | null | undefined) {
   return getTrackerCardSolidColor(value);

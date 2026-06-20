@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { Search, Loader2, ImageOff } from "lucide-react";
+import { Search, Loader2, ImageOff, ExternalLink } from "lucide-react";
 
 interface GifResult {
   id: string;
@@ -21,13 +21,19 @@ interface GifPickerProps {
   anchorRef?: React.RefObject<HTMLElement | null>;
   /** Container (e.g. input bar) whose top edge determines vertical placement */
   containerRef?: React.RefObject<HTMLElement | null>;
+  /** Render inline to fill a parent (no portal/positioning) — e.g. inside the mobile composer sheet. */
+  embedded?: boolean;
 }
 
-export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef }: GifPickerProps) {
+type GifErrorCode = "missing_giphy_api_key";
+type GifFetchError = Error & { code?: GifErrorCode };
+
+export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef, embedded }: GifPickerProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GifResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<GifErrorCode | null>(null);
   const [nextPos, setNextPos] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -90,14 +96,17 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef }: 
     fetchingRef.current = true;
     setLoading(true);
     setError(null);
+    setErrorCode(null);
     try {
       const params = new URLSearchParams({ limit: "20" });
       if (q.trim()) params.set("q", q.trim());
       if (pos) params.set("pos", pos);
       const res = await fetch(`/api/gifs/search?${params}`);
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Failed to fetch GIFs");
+        const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+        const requestError = new Error(body.error ?? "Failed to fetch GIFs") as GifFetchError;
+        if (body.code === "missing_giphy_api_key") requestError.code = "missing_giphy_api_key";
+        throw requestError;
       }
       const data: { results: GifResult[]; next: string } = await res.json();
       if (pos) {
@@ -107,7 +116,9 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef }: 
       }
       setNextPos(data.next);
     } catch (err) {
+      const code = typeof err === "object" && err !== null && "code" in err ? (err as GifFetchError).code : null;
       setError(err instanceof Error ? err.message : "Failed to fetch GIFs");
+      setErrorCode(code ?? null);
     } finally {
       setLoading(false);
       fetchingRef.current = false;
@@ -120,6 +131,8 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef }: 
       setQuery("");
       setResults([]);
       setNextPos("");
+      setError(null);
+      setErrorCode(null);
       fetchGifs("");
     }
   }, [open, fetchGifs]);
@@ -157,77 +170,122 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef }: 
 
   if (!open) return null;
 
-  return createPortal(
-    <div
-      ref={panelRef}
-      className="fixed z-[9999] flex h-[26rem] w-96 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
-      style={{
-        bottom: pos.bottom,
-        ...(pos.right != null ? { right: pos.right } : {}),
-        ...(pos.left != null ? { left: pos.left } : {}),
-      }}
-    >
+  const missingGiphyKey = errorCode === "missing_giphy_api_key";
+  const setupCodeClass = "rounded bg-foreground/10 px-1 py-0.5 text-foreground/75";
+
+  const content = (
+    <>
       {/* Search */}
-      <div className="border-b border-[var(--border)] px-3 py-2">
-        <div className="flex items-center gap-2 rounded-md bg-[var(--secondary)] px-2.5 py-1.5">
-          <Search size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />
+      <div className="border-b border-foreground/10 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-md bg-foreground/5 px-2.5 py-1.5 ring-1 ring-foreground/10 transition-shadow focus-within:ring-foreground/20">
+          <Search size="0.875rem" className="shrink-0 text-foreground/45" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for GIFs"
-            className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]/50"
-            autoFocus
+            className="flex-1 bg-transparent text-xs outline-none placeholder:text-foreground/35"
+            autoFocus={!embedded}
           />
         </div>
       </div>
 
       {/* Error state */}
       {error && (
-        <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
-          <ImageOff size="1.5rem" className="text-[var(--muted-foreground)]" />
-          <p className="text-xs text-[var(--muted-foreground)]">{error}</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 py-8 text-center">
+          <ImageOff size="1.5rem" className="text-foreground/45" />
+          {missingGiphyKey ? (
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold text-foreground/85">GIF search needs a GIPHY API key.</p>
+                <p className="mt-1 text-[0.6875rem] leading-relaxed text-foreground/55">
+                  Create a free key, paste it into <code className={setupCodeClass}>GIPHY_API_KEY</code> in your{" "}
+                  <code className={setupCodeClass}>.env</code> file, then restart Marinara.
+                </p>
+              </div>
+              <ol className="space-y-1 text-left text-[0.6875rem] leading-relaxed text-foreground/55">
+                <li>1. Open the GIPHY Developer Dashboard.</li>
+                <li>2. Create an API key for a web app.</li>
+                <li>
+                  3. Add <code className={setupCodeClass}>GIPHY_API_KEY=your_key_here</code> to{" "}
+                  <code className={setupCodeClass}>.env</code>.
+                </li>
+              </ol>
+              <a
+                href="https://developers.giphy.com/dashboard/"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md border border-foreground/15 px-2.5 py-1.5 text-[0.6875rem] font-semibold text-foreground/75 transition-colors hover:bg-foreground/10 hover:text-foreground"
+              >
+                Open GIPHY dashboard
+                <ExternalLink size="0.75rem" />
+              </a>
+            </div>
+          ) : (
+            <p className="text-xs text-foreground/55">{error}</p>
+          )}
         </div>
       )}
 
       {/* GIF grid */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 py-2" onScroll={handleScroll}>
-        {results.length === 0 && !loading && !error && (
-          <p className="py-8 text-center text-xs text-[var(--muted-foreground)]">
-            {query ? "No GIFs found" : "Loading trending..."}
-          </p>
-        )}
+      {!error && (
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 py-2" onScroll={handleScroll}>
+          {results.length === 0 && !loading && (
+            <p className="py-8 text-center text-xs text-foreground/45">
+              {query ? "No GIFs found" : "Loading trending..."}
+            </p>
+          )}
 
-        {/* Masonry-ish 2-column layout */}
-        <div className="columns-2 gap-1.5">
-          {results.map((gif) => (
-            <button
-              key={gif.id}
-              onClick={() => handleSelect(gif)}
-              className="mb-1.5 block w-full overflow-hidden rounded-lg transition-transform hover:scale-[1.02] active:scale-100 break-inside-avoid"
-              title={gif.title}
-            >
-              <img
-                src={gif.preview || gif.url}
-                alt={gif.title}
-                className="w-full rounded-lg object-cover"
-                loading="lazy"
-              />
-            </button>
-          ))}
-        </div>
-
-        {loading && (
-          <div className="flex justify-center py-4">
-            <Loader2 size="1.25rem" className="animate-spin text-[var(--muted-foreground)]" />
+          {/* Masonry-ish 2-column layout */}
+          <div className="columns-2 gap-1.5">
+            {results.map((gif) => (
+              <button
+                key={gif.id}
+                type="button"
+                onClick={() => handleSelect(gif)}
+                className="mb-1.5 block w-full overflow-hidden rounded-lg transition-transform hover:scale-[1.02] active:scale-100 break-inside-avoid"
+                title={gif.title}
+              >
+                <img
+                  src={gif.preview || gif.url}
+                  alt={gif.title}
+                  className="w-full rounded-lg object-cover"
+                  loading="lazy"
+                />
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+
+          {loading && (
+            <div className="flex justify-center py-4">
+              <Loader2 size="1.25rem" className="animate-spin text-foreground/45" />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* GIPHY attribution */}
-      <div className="flex items-center justify-center border-t border-[var(--border)] px-3 py-1.5">
-        <span className="text-[0.5625rem] text-[var(--muted-foreground)]/60">Powered by GIPHY</span>
+      <div className="flex items-center justify-center border-t border-foreground/10 px-3 py-1.5">
+        <span className="text-[0.5625rem] text-foreground/45">Powered by GIPHY</span>
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="flex h-full min-h-0 flex-col overflow-hidden">{content}</div>;
+  }
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      className="fixed z-[9999] flex h-[26rem] w-96 max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl"
+      style={{
+        bottom: pos.bottom,
+        ...(pos.right != null ? { right: pos.right } : {}),
+        ...(pos.left != null ? { left: pos.left } : {}),
+      }}
+    >
+      {content}
     </div>,
     document.body,
   );

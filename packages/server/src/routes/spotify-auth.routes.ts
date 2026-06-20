@@ -10,6 +10,7 @@ import { encryptApiKey } from "../utils/crypto.js";
 import {
   decryptStoredToken,
   fetchSpotifyApi,
+  refreshSpotifyCredentials,
   resolveSpotifyCredentials,
   SPOTIFY_SCOPES,
   spotifyHasScope,
@@ -399,57 +400,11 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     const { agentId } = req.body ?? {};
     if (!agentId) return reply.status(400).send({ error: "agentId is required" });
 
-    const agent = await storage.getById(agentId);
-    if (!agent) return reply.status(404).send({ error: "Agent not found" });
-
-    const settings =
-      agent.settings && typeof agent.settings === "string" ? JSON.parse(agent.settings) : (agent.settings ?? {});
-
-    const refreshToken = decryptStoredToken(settings.spotifyRefreshToken);
-    const clientId = settings.spotifyClientId as string;
-    if (!refreshToken || !clientId) {
-      return reply.status(400).send({ error: "No Spotify refresh token or client ID configured" });
+    const result = await refreshSpotifyCredentials(storage, agentId);
+    if ("error" in result) {
+      return reply.status(result.status).send({ error: result.error });
     }
-
-    try {
-      const tokenRes = await fetch("https://accounts.spotify.com/api/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-          client_id: clientId,
-        }),
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      if (!tokenRes.ok) {
-        const body = await tokenRes.text();
-        return reply.status(tokenRes.status).send({ error: `Spotify refresh failed: ${body.slice(0, 200)}` });
-      }
-
-      const tokens = (await tokenRes.json()) as {
-        access_token: string;
-        refresh_token?: string;
-        expires_in: number;
-        scope?: string;
-      };
-
-      await storage.update(agentId, {
-        settings: {
-          ...settings,
-          spotifyAccessToken: encryptApiKey(tokens.access_token),
-          // Spotify may rotate refresh tokens
-          spotifyRefreshToken: encryptApiKey(tokens.refresh_token ?? refreshToken),
-          spotifyExpiresAt: Date.now() + tokens.expires_in * 1000,
-          spotifyScope: tokens.scope ?? settings.spotifyScope,
-        },
-      });
-
-      return { success: true };
-    } catch (err) {
-      return reply.status(500).send({ error: err instanceof Error ? err.message : "Refresh failed" });
-    }
+    return { success: true };
   });
 
   /**
@@ -613,6 +568,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
 
     const requiredScopes = [
       "user-read-private",
+      "user-read-playback-state",
       "playlist-modify-public",
       "playlist-modify-private",
       "user-library-read",

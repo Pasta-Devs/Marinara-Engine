@@ -26,14 +26,14 @@ function isOpeningContext(previous?: string): boolean {
 }
 
 function formatDoubleQuote(previous?: string, next?: string): string {
-  if (!next) return isOpeningContext(previous) ? LEFT_DOUBLE_QUOTE : RIGHT_DOUBLE_QUOTE;
+  if (!next) return previous ? RIGHT_DOUBLE_QUOTE : LEFT_DOUBLE_QUOTE;
   if (/\s/.test(next)) return RIGHT_DOUBLE_QUOTE;
   return isOpeningContext(previous) ? LEFT_DOUBLE_QUOTE : RIGHT_DOUBLE_QUOTE;
 }
 
 function formatSingleQuote(previous?: string, next?: string): string {
   if (isLetterOrNumber(previous) && isLetterOrNumber(next)) return RIGHT_SINGLE_QUOTE;
-  if (!next) return isOpeningContext(previous) ? LEFT_SINGLE_QUOTE : RIGHT_SINGLE_QUOTE;
+  if (!next) return previous ? RIGHT_SINGLE_QUOTE : LEFT_SINGLE_QUOTE;
   if (/\s/.test(next)) return RIGHT_SINGLE_QUOTE;
   return isOpeningContext(previous) ? LEFT_SINGLE_QUOTE : RIGHT_SINGLE_QUOTE;
 }

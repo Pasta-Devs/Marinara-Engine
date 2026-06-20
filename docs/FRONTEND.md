@@ -310,9 +310,6 @@ Modals are rendered by `ModalRenderer.tsx`, which reads `ui.store.modal` and ren
 | `import-preset`    | `ImportPresetModal`    | Import from file                         |
 | `import-persona`   | `ImportPersonaModal`   | Import from file                         |
 | `st-bulk-import`   | `STBulkImportModal`    | Bulk import from SillyTavern data        |
-| `character-maker`  | `CharacterMakerModal`  | AI-generated character via SSE streaming |
-| `lorebook-maker`   | `LorebookMakerModal`   | AI-generated lorebook entries            |
-| `persona-maker`    | `PersonaMakerModal`    | AI-generated persona                     |
 | `edit-agent`       | `EditAgentModal`       | Edit agent configuration                 |
 
 **Modal pattern**: All modals accept `{ open, onClose }`, wrap content in the `<Modal>` base component, use mutations for API calls, and show loading state from `mutation.isPending`.
@@ -455,7 +452,7 @@ Type definitions for all entities in `packages/shared/src/types/`:
 | `combat-encounter.ts` | `CombatPartyMember`, `CombatEnemy`, `CombatActionResult`, `EncounterSettings`                               |
 | `game-state.ts`       | `GameState`, `PresentCharacter`, `PlayerStats`, `QuestProgress`, `InventoryItem`                            |
 | `lorebook.ts`         | `Lorebook`, `LorebookEntry`, `ActivationCondition`, `LorebookSchedule`, `QuestData`                         |
-| `persona.ts`          | `Persona`, `PersonaStatsConfig`, `AltDescription`                                                           |
+| `persona.ts`          | `Persona`, `PersonaStatsConfig`                                                                             |
 | `prompt.ts`           | `PromptPreset`, `PromptSection`, `PromptGroup`, `ChoiceBlock`, `GenerationParameters`                       |
 | `scene.ts`            | `SceneMeta`, `SceneFullPlan`                                                                                |
 | `vn.ts`               | `VNScene`, `VNSprite`, `VNTransition`, `VNChoice`                                                           |
@@ -517,14 +514,10 @@ The server (`packages/server`) exposes the following REST API at `/api`:
 | `/api/gallery/:chatId`        | Per-chat gallery images      |
 | `/api/gifs/search`            | GIF search (Giphy proxy)     |
 
-### AI Generators
+### Assistant-Assisted Creation
 
-| Endpoint                        | Description                   |
-| ------------------------------- | ----------------------------- |
-| `/api/character-maker/generate` | AI character generation (SSE) |
-| `/api/lorebook-maker/generate`  | AI lorebook generation (SSE)  |
-| `/api/persona-maker/generate`   | AI persona generation (SSE)   |
-| `/api/prompt-reviewer/review`   | Preset quality review (SSE)   |
+Professor Mari handles guided creation and review flows through the normal chat generation route. She can create
+character cards, personas, lorebooks, chats, and prompt presets, and can fetch existing presets for review.
 
 ### External Integrations
 

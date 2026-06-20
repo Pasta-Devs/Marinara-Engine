@@ -7,6 +7,7 @@ import type { createAgentsStorage } from "../storage/agents.storage.js";
 
 type AgentsStorage = ReturnType<typeof createAgentsStorage>;
 type AgentConfigRow = Awaited<ReturnType<AgentsStorage["getById"]>>;
+const spotifyRefreshLocks = new Map<string, Promise<unknown>>();
 
 export const SPOTIFY_SCOPES = [
   "streaming",
@@ -98,6 +99,30 @@ async function findSpotifyAgent(storage: AgentsStorage, preferredAgentId?: strin
   return storage.getByType("spotify");
 }
 
+async function withSpotifyRefreshLock<T>(agentId: string, task: () => Promise<T>): Promise<T> {
+  const key = agentId.trim() || "default";
+  const previous = spotifyRefreshLocks.get(key) ?? Promise.resolve();
+  let releaseCurrent: () => void = () => {};
+  const current = new Promise<void>((resolve) => {
+    releaseCurrent = resolve;
+  });
+  const slot = previous.then(() => current, () => current);
+  spotifyRefreshLocks.set(key, slot);
+
+  await previous.catch(() => {
+    /* Previous refresh failure should not poison the next attempt. */
+  });
+
+  try {
+    return await task();
+  } finally {
+    releaseCurrent();
+    if (spotifyRefreshLocks.get(key) === slot) {
+      spotifyRefreshLocks.delete(key);
+    }
+  }
+}
+
 async function refreshSpotifyToken(args: {
   storage: AgentsStorage;
   agent: NonNullable<AgentConfigRow>;
@@ -147,13 +172,70 @@ async function refreshSpotifyToken(args: {
   return { accessToken: tokens.access_token, expiresAt, scopes: parseScopes(scope) };
 }
 
+async function refreshSpotifyCredentialsForAgent(
+  storage: AgentsStorage,
+  agentId: string,
+  options: { refreshSkewMs?: number; force?: boolean } = {},
+): Promise<SpotifyCredentialsResult | SpotifyCredentialError> {
+  return withSpotifyRefreshLock(agentId, async () => {
+    const latestAgent = await storage.getById(agentId);
+    if (!latestAgent || latestAgent.type !== "spotify") {
+      return { status: 404, error: "Music DJ agent is not configured." };
+    }
+
+    const latestSettings = parseSettings(latestAgent.settings);
+    const refreshToken = decryptStoredToken(latestSettings.spotifyRefreshToken);
+    const clientId = typeof latestSettings.spotifyClientId === "string" ? latestSettings.spotifyClientId : "";
+    const refreshSkewMs = options.refreshSkewMs ?? 60_000;
+    let accessToken = decryptStoredToken(latestSettings.spotifyAccessToken);
+    let expiresAt = typeof latestSettings.spotifyExpiresAt === "number" ? latestSettings.spotifyExpiresAt : 0;
+    let scopes = parseScopes(latestSettings.spotifyScope);
+
+    if (!refreshToken || !clientId) {
+      return { status: 400, error: "Spotify is not connected. Open the Music DJ agent and connect your account." };
+    }
+
+    const stillFresh = accessToken && (!expiresAt || Date.now() <= expiresAt - refreshSkewMs);
+    if (!options.force && stillFresh) {
+      return { accessToken, agentId: latestAgent.id, clientId, expiresAt, scopes };
+    }
+
+    const refreshed = await refreshSpotifyToken({
+      storage,
+      agent: latestAgent,
+      settings: latestSettings,
+      refreshToken,
+      clientId,
+    });
+    if (!refreshed) return { status: 502, error: "Spotify token refresh failed. Reconnect Spotify and try again." };
+    accessToken = refreshed.accessToken;
+    expiresAt = refreshed.expiresAt;
+    scopes = refreshed.scopes;
+
+    return {
+      accessToken,
+      agentId: latestAgent.id,
+      clientId,
+      expiresAt,
+      scopes,
+    };
+  });
+}
+
+export async function refreshSpotifyCredentials(
+  storage: AgentsStorage,
+  agentId: string,
+): Promise<SpotifyCredentialsResult | SpotifyCredentialError> {
+  return refreshSpotifyCredentialsForAgent(storage, agentId, { force: true });
+}
+
 export async function resolveSpotifyCredentials(
   storage: AgentsStorage,
   options: { agentId?: string | null; refreshSkewMs?: number } = {},
 ): Promise<SpotifyCredentialsResult | SpotifyCredentialError> {
   const agent = await findSpotifyAgent(storage, options.agentId ?? null);
   if (!agent) {
-    return { status: 404, error: "Spotify DJ agent is not configured." };
+    return { status: 404, error: "Music DJ agent is not configured." };
   }
 
   const settings = parseSettings(agent.settings);
@@ -165,12 +247,12 @@ export async function resolveSpotifyCredentials(
   const refreshSkewMs = options.refreshSkewMs ?? 60_000;
 
   if (!refreshToken || !clientId) {
-    return { status: 400, error: "Spotify is not connected. Open the Spotify DJ agent and connect your account." };
+    return { status: 400, error: "Spotify is not connected. Open the Music DJ agent and connect your account." };
   }
 
   if (!accessToken || (expiresAt > 0 && Date.now() > expiresAt - refreshSkewMs)) {
-    const refreshed = await refreshSpotifyToken({ storage, agent, settings, refreshToken, clientId });
-    if (!refreshed) return { status: 502, error: "Spotify token refresh failed. Reconnect Spotify and try again." };
+    const refreshed = await refreshSpotifyCredentialsForAgent(storage, agent.id, { refreshSkewMs });
+    if ("error" in refreshed) return refreshed;
     accessToken = refreshed.accessToken;
     expiresAt = refreshed.expiresAt;
     scopes = refreshed.scopes;

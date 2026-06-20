@@ -503,6 +503,7 @@ export interface STBulkImportOptions {
   backgrounds: STBulkImportSelection;
   personas: STBulkImportSelection;
   characterTagImportMode?: STCharacterTagImportMode;
+  regexScriptScope?: "character" | "global";
 }
 
 export interface STBulkImportResult {
@@ -567,6 +568,7 @@ export async function runSTBulkImport(
   const selectedBackgrounds = resolveSelectedItems(scanResult.backgrounds, options.backgrounds);
   const selectedPersonas = resolveSelectedItems(scanResult.personas, options.personas);
   const tagImportMode = options.characterTagImportMode ?? "all";
+  const regexScriptScope = options.regexScriptScope ?? "character";
   const existingTagKeys =
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
 
@@ -592,12 +594,13 @@ export async function runSTBulkImport(
               timestampOverrides,
               tagImportMode,
               existingTagKeys,
+              regexScriptScope,
             });
             imported.characters++;
           }
         } else {
           const raw = JSON.parse(await readFile(ch.path, "utf-8"));
-          await importSTCharacter(raw, db, { timestampOverrides, tagImportMode, existingTagKeys });
+          await importSTCharacter(raw, db, { timestampOverrides, tagImportMode, existingTagKeys, regexScriptScope });
           imported.characters++;
         }
       } catch (err) {

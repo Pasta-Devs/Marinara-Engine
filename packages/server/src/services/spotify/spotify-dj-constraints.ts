@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Spotify DJ prompt constraints
+// Music DJ Spotify prompt constraints
 // ──────────────────────────────────────────────
 
 type SpotifyDjSourceType = "liked" | "playlist" | "artist" | "any";

@@ -1,0 +1,619 @@
+import { findImageStyleProfile } from "../constants/image-style-profiles.js";
+import type { ImageGenerationDefaultsProfile } from "../types/image-generation-defaults.js";
+import type { ImagePromptKind, ImageStyleProfile, ImageStyleProfileSettings } from "../types/image-style-profile.js";
+
+export interface CompiledImagePrompt {
+  prompt: string;
+  negativePrompt: string;
+  profile: ImageStyleProfile;
+  diagnostics: {
+    removedPositiveDuplicates: string[];
+    removedNegativeDuplicates: string[];
+    movedNegativeFragments: string[];
+  };
+}
+
+export interface CompileImagePromptInput {
+  kind: ImagePromptKind;
+  prompt: string;
+  negativePrompt?: string | null;
+  styleProfiles: ImageStyleProfileSettings;
+  styleProfileId?: string | null;
+  imageDefaults?: ImageGenerationDefaultsProfile | null;
+  generatedStyle?: string | null;
+  userPositive?: string | null;
+  userNegative?: string | null;
+  hardNegative?: string | null;
+}
+
+export function compileImagePrompt(input: CompileImagePromptInput): CompiledImagePrompt {
+  const profile = findImageStyleProfile(
+    input.styleProfiles,
+    input.styleProfileId || input.imageDefaults?.styleProfileId || input.styleProfiles.defaultProfileId,
+  );
+  const promptMode = profile.promptMode;
+  const positiveDiagnostics: string[] = [];
+  const negativeDiagnostics: string[] = [];
+  const movedNegativeFragments: string[] = [];
+
+  const generatedStyle = input.generatedStyle?.trim() ?? "";
+  const promptPrefix = imagePromptPrefixFromDefaults(input.imageDefaults);
+  const negativePromptPrefix = imageNegativePromptPrefixFromDefaults(input.imageDefaults);
+  const profileSubjectTags = profile.subjectTags[input.kind] ?? "";
+  const preserveScenePrompt = input.kind === "illustration" || input.kind === "background";
+  const compactTags = !preserveScenePrompt && (promptMode === "tagged" || promptMode === "danbooru");
+  const compactVisualPrompt =
+    profile.baseStyle !== "z_image_turbo" && ["avatar", "portrait", "selfie", "sprite"].includes(input.kind);
+  const compactPrompt = compactTags || compactVisualPrompt;
+  const fragmentMode = compactPrompt ? "tagged" : promptMode;
+  const profileStyleText =
+    compactPrompt || (profile.styleText && generatedStyle)
+      ? ""
+      : profile.styleText && profile.baseStyle !== "auto"
+        ? profile.styleText
+        : generatedStyle
+          ? ""
+          : profile.styleText;
+
+  const positiveParts = compactPrompt
+    ? [
+        { value: promptPrefix, sourcePrompt: false, hardPrefix: true },
+        { value: generatedStyle, sourcePrompt: true },
+        { value: input.prompt, sourcePrompt: true },
+        { value: input.userPositive, sourcePrompt: true },
+        { value: profileSubjectTags, sourcePrompt: false },
+        { value: profile.positiveTags, sourcePrompt: false },
+      ]
+    : [
+        { value: promptPrefix, sourcePrompt: false, hardPrefix: true },
+        { value: profile.positiveTags, sourcePrompt: false },
+        { value: profileSubjectTags, sourcePrompt: false },
+        { value: profileStyleText, sourcePrompt: false },
+        { value: generatedStyle, sourcePrompt: false },
+        { value: input.prompt, sourcePrompt: true },
+        { value: input.userPositive, sourcePrompt: true },
+      ];
+  const negativeParts = [negativePromptPrefix, profile.negativeTags, input.negativePrompt, input.userNegative, input.hardNegative];
+  const positiveFragments: string[] = [];
+  const hardPrefixFragments: string[] = [];
+  const negativeFragments: string[] = [];
+
+  for (const part of positiveParts) {
+    const shouldDistill = part.sourcePrompt && !preserveScenePrompt;
+    for (const fragment of splitPromptFragments(part.value, fragmentMode, shouldDistill)) {
+      const negative = extractNegativeFragment(fragment);
+      if (negative) {
+        negativeFragments.push(negative);
+        movedNegativeFragments.push(fragment);
+      } else if (hasAvoidInstructionPrefix(fragment)) {
+        movedNegativeFragments.push(fragment);
+      } else {
+        const clean = cleanPromptFragment(fragment, promptMode);
+        if (part.hardPrefix) {
+          hardPrefixFragments.push(clean);
+        } else {
+          positiveFragments.push(clean);
+        }
+      }
+    }
+  }
+
+  for (const part of negativeParts) {
+    negativeFragments.push(
+      ...splitPromptFragments(part, promptMode).map((fragment) => cleanPromptFragment(fragment, promptMode)),
+    );
+  }
+
+  const hardPrefix = dedupeFragments(hardPrefixFragments, profile.rules.dedupeStrength, positiveDiagnostics);
+  let positive = compactPromptFragments(
+    [...hardPrefix, ...dedupeFragments(positiveFragments, profile.rules.dedupeStrength, positiveDiagnostics)],
+    compactPrompt,
+    hardPrefix.length,
+  );
+  if (positive.length === 0) {
+    positive = fallbackPositiveFragments(input, promptMode, compactPrompt);
+  }
+  const negative = dedupeFragments(negativeFragments, profile.rules.dedupeStrength, negativeDiagnostics);
+
+  return {
+    prompt: joinFragments(positive, compactPrompt ? "tagged" : promptMode),
+    negativePrompt: joinFragments(negative, promptMode),
+    profile,
+    diagnostics: {
+      removedPositiveDuplicates: positiveDiagnostics,
+      removedNegativeDuplicates: negativeDiagnostics,
+      movedNegativeFragments,
+    },
+  };
+}
+
+function fallbackPositiveFragments(
+  input: CompileImagePromptInput,
+  promptMode: ImageStyleProfile["promptMode"],
+  compactPrompt: boolean,
+): string[] {
+  const fallbackFragments = [input.generatedStyle, input.prompt, input.userPositive]
+    .flatMap((value) => splitPromptFragments(value, "natural"))
+    .filter((fragment) => !extractNegativeFragment(fragment) && !hasAvoidInstructionPrefix(fragment))
+    .map((fragment) => cleanPromptFragment(fragment, promptMode))
+    .filter(Boolean);
+  return compactPromptFragments(fallbackFragments, compactPrompt);
+}
+
+function imagePromptPrefixFromDefaults(defaults: ImageGenerationDefaultsProfile | null | undefined): string {
+  if (!defaults) return "";
+  if (defaults.service === "automatic1111") return defaults.automatic1111?.promptPrefix ?? "";
+  if (defaults.service === "comfyui") return defaults.comfyui?.promptPrefix ?? "";
+  if (defaults.service === "novelai") return defaults.novelai?.promptPrefix ?? "";
+  return "";
+}
+
+function imageNegativePromptPrefixFromDefaults(defaults: ImageGenerationDefaultsProfile | null | undefined): string {
+  if (!defaults) return "";
+  if (defaults.service === "automatic1111") return defaults.automatic1111?.negativePromptPrefix ?? "";
+  if (defaults.service === "comfyui") return defaults.comfyui?.negativePromptPrefix ?? "";
+  if (defaults.service === "novelai") return defaults.novelai?.negativePromptPrefix ?? "";
+  return "";
+}
+
+export function mergeCompiledPromptMeta(
+  meta: Record<string, unknown> | undefined,
+  compiled: Pick<CompiledImagePrompt, "profile" | "diagnostics">,
+): Record<string, unknown> {
+  const diagnostics = compiled.diagnostics;
+  const removed =
+    diagnostics.removedPositiveDuplicates.length +
+    diagnostics.removedNegativeDuplicates.length +
+    diagnostics.movedNegativeFragments.length;
+  return {
+    ...(meta ?? {}),
+    imageStyleProfileId: compiled.profile.id,
+    imageStyleProfileName: compiled.profile.name,
+    imagePromptCleanup:
+      removed > 0
+        ? {
+            removedPositiveDuplicates: diagnostics.removedPositiveDuplicates,
+            removedNegativeDuplicates: diagnostics.removedNegativeDuplicates,
+            movedNegativeFragments: diagnostics.movedNegativeFragments,
+          }
+        : undefined,
+  };
+}
+
+function splitPromptFragments(
+  value: string | null | undefined,
+  promptMode: ImageStyleProfile["promptMode"],
+  sourcePrompt = false,
+): string[] {
+  const text = (value ?? "").trim();
+  if (!text) return [];
+
+  const normalized = text
+    .replace(/\r\n?/g, "\n")
+    .replace(/[.!?]\s+(?=(?:avoid|no|without|exclude|do not include|don't include)\b)/gi, "\n")
+    .replace(/\b(?:avoid|negative prompt|undesired content)\s*:/gi, "\navoid ")
+    .replace(/\b(?:positive prompt|tags?)\s*:/gi, "\n");
+
+  if (promptMode === "natural") {
+    return normalized
+      .split(/\n+|,(?=\s*(?:avoid|no|without)\b)/i)
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  const prepared = sourcePrompt ? distillTaggedPromptSource(normalized) : normalized;
+
+  return prepared
+    .split(/[,;\n]+/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function distillTaggedPromptSource(value: string): string {
+  const fragments: string[] = deriveTaggedSourceCues(value);
+  for (const raw of value.split(/\n+|(?<=[.!?])\s+/g)) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    const negative = extractNegativeFragment(sentence);
+    if (negative) {
+      for (const item of negative.split(/[,;]/g)) {
+        const cleanNegative = item.trim();
+        if (cleanNegative) fragments.push(`avoid ${cleanNegative}`);
+      }
+      continue;
+    }
+    if (hasAvoidInstructionPrefix(sentence)) continue;
+
+    const labeled = sentence.match(/^([A-Za-z][A-Za-z ]{1,32}):\s*(.+)$/);
+    if (labeled?.[1] && labeled[2]) {
+      fragments.push(...distillLabeledPromptValue(labeled[1], labeled[2]));
+      continue;
+    }
+
+    const clean = sentence
+      .replace(/^(?:npc|character)?\s*portrait\s+(?:of|for)\s+[A-Z][\p{L}\p{N}'_-]{0,40}\b\.?/iu, "")
+      .replace(/^(?:npc|character)\s+portrait\b\.?/i, "")
+      .replace(
+        /^(?:create|generate|make|draw|depict|render)\s+(?:an?\s+)?(?:polished\s+)?(?:character\s+)?(?:avatar\s+)?(?:portrait|image|picture|illustration|scene)\s+(?:of|for)?\s*/i,
+        "",
+      )
+      .replace(/\bfor\s+[A-Z][\p{L}\p{N}'_-]{0,40}\b/gu, "")
+      .replace(/[.!?]+$/g, "")
+      .trim();
+    if (!clean) continue;
+    const distilled = distillVisualPhrases(clean);
+    if (distilled.length > 0) {
+      fragments.push(...distilled);
+    }
+    for (const item of clean.split(/[,;]/g)) {
+      const cleanItem = item.trim();
+      if (hasAvoidInstructionPrefix(cleanItem)) {
+        fragments.push(cleanItem);
+        continue;
+      }
+      if (looksLikeNameOnly(cleanItem)) continue;
+      const distilledItem = distillVisualPhrases(cleanItem);
+      if (distilledItem.length > 0) {
+        fragments.push(...distilledItem);
+      } else if (shouldKeepTaggedSourceFragment(cleanItem, true) && looksLikeTagPhrase(cleanItem)) {
+        fragments.push(cleanItem);
+      }
+    }
+  }
+  return fragments.join(", ");
+}
+
+function deriveTaggedSourceCues(value: string): string[] {
+  const cues: string[] = [];
+  const text = value.toLowerCase();
+  if (/\b(?:non[-\s]?binary|enby|androgynous|genderless|agender|they\/them)\b/.test(text)) {
+    cues.push("androgynous");
+  } else if (/\b(?:she|her|hers|woman|female|girl|lady)\b/.test(text)) {
+    cues.push("female");
+  } else if (/\b(?:he|him|his|man|male|boy|gentleman)\b/.test(text)) {
+    cues.push("male");
+  }
+  if (/\bhuman(?:oid)?\s+person\b|\bhuman or humanoid\b/.test(text)) {
+    cues.push("human");
+  }
+  const ageCue = deriveAgeCue(text);
+  if (ageCue) cues.push(ageCue);
+  return cues;
+}
+
+function deriveAgeCue(text: string): string | null {
+  if (/\b(?:early|mid|late)\s+(?:twenties|thirties|forties|fifties|sixties)\b/.test(text)) return null;
+  if (/\b(?:young adult|adult|middle-aged|middle aged|elderly|senior)\b/.test(text)) return null;
+  if (/\b(?:child|kid|teen|teenager|minor)\b/.test(text)) return null;
+
+  const adultMilestones = [
+    /\b(?:owner|employee|business|agency|rent|debt|pay off|mercenary work|adventuring guilds?)\b/,
+    /\b(?:joined the army|basic training|deployed|shipped off|fight in the war|crew)\b/,
+    /\b(?:high\s*school dropout|expelled|academy|final exam)\b/,
+    /\b(?:refugee|moved to|save enough money|opened)\b/,
+  ];
+  const score = adultMilestones.reduce((count, pattern) => count + (pattern.test(text) ? 1 : 0), 0);
+  return score >= 2 ? "young adult" : null;
+}
+
+function distillLabeledPromptValue(label: string, value: string): string[] {
+  const normalizedLabel = label.trim().toLowerCase();
+  const cleanValue = value.replace(/[.!?]+$/g, "").trim();
+  if (!cleanValue) return [];
+
+  if (
+    /^(?:background|goal|personality|traits|occupation|skills|known spells?|type|name)$/i.test(normalizedLabel)
+  ) {
+    return [];
+  }
+
+  if (/^canonical appearance$/i.test(normalizedLabel) && looksLikeNameOnly(cleanValue)) {
+    return [];
+  }
+
+  if (/^(?:appearance|canonical appearance|species|equipment|composition)$/i.test(normalizedLabel)) {
+    return cleanValue
+      .split(/[,;]|\s+\band\b\s+/gi)
+      .map((part) => part.trim())
+      .filter((part) => shouldKeepTaggedSourceFragment(part));
+  }
+
+  return shouldKeepTaggedSourceFragment(cleanValue, true) ? [cleanValue] : [];
+}
+
+function looksLikeNameOnly(value: string): boolean {
+  return /^[A-Z][\p{L}\p{N}'_-]{1,40}(?:\s+[A-Z][\p{L}\p{N}'_-]{1,40})?$/u.test(value.trim());
+}
+
+function distillVisualPhrases(value: string): string[] {
+  const clean = value.replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+
+  const fragments: string[] = [];
+  const text = clean.replace(/\u2013|\u2014/g, ", ");
+
+  const age = text.match(/\bin\s+(?:her|his|their)\s+((?:early|mid|late)\s+(?:twenties|thirties|forties|fifties|sixties))\b/i);
+  if (age?.[1]) fragments.push(age[1]);
+
+  if (/\btall\b/i.test(text)) fragments.push("tall");
+  if (/\bstatuesque\b/i.test(text)) fragments.push("statuesque");
+
+  const hair = text.match(/\b(?:her|his|their)\s+([^,.;]+?\bhair)\b/i);
+  if (hair?.[1]) fragments.push(cleanVisualPhrase(hair[1]));
+  const updo = text.match(/\b(?:elegant\s+)?updo\b/i);
+  if (updo?.[0]) fragments.push(cleanVisualPhrase(updo[0]));
+
+  const eyes = text.match(/\b(?:her|his|their)\s+eyes?\s+(?:are|is)\s+(?:an?\s+)?([^,.;]+)/i);
+  if (eyes?.[1]) {
+    const eyeDescription = cleanVisualPhrase(eyes[1].replace(/\b(?:piercing|framed by|subtle)\b/gi, ""));
+    if (eyeDescription) fragments.push(`${eyeDescription} eyes`);
+  }
+  const tagLikeEyes = text.match(/\b([a-z][a-z -]{1,30})\s+eyes?\b/i);
+  if (!eyes && tagLikeEyes?.[0]) fragments.push(cleanVisualPhrase(tagLikeEyes[0]));
+
+  addIfPresent(fragments, text, /\bsharp cheekbones\b/i, "sharp cheekbones");
+  addIfPresent(fragments, text, /\bsmoky makeup\b/i, "smoky makeup");
+  addIfPresent(fragments, text, /\bblack blazer\b/i, "black blazer");
+  addIfPresent(fragments, text, /\bburgundy blouse\b/i, "burgundy blouse");
+  addIfPresent(fragments, text, /\bslim trousers\b/i, "slim trousers");
+  addIfPresent(fragments, text, /\bheeled boots\b/i, "heeled boots");
+  addIfPresent(fragments, text, /\breading glasses\b/i, "reading glasses");
+  addIfPresent(fragments, text, /\bstatement ring\b/i, "statement ring");
+  addIfPresent(fragments, text, /\bdark red nails\b/i, "dark red nails");
+
+  if (fragments.length > 0) return fragments.filter((fragment) => shouldKeepTaggedSourceFragment(fragment));
+  return [];
+}
+
+function addIfPresent(fragments: string[], text: string, pattern: RegExp, fragment: string): void {
+  if (pattern.test(text)) fragments.push(fragment);
+}
+
+function cleanVisualPhrase(value: string): string {
+  return value
+    .replace(/\b(?:a|an|the|is|are|with|into|and|her|his|their)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[, ]+|[, ]+$/g, "")
+    .trim();
+}
+
+function looksLikeTagPhrase(value: string): boolean {
+  const clean = value.trim();
+  if (/\b(?:is|are|was|were|has|have|favors|moves|holds|lends|perches|framing|aware)\b/i.test(clean)) return false;
+  return clean.split(/\s+/g).length <= 5;
+}
+
+function shouldKeepTaggedSourceFragment(value: string, requireVisualCue = false): boolean {
+  const clean = value.trim();
+  if (!clean) return false;
+  if (clean.length > 120) return false;
+  if (
+    /\b(?:debt|childhood|academy|army|airship|country|refugee|business|district|background|universe|agency|determined|goal|dream|survived|moved|born|build|hoped|hope|better|spells?|uncertain|terms?|eventually|struggles?|managed|opened|enrolled|expelled|tracked)\b/i.test(
+      clean,
+    )
+  ) {
+    return false;
+  }
+  if (/^(?:well|right|and|or|but|yet)$/i.test(clean)) return false;
+  if (requireVisualCue && !hasVisualCue(clean)) return false;
+  if (/^(?:suitable as a chat avatar|main character|owner|sole employee)$/i.test(clean)) return false;
+  return true;
+}
+
+function hasVisualCue(value: string): boolean {
+  return /\b(?:female|male|woman|man|girl|boy|non[-\s]?binary|androgynous|genderless|adult|young adult|middle-aged|middle aged|elderly|senior|human|elf|dwarf|orc|android|robot|twenties|thirties|forties|fifties|sixties|statuesque|hair|eyes?|skin|face|body|petite|tall|short|slim|muscular|scar|freckles|beard|makeup|cheekbones|nails|ring|armor|armour|dress|shirt|blouse|trousers|coat|jacket|blazer|robe|uniform|sword|staff|hat|glasses|boots|portrait|close-up|upper body|face-and-shoulders|full body|centered|looking at viewer|expression|silhouette|fantasy|medieval|kingdom|castle|village|tavern|dungeon|forest|field|farm|road|market|city|urban|street|alley|temple|church|ruins?|graveyard|cave|mountain|river|lake|desert|snow|rain|storm|fog|night|dawn|morning|noon|afternoon|evening|sci-fi|scifi|cyberpunk|space|futuristic|modern|contemporary|western|victorian|steampunk|environment|landscape|scenery|location|interior|exterior)\b/i.test(
+    value,
+  );
+}
+
+function compactPromptFragments(
+  fragments: string[],
+  compactPrompt: boolean,
+  protectedCount = 0,
+  maxTokens = 75,
+): string[] {
+  if (!compactPrompt) return fragments;
+
+  const separator = ", ";
+  const protectedFragments = fragments.slice(0, protectedCount);
+  const ranked = fragments
+    .slice(protectedCount)
+    .map((fragment, index) => ({ fragment, index, priority: compactTagPriority(fragment) }))
+    .sort((a, b) => a.priority - b.priority || a.index - b.index);
+  const result: string[] = [...protectedFragments];
+  let tokens = estimatedPromptTokens(result, separator);
+
+  for (const { fragment } of ranked) {
+    if (isLowPriorityCompactTag(fragment) && tokens > Math.floor(maxTokens * 0.8)) continue;
+    const nextTokens =
+      tokens + (result.length ? estimatedPromptTokenCount(separator) : 0) + estimatedPromptTokenCount(fragment);
+    if (nextTokens > maxTokens) continue;
+    result.push(fragment);
+    tokens = nextTokens;
+  }
+
+  return result;
+}
+
+function estimatedPromptTokens(fragments: string[], separator: string): number {
+  if (fragments.length === 0) return 0;
+  return (
+    fragments.reduce((count, fragment) => count + estimatedPromptTokenCount(fragment), 0) +
+    (fragments.length - 1) * estimatedPromptTokenCount(separator)
+  );
+}
+
+function estimatedPromptTokenCount(value: string): number {
+  const clean = value.trim();
+  if (!clean) return 0;
+  const lexicalTokens = clean.match(/<[^>]+>|[\p{L}\p{N}_'-]+|[^\s\p{L}\p{N}]/gu) ?? [];
+  return lexicalTokens.reduce((count, token) => count + Math.max(1, Math.ceil(token.length / 8)), 0);
+}
+
+function compactTagPriority(value: string): number {
+  const tag = value.trim().toLowerCase();
+  if (/\b(?:fantasy|medieval|kingdom|castle|village|tavern|dungeon|forest|field|farm|road|market|city|urban|street|alley|temple|church|ruins?|graveyard|cave|mountain|river|lake|desert|snow|rain|storm|fog|night|dawn|morning|noon|afternoon|evening|sci-fi|scifi|cyberpunk|space|futuristic|modern|contemporary|western|victorian|steampunk|environment|landscape|scenery|location|interior|exterior)\b/.test(tag)) {
+    return 1;
+  }
+  if (/^(?:female|male|woman|man|girl|boy|non[-\s]?binary|androgynous|genderless|human|elf|dwarf|orc|android|robot|person)$/.test(tag)) return 0;
+  if (/^(?:readable expression|clear silhouette|readable face|natural expression)$/.test(tag)) return 7;
+  if (/\b(?:avatar|face-and-shoulders portrait|shoulders-up composition|centered portrait)\b/.test(tag)) {
+    return 1;
+  }
+  if (/\b(?:hair|eyes?)\b/.test(tag)) {
+    return 2;
+  }
+  if (/\b(?:armor|armour|dress|shirt|blouse|trousers|coat|jacket|blazer|robe|uniform|sword|staff|hat|glasses|boots|ring)\b/.test(tag)) {
+    return 3;
+  }
+  if (/\b(?:adult|young adult|middle-aged|middle aged|elderly|senior|twenties|thirties|forties|fifties|sixties|skin|body|petite|tall|short|slim|muscular|statuesque|scar|freckles|beard|makeup|cheekbones|nails)\b/.test(tag)) {
+    return 4;
+  }
+  if (/\b(?:portrait|close-up|upper body|face-and-shoulders|full body|centered|looking at viewer)\b/.test(tag)) {
+    return 5;
+  }
+  if (/\b(?:photorealistic|anime|cinematic|digital painting|painterly|illustration|realistic)\b/.test(tag)) return 6;
+  if (/^(?:masterpiece|best quality|high quality|sharp focus|natural lighting|detailed textures|absurdres)$/.test(tag)) {
+    return 7;
+  }
+  return 3;
+}
+
+function isLowPriorityCompactTag(value: string): boolean {
+  return /^(?:single subject|centered composition|readable expression|clear silhouette|readable face|natural expression|photorealistic|realistic|anime style|cinematic|digital painting|painterly|illustration|high quality|sharp focus|natural lighting|detailed textures|best quality|masterpiece|absurdres)$/i.test(
+    value.trim(),
+  );
+}
+
+function extractNegativeFragment(fragment: string): string | null {
+  const clean = fragment.trim();
+  const match = clean.match(/^(?:avoid|no|without|exclude|do not include|don't include)\s+(.+)$/i);
+  if (!match?.[1]) return null;
+  const negative = match[1].replace(/[.]+$/g, "").trim();
+  if (!negative || !looksLikeImageNegativeFragment(negative)) return null;
+  return negative;
+}
+
+function hasAvoidInstructionPrefix(fragment: string): boolean {
+  return /^(?:avoid|exclude|do not include|don't include)\b/i.test(fragment.trim());
+}
+
+function looksLikeImageNegativeFragment(value: string): boolean {
+  const clean = value.trim();
+  if (/^(?:matter|actual talents?|talents?|skills?|known spells?)\b/i.test(clean)) return false;
+  return /\b(?:anime|cartoons?|illustrations?|paintings?|plastic skin|uncanny|low quality|worst quality|bad quality|blurry|blur|out of focus|text|letters|captions?|subtitles?|ui|user interface|watermarks?|logos?|signatures?|bad anatomy|bad hands|extra fingers|fingers|digits|malformed|distorted|lowres|extra limbs?|missing limbs?)\b/i.test(
+    clean,
+  );
+}
+
+function cleanPromptFragment(fragment: string, promptMode: ImageStyleProfile["promptMode"]): string {
+  let clean = fragment
+    .replace(/\s+/g, " ")
+    .replace(
+      /\b(?:major character moment|key emotional moment|major reveal|dramatic action scene|important scene|scene moment|narrative purpose)\s*[-:]\s*/gi,
+      "",
+    )
+    .replace(
+      /^\s*(?:major character moment|key emotional moment|major reveal|dramatic action scene|important scene|scene moment)\s*[-:]?\s*/i,
+      "",
+    )
+    .replace(
+      /^(?:create|generate|make|draw|depict|render)\s+(?:an?\s+)?(?:image|picture|illustration|portrait|scene)\s+(?:of|for)?\s*/i,
+      "",
+    )
+    .replace(/^(?:image|picture|illustration|portrait|scene)\s+(?:of|for)\s+/i, "")
+    .replace(/[.]+$/g, "")
+    .trim();
+
+  if (promptMode === "danbooru") {
+    clean = clean.replace(/\s+style$/i, " style");
+  }
+
+  return clean;
+}
+
+function dedupeFragments(
+  fragments: string[],
+  strength: ImageStyleProfile["rules"]["dedupeStrength"],
+  diagnostics: string[],
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const raw of fragments) {
+    const fragment = raw.trim();
+    if (!fragment) continue;
+    const key = fragmentKey(fragment, strength);
+    if (!key) continue;
+    if (seen.has(key)) {
+      diagnostics.push(fragment);
+      continue;
+    }
+    seen.add(key);
+    result.push(fragment);
+  }
+
+  return result;
+}
+
+function fragmentKey(fragment: string, strength: ImageStyleProfile["rules"]["dedupeStrength"]): string {
+  const base = stripPromptWeight(fragment)
+    .replace(/[_-]+/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!base) return "";
+  if (strength === "light") return base;
+
+  const alias = tagAlias(base);
+  if (alias) return alias;
+  if (strength === "strict") return strictAlias(base) ?? base;
+  return base;
+}
+
+function stripPromptWeight(value: string): string {
+  let clean = value.trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const wrapped = clean.match(/^[([{]\s*(.+?)\s*[)\]}]$/);
+    if (wrapped?.[1]) {
+      clean = wrapped[1].trim();
+      changed = true;
+    }
+  }
+  return clean.replace(/: ?[+-]?\d+(?:\.\d+)?$/g, "").trim();
+}
+
+function tagAlias(value: string): string | null {
+  if (/^(?:best|high|good|excellent) quality$/.test(value)) return "quality_high";
+  if (/^(?:low|bad|poor) quality$/.test(value)) return "quality_low";
+  if (/^(?:text|letters|caption|captions|subtitle|subtitles)$/.test(value)) return "text_artifacts";
+  if (/^(?:watermark|logo|signature)$/.test(value)) return value;
+  if (/^(?:blurry|blur|out of focus)$/.test(value)) return "blurry";
+  if (/^(?:solo|single subject|one subject)$/.test(value)) return "solo_subject";
+  if (/^(?:centered|centered composition|centre composition)$/.test(value)) return "centered_composition";
+  if (
+    /^(?:centered\s+)?(?:realistic\s+)?(?:avatar\s+)?portrait$/.test(value) ||
+    /^(?:centered\s+)?face\s+and\s+shoulders\s+portrait$/.test(value) ||
+    /^(?:centered\s+)?shoulders\s+up\s+(?:portrait|composition)$/.test(value) ||
+    /^(?:centered\s+)?upper\s+body\s+portrait$/.test(value)
+  ) {
+    return "centered_portrait_composition";
+  }
+  return null;
+}
+
+function strictAlias(value: string): string | null {
+  if (/^(?:masterpiece|best quality|high quality|absurdres|highres)$/.test(value)) return "quality_cluster";
+  if (/^(?:portrait|avatar portrait|character portrait)$/.test(value)) return "portrait";
+  if (/^(?:upper body|bust shot|shoulders up|shoulders-up composition)$/.test(value)) return "upper_body";
+  if (/^(?:looking at viewer|facing viewer|looking toward viewer)$/.test(value)) return "looking_at_viewer";
+  return null;
+}
+
+function joinFragments(fragments: string[], promptMode: ImageStyleProfile["promptMode"]): string {
+  if (promptMode === "natural") return fragments.join(". ");
+  return fragments.join(", ");
+}

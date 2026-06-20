@@ -1,6 +1,6 @@
 // ──────────────────────────────────────────────
 // Full-Page Preset Editor
-// Tabs: Overview · Sections · Parameters · Review
+// Tabs: Overview · Sections
 // ──────────────────────────────────────────────
 import { useState, useCallback, useEffect, useMemo, useRef, type FC, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -51,7 +51,6 @@ import {
   X,
   AlertTriangle,
   Maximize2,
-  BookOpen,
   ListChecks,
   Shuffle,
   ToggleLeft,
@@ -60,10 +59,13 @@ import {
 import { cn } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { MacroTextarea } from "../ui/MacroTextarea";
+import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { api } from "../../lib/api-client";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
-import { SUPPORTED_MACROS, type WrapFormat, type MarkerType } from "@marinara-engine/shared";
+import { type WrapFormat, type MarkerType } from "@marinara-engine/shared";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
+import { EditorTabRail } from "../ui/EditorTabRail";
 
 /** Intercept Tab in a textarea to insert 2 spaces instead of changing focus. */
 function handleTextareaTab(
@@ -90,7 +92,6 @@ function handleTextareaTab(
 const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
   { id: "sections", label: "Sections", icon: Layers },
-  { id: "review", label: "AI Review", icon: Sparkles },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -132,8 +133,30 @@ function reorderIdsByOffset(items: Array<{ id: string }>, index: number, offset:
   return ids;
 }
 
+function reorderItems<T>(items: T[], sourceIndex: number, targetIndex: number): T[] | null {
+  if (sourceIndex < 0 || sourceIndex >= items.length || targetIndex < 0 || targetIndex >= items.length) return null;
+  if (sourceIndex === targetIndex) return null;
+  const next = [...items];
+  const [moved] = next.splice(sourceIndex, 1);
+  if (moved === undefined) return null;
+  next.splice(targetIndex, 0, moved);
+  return next;
+}
+
 function readBoolFlag(value: unknown): boolean {
   return value === true || value === "true";
+}
+
+type ChoiceDisplayMode = "auto" | "buttons" | "listbox";
+type ChoiceOptionSort = "manual" | "alphabetical";
+type VariableOptionDraft = { id: string; label: string; value: string };
+
+function readChoiceDisplayMode(value: unknown): ChoiceDisplayMode {
+  return value === "buttons" || value === "listbox" ? value : "auto";
+}
+
+function readChoiceOptionSort(value: unknown): ChoiceOptionSort {
+  return value === "alphabetical" ? "alphabetical" : "manual";
 }
 
 function readMarkerConfig(value: unknown) {
@@ -325,16 +348,16 @@ export function PresetEditor() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="mari-editor-shell flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 max-md:gap-2 max-md:px-3">
+      <div className="mari-editor-header">
         <button
           onClick={handleClose}
-          className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
+          className="mari-editor-action inline-flex"
         >
           <ArrowLeft size="1.125rem" />
         </button>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 text-white shadow-sm max-md:h-8 max-md:w-8">
+        <div className="mari-editor-icon-tile">
           <FileText size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
         <input
@@ -344,20 +367,20 @@ export function PresetEditor() {
             setLocalName(e.target.value);
             markDirty();
           }}
-          className="h-10 min-w-0 flex-1 self-stretch bg-transparent text-lg font-semibold outline-none placeholder:text-[var(--muted-foreground)] max-md:text-base"
+          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
           placeholder="Preset name…"
         />
-        <div className="flex items-center gap-1.5">
+        <div className="mari-editor-actions flex">
           <button
             onClick={handleSave}
             disabled={updatePreset.isPending}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
+            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
           >
             <Save size="0.8125rem" /> Save
           </button>
           <button
             onClick={() => api.download(`/prompts/${presetDetailId}/export`)}
-            className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            className="mari-editor-action inline-flex"
             title="Export preset"
           >
             <svg
@@ -379,9 +402,9 @@ export function PresetEditor() {
           </button>
           <button
             onClick={handleDelete}
-            className="rounded-xl p-2 transition-all hover:bg-[var(--destructive)]/15 active:scale-95"
+            className="mari-editor-action mari-editor-action--danger inline-flex"
           >
-            <Trash2 size="0.9375rem" className="text-[var(--destructive)]" />
+            <Trash2 size="0.9375rem" />
           </button>
         </div>
       </div>
@@ -424,32 +447,12 @@ export function PresetEditor() {
       )}
 
       {/* ── Body: Tab rail + Content ── */}
-      <div className="flex flex-1 overflow-hidden @max-5xl:flex-col">
-        {/* Tab rail */}
-        <nav className="flex w-44 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-[var(--border)] bg-[var(--card)] p-2 @max-5xl:w-full @max-5xl:flex-row @max-5xl:overflow-x-auto @max-5xl:border-r-0 @max-5xl:border-b @max-5xl:p-1.5">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium transition-all @max-5xl:whitespace-nowrap @max-5xl:px-2.5 @max-5xl:py-1.5",
-                  activeTab === tab.id
-                    ? "bg-gradient-to-r from-purple-400/15 to-violet-500/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/20"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                )}
-              >
-                <Icon size="0.875rem" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
+      <div className="mari-editor-body @max-5xl:flex-col">
+        <EditorTabRail tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
 
         {/* Content area */}
-        <div className="flex-1 overflow-y-auto p-6 @max-5xl:p-4">
-          <div className="mx-auto max-w-2xl space-y-6">
+        <div className="mari-editor-content @max-5xl:p-4">
+          <div className="mari-editor-content-inner space-y-6">
             {/* ── Overview Tab ── */}
             {activeTab === "overview" && (
               <OverviewTab
@@ -501,9 +504,6 @@ export function PresetEditor() {
                 parentChatHasLorebook={parentChatHasLorebook}
               />
             )}
-
-            {/* ── Review Tab ── */}
-            {activeTab === "review" && <ReviewTab presetId={presetDetailId} />}
           </div>
         </div>
       </div>
@@ -868,7 +868,7 @@ function SectionsTab({
         <div className="relative">
           <button
             onClick={() => setShowAddMenu(!showAddMenu)}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-3 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98]"
+            className="mari-editor-action mari-editor-action--primary inline-flex"
           >
             <Plus size="0.8125rem" /> Add Section
           </button>
@@ -1566,7 +1566,7 @@ function VariableCard({
   isReordering: boolean;
 }) {
   // Parse options
-  let opts: Array<{ id: string; label: string; value: string }> = [];
+  let opts: VariableOptionDraft[] = [];
   try {
     opts = typeof variable.options === "string" ? JSON.parse(variable.options) : (variable.options ?? []);
   } catch {
@@ -1578,16 +1578,62 @@ function VariableCard({
   const isMultiSelect = variable.multiSelect === "true" || variable.multiSelect === true;
   const isRandomPick = variable.randomPick === "true" || variable.randomPick === true;
   const separatorValue = variable.separator ?? ", ";
+  const displayMode = readChoiceDisplayMode(variable.displayMode ?? variable.display_mode);
+  const optionSort = readChoiceOptionSort(variable.optionSort ?? variable.option_sort);
+  const optionOrderIsAlphabetical = optionSort === "alphabetical";
 
   // Track which option is expanded in the big editor (index or null)
   const [expandedOptIdx, setExpandedOptIdx] = useState<number | null>(null);
+  const [draggingOptIdx, setDraggingOptIdx] = useState<number | null>(null);
+  const [dropOptIdx, setDropOptIdx] = useState<number | null>(null);
+  const [dragReadyOptIdx, setDragReadyOptIdx] = useState<number | null>(null);
 
   const update = (data: Record<string, unknown>) => {
     onUpdateVariable.mutate({ presetId, variableId: variable.id, ...data });
   };
 
-  const updateOpts = (newOpts: typeof opts) => {
+  const updateOpts = (newOpts: VariableOptionDraft[]) => {
     update({ options: newOpts });
+  };
+
+  const calcOptionDropIdx = (optionIdx: number, e: React.DragEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    return e.clientY < midY ? optionIdx : optionIdx + 1;
+  };
+
+  const handleOptionDragStart = (optionIdx: number, e: React.DragEvent) => {
+    if (optionOrderIsAlphabetical) return;
+    setDraggingOptIdx(optionIdx);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(optionIdx));
+  };
+
+  const handleOptionDragOver = (optionIdx: number, e: React.DragEvent) => {
+    if (optionOrderIsAlphabetical) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropOptIdx(calcOptionDropIdx(optionIdx, e));
+  };
+
+  const commitOptionDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceIdx = draggingOptIdx;
+    const target = dropOptIdx;
+    setDraggingOptIdx(null);
+    setDropOptIdx(null);
+    setDragReadyOptIdx(null);
+    if (optionOrderIsAlphabetical || sourceIdx === null || target === null) return;
+    let insertAt = target;
+    if (sourceIdx < insertAt) insertAt--;
+    const next = reorderItems(opts, sourceIdx, insertAt);
+    if (next) updateOpts(next);
+  };
+
+  const moveOptionByOffset = (optionIdx: number, offset: number) => {
+    if (optionOrderIsAlphabetical) return;
+    const next = reorderItems(opts, optionIdx, optionIdx + offset);
+    if (next) updateOpts(next);
   };
 
   return (
@@ -1780,21 +1826,140 @@ function VariableCard({
             </div>
           )}
 
+          {/* Presentation */}
+          <div className="space-y-2 rounded-lg bg-[var(--secondary)] p-2.5 ring-1 ring-[var(--border)]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <ListChecks size="0.75rem" className="text-amber-400" />
+                <span className="text-[0.625rem] font-medium text-[var(--foreground)]">Presentation</span>
+              </div>
+              <div className="flex rounded-lg bg-[var(--background)] p-0.5 ring-1 ring-[var(--border)]">
+                {(
+                  [
+                    ["auto", "Auto"],
+                    ["buttons", isMultiSelect ? "Checkboxes" : "Radios"],
+                    ["listbox", isMultiSelect ? "Listbox" : "Dropdown"],
+                  ] as const
+                ).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => update({ displayMode: mode })}
+                    className={cn(
+                      "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-colors",
+                      displayMode === mode
+                        ? "bg-amber-400 text-black"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-2">
+              <div className="min-w-0">
+                <p className="text-[0.625rem] font-medium text-[var(--foreground)]">Alphabetical option display</p>
+                <p className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                  Manual order is kept for editing and exports.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={optionOrderIsAlphabetical}
+                onClick={() => update({ optionSort: optionOrderIsAlphabetical ? "manual" : "alphabetical" })}
+                className={cn(
+                  "relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors",
+                  optionOrderIsAlphabetical ? "bg-amber-400" : "bg-[var(--border)]",
+                )}
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block h-3 w-3 translate-y-0.5 rounded-full bg-white shadow transition-transform",
+                    optionOrderIsAlphabetical ? "translate-x-3.5" : "translate-x-0.5",
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Options */}
           <div className="space-y-1.5">
             <label className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Options</label>
             {opts.map((opt, oi) => {
               const valueBlank = !opt.value || !opt.value.trim();
+              const showDropBefore =
+                dropOptIdx === oi && draggingOptIdx !== null && draggingOptIdx !== oi && draggingOptIdx !== oi - 1;
+              const showDropAfter =
+                oi === opts.length - 1 &&
+                dropOptIdx === opts.length &&
+                draggingOptIdx !== null &&
+                draggingOptIdx !== oi;
               return (
                 <div key={opt.id}>
+                  {showDropBefore && <div className="mx-2 mb-1 h-0.5 rounded-full bg-amber-400" />}
                   <div
+                    draggable={dragReadyOptIdx === oi && !optionOrderIsAlphabetical}
+                    onDragStart={(e) => handleOptionDragStart(oi, e)}
+                    onDragOver={(e) => {
+                      e.stopPropagation();
+                      handleOptionDragOver(oi, e);
+                    }}
+                    onDrop={(e) => {
+                      e.stopPropagation();
+                      commitOptionDrop(e);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingOptIdx(null);
+                      setDropOptIdx(null);
+                      setDragReadyOptIdx(null);
+                    }}
                     className={cn(
                       "flex items-center gap-2 rounded-lg px-2.5 py-1.5 ring-1",
                       valueBlank
                         ? "bg-[var(--destructive)]/5 ring-[var(--destructive)]/30"
                         : "bg-[var(--secondary)] ring-[var(--border)]",
+                      draggingOptIdx === oi && "opacity-40",
                     )}
                   >
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <div
+                        className={cn(
+                          "rounded p-0.5",
+                          optionOrderIsAlphabetical
+                            ? "cursor-not-allowed opacity-30"
+                            : "cursor-grab hover:bg-[var(--accent)] active:cursor-grabbing",
+                        )}
+                        title={optionOrderIsAlphabetical ? "Disable alphabetical display to reorder" : "Drag to reorder"}
+                        onMouseDown={() => {
+                          if (!optionOrderIsAlphabetical) setDragReadyOptIdx(oi);
+                        }}
+                        onMouseUp={() => setDragReadyOptIdx(null)}
+                      >
+                        <GripVertical size="0.75rem" className="text-[var(--muted-foreground)]" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => moveOptionByOffset(oi, -1)}
+                        disabled={optionOrderIsAlphabetical || oi === 0}
+                        className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
+                        title="Move option up"
+                        aria-label={`Move ${opt.label || `option ${oi + 1}`} up`}
+                      >
+                        <ArrowUp size="0.625rem" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveOptionByOffset(oi, 1)}
+                        disabled={optionOrderIsAlphabetical || oi === opts.length - 1}
+                        className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
+                        title="Move option down"
+                        aria-label={`Move ${opt.label || `option ${oi + 1}`} down`}
+                      >
+                        <ArrowDown size="0.625rem" />
+                      </button>
+                    </div>
                     <span className="shrink-0 text-[0.625rem] font-medium text-amber-400">{oi + 1}.</span>
                     <OptionFieldInput
                       value={opt.label}
@@ -1842,6 +2007,7 @@ function VariableCard({
                   {valueBlank && (
                     <p className="mt-1 pl-6 text-[0.5625rem] text-[var(--destructive)]">Value cannot be empty.</p>
                   )}
+                  {showDropAfter && <div className="mx-2 mt-1 h-0.5 rounded-full bg-amber-400" />}
                 </div>
               );
             })}
@@ -2000,11 +2166,10 @@ function SectionContentTextarea({
   onCommit: (v: string) => void;
 }) {
   const [local, setLocal] = useState(value);
-  const [expanded, setExpanded] = useState(false);
-  const [showMacroRef, setShowMacroRef] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusedRef = useRef(false);
   const formatQuotes = useQuoteFormatter();
+  const quoteFormat = useUIStore((s) => s.quoteFormat);
 
   // Only sync from parent when not actively editing
   useEffect(() => {
@@ -2012,12 +2177,16 @@ function SectionContentTextarea({
   }, [value]);
 
   const commit = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     if (local !== value) onCommit(local);
   }, [local, value, onCommit]);
 
   // Debounced auto-save while typing (800ms)
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const nextValue = formatQuotes(e.target.value);
+  const handleChange = (nextRawValue: string) => {
+    const nextValue = formatQuotes(nextRawValue);
     setLocal(nextValue);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
@@ -2028,10 +2197,6 @@ function SectionContentTextarea({
   // Commit on blur immediately
   const handleBlur = () => {
     focusedRef.current = false;
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
     commit();
   };
 
@@ -2048,71 +2213,17 @@ function SectionContentTextarea({
   );
 
   return (
-    <>
-      <div className="relative">
-        <textarea
-          value={local}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          onFocus={handleFocus}
-          onKeyDown={(e) =>
-            handleTextareaTab(
-              e,
-              local,
-              (v) => {
-                setLocal(v);
-                if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                timeoutRef.current = setTimeout(() => {
-                  if (v !== value) onCommit(v);
-                }, 800);
-              },
-              formatQuotes,
-            )
-          }
-          className="min-h-[7.5rem] w-full rounded-lg bg-[var(--secondary)] p-2.5 pr-8 font-mono text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-          placeholder="Prompt content… (supports {{user}}, {{char}}, {{// comment}}, {{trim}} macros)"
-        />
-        <div className="absolute right-1.5 top-1.5 flex flex-col gap-0.5">
-          <button
-            onClick={() => setExpanded(true)}
-            className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            title="Expand editor"
-          >
-            <Maximize2 size="0.75rem" />
-          </button>
-          <button
-            onClick={() => setShowMacroRef(true)}
-            className="rounded p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            title="Macros reference"
-          >
-            <BookOpen size="0.75rem" />
-          </button>
-        </div>
-      </div>
-
-      {/* Macros reference modal */}
-      {showMacroRef && <MacrosReferenceModal onClose={() => setShowMacroRef(false)} />}
-
-      {/* Expanded editor modal */}
-      {expanded && (
-        <ExpandedEditorModal
-          title={sectionName ? `Edit: ${sectionName}` : "Edit Prompt"}
-          value={local}
-          onChange={(v) => {
-            const nextValue = formatQuotes(v);
-            setLocal(nextValue);
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
-            timeoutRef.current = setTimeout(() => {
-              if (nextValue !== value) onCommit(nextValue);
-            }, 800);
-          }}
-          onClose={() => {
-            setExpanded(false);
-            if (local !== value) onCommit(local);
-          }}
-        />
-      )}
-    </>
+    <MacroTextarea
+      value={local}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      onFocus={handleFocus}
+      onExpandedClose={commit}
+      formatOnChange={(textarea) => applyTextareaQuoteFormat(textarea, quoteFormat)}
+      title={sectionName ? `Edit: ${sectionName}` : "Edit Prompt"}
+      className="min-h-[7.5rem] w-full rounded-lg bg-[var(--secondary)] p-2.5 font-mono text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+      placeholder="Prompt content… (supports {{user}}, {{char}}, {{// comment}}, {{trim}} macros)"
+    />
   );
 }
 
@@ -2189,9 +2300,9 @@ function ExpandedEditorModal({
 
   return (
     <PresetModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 max-md:pt-[max(1.5rem,env(safe-area-inset-top))]">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
-        <div className="relative flex h-[80vh] w-full max-w-3xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl shadow-black/50">
+        <div className="mari-editor-shell relative flex h-[80vh] max-h-[calc(100vh-1.5rem)] w-full max-w-3xl flex-col rounded-2xl border border-[var(--marinara-editor-border)] bg-[var(--marinara-editor-surface-bg)] shadow-2xl shadow-black/50 supports-[height:100dvh]:h-[80dvh] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <h3 className="text-sm font-semibold">{title}</h3>
@@ -2229,109 +2340,9 @@ function ExpandedEditorModal({
             <p className="text-[0.625rem] text-[var(--muted-foreground)]">Changes auto-save. Press Escape to close.</p>
             <button
               onClick={handleClose}
-              className="rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-4 py-1.5 text-xs font-medium text-white shadow-md hover:shadow-lg active:scale-[0.98]"
+              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex px-4 py-1.5"
             >
               Done
-            </button>
-          </div>
-        </div>
-      </div>
-    </PresetModalPortal>
-  );
-}
-
-// ── Macros reference data ──
-const MACRO_REFERENCE = Array.from(
-  SUPPORTED_MACROS.reduce((categories, macro) => {
-    const macros = categories.get(macro.category) ?? [];
-    macros.push({ macro: macro.syntax, desc: macro.description });
-    categories.set(macro.category, macros);
-    return categories;
-  }, new Map<string, Array<{ macro: string; desc: string }>>()),
-  ([category, macros]) => ({ category, macros }),
-);
-
-// ── Macros Reference Modal ──
-function MacrosReferenceModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-
-  return (
-    <PresetModalPortal>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-6 max-md:pt-[max(1.5rem,env(safe-area-inset-top))]">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl shadow-black/50">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <BookOpen size="1rem" className="text-purple-400" />
-              <h3 className="text-sm font-semibold">Macros Reference</h3>
-            </div>
-            <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-[var(--accent)]">
-              <X size="1rem" />
-            </button>
-          </div>
-          {/* Content */}
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-              Use these macros in your prompt sections. They will be replaced with actual values at generation time.
-            </p>
-            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-              In group chats, a bracketed block containing character macros like <code>{"{{char}}"}</code> and{" "}
-              <code>{"{{description}}"}</code> repeats once per character.
-            </p>
-            <div className="space-y-2 border-y border-[var(--border)] py-3">
-              <div>
-                <h4 className="text-[0.6875rem] font-semibold text-purple-400">Conditional blocks</h4>
-                <p className="mt-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-                  Use <code>{"{{#if ...}}"}</code>, optional <code>{"{{else}}"}</code>, and <code>{"{{/if}}"}</code> to
-                  switch prompt text by the active speaker, user, or a preset variable.
-                </p>
-              </div>
-              <pre className="overflow-x-auto rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.625rem] leading-relaxed text-amber-300">
-                <code>{`{{#if character == "Dottore"}}
-Write this for Dottore.
-{{else}}
-Write this for anyone else.
-{{/if}}`}</code>
-              </pre>
-              <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                Supported comparisons: <code>==</code>, <code>!=</code>, and <code>contains</code>. Character checks
-                also work with <code>char</code> or <code>speaker</code>, and group chats evaluate them for the speaking
-                character. Straight and typographic quotes both work.
-              </p>
-            </div>
-            {MACRO_REFERENCE.map((cat) => (
-              <div key={cat.category}>
-                <h4 className="mb-1.5 text-[0.6875rem] font-semibold text-purple-400">{cat.category}</h4>
-                <div className="space-y-1">
-                  {cat.macros.map((m) => (
-                    <div
-                      key={m.macro}
-                      className="flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-[var(--accent)]"
-                    >
-                      <code className="shrink-0 rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] font-medium text-amber-400">
-                        {m.macro}
-                      </code>
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{m.desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* Footer */}
-          <div className="border-t border-[var(--border)] px-4 py-2.5 text-center">
-            <button
-              onClick={onClose}
-              className="rounded-xl px-4 py-1.5 text-xs font-medium text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
-            >
-              Close
             </button>
           </div>
         </div>
@@ -2374,91 +2385,6 @@ function SectionNameInput({ value, onCommit }: { value: string; onCommit: (v: st
 }
 
 // ═══════════════════════════════════════════════
-//  Review Tab (placeholder — wires to prompt reviewer)
-// ═══════════════════════════════════════════════
-
-function ReviewTab({ presetId }: { presetId: string }) {
-  const [reviewing, setReviewing] = useState(false);
-  const [reviewOutput, setReviewOutput] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const enableStreaming = useUIStore((s) => s.enableStreaming);
-
-  const startReview = async (connectionId: string) => {
-    setReviewing(true);
-    setReviewOutput("");
-    setError(null);
-
-    try {
-      const res = await fetch("/api/prompt-reviewer/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          presetId,
-          connectionId,
-          streaming: enableStreaming,
-          focusAreas: ["clarity", "consistency", "coverage", "token_efficiency"],
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to start review");
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error("No stream");
-
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const text = decoder.decode(value, { stream: true });
-        const lines = text.split("\n");
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === "token") {
-              setReviewOutput((prev) => prev + event.data);
-            } else if (event.type === "error") {
-              setError(event.data);
-            }
-          } catch {
-            /* skip */
-          }
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Review failed");
-    } finally {
-      setReviewing(false);
-    }
-  };
-
-  return (
-    <>
-      <FieldGroup label="AI Prompt Review">
-        <p className="mb-3 text-xs text-[var(--muted-foreground)]">
-          Have an AI analyze your prompt preset for clarity, consistency, coverage, and efficiency. This requires an
-          active API connection.
-        </p>
-        <ConnectionSelector
-          onSelect={(connId) => startReview(connId)}
-          disabled={reviewing}
-          label={reviewing ? "Reviewing…" : "Start Review"}
-        />
-      </FieldGroup>
-
-      {error && (
-        <div className="rounded-xl bg-[var(--destructive)]/10 p-3 text-xs text-[var(--destructive)]">{error}</div>
-      )}
-
-      {reviewOutput && (
-        <div className="rounded-xl bg-[var(--secondary)] p-4 ring-1 ring-[var(--border)]">
-          <pre className="whitespace-pre-wrap text-xs text-[var(--foreground)]">{reviewOutput}</pre>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ═══════════════════════════════════════════════
 //  Shared UI Components
 // ═══════════════════════════════════════════════
 
@@ -2479,52 +2405,6 @@ function StatCard({ label, value }: { label: string; value: number }) {
     <div className="flex flex-1 flex-col items-center rounded-xl bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
       <span className="text-xl font-bold text-[var(--foreground)]">{value}</span>
       <span className="text-[0.625rem] text-[var(--muted-foreground)]">{label}</span>
-    </div>
-  );
-}
-
-/** Simple connection selector — queries the connections API */
-function ConnectionSelector({
-  onSelect,
-  disabled,
-  label,
-}: {
-  onSelect: (connectionId: string) => void;
-  disabled: boolean;
-  label: string;
-}) {
-  const [connId, setConnId] = useState("");
-
-  // Quick inline fetch of connections
-  const [connections, setConnections] = useState<Array<{ id: string; name: string }>>([]);
-  useEffect(() => {
-    fetch("/api/connections")
-      .then((r) => r.json())
-      .then((data) => setConnections(data))
-      .catch(() => {});
-  }, []);
-
-  return (
-    <div className="flex gap-2">
-      <select
-        value={connId}
-        onChange={(e) => setConnId(e.target.value)}
-        className="flex-1 rounded-xl bg-[var(--secondary)] px-2.5 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none"
-      >
-        <option value="">Select connection…</option>
-        {connections.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-      <button
-        disabled={disabled || !connId}
-        onClick={() => onSelect(connId)}
-        className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-400 to-violet-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
-      >
-        <Sparkles size="0.8125rem" /> {label}
-      </button>
     </div>
   );
 }

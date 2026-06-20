@@ -19,15 +19,17 @@ import {
   type DragEvent as ReactDragEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { ChevronDown, Folder, GripVertical, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, Folder, GripVertical, ToggleLeft, ToggleRight, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { showConfirmDialog } from "../../lib/app-dialogs";
-import { useUpdateLorebookFolder, useDeleteLorebookFolder } from "../../hooks/use-lorebooks";
-import type { LorebookFolder } from "@marinara-engine/shared";
+import { confirmNonEmptyFolderDelete } from "../../lib/app-dialogs";
+import { useUpdateLorebookFolder, useDeleteLorebookFolder, useCloneLorebookFolder } from "../../hooks/use-lorebooks";
+import { canReparentFolder, collectFolderSubtreeIds, type LorebookFolder } from "@marinara-engine/shared";
 
 interface Props {
   folder: LorebookFolder;
   lorebookId: string;
+  /** All folders in this lorebook — builds the parent picker + validates moves. */
+  folders: LorebookFolder[];
   /** Number of entries currently inside this folder (for the count badge). */
   entryCount: number;
   /** UI-only collapse state — owned by the parent editor and persisted in localStorage. */
@@ -38,6 +40,8 @@ interface Props {
   draggable: boolean;
   isDragging: boolean;
   isDragReady: boolean;
+  /** True while a dragged folder hovers this row's nest band — draws a nest ring. */
+  isNestTarget?: boolean;
   onDragHandleMouseDown: () => void;
   onDragHandleMouseUp: () => void;
   onDragStart: (e: ReactDragEvent<HTMLDivElement>) => void;
@@ -49,12 +53,14 @@ interface Props {
 export function LorebookFolderRow({
   folder,
   lorebookId,
+  folders,
   entryCount,
   isCollapsed,
   onToggleCollapse,
   draggable,
   isDragging,
   isDragReady,
+  isNestTarget = false,
   onDragHandleMouseDown,
   onDragHandleMouseUp,
   onDragStart,
@@ -64,10 +70,16 @@ export function LorebookFolderRow({
 }: Props) {
   const updateFolder = useUpdateLorebookFolder();
   const deleteFolder = useDeleteLorebookFolder();
+  const cloneFolder = useCloneLorebookFolder();
+
+  // The native drag is armed on this row imperatively (see the handle's onMouseDown)
+  // so a heavy re-render can't lose the race against the browser's drag threshold.
+  const rowRef = useRef<HTMLDivElement>(null);
 
   // Optimistic mirrors so toggle/rename feel snappy while the mutation flushes.
   const [localEnabled, setLocalEnabled] = useState(folder.enabled);
   const [localName, setLocalName] = useState(folder.name);
+  const [localParentId, setLocalParentId] = useState(folder.parentFolderId);
 
   const lastSyncedRef = useRef(folder);
   useEffect(() => {
@@ -75,6 +87,7 @@ export function LorebookFolderRow({
     lastSyncedRef.current = folder;
     setLocalEnabled(folder.enabled);
     setLocalName(folder.name);
+    setLocalParentId(folder.parentFolderId);
   }, [folder]);
 
   const handleEnableToggle = useCallback(
@@ -122,22 +135,52 @@ export function LorebookFolderRow({
     }
   }, [localName, folder.name, lorebookId, folder.id, updateFolder]);
 
+  // Guards the optimistic rollback below: if several parent changes fire in quick
+  // succession, only the latest may roll back — a stale out-of-order failure must
+  // not clobber a newer optimistic value.
+  const parentChangeSeqRef = useRef(0);
+  const handleParentChange = useCallback(
+    (parentFolderId: string | null) => {
+      const previous = localParentId;
+      const seq = ++parentChangeSeqRef.current;
+      // Optimistic flip; roll back if the move is rejected server-side.
+      setLocalParentId(parentFolderId);
+      updateFolder.mutate(
+        { lorebookId, folderId: folder.id, parentFolderId },
+        {
+          onError: () => {
+            if (parentChangeSeqRef.current === seq) setLocalParentId(previous);
+          },
+        },
+      );
+    },
+    [localParentId, lorebookId, folder.id, updateFolder],
+  );
+
+  // Valid parents only: same lorebook, not this folder, not one of its own
+  // descendants — so the picker can never offer a move that would cycle.
+  const parentOptions = folders.filter(
+    (candidate) => candidate.id !== folder.id && canReparentFolder(folders, folder.id, candidate.id).ok,
+  );
+
   const handleDelete = useCallback(
     async (e: ReactMouseEvent) => {
       e.stopPropagation();
-      const confirmed = await showConfirmDialog({
+      const descendantCount = collectFolderSubtreeIds(folders, folder.id).length - 1;
+      const hasSubfolders = descendantCount > 0;
+      const contentCount = entryCount + descendantCount;
+      const confirmed = await confirmNonEmptyFolderDelete(contentCount, {
         title: "Delete Folder",
-        message:
-          entryCount > 0
-            ? `Delete this folder? The ${entryCount} entr${entryCount === 1 ? "y" : "ies"} inside will be moved back to the root level.`
-            : "Delete this folder?",
+        message: hasSubfolders
+          ? `Delete "${folder.name}"? Its nested subfolder${descendantCount === 1 ? "" : "s"} and entries will move up to the top level.`
+          : `Delete "${folder.name}"? Its ${entryCount} entr${entryCount === 1 ? "y" : "ies"} will move up to the top level.`,
         confirmLabel: "Delete",
         tone: "destructive",
       });
       if (!confirmed) return;
       deleteFolder.mutate({ lorebookId, folderId: folder.id });
     },
-    [entryCount, lorebookId, folder.id, deleteFolder],
+    [entryCount, lorebookId, folder.id, folder.name, folders, deleteFolder],
   );
 
   return (
@@ -146,7 +189,9 @@ export function LorebookFolderRow({
         "rounded-xl bg-[var(--secondary)]/60 ring-1 ring-[var(--border)] transition-all",
         !isCollapsed && "ring-amber-400/30",
         isDragging && "opacity-40",
+        isNestTarget && "ring-2 ring-amber-400",
       )}
+      ref={rowRef}
       draggable={draggable && isDragReady}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -167,7 +212,14 @@ export function LorebookFolderRow({
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => {
             e.stopPropagation();
-            if (draggable) onDragHandleMouseDown();
+            if (draggable) {
+              // Arm the native drag synchronously so it can begin on THIS gesture.
+              // The React state flip alone (onDragHandleMouseDown) can lose the race
+              // with the browser's drag threshold on a heavy re-render (deep folder
+              // trees), leaving the folder unable to lift.
+              if (rowRef.current) rowRef.current.draggable = true;
+              onDragHandleMouseDown();
+            }
           }}
           onMouseUp={(e) => {
             e.stopPropagation();
@@ -232,6 +284,25 @@ export function LorebookFolderRow({
           className="min-w-0 flex-1 truncate bg-transparent px-1 text-sm font-semibold outline-none transition-colors hover:bg-[var(--accent)]/40 focus:bg-[var(--accent)]/40 focus:ring-1 focus:ring-[var(--ring)] rounded"
         />
 
+        {/* Parent folder picker — nest this folder under another (cycle-safe options) */}
+        {parentOptions.length > 0 && (
+          <select
+            value={localParentId ?? ""}
+            onChange={(e) => handleParentChange(e.target.value || null)}
+            onClick={(e) => e.stopPropagation()}
+            title="Nest this folder under another folder"
+            aria-label="Parent folder"
+            className="shrink-0 max-w-[7rem] truncate rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] outline-none ring-1 ring-transparent transition-colors hover:ring-[var(--border)] focus:ring-[var(--ring)]"
+          >
+            <option value="">(top level)</option>
+            {parentOptions.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.name.trim() || "Untitled folder"}
+              </option>
+            ))}
+          </select>
+        )}
+
         {/* Entry count badge */}
         <span
           className="shrink-0 rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] font-medium text-[var(--muted-foreground)]"
@@ -239,6 +310,21 @@ export function LorebookFolderRow({
         >
           {entryCount}
         </span>
+
+        {/* Clone — deep-copies the folder, its entries, and its sub-folders */}
+        <button
+          type="button"
+          aria-label="Clone folder"
+          title="Clone this folder, its entries, and its sub-folders"
+          disabled={cloneFolder.isPending}
+          onClick={(e) => {
+            e.stopPropagation();
+            cloneFolder.mutate({ lorebookId, folderId: folder.id });
+          }}
+          className="shrink-0 rounded p-1 opacity-0 transition-all hover:bg-[var(--accent)] group-hover:opacity-100 max-md:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Copy size="0.75rem" className="text-[var(--muted-foreground)]" />
+        </button>
 
         {/* Delete (hover-revealed on desktop, always visible on mobile per the row-action convention) */}
         <button

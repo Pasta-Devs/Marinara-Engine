@@ -10,6 +10,7 @@ import {
   type AvatarCropValue,
 } from "../../lib/utils";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
+import { normalizeCardAssetImageSyntax, resolveCardAssetUrl } from "../../lib/card-asset-links";
 import {
   User,
   Bot,
@@ -33,19 +34,22 @@ import {
   Play,
   ChevronRight,
   EyeOff,
+  Shield,
 } from "lucide-react";
 import { formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
 import { memo, useState, useMemo, useRef, useEffect, useLayoutEffect, useCallback, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { chatKeys } from "../../hooks/use-chats";
+import { chatKeys, rememberRecentMessageContentEdit } from "../../hooks/use-chats";
 import { useShallow } from "zustand/react/shallow";
 import { createMessageMacroResolver } from "../../lib/chat-macros";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
+import { parseChatMetadata } from "../../lib/chat-display";
 import { useTranslate } from "../../hooks/use-translate";
 import { api } from "../../lib/api-client";
+import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { ttsService } from "../../lib/tts-service";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { buildTTSVoiceRequests, normalizeTTSCharacterName, withTTSVoiceRequestCacheKeys } from "../../lib/tts-dialogue";
@@ -140,11 +144,13 @@ function HiddenFromAIMessageSummary({ roleplay, onExpand }: { roleplay?: boolean
 const EditTextarea = memo(function EditTextarea({
   initialContent,
   fontSize,
+  quoteFormat,
   onSave,
   onCancel,
 }: {
   initialContent: string;
   fontSize: string | number | undefined;
+  quoteFormat: QuoteFormat;
   onSave: (content: string) => void;
   onCancel: () => void;
 }) {
@@ -170,16 +176,19 @@ const EditTextarea = memo(function EditTextarea({
   }, [autoResize]);
 
   const handleSave = useCallback(() => {
-    if (ref.current) onSave(ref.current.value);
-  }, [onSave]);
+    if (ref.current) onSave(formatTextQuotes(ref.current.value, quoteFormat));
+  }, [onSave, quoteFormat]);
 
   return (
     <div className="flex flex-col gap-2">
       <textarea
         ref={ref}
-        defaultValue={initialContent.replace(/[\u201C\u201D\u201E\u201F]/g, '"').replace(/[\u2018\u2019]/g, "'")}
+        defaultValue={formatTextQuotes(initialContent, quoteFormat)}
         rows={1}
-        onInput={autoResize}
+        onInput={(event) => {
+          applyTextareaQuoteFormat(event.currentTarget, quoteFormat);
+          autoResize();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleSave();
           if (e.key === "Escape") onCancel();
@@ -233,6 +242,7 @@ interface ChatMessageProps {
   groupChatMode?: string;
   chatCharacterIds?: string[];
   expressionAvatarResolver?: ExpressionAvatarResolver;
+  hasDraftInput?: boolean;
   /** Distance from the latest message (0 = newest). Used for depth-range regex filtering. */
   messageDepth?: number;
   /** 1-based ordinal position in the message list. Shown under avatar when actions visible. */
@@ -485,6 +495,15 @@ const CHAT_HTML_ALLOWED_ATTR = [
 
 const CHAT_STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
 const CSS_SELECTOR_RE = /(^|[{}])\s*([^@{}][^{]*)\{/g;
+const MD_IMAGE_HTML_RE = /!\[([^\]]*)\]\(((?:https?:\/\/[^)\s]+|card:\/\/[^)\s]+|\/api\/[^)\s]+))\)/g;
+
+function escapeHtmlAttr(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
 
 function sanitizeChatHtml(html: string, options: { allowStyle?: boolean } = {}) {
   const allowedAttr = options.allowStyle
@@ -509,8 +528,40 @@ function extractChatStyleBlocks(html: string): { html: string; css: string } {
   return { html: withoutStyles, css: cssBlocks.join("\n") };
 }
 
+/** Decode CSS escape sequences (`\XX` hex, `\c` literal) to the characters a browser parses. */
+function decodeCssEscapes(input: string): string {
+  return input.replace(
+    /\\(?:([0-9a-fA-F]{1,6})\s?|([\s\S]))/g,
+    (_m, hex: string | undefined, ch: string | undefined) => {
+      if (hex) {
+        const cp = parseInt(hex, 16);
+        return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : "";
+      }
+      return ch ?? "";
+    },
+  );
+}
+
+// Match a quoted string (group 1) OR a single CSS escape sequence. Strings come first so the
+// scanner steps over them, leaving their contents untouched.
+const STRING_OR_ESCAPE = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\\(?:[0-9a-fA-F]{1,6}\s?|[\s\S])/g;
+
+// Canonicalize CSS escapes that spell a token character (ASCII letter, `@`, or `-`) so the
+// literal-text guards in sanitizeChatCss can't be bypassed by escaping (e.g. `\75rl(` → `url(`,
+// `po\73ition` → `position`, `\40 import` → `@import`). Escapes resolving to digits/punctuation
+// and all string contents are preserved so benign selectors like `.\32 xl` and `.w-1\/2` stay exact.
+function canonicalizeKeywordEscapes(css: string): string {
+  return css.replace(STRING_OR_ESCAPE, (match: string, stringLiteral: string | undefined) => {
+    if (stringLiteral !== undefined) return stringLiteral;
+    const decoded = decodeCssEscapes(match);
+    return /^[-A-Za-z@]$/.test(decoded) ? decoded : match;
+  });
+}
+
 function sanitizeChatCss(css: string): string {
-  return css
+  // Normalize escaped keyword characters first so every literal-text guard below sees the tokens a
+  // browser would actually parse. Without this, CSS escapes (`\75rl(`, `po\73ition`) slip past.
+  return canonicalizeKeywordEscapes(css)
     .replace(/<\/?style\b[^>]*>/gi, "")
     .replace(/@import\s+[^;]+;?/gi, "")
     .replace(/@namespace\s+[^;]+;?/gi, "")
@@ -599,10 +650,11 @@ function renderContent(
   // Convert markdown images to <img> before sanitization so DOMPurify validates them.
   // Keep tags minimal (no class/loading) — styling is via .mari-message-content img in CSS
   // to avoid the dialogue-bolding regex mangling attribute quotes.
-  const withImages = withBreaks.replace(
-    /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g,
-    (_m, alt: string, url: string) => `<img src="${url}" alt="${alt || "image"}" loading="lazy" decoding="async">`,
-  );
+  const withImages = normalizeCardAssetImageSyntax(withBreaks).replace(MD_IMAGE_HTML_RE, (_m, alt: string, url: string) => {
+    const src = escapeHtmlAttr(resolveCardAssetUrl(url));
+    const safeAlt = escapeHtmlAttr(alt || "image");
+    return `<img src="${src}" alt="${safeAlt}" loading="lazy" decoding="async">`;
+  });
 
   const clean = sanitizeChatHtml(withImages, { allowStyle: true });
 
@@ -709,6 +761,7 @@ export const ChatMessage = memo(function ChatMessage({
   groupChatMode,
   chatCharacterIds,
   expressionAvatarResolver,
+  hasDraftInput = false,
   messageDepth,
   messageIndex,
   messageOrderIndex,
@@ -726,6 +779,7 @@ export const ChatMessage = memo(function ChatMessage({
     chatFontOpacity,
     roleplayAvatarStyle,
     roleplayAvatarScale,
+    roleplayAvatarsScrollable,
     textStrokeWidth,
     textStrokeColor,
     showModelName,
@@ -733,6 +787,7 @@ export const ChatMessage = memo(function ChatMessage({
     showMessageNumbers,
     guideGenerations,
     boldDialogue,
+    editMessageOnDoubleClick,
     theme,
   } = useUIStore(
     useShallow((s) => ({
@@ -741,6 +796,7 @@ export const ChatMessage = memo(function ChatMessage({
       chatFontOpacity: s.chatFontOpacity,
       roleplayAvatarStyle: s.roleplayAvatarStyle,
       roleplayAvatarScale: s.roleplayAvatarScale,
+      roleplayAvatarsScrollable: s.roleplayAvatarsScrollable,
       textStrokeWidth: s.textStrokeWidth,
       textStrokeColor: s.textStrokeColor,
       showModelName: s.showModelName,
@@ -748,11 +804,11 @@ export const ChatMessage = memo(function ChatMessage({
       showMessageNumbers: s.showMessageNumbers,
       guideGenerations: s.guideGenerations,
       boldDialogue: s.boldDialogue ?? true,
+      editMessageOnDoubleClick: s.editMessageOnDoubleClick,
       theme: s.theme,
     })),
   );
-  const hasInput = useChatStore((s) => s.currentInput.trim().length > 0);
-  const isGuided = guideGenerations && hasInput;
+  const isGuided = guideGenerations && hasDraftInput;
   const regenerateButtonTitle = isGuided ? "Regenerate (guided)" : "Regenerate";
   const regenerateGuidedClass = isGuided
     ? "text-[var(--primary)] bg-[var(--primary)]/15 ring-1 ring-[var(--primary)]/30 hover:text-[var(--primary)]"
@@ -804,11 +860,13 @@ export const ChatMessage = memo(function ChatMessage({
   const [showGenerationReplay, setShowGenerationReplay] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [manuallyExpandedHidden, setManuallyExpandedHidden] = useState(false);
+  const [restoringProseGuardianOriginal, setRestoringProseGuardianOriginal] = useState(false);
   const collapseHiddenMessages = useUIStore((s) => s.summaryPopoverSettings.collapseHiddenMessages);
   const [avatarLightbox, setAvatarLightbox] = useState<string | null>(null);
   const [avatarLightboxPrompt, setAvatarLightboxPrompt] = useState<string | null>(null);
   const scrollRestoreRef = useRef<{ el: HTMLElement; top: number } | null>(null);
   const msgRef = useRef<HTMLDivElement>(null);
+  const editSwipeIndexRef = useRef<number | null>(null);
   const lastQuickTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
   const openImageLightbox = useCallback((url: string, prompt?: unknown) => {
     setAvatarLightbox(url);
@@ -911,19 +969,22 @@ export const ChatMessage = memo(function ChatMessage({
     if (!onEdit || isStreaming) return;
     const sp = msgRef.current?.closest("[class*='overflow-y']") as HTMLElement | null;
     if (sp) scrollRestoreRef.current = { el: sp, top: sp.scrollTop };
+    editSwipeIndexRef.current = message.activeSwipeIndex ?? null;
     setEditing(true);
-  }, [isStreaming, onEdit]);
+  }, [isStreaming, message.activeSwipeIndex, onEdit]);
 
   const startQuickEdit = useCallback(
     (target: EventTarget | null) => {
-      if (!isRoleplay || !onEdit || editing || isStreaming || multiSelectMode) return false;
+      if (!editMessageOnDoubleClick || !isRoleplay || !onEdit || editing || isStreaming || multiSelectMode) {
+        return false;
+      }
       if (isMessageQuickEditIgnoredTarget(target)) return false;
       window.getSelection()?.removeAllRanges();
       setShowActions(false);
       startEditing();
       return true;
     },
-    [editing, isRoleplay, isStreaming, multiSelectMode, onEdit, startEditing],
+    [editMessageOnDoubleClick, editing, isRoleplay, isStreaming, multiSelectMode, onEdit, startEditing],
   );
 
   const handleRoleplayDoubleClick = useCallback(
@@ -995,6 +1056,13 @@ export const ChatMessage = memo(function ChatMessage({
   const isHiddenFromAI = extra.hiddenFromAI === true;
   const thinking = extra.thinking as string | undefined;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
+  const proseGuardianOriginalText =
+    !isUser &&
+    typeof extra.proseGuardianOriginalText === "string" &&
+    extra.proseGuardianOriginalText.length > 0 &&
+    extra.proseGuardianOriginalText !== message.content
+      ? extra.proseGuardianOriginalText
+      : null;
 
   useEffect(() => {
     setManuallyExpandedHidden(false);
@@ -1010,6 +1078,58 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Remove an attachment from this message (keeps it in gallery)
   const qc = useQueryClient();
+  const handleRestoreProseGuardianOriginal = useCallback(async () => {
+    if (!proseGuardianOriginalText || restoringProseGuardianOriginal) return;
+    setRestoringProseGuardianOriginal(true);
+
+    const msgKey = chatKeys.messages(message.chatId);
+    const clearedProseGuardianExtra = {
+      proseGuardianOriginalText: null,
+      proseGuardianRewrittenAt: null,
+    };
+
+    qc.setQueryData<InfiniteData<Message[]>>(msgKey, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page) =>
+          page.map((m) => {
+            if (m.id !== message.id) return m;
+            const ex = typeof m.extra === "string" ? JSON.parse(m.extra) : (m.extra ?? {});
+            return {
+              ...m,
+              content: proseGuardianOriginalText,
+              extra: { ...ex, ...clearedProseGuardianExtra },
+            } as Message;
+          }),
+        ),
+      };
+    });
+
+    try {
+      const updated = await api.patch<Message>(`/chats/${message.chatId}/messages/${message.id}`, {
+        content: proseGuardianOriginalText,
+      });
+      rememberRecentMessageContentEdit(
+        message.chatId,
+        message.id,
+        updated?.content ?? proseGuardianOriginalText,
+        updated?.activeSwipeIndex ?? message.activeSwipeIndex ?? null,
+      );
+      await api.patch(`/chats/${message.chatId}/messages/${message.id}/extra`, clearedProseGuardianExtra);
+    } finally {
+      setRestoringProseGuardianOriginal(false);
+      qc.invalidateQueries({ queryKey: msgKey });
+    }
+  }, [
+    message.activeSwipeIndex,
+    message.chatId,
+    message.id,
+    proseGuardianOriginalText,
+    qc,
+    restoringProseGuardianOriginal,
+  ]);
+
   const handleRemoveAttachment = useCallback(
     async (index: number) => {
       const current = (extra.attachments as any[]) ?? [];
@@ -1079,20 +1199,51 @@ export const ChatMessage = memo(function ChatMessage({
 
   const handleSaveEdit = useCallback(
     (content: string) => {
+      if (editSwipeIndexRef.current !== null && editSwipeIndexRef.current !== (message.activeSwipeIndex ?? null)) {
+        editSwipeIndexRef.current = null;
+        setEditing(false);
+        return;
+      }
       if (content.trim() !== message.content) {
         onEdit?.(message.id, content.trim());
       }
+      editSwipeIndexRef.current = null;
       setEditing(false);
     },
-    [message.content, message.id, onEdit],
+    [message.activeSwipeIndex, message.content, message.id, onEdit],
   );
 
   const handleCancelEdit = useCallback(() => {
+    editSwipeIndexRef.current = null;
     setEditing(false);
   }, []);
 
+  const handleSetActiveSwipe = useCallback(
+    (index: number) => {
+      if (index === message.activeSwipeIndex) return;
+      editSwipeIndexRef.current = null;
+      setEditing(false);
+      onSetActiveSwipe?.(message.id, index);
+    },
+    [message.activeSwipeIndex, message.id, onSetActiveSwipe],
+  );
+
+  useEffect(() => {
+    if (!editing) return;
+    if (editSwipeIndexRef.current === null) return;
+    if (editSwipeIndexRef.current !== (message.activeSwipeIndex ?? null)) {
+      editSwipeIndexRef.current = null;
+      setEditing(false);
+    }
+  }, [editing, message.activeSwipeIndex]);
+
   // Apply regex scripts to AI output (assistant/narrator roles)
   const { applyToAIOutput } = useApplyRegex();
+  // Per-chat scoped-regex mode — gates character-scoped scripts at display time.
+  // Select the raw metadata (stable while tokens stream) and parse it in a memo so
+  // we don't JSON-parse the whole chat metadata on every store tick during streaming.
+  const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
+  const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
 
   const scopedCharacterMap = useMemo(() => {
     if (!characterMap) return null;
@@ -1103,8 +1254,19 @@ export const ChatMessage = memo(function ChatMessage({
 
   // Resolve character info from characters that actually belong to this chat.
   const charInfo = message.characterId && scopedCharacterMap ? scopedCharacterMap.get(message.characterId) : null;
+  const fallbackChatCharacterEntry = useMemo(() => {
+    if (!scopedCharacterMap) return null;
+    const orderedIds = chatCharacterIds?.length ? chatCharacterIds : Array.from(scopedCharacterMap.keys());
+    for (const id of orderedIds) {
+      const info = scopedCharacterMap.get(id);
+      if (info) return { id, info };
+    }
+    return null;
+  }, [chatCharacterIds, scopedCharacterMap]);
+  const resolvedCharacterInfo = charInfo ?? fallbackChatCharacterEntry?.info ?? null;
+  const resolvedCharacterId = charInfo ? message.characterId : (fallbackChatCharacterEntry?.id ?? message.characterId);
   const primaryCharInfo =
-    charInfo ??
+    resolvedCharacterInfo ??
     (scopedCharacterMap
       ? (Array.from(scopedCharacterMap.values()).find(
           (candidate): candidate is NonNullable<typeof candidate> => !!candidate,
@@ -1150,10 +1312,17 @@ export const ChatMessage = memo(function ChatMessage({
     const text =
       isUser || isSystem
         ? message.content
-        : applyToAIOutput(message.content, { depth: messageDepth, resolveMacros: resolveDisplayMacros });
+        : applyToAIOutput(message.content, {
+            depth: messageDepth,
+            resolveMacros: resolveDisplayMacros,
+            scopedMode: scopedRegexMode,
+            characterId: message.characterId,
+          });
     return resolveDisplayMacros(text);
   }, [
     applyToAIOutput,
+    scopedRegexMode,
+    message.characterId,
     charName,
     isSystem,
     isUser,
@@ -1170,9 +1339,17 @@ export const ChatMessage = memo(function ChatMessage({
   ]);
 
   const displayName = isUser ? userName : charName;
-  const avatarUrl = isUser ? (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null) : (charInfo?.avatarUrl ?? null);
+  const avatarUrl = isUser
+    ? (msgPersona?.avatarUrl ?? personaInfo?.avatarUrl ?? null)
+    : (resolvedCharacterInfo?.avatarUrl ?? null);
+  const personaExpressionId =
+    isUser && typeof msgPersona?.personaId === "string" ? msgPersona.personaId : personaInfo?.id;
   const expressionAvatarUrl =
-    !isUser && message.characterId ? (expressionAvatarResolver?.(message, message.characterId) ?? null) : null;
+    isUser && personaExpressionId
+      ? (expressionAvatarResolver?.(message, personaExpressionId) ?? null)
+      : !isUser && resolvedCharacterId
+        ? (expressionAvatarResolver?.(message, resolvedCharacterId) ?? null)
+        : null;
   const displayAvatarUrl = expressionAvatarUrl ?? avatarUrl;
   const personaAvatarCrop = isUser
     ? (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
@@ -1181,7 +1358,7 @@ export const ChatMessage = memo(function ChatMessage({
     ? {}
     : isUser
       ? getAvatarCropStyle(personaAvatarCrop)
-      : getAvatarCropStyle(charInfo?.avatarCrop);
+      : getAvatarCropStyle(resolvedCharacterInfo?.avatarCrop);
 
   // Resolve colors: character colors for assistant, persona colors for user
   // Prefer per-message persona snapshot colors over current persona
@@ -1193,7 +1370,7 @@ export const ChatMessage = memo(function ChatMessage({
           boxColor: msgPersona.boxColor,
         }
       : personaInfo
-    : charInfo;
+    : resolvedCharacterInfo;
   const dialogueColor = msgColors?.dialogueColor;
   const boxBgColor = msgColors?.boxColor;
   const msgNameColor = msgColors?.nameColor;
@@ -1346,7 +1523,7 @@ export const ChatMessage = memo(function ChatMessage({
     ? (personaAvatarCrop ?? null)
     : expressionAvatarUrl
       ? null
-      : (charInfo?.avatarCrop ?? null);
+      : (resolvedCharacterInfo?.avatarCrop ?? null);
   const compactAvatarCropStyle: React.CSSProperties = useCompactRectangleAvatar
     ? rectangleSafeCropStyle(compactAvatarCrop, avatarCropStyle)
     : avatarCropStyle;
@@ -1415,6 +1592,7 @@ export const ChatMessage = memo(function ChatMessage({
     <EditTextarea
       initialContent={message.content}
       fontSize={chatFontSize}
+      quoteFormat={quoteFormat}
       onSave={handleSaveEdit}
       onCancel={handleCancelEdit}
     />
@@ -1503,6 +1681,7 @@ export const ChatMessage = memo(function ChatMessage({
             "mari-message mari-message-narrator rpg-narrator-msg group mb-4 px-2",
             multiSelectMode && isSelected && "rounded-lg bg-[var(--destructive)]/5 ring-2 ring-[var(--destructive)]/50",
           )}
+          data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleRoleplayDoubleClick}
         >
@@ -1568,19 +1747,22 @@ export const ChatMessage = memo(function ChatMessage({
         <div
           ref={msgRef}
           className={cn(
-            "mari-message group mb-4 flex gap-3 px-2",
+            "mari-message mari-roleplay-message-row group mb-4 flex justify-center gap-3 px-2",
             isUser ? "mari-message-user flex-row-reverse" : "mari-message-assistant",
+            useCompactRectangleAvatar && "mari-roleplay-message-row--rect-avatar",
+            (hideRoleplayAvatars || showRoleplayAvatarPanel) && "mari-roleplay-message-row--wide",
             multiSelectMode && isSelected && "ring-2 ring-[var(--destructive)]/50 rounded-lg bg-[var(--destructive)]/5",
           )}
           data-message-id={message.id}
           data-message-role={message.role}
+          data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleRoleplayDoubleClick}
           style={roleplayAvatarScaleStyle}
         >
           {/* Multi-select checkbox */}
           {multiSelectMode && (
-            <div className="flex items-start pt-2 flex-shrink-0">
+            <div className="mari-roleplay-selection-toggle flex items-start pt-2 flex-shrink-0">
               <button
                 type="button"
                 role="checkbox"
@@ -1599,7 +1781,12 @@ export const ChatMessage = memo(function ChatMessage({
           )}
           {/* Avatar Column */}
           {showCompactRoleplayAvatar && (
-            <div className="mari-message-avatar flex flex-col items-center flex-shrink-0 pt-1">
+            <div
+              className={cn(
+                "mari-message-avatar flex flex-col items-center flex-shrink-0 pt-1",
+                roleplayAvatarsScrollable && "mari-scrollable-roleplay-avatar",
+              )}
+            >
               {isMergedGroup && mergedAvatars.length > 0 ? (
                 <button
                   type="button"
@@ -1675,14 +1862,16 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Spacer if grouped (no avatar) */}
-          {isGrouped && !hideRoleplayAvatars && <div className={cn("flex-shrink-0", compactAvatarSpacerClass)} />}
+          {isGrouped && !hideRoleplayAvatars && (
+            <div className={cn("mari-roleplay-avatar-spacer flex-shrink-0", compactAvatarSpacerClass)} />
+          )}
 
           {/* Content */}
           <div
             className={cn(
-              "mari-message-body flex min-w-0 max-w-[82%] flex-col gap-0.5",
+              "mari-message-body mari-roleplay-message-body flex min-w-0 flex-col gap-0.5",
               isUser && "items-end",
-              editing && "w-[82%]",
+              editing && "mari-roleplay-message-body--editing",
             )}
           >
             {/* Name + time (only if not grouped) */}
@@ -1730,7 +1919,8 @@ export const ChatMessage = memo(function ChatMessage({
             {/* Message bubble */}
             <div
               className={cn(
-                "mari-message-bubble relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
+                "mari-message-bubble mari-rp-bubble relative overflow-hidden rounded-2xl shadow-lg shadow-black/20",
+                roleplayAvatarsScrollable && showRoleplayAvatarPanel && "mari-rp-bubble--scrollable-avatar-panel",
                 isUser
                   ? "rounded-tr-sm text-neutral-100 ring-1 ring-white/10"
                   : "rounded-tl-sm text-white/90 ring-1 ring-white/8",
@@ -1740,23 +1930,33 @@ export const ChatMessage = memo(function ChatMessage({
                 isHiddenFromAI && "ring-amber-300/35 saturate-75",
                 editing && "w-full",
               )}
-              style={{
-                ...messageTextStyle,
-                backgroundColor: roleplayBubbleBg,
-              }}
+              style={
+                {
+                  ...messageTextStyle,
+                  // Pass the per-character/default color as a var rather than
+                  // an inline `background` so card CSS can override the bubble
+                  // (inline styles beat every selector). Applied by `.mari-rp-bubble`.
+                  "--mari-rp-bubble-bg": roleplayBubbleBg,
+                } as React.CSSProperties
+              }
             >
               {showRoleplayAvatarPanel ? (
                 <div className={cn("flex min-h-full items-stretch", isUser && "flex-row-reverse")}>
                   <div
                     className={cn(
-                      "relative flex w-[calc(5.5rem*var(--roleplay-avatar-scale))] shrink-0 items-start self-stretch overflow-hidden md:w-[calc(6rem*var(--roleplay-avatar-scale))]",
+                      "mari-roleplay-avatar-panel-rail relative flex w-[calc(5.5rem*var(--roleplay-avatar-scale))] shrink-0 items-start self-stretch overflow-hidden md:w-[calc(6rem*var(--roleplay-avatar-scale))]",
                       isUser ? "border-l border-white/8" : "border-r border-white/8",
                       isUser
                         ? "bg-gradient-to-b from-neutral-500/18 via-neutral-600/10 to-transparent"
                         : "bg-gradient-to-b from-purple-500/18 via-pink-600/10 to-transparent",
                     )}
                   >
-                    <div className="rpg-avatar-panel-stack absolute left-0 top-0 h-[calc(11rem*var(--roleplay-avatar-scale))] w-full overflow-hidden">
+                    <div
+                      className={cn(
+                        "rpg-avatar-panel-stack h-[calc(11rem*var(--roleplay-avatar-scale))] w-full overflow-hidden",
+                        roleplayAvatarsScrollable ? "mari-scrollable-roleplay-avatar" : "absolute left-0 top-0",
+                      )}
+                    >
                       {isMergedGroup && mergedAvatars.length > 0 ? (
                         <button
                           type="button"
@@ -1844,7 +2044,7 @@ export const ChatMessage = memo(function ChatMessage({
               ) : null}
             </div>
 
-            {/* Image attachments (illustrations, selfies) */}
+            {/* Attachments (illustrations, selfies, uploaded files) */}
             {!editing && extra.attachments?.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
               <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
                 {extra.attachments.map((att: any, i: number) =>
@@ -1875,7 +2075,24 @@ export const ChatMessage = memo(function ChatMessage({
                         <X size="0.875rem" />
                       </button>
                     </div>
-                  ) : null,
+                  ) : (
+                    <div
+                      key={i}
+                      className="group/att flex max-w-full items-center gap-2 rounded-lg bg-foreground/10 px-2.5 py-1.5 text-xs text-foreground/70 ring-1 ring-foreground/10"
+                    >
+                      <ScrollText size="0.875rem" className="shrink-0 text-[var(--primary)]" />
+                      <span className="min-w-0 max-w-[16rem] truncate">{att.filename || att.name || "attachment"}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachment(i)}
+                        aria-label="Remove file from message"
+                        title="Remove from message"
+                        className="rounded-full p-0.5 text-foreground/45 transition-colors hover:bg-foreground/10 hover:text-[var(--destructive)] sm:opacity-0 sm:group-hover/att:opacity-100"
+                      >
+                        <X size="0.75rem" />
+                      </button>
+                    </div>
+                  ),
                 )}
               </div>
             )}
@@ -1886,7 +2103,7 @@ export const ChatMessage = memo(function ChatMessage({
                 messageId={message.id}
                 activeSwipeIndex={message.activeSwipeIndex}
                 swipeCount={swipeCount}
-                onSetActiveSwipe={(index) => onSetActiveSwipe?.(message.id, index)}
+                onSetActiveSwipe={handleSetActiveSwipe}
                 className="px-1 text-[0.75rem] text-white/40"
                 buttonClassName="rounded-md p-[0.25em] transition-colors hover:bg-white/10 disabled:opacity-30"
                 inputClassName="border-white/10 bg-white/5 text-white/70 [color-scheme:dark]"
@@ -1916,6 +2133,21 @@ export const ChatMessage = memo(function ChatMessage({
                 dark
               />
               <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" dark />
+              {proseGuardianOriginalText && (
+                <ActionBtn
+                  icon={
+                    restoringProseGuardianOriginal ? (
+                      <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                    ) : (
+                      <Shield size={MESSAGE_ACTION_ICON_SIZE} />
+                    )
+                  }
+                  onClick={handleRestoreProseGuardianOriginal}
+                  title="Restore original before rewrite"
+                  disabled={restoringProseGuardianOriginal}
+                  dark
+                />
+              )}
               <ActionBtn
                 icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
                 onClick={() => onRegenerate?.(message.id)}
@@ -2231,6 +2463,7 @@ export const ChatMessage = memo(function ChatMessage({
               <EditTextarea
                 initialContent={message.content}
                 fontSize={chatFontSize}
+                quoteFormat={quoteFormat}
                 onSave={handleSaveEdit}
                 onCancel={handleCancelEdit}
               />
@@ -2271,7 +2504,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
           </div>
 
-          {/* Image attachments (illustrations, selfies) */}
+          {/* Attachments (illustrations, selfies, uploaded files) */}
           {!editing && extra.attachments?.length > 0 && !IMAGE_URL_RE.test(message.content.trim()) && (
             <div className="mt-1.5 flex flex-col items-center gap-2 px-3 pb-2">
               {extra.attachments.map((att: any, i: number) =>
@@ -2302,7 +2535,24 @@ export const ChatMessage = memo(function ChatMessage({
                       <X size="0.875rem" />
                     </button>
                   </div>
-                ) : null,
+                ) : (
+                  <div
+                    key={i}
+                    className="group/att flex max-w-full items-center gap-2 rounded-lg bg-foreground/10 px-2.5 py-1.5 text-xs text-foreground/70 ring-1 ring-foreground/10"
+                  >
+                    <ScrollText size="0.875rem" className="shrink-0 text-[var(--primary)]" />
+                    <span className="min-w-0 max-w-[16rem] truncate">{att.filename || att.name || "attachment"}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAttachment(i)}
+                      aria-label="Remove file from message"
+                      title="Remove from message"
+                      className="rounded-full p-0.5 text-foreground/45 transition-colors hover:bg-foreground/10 hover:text-[var(--destructive)] sm:opacity-0 sm:group-hover/att:opacity-100"
+                    >
+                      <X size="0.75rem" />
+                    </button>
+                  </div>
+                ),
               )}
             </div>
           )}
@@ -2330,7 +2580,7 @@ export const ChatMessage = memo(function ChatMessage({
               messageId={message.id}
               activeSwipeIndex={message.activeSwipeIndex}
               swipeCount={swipeCount}
-              onSetActiveSwipe={(index) => onSetActiveSwipe?.(message.id, index)}
+              onSetActiveSwipe={handleSetActiveSwipe}
               className="px-2 text-[0.75rem] text-[var(--muted-foreground)]"
               buttonClassName="rounded p-[0.25em] transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
               iconSize={MESSAGE_SWIPE_ICON_SIZE}
@@ -2357,6 +2607,20 @@ export const ChatMessage = memo(function ChatMessage({
               className={translatedText ? "text-blue-500" : undefined}
             />
             <ActionBtn icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />} onClick={startEditing} title="Edit" />
+            {proseGuardianOriginalText && (
+              <ActionBtn
+                icon={
+                  restoringProseGuardianOriginal ? (
+                    <Loader2 size={MESSAGE_ACTION_ICON_SIZE} className="animate-spin" />
+                  ) : (
+                    <Shield size={MESSAGE_ACTION_ICON_SIZE} />
+                  )
+                }
+                onClick={handleRestoreProseGuardianOriginal}
+                title="Restore original before rewrite"
+                disabled={restoringProseGuardianOriginal}
+              />
+            )}
             <ActionBtn
               icon={<RefreshCw size={MESSAGE_ACTION_ICON_SIZE} />}
               onClick={() => onRegenerate?.(message.id)}

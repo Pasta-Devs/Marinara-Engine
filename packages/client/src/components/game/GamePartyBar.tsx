@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 
 interface PartyBarMember {
   id: string;
@@ -48,7 +49,7 @@ function PartyAvatar({ visual, className }: { visual: PartyMemberVisual; classNa
     return (
       <span
         className={cn(
-          "relative block h-9 w-9 overflow-hidden rounded-full border-2 border-white/20 shadow-lg transition-colors group-hover:border-white/40",
+          "relative block h-8 w-8 overflow-hidden rounded-lg border border-[var(--marinara-chat-chrome-button-border)] shadow-lg shadow-black/25 transition-colors group-hover:border-[var(--marinara-chat-chrome-button-border-hover)]",
           className,
         )}
       >
@@ -65,7 +66,7 @@ function PartyAvatar({ visual, className }: { visual: PartyMemberVisual; classNa
   return (
     <span
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-full border-2 border-white/20 bg-[var(--accent)] text-xs font-bold shadow-lg transition-colors group-hover:border-white/40",
+        "flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-xs font-bold text-[var(--marinara-chat-chrome-button-text-hover)] shadow-lg shadow-black/25 transition-colors group-hover:border-[var(--marinara-chat-chrome-button-border-hover)]",
         className,
       )}
       style={member.nameColor ? { color: member.nameColor } : undefined}
@@ -141,14 +142,14 @@ export function GamePartyBar({
               }
               setMobileMenuOpen((open) => !open);
             }}
-            className="group relative block rounded-full focus:outline-none focus:ring-2 focus:ring-white/45"
+            className="group relative block rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? "Close party members" : "Open party members"}
             title={memberVisuals.length === 1 ? "Open character sheet" : "Open party members"}
           >
             <PartyAvatar visual={memberVisuals[previewIndex]} />
             {memberVisuals.length > 1 && (
-              <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-white/25 bg-black/85 px-1 text-[0.55rem] font-bold leading-none text-white shadow-md">
+              <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] px-1 text-[0.55rem] font-bold leading-none text-[var(--marinara-chat-chrome-button-text-hover)] shadow-md">
                 {memberVisuals.length}
               </span>
             )}
@@ -156,7 +157,12 @@ export function GamePartyBar({
         )}
 
         {mobileMenuOpen && memberVisuals.length > 1 && (
-          <div className="absolute left-0 top-11 z-50 rounded-full border border-white/15 bg-black/80 p-1.5 shadow-2xl backdrop-blur-md">
+          <div
+            className={cn(
+              NEUTRAL_SURFACE_VARIABLES,
+              "marinara-chat-popover absolute left-0 top-9 z-50 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-1.5 shadow-2xl backdrop-blur-md",
+            )}
+          >
             <div className="flex max-h-[min(44svh,18rem)] flex-col items-center gap-1.5 overflow-y-auto overscroll-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
               {memberVisuals.map((visual) => (
                 <div key={visual.member.id} className="group relative shrink-0">
@@ -166,7 +172,7 @@ export function GamePartyBar({
                       openCharacterSheet(visual.member.id);
                       setMobileMenuOpen(false);
                     }}
-                    className="block rounded-full focus:outline-none focus:ring-2 focus:ring-white/45"
+                    className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
                     title={`${visual.member.name} - Click to open character sheet`}
                   >
                     <PartyAvatar visual={visual} />
@@ -179,7 +185,7 @@ export function GamePartyBar({
                         onRemovePartyMember(visual.member);
                       }}
                       disabled={removingPartyMemberId === visual.member.id}
-                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white/30 bg-black/85 text-white shadow-md transition-colors hover:bg-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text-hover)] shadow-md transition-colors hover:bg-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-60"
                       aria-label={`Remove ${visual.member.name} from party`}
                       title={`Remove ${visual.member.name} from party`}
                     >
@@ -198,11 +204,14 @@ export function GamePartyBar({
           const { member } = visual;
 
           return (
-            <div key={member.id} className="group relative shrink-0 transition-transform hover:scale-110">
+            <div
+              key={member.id}
+              className="group relative shrink-0 origin-left transition-transform duration-150 ease-out hover:scale-[1.03] active:scale-[0.98]"
+            >
               <button
                 type="button"
                 onClick={() => openCharacterSheet(member.id)}
-                className="block rounded-full focus:outline-none focus:ring-2 focus:ring-white/45"
+                className="block rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]"
                 title={`${member.name} - Click to open character sheet`}
               >
                 <PartyAvatar visual={visual} />
@@ -215,7 +224,7 @@ export function GamePartyBar({
                     onRemovePartyMember(member);
                   }}
                   disabled={removingPartyMemberId === member.id}
-                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border border-white/30 bg-black/80 text-white opacity-80 shadow-md transition-opacity hover:bg-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-60 group-hover:opacity-100 focus:opacity-100 md:opacity-0"
+                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text-hover)] opacity-80 shadow-md transition-opacity hover:bg-[var(--destructive)] disabled:cursor-not-allowed disabled:opacity-60 group-hover:opacity-100 focus:opacity-100 md:opacity-0"
                   aria-label={`Remove ${member.name} from party`}
                   title={`Remove ${member.name} from party`}
                 >

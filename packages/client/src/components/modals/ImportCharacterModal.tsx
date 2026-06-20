@@ -32,6 +32,13 @@ const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; descripti
   { value: "existing", label: "Existing only", description: "Keep tags already in Marinara." },
 ];
 
+type RegexScriptScope = "character" | "global";
+
+const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; description: string }> = [
+  { value: "character", label: "Character only", description: "Scripts apply only to this bot." },
+  { value: "global", label: "Global", description: "Add to Presets → Regexes for every chat." },
+];
+
 export function ImportCharacterModal({ open, onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
@@ -42,6 +49,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     previews: EmbeddedLorebookImportPreview[];
   } | null>(null);
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
+  const [regexScriptScope, setRegexScriptScope] = useState<RegexScriptScope>("character");
   const qc = useQueryClient();
 
   const isZipFile = async (file: File): Promise<boolean> => {
@@ -115,6 +123,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         );
         form.append("importEmbeddedLorebook", String(importEmbeddedLorebook ?? true));
         form.append("tagImportMode", tagImportMode);
+        form.append("regexScriptScope", regexScriptScope);
 
         const batchResult = await api.upload<{
           success: boolean;
@@ -232,6 +241,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     setResults([]);
     setPendingLorebookChoice(null);
     setTagImportMode("all");
+    setRegexScriptScope("character");
   };
 
   return (
@@ -313,6 +323,40 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                   value={option.value}
                   checked={tagImportMode === option.value}
                   onChange={() => setTagImportMode(option.value)}
+                  className="sr-only"
+                />
+                <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>
+                <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                  {option.description}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+          <div className="mb-2">
+            <p className="text-xs font-semibold text-[var(--foreground)]">Imported regex scripts</p>
+            <p className="mt-0.5 text-[0.6875rem] text-[var(--muted-foreground)]">
+              Keep a bot's embedded find/replace scripts scoped to that character, or add them globally.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {REGEX_SCOPE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+                  regexScriptScope === option.value
+                    ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                    : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="regexScriptScope"
+                  value={option.value}
+                  checked={regexScriptScope === option.value}
+                  onChange={() => setRegexScriptScope(option.value)}
                   className="sr-only"
                 />
                 <span className="block text-xs font-medium text-[var(--foreground)]">{option.label}</span>

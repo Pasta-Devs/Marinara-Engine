@@ -81,7 +81,7 @@ const EMPTY_PORTRAIT_UPLOAD_BADGE_CLASS =
 const PORTRAIT_VIEW_CONTROLS_CLASS =
   "pointer-events-none absolute bottom-1 left-1 z-[4] flex flex-col items-center gap-0.5 rounded-sm border border-[color-mix(in_srgb,var(--tracker-profile-rule)_88%,transparent)] bg-[color-mix(in_srgb,var(--background)_66%,transparent)] p-0.5 text-[var(--tracker-profile-icon)] opacity-0 shadow-[0_6px_14px_rgba(0,0,0,0.24)] backdrop-blur-sm transition-opacity group-hover/portrait:pointer-events-auto group-hover/portrait:opacity-100 group-focus-within/portrait:pointer-events-auto group-focus-within/portrait:opacity-100 [@media(pointer:coarse)]:pointer-events-auto [@media(pointer:coarse)]:opacity-100";
 const PORTRAIT_VIEW_BUTTON_CLASS =
-  "flex h-5 w-5 items-center justify-center rounded-[2px] transition-colors hover:bg-[var(--primary)]/16 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-90";
+  "flex h-5 w-5 items-center justify-center rounded-[2px] transition-colors hover:bg-[var(--foreground)]/8 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border)] active:scale-90";
 const PORTRAIT_EDGE_OVERLAY_CLASS =
   "pointer-events-none absolute inset-0 z-[2] rounded-[inherit] opacity-[var(--tracker-portrait-frame-rim-opacity)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--tracker-portrait-frame-accent)_36%,var(--tracker-profile-dialogue-border)_64%)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_9%,transparent),inset_0_0_0_1px_color-mix(in_srgb,var(--tracker-profile-accent-solid)_8%,transparent),inset_0_-16px_20px_color-mix(in_srgb,var(--background)_40%,transparent)]";
 const PORTRAIT_TOP_GLEAM_BASE_CLASS =
@@ -98,9 +98,9 @@ const PORTRAIT_BOTTOM_HIGHLIGHT_CLASS_BY_SIDE = {
 } satisfies Record<TrackerProfileSide, string>;
 const PORTRAIT_SIDE_FADE_BASE_CLASS = "pointer-events-none absolute inset-y-0 z-[2] w-4 opacity-[0.48]";
 const PORTRAIT_UPLOAD_HIT_TARGET_CLASS =
-  "absolute inset-0 z-[3] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--primary)] active:scale-[0.99]";
+  "absolute inset-0 z-[3] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--border)] active:scale-[0.99]";
 const PORTRAIT_UPLOAD_BUTTON_CLASS =
-  "pointer-events-none absolute bottom-1 right-1 z-[4] flex h-6 w-6 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--tracker-profile-rule)_86%,transparent)] bg-[color-mix(in_srgb,var(--background)_66%,transparent)] text-[var(--muted-foreground)]/80 opacity-0 shadow-[0_5px_12px_rgba(0,0,0,0.24)] backdrop-blur-sm transition-all hover:bg-[var(--primary)]/16 hover:text-[var(--tracker-profile-icon)] focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] group-hover/portrait:pointer-events-auto group-hover/portrait:opacity-100 group-focus-within/portrait:pointer-events-auto group-focus-within/portrait:opacity-100 [@media(pointer:coarse)]:pointer-events-auto [@media(pointer:coarse)]:opacity-100";
+  "pointer-events-none absolute bottom-1 right-1 z-[4] flex h-6 w-6 items-center justify-center rounded-sm border border-[color-mix(in_srgb,var(--tracker-profile-rule)_86%,transparent)] bg-[color-mix(in_srgb,var(--background)_66%,transparent)] text-[var(--muted-foreground)]/80 opacity-0 shadow-[0_5px_12px_rgba(0,0,0,0.24)] backdrop-blur-sm transition-all hover:bg-[var(--foreground)]/8 hover:text-[var(--tracker-profile-icon)] focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border)] group-hover/portrait:pointer-events-auto group-hover/portrait:opacity-100 group-focus-within/portrait:pointer-events-auto group-focus-within/portrait:opacity-100 [@media(pointer:coarse)]:pointer-events-auto [@media(pointer:coarse)]:opacity-100";
 const EMPTY_AVATAR_STAGE_STYLE: TrackerPortraitStageStyle = {
   "--tracker-profile-surface":
     "radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--muted-foreground) 10%, transparent) 0%, transparent 42%), linear-gradient(180deg, color-mix(in srgb, var(--card) 82%, var(--background) 18%) 0%, color-mix(in srgb, var(--background) 92%, var(--card) 8%) 100%)",
@@ -228,7 +228,7 @@ export function TrackerPortraitStage({
         PORTRAIT_FRAME_TONE_CLASS[frameTone],
         stageSizeClassName,
         TRACKER_PROFILE_PORTRAIT_LOWER_OUTSIDE_FRAME_CLASS_BY_SIDE[outsideSide],
-        uploadAction && "hover:border-[var(--primary)]/45",
+        uploadAction && "hover:border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_72%,var(--foreground)_28%)]",
         canAdjustView ? "cursor-grab active:cursor-grabbing" : "cursor-default",
         className,
       )}

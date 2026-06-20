@@ -14,7 +14,7 @@
 // edits trigger a push — transient UI state (modal open, detail panels, etc.)
 // is filtered out via `pickSyncedSettings`.
 import { useEffect } from "react";
-import { normalizeQuoteFormat } from "@marinara-engine/shared";
+import { normalizeImageStyleProfileSettings, normalizeQuoteFormat } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import {
   normalizeTrackerPanelSizeProfile,
@@ -195,6 +195,9 @@ export function useSettingsSync() {
                 parsed.settings.trackerTemperatureUnit,
               );
               parsed.settings.quoteFormat = normalizeQuoteFormat(parsed.settings.quoteFormat);
+              parsed.settings.imageStyleProfiles = normalizeImageStyleProfileSettings(
+                parsed.settings.imageStyleProfiles,
+              );
 
               const serverUpdatedAt = parsed.updatedAt;
               const localIsNewer =

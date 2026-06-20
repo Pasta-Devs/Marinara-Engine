@@ -465,10 +465,10 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   }
 
   // ── Phase 6: Strict role formatting ──
-  // Forces proper role ordering: system first, then alternating user/assistant.
-  // Sections after chat history are forced to user role.
+  // Keeps explicit section roles while folding system blocks to the front and
+  // merging adjacent same-role messages.
   if (parameters.strictRoleFormatting) {
-    finalMessages = enforceStrictRoles(finalMessages, chatHistoryEndIdx);
+    finalMessages = enforceStrictRoles(finalMessages);
   }
 
   // ── Phase 7: Single user message mode ──
@@ -697,10 +697,9 @@ function buildGroupMessages(
 
 /**
  * Enforce strict role formatting:
- * 1. Leading system messages stay as system.
- * 2. Sections after chat_history are forced to user role.
- * 3. Ensures alternating user/assistant after the system block.
- *    Adjacent same-role messages are merged.
+ * 1. System messages are kept as system and merged into the leading system block.
+ * 2. User/assistant sections keep their configured role.
+ * 3. Adjacent same-role user/assistant messages are merged instead of coercing roles.
  */
 function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: number } | null {
   let start = -1;
@@ -714,61 +713,58 @@ function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: num
   return start >= 0 ? { start, end } : null;
 }
 
-function enforceStrictRoles(messages: ChatMLMessage[], chatHistoryEndIdx: number): ChatMLMessage[] {
+function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return messages;
-  const resolvedChatHistoryEndIdx = findHistoryBounds(messages)?.end ?? chatHistoryEndIdx;
 
-  // Step 1: Force post-chat-history non-user/assistant messages to user
-  if (resolvedChatHistoryEndIdx > 0) {
-    messages = messages.map((m, i) => {
-      if (i >= resolvedChatHistoryEndIdx && m.role === "system") {
-        return { ...m, role: "user" as const };
-      }
-      return m;
-    });
-  }
+  const mergeInto = (target: ChatMLMessage, source: ChatMLMessage) => {
+    target.content += "\n\n" + source.content;
+    if (target.contextKind !== source.contextKind) {
+      delete target.contextKind;
+    }
+    if (source.images?.length) {
+      target.images = [...(target.images ?? []), ...source.images];
+    }
+    if (source.files?.length) {
+      target.files = [...(target.files ?? []), ...source.files];
+    }
+    if (source.providerMetadata) {
+      target.providerMetadata = source.providerMetadata;
+    }
+  };
 
-  // Step 2: Collect leading system block
+  // Step 1: Collect leading system block.
   const result: ChatMLMessage[] = [];
   let idx = 0;
-  const systemParts: string[] = [];
   while (idx < messages.length && messages[idx]!.role === "system") {
-    systemParts.push(messages[idx]!.content);
+    const msg = messages[idx]!;
+    const leadingSystem = result[0];
+    if (leadingSystem?.role === "system") {
+      mergeInto(leadingSystem, msg);
+    } else {
+      result.push({ ...msg });
+    }
     idx++;
   }
-  if (systemParts.length > 0) {
-    result.push({ role: "system", content: systemParts.join("\n\n") });
-  }
 
-  // Step 3: The rest must alternate user/assistant.
-  // First non-system should be user.
-  let expectedRole: "user" | "assistant" = "user";
   for (; idx < messages.length; idx++) {
     const msg = messages[idx]!;
-    const effectiveRole = msg.role === "system" ? "user" : msg.role;
 
-    if (effectiveRole === expectedRole) {
-      result.push({ ...msg, role: effectiveRole });
-      expectedRole = effectiveRole === "user" ? "assistant" : "user";
-    } else {
-      // Wrong role — merge into the previous message of the same role, or
-      // if this would break alternation, force it to the expected role.
-      const prev = result[result.length - 1];
-      const sameCharacter = (prev?.characterId ?? null) === (msg.characterId ?? null);
-      if (prev && prev.role === effectiveRole && sameCharacter) {
-        // Merge into previous (same role back-to-back)
-        prev.content += "\n\n" + msg.content;
-        if (prev.contextKind !== msg.contextKind) {
-          delete prev.contextKind;
-        }
-        if (msg.images?.length) {
-          prev.images = [...(prev.images ?? []), ...msg.images];
-        }
+    if (msg.role === "system") {
+      const leadingSystem = result[0];
+      if (leadingSystem?.role === "system") {
+        mergeInto(leadingSystem, msg);
       } else {
-        // Force to expected role to maintain alternation
-        result.push({ ...msg, role: expectedRole });
-        expectedRole = expectedRole === "user" ? "assistant" : "user";
+        result.unshift({ ...msg });
       }
+      continue;
+    }
+
+    const prev = result[result.length - 1];
+    const sameCharacter = (prev?.characterId ?? null) === (msg.characterId ?? null);
+    if (prev && prev.role === msg.role && sameCharacter) {
+      mergeInto(prev, msg);
+    } else {
+      result.push({ ...msg });
     }
   }
 

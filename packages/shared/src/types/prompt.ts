@@ -2,6 +2,8 @@
 // Prompt System Types
 // ──────────────────────────────────────────────
 
+import type { ThinkingTagPair } from "../utils/thinking-tags.js";
+
 /** Role for a prompt section. */
 export type PromptRole = "system" | "user" | "assistant";
 
@@ -119,6 +121,9 @@ export interface PromptSection {
 }
 
 /** A preset-level variable — the user picks one option per chat, referenced via {{variableName}} in prompts. */
+export type ChoiceDisplayMode = "auto" | "buttons" | "listbox";
+export type ChoiceOptionSort = "manual" | "alphabetical";
+
 export interface ChoiceBlock {
   id: string;
   presetId: string;
@@ -133,6 +138,10 @@ export interface ChoiceBlock {
   separator: string;
   /** If true, one of the user's selected options is randomly picked each generation instead of joining all. */
   randomPick: boolean;
+  /** How choices are presented in the selection modal. */
+  displayMode: ChoiceDisplayMode;
+  /** Whether options keep manual order or render alphabetically for users. */
+  optionSort: ChoiceOptionSort;
   createdAt: string;
 }
 
@@ -171,13 +180,15 @@ export interface GenerationParameters {
   frequencyPenalty: number;
   presencePenalty: number;
   /** For reasoning models */
-  reasoningEffort: "low" | "medium" | "high" | "maximum" | null;
+  reasoningEffort: "low" | "medium" | "high" | "xhigh" | "maximum" | null;
   /** Output verbosity for models that support it (GPT-5+) */
   verbosity: "low" | "medium" | "high" | null;
   /** OpenRouter-only service tier. Null uses the provider/default tier. */
   serviceTier: "flex" | "priority" | null;
   /** Optional assistant-role prefill appended after the final user message. */
   assistantPrefill: string;
+  /** Extra inline thinking tag pairs to strip from streamed and saved responses. */
+  customThinkingTags: ThinkingTagPair[];
   /** Raw provider request parameters merged into the outgoing request body. */
   customParameters: Record<string, unknown>;
   /** Merge consecutive system messages */
@@ -222,6 +233,8 @@ export interface ChatMLMessage {
   characterId?: string | null;
   /** Base64 data URLs for multimodal image inputs */
   images?: string[];
+  /** Base64 data URLs for provider-native file/document inputs */
+  files?: Array<{ type: string; data: string; filename?: string }>;
   /** Provider-specific metadata (e.g. Gemini parts with thought signatures) */
   providerMetadata?: Record<string, unknown>;
 }

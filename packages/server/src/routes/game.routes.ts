@@ -16,24 +16,19 @@ import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { extractLeadingThinkingBlocks } from "../services/llm/inline-thinking.js";
-import { fitMessagesToContext, type ChatMessage, type ChatOptions } from "../services/llm/base-provider.js";
+import { type ChatMessage, type ChatOptions } from "../services/llm/base-provider.js";
 import { isDiceNotation, rollDice } from "../services/game/dice.service.js";
 import { parseGameJsonish } from "../services/game/jsonish.js";
 import { validateTransition } from "../services/game/state-machine.service.js";
 import {
   buildSetupPrompt,
-  buildGmSystemPrompt,
   buildSessionConclusionPrompt,
   buildCampaignProgressionPrompt,
   buildPartyRecruitCardPrompt,
   type GmPromptContext,
 } from "../services/game/gm-prompts.js";
 import { buildPartySystemPrompt } from "../services/game/party-prompts.js";
-import {
-  buildPromptMacroContext,
-  getCharacterDescriptionWithExtensions,
-  resolveMacrosWithVariableSnapshot,
-} from "../services/prompt/index.js";
+import { buildPromptMacroContext, resolveMacrosWithVariableSnapshot } from "../services/prompt/index.js";
 import { listPartySprites, readPreferredFullBodySpriteBase64 } from "../services/game/sprite.service.js";
 import {
   buildSceneAnalyzerSystemPrompt,
@@ -96,12 +91,21 @@ import {
 import { dedupeSessionSummaryLists } from "../services/game/session-summary-normalization.js";
 import {
   generationParametersSchema,
-  resolveMacros,
+  isClaudeAdaptiveOnlyNoSamplingModel,
+  supportsXhighReasoningEffort,
   scoreMusic,
   scoreAmbient,
   serializeResolvedSkillCheckTag,
+  parseTrackerFieldLocks,
 } from "@marinara-engine/shared";
 import { mergeCustomParameters } from "./generate/generate-route-utils.js";
+import {
+  fitMessagesToModelAccessContext,
+  mergeModelContextLimit,
+  resolveModelAccessPolicy,
+  resolveStoredModelContextLimit,
+  type ModelAccessPolicy,
+} from "../services/generation/model-access-policy.js";
 import { postToDiscordWebhook } from "../services/discord-webhook.js";
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import type {
@@ -110,6 +114,7 @@ import type {
   GameMap,
   GameNpc,
   GenerationParameters,
+  APIProvider,
   SceneIllustrationRequest,
   QuestProgress,
   SessionSummary,
@@ -123,9 +128,9 @@ import {
   generateBackground,
   generateSceneIllustration,
   readAvatarBase64,
-  buildBackgroundImagePrompt,
-  buildNpcPortraitImagePrompt,
-  buildSceneIllustrationImagePrompt,
+  buildBackgroundProviderPrompt,
+  buildNpcPortraitProviderPrompt,
+  buildSceneIllustrationProviderPrompt,
 } from "../services/game/game-asset-generation.js";
 import { saveImageToDisk } from "../services/image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
@@ -305,6 +310,8 @@ function collectIllustrationCharacterAssets(opts: {
   charReferenceByName: Map<string, string>;
   charAvatarByName: Map<string, string>;
   charDescriptionByName: Map<string, string>;
+  includeReferenceImages?: boolean;
+  includeCharacterDescriptions?: boolean;
 }): { referenceImages: string[]; characterDescriptions: string[] } {
   const npcAvatarByName = new Map<string, string>();
   const npcDescriptionByName = new Map<string, string>();
@@ -331,21 +338,26 @@ function collectIllustrationCharacterAssets(opts: {
   const characterDescriptions: string[] = [];
   const seen = new Set<string>();
   const described = new Set<string>();
+  const includeReferenceImages = opts.includeReferenceImages !== false;
+  const includeCharacterDescriptions = opts.includeCharacterDescriptions !== false;
   for (const name of uniqueNames) {
-    const preferredReference = findCharAvatarFuzzy(name, opts.charReferenceByName);
-    if (preferredReference && !seen.has(preferredReference) && references.length < 4) {
-      seen.add(preferredReference);
-      references.push(preferredReference);
-      continue;
+    if (includeReferenceImages) {
+      const preferredReference = findCharAvatarFuzzy(name, opts.charReferenceByName);
+      if (preferredReference && !seen.has(preferredReference) && references.length < 4) {
+        seen.add(preferredReference);
+        references.push(preferredReference);
+      } else {
+        const avatarPath =
+          findCharAvatarFuzzy(name, opts.charAvatarByName) ?? findCharAvatarFuzzy(name, npcAvatarByName);
+        const base64 = avatarPath && !seen.has(avatarPath) ? readAvatarBase64(avatarPath) : undefined;
+        if (avatarPath && base64 && references.length < 4) {
+          seen.add(avatarPath);
+          references.push(base64);
+        }
+      }
     }
 
-    const avatarPath = findCharAvatarFuzzy(name, opts.charAvatarByName) ?? findCharAvatarFuzzy(name, npcAvatarByName);
-    const base64 = avatarPath && !seen.has(avatarPath) ? readAvatarBase64(avatarPath) : undefined;
-    if (avatarPath && base64 && references.length < 4) {
-      seen.add(avatarPath);
-      references.push(base64);
-      continue;
-    }
+    if (!includeCharacterDescriptions) continue;
 
     const description =
       findCharAvatarFuzzy(name, opts.charDescriptionByName) ?? findCharAvatarFuzzy(name, npcDescriptionByName);
@@ -490,6 +502,19 @@ async function addGeneratedIllustrationToGallery(opts: {
 // Validation Schemas
 // ──────────────────────────────────────────────
 
+const MAX_GAME_HUD_WIDGETS = 4;
+const trimmedWidgetString = (max: number) => z.string().trim().min(1).max(max);
+
+const hudWidgetSchema = z.object({
+  id: trimmedWidgetString(80),
+  type: z.enum(["progress_bar", "gauge", "relationship_meter", "counter", "stat_block", "list", "inventory_grid", "timer"]),
+  label: trimmedWidgetString(120),
+  icon: z.string().trim().max(16).optional(),
+  position: z.enum(["hud_left", "hud_right"]),
+  accent: z.string().trim().max(32).optional(),
+  config: z.record(z.unknown()).default({}),
+});
+
 const gameSetupConfigSchema = z.object({
   genre: z.string().min(1).max(200),
   setting: z.string().min(1),
@@ -505,8 +530,10 @@ const gameSetupConfigSchema = z.object({
   enableSpriteGeneration: z.boolean().optional(),
   imageConnectionId: z.string().optional(),
   artStylePrompt: z.string().max(500).optional(),
+  imageStyleProfileId: z.string().nullable().optional(),
   activeLorebookIds: z.array(z.string()).optional(),
   enableCustomWidgets: z.boolean().optional(),
+  customHudWidgets: z.array(hudWidgetSchema).max(MAX_GAME_HUD_WIDGETS).optional(),
   enableSpotifyDj: z.boolean().optional(),
   spotifySourceType: z.enum(["liked", "playlist", "artist", "any"]).optional(),
   spotifyPlaylistId: z.string().nullable().optional(),
@@ -515,6 +542,8 @@ const gameSetupConfigSchema = z.object({
   enableLorebookKeeper: z.boolean().optional(),
   language: z.string().min(1).max(100).optional(),
   generationParameters: generationParametersSchema.partial().optional(),
+  gameSystemPrompt: z.string().max(50_000).nullable().optional(),
+  gameSpecialInstructions: z.string().max(2000).nullable().optional(),
 });
 
 const createGameSchema = z.object({
@@ -751,6 +780,125 @@ function syncSetupConfigPartyIds(setupConfig: GameSetupConfig, partyCharacterIds
   return {
     ...setupConfig,
     partyCharacterIds,
+  };
+}
+
+export interface MergeRecruitInput {
+  /** Fresh metadata read inside the patchMetadata queue (the queue-serialized current snapshot). */
+  current: Record<string, unknown>;
+  recruitId: string;
+  recruitName: string;
+  /** The card content this request resolved for the recruit (generated, LLM, or reused fallback). */
+  nextCard: Record<string, unknown>;
+  /** Whether a card for this recruit already existed in the pre-LLM snapshot (index >= 0 = reuse path). */
+  existingCardIndex: number;
+  /** Setup-config from the pre-LLM snapshot; used only when `current` carries none. */
+  fallbackSetupConfig: GameSetupConfig;
+  /** Chat `characterIds` column from the request; used only as a fallback party source. */
+  chatCharacterIds: string[];
+}
+
+export interface MergeRecruitResult {
+  patch: {
+    gameSetupConfig: GameSetupConfig;
+    gamePartyCharacterIds: string[];
+    gameCharacterCards: Array<Record<string, unknown>>;
+  };
+  /** Library-character (non-NPC) party ids to mirror onto the denormalized `characterIds` column. */
+  mergedChatCharacterIds: string[];
+  /** True when this recruit was newly added to the fresh party; false if it was already present
+   *  (e.g. a concurrent recruit committed the same member during this request's LLM window). */
+  added: boolean;
+}
+
+/**
+ * Merge a single recruit into the freshest committed game metadata.
+ *
+ * Called from inside the `/party/recruit` patchMetadata updater so the recruit's party / card /
+ * setup-config additions reconcile against metadata committed during the (multi-second) recruit-card
+ * LLM window, rather than the pre-LLM snapshot. Re-reading gamePartyCharacterIds / gameCharacterCards /
+ * gameSetupConfig from `current` keeps a concurrent /party/recruit or /party/remove on the same chat
+ * from being reverted on the blob-level metadata write (#2627, residual concurrency facet of #2613).
+ */
+export function mergeRecruitIntoGameMetadata(input: MergeRecruitInput): MergeRecruitResult {
+  const { current, recruitId, recruitName, nextCard, existingCardIndex, fallbackSetupConfig, chatCharacterIds } = input;
+
+  const freshSetupConfig = (current.gameSetupConfig as GameSetupConfig | null) ?? fallbackSetupConfig;
+  const freshCards = (current.gameCharacterCards as Array<Record<string, unknown>>) ?? [];
+  const freshPartyIds = getStoredPartyCharacterIds(current, freshSetupConfig, chatCharacterIds);
+
+  const alreadyInFreshParty = freshPartyIds.includes(recruitId);
+  const mergedPartyIds = alreadyInFreshParty ? freshPartyIds : [...freshPartyIds, recruitId];
+
+  const freshExistingCardIndex = findExistingGameCharacterCardIndex(freshCards, recruitName);
+  const mergedCards = [...freshCards];
+  // Only write a card when this request actually generated/built one (existingCardIndex < 0). On the
+  // reuse path (existingCardIndex >= 0, no LLM call) we never touch gameCharacterCards: if the fresh
+  // array still has the card we keep it as-is (don't clobber a concurrent edit), and if it no longer
+  // matches recruitName (a concurrent rename/remove) we do not resurrect the stale snapshot copy — that
+  // would duplicate or revive a card while the handler reports cardCreated: false.
+  if (existingCardIndex < 0) {
+    if (freshExistingCardIndex >= 0) {
+      mergedCards[freshExistingCardIndex] = nextCard;
+    } else {
+      mergedCards.push(nextCard);
+    }
+  }
+
+  return {
+    patch: {
+      gameSetupConfig: syncSetupConfigPartyIds(freshSetupConfig, mergedPartyIds),
+      gamePartyCharacterIds: mergedPartyIds,
+      gameCharacterCards: mergedCards,
+    },
+    mergedChatCharacterIds: mergedPartyIds.filter((id) => !isPartyNpcId(id)),
+    added: !alreadyInFreshParty,
+  };
+}
+
+export interface RemoveMemberInput {
+  /** Fresh metadata read inside the patchMetadata queue (the queue-serialized current snapshot). */
+  current: Record<string, unknown>;
+  /** The resolved party id (library id or `npc:<slug>`) to drop from the party. */
+  removedId: string;
+  /** Setup-config from the request-time snapshot; used only when `current` carries none. */
+  fallbackSetupConfig: GameSetupConfig;
+  /** Chat `characterIds` column from the request; used only as a fallback party source. */
+  chatCharacterIds: string[];
+}
+
+export interface RemoveMemberResult {
+  patch: {
+    gameSetupConfig: GameSetupConfig;
+    gamePartyCharacterIds: string[];
+  };
+  /** Library-character (non-NPC) party ids to mirror onto the denormalized `characterIds` column. */
+  mergedChatCharacterIds: string[];
+}
+
+/**
+ * Drop a single party member from the freshest committed game metadata.
+ *
+ * Mirror of mergeRecruitIntoGameMetadata for the /party/remove handler: the prune is applied to the
+ * fresh `current` party read inside the patchMetadata queue rather than the request-time snapshot, so a
+ * concurrent /party/recruit (or another /party/remove) that committed first is not reverted by a stale
+ * blob write. gameCharacterCards is intentionally left out of the patch — removing a member from the
+ * party never deletes its card — so the fresh card array is preserved untouched (#2627, residual
+ * concurrency facet of #2613).
+ */
+export function removeMemberFromGameMetadata(input: RemoveMemberInput): RemoveMemberResult {
+  const { current, removedId, fallbackSetupConfig, chatCharacterIds } = input;
+
+  const freshSetupConfig = (current.gameSetupConfig as GameSetupConfig | null) ?? fallbackSetupConfig;
+  const freshPartyIds = getStoredPartyCharacterIds(current, freshSetupConfig, chatCharacterIds);
+  const mergedPartyIds = freshPartyIds.filter((id) => id !== removedId);
+
+  return {
+    patch: {
+      gameSetupConfig: syncSetupConfigPartyIds(freshSetupConfig, mergedPartyIds),
+      gamePartyCharacterIds: mergedPartyIds,
+    },
+    mergedChatCharacterIds: mergedPartyIds.filter((id) => !isPartyNpcId(id)),
   };
 }
 
@@ -1035,6 +1183,22 @@ function normalizeSetupHudWidgetStartingValues(widgets: Array<{ type: string; co
     widget.config.startingValue = initialValue;
     widget.config.value = initialValue;
   }
+}
+
+function sanitizeGameHudWidgets(value: unknown): HudWidget[] {
+  const parsed = z.array(hudWidgetSchema).max(MAX_GAME_HUD_WIDGETS).safeParse(value);
+  if (!parsed.success) return [];
+
+  const widgets = parsed.data.map((widget) => ({
+    ...widget,
+    id: widget.id.trim(),
+    label: widget.label.trim(),
+    icon: widget.icon?.trim() || undefined,
+    accent: widget.accent?.trim() || undefined,
+    config: { ...(widget.config as Record<string, unknown>) },
+  }));
+  normalizeSetupHudWidgetStartingValues(widgets);
+  return widgets as HudWidget[];
 }
 
 function buildMoraleMetadataUpdates(meta: Record<string, unknown>, morale: number): Record<string, unknown> {
@@ -1346,12 +1510,38 @@ function resolveStoredGameGenerationParameters(
   return mergeStoredGenerationParameters(connectionDefaults, setupConfig?.generationParameters, meta?.chatParameters);
 }
 
+function resolveGameModelAccessPolicy(args: {
+  provider: APIProvider | string | null | undefined;
+  model: string | null | undefined;
+  maxContext?: unknown;
+  parameters: StoredGenerationParameters | null | undefined;
+}): ModelAccessPolicy {
+  const policy = resolveModelAccessPolicy({
+    provider: args.provider,
+    model: args.model,
+    maxContext: args.maxContext,
+  });
+  return {
+    ...policy,
+    effectiveMaxContext: mergeModelContextLimit(
+      policy,
+      policy.effectiveMaxContext,
+      resolveStoredModelContextLimit(policy, args.parameters),
+    ),
+  };
+}
+
 function resolveGameReasoningEffort(
   model: string,
   reasoningEffort: GenerationParameters["reasoningEffort"] | ChatOptions["reasoningEffort"] | null | undefined,
+  provider?: APIProvider | string | null,
 ): ChatOptions["reasoningEffort"] | undefined {
   if (!reasoningEffort) return undefined;
   const modelLower = model.toLowerCase();
+  const providerLower = (provider ?? "").toLowerCase();
+  const isClaudeAdaptiveOnly = isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
+  const isNativeAnthropicAdaptiveOnly =
+    (providerLower === "anthropic" || providerLower === "claude_subscription") && isClaudeAdaptiveOnly;
   if (
     modelLower.startsWith("grok-4.3") ||
     modelLower.startsWith("grok-4-1-fast") ||
@@ -1359,15 +1549,12 @@ function resolveGameReasoningEffort(
   ) {
     return undefined;
   }
-  if (reasoningEffort === "xhigh") return reasoningEffort;
+  const supportsXhigh = supportsXhighReasoningEffort(modelLower);
+  if (reasoningEffort === "max") return isNativeAnthropicAdaptiveOnly ? "max" : "high";
+  if (reasoningEffort === "xhigh") return supportsXhigh ? "xhigh" : "high";
   if (reasoningEffort !== "maximum") return reasoningEffort;
 
-  const supportsXhigh =
-    modelLower.startsWith("gpt-5.5") ||
-    modelLower.startsWith("gpt-5.4") ||
-    modelLower === "grok-4.20-multi-agent" ||
-    /claude-opus-4-(?:[7-9]|\d{2,})/.test(modelLower);
-  return supportsXhigh ? "xhigh" : "high";
+  return isNativeAnthropicAdaptiveOnly ? "max" : supportsXhigh ? "xhigh" : "high";
 }
 
 /** Build model-aware generation options for game calls. */
@@ -1375,44 +1562,64 @@ function gameGenOptions(
   model: string,
   overrides: Partial<ChatOptions> = {},
   parameters: StoredGenerationParameters | null = null,
+  provider?: APIProvider | string | null,
 ): ChatOptions {
+  const { suppressModelParameters } = resolveModelAccessPolicy({ provider, model });
+  if (suppressModelParameters) {
+    const customParameters = mergeCustomParameters(parameters?.customParameters, overrides.customParameters);
+    const stripped: ChatOptions = {
+      model,
+      suppressModelParameters: true,
+    };
+    if (overrides.stream !== undefined) stripped.stream = overrides.stream;
+    if (overrides.onToken) stripped.onToken = overrides.onToken;
+    if (overrides.onThinking) stripped.onThinking = overrides.onThinking;
+    if (overrides.onResponseParts) stripped.onResponseParts = overrides.onResponseParts;
+    if (overrides.signal) stripped.signal = overrides.signal;
+    if (Object.keys(customParameters).length > 0) stripped.customParameters = customParameters;
+    return stripped;
+  }
+
   const m = model.toLowerCase();
-  // Opus 4.7+ and GPT-5.4/5.5 accept the strongest reasoning tier ("xhigh").
-  // Opus 4.7+ also forbids sampling parameters entirely; the Anthropic
+  const providerLower = (provider ?? "").toLowerCase();
+  // Claude adaptive-only models and GPT-5.4/5.5 accept the strongest reasoning tier
+  // (native Anthropic uses "max"; OpenAI-compatible routes use "xhigh").
+  // Claude adaptive-only models also forbid sampling parameters entirely; the Anthropic
   // provider strips them on the wire, but we omit them here so the
   // logged options match what is actually sent.
-  const isOpus47Plus = /claude-opus-4-(?:[7-9]|\d{2,})/.test(m);
+  const isClaudeAdaptiveOnly = isClaudeAdaptiveOnlyNoSamplingModel(m);
+  const isNativeAnthropicAdaptiveOnly =
+    (providerLower === "anthropic" || providerLower === "claude_subscription") && isClaudeAdaptiveOnly;
   const isGrokAutoReasoning = m.startsWith("grok-4.3") || m.startsWith("grok-4-1-fast") || m.startsWith("x-ai/grok-");
-  const supportsXhigh =
-    m.startsWith("gpt-5.5") || m.startsWith("gpt-5.4") || m === "grok-4.20-multi-agent" || isOpus47Plus;
+  const supportsXhigh = supportsXhighReasoningEffort(m);
   const base: ChatOptions = {
     model,
     maxTokens: 8192,
     verbosity: "high",
   };
   if (!isGrokAutoReasoning) {
-    base.reasoningEffort = supportsXhigh ? "xhigh" : "high";
+    base.reasoningEffort = isNativeAnthropicAdaptiveOnly ? "max" : supportsXhigh ? "xhigh" : "high";
     // Required for providers that actually attach thinking config to the request body.
     base.enableThinking = true;
   }
-  if (!isOpus47Plus) {
+  if (!isClaudeAdaptiveOnly) {
     base.temperature = 1;
     base.topP = 1;
   }
 
   if (parameters) {
-    if (typeof parameters.temperature === "number" && !isOpus47Plus) base.temperature = parameters.temperature;
+    if (typeof parameters.temperature === "number" && !isClaudeAdaptiveOnly) base.temperature = parameters.temperature;
     if (typeof parameters.maxTokens === "number") base.maxTokens = parameters.maxTokens;
     if (typeof parameters.maxContext === "number") base.maxContext = parameters.maxContext;
-    if (typeof parameters.topP === "number" && !isOpus47Plus) base.topP = parameters.topP;
-    if (typeof parameters.topK === "number") base.topK = parameters.topK;
+    if (typeof parameters.topP === "number" && !isClaudeAdaptiveOnly) base.topP = parameters.topP;
+    if (typeof parameters.topK === "number" && !isClaudeAdaptiveOnly) base.topK = parameters.topK;
     if (typeof parameters.frequencyPenalty === "number") base.frequencyPenalty = parameters.frequencyPenalty;
     if (typeof parameters.presencePenalty === "number") base.presencePenalty = parameters.presencePenalty;
     if (parameters.customParameters) {
       base.customParameters = mergeCustomParameters(base.customParameters, parameters.customParameters);
     }
     if (parameters.reasoningEffort !== undefined) {
-      const resolvedReasoningEffort = resolveGameReasoningEffort(model, parameters.reasoningEffort);
+      const resolvedReasoningEffort = resolveGameReasoningEffort(model, parameters.reasoningEffort, provider);
       if (resolvedReasoningEffort) {
         base.reasoningEffort = resolvedReasoningEffort;
         base.enableThinking = true;
@@ -1436,7 +1643,7 @@ function gameGenOptions(
     merged.customParameters = mergedCustomParameters;
   }
   if (Object.prototype.hasOwnProperty.call(overrides, "reasoningEffort")) {
-    const resolvedReasoningEffort = resolveGameReasoningEffort(model, overrides.reasoningEffort ?? null);
+    const resolvedReasoningEffort = resolveGameReasoningEffort(model, overrides.reasoningEffort ?? null, provider);
     if (resolvedReasoningEffort) {
       merged.reasoningEffort = resolvedReasoningEffort;
       if (!Object.prototype.hasOwnProperty.call(overrides, "enableThinking")) {
@@ -1572,7 +1779,7 @@ function fitSessionConclusionMessages(args: {
   currentMorale: number;
   currentCards: Array<Record<string, unknown>>;
   nextSessionRequest?: string | null;
-  maxContext: number;
+  modelAccessPolicy: ModelAccessPolicy;
   maxTokens?: number;
 }): { messages: ChatMessage[]; transcriptTruncated: boolean } {
   let transcriptText = args.transcriptText;
@@ -1592,7 +1799,11 @@ function fitSessionConclusionMessages(args: {
     currentCards: args.currentCards,
     nextSessionRequest: args.nextSessionRequest,
   });
-  let fit = fitMessagesToContext(conclusionMessages, { maxContext: args.maxContext, maxTokens: args.maxTokens });
+  let fit = fitMessagesToModelAccessContext({
+    messages: conclusionMessages,
+    policy: args.modelAccessPolicy,
+    maxTokens: args.maxTokens,
+  });
   let guard = 0;
 
   while (fit.trimmed && guard < 8 && Array.from(transcriptText).length > SESSION_SUMMARY_MIN_TRANSCRIPT_CHARS) {
@@ -1624,7 +1835,11 @@ function fitSessionConclusionMessages(args: {
       currentCards: args.currentCards,
       nextSessionRequest: args.nextSessionRequest,
     });
-    fit = fitMessagesToContext(conclusionMessages, { maxContext: args.maxContext, maxTokens: args.maxTokens });
+    fit = fitMessagesToModelAccessContext({
+      messages: conclusionMessages,
+      policy: args.modelAccessPolicy,
+      maxTokens: args.maxTokens,
+    });
   }
 
   return {
@@ -1920,11 +2135,11 @@ function buildGameLorebookKeeperMessages(args: {
 
   const systemPrompt = [
     "You are Marinara's Game Lorebook Keeper.",
-    "You run only after a Game Mode session has concluded. Preserve durable continuity for this specific game.",
-    "Do not write a session recap. Do not invent future plot. Do not create entries for mundane rooms, transient actions, or things the player did not learn.",
-    "Create entries only when they will help the GM keep the developing world coherent in future sessions.",
-    "When an exact dialogue exchange is important, copy the exact lines into the entry instead of paraphrasing them.",
-    "Return strict JSON only. No markdown, no commentary.",
+    "You run only after a Game Mode session concludes. This is separate from the chat/roleplay Lorebook Keeper agent.",
+    "Create game-scoped lorebook entries only for durable continuity that helps future GM sessions: revealed world lore, meaningful locations, party discoveries, player revelations, important NPCs, exact exchanges, powers, factions, items, or consequences.",
+    "Do not write a recap, invent future plot, record mundane rooms, transient actions, temporary combat states, or things the player did not learn.",
+    "When exact dialogue matters, copy the exact lines. Otherwise keep entries concise and reusable.",
+    "Return strict JSON only.",
   ].join("\n");
 
   const userPrompt = [
@@ -1954,14 +2169,14 @@ function buildGameLorebookKeeperMessages(args: {
     "Write JSON in exactly this shape:",
     `{"entries":[{"entryName":"World Lore - Session ${args.sessionNumber}","tag":"world_lore","keys":["specific keyword"],"description":"short editor-facing note","content":"entry text"}]}`,
     "",
-    "Entry selection rules:",
-    "- World lore: one entry, 0-4 paragraphs, only if important world lore was established or revealed.",
-    "- Locations: one entry, 0-4 paragraphs, only for general discovered locations or meaningful location context; do not list every room.",
-    "- Party members: one entry per party member present at session end, only if the player learned something important about them or had important exchanges with them. Include up to 3 learned details or exchanges per member.",
-    "- Player revelations: one entry total, only if the player's revealed history, nature, goals, powers, secrets, or relationships matter later. Include up to 3 items.",
-    "- Omit categories that have nothing important. Return an empty entries array if nothing durable should be saved.",
-    "- Entry names must include the session number so this run adds new entries instead of overwriting older session notes.",
-    "- Provide 3-8 useful trigger keys per entry.",
+    "Entry rules:",
+    "- Omit categories with no durable facts. Return an empty entries array if nothing should be saved.",
+    "- World lore: one entry only when important lore was established or revealed.",
+    "- Locations: one entry only for meaningful discovered places or reusable location context; do not list every room.",
+    "- Party members: one entry per party member only when the player learned important details or had important exchanges. Keep at most 3 items per member.",
+    "- Player revelations: one entry total only for history, nature, goals, powers, secrets, or relationships that matter later. Keep at most 3 items.",
+    "- Entry names must include the session number so this run adds new notes instead of overwriting older session notes.",
+    "- Provide 3-8 useful trigger keys.",
   ].join("\n");
 
   return [
@@ -2102,7 +2317,14 @@ async function runGameLorebookKeeperAfterConclusion(args: {
         ...(streaming ? { onToken: () => {} } : {}),
       },
       generationParameters,
+      conn.provider,
     );
+    const modelAccessPolicy = resolveGameModelAccessPolicy({
+      provider: conn.provider,
+      model: conn.model,
+      maxContext: conn.maxContext,
+      parameters: generationParameters,
+    });
 
     const messages = await chats.listMessages(args.chatId);
     const partyNames = await resolveGameLorebookKeeperPartyNames(args.app, chat, meta, setupConfig);
@@ -2120,13 +2342,14 @@ async function runGameLorebookKeeperAfterConclusion(args: {
       existingEntries,
       transcriptText: formatGameLorebookKeeperTranscript(messages, meta),
     });
-    const fitted = fitMessagesToContext(keeperMessages, {
-      maxContext: conn.maxContext,
+    const fitted = fitMessagesToModelAccessContext({
+      messages: keeperMessages,
+      policy: modelAccessPolicy,
       maxTokens: options.maxTokens,
     });
 
     const result = await provider.chatComplete(fitted.trimmed ? fitted.messages : keeperMessages, options);
-    const extraction = extractLeadingThinkingBlocks(result.content ?? "");
+    const extraction = extractLeadingThinkingBlocks(result.content ?? "", generationParameters?.customThinkingTags);
     const parsed = parseJSON(extraction.content) as Record<string, unknown>;
     const entries = normalizeGameLorebookKeeperEntries(parsed);
     const createdCount = await createGameLorebookKeeperEntries({
@@ -2249,6 +2472,8 @@ function normalizeJournalMatch(value: string): string {
 type SceneAssetNpcCandidate = {
   name: string;
   description: string;
+  gender?: string | null;
+  pronouns?: string | null;
   avatarUrl?: string | null;
 };
 
@@ -2309,6 +2534,26 @@ function buildNpcAvatarUrl(chatId: string, name: string): string | null {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
   return slug ? `/api/avatars/npc/${chatId}/${slug}.png` : null;
+}
+
+function optionalTrimmedString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function findNpcRecordByName(npcs: GameNpc[], name: string): GameNpc | null {
+  const normalizedName = normalizeJournalMatch(name);
+  if (!normalizedName) return null;
+  return npcs.find((npc) => normalizeJournalMatch(npc.name) === normalizedName) ?? null;
+}
+
+function findRecordByName(records: Array<Record<string, unknown>>, name: string): Record<string, unknown> | null {
+  const normalizedName = normalizeJournalMatch(name);
+  if (!normalizedName) return null;
+  return (
+    records.find(
+      (record) => optionalTrimmedString(record.name) && normalizeJournalMatch(String(record.name)) === normalizedName,
+    ) ?? null
+  );
 }
 
 function hasReadableAvatar(avatarUrl: string | null | undefined): avatarUrl is string {
@@ -2412,7 +2657,13 @@ function buildSceneAssetNpcCandidates(
   const excluded = new Set(excludedNames.map(normalizeJournalMatch));
   const candidates = new Map<string, SceneAssetNpcCandidate>();
 
-  const upsertCandidate = (nameRaw: unknown, descriptionRaw: unknown, avatarUrlRaw: unknown) => {
+  const upsertCandidate = (
+    nameRaw: unknown,
+    descriptionRaw: unknown,
+    avatarUrlRaw: unknown,
+    genderRaw?: unknown,
+    pronounsRaw?: unknown,
+  ) => {
     if (typeof nameRaw !== "string") return;
 
     const name = nameRaw.trim();
@@ -2423,28 +2674,40 @@ function buildSceneAssetNpcCandidates(
 
     const description = typeof descriptionRaw === "string" ? descriptionRaw.trim() : "";
     const avatarUrl = typeof avatarUrlRaw === "string" && avatarUrlRaw.trim() ? avatarUrlRaw.trim() : null;
+    const gender = typeof genderRaw === "string" && genderRaw.trim() ? genderRaw.trim().slice(0, 80) : null;
+    const pronouns = typeof pronounsRaw === "string" && pronounsRaw.trim() ? pronounsRaw.trim().slice(0, 80) : null;
     const existing = candidates.get(normalizedName);
 
     if (existing) {
       if (!existing.description && description) existing.description = description;
       if (!existing.avatarUrl && avatarUrl) existing.avatarUrl = avatarUrl;
+      if (!existing.gender && gender) existing.gender = gender;
+      if (!existing.pronouns && pronouns) existing.pronouns = pronouns;
       return;
     }
 
     candidates.set(normalizedName, {
       name,
       description,
+      gender,
+      pronouns,
       avatarUrl,
     });
   };
 
   for (const npc of trackedNpcsRaw) {
-    upsertCandidate(npc.name, npc.description, npc.avatarUrl);
+    upsertCandidate(npc.name, npc.description, npc.avatarUrl, npc.gender, npc.pronouns);
   }
 
   const presentCharacters = parseStoredJson<Array<Record<string, unknown>>>(presentCharactersRaw) ?? [];
   for (const presentCharacter of presentCharacters) {
-    upsertCandidate(presentCharacter.name, presentCharacter.appearance, presentCharacter.avatarPath);
+    upsertCandidate(
+      presentCharacter.name,
+      presentCharacter.appearance,
+      presentCharacter.avatarPath,
+      presentCharacter.gender,
+      presentCharacter.pronouns,
+    );
   }
 
   for (const candidate of extractNarrationNpcCandidates(narration, excludedNames)) {
@@ -2476,6 +2739,12 @@ function upsertGameNpcAvatarEntries(currentNpcs: GameNpc[], avatarEntries: Scene
       if (!nextNpc.description && entry.description) {
         nextNpc = { ...nextNpc, description: entry.description, descriptionSource: "narration" };
       }
+      if (!nextNpc.gender && entry.gender) {
+        nextNpc = { ...nextNpc, gender: entry.gender };
+      }
+      if (!nextNpc.pronouns && entry.pronouns) {
+        nextNpc = { ...nextNpc, pronouns: entry.pronouns };
+      }
 
       if (nextNpc !== existing) {
         nextNpcs[existingIndex] = nextNpc;
@@ -2493,6 +2762,8 @@ function upsertGameNpcAvatarEntries(currentNpcs: GameNpc[], avatarEntries: Scene
       reputation: 0,
       notes: [],
       avatarUrl: entry.avatarUrl,
+      gender: entry.gender,
+      pronouns: entry.pronouns,
       descriptionSource: entry.description ? "narration" : undefined,
     });
     changed = true;
@@ -2701,6 +2972,8 @@ export async function gameRoutes(app: FastifyInstance) {
     rpgContext: SetupRpgContext;
   }) => {
     const { chatId, meta, setupData, rpgContext } = args;
+    const setupConfig = (meta.gameSetupConfig as GameSetupConfig | null) ?? null;
+    const customHudWidgets = sanitizeGameHudWidgets(setupConfig?.customHudWidgets);
     const updates: Record<string, unknown> = { ...meta, gameSessionStatus: "ready" };
     if (setupData.worldOverview) updates.gameWorldOverview = setupData.worldOverview as string;
     if (setupData.storyArc) updates.gameStoryArc = setupData.storyArc as string;
@@ -2968,6 +3241,24 @@ export async function gameRoutes(app: FastifyInstance) {
       }
     }
 
+    if (customHudWidgets.length > 0) {
+      const currentBlueprint =
+        updates.gameBlueprint && typeof updates.gameBlueprint === "object" && !Array.isArray(updates.gameBlueprint)
+          ? (updates.gameBlueprint as Record<string, unknown>)
+          : {};
+      updates.gameBlueprint = { ...currentBlueprint, hudWidgets: customHudWidgets };
+      updates.gameWidgetState = customHudWidgets;
+      const currentSetupConfig =
+        updates.gameSetupConfig && typeof updates.gameSetupConfig === "object" && !Array.isArray(updates.gameSetupConfig)
+          ? (updates.gameSetupConfig as Record<string, unknown>)
+          : (setupConfig ?? {});
+      updates.gameSetupConfig = {
+        ...currentSetupConfig,
+        enableCustomWidgets: true,
+        customHudWidgets,
+      };
+    }
+
     const hydratedUpdates = await buildHydratedGameMeta(chatId, updates);
     await createChatsStorage(app.db).updateMetadata(chatId, hydratedUpdates);
 
@@ -2980,9 +3271,18 @@ export async function gameRoutes(app: FastifyInstance) {
   // ── POST /game/create ──
   app.post("/create", async (req) => {
     logger.info("[game/create] Received request");
-    const { name, setupConfig, connectionId, characterConnectionId, promptPresetId, chatId } = createGameSchema.parse(
-      req.body,
-    );
+    const parsedCreateGameInput = createGameSchema.parse(req.body);
+    const { name, connectionId, characterConnectionId, promptPresetId, chatId } = parsedCreateGameInput;
+    const customHudWidgets = sanitizeGameHudWidgets(parsedCreateGameInput.setupConfig.customHudWidgets);
+    const gameSystemPrompt = parsedCreateGameInput.setupConfig.gameSystemPrompt?.trim() || null;
+    const gameSpecialInstructions = parsedCreateGameInput.setupConfig.gameSpecialInstructions?.trim() || null;
+    const setupConfig: GameSetupConfig = {
+      ...parsedCreateGameInput.setupConfig,
+      enableCustomWidgets: parsedCreateGameInput.setupConfig.enableCustomWidgets !== false || customHudWidgets.length > 0,
+      customHudWidgets: customHudWidgets.length > 0 ? customHudWidgets : undefined,
+      gameSystemPrompt,
+      gameSpecialInstructions,
+    };
     const chats = createChatsStorage(app.db);
     let defaultGenerationParameters: StoredGenerationParameters | null = null;
     if (connectionId && connectionId !== "random") {
@@ -3054,6 +3354,8 @@ export async function gameRoutes(app: FastifyInstance) {
       gameRecentMusic: [],
       gameRecentSpotifyTracks: [],
       gameSetupConfig: setupConfig,
+      gameSystemPrompt,
+      gameSpecialInstructions,
       gameCharacterConnectionId: null,
       gameSceneConnectionId: setupConfig.sceneConnectionId || null,
       gameNpcs: [],
@@ -3063,6 +3365,8 @@ export async function gameRoutes(app: FastifyInstance) {
       gameImageConnectionId: setupConfig.imageConnectionId || null,
       activeLorebookIds: setupConfig.activeLorebookIds || [],
       enableCustomWidgets: setupConfig.enableCustomWidgets !== false,
+      ...(customHudWidgets.length > 0 ? { gameWidgetState: customHudWidgets } : {}),
+      gameUseMusicDj: setupConfig.enableSpotifyDj === true,
       gameUseSpotifyMusic: setupConfig.enableSpotifyDj === true,
       gameSpotifySourceType: spotifySourceType,
       gameSpotifyPlaylistId:
@@ -3105,6 +3409,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const meta = parseMeta(chat.metadata);
     const setupConfig = meta.gameSetupConfig as GameSetupConfig | null;
     if (!setupConfig) throw new Error("No setup config found");
+    const customHudWidgets = sanitizeGameHudWidgets(setupConfig.customHudWidgets);
 
     const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
       connections,
@@ -3128,7 +3433,7 @@ export async function gameRoutes(app: FastifyInstance) {
         const data = typeof gmChar.data === "string" ? JSON.parse(gmChar.data) : gmChar.data;
         const parts = [`Name: ${data.name}`];
         if (data.personality) parts.push(`Personality: ${data.personality}`);
-        const description = getCharacterDescriptionWithExtensions(data);
+        const description = typeof data.description === "string" ? data.description : "";
         if (description) parts.push(`Description: ${description}`);
         const gmBackstory = data.extensions?.backstory || data.backstory;
         const gmAppearance = data.extensions?.appearance || data.appearance;
@@ -3175,7 +3480,7 @@ export async function gameRoutes(app: FastifyInstance) {
           partyNames.push(data.name.trim());
         }
         if (data.personality) parts.push(`Personality: ${data.personality}`);
-        const description = getCharacterDescriptionWithExtensions(data);
+        const description = typeof data.description === "string" ? data.description : "";
         if (description) parts.push(`Description: ${description}`);
         const pcBackstory = data.extensions?.backstory || data.backstory;
         const pcAppearance = data.extensions?.appearance || data.appearance;
@@ -3244,6 +3549,13 @@ export async function gameRoutes(app: FastifyInstance) {
       }
     }
 
+    const setupGameSystemPrompt =
+      typeof meta.gameSystemPrompt === "string" ? meta.gameSystemPrompt : setupConfig.gameSystemPrompt;
+    const setupGameSpecialInstructions =
+      typeof meta.gameSpecialInstructions === "string"
+        ? meta.gameSpecialInstructions
+        : setupConfig.gameSpecialInstructions;
+
     const messages: ChatMessage[] = [
       {
         role: "system",
@@ -3254,9 +3566,12 @@ export async function gameRoutes(app: FastifyInstance) {
           partyCards: partyCards.length > 0 ? partyCards : undefined,
           partyNames,
           gmCharacterCard: gmCharacterCard || null,
-          enableCustomWidgets: setupConfig.enableCustomWidgets,
+          enableCustomWidgets: customHudWidgets.length > 0 ? false : setupConfig.enableCustomWidgets,
+          customHudWidgets: customHudWidgets.length > 0 ? customHudWidgets : undefined,
           lorebookContext: setupLorebookContext,
           language: setupConfig.language,
+          gameSystemPrompt: setupGameSystemPrompt,
+          gameSpecialInstructions: setupGameSpecialInstructions,
         }),
       },
       {
@@ -3304,6 +3619,7 @@ export async function gameRoutes(app: FastifyInstance) {
           : {}),
       },
       setupGenerationParameters,
+      conn.provider,
     );
     if (debugLogsEnabled) {
       debugLog(
@@ -3316,7 +3632,10 @@ export async function gameRoutes(app: FastifyInstance) {
     }
 
     const result = await provider.chatComplete(messages, setupOptions);
-    const setupExtraction = extractLeadingThinkingBlocks(result.content ?? "");
+    const setupExtraction = extractLeadingThinkingBlocks(
+      result.content ?? "",
+      setupGenerationParameters?.customThinkingTags,
+    );
     const responseText = setupExtraction.content;
 
     if (debugLogsEnabled) {
@@ -3676,9 +3995,14 @@ export async function gameRoutes(app: FastifyInstance) {
 
           const result = await provider.chatComplete(
             recapMessages,
-            gameGenOptions(conn.model, {
-              temperature: 0.7,
-            }),
+            gameGenOptions(
+              conn.model,
+              {
+                temperature: 0.7,
+              },
+              null,
+              conn.provider,
+            ),
           );
           const recapExtraction = extractLeadingThinkingBlocks(result.content ?? "");
           recapText = recapExtraction.content;
@@ -3813,6 +4137,12 @@ export async function gameRoutes(app: FastifyInstance) {
       chat.connectionId,
     );
     const conclusionGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
+    const modelAccessPolicy = resolveGameModelAccessPolicy({
+      provider: conn.provider,
+      model: conn.model,
+      maxContext: conn.maxContext,
+      parameters: conclusionGenerationParameters,
+    });
     const provider = createLLMProvider(
       conn.provider,
       baseUrl,
@@ -3831,6 +4161,7 @@ export async function gameRoutes(app: FastifyInstance) {
         ...(streaming ? { onToken: () => {} } : {}),
       },
       conclusionGenerationParameters,
+      conn.provider,
     );
     const { messages: conclusionMessages, transcriptTruncated } = fitSessionConclusionMessages({
       sessionNumber,
@@ -3845,7 +4176,7 @@ export async function gameRoutes(app: FastifyInstance) {
       currentMorale,
       currentCards,
       nextSessionRequest: trimmedNextSessionRequest || null,
-      maxContext: conn.maxContext,
+      modelAccessPolicy,
       maxTokens: conclusionOptions.maxTokens,
     });
     if (transcriptTruncated) {
@@ -3857,7 +4188,10 @@ export async function gameRoutes(app: FastifyInstance) {
 
     const result = await provider.chatComplete(conclusionMessages, conclusionOptions);
     logger.info("[game/session/conclude] Conclusion generation completed for chat %s", chatId);
-    const conclusionExtraction = extractLeadingThinkingBlocks(result.content ?? "");
+    const conclusionExtraction = extractLeadingThinkingBlocks(
+      result.content ?? "",
+      conclusionGenerationParameters?.customThinkingTags,
+    );
     if (conclusionExtraction.thinking) {
       logger.debug(
         "[game/session/conclude] Thinking tokens (%d chars):\n%s",
@@ -3899,8 +4233,7 @@ export async function gameRoutes(app: FastifyInstance) {
       return;
     }
 
-    await chats.updateMetadata(chatId, {
-      ...meta,
+    await chats.patchMetadata(chatId, (freshMeta) => ({
       ...(syncedSetupConfig ? { gameSetupConfig: syncedSetupConfig } : {}),
       gamePartyCharacterIds: syncedPartyIds,
       gameSessionNumber: sessionNumber,
@@ -3908,10 +4241,13 @@ export async function gameRoutes(app: FastifyInstance) {
       gameStoryArc: appliedConclusion.updatedStoryArc,
       gamePlotTwists: appliedConclusion.updatedPlotTwists,
       gamePartyArcs: appliedConclusion.updatedPartyArcs,
-      gamePreviousSessionSummaries: [...prevSummaries, appliedConclusion.summary],
+      gamePreviousSessionSummaries: [
+        ...normalizeStoredSessionSummaries(freshMeta.gamePreviousSessionSummaries),
+        appliedConclusion.summary,
+      ],
       gameCharacterCards: appliedConclusion.updatedCards,
-      ...buildMoraleMetadataUpdates(meta, appliedConclusion.updatedMorale),
-    });
+      ...buildMoraleMetadataUpdates(freshMeta, appliedConclusion.updatedMorale),
+    }));
 
     const sessionSummaryMsg = await chats.createMessage({
       chatId,
@@ -4025,8 +4361,7 @@ export async function gameRoutes(app: FastifyInstance) {
       return;
     }
 
-    await chats.updateMetadata(chatId, {
-      ...meta,
+    await chats.patchMetadata(chatId, (freshMeta) => ({
       ...(syncedSetupConfig ? { gameSetupConfig: syncedSetupConfig } : {}),
       gamePartyCharacterIds: syncedPartyIds,
       gameSessionNumber: sessionNumber,
@@ -4034,10 +4369,13 @@ export async function gameRoutes(app: FastifyInstance) {
       gameStoryArc: appliedConclusion.updatedStoryArc,
       gamePlotTwists: appliedConclusion.updatedPlotTwists,
       gamePartyArcs: appliedConclusion.updatedPartyArcs,
-      gamePreviousSessionSummaries: [...prevSummaries, appliedConclusion.summary],
+      gamePreviousSessionSummaries: [
+        ...normalizeStoredSessionSummaries(freshMeta.gamePreviousSessionSummaries),
+        appliedConclusion.summary,
+      ],
       gameCharacterCards: appliedConclusion.updatedCards,
-      ...buildMoraleMetadataUpdates(meta, appliedConclusion.updatedMorale),
-    });
+      ...buildMoraleMetadataUpdates(freshMeta, appliedConclusion.updatedMorale),
+    }));
 
     const summaryContent = `**Session ${sessionNumber} Concluded**\n\n${appliedConclusion.summary.summary}\n\n*Party Dynamics:* ${appliedConclusion.summary.partyDynamics}`;
     await chats.createMessage({
@@ -4180,6 +4518,12 @@ export async function gameRoutes(app: FastifyInstance) {
       chat.connectionId,
     );
     const conclusionGenerationParameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
+    const modelAccessPolicy = resolveGameModelAccessPolicy({
+      provider: conn.provider,
+      model: conn.model,
+      maxContext: conn.maxContext,
+      parameters: conclusionGenerationParameters,
+    });
     const provider = createLLMProvider(
       conn.provider,
       baseUrl,
@@ -4197,6 +4541,7 @@ export async function gameRoutes(app: FastifyInstance) {
         ...(streaming ? { onToken: () => {} } : {}),
       },
       conclusionGenerationParameters,
+      conn.provider,
     );
     const { messages: conclusionMessages, transcriptTruncated } = fitSessionConclusionMessages({
       sessionNumber,
@@ -4211,7 +4556,7 @@ export async function gameRoutes(app: FastifyInstance) {
       currentMorale,
       currentCards,
       nextSessionRequest: existingNextSessionRequest,
-      maxContext: conn.maxContext,
+      modelAccessPolicy,
       maxTokens: conclusionOptions.maxTokens,
     });
     if (transcriptTruncated) {
@@ -4222,7 +4567,10 @@ export async function gameRoutes(app: FastifyInstance) {
     }
 
     const result = await provider.chatComplete(conclusionMessages, conclusionOptions);
-    const conclusionExtraction = extractLeadingThinkingBlocks(result.content ?? "");
+    const conclusionExtraction = extractLeadingThinkingBlocks(
+      result.content ?? "",
+      conclusionGenerationParameters?.customThinkingTags,
+    );
     let appliedConclusion: SessionConclusionApplication;
     try {
       const parsedConclusion = parseJSON(conclusionExtraction.content) as Record<string, unknown>;
@@ -4440,7 +4788,14 @@ export async function gameRoutes(app: FastifyInstance) {
         ...(streaming ? { onToken: () => {} } : {}),
       },
       progressionGenerationParameters,
+      conn.provider,
     );
+    const modelAccessPolicy = resolveGameModelAccessPolicy({
+      provider: conn.provider,
+      model: conn.model,
+      maxContext: conn.maxContext,
+      parameters: progressionGenerationParameters,
+    });
     const userLines = [
       `Session ${sessionNumber} journal recap:`,
       journalRecap,
@@ -4469,8 +4824,9 @@ export async function gameRoutes(app: FastifyInstance) {
       { role: "system", content: buildCampaignProgressionPrompt(setupConfig?.language ?? null) },
       { role: "user", content: userLines.join("\n") },
     ];
-    const fit = fitMessagesToContext(progressionMessages, {
-      maxContext: conn.maxContext,
+    const fit = fitMessagesToModelAccessContext({
+      messages: progressionMessages,
+      policy: modelAccessPolicy,
       maxTokens: progressionOptions.maxTokens,
     });
     if (fit.trimmed) {
@@ -4483,7 +4839,10 @@ export async function gameRoutes(app: FastifyInstance) {
 
     const result = await provider.chatComplete(fit.trimmed ? fit.messages : progressionMessages, progressionOptions);
     const rawProgressionContent = result.content ?? "";
-    const extraction = extractLeadingThinkingBlocks(rawProgressionContent);
+    const extraction = extractLeadingThinkingBlocks(
+      rawProgressionContent,
+      progressionGenerationParameters?.customThinkingTags,
+    );
     logger.info(
       "[game/session/update-campaign-progression] Response length=%d chars, extracted=%d chars, maxTokens=%d",
       rawProgressionContent.length,
@@ -4796,9 +5155,12 @@ export async function gameRoutes(app: FastifyInstance) {
             { role: "system", content: prompt },
             { role: "user", content: `Create the recruited companion card for ${recruitName} now.` },
           ],
-          gameGenOptions(conn.model, { temperature: 0.6, maxTokens: 1200 }, generationParameters),
+          gameGenOptions(conn.model, { temperature: 0.6, maxTokens: 1200 }, generationParameters, conn.provider),
         );
-        const recruitExtraction = extractLeadingThinkingBlocks(result.content ?? "");
+        const recruitExtraction = extractLeadingThinkingBlocks(
+          result.content ?? "",
+          generationParameters?.customThinkingTags,
+        );
         const cardContent = recruitExtraction.content;
         if (recruitExtraction.thinking) {
           logger.debug(
@@ -4825,32 +5187,37 @@ export async function gameRoutes(app: FastifyInstance) {
       }
     }
 
-    const updatedPartyIds = alreadyInParty ? currentPartyIds : [...currentPartyIds, recruitId];
-    const updatedCards = [...currentCards];
-    if (existingCardIndex >= 0) {
-      updatedCards[existingCardIndex] = nextCard;
-    } else {
-      updatedCards.push(nextCard);
-    }
-
-    const updatedSetupConfig: GameSetupConfig = {
-      ...setupConfig,
-      partyCharacterIds: updatedPartyIds,
-    };
-
-    const updatedChatCharacterIds = updatedPartyIds.filter((id) => !isPartyNpcId(id));
-    await chats.update(chat.id, { characterIds: updatedChatCharacterIds });
-    const updatedSession = await chats.updateMetadata(chat.id, {
-      ...meta,
-      gameSetupConfig: updatedSetupConfig,
-      gamePartyCharacterIds: updatedPartyIds,
-      gameCharacterCards: updatedCards,
+    // Merge this recruit into the freshest committed party/cards/setup-config from inside the
+    // patchMetadata updater, not the pre-LLM `meta` snapshot. The recruit-card LLM call above can
+    // take several seconds, and a concurrent /party/recruit or /party/remove on the same chat may
+    // commit during that window. Re-reading gamePartyCharacterIds / gameCharacterCards /
+    // gameSetupConfig from the queue-serialized `current` metadata keeps that concurrent change
+    // from being reverted by this blob-level write (#2627, residual concurrency facet of #2613).
+    // The denormalized characterIds mirror rides in the same patchMetadataWithCharacterIds critical
+    // section as the metadata patch, so both are written under the per-chat queue and the returned
+    // chat reflects both — a concurrent party op can neither interleave between the two writes nor
+    // leave characterIds out of sync with the queued-final gamePartyCharacterIds.
+    // `added` reflects the fresh party state inside the queue, not the pre-LLM `alreadyInParty`
+    // snapshot, so a concurrent recruit of the same member during the LLM window is reported honestly.
+    let added = false;
+    const updatedSession = await chats.patchMetadataWithCharacterIds(chat.id, (current) => {
+      const { patch, mergedChatCharacterIds, added: didAdd } = mergeRecruitIntoGameMetadata({
+        current,
+        recruitId,
+        recruitName,
+        nextCard,
+        existingCardIndex,
+        fallbackSetupConfig: setupConfig,
+        chatCharacterIds,
+      });
+      added = didAdd;
+      return { metadata: patch, characterIds: mergedChatCharacterIds };
     });
     if (!updatedSession) throw new Error("Failed to update game session");
 
     return {
       sessionChat: updatedSession,
-      added: !alreadyInParty,
+      added,
       characterName: recruitName,
       cardCreated: existingCardIndex < 0,
     };
@@ -4938,18 +5305,22 @@ export async function gameRoutes(app: FastifyInstance) {
     }
 
     const removed = matches[0]!;
-    const updatedPartyIds = currentPartyIds.filter((id) => id !== removed.id);
-    const updatedSetupConfig: GameSetupConfig = {
-      ...setupConfig,
-      partyCharacterIds: updatedPartyIds,
-    };
-    const updatedChatCharacterIds = updatedPartyIds.filter((id) => !isPartyNpcId(id));
-    await chats.update(chat.id, { characterIds: updatedChatCharacterIds });
-    const updatedSession = await chats.updateMetadata(chat.id, {
-      ...meta,
-      gameSetupConfig: updatedSetupConfig,
-      gamePartyCharacterIds: updatedPartyIds,
-      gameCharacterCards: currentCards,
+    // Apply the prune against the freshest committed party inside the patchMetadata updater rather than
+    // the request-time snapshot, so a concurrent /party/recruit (or another /party/remove) committed
+    // during this handler is not reverted by a stale blob write. gameCharacterCards is left untouched —
+    // removing a member never deletes its card — which also preserves a concurrent recruit's freshly
+    // added card (#2627, residual concurrency facet of #2613).
+    // The characterIds mirror rides in the same patchMetadataWithCharacterIds critical section as the
+    // metadata patch, so both writes are serialized under the per-chat queue and the returned chat
+    // reflects both.
+    const updatedSession = await chats.patchMetadataWithCharacterIds(chat.id, (current) => {
+      const { patch, mergedChatCharacterIds } = removeMemberFromGameMetadata({
+        current,
+        removedId: removed.id,
+        fallbackSetupConfig: setupConfig,
+        chatCharacterIds,
+      });
+      return { metadata: patch, characterIds: mergedChatCharacterIds };
     });
     if (!updatedSession) throw new Error("Failed to update game session");
 
@@ -5058,7 +5429,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const currentMorale = (meta.gameMorale as number) ?? 50;
     const result = applyMoraleEvent(currentMorale, input.event as MoraleEvent);
 
-    await chats.updateMetadata(input.chatId, { ...meta, ...buildMoraleMetadataUpdates(meta, result.value) });
+    await chats.patchMetadata(input.chatId, (freshMeta) => buildMoraleMetadataUpdates(freshMeta, result.value));
 
     return { morale: result };
   });
@@ -5075,7 +5446,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const currentState = (meta.gameActiveState as GameActiveState) || "exploration";
     const validatedState = validateTransition(currentState, newState);
 
-    await chats.updateMetadata(chatId, { ...meta, gameActiveState: validatedState });
+    await chats.patchMetadata(chatId, () => ({ gameActiveState: validatedState }));
 
     // Push OOC influence for combat transitions (exciting events)
     if (validatedState === "combat" && chat.connectedChatId) {
@@ -5141,9 +5512,14 @@ export async function gameRoutes(app: FastifyInstance) {
 
     const result = await provider.chatComplete(
       messages,
-      gameGenOptions(conn.model, {
-        temperature: 0.6,
-      }),
+      gameGenOptions(
+        conn.model,
+        {
+          temperature: 0.6,
+        },
+        null,
+        conn.provider,
+      ),
     );
     const mapExtraction = extractLeadingThinkingBlocks(result.content ?? "");
     const mapContent = mapExtraction.content;
@@ -5628,7 +6004,7 @@ export async function gameRoutes(app: FastifyInstance) {
         break;
     }
 
-    await chats.updateMetadata(chatId, { ...meta, gameJournal: journal });
+    await chats.patchMetadata(chatId, () => ({ gameJournal: journal }));
 
     return { journal };
   });
@@ -5659,21 +6035,36 @@ export async function gameRoutes(app: FastifyInstance) {
     const chat = await chats.getById(req.params.chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const meta = parseMeta(chat.metadata);
-    await chats.updateMetadata(req.params.chatId, { ...meta, gamePlayerNotes: notes });
+    await chats.patchMetadata(req.params.chatId, () => ({ gamePlayerNotes: notes }));
 
     return { ok: true };
   });
 
   // ── PUT /game/:chatId/widgets ──
   app.put<{ Params: { chatId: string } }>("/:chatId/widgets", async (req) => {
-    const { widgets } = z.object({ widgets: z.array(z.record(z.unknown())) }).parse(req.body);
+    const { widgets: rawWidgets } = z.object({ widgets: z.array(hudWidgetSchema).max(MAX_GAME_HUD_WIDGETS) }).parse(req.body);
+    const widgets = sanitizeGameHudWidgets(rawWidgets);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(req.params.chatId);
     if (!chat) throw new Error("Chat not found");
 
-    const meta = parseMeta(chat.metadata);
-    await chats.updateMetadata(req.params.chatId, { ...meta, gameWidgetState: widgets });
+    const enableCustomWidgets = widgets.length > 0;
+    await chats.patchMetadata(req.params.chatId, (freshMeta) => {
+      const setupConfig = (freshMeta.gameSetupConfig as GameSetupConfig | null) ?? null;
+      return {
+        gameWidgetState: widgets,
+        enableCustomWidgets,
+        ...(setupConfig
+          ? {
+              gameSetupConfig: {
+                ...setupConfig,
+                enableCustomWidgets,
+                customHudWidgets: widgets.length > 0 ? widgets : undefined,
+              },
+            }
+          : {}),
+      };
+    });
 
     return { ok: true };
   });
@@ -5742,7 +6133,7 @@ export async function gameRoutes(app: FastifyInstance) {
         const charRow = await chars.getById(charId);
         if (!charRow) continue;
         const charData = typeof charRow.data === "string" ? JSON.parse(charRow.data) : charRow.data;
-        const description = getCharacterDescriptionWithExtensions(charData);
+        const description = typeof charData.description === "string" ? charData.description : "";
         const card = [
           `Name: ${charData.name}`,
           charData.personality ? `Personality: ${charData.personality}` : null,
@@ -5841,22 +6232,6 @@ export async function gameRoutes(app: FastifyInstance) {
         /* ignore */
       }
     }
-    const partyPromptMacroContext = await buildPromptMacroContext({
-      db: app.db,
-      characterIds: partyCharIds.filter((id) => !isPartyNpcId(id)),
-      personaName: playerName,
-      variables: {},
-      lastInput: input.playerAction || input.narration,
-      chatId: input.chatId,
-      model: conn.model,
-    });
-    const resolvePartyPromptMacros = (value: string) =>
-      resolveMacros(value, {
-        ...partyPromptMacroContext,
-        char: partyCards[0]?.name ?? partyPromptMacroContext.char,
-        characters: partyCards.map((card) => card.name),
-      });
-
     let systemPrompt = buildPartySystemPrompt({
       partyCards,
       playerName,
@@ -5864,13 +6239,6 @@ export async function gameRoutes(app: FastifyInstance) {
       partyArcs: (meta.gamePartyArcs as PartyArc[]) || undefined,
       characterSprites: listPartySprites(partyIdNamePairs),
     });
-
-    const gameExtraPrompt = resolvePartyPromptMacros(
-      ((meta.gameExtraPrompt as string) || "").replace(/<\/?special_instructions>/gi, ""),
-    );
-    if (gameExtraPrompt) {
-      systemPrompt += `\n\n<special_instructions>\n${gameExtraPrompt}\n</special_instructions>`;
-    }
 
     // Build user prompt with context
     const userPrompt = [
@@ -5904,9 +6272,13 @@ export async function gameRoutes(app: FastifyInstance) {
           maxTokens: 8192,
         },
         gameGenerationParameters,
+        conn.provider,
       ),
     );
-    const partyTurnExtraction = extractLeadingThinkingBlocks(result.content || "");
+    const partyTurnExtraction = extractLeadingThinkingBlocks(
+      result.content || "",
+      gameGenerationParameters?.customThinkingTags,
+    );
     const raw = partyTurnExtraction.content;
     const requestDebug = input.debugMode === true;
     const debugOverrideEnabled = requestDebug || isDebugAgentsEnabled();
@@ -6094,8 +6466,12 @@ export async function gameRoutes(app: FastifyInstance) {
       currentSpotifyTrack: z.string().max(300).nullable().optional().default(null),
       recentSpotifyTracks: z.array(z.string().max(300)).max(20).optional().default([]),
       currentAmbient: z.string().nullable().optional().default(null),
+      currentLocation: z.string().nullable().optional().default(null),
       currentWeather: z.string().nullable(),
       currentTimeOfDay: z.string().nullable(),
+      genre: z.string().nullable().optional().default(null),
+      setting: z.string().nullable().optional().default(null),
+      worldOverview: z.string().nullable().optional().default(null),
       canGenerateBackgrounds: z.boolean().optional(),
       canGenerateIllustrations: z.boolean().optional(),
       artStylePrompt: z.string().nullable().optional(),
@@ -6132,6 +6508,9 @@ export async function gameRoutes(app: FastifyInstance) {
     const imgConnId = (meta.gameImageConnectionId as string) || null;
     const setupCfgForScene = meta.gameSetupConfig as Record<string, unknown> | null;
     const artStyleForScene = (setupCfgForScene?.artStylePrompt as string) || "";
+    const latestSceneState = await createGameStateStorage(app.db)
+      .getLatest(input.chatId)
+      .catch(() => null);
     const imagePromptInstructions =
       typeof meta.gameImagePromptInstructions === "string"
         ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
@@ -6149,6 +6528,10 @@ export async function gameRoutes(app: FastifyInstance) {
         enableGen && !!imgConnId && isIllustrationAllowed(meta, approxTurnNumber, sessionNumber),
       artStylePrompt: artStyleForScene || null,
       imagePromptInstructions: imagePromptInstructions || null,
+      currentLocation: input.context.currentLocation ?? latestSceneState?.location ?? null,
+      genre: input.context.genre ?? ((setupCfgForScene?.genre as string | undefined) || null),
+      setting: input.context.setting ?? ((setupCfgForScene?.setting as string | undefined) || null),
+      worldOverview: input.context.worldOverview ?? ((meta.gameWorldOverview as string | undefined) || null),
     };
 
     const systemPrompt = buildSceneAnalyzerSystemPrompt(sceneCtx);
@@ -6205,10 +6588,14 @@ export async function gameRoutes(app: FastifyInstance) {
         responseFormat: { type: "json_object" },
       },
       gameGenerationParameters,
+      conn.provider,
     );
     const result = await provider.chatComplete(messages, sceneWrapOptions);
 
-    let sceneWrapExtraction = extractLeadingThinkingBlocks(result.content || "");
+    let sceneWrapExtraction = extractLeadingThinkingBlocks(
+      result.content || "",
+      gameGenerationParameters?.customThinkingTags,
+    );
     let raw = sceneWrapExtraction.content;
     // Some provider/model combos can still return empty content on the buffered
     // path. Retry once via streamed collection using the same JSON mode.
@@ -6218,7 +6605,7 @@ export async function gameRoutes(app: FastifyInstance) {
       for await (const chunk of provider.chat(messages, { ...sceneWrapOptions, stream: true })) {
         streamed += chunk;
       }
-      sceneWrapExtraction = extractLeadingThinkingBlocks(streamed);
+      sceneWrapExtraction = extractLeadingThinkingBlocks(streamed, gameGenerationParameters?.customThinkingTags);
       raw = sceneWrapExtraction.content;
     }
     if (debugLogsEnabled) {
@@ -6338,11 +6725,17 @@ export async function gameRoutes(app: FastifyInstance) {
             const imgComfyWorkflow = imgConn.comfyuiWorkflow || undefined;
             const imgEndpointId = imgConn.imageEndpointId || undefined;
             const imgDefaults = resolveConnectionImageDefaults(imgConn);
+            const imageSettings = await loadImageGenerationUserSettings(app.db);
+            const styleProfiles = imageSettings.styleProfiles;
 
             const setupCfg = meta.gameSetupConfig as Record<string, unknown> | null;
             const genre = (setupCfg?.genre as string) || "";
             const setting = (setupCfg?.setting as string) || "";
             const artStyle = (setupCfg?.artStylePrompt as string) || "";
+            const styleProfileId =
+              ((setupCfg?.imageStyleProfileId as string | undefined) ??
+                (meta.imageStyleProfileId as string | undefined)) ||
+              null;
 
             const charStore = createCharactersStorage(app.db);
             const allChars = await charStore.list();
@@ -6378,9 +6771,12 @@ export async function gameRoutes(app: FastifyInstance) {
                 charReferenceByName,
                 charAvatarByName,
                 charDescriptionByName,
+                includeReferenceImages: meta.gameImageUseAvatarReferences !== false,
+                includeCharacterDescriptions: meta.gameImageIncludeCharacterAppearance !== false,
               });
               const generatedTag = await generateSceneIllustration({
                 chatId: input.chatId,
+                title: illustration.title,
                 prompt: illustration.prompt,
                 reason: illustration.reason,
                 characters: illustration.characters,
@@ -6399,6 +6795,8 @@ export async function gameRoutes(app: FastifyInstance) {
                 imgEndpointId,
                 imgComfyWorkflow,
                 imgDefaults,
+                styleProfiles,
+                styleProfileId,
                 debugLog: debugLogsEnabled ? debugLog : undefined,
                 promptOverridesStorage: createPromptOverridesStorage(app.db),
               });
@@ -6458,6 +6856,11 @@ export async function gameRoutes(app: FastifyInstance) {
                   sceneDescription: chosenBg.replace(/:/g, " ").replace(/-/g, " "),
                   genre,
                   setting,
+                  currentLocation: latestSceneState?.location ?? null,
+                  currentWeather: latestSceneState?.weather ?? parsed.weather ?? input.context.currentWeather ?? null,
+                  currentTimeOfDay:
+                    latestSceneState?.time ?? parsed.timeOfDay ?? input.context.currentTimeOfDay ?? null,
+                  worldOverview: (meta.gameWorldOverview as string | undefined) ?? null,
                   artStyle,
                   imgSource,
                   imgModel,
@@ -6467,6 +6870,8 @@ export async function gameRoutes(app: FastifyInstance) {
                   imgEndpointId,
                   imgComfyWorkflow,
                   imgDefaults,
+                  styleProfiles,
+                  styleProfileId,
                   debugLog: debugLogsEnabled ? debugLog : undefined,
                   promptOverridesStorage: createPromptOverridesStorage(app.db),
                 });
@@ -6508,6 +6913,11 @@ export async function gameRoutes(app: FastifyInstance) {
                   sceneDescription: segBg.replace(/:/g, " ").replace(/-/g, " "),
                   genre,
                   setting,
+                  currentLocation: latestSceneState?.location ?? null,
+                  currentWeather: latestSceneState?.weather ?? parsed.weather ?? input.context.currentWeather ?? null,
+                  currentTimeOfDay:
+                    latestSceneState?.time ?? parsed.timeOfDay ?? input.context.currentTimeOfDay ?? null,
+                  worldOverview: (meta.gameWorldOverview as string | undefined) ?? null,
                   artStyle,
                   imgSource,
                   imgModel,
@@ -6517,6 +6927,8 @@ export async function gameRoutes(app: FastifyInstance) {
                   imgEndpointId,
                   imgComfyWorkflow,
                   imgDefaults,
+                  styleProfiles,
+                  styleProfileId,
                   debugLog: debugLogsEnabled ? debugLog : undefined,
                   promptOverridesStorage: createPromptOverridesStorage(app.db),
                 });
@@ -6541,13 +6953,19 @@ export async function gameRoutes(app: FastifyInstance) {
               input.context.characterNames ?? [],
               input.narration,
             );
-            const libResolvedNpcs: Array<{ name: string; description: string; avatarUrl: string }> = [];
+            const libResolvedNpcs: SceneAssetNpcAvatarEntry[] = [];
             for (const npc of npcs) {
               if (!npc.name) continue;
               const libAvatar = findCharAvatarFuzzy(npc.name, charAvatarByName);
               if (libAvatar && npc.avatarUrl !== libAvatar) {
                 npc.avatarUrl = libAvatar;
-                libResolvedNpcs.push({ name: npc.name, description: npc.description, avatarUrl: libAvatar });
+                libResolvedNpcs.push({
+                  name: npc.name,
+                  description: npc.description,
+                  gender: npc.gender,
+                  pronouns: npc.pronouns,
+                  avatarUrl: libAvatar,
+                });
               }
             }
 
@@ -6623,6 +7041,7 @@ export async function gameRoutes(app: FastifyInstance) {
       z.object({
         id: z.string().min(1).max(200),
         prompt: z.string().min(1).max(5000),
+        negativePrompt: z.string().max(5000).optional(),
       }),
     )
     .max(32)
@@ -6637,6 +7056,8 @@ export async function gameRoutes(app: FastifyInstance) {
         z.object({
           name: z.string().min(1).max(200),
           description: z.string().max(1000),
+          gender: z.string().max(80).nullable().optional(),
+          pronouns: z.string().max(80).nullable().optional(),
         }),
       )
       .max(10)
@@ -6646,6 +7067,7 @@ export async function gameRoutes(app: FastifyInstance) {
       .object({
         segment: z.number().int().min(0).max(500).optional(),
         prompt: z.string().min(40).max(1200),
+        title: z.string().max(160).optional(),
         characters: z.array(z.string().min(1).max(200)).max(6).optional(),
         reason: z.string().max(300).optional(),
         slug: z.string().max(80).optional(),
@@ -6653,6 +7075,8 @@ export async function gameRoutes(app: FastifyInstance) {
       .optional(),
     imageSizes: imageSizesSchema,
     promptOverrides: imagePromptOverrideSchema,
+    useAvatarReferences: z.boolean().optional(),
+    includeCharacterAppearance: z.boolean().optional(),
     debugMode: z.boolean().optional().default(false),
   });
 
@@ -6675,6 +7099,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const backgroundSize: ImageGenerationSize = input.imageSizes?.background ?? imageSettings.background;
     const portraitSize: ImageGenerationSize = input.imageSizes?.portrait ?? imageSettings.portrait;
+    const styleProfiles = imageSettings.styleProfiles;
 
     const imgModel = imgConn.model || "";
     const imgBaseUrl = imgConn.baseUrl || "https://image.pollinations.ai";
@@ -6685,33 +7110,54 @@ export async function gameRoutes(app: FastifyInstance) {
     const imgEndpointId = imgConn.imageEndpointId || undefined;
     const imgDefaults = resolveConnectionImageDefaults(imgConn);
     const promptOverridesStorage = createPromptOverridesStorage(app.db);
+    const promptOverrideById = new Map(
+      (input.promptOverrides ?? []).map((item) => [
+        item.id,
+        { prompt: item.prompt.trim(), negativePrompt: item.negativePrompt?.trim() || undefined },
+      ]),
+    );
 
     const setupCfg = meta.gameSetupConfig as Record<string, unknown> | null;
     const genre = (setupCfg?.genre as string) || "";
     const setting = (setupCfg?.setting as string) || "";
     const artStyle = (setupCfg?.artStylePrompt as string) || "";
+    const styleProfileId =
+      ((setupCfg?.imageStyleProfileId as string | undefined) ?? (meta.imageStyleProfileId as string | undefined)) ||
+      null;
     const imagePromptInstructions =
       typeof meta.gameImagePromptInstructions === "string"
         ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
         : "";
+    const useAvatarReferences = input.useAvatarReferences ?? (meta.gameImageUseAvatarReferences !== false);
+    const includeCharacterAppearance =
+      input.includeCharacterAppearance ?? (meta.gameImageIncludeCharacterAppearance !== false);
+    const latestImageState = await createGameStateStorage(app.db)
+      .getLatest(input.chatId)
+      .catch(() => null);
 
     const items: Array<{
       id: string;
       kind: "background" | "illustration" | "portrait";
       title: string;
       prompt: string;
+      negativePrompt?: string;
       width: number;
       height: number;
     }> = [];
 
     if (input.backgroundTag) {
       const slug = generatedBackgroundSlug(input.backgroundTag);
-      const prompt = await buildBackgroundImagePrompt({
+      const promptOverride = promptOverrideById.get(gameImagePromptReviewId("background", slug));
+      const compiledReviewPrompt = await buildBackgroundProviderPrompt({
         chatId: input.chatId,
         locationSlug: slug,
         sceneDescription: input.backgroundTag.replace(/:/g, " ").replace(/-/g, " "),
         genre,
         setting,
+        currentLocation: latestImageState?.location ?? null,
+        currentWeather: latestImageState?.weather ?? null,
+        currentTimeOfDay: latestImageState?.time ?? null,
+        worldOverview: (meta.gameWorldOverview as string | undefined) ?? null,
         artStyle,
         imgSource,
         imgModel,
@@ -6721,14 +7167,19 @@ export async function gameRoutes(app: FastifyInstance) {
         imgEndpointId,
         imgComfyWorkflow,
         imgDefaults,
+        styleProfiles,
+        styleProfileId,
         promptOverridesStorage,
         size: backgroundSize,
+        promptOverride: promptOverride?.prompt,
+        negativePromptOverride: promptOverride?.negativePrompt,
       });
       items.push({
         id: gameImagePromptReviewId("background", slug),
         kind: "background",
         title: `Background: ${slug}`,
-        prompt,
+        prompt: compiledReviewPrompt.prompt,
+        negativePrompt: compiledReviewPrompt.negativePrompt,
         width: backgroundSize.width,
         height: backgroundSize.height,
       });
@@ -6764,6 +7215,8 @@ export async function gameRoutes(app: FastifyInstance) {
         }
 
         const illustration = input.illustration as SceneIllustrationRequest;
+        const illustrationKey = illustration.slug || illustration.reason || illustration.prompt.slice(0, 80);
+        const promptOverride = promptOverrideById.get(gameImagePromptReviewId("illustration", illustrationKey));
         const illustrationAssets = collectIllustrationCharacterAssets({
           illustration,
           characterNames: illustration.characters ?? [],
@@ -6772,9 +7225,12 @@ export async function gameRoutes(app: FastifyInstance) {
           charReferenceByName,
           charAvatarByName,
           charDescriptionByName,
+          includeReferenceImages: useAvatarReferences,
+          includeCharacterDescriptions: includeCharacterAppearance,
         });
-        const prompt = await buildSceneIllustrationImagePrompt({
+        const compiledReviewPrompt = await buildSceneIllustrationProviderPrompt({
           chatId: input.chatId,
+          title: illustration.title,
           prompt: illustration.prompt,
           reason: illustration.reason,
           characters: illustration.characters,
@@ -6793,15 +7249,19 @@ export async function gameRoutes(app: FastifyInstance) {
           imgEndpointId,
           imgComfyWorkflow,
           imgDefaults,
+          styleProfiles,
+          styleProfileId,
           promptOverridesStorage,
           size: backgroundSize,
+          promptOverride: promptOverride?.prompt,
+          negativePromptOverride: promptOverride?.negativePrompt,
         });
-        const illustrationKey = illustration.slug || illustration.reason || illustration.prompt.slice(0, 80);
         items.push({
           id: gameImagePromptReviewId("illustration", illustrationKey),
           kind: "illustration",
           title: illustration.reason ? `Illustration: ${illustration.reason}` : "Scene illustration",
-          prompt,
+          prompt: compiledReviewPrompt.prompt,
+          negativePrompt: compiledReviewPrompt.negativePrompt,
           width: backgroundSize.width,
           height: backgroundSize.height,
         });
@@ -6848,11 +7308,16 @@ export async function gameRoutes(app: FastifyInstance) {
         const forceNpcAvatar = forceNpcAvatarNames.has(normalizedNpcName);
         if (!forceNpcAvatar && existingNpcAvatarByName.get(normalizedNpcName)) continue;
         if (!forceNpcAvatar && findCharAvatarFuzzy(npc.name, charAvatarByName)) continue;
+        const metadataNpc = findNpcRecordByName(currentNpcs, npc.name);
+        const presentCharacter = findRecordByName(presentCharacters, npc.name);
+        const promptOverride = promptOverrideById.get(gameImagePromptReviewId("portrait", npc.name));
 
-        const prompt = await buildNpcPortraitImagePrompt({
+        const compiledReviewPrompt = await buildNpcPortraitProviderPrompt({
           chatId: input.chatId,
           npcName: npc.name,
           appearance: npc.description,
+          gender: npc.gender ?? metadataNpc?.gender ?? optionalTrimmedString(presentCharacter?.gender),
+          pronouns: npc.pronouns ?? metadataNpc?.pronouns ?? optionalTrimmedString(presentCharacter?.pronouns),
           artStyle,
           imgSource,
           imgModel,
@@ -6862,14 +7327,19 @@ export async function gameRoutes(app: FastifyInstance) {
           imgEndpointId,
           imgComfyWorkflow,
           imgDefaults,
+          styleProfiles,
+          styleProfileId,
           promptOverridesStorage,
           size: portraitSize,
+          promptOverride: promptOverride?.prompt,
+          negativePromptOverride: promptOverride?.negativePrompt,
         });
         items.push({
           id: gameImagePromptReviewId("portrait", npc.name),
           kind: "portrait",
           title: `Portrait: ${npc.name}`,
-          prompt,
+          prompt: compiledReviewPrompt.prompt,
+          negativePrompt: compiledReviewPrompt.negativePrompt,
           width: portraitSize.width,
           height: portraitSize.height,
         });
@@ -6905,6 +7375,8 @@ export async function gameRoutes(app: FastifyInstance) {
             backgroundTag: input.backgroundTag ?? null,
             npcsNeedingAvatars: input.npcsNeedingAvatars ?? [],
             illustration: input.illustration ?? null,
+            useAvatarReferences: input.useAvatarReferences ?? null,
+            includeCharacterAppearance: input.includeCharacterAppearance ?? null,
           },
           null,
           2,
@@ -6957,14 +7429,29 @@ export async function gameRoutes(app: FastifyInstance) {
     const genre = (setupCfg?.genre as string) || "";
     const setting = (setupCfg?.setting as string) || "";
     const artStyle = (setupCfg?.artStylePrompt as string) || "";
+    const styleProfileId =
+      ((setupCfg?.imageStyleProfileId as string | undefined) ?? (meta.imageStyleProfileId as string | undefined)) ||
+      null;
     const imagePromptInstructions =
       typeof meta.gameImagePromptInstructions === "string"
         ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
         : "";
+    const useAvatarReferences = input.useAvatarReferences ?? (meta.gameImageUseAvatarReferences !== false);
+    const includeCharacterAppearance =
+      input.includeCharacterAppearance ?? (meta.gameImageIncludeCharacterAppearance !== false);
+    const latestImageState = await createGameStateStorage(app.db)
+      .getLatest(input.chatId)
+      .catch(() => null);
     const imageSettings = await loadImageGenerationUserSettings(app.db);
     const backgroundSize: ImageGenerationSize = input.imageSizes?.background ?? imageSettings.background;
     const portraitSize: ImageGenerationSize = input.imageSizes?.portrait ?? imageSettings.portrait;
-    const promptOverrideById = new Map((input.promptOverrides ?? []).map((item) => [item.id, item.prompt.trim()]));
+    const styleProfiles = imageSettings.styleProfiles;
+    const promptOverrideById = new Map(
+      (input.promptOverrides ?? []).map((item) => [
+        item.id,
+        { prompt: item.prompt.trim(), negativePrompt: item.negativePrompt?.trim() || undefined },
+      ]),
+    );
 
     let generatedBackground: string | null = null;
     let fallbackBackground: string | null = null;
@@ -6982,6 +7469,10 @@ export async function gameRoutes(app: FastifyInstance) {
         sceneDescription: input.backgroundTag.replace(/:/g, " ").replace(/-/g, " "),
         genre,
         setting,
+        currentLocation: latestImageState?.location ?? null,
+        currentWeather: latestImageState?.weather ?? null,
+        currentTimeOfDay: latestImageState?.time ?? null,
+        worldOverview: (meta.gameWorldOverview as string | undefined) ?? null,
         artStyle,
         imgSource,
         imgModel,
@@ -6991,10 +7482,13 @@ export async function gameRoutes(app: FastifyInstance) {
         imgEndpointId,
         imgComfyWorkflow,
         imgDefaults,
+        styleProfiles,
+        styleProfileId,
         debugLog: debugLogsEnabled ? debugLog : undefined,
         promptOverridesStorage: createPromptOverridesStorage(app.db),
         size: backgroundSize,
-        promptOverride,
+        promptOverride: promptOverride?.prompt,
+        negativePromptOverride: promptOverride?.negativePrompt,
       });
       if (tag) {
         generatedBackground = tag;
@@ -7058,9 +7552,12 @@ export async function gameRoutes(app: FastifyInstance) {
           charReferenceByName,
           charAvatarByName,
           charDescriptionByName,
+          includeReferenceImages: useAvatarReferences,
+          includeCharacterDescriptions: includeCharacterAppearance,
         });
         const tag = await generateSceneIllustration({
           chatId: input.chatId,
+          title: illustration.title,
           prompt: illustration.prompt,
           reason: illustration.reason,
           characters: illustration.characters,
@@ -7079,10 +7576,13 @@ export async function gameRoutes(app: FastifyInstance) {
           imgEndpointId,
           imgComfyWorkflow,
           imgDefaults,
+          styleProfiles,
+          styleProfileId,
           debugLog: debugLogsEnabled ? debugLog : undefined,
           promptOverridesStorage: createPromptOverridesStorage(app.db),
           size: backgroundSize,
-          promptOverride,
+          promptOverride: promptOverride?.prompt,
+          negativePromptOverride: promptOverride?.negativePrompt,
         });
 
         if (tag) {
@@ -7165,10 +7665,14 @@ export async function gameRoutes(app: FastifyInstance) {
           generatedNpcAvatars.push({ name: npc.name, avatarUrl: libAvatar });
           continue;
         }
+        const metadataNpc = findNpcRecordByName(currentNpcs, npc.name);
+        const presentCharacter = findRecordByName(presentCharacters, npc.name);
         const avatarUrl = await generateNpcPortrait({
           chatId: input.chatId,
           npcName: npc.name,
           appearance: npc.description,
+          gender: npc.gender ?? metadataNpc?.gender ?? optionalTrimmedString(presentCharacter?.gender),
+          pronouns: npc.pronouns ?? metadataNpc?.pronouns ?? optionalTrimmedString(presentCharacter?.pronouns),
           artStyle,
           imgSource,
           imgModel,
@@ -7178,10 +7682,13 @@ export async function gameRoutes(app: FastifyInstance) {
           imgEndpointId,
           imgComfyWorkflow,
           imgDefaults,
+          styleProfiles,
+          styleProfileId,
           debugLog: debugLogsEnabled ? debugLog : undefined,
           promptOverridesStorage: createPromptOverridesStorage(app.db),
           size: portraitSize,
-          promptOverride: promptOverrideById.get(gameImagePromptReviewId("portrait", npc.name)),
+          promptOverride: promptOverrideById.get(gameImagePromptReviewId("portrait", npc.name))?.prompt,
+          negativePromptOverride: promptOverrideById.get(gameImagePromptReviewId("portrait", npc.name))?.negativePrompt,
           force: forceNpcAvatar,
         });
         if (avatarUrl) {
@@ -7197,10 +7704,16 @@ export async function gameRoutes(app: FastifyInstance) {
         if (latestChat) {
           const avatarEntries: SceneAssetNpcAvatarEntry[] = generatedNpcAvatars.map((generatedAvatar) => ({
             ...generatedAvatar,
-            description:
-              input.npcsNeedingAvatars?.find(
+            ...(() => {
+              const candidate = input.npcsNeedingAvatars?.find(
                 (npc) => normalizeJournalMatch(npc.name) === normalizeJournalMatch(generatedAvatar.name),
-              )?.description ?? "",
+              );
+              return {
+                description: candidate?.description ?? "",
+                gender: candidate?.gender,
+                pronouns: candidate?.pronouns,
+              };
+            })(),
           }));
           const nextNpcs = upsertGameNpcAvatarEntries(currentNpcs, avatarEntries);
           if (nextNpcs !== currentNpcs) {
@@ -7320,29 +7833,37 @@ export async function gameRoutes(app: FastifyInstance) {
     });
     if (!restoreMsg) throw new Error("Failed to create restore message");
 
-    // Clone the snapshot state onto the new message
-    await stateStore.create({
-      chatId: input.chatId,
-      messageId: restoreMsg.id,
-      swipeIndex: 0,
-      date: snapshot.date,
-      time: snapshot.time,
-      location: snapshot.location,
-      weather: snapshot.weather,
-      temperature: snapshot.temperature,
-      presentCharacters: JSON.parse((snapshot.presentCharacters as string) ?? "[]"),
-      recentEvents: JSON.parse((snapshot.recentEvents as string) ?? "[]"),
-      playerStats: snapshot.playerStats ? JSON.parse(snapshot.playerStats as string) : null,
-      personaStats: snapshot.personaStats ? JSON.parse(snapshot.personaStats as string) : null,
-      committed: true,
-    });
+    // Clone the snapshot state onto the new message, preserving tracker field
+    // locks and manual overrides so they keep protecting fields after a restore.
+    // Tolerant parse: malformed JSON must not throw after the restore message is
+    // already created, and an object value (not a string) must not be dropped.
+    const manualOverrides = parseJsonField<Record<string, string> | null>(snapshot.manualOverrides, null);
+    await stateStore.create(
+      {
+        chatId: input.chatId,
+        messageId: restoreMsg.id,
+        swipeIndex: 0,
+        date: snapshot.date,
+        time: snapshot.time,
+        location: snapshot.location,
+        weather: snapshot.weather,
+        temperature: snapshot.temperature,
+        presentCharacters: parseJsonField(snapshot.presentCharacters, []),
+        recentEvents: parseJsonField(snapshot.recentEvents, []),
+        playerStats: parseJsonField(snapshot.playerStats, null),
+        personaStats: parseJsonField(snapshot.personaStats, null),
+        fieldLocks: parseTrackerFieldLocks(snapshot.fieldLocks),
+        committed: true,
+      },
+      manualOverrides,
+    );
 
     // Restore chat metadata fields from checkpoint
     const chat = await chats.getById(input.chatId);
-    if (chat) {
-      const meta = parseMeta(chat.metadata);
-      if (cp.gameState) meta.gameActiveState = cp.gameState as GameActiveState;
-      await chats.updateMetadata(input.chatId, meta);
+    if (chat && cp.gameState) {
+      await chats.patchMetadata(input.chatId, () => ({
+        gameActiveState: cp.gameState as GameActiveState,
+      }));
     }
 
     return { ok: true, messageId: restoreMsg.id };

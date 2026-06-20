@@ -25,6 +25,7 @@ import { parseCharacterDisplayData } from "../../../lib/character-display";
 import type { TTSConfig, TTSSource, TTSVoiceAssignment, TTSVoiceMode, TTSAudioFormat } from "@marinara-engine/shared";
 import { ELEVENLABS_TTS_LANGUAGE_OPTIONS, TTS_API_KEY_MASK } from "@marinara-engine/shared";
 import { HelpTooltip } from "../../ui/HelpTooltip";
+import { SettingsCheckbox, SettingsSwitch } from "./SettingControls";
 
 // ── Sub-components ───────────────────────────────
 
@@ -220,15 +221,7 @@ function sameStringSet(left: string[], right: string[]): boolean {
 
 function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between rounded-lg p-1.5 transition-colors hover:bg-[var(--secondary)]/50">
-      <span className="text-xs">{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-3.5 w-3.5 rounded border-[var(--border)] accent-rose-400"
-      />
-    </label>
+    <SettingsCheckbox label={label} checked={checked} onChange={onChange} align="between" />
   );
 }
 
@@ -262,7 +255,7 @@ function NpcDefaultVoicePool({
                 type="checkbox"
                 checked={selected.includes(option.id)}
                 onChange={(e) => onToggle(option.id, e.target.checked)}
-                className="h-3 w-3 shrink-0 rounded border-[var(--border)] accent-rose-400"
+                className="h-3 w-3 shrink-0 rounded border-[var(--border)] accent-[var(--primary)]"
               />
               <span className="truncate">{option.name === option.id ? option.id : option.name}</span>
             </label>
@@ -665,13 +658,13 @@ export function TTSConfigCard() {
   return (
     <div
       className={cn(
-        "rounded-xl border border-rose-400/20 bg-gradient-to-br from-rose-500/5 to-orange-500/5 p-3 transition-all",
-        expanded && "border-rose-400/30",
+        "rounded-xl border border-sky-400/20 bg-gradient-to-br from-sky-400/5 to-blue-500/5 p-3 transition-all",
+        expanded && "border-sky-400/30",
       )}
     >
       {/* ── Header ── */}
       <div className="flex items-center gap-2.5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-400 to-orange-500 text-white shadow-sm">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-500 text-white shadow-sm">
           <Volume2 size="1rem" />
         </div>
 
@@ -686,22 +679,18 @@ export function TTSConfigCard() {
 
         <div className="flex items-center gap-1.5">
           {/* Enable toggle */}
-          <label className="flex cursor-pointer items-center gap-1.5" title={enabled ? "Disable TTS" : "Enable TTS"}>
-            <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{enabled ? "On" : "Off"}</span>
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => {
-                  setEnabled(e.target.checked);
-                  mark({ enabled: e.target.checked });
-                }}
-                className="peer sr-only"
-              />
-              <div className="h-5 w-9 rounded-full bg-[var(--border)] transition-colors peer-checked:bg-rose-400/70" />
-              <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
-            </div>
-          </label>
+          <SettingsSwitch
+            label={enabled ? "On" : "Off"}
+            checked={enabled}
+            onChange={(checked) => {
+              setEnabled(checked);
+              mark({ enabled: checked });
+            }}
+            title={enabled ? "Disable TTS" : "Enable TTS"}
+            labelPosition="start"
+            className="gap-1.5 rounded-lg p-1 hover:bg-[var(--secondary)]"
+            labelClassName="text-[0.6875rem] text-[var(--muted-foreground)]"
+          />
 
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -743,7 +732,7 @@ export function TTSConfigCard() {
             }
           >
             <div className="relative">
-              <Globe size="0.875rem" className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400" />
+              <Globe size="0.875rem" className="absolute left-3 top-1/2 -translate-y-1/2 text-sky-400" />
               <input
                 value={baseUrl}
                 onChange={(e) => {
@@ -762,7 +751,7 @@ export function TTSConfigCard() {
             help="Your API key for the TTS provider. Encrypted at rest. Keep the masked value to preserve the current key, or clear the field to remove it."
           >
             <div className="relative">
-              <Key size="0.875rem" className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400" />
+              <Key size="0.875rem" className="absolute left-3 top-1/2 -translate-y-1/2 text-sky-400" />
               <input
                 value={apiKey}
                 onChange={(e) => {
@@ -1137,7 +1126,7 @@ export function TTSConfigCard() {
                 setSpeed(parseFloat(e.target.value));
                 mark({ speed: parseFloat(e.target.value) });
               }}
-              className="w-full accent-rose-400"
+              className="w-full accent-[var(--primary)]"
             />
             <div className="flex justify-between text-[0.6rem] text-[var(--muted-foreground)]">
               <span>0.25×</span>
@@ -1190,7 +1179,7 @@ export function TTSConfigCard() {
                   setElevenLabsStability(next);
                   mark({ elevenLabsStability: next });
                 }}
-                className="w-full accent-rose-400"
+                className="w-full accent-[var(--primary)]"
               />
               <div className="flex justify-between text-[0.6rem] text-[var(--muted-foreground)]">
                 <span>Creative</span>
@@ -1246,8 +1235,8 @@ export function TTSConfigCard() {
               className={cn(
                 "flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs ring-1 transition-all",
                 ttsState === "playing"
-                  ? "bg-rose-500/10 text-rose-400 ring-rose-400/30 hover:bg-rose-500/20"
-                  : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:text-[var(--foreground)] hover:ring-rose-400/60",
+                  ? "bg-sky-500/10 text-sky-400 ring-sky-400/30 hover:bg-sky-500/20"
+                  : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-[var(--border)] hover:text-[var(--foreground)] hover:ring-sky-400/60",
                 previewDisabled && "cursor-not-allowed opacity-50",
               )}
               title={previewTitle}

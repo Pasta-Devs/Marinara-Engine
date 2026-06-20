@@ -26,9 +26,13 @@ import {
   Trash2,
   Plus,
   Minus,
+  Upload,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { HelpTooltip } from "../ui/HelpTooltip";
+import { createFolderEntry } from "@marinara-engine/shared";
 
 const EXEC_TYPES = [
   { value: "static", label: "Static Result", icon: FileText, description: "Returns a fixed string when called." },
@@ -67,6 +71,7 @@ export function ToolEditor() {
   const [localWebhookUrl, setLocalWebhookUrl] = useState("");
   const [localStaticResult, setLocalStaticResult] = useState("");
   const [localScriptBody, setLocalScriptBody] = useState("");
+  const [localIncludeHiddenContext, setLocalIncludeHiddenContext] = useState(false);
   const [localParams, setLocalParams] = useState<ParamDef[]>([]);
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
@@ -85,6 +90,7 @@ export function ToolEditor() {
       setLocalWebhookUrl(dbTool.webhookUrl ?? "");
       setLocalStaticResult(dbTool.staticResult ?? "");
       setLocalScriptBody(dbTool.scriptBody ?? "");
+      setLocalIncludeHiddenContext(dbTool.includeHiddenContext === "true" || dbTool.includeHiddenContext === "1");
       // Parse params from schema
       try {
         const schema = JSON.parse(dbTool.parametersSchema || "{}");
@@ -111,6 +117,7 @@ export function ToolEditor() {
       setLocalWebhookUrl("");
       setLocalStaticResult("");
       setLocalScriptBody("");
+      setLocalIncludeHiddenContext(false);
       setLocalParams([]);
     }
     setDirty(false);
@@ -139,6 +146,8 @@ export function ToolEditor() {
     }
     return { type: "object", properties, required };
   }, [localParams]);
+
+  const currentEnabled = dbTool ? dbTool.enabled === "true" || dbTool.enabled === "1" : true;
 
   const handleSave = useCallback(async () => {
     if (!toolDetailId) return;
@@ -169,7 +178,8 @@ export function ToolEditor() {
       webhookUrl: localExecType === "webhook" ? localWebhookUrl || null : null,
       staticResult: localExecType === "static" ? localStaticResult || null : null,
       scriptBody: localExecType === "script" ? localScriptBody || null : null,
-      enabled: true,
+      includeHiddenContext: localIncludeHiddenContext,
+      enabled: currentEnabled,
     };
 
     try {
@@ -193,12 +203,56 @@ export function ToolEditor() {
     localWebhookUrl,
     localStaticResult,
     localScriptBody,
+    localIncludeHiddenContext,
     dbTool,
+    currentEnabled,
     createTool,
     updateTool,
     buildParamsSchema,
     openToolDetail,
     scriptToolsEnabled,
+  ]);
+
+  const handleExport = useCallback(() => {
+    const config = {
+      name: localName,
+      description: localDesc,
+      parametersSchema: buildParamsSchema(),
+      executionType: localExecType,
+      webhookUrl: localExecType === "webhook" ? localWebhookUrl || null : null,
+      staticResult: localExecType === "static" ? localStaticResult || null : null,
+      scriptBody: localExecType === "script" ? localScriptBody || null : null,
+      includeHiddenContext: localIncludeHiddenContext,
+      enabled: currentEnabled,
+    };
+    downloadJsonFile(
+      {
+        kind: "marinara.function-folder",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        folderName: "Function Calls",
+        functions: [
+          createFolderEntry({
+            folderName: "Function Calls",
+            itemName: localName,
+            itemKind: "marinara.function",
+            config,
+            fallbackName: "function",
+          }),
+        ],
+      },
+      `${sanitizeExportFilenamePart(localName, "function")}.json`,
+    );
+  }, [
+    currentEnabled,
+    localName,
+    localDesc,
+    localExecType,
+    localWebhookUrl,
+    localStaticResult,
+    localScriptBody,
+    localIncludeHiddenContext,
+    buildParamsSchema,
   ]);
 
   const handleDelete = async () => {
@@ -230,19 +284,19 @@ export function ToolEditor() {
   const execMeta = EXEC_TYPES.find((e) => e.value === localExecType) ?? EXEC_TYPES[0];
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
+    <div className="mari-editor-shell flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3">
+      <div className="mari-editor-header">
         <button
           type="button"
           onClick={handleClose}
           aria-label="Back to tools"
-          className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
+          className="mari-editor-action inline-flex"
         >
           <ArrowLeft size="1.125rem" />
         </button>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm">
-          <Wrench size="1.125rem" />
+        <div className="mari-editor-icon-tile">
+          <Wrench size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
         <input
           value={localName}
@@ -250,36 +304,50 @@ export function ToolEditor() {
             setLocalName(e.target.value);
             markDirty();
           }}
-          className="flex-1 bg-transparent font-mono text-lg font-semibold outline-none placeholder:text-[var(--muted-foreground)]"
+          className="mari-editor-title-input min-w-0 flex-1 font-mono placeholder:text-[var(--marinara-editor-muted)]"
           placeholder="tool_name"
         />
-        <div className="flex items-center gap-1.5">
+        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
           {saveError && (
-            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-red-400">
+            <span className="mari-editor-status mr-2 text-red-400">
               <AlertCircle size="0.6875rem" /> Error
             </span>
           )}
           {savedFlash && !dirty && (
-            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-emerald-400">
+            <span className="mari-editor-status mr-2 text-emerald-400">
               <Check size="0.6875rem" /> Saved
             </span>
           )}
-          {dirty && !saveError && <span className="mr-2 text-[0.625rem] font-medium text-amber-400">Unsaved</span>}
-          {dbTool && (
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/15 active:scale-[0.98]"
-            >
-              <Trash2 size="0.8125rem" /> Delete
-            </button>
-          )}
+          {dirty && !saveError && <span className="mari-editor-status mr-2 text-amber-400">Unsaved</span>}
           <button
             onClick={handleSave}
             disabled={isPending}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
+            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
+            title="Save tool"
+            aria-label="Save tool"
           >
-            <Save size="0.8125rem" /> Save
+            <Save size="0.8125rem" /> <span className="max-md:hidden">Save</span>
           </button>
+          {dbTool && (
+            <button
+              onClick={handleExport}
+              className="mari-editor-action inline-flex"
+              title="Export function"
+              aria-label="Export function"
+            >
+              <Upload size="0.9375rem" />
+            </button>
+          )}
+          {dbTool && (
+            <button
+              onClick={handleDelete}
+              className="mari-editor-action mari-editor-action--danger inline-flex"
+              title="Delete function"
+              aria-label="Delete function"
+            >
+              <Trash2 size="0.9375rem" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -493,6 +561,33 @@ export function ToolEditor() {
             <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{execMeta.description}</p>
           </FieldGroup>
 
+          <FieldGroup
+            label="Hidden Marinara context"
+            icon={<KeyRound size="0.875rem" className="text-[var(--primary)]" />}
+            help="Adds a separate server-provided context object to webhook and script executions. The AI does not see these fields as tool parameters."
+          >
+            <label className="flex items-start gap-3 rounded-xl bg-[var(--card)] p-3 text-sm ring-1 ring-[var(--border)]">
+              <input
+                type="checkbox"
+                checked={localIncludeHiddenContext}
+                onChange={(e) => {
+                  setLocalIncludeHiddenContext(e.target.checked);
+                  markDirty();
+                }}
+                className="mt-0.5 rounded"
+              />
+              <span className="min-w-0">
+                <span className="block font-medium text-[var(--foreground)]">Include hidden chat context</span>
+                <span className="mt-1 block text-xs text-[var(--muted-foreground)]">
+                  Webhooks receive <code className="rounded bg-[var(--secondary)] px-1">context</code> beside{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">arguments</code>; scripts receive a{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">context</code> variable. Includes chat ID, mode,
+                  persona, character IDs/names, chat variables, recent message IDs, and game state.
+                </span>
+              </span>
+            </label>
+          </FieldGroup>
+
           {/* ── Execution Config ── */}
           {localExecType === "static" && (
             <FieldGroup label="Static Result" icon={<FileText size="0.875rem" className="text-[var(--primary)]" />}>
@@ -526,7 +621,7 @@ export function ToolEditor() {
               />
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 A POST request will be sent with{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">{"{ tool, arguments }"}</code> as JSON body.
+                <code className="rounded bg-[var(--secondary)] px-1">{"{ tool, arguments, context? }"}</code> as JSON body.
                 Response is returned to the AI.
               </p>
             </FieldGroup>
@@ -548,6 +643,7 @@ export function ToolEditor() {
               />
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 Write JavaScript. Has access to <code className="rounded bg-[var(--secondary)] px-1">args</code>,{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">context</code>,{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">JSON</code>,{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">Math</code>,{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">Date</code>. Must{" "}

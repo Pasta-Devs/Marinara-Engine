@@ -6,12 +6,13 @@
 // the starting state for any newly created chat in that mode.
 //
 // What presets DO carry: connection, prompt preset for non-conversation chats, and most metadata
-// (agents, tools, lorebooks, translation, advanced parameters, context
-// limit, memory recall, discord mirror, etc.).
+// (agents, tools, lorebook settings, translation, advanced parameters,
+// context limit, memory recall, discord mirror, etc.).
 //
 // What presets DO NOT carry: per-chat identity (name, characters,
-// persona, group, sprites, scene prompt, summary, tags, ephemeral
-// lorebook overrides, scene lifecycle state, connected chat link, folder/sort placement).
+// persona, group, sprites, scene prompt, generated summaries, tags,
+// ephemeral lorebook overrides, generated schedules, scene lifecycle
+// state, connected chat link, folder/sort placement).
 
 import type { ChatMode, ChatMetadata } from "./chat.js";
 
@@ -42,13 +43,27 @@ export interface ChatPreset {
 
 /** Metadata keys that must NOT be saved into a preset (chat-specific). */
 export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
+  // Generated summaries stay with the chat; summary settings can still be preset.
   "summary",
+  "summaryEntries",
+  "lastAutomaticSummaryMessageId",
+  "daySummaries",
+  "weekSummaries",
   "tags",
+  "appliedChatPresetId",
+  "agentVariables",
   "spriteCharacterIds",
   "spritePlacements",
   "entryStateOverrides",
+  "entryTimingStates",
   "groupScenarioOverride",
   "groupScenarioText",
+  "characterSchedules",
+  "scheduleWeekStart",
+  "spotifyRecentTracks",
+  "autonomousUnreadCount",
+  "autonomousUnreadCharacterIds",
+  "autonomousUnreadAt",
   "sceneOriginChatId",
   "sceneInitiatorCharId",
   "sceneDescription",
@@ -63,6 +78,37 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "sceneBusyCharIds",
   // Lorebooks are owned by the chat, never by the preset.
   "activeLorebookIds",
+  // Generated Game state is session identity/history, not reusable setup.
+  "gameId",
+  "gameSessionNumber",
+  "gameSessionStatus",
+  "gameIntroPresented",
+  "gameCurrentSessionStartedAt",
+  "gameActiveState",
+  "gameGmCharacterId",
+  "gamePartyCharacterIds",
+  "gamePartyChatId",
+  "gameMap",
+  "gameMaps",
+  "activeGameMapId",
+  "gamePreviousSessionSummaries",
+  "gameStoryArc",
+  "gamePlotTwists",
+  "gameDialogueChatId",
+  "gameCombatChatId",
+  "gameCombatState",
+  "gameNpcs",
+  "gameLastIllustrationTurn",
+  "gameLastIllustrationSessionNumber",
+  "gameLastIllustrationTag",
+  "gameRecentSpotifyTracks",
+  "gameLorebookKeeperLorebookId",
+  "gameLorebookKeeperLastRun",
+  "gameBlueprint",
+  "gameCharacterCards",
+  "gameWidgetState",
+  "gameMorale",
+  "lastMapPosition",
 ] as const;
 
 /** Top-level chat keys that CAN be saved into a preset. promptPresetId is ignored for conversation-mode presets. */

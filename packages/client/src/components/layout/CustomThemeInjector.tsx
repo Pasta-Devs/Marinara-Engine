@@ -5,6 +5,7 @@
 import { useEffect, useMemo } from "react";
 import { useThemes } from "../../hooks/use-themes";
 import { useExtensions } from "../../hooks/use-extensions";
+import { normalizeThemeCss } from "../../lib/theme-css";
 import { useUIStore } from "../../stores/ui.store";
 
 type ExtensionGlobal = typeof globalThis & {
@@ -70,7 +71,7 @@ export function CustomThemeInjector() {
       style.id = id;
       document.head.appendChild(style);
     }
-    style.textContent = activeTheme.css;
+    style.textContent = normalizeThemeCss(activeTheme.css);
 
     return () => {
       style?.remove();

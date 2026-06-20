@@ -19,6 +19,7 @@ export interface RegexScriptRow {
   placement: string;
   flags: string;
   promptOnly: string;
+  targetCharacterIds: string;
   order: number;
   minDepth: number | null;
   maxDepth: number | null;

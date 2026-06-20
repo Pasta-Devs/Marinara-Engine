@@ -3,6 +3,8 @@
 // ──────────────────────────────────────────────
 
 /** Complete game state snapshot, linked to a message. */
+export type TrackerFieldLocks = Record<string, boolean>;
+
 export interface GameState {
   id: string;
   chatId: string;
@@ -35,6 +37,9 @@ export interface GameState {
 
   /** JSON object of manually-edited field names → values. Carried forward across agent snapshots. */
   manualOverrides?: Record<string, string> | null;
+
+  /** JSON object of tracker field lock keys → enabled. Carried forward across agent snapshots. */
+  fieldLocks?: TrackerFieldLocks | null;
 
   createdAt: string;
 }
@@ -79,6 +84,8 @@ export interface CharacterStat {
 export interface CustomTrackerField {
   name: string;
   value: string;
+  /** @deprecated Use GameState.fieldLocks for persisted per-cell tracker locks. */
+  locked?: boolean;
 }
 
 /** Player-specific stats and inventory. */

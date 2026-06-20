@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Users, Send, ChevronLeft, ChevronRight, Swords, Heart, Sparkles } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { AnimatedText } from "./AnimatedText";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 
 interface PartyChatMessage {
   id: string;
@@ -131,8 +132,8 @@ export function GamePartySidebar({
                   className={cn(
                     "group relative shrink-0 rounded-full p-0.5 ring-1 transition-all",
                     selectedMemberId === m.id
-                      ? "ring-[var(--primary)] bg-[var(--primary)]/10"
-                      : "ring-[var(--border)] hover:ring-[var(--primary)]/40",
+                      ? "bg-[var(--foreground)]/10 ring-[var(--foreground)]/25"
+                      : "ring-[var(--border)] hover:ring-[var(--foreground)]/25",
                   )}
                   title={m.name}
                 >
@@ -160,13 +161,18 @@ export function GamePartySidebar({
 
           {/* RPG character card */}
           {selectedCard && (
-            <div className="border-b border-[var(--border)] bg-[var(--secondary)]/55 px-2 py-2">
-              <div className="overflow-hidden rounded-lg border border-amber-500/20 bg-gradient-to-b from-[#1a1510] to-[#0d0b08] shadow-lg">
+            <div
+              className={cn(
+                NEUTRAL_SURFACE_VARIABLES,
+                "border-b border-[var(--border)] bg-[var(--secondary)]/55 px-2 py-2",
+              )}
+            >
+              <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)]/80 shadow-lg">
                 {/* Card header with avatar + name */}
-                <div className="relative border-b border-amber-500/15 bg-gradient-to-r from-amber-900/20 via-amber-800/10 to-amber-900/20 px-2.5 py-2">
+                <div className="relative border-b border-[var(--border)] bg-[var(--secondary)]/45 px-2.5 py-2">
                   <div className="flex items-center gap-2">
                     {selectedCard.avatarUrl ? (
-                      <span className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-md border border-amber-500/25 shadow-md">
+                      <span className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-md border border-[var(--border)] shadow-md">
                         <img
                           src={selectedCard.avatarUrl}
                           alt={selectedCard.title}
@@ -175,22 +181,24 @@ export function GamePartySidebar({
                         />
                       </span>
                     ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-md border border-amber-500/25 bg-amber-900/20 text-sm font-bold text-amber-300/60">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--secondary)] text-sm font-bold text-[var(--muted-foreground)]">
                         {selectedCard.title[0]}
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="overflow-x-auto whitespace-nowrap scrollbar-hide text-[0.75rem] font-bold text-amber-100 [-webkit-overflow-scrolling:touch]">
+                      <p className="overflow-x-auto whitespace-nowrap scrollbar-hide text-[0.75rem] font-bold text-[var(--foreground)] [-webkit-overflow-scrolling:touch]">
                         {selectedCard.title}
                       </p>
                       {selectedCard.subtitle && (
-                        <p className="text-[0.6rem] text-amber-300/50">{selectedCard.subtitle}</p>
+                        <p className="text-[0.6rem] text-[var(--muted-foreground)]">{selectedCard.subtitle}</p>
                       )}
                     </div>
                     {selectedCard.level != null && (
-                      <div className="flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-900/25 px-1 py-px">
-                        <span className="text-[0.4375rem] uppercase tracking-wider text-amber-500/50">LVL</span>
-                        <span className="text-[0.5rem] font-bold leading-none text-amber-200">
+                      <div className="flex items-center gap-0.5 rounded border border-[var(--border)] bg-[var(--background)]/60 px-1 py-px">
+                        <span className="text-[0.4375rem] uppercase tracking-wider text-[var(--muted-foreground)]">
+                          LVL
+                        </span>
+                        <span className="text-[0.5rem] font-bold leading-none text-[var(--foreground)]">
                           {selectedCard.level}
                         </span>
                       </div>
@@ -206,7 +214,7 @@ export function GamePartySidebar({
 
                 {/* Stats bars */}
                 {selectedCard.stats && selectedCard.stats.length > 0 && (
-                  <div className="space-y-1 border-b border-amber-500/10 px-2.5 py-2">
+                  <div className="space-y-1 border-b border-[var(--border)] px-2.5 py-2">
                     {selectedCard.stats.slice(0, 6).map((stat) => {
                       const max = Math.max(1, stat.max ?? 100);
                       const value = Math.max(0, Math.min(max, stat.value));
@@ -214,12 +222,12 @@ export function GamePartySidebar({
                       return (
                         <div key={stat.name}>
                           <div className="mb-0.5 flex items-center justify-between text-[0.5625rem]">
-                            <span className="font-medium text-amber-200/70">{stat.name}</span>
-                            <span className="font-mono text-amber-400/50">
+                            <span className="font-medium text-[var(--foreground)]/75">{stat.name}</span>
+                            <span className="font-mono text-[var(--muted-foreground)]">
                               {value}/{max}
                             </span>
                           </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-black/50 ring-1 ring-amber-500/10">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-black/50 ring-1 ring-white/10">
                             <div
                               className="h-full rounded-full transition-all"
                               style={{
@@ -236,8 +244,8 @@ export function GamePartySidebar({
 
                 {/* Inventory */}
                 {selectedCard.inventory && selectedCard.inventory.length > 0 && (
-                  <div className="border-b border-amber-500/10 px-2.5 py-1.5">
-                    <div className="mb-1 flex items-center gap-1 text-[0.5625rem] font-semibold uppercase tracking-wider text-amber-500/50">
+                  <div className="border-b border-[var(--border)] px-2.5 py-1.5">
+                    <div className="mb-1 flex items-center gap-1 text-[0.5625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                       <Swords size={9} />
                       <span>Inventory</span>
                     </div>
@@ -247,11 +255,11 @@ export function GamePartySidebar({
                           key={`${item.name}-${item.location ?? "bag"}`}
                           className="flex items-start justify-between gap-1 text-[0.5625rem]"
                         >
-                          <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight text-amber-100/70 [overflow-wrap:anywhere]">
+                          <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight text-[var(--foreground)]/75 [overflow-wrap:anywhere]">
                             {item.name}
                           </span>
                           {item.quantity && item.quantity > 1 && (
-                            <span className="ml-1 shrink-0 font-mono text-amber-400/40">×{item.quantity}</span>
+                            <span className="ml-1 shrink-0 font-mono text-white/80">×{item.quantity}</span>
                           )}
                         </div>
                       ))}
@@ -261,8 +269,8 @@ export function GamePartySidebar({
 
                 {/* Custom fields */}
                 {selectedCard.customFields && Object.keys(selectedCard.customFields).length > 0 && (
-                  <div className="border-t border-amber-500/10 px-2.5 py-1.5">
-                    <div className="mb-1 flex items-center gap-1 text-[0.5625rem] font-semibold uppercase tracking-wider text-amber-500/50">
+                  <div className="border-t border-[var(--border)] px-2.5 py-1.5">
+                    <div className="mb-1 flex items-center gap-1 text-[0.5625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                       <Sparkles size={9} />
                       <span>Traits</span>
                     </div>
@@ -271,8 +279,8 @@ export function GamePartySidebar({
                         .slice(0, 4)
                         .map(([key, val]) => (
                           <div key={key} className="flex items-center justify-between">
-                            <span className="text-amber-300/50">{key}</span>
-                            <span className="text-amber-100/60">{val}</span>
+                            <span className="text-[var(--muted-foreground)]">{key}</span>
+                            <span className="text-[var(--foreground)]/70">{val}</span>
                           </div>
                         ))}
                     </div>
@@ -282,7 +290,7 @@ export function GamePartySidebar({
                 {/* Fallback status when no stats/inventory */}
                 {!selectedCard.stats?.length && !selectedCard.inventory?.length && selectedCard.status && (
                   <div className="px-2.5 py-2">
-                    <p className="text-[0.625rem] italic text-amber-200/40">{selectedCard.status}</p>
+                    <p className="text-[0.625rem] italic text-[var(--muted-foreground)]">{selectedCard.status}</p>
                   </div>
                 )}
               </div>
@@ -292,11 +300,11 @@ export function GamePartySidebar({
           {/* No card data — show member name at minimum */}
           {!selectedCard && selectedMemberId && (
             <div className="border-b border-[var(--border)] bg-[var(--secondary)]/55 px-2 py-2">
-              <div className="rounded-lg border border-amber-500/20 bg-gradient-to-b from-[#1a1510] to-[#0d0b08] px-2.5 py-3 text-center">
-                <p className="text-[0.6875rem] font-bold text-amber-100">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--card)]/80 px-2.5 py-3 text-center">
+                <p className="text-[0.6875rem] font-bold text-[var(--foreground)]">
                   {partyMembers?.find((m) => m.id === selectedMemberId)?.name ?? "Unknown"}
                 </p>
-                <p className="mt-0.5 text-[0.5625rem] text-amber-400/40">
+                <p className="mt-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
                   Card data will populate as the story progresses
                 </p>
               </div>

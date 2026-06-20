@@ -143,6 +143,12 @@ export function useEncounter() {
           spellbookId,
         });
 
+        if (res.invalid) {
+          store.setError("AI returned an invalid response. Try again.");
+          store.setProcessing(false);
+          return;
+        }
+
         const r = res.result;
 
         // Validate critical fields — AI may return malformed data

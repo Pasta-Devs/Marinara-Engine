@@ -698,11 +698,28 @@ export async function updatesRoutes(app: FastifyInstance) {
         message: "Update applied successfully. Please relaunch the app to use the new version.",
       };
 
-      // Give Fastify time to flush the response, then exit
+      // Give Fastify time to flush the response and clear the file-backed
+      // store's write-back debounce window (SAVE_DEBOUNCE_MS = 750ms), then
+      // shut down GRACEFULLY so pending dirty tables reach disk before exit.
       setTimeout(() => {
-        logger.info("[Update] Shutting down after update...");
-        process.exit(0);
-      }, 500);
+        void (async () => {
+          try {
+            // Mirror index.ts shutdown() (and the onClose hook in app.ts):
+            // app.close() runs Fastify onClose -> closeDB() -> fileStore.close()
+            // -> flush(true), plus stops the sidecar. A bare process.exit(0)
+            // bypasses onClose/beforeExit and silently drops debounced writes.
+            await app.close();
+            logger.info("[Update] Shutting down after update...");
+            process.exit(0);
+          } catch (err) {
+            // Flush/close failed: log it (process is being torn down for a
+            // user-initiated relaunch, so still exit 0 rather than signal a
+            // crash to any supervisor).
+            logger.error(err, "[Update] Graceful shutdown failed; exiting anyway");
+            process.exit(0);
+          }
+        })();
+      }, 1_000);
 
       return result;
     } catch (err: unknown) {

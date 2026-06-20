@@ -11,7 +11,7 @@ interface HomeFaqItem {
 }
 
 const QUICK_FIXES = [
-  "Raise max response length if agents, trackers, or Lorebook Keeper keep failing or returning broken JSON.",
+  "Raise max output tokens if agents, trackers, or Lorebook Keeper keep failing or returning broken JSON.",
   "Update before digging too deep. If you installed from Git, use the updater or the Advanced settings update check.",
   "If the installer or startup scripts vanished, check antivirus quarantine first and whitelist the Marinara folder.",
   "If Game Mode setup keeps failing, switch to a stronger model before changing prompts or presets.",
@@ -24,9 +24,9 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     question: "What model should I use for Game Mode?",
     answer: "Game Mode is much pickier than regular chat, especially during first generation and session setup.",
     bullets: [
-      "Use a strong model for setup and major GM turns: Claude Opus, Gemini 3 Pro, GPT-5.x, or a similarly strong frontier model.",
-      "Gemma 4 31B also holds up surprisingly well if you want a local option.",
-      "GLM, DeepSeek, Kimi, and weaker models are more likely to produce malformed JSON, weak formatting, or low-quality GM output.",
+      "Use a strong structured-output model for setup and major GM turns: Claude Opus or Sonnet tier, Gemini Pro tier, GPT-5.x, or a similarly reliable frontier model.",
+      "A strong local model can work too, but use enough context and output budget for setup JSON, session state, and trackers.",
+      "Weaker models are more likely to produce malformed JSON, weak formatting, or low-quality GM output.",
     ],
   },
   {
@@ -34,10 +34,11 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     category: "Top Issue",
     question: "My trackers, Lorebook Keeper, or agents do nothing or fail with a max length error. What fixes that?",
     answer:
-      "The most common fix is increasing max response length so the model can finish the tracker JSON instead of truncating it.",
+      "The most common fix is increasing max output tokens so the model can finish the tracker JSON instead of truncating it.",
     bullets: [
-      "Raise max response length in your connection or chat Advanced Settings.",
-      "If an agent keeps breaking formatting, move it to a stronger model, especially Gemma 4 or another reliable structured-output model.",
+      "Open Chat Settings, then Advanced Parameters, or adjust the connection defaults and raise Max Output Tokens.",
+      "Agent max output defaults higher now, but tracker-heavy chats can still need more headroom on weaker or local models.",
+      "If an agent keeps breaking formatting, move it to a stronger structured-output model.",
       "If a bad cached turn keeps poisoning results, copy your last user message, delete that turn and anything after it, then resend.",
     ],
   },
@@ -123,12 +124,33 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     id: "best-local-model",
     category: "Connections",
-    question: "What is the best local model right now?",
-    answer: "Gemma 4 is still the safest recommendation for most local users.",
+    question: "What kind of local model should I use?",
+    answer: "Use the strongest local model your hardware can run at a practical speed.",
     bullets: [
-      "If you can fit it, go for dense 31B. Otherwise the MoE 26B A3B tier is the next best bet.",
-      "Q4 and better quants are usually the sweet spot.",
+      "Prioritize instruction following, long-context stability, and reliable structured output over raw benchmark hype.",
+      "Q4 and better quants are usually the sweet spot when VRAM is tight.",
       "Very small E2B or E4B class models are fine for helpers and sidecars, but not ideal for serious RP.",
+    ],
+  },
+  {
+    id: "unknown-model-parameters",
+    category: "Connections",
+    question: "My custom or self-hosted model is not listed. Which parameters will Marinara send?",
+    answer:
+      "For unknown models, Marinara avoids guessing provider-specific parameters and only sends the custom parameters you define.",
+    bullets: [
+      "Use Custom Parameters on the connection when your runtime expects special flags.",
+      "Known model profiles still get their supported defaults, but unknown model IDs stay conservative to avoid rejected requests.",
+    ],
+  },
+  {
+    id: "long-context-models",
+    category: "Connections",
+    question: "Can I use a long-context self-hosted model?",
+    answer: "Yes. Set the context and output overrides to match what your runtime actually supports.",
+    bullets: [
+      "Use the connection overrides or Chat Settings Advanced Parameters instead of relying on a hard built-in ceiling.",
+      "If the backend or model loader only exposes a smaller window, Marinara cannot make that runtime accept more context.",
     ],
   },
   {
@@ -140,6 +162,7 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     bullets: [
       "The switch lives on the connection itself.",
       "Once enabled, agents can use that remote model instead of the local sidecar path.",
+      "You can still override an individual agent from its own menu when a chat needs a stronger helper model.",
     ],
   },
   {
@@ -166,40 +189,62 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     id: "sampler-settings",
     category: "Core",
     question: "Where do I change temperature, top-p, and other sampler settings?",
-    answer: "Open a chat, then use the right panel's Advanced Settings.",
+    answer: "Open a chat, then use Chat Settings and the Advanced Parameters section.",
     bullets: [
-      "That is where you adjust temperature, top-p, max response length, and similar generation settings.",
+      "That is where you adjust temperature, top-p, max output tokens, context/message limits, thinking tags, and custom parameters.",
       "Use Set Default if you want those values to become the saved defaults for that connection.",
+    ],
+  },
+  {
+    id: "chat-settings-location",
+    category: "Core",
+    question: "Where did Chat Settings, Gallery, and Active Context go?",
+    answer: "Inside chats, those live in the top toolbar as expandable windows instead of sidebars.",
+    bullets: [
+      "Conversation, Roleplay, and Game Mode share the same compact button style for these windows.",
+      "On mobile, the overflow menu groups buttons when the screen cannot fit them in one row.",
     ],
   },
   {
     id: "enable-agents",
     category: "Core",
     question: "How do I enable agents?",
-    answer: "The answer depends on the mode.",
+    answer: "Open Chat Settings and use the Agents section for the current chat.",
     bullets: [
-      "In Roleplay mode, open Chat Settings and go to the Agents section for that chat.",
-      "In Game Mode, most agents run in the background automatically. The user-facing toggles are mainly for scene analysis and image generation.",
+      "Roleplay supports the full agent stack plus custom agents.",
+      "Conversation and Game Mode can also attach custom agents, while some built-in helpers stay hidden because they are part of the core pipeline.",
+      "Each added agent has its own menu for connection, prompt options, and relevant setup.",
     ],
   },
   {
     id: "macro-list",
     category: "Core",
     question: "Where is the list of supported macros?",
-    answer: "Type /macros directly in chat.",
+    answer: "Use /macros in chat, or click the macro reference icon inside supported editors.",
     bullets: [
-      "Marinara uses SillyTavern-style {{char}} and {{user}} macros.",
-      "If you tried {{charName}} or {{userName}}, that mismatch is why it failed.",
+      "Preset fields, Character and Persona card fields, Lorebook entry fields, and Agent prompt fields expose the same macro guide.",
+      "Use the in-field expand button when you need more room to edit long prompts or card text.",
     ],
   },
   {
     id: "same-character-chats",
     category: "Core",
     question: "How do I switch between different chats with the same character?",
-    answer: "Use Recent Chats from the home screen or the branch-aware chat browser inside the app.",
+    answer: "Use Recent Chats from the home screen or the Branches button inside the chat.",
     bullets: [
       "Chats with the same character are organized as branches rather than one giant flat thread.",
-      "The branch selector at the top of the chat bar is the quickest in-chat way to jump between them now.",
+      "Conversation, Roleplay, and Game Mode all use branch tools now, and some modes can branch directly from user inputs.",
+    ],
+  },
+  {
+    id: "chat-ui-colors",
+    category: "Core",
+    question: "Can I customize the new chat buttons, windows, and tracker colors?",
+    answer: "Yes. Open Settings, then Appearance.",
+    bullets: [
+      "Accent Color controls the shared chat chrome accents, including many button borders and icon states.",
+      "Tracker Panel background and Chat Chrome Text Color control tracker and expandable-window surfaces separately.",
+      "Light mode should swap chrome text and surfaces to readable light-theme colors automatically.",
     ],
   },
   {
@@ -233,11 +278,13 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     id: "prose-guardian-user-voice",
     category: "Agents",
-    question: "Prose Guardian is impersonating me or writing the whole reply. Is that normal?",
-    answer: "No. That is usually a weak agent-model problem, not what the agent is supposed to do.",
+    question: "What does Prose Guardian do now?",
+    answer: "Prose Guardian is a post-processing rewrite agent, not a normal pre-generation speaker.",
     bullets: [
-      "Move your agents to a stronger model such as Gemma 4 if possible.",
-      "If the bad behavior seems cached into the thread, copy the last user message, delete it and everything after it, then resend.",
+      "It edits the last model reply for banned words, repetition, prose slop, and your writing instructions without changing events or meaning.",
+      "If no edit is needed, it should leave the message alone.",
+      "If it rewrites a message, use the shield action under that message to restore the original.",
+      "Continuity Checker can share the same rewrite pass when both are enabled.",
     ],
   },
   {
@@ -251,9 +298,24 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     id: "narrative-director-captures-messages",
     category: "Agents",
-    question: "Narrative Director is capturing my messages and bot replies inside itself. Why?",
-    answer: "That has shown up most often with weaker or unstable model choices, especially GLM 5.1 style runs.",
-    bullets: ["Switch the agent to a stronger model before rewriting prompts."],
+    question: "How do I make Narrative Director push the story?",
+    answer: "Add it to the Roleplay chat, then arm Push Story above the input box.",
+    bullets: [
+      "It only runs on the next character reply while the Push Story button is enabled.",
+      "Choose whether it should push the plot naturally or introduce a random event from the agent menu.",
+      "If the button is not armed, Narrative Director stays quiet.",
+    ],
+  },
+  {
+    id: "music-dj",
+    category: "Agents",
+    question: "Where did the separate Spotify and YouTube music agents go?",
+    answer: "They are merged into Music DJ.",
+    bullets: [
+      "Configure Spotify, YouTube, or both from the Music DJ agent menu.",
+      "The mini player can switch between Spotify and YouTube.",
+      "Music commands follow whichever player is active.",
+    ],
   },
   {
     id: "comfyui-illustrator-setup",
@@ -284,9 +346,12 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
     id: "booru-prompts",
     category: "Images",
-    question: "How do I get booru-style prompts from Illustrator?",
-    answer: "Edit the Illustrator agent prompt in the Agents section.",
-    bullets: ["That is where you steer the prompt format rather than fighting the image connection settings."],
+    question: "How do I steer Illustrator prompts?",
+    answer: "Choose an Illustrator prompt mode from that chat's agent menu, or edit the agent prompt from the Agents tab.",
+    bullets: [
+      "Illustration, Comic Page, Colored Manga, B&W Manga, Background, and Selfie modes all tune the prompt differently.",
+      "Use the default style from Style Profiles in Advanced settings when you want a shared image style.",
+    ],
   },
   {
     id: "character-sprites",
@@ -302,17 +367,19 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     answer: "Start by upgrading the model before changing anything else.",
     bullets: [
       "A strong GM model is the main fix here.",
-      "If you are using Opus and still need extra help, add something like 'Ultrathink. Return structured JSON with no markdown code fences.' to the additional GM notes.",
+      "Use Game Chat Settings Prompt when you want to replace the GM prompt.",
+      "Use Extra instructions under the GM prompt for style or handling notes that should be appended as SPECIAL INSTRUCTIONS.",
     ],
   },
   {
     id: "game-editability",
     category: "Game Mode",
     question: "Can I edit widgets, scenes, or journal-like Game Mode data after the fact?",
-    answer: "Some of that is editable now, but not every auto-tracked piece is equally exposed yet.",
+    answer: "A lot more Game Mode state is editable from the in-chat boxes now.",
     bullets: [
-      "Inventory, readables, and more session-level continuity details are much more editable than they used to be.",
-      "Some auto-tracked journal sections are still more rigid than users expect.",
+      "Use Session for Session History, Journal, tutorial access, spoilers, and ending the current session.",
+      "Use Game Assets for generated assets and scene resources.",
+      "Use branch actions on user inputs in the logs when you want to redo a turn from that point.",
     ],
   },
   {
@@ -328,9 +395,10 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     id: "game-background",
     category: "Game Mode",
     question: "How do I change the Game Mode background?",
-    answer: "The quickest path is usually to talk to the GM directly or rerun the scene or image pass for that beat.",
+    answer: "Use Game Assets or rerun the scene and image pass for that beat.",
     bullets: [
-      "Game backgrounds are tied to scene analysis and asset generation, so background changes often follow that pipeline rather than a single permanent toggle.",
+      "Game backgrounds are tied to scene analysis and asset generation, so background changes follow that pipeline rather than one permanent toggle.",
+      "If you need direct out-of-scene help, switch into GM chat mode and ask the GM to adjust the scene.",
     ],
   },
   {
@@ -412,16 +480,141 @@ const CATEGORY_STYLES: Record<string, string> = {
   Misc: "border-[var(--border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]",
 };
 
-export function HomeFaq() {
-  const [expanded, setExpanded] = useState(false);
-  const [openItemId, setOpenItemId] = useState<string | null>("game-mode-model");
+export function HomeFaq({
+  defaultExpanded = false,
+  className,
+  compact = false,
+  expanded: expandedProp,
+  onExpandedChange,
+  openItemId: openItemIdProp,
+  onOpenItemIdChange,
+}: {
+  defaultExpanded?: boolean;
+  className?: string;
+  compact?: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (v: boolean) => void;
+  openItemId?: string | null;
+  onOpenItemIdChange?: (v: string | null) => void;
+} = {}) {
+  const [expandedInternal, setExpandedInternal] = useState(defaultExpanded);
+  const [openItemIdInternal, setOpenItemIdInternal] = useState<string | null>(null);
+
+  const expanded = expandedProp ?? expandedInternal;
+  const setExpanded = (v: boolean) => {
+    setExpandedInternal(v);
+    onExpandedChange?.(v);
+  };
+  const openItemId = openItemIdProp !== undefined ? openItemIdProp : openItemIdInternal;
+  const setOpenItemId = (v: string | null) => {
+    setOpenItemIdInternal(v);
+    onOpenItemIdChange?.(v);
+  };
+
+  if (compact) {
+    return (
+      <section className={cn("w-full", className)}>
+        <div className="overflow-hidden rounded-lg border border-[var(--border)]/60 bg-[var(--card)]/70">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            aria-expanded={expanded}
+          >
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[var(--primary)]/25 bg-[linear-gradient(135deg,rgba(235,137,81,0.18),rgba(77,229,221,0.14))] text-[var(--primary)]">
+              <HelpCircle size="0.875rem" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-xs font-semibold text-[var(--foreground)]">FAQ</p>
+                <span className="rounded-full border border-[var(--border)]/60 bg-black/5 px-1.5 py-0.5 text-[0.5rem] uppercase tracking-[0.12em] text-[var(--muted-foreground)]/80 dark:bg-white/6">
+                  {HOME_FAQ_ITEMS.length}
+                </span>
+              </div>
+            </div>
+            <ChevronDown
+              size="0.875rem"
+              className={cn(
+                "shrink-0 text-[var(--muted-foreground)] transition-transform duration-200",
+                expanded && "rotate-180 text-[var(--primary)]",
+              )}
+            />
+          </button>
+
+          {expanded && (
+            <div className="border-t border-[var(--border)]/60 p-2">
+              <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
+                {HOME_FAQ_ITEMS.map((item) => {
+                  const isOpen = openItemId === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "overflow-hidden rounded-lg border border-[var(--border)]/55 bg-[var(--card)]/45 transition-colors",
+                        isOpen && "border-[var(--primary)]/30 bg-[var(--card)]/70",
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setOpenItemId(openItemId === item.id ? null : item.id)}
+                        className="flex w-full items-start gap-2 px-2.5 py-2 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                        aria-expanded={isOpen}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={cn(
+                                "shrink-0 rounded-full border px-1.5 py-0.5 text-[0.5rem] font-medium uppercase tracking-[0.12em]",
+                                CATEGORY_STYLES[item.category] ?? CATEGORY_STYLES.Misc,
+                              )}
+                            >
+                              {item.category}
+                            </span>
+                            <span className="min-w-0 text-[0.6875rem] font-medium leading-snug text-[var(--foreground)]">
+                              {item.question}
+                            </span>
+                          </div>
+                        </div>
+                        {isOpen ? (
+                          <ChevronDown size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                        ) : (
+                          <ChevronRight size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+                        )}
+                      </button>
+
+                      {isOpen && (
+                        <div className="border-t border-[var(--border)]/55 bg-[var(--muted)]/30 px-2.5 py-2 dark:bg-black/10">
+                          <p className="text-[0.6875rem] leading-relaxed text-[var(--foreground)]/92">{item.answer}</p>
+                          {item.bullets?.length ? (
+                            <ul className="mt-2 space-y-1.5 text-[0.65625rem] leading-relaxed text-[var(--muted-foreground)]/85">
+                              {item.bullets.map((bullet) => (
+                                <li key={bullet} className="flex gap-1.5">
+                                  <span className="mt-[0.18rem] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]/70" />
+                                  <span>{bullet}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <section className="w-full max-w-md">
+    <section className={cn("w-full max-w-md", className)}>
       <div className="overflow-hidden rounded-[1rem] border border-[var(--border)]/60 bg-[var(--card)] shadow-[0_14px_38px_rgba(0,0,0,0.24)] backdrop-blur-xl dark:bg-[linear-gradient(180deg,rgba(18,14,23,0.92),rgba(11,10,16,0.86))]">
         <button
           type="button"
-          onClick={() => setExpanded((current) => !current)}
+          onClick={() => setExpanded(!expanded)}
           className="flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5 sm:items-center sm:gap-3 sm:px-4"
           aria-expanded={expanded}
         >
@@ -468,8 +661,8 @@ export function HomeFaq() {
                     Start here before you go hunting through Discord logs.
                   </p>
                   <p className="mt-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]/85">
-                    The biggest repeat problems are Game Mode model choice, silent agent failures from low max response
-                    length, and confusion about the local sidecar using CPU instead of the GPU.
+                    The biggest repeat problems are Game Mode model choice, silent agent failures from low max output
+                    tokens, and confusion about the local sidecar using CPU instead of the GPU.
                   </p>
                 </div>
               </div>
@@ -514,7 +707,7 @@ export function HomeFaq() {
                     >
                       <button
                         type="button"
-                        onClick={() => setOpenItemId((current) => (current === item.id ? null : item.id))}
+                        onClick={() => setOpenItemId(openItemId === item.id ? null : item.id)}
                         className="flex w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                         aria-expanded={isOpen}
                       >

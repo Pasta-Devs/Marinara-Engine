@@ -14,9 +14,9 @@ const TERRAIN_COLORS: Record<string, string> = {
   desert: "bg-amber-900/40",
   snow: "bg-slate-300/20",
   town: "bg-yellow-900/30",
-  dungeon: "bg-purple-900/40",
+  dungeon: "bg-zinc-800/55",
   road: "bg-stone-600/30",
-  cave: "bg-gray-800/60",
+  cave: "bg-zinc-800/60",
 };
 
 interface GameGridMapProps {
@@ -28,6 +28,7 @@ interface GameGridMapProps {
   zoom?: number;
   topLeftAction?: ReactNode;
   topRightAction?: ReactNode;
+  compactFit?: boolean;
 }
 
 export function GameGridMap({
@@ -39,6 +40,7 @@ export function GameGridMap({
   zoom = 1,
   topLeftAction,
   topRightAction,
+  compactFit,
 }: GameGridMapProps) {
   const cells = map.cells || [];
   const width = map.width || 5;
@@ -81,72 +83,89 @@ export function GameGridMap({
     }
     rows.push(row);
   }
+  const compactFitWidth = `min(${zoom * 100}%, ${((15 * width) / height).toFixed(3)}rem, ${((42 * width) / height).toFixed(3)}dvh)`;
+  const mapWidth = compactFit && zoom <= 1 ? compactFitWidth : `${zoom * 100}%`;
+  const mapViewportMaxHeight = compactFit ? "min(42dvh, 15rem)" : "min(52vh, 340px)";
 
   return (
     <div className="flex flex-col gap-0.5">
-      <div className="mb-1 flex items-center gap-2">
-        <span className="text-xs font-medium text-[var(--foreground)]">{map.name}</span>
-        <AnimatedText html={map.description || ""} className="text-xs text-[var(--muted-foreground)]" />
-      </div>
+      {!compactFit && (
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-xs font-medium text-[var(--marinara-chat-chrome-panel-title)]">{map.name}</span>
+          <AnimatedText
+            html={map.description || ""}
+            className="text-xs text-[var(--marinara-chat-chrome-panel-muted)]"
+          />
+        </div>
+      )}
       <div className="relative">
-        {topLeftAction}
-        {topRightAction}
         <div
-          className="w-full overflow-auto rounded"
+          className={cn(
+            "relative w-full rounded-lg",
+            compactFit && zoom <= 1 ? "flex justify-center overflow-hidden" : "overflow-auto",
+          )}
           style={{
             aspectRatio: `${width} / ${height}`,
-            maxHeight: "min(52vh, 340px)",
+            maxHeight: mapViewportMaxHeight,
           }}
         >
           <div
-            className="grid gap-0.5"
+            className="relative"
             style={{
-              gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
-              width: `${zoom * 100}%`,
-              marginInline: zoom < 1 ? "auto" : undefined,
+              width: mapWidth,
+              marginInline: compactFit || zoom < 1 ? "auto" : undefined,
             }}
           >
-            {rows.map((row) =>
-              row.map((cell) => {
-                const isParty = partyPos && partyPos.x === cell.x && partyPos.y === cell.y;
-                const isSelected = selectedCell && selectedCell.x === cell.x && selectedCell.y === cell.y;
-                const isAdjacent = adjacentSet.has(`${cell.x},${cell.y}`);
-                const isMovable = !disabled && isAdjacent && cell.discovered;
-                const terrainBg = TERRAIN_COLORS[cell.terrain] || "bg-gray-800/40";
+            {topLeftAction}
+            {topRightAction}
+            <div
+              className="grid gap-0.5"
+              style={{
+                gridTemplateColumns: `repeat(${width}, minmax(0, 1fr))`,
+              }}
+            >
+              {rows.map((row) =>
+                row.map((cell) => {
+                  const isParty = partyPos && partyPos.x === cell.x && partyPos.y === cell.y;
+                  const isSelected = selectedCell && selectedCell.x === cell.x && selectedCell.y === cell.y;
+                  const isAdjacent = adjacentSet.has(`${cell.x},${cell.y}`);
+                  const isMovable = !disabled && isAdjacent && cell.discovered;
+                  const terrainBg = TERRAIN_COLORS[cell.terrain] || "bg-zinc-900/60";
 
-                return (
-                  <button
-                    key={`${cell.x},${cell.y}`}
-                    onClick={() => isMovable && onCellClick(cell.x, cell.y)}
-                    disabled={!isMovable}
-                    title={
-                      cell.discovered
-                        ? `${cell.label}: ${cell.description || cell.terrain}${isMovable ? " (click to select)" : ""}`
-                        : "Undiscovered"
-                    }
-                    className={cn(
-                      "relative flex aspect-square items-center justify-center rounded text-base transition-all",
-                      cell.discovered ? terrainBg : "bg-gray-900/70 game-map-fog",
-                      isParty && "ring-2 ring-amber-400 ring-offset-1 ring-offset-[var(--card)]",
-                      isSelected && !isParty && "ring-2 ring-sky-400/70 ring-offset-1 ring-offset-[var(--card)]",
-                      isMovable && "hover:brightness-125 cursor-pointer ring-1 ring-amber-400/30",
-                      !isMovable && "cursor-default opacity-80",
-                    )}
-                  >
-                    {cell.discovered ? (
-                      <>
-                        <span className="text-sm">{cell.emoji}</span>
-                        {isParty && (
-                          <span className="absolute -bottom-0.5 -right-0.5 text-[10px] game-party-marker">📍</span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-sm opacity-50">❓</span>
-                    )}
-                  </button>
-                );
-              }),
-            )}
+                  return (
+                    <button
+                      key={`${cell.x},${cell.y}`}
+                      onClick={() => isMovable && onCellClick(cell.x, cell.y)}
+                      disabled={!isMovable}
+                      title={
+                        cell.discovered
+                          ? `${cell.label}: ${cell.description || cell.terrain}${isMovable ? " (click to select)" : ""}`
+                          : "Undiscovered"
+                      }
+                      className={cn(
+                        "relative flex aspect-square items-center justify-center rounded text-base transition-all",
+                        cell.discovered ? terrainBg : "bg-zinc-950/75 game-map-fog",
+                        isParty && "ring-2 ring-amber-400 ring-offset-1 ring-offset-zinc-950",
+                        isSelected && !isParty && "ring-2 ring-sky-400/70 ring-offset-1 ring-offset-zinc-950",
+                        isMovable && "hover:brightness-125 cursor-pointer ring-1 ring-amber-400/30",
+                        !isMovable && "cursor-default opacity-80",
+                      )}
+                    >
+                      {cell.discovered ? (
+                        <>
+                          <span className="text-sm">{cell.emoji}</span>
+                          {isParty && (
+                            <span className="absolute -bottom-0.5 -right-0.5 text-[10px] game-party-marker">📍</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm opacity-50">❓</span>
+                      )}
+                    </button>
+                  );
+                }),
+              )}
+            </div>
           </div>
         </div>
       </div>

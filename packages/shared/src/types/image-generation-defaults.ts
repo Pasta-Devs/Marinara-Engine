@@ -39,6 +39,8 @@ export interface ImageGenerationDefaultsProfile {
   version: 1;
   service: ImageDefaultsService;
   seed: number;
+  /** Optional connection-scoped image style profile override. */
+  styleProfileId?: string | null;
   automatic1111?: Automatic1111Defaults;
   comfyui?: ComfyUiDefaults;
   novelai?: NovelAiDefaults;

@@ -11,13 +11,12 @@ import {
   Users,
   Package,
   Scroll,
-  Trash2,
   Sparkles,
-  MessageCircle,
   Swords,
   RefreshCw,
   BarChart3,
   SlidersHorizontal,
+  Loader2,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
@@ -26,9 +25,26 @@ import { TrackerPanelIcon } from "../ui/TrackerPanelIcon";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useAgentConfigs, useCustomAgentRuns, type AgentConfigRow } from "../../hooks/use-agents";
-import { useChat } from "../../hooks/use-chats";
 import { discardPendingGameStatePatch, useGameStatePatcher } from "../../hooks/use-game-state-patcher";
 import { useUIStore } from "../../stores/ui.store";
+import {
+  getLocationPinColor,
+  getTemperatureColor,
+  getTemperatureGaugeDisplay,
+  getTemperatureKeywordHint,
+  getWeatherIconColor,
+  getWorldDateIconColor,
+  getWorldTimeIconColor,
+  parseTemperatureValue,
+} from "../../features/tracker-panel/lib/world-state-display";
+import { TrackerLockProvider } from "../../features/tracker-panel/components/TrackerLockContext";
+import { useTrackerFieldLockUpdater } from "../../features/tracker-panel/hooks/use-tracker-field-lock-updater";
+import { ROLEPLAY_POPOVER_SCROLL_AREA, ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
+import {
+  CHAT_TOOLBAR_ICON_GAP_CLASS,
+  CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
+  getChatToolbarButtonClass,
+} from "./ChatToolbarControls";
 import type {
   GameState,
   PresentCharacter,
@@ -38,9 +54,15 @@ import type {
   CustomTrackerField,
   Message,
 } from "@marinara-engine/shared";
-import type { HudPosition } from "../../stores/ui.store";
+import {
+  inventoryTrackerLockPrefix,
+  removeTrackerArrayItemLocks,
+  toggleTrackerFieldLock,
+} from "@marinara-engine/shared";
+import type { HudPosition, TrackerTemperatureUnit } from "../../stores/ui.store";
 
 const ACTIONS_DROPDOWN_WIDTH_PX = 288;
+const EMPTY_INVENTORY: InventoryItem[] = [];
 
 interface RoleplayHUDProps {
   chatId: string;
@@ -96,6 +118,7 @@ export function RoleplayHUD({
   injectionSourceMessages,
 }: RoleplayHUDProps & { mobileCompact?: boolean }) {
   const [agentsOpen, setAgentsOpen] = useState(false);
+  const [lockMode, setLockMode] = useState(false);
   const gameState = useGameStateStore((s) => s.current);
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
   const setGameState = useGameStateStore((s) => s.setGameState);
@@ -113,25 +136,6 @@ export function RoleplayHUD({
   }, [agentConfigs]);
   const enabledAgentTypes = enabledAgentTypesProp ?? globalEnabledAgentTypes;
 
-  const { data: chatForAgentsMenu } = useChat(chatId);
-  const agentsMenuMetadata = useMemo(() => {
-    const raw = chatForAgentsMenu?.metadata;
-    let m: Record<string, unknown> = {};
-    if (typeof raw === "string") {
-      try {
-        m = JSON.parse(raw) as Record<string, unknown>;
-      } catch {
-        m = {};
-      }
-    } else if (raw && typeof raw === "object") {
-      m = raw as Record<string, unknown>;
-    }
-    return m;
-  }, [chatForAgentsMenu?.metadata]);
-  const showInjectionsTab = agentsMenuMetadata.showInjectionsPanel === true;
-  const showSecretPlotTab =
-    agentsMenuMetadata.showSecretPlotPanel === true && enabledAgentTypes.has("secret-plot-driver");
-
   const thoughtBubbles = useAgentStore((s) => s.thoughtBubbles);
   const isAgentProcessing = useAgentStore((s) => s.isProcessing);
   const failedAgentTypes = useAgentStore((s) => s.failedAgentTypes);
@@ -142,7 +146,9 @@ export function RoleplayHUD({
   const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
   const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
   const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
+  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
   const toggleTrackerPanel = useUIStore((s) => s.toggleTrackerPanel);
+  const showInjectionsTab = useUIStore((s) => s.debugMode);
 
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
   const showHudTrackerWidgets = !gameStateRefreshing && !(trackerPanelEnabled && trackerPanelHideHudWidgets);
@@ -184,6 +190,7 @@ export function RoleplayHUD({
         status: "",
       },
       personaStats: [],
+      fieldLocks: null,
     };
     discardPendingGameStatePatch(chatId);
     const prev = useGameStateStore.getState().current;
@@ -214,11 +221,31 @@ export function RoleplayHUD({
   const personaStatBars = gameState?.personaStats ?? [];
   const playerStats = gameState?.playerStats ?? null;
   const personaStatus = playerStats?.status ?? "";
-  const inventory = playerStats?.inventory ?? [];
+  const inventory = playerStats?.inventory ?? EMPTY_INVENTORY;
   const activeQuests = playerStats?.activeQuests ?? [];
   const customTrackerFields = playerStats?.customTrackerFields ?? [];
+  const fieldLocks = gameState?.fieldLocks ?? null;
+  const updateFieldLocks = useTrackerFieldLockUpdater({ chatId, fieldLocks, patchField });
+  const updateInventoryItems = useCallback(
+    (items: InventoryItem[]) => patchPlayerStats("inventory", items),
+    [patchPlayerStats],
+  );
+  const removeInventoryItem = useCallback(
+    (index: number) => {
+      updateInventoryItems(inventory.filter((_, itemIndex) => itemIndex !== index));
+      updateFieldLocks((locks) => removeTrackerArrayItemLocks(locks, inventoryTrackerLockPrefix(), index));
+    },
+    [inventory, updateFieldLocks, updateInventoryItems],
+  );
+  const toggleFieldLock = useCallback(
+    (key: string) => {
+      updateFieldLocks((locks) => toggleTrackerFieldLock(locks, key));
+    },
+    [updateFieldLocks],
+  );
+  const hasPersonaStatsTracker = enabledAgentTypes.has("persona-stats");
   const hasPlayerTrackerSections =
-    enabledAgentTypes.has("persona-stats") ||
+    hasPersonaStatsTracker ||
     enabledAgentTypes.has("character-tracker") ||
     enabledAgentTypes.has("quest") ||
     enabledAgentTypes.has("custom-tracker");
@@ -227,195 +254,210 @@ export function RoleplayHUD({
   // If mobileCompact, widgets are even narrower and action buttons are not cut off
 
   return (
-    <div
-      className={cn(
-        "rpg-hud",
-        isVertical ? "flex flex-col items-center gap-1.5" : "flex items-center gap-1.5",
-        mobileCompact && "flex-1 min-w-0",
-      )}
+    <TrackerLockProvider
+      fieldLocks={fieldLocks}
+      lockMode={lockMode}
+      onSetLockMode={setLockMode}
+      onToggleFieldLock={toggleFieldLock}
+      onUpdateFieldLocks={updateFieldLocks}
     >
-      {trackerPanelEnabled && !trackerPanelOpen && <TrackerPanelToggleButton onToggle={toggleTrackerPanel} />}
+      <div
+        className={cn(
+          "rpg-hud",
+          isVertical ? "flex flex-col items-center" : "flex items-center",
+          CHAT_TOOLBAR_ICON_GAP_CLASS,
+          mobileCompact && "min-w-0",
+        )}
+      >
+        {trackerPanelEnabled && !trackerPanelOpen && <TrackerPanelToggleButton onToggle={toggleTrackerPanel} />}
 
-      {/* Actions (Agents + Clear) */}
-      <ActionsGroup
-        chatId={chatId}
-        injectionSourceMessages={injectionSourceMessages}
-        agentConfigs={agentConfigs}
-        isVertical={isVertical}
-        agentsOpen={agentsOpen}
-        setAgentsOpen={setAgentsOpen}
-        isAgentProcessing={isAgentProcessing}
-        isGenerationBusy={isTrackerBusy}
-        thoughtBubbles={thoughtBubbles}
-        clearThoughtBubbles={clearThoughtBubbles}
-        dismissThoughtBubble={dismissThoughtBubble}
-        enabledAgentTypes={enabledAgentTypes}
-        clearGameState={clearGameState}
-        onRetriggerTrackers={onRetriggerTrackers}
-        onRetryFailedAgents={onRetryFailedAgents}
-        failedAgentTypes={failedAgentTypes}
-        failedAgentFailures={failedAgentFailures}
-        showInjectionsTab={showInjectionsTab}
-        showSecretPlotTab={showSecretPlotTab}
-      />
+        {/* Actions (Agents + Clear) */}
+        <ActionsGroup
+          chatId={chatId}
+          injectionSourceMessages={injectionSourceMessages}
+          agentConfigs={agentConfigs}
+          isVertical={isVertical}
+          agentsOpen={agentsOpen}
+          setAgentsOpen={setAgentsOpen}
+          isAgentProcessing={isAgentProcessing}
+          isGenerationBusy={isTrackerBusy}
+          thoughtBubbles={thoughtBubbles}
+          clearThoughtBubbles={clearThoughtBubbles}
+          dismissThoughtBubble={dismissThoughtBubble}
+          enabledAgentTypes={enabledAgentTypes}
+          clearGameState={clearGameState}
+          onRetriggerTrackers={onRetriggerTrackers}
+          onRetryFailedAgents={onRetryFailedAgents}
+          failedAgentTypes={failedAgentTypes}
+          failedAgentFailures={failedAgentFailures}
+          showInjectionsTab={showInjectionsTab}
+        />
 
-      {/* ── Mobile: combined widgets, centered ── */}
-      {showHudTrackerWidgets && (
-        <div className={cn("flex items-center gap-0.5 md:hidden", mobileCompact && "flex-1 justify-center")}>
-          {enabledAgentTypes.has("world-state") && (
-            <CombinedWorldWidget
-              location={location ?? ""}
-              date={date ?? ""}
-              time={time ?? ""}
-              weather={weather ?? ""}
-              temperature={temperature ?? ""}
-              onSaveLocation={(v) => patchField("location", v)}
-              onSaveDate={(v) => patchField("date", v)}
-              onSaveTime={(v) => patchField("time", v)}
-              onSaveWeather={(v) => patchField("weather", v)}
-              onSaveTemperature={(v) => patchField("temperature", v)}
-              layout={layout}
-              onRerunSingleTracker={onRerunSingleTracker}
-              isTrackerRetryBusy={isTrackerBusy}
-            />
-          )}
+        {/* ── Mobile: combined widgets, grouped with tracker and agent controls ── */}
+        {showHudTrackerWidgets && (
+          <div
+            className={cn(
+              "flex items-center md:hidden",
+              CHAT_TOOLBAR_ICON_GAP_CLASS,
+              mobileCompact && "min-w-0 justify-start",
+            )}
+          >
+            {enabledAgentTypes.has("world-state") && (
+              <CombinedWorldWidget
+                location={location ?? ""}
+                date={date ?? ""}
+                time={time ?? ""}
+                weather={weather ?? ""}
+                temperature={temperature ?? ""}
+                trackerTemperatureUnit={trackerTemperatureUnit}
+                onSaveLocation={(v) => patchField("location", v)}
+                onSaveDate={(v) => patchField("date", v)}
+                onSaveTime={(v) => patchField("time", v)}
+                onSaveWeather={(v) => patchField("weather", v)}
+                onSaveTemperature={(v) => patchField("temperature", v)}
+                layout={layout}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
 
-          {hasPlayerTrackerSections && (
-            <CombinedPlayerWidget
-              layout={layout}
-              showPersona={enabledAgentTypes.has("persona-stats")}
-              showCharacters={enabledAgentTypes.has("character-tracker")}
-              showQuests={enabledAgentTypes.has("quest")}
-              showCustomTracker={enabledAgentTypes.has("custom-tracker")}
-              personaStats={personaStatBars}
-              onUpdatePersonaStats={(bars) => patchField("personaStats", bars)}
-              personaStatus={personaStatus}
-              onUpdatePersonaStatus={(status) => patchPlayerStats("status", status)}
-              characters={presentCharacters}
-              onUpdateCharacters={(chars) => patchField("presentCharacters", chars)}
-              inventory={inventory}
-              onUpdateInventory={(items) => patchPlayerStats("inventory", items)}
-              quests={activeQuests}
-              onUpdateQuests={(q) => patchPlayerStats("activeQuests", q)}
-              customTrackerFields={customTrackerFields}
-              onUpdateCustomTracker={(fields) => patchPlayerStats("customTrackerFields", fields)}
-              onRerunSingleTracker={onRerunSingleTracker}
-              isTrackerRetryBusy={isTrackerBusy}
-            />
-          )}
+            {hasPlayerTrackerSections && (
+              <CombinedPlayerWidget
+                layout={layout}
+                showPersona={hasPersonaStatsTracker}
+                showCharacters={enabledAgentTypes.has("character-tracker")}
+                showQuests={enabledAgentTypes.has("quest")}
+                showCustomTracker={enabledAgentTypes.has("custom-tracker")}
+                personaStats={personaStatBars}
+                onUpdatePersonaStats={(bars) => patchField("personaStats", bars)}
+                personaStatus={personaStatus}
+                onUpdatePersonaStatus={(status) => patchPlayerStats("status", status)}
+                characters={presentCharacters}
+                onUpdateCharacters={(chars) => patchField("presentCharacters", chars)}
+                inventory={inventory}
+                onUpdateInventory={updateInventoryItems}
+                onRemoveInventoryItem={removeInventoryItem}
+                quests={activeQuests}
+                onUpdateQuests={(q) => patchPlayerStats("activeQuests", q)}
+                customTrackerFields={customTrackerFields}
+                onUpdateCustomTracker={(fields) => patchPlayerStats("customTrackerFields", fields)}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
 
-          {/* Manual tracker trigger button (mobile) */}
-          {manualTrackers && onRetriggerTrackers && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                onRetriggerTrackers();
-              }}
-              disabled={isTrackerBusy}
-              className={cn(
-                MOBILE_HUD_BTN,
-                "justify-center text-[0.5625rem] font-medium",
-                isTrackerBusy ? "text-foreground/75" : "text-foreground/45 hover:text-foreground/70",
-              )}
-            >
-              <RefreshCw size="0.875rem" className={cn("shrink-0 h-4 w-4", isTrackerBusy && "animate-spin")} />
-            </button>
-          )}
-        </div>
-      )}
+            {/* Manual tracker trigger button (mobile) */}
+            {manualTrackers && onRetriggerTrackers && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onRetriggerTrackers();
+                }}
+                disabled={isTrackerBusy}
+                className={cn(
+                  MOBILE_HUD_BTN,
+                  "justify-center text-[0.5625rem] font-medium",
+                  isTrackerBusy && "text-[var(--marinara-chat-chrome-button-text-active)]",
+                )}
+              >
+                <RefreshCw size="0.875rem" className={cn("shrink-0 h-4 w-4", isTrackerBusy && "animate-spin")} />
+              </button>
+            )}
+          </div>
+        )}
 
-      {/* ── Desktop: separate individual widgets ── */}
-      {showHudTrackerWidgets && (
-        <div className="hidden md:flex items-center gap-1.5">
-          {enabledAgentTypes.has("world-state") && (
-            <CombinedWorldWidget
-              location={location ?? ""}
-              date={date ?? ""}
-              time={time ?? ""}
-              weather={weather ?? ""}
-              temperature={temperature ?? ""}
-              onSaveLocation={(v) => patchField("location", v)}
-              onSaveDate={(v) => patchField("date", v)}
-              onSaveTime={(v) => patchField("time", v)}
-              onSaveWeather={(v) => patchField("weather", v)}
-              onSaveTemperature={(v) => patchField("temperature", v)}
-              layout={layout}
-              onRerunSingleTracker={onRerunSingleTracker}
-              isTrackerRetryBusy={isTrackerBusy}
-            />
-          )}
+        {/* ── Desktop: separate individual widgets ── */}
+        {showHudTrackerWidgets && (
+          <div className={cn("hidden items-center md:flex", CHAT_TOOLBAR_ICON_GAP_CLASS)}>
+            {enabledAgentTypes.has("world-state") && (
+              <CombinedWorldWidget
+                location={location ?? ""}
+                date={date ?? ""}
+                time={time ?? ""}
+                weather={weather ?? ""}
+                temperature={temperature ?? ""}
+                trackerTemperatureUnit={trackerTemperatureUnit}
+                onSaveLocation={(v) => patchField("location", v)}
+                onSaveDate={(v) => patchField("date", v)}
+                onSaveTime={(v) => patchField("time", v)}
+                onSaveWeather={(v) => patchField("weather", v)}
+                onSaveTemperature={(v) => patchField("temperature", v)}
+                layout={layout}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
 
-          {enabledAgentTypes.has("persona-stats") && (
-            <PersonaStatsWidget
-              bars={personaStatBars}
-              onUpdate={(bars) => patchField("personaStats", bars)}
-              status={personaStatus}
-              onUpdateStatus={(status) => patchPlayerStats("status", status)}
-              layout={layout}
-              onRerunSingleTracker={onRerunSingleTracker}
-              isTrackerRetryBusy={isTrackerBusy}
-            />
-          )}
+            {hasPersonaStatsTracker && (
+              <PersonaStatsWidget
+                bars={personaStatBars}
+                onUpdate={(bars) => patchField("personaStats", bars)}
+                status={personaStatus}
+                onUpdateStatus={(status) => patchPlayerStats("status", status)}
+                layout={layout}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
 
-          {enabledAgentTypes.has("character-tracker") && (
-            <CharactersWidget
-              characters={presentCharacters}
-              onUpdate={(chars) => patchField("presentCharacters", chars)}
-              chatId={chatId}
-              layout={layout}
-              onRerunSingleTracker={onRerunSingleTracker}
-              isTrackerRetryBusy={isTrackerBusy}
-            />
-          )}
+            {enabledAgentTypes.has("character-tracker") && (
+              <CharactersWidget
+                characters={presentCharacters}
+                onUpdate={(chars) => patchField("presentCharacters", chars)}
+                chatId={chatId}
+                layout={layout}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
 
-          {hasPlayerTrackerSections && (
-            <InventoryWidget
-              items={inventory}
-              onUpdate={(items) => patchPlayerStats("inventory", items)}
-              layout={layout}
-            />
-          )}
+            {hasPersonaStatsTracker && (
+              <InventoryWidget
+                items={inventory}
+                onUpdate={updateInventoryItems}
+                onRemoveItem={removeInventoryItem}
+                layout={layout}
+              />
+            )}
 
-          {enabledAgentTypes.has("quest") && (
-            <QuestsWidget
-              quests={activeQuests}
-              onUpdate={(q) => patchPlayerStats("activeQuests", q)}
-              layout={layout}
-              onRerunSingleTracker={onRerunSingleTracker}
-              isTrackerRetryBusy={isTrackerBusy}
-            />
-          )}
+            {enabledAgentTypes.has("quest") && (
+              <QuestsWidget
+                quests={activeQuests}
+                onUpdate={(q) => patchPlayerStats("activeQuests", q)}
+                layout={layout}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
 
-          {enabledAgentTypes.has("custom-tracker") && (
-            <CustomTrackerWidget
-              fields={customTrackerFields}
-              onUpdate={(fields) => patchPlayerStats("customTrackerFields", fields)}
-              layout={layout}
-              onRerunSingleTracker={onRerunSingleTracker}
-              isTrackerRetryBusy={isTrackerBusy}
-            />
-          )}
+            {enabledAgentTypes.has("custom-tracker") && (
+              <CustomTrackerWidget
+                fields={customTrackerFields}
+                onUpdate={(fields) => patchPlayerStats("customTrackerFields", fields)}
+                layout={layout}
+                onRerunSingleTracker={onRerunSingleTracker}
+                isTrackerRetryBusy={isTrackerBusy}
+              />
+            )}
 
-          {/* Manual tracker trigger button (desktop) */}
-          {manualTrackers && onRetriggerTrackers && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                onRetriggerTrackers();
-              }}
-              disabled={isTrackerBusy}
-              className={cn(
-                WIDGET,
-                isTrackerBusy ? "text-foreground/75" : "text-foreground/45 hover:text-foreground/70",
-              )}
-              title={isTrackerBusy ? "Trackers running…" : "Run Trackers"}
-            >
-              <RefreshCw size="0.875rem" className={cn(isTrackerBusy && "animate-spin")} />
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+            {/* Manual tracker trigger button (desktop) */}
+            {manualTrackers && onRetriggerTrackers && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  onRetriggerTrackers();
+                }}
+                disabled={isTrackerBusy}
+                className={cn(WIDGET, isTrackerBusy && "text-[var(--marinara-chat-chrome-button-text-active)]")}
+                title={isTrackerBusy ? "Trackers running…" : "Run Trackers"}
+              >
+                <RefreshCw size="0.875rem" className={cn(isTrackerBusy && "animate-spin")} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </TrackerLockProvider>
   );
 }
 
@@ -424,8 +466,8 @@ export function RoleplayHUD({
 // ═══════════════════════════════════════════════
 
 /** Common mobile HUD button sizing – used by all four strip buttons */
-const MOBILE_HUD_BTN =
-  "flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 transition-all hover:bg-[var(--card)] dark:border-foreground/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none";
+const HUD_ICON_BUTTON = getChatToolbarButtonClass({ compact: true });
+const MOBILE_HUD_BTN = cn(HUD_ICON_BUTTON, CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS, "cursor-pointer select-none");
 
 function DeferredHUDPanelFallback({ label }: { label: string }) {
   return <div className="px-3 py-4 text-center text-[0.625rem] text-[var(--muted-foreground)]/60">{label}</div>;
@@ -439,12 +481,16 @@ function DeferredActionsFallback({ isAgentProcessing }: { isAgentProcessing: boo
   );
 }
 
+function customAgentRunIdentity(run: { agentType?: string | null; id?: string | null }) {
+  return run.agentType?.trim() || run.id?.trim() || "custom-agent";
+}
+
 function TrackerPanelToggleButton({ onToggle }: { onToggle: () => void }) {
   return (
     <button
       data-tracker-panel-toggle="roleplay-hud"
       onClick={onToggle}
-      className={cn(WIDGET, "text-foreground/50 hover:border-foreground/20 hover:text-foreground/75")}
+      className={WIDGET}
       title="Show Tracker Panel"
       aria-label="Show Tracker Panel"
     >
@@ -473,7 +519,6 @@ interface ActionsGroupProps {
   failedAgentTypes: string[];
   failedAgentFailures: AgentFailure[];
   showInjectionsTab?: boolean;
-  showSecretPlotTab?: boolean;
 }
 
 function ActionsGroup({
@@ -495,7 +540,6 @@ function ActionsGroup({
   failedAgentTypes,
   failedAgentFailures,
   showInjectionsTab,
-  showSecretPlotTab,
 }: ActionsGroupProps) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -558,9 +602,16 @@ function ActionsGroup({
   }, [agentsOpen, setAgentsOpen]);
 
   // Badge count — unique agent types that produced results
-  const uniqueAgentCount = new Set(thoughtBubbles.map((b) => b.agentId)).size;
-  const badgeCount = uniqueAgentCount + customAgentRuns.length + (echoMessages.length > 0 ? 1 : 0);
-  const showIllustratorRetry = failedAgentTypes.includes("illustrator") && !!onRetryFailedAgents;
+  const generatedAgentIds = new Set([
+    ...thoughtBubbles.map((bubble) => bubble.agentId),
+    ...customAgentRuns.map(customAgentRunIdentity),
+  ]);
+  if (echoMessages.length > 0 && !generatedAgentIds.has("echo-chamber")) generatedAgentIds.add("echo-chamber");
+  const generatedAgentCount = generatedAgentIds.size;
+  const agentsLabel = `Agents & Actions${generatedAgentCount > 0 ? ` - ${generatedAgentCount} generated` : ""}${
+    failedAgentTypes.length > 0 ? ` - ${failedAgentTypes.length} failed` : ""
+  }`;
+  const hasAgentCount = generatedAgentCount > 0 || failedAgentTypes.length > 0;
 
   // ── Shared dropdown portal (used by both desktop & mobile) ──
   const dropdownContent =
@@ -569,7 +620,11 @@ function ActionsGroup({
     createPortal(
       <div
         ref={dropdownRef}
-        className="fixed min-h-24 w-72 min-w-64 max-w-[calc(100vw-1rem)] max-h-[calc(100vh-1rem)] resize overflow-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] backdrop-blur-xl shadow-xl z-[9999] animate-message-in dark:border-foreground/10 dark:bg-black/80"
+        className={cn(
+          ROLEPLAY_POPOVER_SHELL,
+          ROLEPLAY_POPOVER_SCROLL_AREA,
+          "fixed z-[9999] max-h-80 w-72 max-w-[calc(100vw-1rem)] overflow-y-auto",
+        )}
         style={{ top: pos.top, left: pos.left }}
       >
         <Suspense fallback={<DeferredActionsFallback isAgentProcessing={isAgentProcessing} />}>
@@ -596,7 +651,6 @@ function ActionsGroup({
             failedAgentFailures={failedAgentFailures}
             onClose={() => setAgentsOpen(false)}
             showInjectionsTab={showInjectionsTab}
-            showSecretPlotTab={showSecretPlotTab}
           />
         </Suspense>
       </div>,
@@ -604,64 +658,46 @@ function ActionsGroup({
     );
 
   return (
-    <div className={cn("relative flex items-center gap-1", isVertical && "flex-col")}>
+    <div className={cn("relative flex items-center", CHAT_TOOLBAR_ICON_GAP_CLASS, isVertical && "flex-col")}>
       <button
         ref={btnRef}
         onClick={() => setAgentsOpen(!agentsOpen)}
         className={cn(
-          "group flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-foreground/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none",
-          agentsOpen && "bg-[var(--card)] border-[var(--border)] dark:bg-black/60 dark:border-foreground/20",
+          getChatToolbarButtonClass({
+            compact: true,
+            open: agentsOpen,
+            className: cn(CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS, hasAgentCount && "w-auto min-w-8 gap-1.5 px-2"),
+          }),
+          "group cursor-pointer select-none",
         )}
-        title="Agents & Actions"
+        title={agentsLabel}
+        aria-label={agentsLabel}
       >
-        <Sparkles
-          size="0.875rem"
-          strokeWidth={2.5}
-          className={cn(
-            "shrink-0 transition-colors group-hover:text-foreground/75",
-            agentsOpen || isAgentProcessing ? "text-foreground/75" : "text-foreground/55",
-            isAgentProcessing && "animate-pulse",
-          )}
-        />
-        {showEcho && (
-          <MessageCircle
-            size="0.8125rem"
-            strokeWidth={2.5}
-            className={cn(
-              "shrink-0 transition-colors group-hover:text-foreground/70",
-              echoChamberOpen ? "text-foreground/75" : "text-foreground/45",
-            )}
-          />
+        {isAgentProcessing ? (
+          <Loader2 size="0.875rem" strokeWidth={2.5} className="shrink-0 animate-spin transition-colors" />
+        ) : (
+          <Sparkles size="0.875rem" strokeWidth={2.5} className="shrink-0 transition-colors" />
         )}
-        <Trash2
-          size="0.8125rem"
-          strokeWidth={2.5}
-          className="shrink-0 text-foreground/45 transition-colors group-hover:text-foreground/70"
-        />
-        {badgeCount > 0 && (
-          <span className="hidden md:flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-foreground/15 px-1 text-[0.5rem] font-bold text-foreground/80 ring-1 ring-foreground/10">
-            {badgeCount}
+        {generatedAgentCount > 0 && (
+          <span
+            className={cn(
+              "shrink-0 rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-[var(--marinara-chat-chrome-button-text-hover)]",
+              agentsOpen && "bg-[var(--marinara-chat-chrome-highlight-bg-hover)]",
+            )}
+            aria-hidden="true"
+          >
+            {generatedAgentCount}
           </span>
         )}
         {failedAgentTypes.length > 0 && (
-          <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-amber-500/80 px-1 text-[0.5rem] font-bold text-foreground">
+          <span
+            className="shrink-0 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[0.625rem] font-medium tabular-nums text-amber-200"
+            aria-hidden="true"
+          >
             {failedAgentTypes.length}
           </span>
         )}
       </button>
-      {showIllustratorRetry && (
-        <button
-          type="button"
-          onClick={() => onRetryFailedAgents?.()}
-          disabled={isAgentProcessing}
-          className="flex h-8 items-center justify-center gap-1 rounded-lg border border-amber-400/30 bg-amber-500/15 px-2 text-[0.625rem] font-semibold text-amber-200 transition-colors hover:bg-amber-500/25 disabled:cursor-not-allowed disabled:opacity-50 md:h-10"
-          title="Try Illustrator again"
-          aria-label="Try Illustrator again"
-        >
-          <RefreshCw size="0.75rem" className={cn("shrink-0", isAgentProcessing && "animate-spin")} />
-          <span className="hidden md:inline">{isAgentProcessing ? "Retrying..." : "Try again"}</span>
-        </button>
-      )}
       {dropdownContent}
     </div>
   );
@@ -686,6 +722,7 @@ function CombinedPlayerWidget({
   onUpdateCharacters,
   inventory,
   onUpdateInventory,
+  onRemoveInventoryItem,
   quests,
   onUpdateQuests,
   customTrackerFields,
@@ -706,6 +743,7 @@ function CombinedPlayerWidget({
   onUpdateCharacters: (chars: PresentCharacter[]) => void;
   inventory: InventoryItem[];
   onUpdateInventory: (items: InventoryItem[]) => void;
+  onRemoveInventoryItem?: (index: number) => void;
   quests: QuestProgress[];
   onUpdateQuests: (quests: QuestProgress[]) => void;
   customTrackerFields: CustomTrackerField[];
@@ -718,18 +756,11 @@ function CombinedPlayerWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={cn(WIDGET, "text-orange-300")}
-        title="Player & Tracker"
-      >
-        <div className="flex h-7 max-md:h-auto items-center justify-center shrink-0">
-          <Swords size="0.875rem" className="text-orange-400/70 max-md:h-4 max-md:w-4" />
+      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title="Player & Tracker">
+        <div className="flex h-4 items-center justify-center shrink-0">
+          <Swords size="0.875rem" className="max-md:h-4 max-md:w-4" />
         </div>
-        <span className="max-w-full truncate text-[0.5625rem] font-semibold leading-tight shrink-0 max-md:hidden">
-          Tracker
-        </span>
+        <span className="sr-only">Tracker</span>
       </button>
 
       <WidgetPopover
@@ -753,6 +784,7 @@ function CombinedPlayerWidget({
             onUpdateCharacters={onUpdateCharacters}
             inventory={inventory}
             onUpdateInventory={onUpdateInventory}
+            onRemoveInventoryItem={onRemoveInventoryItem}
             quests={quests}
             onUpdateQuests={onUpdateQuests}
             customTrackerFields={customTrackerFields}
@@ -866,7 +898,9 @@ function WidgetPopover({
       ref={ref}
       style={pos ? { position: "fixed", top: pos.top, left: pos.left } : { position: "fixed", top: -9999, left: -9999 }}
       className={cn(
-        "z-[9999] min-h-24 min-w-60 max-w-[calc(100vw-1rem)] animate-message-in resize overflow-auto rounded-xl border border-[var(--border)] bg-[var(--popover)] backdrop-blur-xl shadow-xl dark:border-foreground/10 dark:bg-black/80",
+        ROLEPLAY_POPOVER_SHELL,
+        ROLEPLAY_POPOVER_SCROLL_AREA,
+        "z-[9999] min-h-24 min-w-60 max-w-[calc(100vw-1rem)] resize overflow-auto",
         className,
         "!max-h-[calc(100vh-1rem)]",
       )}
@@ -899,12 +933,7 @@ function CharactersWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={cn(WIDGET, "text-foreground/60 hover:text-foreground/75")}
-        title="Present Characters"
-      >
+      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title="Present Characters">
         {characters.length > 0 ? (
           <div className="flex items-center -space-x-0.5">
             {characters.slice(0, 3).map((c, i) => (
@@ -919,10 +948,7 @@ function CharactersWidget({
             )}
           </div>
         ) : (
-          <Users
-            size="0.875rem"
-            className="text-foreground/45 transition-colors group-hover:text-foreground/70 max-md:h-3.5 max-md:w-3.5"
-          />
+          <Users size="0.875rem" className="transition-colors max-md:h-3.5 max-md:w-3.5" />
         )}
       </button>
 
@@ -971,12 +997,7 @@ function PersonaStatsWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={cn(WIDGET, "text-violet-300")}
-        title="Persona Stats"
-      >
+      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title="Persona Stats">
         {bars.length > 0 ? (
           <div className="flex w-6 max-md:w-8 flex-col justify-center gap-0.5 max-md:gap-px shrink-0">
             {bars.map((bar) => {
@@ -988,18 +1009,19 @@ function PersonaStatsWidget({
                 >
                   <div
                     className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${pct}%`, backgroundColor: bar.color || "#8b5cf6" }}
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: bar.color || "#a1a1aa",
+                    }}
                   />
                 </div>
               );
             })}
           </div>
         ) : (
-          <BarChart3 size="0.875rem" className="text-violet-400/40 max-md:h-3.5 max-md:w-3.5" />
+          <BarChart3 size="0.875rem" className="max-md:h-3.5 max-md:w-3.5" />
         )}
-        <span className="max-w-full truncate text-[0.5625rem] max-md:text-[0.4375rem] font-semibold leading-tight shrink-0 md:hidden">
-          Persona
-        </span>
+        <span className="sr-only">Persona</span>
       </button>
 
       <WidgetPopover
@@ -1069,12 +1091,7 @@ function CustomTrackerWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={cn(WIDGET, "text-cyan-300")}
-        title="Custom Tracker"
-      >
+      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title="Custom Tracker">
         {fields.length > 0 && currentField ? (
           <span
             key={animKey}
@@ -1084,7 +1101,7 @@ function CustomTrackerWidget({
             {previewLabel}
           </span>
         ) : (
-          <SlidersHorizontal size="0.875rem" className="text-cyan-400/60 max-md:h-3 max-md:w-3" />
+          <SlidersHorizontal size="0.875rem" className="max-md:h-3 max-md:w-3" />
         )}
       </button>
 
@@ -1113,10 +1130,12 @@ function CustomTrackerWidget({
 function InventoryWidget({
   items,
   onUpdate,
+  onRemoveItem,
   layout = "top",
 }: {
   items: InventoryItem[];
   onUpdate: (items: InventoryItem[]) => void;
+  onRemoveItem?: (index: number) => void;
   layout?: HudPosition;
 }) {
   const [open, setOpen] = useState(false);
@@ -1153,7 +1172,7 @@ function InventoryWidget({
 
   return (
     <div className="relative">
-      <button ref={buttonRef} onClick={() => setOpen(!open)} className={cn(WIDGET, "text-amber-300")} title="Inventory">
+      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title="Inventory">
         {items.length > 0 && currentItem ? (
           <span
             key={animKey}
@@ -1163,7 +1182,7 @@ function InventoryWidget({
             {itemLabel}
           </span>
         ) : (
-          <Package size="0.875rem" className="text-amber-400/60 max-md:h-3 max-md:w-3" />
+          <Package size="0.875rem" className="max-md:h-3 max-md:w-3" />
         )}
       </button>
 
@@ -1175,7 +1194,7 @@ function InventoryWidget({
         className="w-64 max-h-80 overflow-y-auto"
       >
         <Suspense fallback={<DeferredHUDPanelFallback label="Loading inventory…" />}>
-          <InventoryPanel items={items} onUpdate={onUpdate} />
+          <InventoryPanel items={items} onUpdate={onUpdate} onRemoveItem={onRemoveItem} />
         </Suspense>
       </WidgetPopover>
     </div>
@@ -1207,12 +1226,7 @@ function QuestsWidget({
 
   return (
     <div className="relative">
-      <button
-        ref={buttonRef}
-        onClick={() => setOpen(!open)}
-        className={cn(WIDGET, "text-emerald-300")}
-        title="Active Quests"
-      >
+      <button ref={buttonRef} onClick={() => setOpen(!open)} className={WIDGET} title="Active Quests">
         {currentObjective ? (
           <span className="widget-scroll-text w-full px-0.5 text-center text-[0.375rem] font-semibold leading-[1.15] max-md:text-[0.5rem]">
             <span className="inline-flex animate-[widget-scroll_8s_linear_infinite] whitespace-nowrap">
@@ -1223,7 +1237,7 @@ function QuestsWidget({
             </span>
           </span>
         ) : (
-          <Scroll size="0.875rem" className="text-emerald-400/60 max-md:h-3 max-md:w-3" />
+          <Scroll size="0.875rem" className="max-md:h-3 max-md:w-3" />
         )}
       </button>
 
@@ -1251,8 +1265,11 @@ function QuestsWidget({
 // Uniform World-State Widgets
 // ═══════════════════════════════════════════════
 
-const WIDGET =
-  "group flex w-10 h-10 max-md:w-auto max-md:h-auto max-md:px-2 max-md:py-1.5 flex-col items-center justify-center gap-0.5 max-md:gap-0 rounded-xl max-md:rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md transition-all hover:bg-[var(--card)] dark:border-foreground/15 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none overflow-hidden";
+const WIDGET = cn(
+  HUD_ICON_BUTTON,
+  CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
+  "group flex-col gap-0 overflow-hidden cursor-pointer select-none",
+);
 
 // ═══════════════════════════════════════════════
 // Combined World-State Widget (icon strip + popover, desktop & mobile)
@@ -1264,6 +1281,7 @@ function CombinedWorldWidget({
   time,
   weather,
   temperature,
+  trackerTemperatureUnit,
   onSaveLocation,
   onSaveDate,
   onSaveTime,
@@ -1278,6 +1296,7 @@ function CombinedWorldWidget({
   time: string;
   weather: string;
   temperature: string;
+  trackerTemperatureUnit: TrackerTemperatureUnit;
   onSaveLocation: (v: string) => void;
   onSaveDate: (v: string) => void;
   onSaveTime: (v: string) => void;
@@ -1291,18 +1310,13 @@ function CombinedWorldWidget({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const weatherEmoji = weather ? getWeatherEmoji(weather) : "🌤️";
   const pinColor = getLocationPinColor(location);
-  const tempNumeric = temperature ? parseTemperature(temperature) : null;
+  const dateColor = getWorldDateIconColor(date);
+  const timeColor = getWorldTimeIconColor(time);
+  const weatherColor = getWeatherIconColor(weather);
+  const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
+  const tempNumeric = temperature ? parseTemperatureValue(temperature) : null;
   const temp = tempNumeric ?? (temperature ? getTemperatureKeywordHint(temperature) : null);
-  const tempColor =
-    temp !== null
-      ? temp < 0
-        ? "text-blue-400"
-        : temp < 15
-          ? "text-sky-400"
-          : temp < 30
-            ? "text-amber-400"
-            : "text-red-400"
-      : "text-rose-400/50";
+  const tempColor = getTemperatureColor(temperature);
 
   // Dynamic calendar: show day number
   const dateParts = date ? parseDateLabel(date) : { day: null, month: null };
@@ -1313,10 +1327,10 @@ function CombinedWorldWidget({
   const hourAngle = hour >= 0 ? (hour % 12) * 30 + minute * 0.5 : 0;
   const minuteAngle = minute * 6;
 
-  // Thermometer fill fraction (clamp -20..50°C → 0..1)
-  const tempFill = temp !== null ? Math.max(0, Math.min(1, (temp + 20) / 70)) : 0.3;
-  const tempFillColor =
-    temp !== null ? (temp < 0 ? "#60a5fa" : temp < 15 ? "#38bdf8" : temp < 30 ? "#fbbf24" : "#f87171") : "#fb7185";
+  const tempFill =
+    temperatureDisplay.percent == null ? 0.3 : Math.max(0, Math.min(1, temperatureDisplay.percent / 100));
+  const tempFillColor = temperatureDisplay.color;
+  const sideLayout = layout === "left" || layout === "right";
 
   return (
     <div className="relative">
@@ -1324,146 +1338,153 @@ function CombinedWorldWidget({
         ref={buttonRef}
         onClick={() => setOpen(!open)}
         className={cn(
-          "flex items-center gap-1.5 md:gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/80 backdrop-blur-md px-2 py-1.5 md:px-2 md:py-2 md:h-10 transition-all hover:bg-[var(--card)] dark:border-foreground/10 dark:bg-black/40 dark:hover:bg-black/60 cursor-pointer select-none",
-          open && "bg-[var(--card)] border-[var(--border)] dark:bg-black/60 dark:border-foreground/20",
+          getChatToolbarButtonClass({
+            compact: true,
+            open,
+            className: CHAT_TOOLBAR_MOBILE_OVERFLOW_HEIGHT_CLASS,
+          }),
+          "cursor-pointer select-none",
+          !sideLayout && "w-auto min-w-8 gap-1 px-2",
         )}
         title="World State"
       >
         {/* Location pin */}
-        <MapPin size="0.9375rem" className={cn(pinColor, "drop-shadow-sm shrink-0")} />
+        <MapPin size="0.9375rem" className={cn("shrink-0 drop-shadow-sm", pinColor)} />
 
         {/* Mini calendar with day number */}
-        <svg viewBox="0 0 20 20" fill="none" className="shrink-0 h-4 w-4">
-          <rect
-            x="2"
-            y="4"
-            width="16"
-            height="14"
-            rx="2"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            className="text-violet-400/70"
-          />
-          <line x1="2" y1="8" x2="18" y2="8" stroke="currentColor" strokeWidth="1.2" className="text-violet-400/50" />
-          <line
-            x1="6"
-            y1="2"
-            x2="6"
-            y2="5.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            className="text-violet-400/70"
-          />
-          <line
-            x1="14"
-            y1="2"
-            x2="14"
-            y2="5.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            className="text-violet-400/70"
-          />
-          {dateParts.day && (
-            <text
-              x="10"
-              y="15.5"
-              textAnchor="middle"
-              fill="currentColor"
-              fontSize="7"
-              fontWeight="700"
-              className="text-violet-300"
-            >
-              {dateParts.day}
-            </text>
-          )}
-        </svg>
-
-        {/* Mini clock with dynamic hands */}
-        <svg viewBox="0 0 20 20" fill="none" className="shrink-0 h-4 w-4">
-          <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" className="text-amber-400/70" />
-          {hour >= 0 ? (
-            <>
+        {!sideLayout && (
+          <>
+            <svg viewBox="0 0 20 20" fill="none" className={cn("shrink-0 h-4 w-4 drop-shadow-sm", dateColor)}>
+              <rect x="2" y="4" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" opacity="0.7" />
+              <line x1="2" y1="8" x2="18" y2="8" stroke="currentColor" strokeWidth="1.2" opacity="0.5" />
               <line
-                x1="10"
-                y1="10"
-                x2={10 + 4.2 * Math.sin((hourAngle * Math.PI) / 180)}
-                y2={10 - 4.2 * Math.cos((hourAngle * Math.PI) / 180)}
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                className="text-amber-300"
-              />
-              <line
-                x1="10"
-                y1="10"
-                x2={10 + 5.8 * Math.sin((minuteAngle * Math.PI) / 180)}
-                y2={10 - 5.8 * Math.cos((minuteAngle * Math.PI) / 180)}
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-                className="text-amber-400/80"
-              />
-            </>
-          ) : (
-            <>
-              <line
-                x1="10"
-                y1="10"
-                x2="10"
+                x1="6"
+                y1="2"
+                x2="6"
                 y2="5.5"
                 stroke="currentColor"
-                strokeWidth="1.8"
+                strokeWidth="1.5"
                 strokeLinecap="round"
-                className="text-amber-300"
+                opacity="0.7"
               />
               <line
-                x1="10"
-                y1="10"
+                x1="14"
+                y1="2"
                 x2="14"
-                y2="10"
+                y2="5.5"
                 stroke="currentColor"
-                strokeWidth="1.2"
+                strokeWidth="1.5"
                 strokeLinecap="round"
-                className="text-amber-400/80"
+                opacity="0.7"
               />
-            </>
-          )}
-          <circle cx="10" cy="10" r="1" fill="currentColor" className="text-amber-300" />
-        </svg>
+              {dateParts.day && (
+                <text
+                  x="10"
+                  y="15.5"
+                  textAnchor="middle"
+                  fill="currentColor"
+                  fontSize="7"
+                  fontWeight="700"
+                  opacity="0.95"
+                >
+                  {dateParts.day}
+                </text>
+              )}
+            </svg>
 
-        {/* Weather emoji */}
-        <span className="text-sm leading-none shrink-0">{weatherEmoji}</span>
+            {/* Mini clock with dynamic hands */}
+            <svg viewBox="0 0 20 20" fill="none" className={cn("shrink-0 h-4 w-4 drop-shadow-sm", timeColor)}>
+              <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.5" opacity="0.7" />
+              {hour >= 0 ? (
+                <>
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2={10 + 4.2 * Math.sin((hourAngle * Math.PI) / 180)}
+                    y2={10 - 4.2 * Math.cos((hourAngle * Math.PI) / 180)}
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    opacity="0.95"
+                  />
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2={10 + 5.8 * Math.sin((minuteAngle * Math.PI) / 180)}
+                    y2={10 - 5.8 * Math.cos((minuteAngle * Math.PI) / 180)}
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    opacity="0.8"
+                  />
+                </>
+              ) : (
+                <>
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2="10"
+                    y2="5.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    opacity="0.95"
+                  />
+                  <line
+                    x1="10"
+                    y1="10"
+                    x2="14"
+                    y2="10"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    opacity="0.8"
+                  />
+                </>
+              )}
+              <circle cx="10" cy="10" r="1" fill="currentColor" opacity="0.95" />
+            </svg>
 
-        {/* Mini thermometer with fill — vivid color & fill level changes dynamically */}
-        <svg viewBox="0 0 10 20" fill="none" className="shrink-0 h-4 w-[0.625rem]">
-          <rect
-            x="3"
-            y="1"
-            width="4"
-            height="13"
-            rx="2"
-            stroke={tempFillColor}
-            strokeWidth="1.2"
-            fill="none"
-            opacity={temp !== null ? 1 : 0.3}
-          />
-          <rect
-            x="3.8"
-            y={1 + 12 * (1 - tempFill)}
-            width="2.4"
-            height={12 * tempFill + 1}
-            rx="1"
-            fill={tempFillColor}
-            opacity={temp !== null ? 0.9 : 0.2}
-          />
-          <circle cx="5" cy="17" r="2.5" fill={tempFillColor} opacity={temp !== null ? 1 : 0.25} />
-        </svg>
-        {tempNumeric !== null && (
-          <span className={cn("text-[0.5rem] md:text-[0.5625rem] font-bold leading-none shrink-0", tempColor)}>
-            {tempNumeric}°
-          </span>
+            {/* Weather emoji */}
+            <span
+              className={cn(
+                "text-sm leading-none shrink-0 drop-shadow-sm [text-shadow:0_0_8px_currentColor]",
+                weatherColor,
+              )}
+            >
+              {weatherEmoji}
+            </span>
+
+            {/* Mini thermometer with fill — vivid color & fill level changes dynamically */}
+            <svg viewBox="0 0 10 20" fill="none" className="shrink-0 h-4 w-[0.625rem]">
+              <rect
+                x="3"
+                y="1"
+                width="4"
+                height="13"
+                rx="2"
+                stroke={tempFillColor}
+                strokeWidth="1.2"
+                fill="none"
+                opacity={temp !== null ? 1 : 0.3}
+              />
+              <rect
+                x="3.8"
+                y={1 + 12 * (1 - tempFill)}
+                width="2.4"
+                height={12 * tempFill + 1}
+                rx="1"
+                fill={tempFillColor}
+                opacity={temp !== null ? 0.9 : 0.2}
+              />
+              <circle cx="5" cy="17" r="2.5" fill={tempFillColor} opacity={temp !== null ? 1 : 0.25} />
+            </svg>
+            {tempNumeric !== null && (
+              <span className={cn("text-[0.5rem] md:text-[0.5625rem] font-bold leading-none shrink-0", tempColor)}>
+                {temperatureDisplay.label}
+              </span>
+            )}
+          </>
         )}
       </button>
 
@@ -1488,6 +1509,9 @@ function CombinedWorldWidget({
             onSaveTemperature={onSaveTemperature}
             weatherEmoji={weatherEmoji}
             pinColor={pinColor}
+            dateColor={dateColor}
+            timeColor={timeColor}
+            weatherColor={weatherColor}
             tempColor={tempColor}
             onClose={() => setOpen(false)}
             onRerunSingleTracker={onRerunSingleTracker}
@@ -1565,66 +1589,4 @@ function getWeatherEmoji(weather: string): string {
   if (w.includes("hot") || w.includes("swelter")) return "🥵";
   if (w.includes("cold") || w.includes("freez")) return "🥶";
   return "🌤️";
-}
-
-function parseTemperature(temp: string): number | null {
-  const m = temp.match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const num = parseFloat(m[0]!);
-  if (/°?\s*f/i.test(temp)) return Math.round((num - 32) * (5 / 9));
-  return Math.round(num);
-}
-
-/** Map descriptive temperature words to a numeric-equivalent hint (°C). */
-function getTemperatureKeywordHint(text: string): number | null {
-  const t = text.toLowerCase();
-  if (/\b(freez|frigid|arctic|glacial|sub-?zero|blizzard)/.test(t)) return -10;
-  if (/\b(cold|chill|frost|wintry|icy|bitter|nipp)/.test(t)) return 2;
-  if (/\b(cool|brisk|crisp|refresh)/.test(t)) return 12;
-  if (/\b(mild|pleasant|comfort|temperate|fair)/.test(t)) return 20;
-  if (/\b(warm|balmy|toasty|muggy|humid|stuffy|sultry)/.test(t)) return 28;
-  if (/\b(hot|swelter|blaz|scorch|burn|heat|boil|sear|bak)/.test(t)) return 38;
-  return null;
-}
-
-/** Categorise location text into a colour for the map-pin icon. */
-function getLocationPinColor(location: string): string {
-  const l = location.toLowerCase();
-  // Water
-  if (
-    /\b(sea|ocean|lake|river|pond|creek|bay|shore|beach|harbor|harbour|port|coast|marsh|swamp|waterfall|spring|well|dock|canal|dam|reef|lagoon|estuary|fjord|cove)\b/.test(
-      l,
-    )
-  )
-    return "text-blue-400";
-  // Mountains / rocky terrain
-  if (
-    /\b(mountain|hill|cliff|peak|ridge|canyon|gorge|cave|cavern|mine|quarry|summit|bluff|crag|volcano|crater|mesa|plateau|ravine|boulder)\b/.test(
-      l,
-    )
-  )
-    return "text-amber-700";
-  // Urban / city
-  if (
-    /\b(city|town|village|castle|palace|fortress|market|shop|inn|tavern|bar|pub|guild|district|quarter|bazaar|temple|church|cathedral|shrine|tower|gate|square|plaza|street|alley|arena|throne|court|capitol|capital|metro|subway)\b/.test(
-      l,
-    )
-  )
-    return "text-purple-400";
-  // Interior / indoors
-  if (
-    /\b(room|hall|chamber|dungeon|cellar|basement|attic|library|study|bedroom|kitchen|office|lab|laboratory|vault|corridor|passage|cabin|hut|tent|interior|house|home|building|apartment|manor|lodge|dormitor|warehouse|prison|cell|jail)\b/.test(
-      l,
-    )
-  )
-    return "text-amber-300";
-  // Nature / forest / fields (broadest — checked last)
-  if (
-    /\b(forest|wood|grove|jungle|garden|park|field|meadow|glade|clearing|plain|prairie|steppe|savanna|farm|ranch|orchard|vineyard|glen|vale|valley|thicket|copse|heath|moor|desert|tundra|waste|wild|trail|path|road)\b/.test(
-      l,
-    )
-  )
-    return "text-emerald-400";
-  // Default — the base emerald
-  return "text-emerald-400";
 }

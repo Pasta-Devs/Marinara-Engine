@@ -225,6 +225,8 @@ export interface EncounterActionRequest {
 /** Response from POST /api/encounter/action */
 export interface EncounterActionResponse {
   result: CombatActionResult;
+  /** True when the model/API produced no usable combat turn and state should not advance. */
+  invalid?: boolean;
 }
 
 /** Payload for POST /api/encounter/summary */

@@ -3,7 +3,13 @@
 // ──────────────────────────────────────────────
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { normalizeQuoteFormat, type QuoteFormat } from "@marinara-engine/shared";
+import {
+  IMAGE_STYLE_PROFILES_STORAGE_KEY,
+  normalizeImageStyleProfileSettings,
+  normalizeQuoteFormat,
+  type ImageStyleProfileSettings,
+  type QuoteFormat,
+} from "@marinara-engine/shared";
 
 type Panel =
   | "chat"
@@ -16,11 +22,15 @@ type Panel =
   | "settings"
   | "bot-browser";
 export type ChatModeShortcut = "conversation" | "roleplay" | "game";
+export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
+export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22;
 export type VisualTheme = "default" | "sillytavern";
+export type ConversationMessageStyle = "classic" | "bubble";
 export type HudPosition = "top" | "left" | "right";
 export type TrackerPanelSide = "left" | "right";
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
+export type MusicPlayerSource = "spotify" | "youtube";
 export const TRACKER_TEMPERATURE_UNITS = ["celsius", "fahrenheit"] as const;
 export type TrackerTemperatureUnit = (typeof TRACKER_TEMPERATURE_UNITS)[number];
 export const TRACKER_PANEL_SIZE_PROFILES = ["compact", "standard", "expanded"] as const;
@@ -29,10 +39,11 @@ export type TrackerDataPanelSection = "world" | "persona" | "characters" | "ques
 export type TrackerPanelCollapsedSections = Partial<Record<TrackerDataPanelSection, boolean>>;
 export type TrackerPanelSectionOrder = TrackerDataPanelSection[];
 export type EchoChamberSide = "top-left" | "top-right" | "bottom-left" | "bottom-right";
-export type UserStatus = "active" | "idle" | "dnd";
+export type UserStatus = "active" | "idle" | "dnd" | "invisible";
 export type RoleplayAvatarStyle = "none" | "circles" | "rectangles" | "panel";
 export type GameDialogueDisplayMode = "classic" | "stacked";
 export type SummaryPopoverSourceMode = "last" | "range";
+export const DEFAULT_ROLEPLAY_BACKGROUND_URL = "/api/backgrounds/file/Black.jpg";
 export interface FloatingWidgetPosition {
   x: number;
   y: number;
@@ -73,9 +84,18 @@ export const TRACKER_PANEL_SIZE_PROFILE_WIDTHS: Record<TrackerPanelSizeProfile, 
 export const TRACKER_PANEL_WIDTH_DEFAULT = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.standard;
 export const TRACKER_PANEL_WIDTH_MIN = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.compact;
 export const TRACKER_PANEL_WIDTH_MAX = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.expanded;
+export const TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR = "#09090b";
+export const DEFAULT_APP_ACCENT_DARK = "#d4d4d4";
+export const DEFAULT_APP_ACCENT_LIGHT = "#1a1025";
+export const DEFAULT_CHAT_TEXT_DARK = "#d4d4d4";
+export const DEFAULT_CHAT_TEXT_LIGHT = "#1a1025";
+export const DEFAULT_CHAT_CHROME_TEXT_DARK = "#d4d4d4";
+export const DEFAULT_CHAT_CHROME_TEXT_LIGHT = "#1a1025";
 const IMAGE_DIMENSION_MIN = 64;
 const IMAGE_DIMENSION_MAX = 4096;
 const GAME_SETUP_LEARNED_LIMIT = 60;
+const USER_ACTIVITY_MAX_LENGTH = 120;
+const RECENT_USER_ACTIVITY_LIMIT = 8;
 export const TRACKER_DATA_PANEL_SECTIONS: TrackerDataPanelSection[] = [
   "world",
   "persona",
@@ -108,6 +128,40 @@ const DEFAULT_SUMMARY_POPOVER_SETTINGS: SummaryPopoverSettings = {
   hideSummarisedMessages: false,
   collapseHiddenMessages: false,
 };
+
+function normalizeUserActivity(activity: string): string {
+  return activity.replace(/\s+/g, " ").trim().slice(0, USER_ACTIVITY_MAX_LENGTH);
+}
+
+export function getDefaultAppAccentColor(theme: "dark" | "light") {
+  return theme === "light" ? DEFAULT_APP_ACCENT_LIGHT : DEFAULT_APP_ACCENT_DARK;
+}
+
+export function getDefaultChatTextColor(theme: "dark" | "light") {
+  return theme === "light" ? DEFAULT_CHAT_TEXT_LIGHT : DEFAULT_CHAT_TEXT_DARK;
+}
+
+export function getDefaultChatChromeTextColor(theme: "dark" | "light") {
+  return theme === "light" ? DEFAULT_CHAT_CHROME_TEXT_LIGHT : DEFAULT_CHAT_CHROME_TEXT_DARK;
+}
+
+export function normalizeCharacterLibrarySort(value: unknown): CharacterLibrarySort {
+  return CHARACTER_LIBRARY_SORT_OPTIONS.includes(value as CharacterLibrarySort)
+    ? (value as CharacterLibrarySort)
+    : "name-asc";
+}
+
+function normalizeScrollTop(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+function normalizeAppAccentColor(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeChatChromeTextColor(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
 
 function clampImageDimension(value: number) {
   const rounded = Number.isFinite(value) ? Math.round(value) : 0;
@@ -181,6 +235,10 @@ function normalizeSummaryPopoverSettings(value: unknown): SummaryPopoverSettings
   };
 }
 
+export function normalizeConversationMessageStyle(value: unknown): ConversationMessageStyle {
+  return value === "bubble" || value === "classic" ? value : "classic";
+}
+
 export function normalizeTrackerThoughtBubbleDisplay(value: unknown): TrackerThoughtBubbleDisplay {
   return value === "inline" || value === "floating" ? value : "inline";
 }
@@ -189,6 +247,20 @@ export function normalizeTrackerTemperatureUnit(value: unknown): TrackerTemperat
   return TRACKER_TEMPERATURE_UNITS.includes(value as TrackerTemperatureUnit)
     ? (value as TrackerTemperatureUnit)
     : "celsius";
+}
+
+function normalizeTrackerPanelBackgroundColor(value: unknown) {
+  if (typeof value !== "string") return TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR;
+  return value.trim() || TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR;
+}
+
+function normalizeDefaultRoleplayBackground(value: unknown) {
+  if (typeof value !== "string") return DEFAULT_ROLEPLAY_BACKGROUND_URL;
+  const trimmed = value.trim();
+  if (!trimmed) return DEFAULT_ROLEPLAY_BACKGROUND_URL;
+  if (trimmed.startsWith("/api/backgrounds/file/")) return trimmed;
+  if (trimmed.startsWith("/") || /^(https?:|data:|blob:)/i.test(trimmed)) return trimmed;
+  return `/api/backgrounds/file/${encodeURIComponent(trimmed)}`;
 }
 
 function normalizeLearnedGameSetupOption(value: unknown) {
@@ -261,13 +333,17 @@ interface UIState {
   trackerPanelThoughtBubbleDisplay: TrackerThoughtBubbleDisplay;
   trackerPanelDockedThoughtsAlwaysVisible: boolean;
   trackerPanelSizeProfile: TrackerPanelSizeProfile;
+  trackerPanelBackgroundColor: string;
   trackerTemperatureUnit: TrackerTemperatureUnit;
   trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
   trackerPanelSectionOrder: TrackerPanelSectionOrder;
   settingsTab: string;
   modal: { type: string; props?: Record<string, unknown> } | null;
   theme: "dark" | "light";
+  appAccentColor: string;
   chatBackground: string | null;
+  /** Default background applied when a Roleplay chat has no saved background yet. */
+  defaultRoleplayBackground: string;
   /** Native blur applied to selected chat/game background images, in px. */
   chatBackgroundBlur: number;
   /** When set, the main area shows the full-page character editor instead of chat */
@@ -286,12 +362,26 @@ interface UIState {
   personaDetailId: string | null;
   /** When set, the main area shows the full-page regex script editor */
   regexDetailId: string | null;
+  /** Pre-selected target characters for a NEW regex script opened via openRegexDetail("__new__") */
+  regexDetailDefaultCharacterIds: string[] | null;
+  /** Where to return when the regex editor closes — e.g. back to a character's Advanced tab */
+  regexDetailReturn: { characterId: string; tab?: string } | null;
+  /** One-shot tab the character editor should open to (set by the regex-editor return path) */
+  characterDetailInitialTab: string | null;
   /** When true, the main area shows the browser */
   botBrowserOpen: boolean;
   /** When true, the main area shows the game assets browser */
   gameAssetsBrowserOpen: boolean;
   /** When true, the main area shows the full-page character library */
   characterLibraryOpen: boolean;
+  /** Last selected character card inside the full-page character library */
+  characterLibrarySelectedId: string | null;
+  /** Last selected sort order for character lists and the full-page character library */
+  characterLibrarySort: CharacterLibrarySort;
+  /** Last scroll offset for the compact Characters panel */
+  characterPanelScrollTop: number;
+  /** Last scroll offset for the full-page Character Library list */
+  characterLibraryScrollTop: number;
   /** True when any open detail editor has unsaved changes */
   editorDirty: boolean;
   /** Mobile-only return target for detail editors opened from a right panel */
@@ -327,12 +417,16 @@ interface UIState {
   reviewImagePromptsBeforeSend: boolean;
   imageBackgroundWidth: number;
   imageBackgroundHeight: number;
+  imageIllustrationWidth: number;
+  imageIllustrationHeight: number;
   imagePortraitWidth: number;
   imagePortraitHeight: number;
   imageSelfieWidth: number;
   imageSelfieHeight: number;
+  imageStyleProfiles: ImageStyleProfileSettings;
 
   messageGrouping: boolean;
+  conversationMessageStyle: ConversationMessageStyle;
   showTimestamps: boolean;
   showModelName: boolean;
   showTokenUsage: boolean;
@@ -349,14 +443,26 @@ interface UIState {
   boldDialogue: boolean;
   /** Preferred quote style applied to AI output and user input. */
   quoteFormat: QuoteFormat;
+  /** When true, common LaTeX symbol commands render as plain Unicode symbols in chat text. */
+  convertLatexSymbols: boolean;
   /** When true, model responses are trimmed back to the last complete sentence before saving. */
   trimIncompleteModelOutput: boolean;
   /** When true, chat inputs show a microphone button for browser speech-to-text dictation. */
   speechToTextEnabled: boolean;
   /** When true, allow the rare Chibi Professor Mari scroll toast. */
   chibiProfessorMariEnabled: boolean;
+  /** When true, achievements appear on Home and announce unlocks. Backend tracking stays silent either way. */
+  achievementsEnabled: boolean;
+  /** When true, show the global Music Player surface. */
+  musicPlayerEnabled: boolean;
+  /** Which Music Player surface to show. */
+  musicPlayerSource: MusicPlayerSource;
   /** When true, show the global Spotify mini player in the app chrome. */
   spotifyPlayerEnabled: boolean;
+  /** When true, show the Music DJ YouTube mini player when Music DJ plays a track. */
+  youtubePlayerEnabled: boolean;
+  /** User-set YouTube player volume (0–100). The DJ can also steer this. */
+  youtubePlayerVolume: number;
   /** Mobile Spotify widget collapsed state. */
   spotifyMobileWidgetCollapsed: boolean;
   /** Mobile Spotify widget position in viewport pixels. */
@@ -367,6 +473,8 @@ interface UIState {
   intuitiveSwipeRerollLatest: boolean;
   /** When true, pressing Up Arrow with an empty chat input opens the last user message for editing (Conversation/Roleplay). */
   editLastMessageOnArrowUp: boolean;
+  /** When true, double-clicking or double-tapping a Roleplay message opens it for editing. */
+  editMessageOnDoubleClick: boolean;
   /** Persisted controls shown in the Chat Summary popover settings window. */
   summaryPopoverSettings: SummaryPopoverSettings;
 
@@ -377,12 +485,16 @@ interface UIState {
   narrationOpacity: number;
   /** Color for chat message text (empty = theme default) */
   chatFontColor: string;
+  /** Color for shared chat chrome text/icons in tracker widgets, toolbar buttons, and popovers (empty = scheme default) */
+  chatChromeTextColor: string;
   /** Opacity for roleplay message backgrounds (0–100) */
   chatFontOpacity: number;
   /** Layout style for roleplay message avatars */
   roleplayAvatarStyle: RoleplayAvatarStyle;
   /** Scale multiplier for Roleplay message avatars. */
   roleplayAvatarScale: number;
+  /** When true, Roleplay message avatars stay visible while scrolling through long messages. */
+  roleplayAvatarsScrollable: boolean;
   /** Default scale multiplier for Roleplay full-body sprites. */
   roleplaySpriteScale: number;
   /** Scale multiplier for Game mode VN dialogue portraits. */
@@ -406,6 +518,8 @@ interface UIState {
   // ── Sound ──
   convoNotificationSound: boolean;
   rpNotificationSound: boolean;
+  gameNotificationSound: boolean;
+  conversationBrowserNotifications: boolean;
 
   // ── Custom Conversation Prompt ──
   /** User's custom default system prompt for new conversations (null = built-in default). */
@@ -461,6 +575,8 @@ interface UIState {
   userStatus: UserStatus;
   /** Optional short activity shown with the user's status in Conversation mode. */
   userActivity: string;
+  /** Recent user activity strings shown under the chat sidebar status editor. */
+  recentUserActivities: string[];
 
   // ── Impersonate Settings ──
   /** Custom prompt template for /impersonate (empty = use server default). Persisted. */
@@ -495,6 +611,7 @@ interface UIState {
   setTrackerPanelThoughtBubbleDisplay: (display: TrackerThoughtBubbleDisplay) => void;
   setTrackerPanelDockedThoughtsAlwaysVisible: (visible: boolean) => void;
   setTrackerPanelSizeProfile: (profile: TrackerPanelSizeProfile) => void;
+  setTrackerPanelBackgroundColor: (color: string) => void;
   setTrackerTemperatureUnit: (unit: TrackerTemperatureUnit) => void;
   setTrackerPanelSectionOrder: (order: TrackerPanelSectionOrder) => void;
   setTrackerPanelSectionCollapsed: (section: TrackerDataPanelSection, collapsed: boolean) => void;
@@ -506,9 +623,15 @@ interface UIState {
   openModal: (type: string, props?: Record<string, unknown>) => void;
   closeModal: () => void;
   setTheme: (theme: "dark" | "light") => void;
+  setAppAccentColor: (color: string) => void;
   setChatBackground: (url: string | null) => void;
+  setDefaultRoleplayBackground: (url: string) => void;
   setChatBackgroundBlur: (v: number) => void;
-  openCharacterDetail: (id: string) => void;
+  setCharacterLibrarySelectedId: (id: string | null) => void;
+  setCharacterLibrarySort: (sort: CharacterLibrarySort) => void;
+  setCharacterPanelScrollTop: (scrollTop: number) => void;
+  setCharacterLibraryScrollTop: (scrollTop: number) => void;
+  openCharacterDetail: (id: string, options?: { preserveCharacterLibrary?: boolean }) => void;
   closeCharacterDetail: () => void;
   openLorebookDetail: (id: string) => void;
   closeLorebookDetail: () => void;
@@ -522,7 +645,10 @@ interface UIState {
   closeToolDetail: () => void;
   openPersonaDetail: (id: string) => void;
   closePersonaDetail: () => void;
-  openRegexDetail: (id: string) => void;
+  openRegexDetail: (
+    id: string,
+    options?: { defaultCharacterIds?: string[]; returnTo?: { characterId: string; tab?: string } },
+  ) => void;
   closeRegexDetail: () => void;
   openCharacterLibrary: () => void;
   closeCharacterLibrary: () => void;
@@ -553,10 +679,13 @@ interface UIState {
   setGameAutoPlayDelay: (v: number) => void;
   setReviewImagePromptsBeforeSend: (v: boolean) => void;
   setImageBackgroundDimensions: (width: number, height: number) => void;
+  setImageIllustrationDimensions: (width: number, height: number) => void;
   setImagePortraitDimensions: (width: number, height: number) => void;
   setImageSelfieDimensions: (width: number, height: number) => void;
+  setImageStyleProfiles: (settings: ImageStyleProfileSettings) => void;
 
   setMessageGrouping: (v: boolean) => void;
+  setConversationMessageStyle: (v: ConversationMessageStyle) => void;
   setShowTimestamps: (v: boolean) => void;
   setShowModelName: (v: boolean) => void;
   setShowTokenUsage: (v: boolean) => void;
@@ -570,22 +699,31 @@ interface UIState {
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
   setQuoteFormat: (v: QuoteFormat) => void;
+  setConvertLatexSymbols: (v: boolean) => void;
   setTrimIncompleteModelOutput: (v: boolean) => void;
   setSpeechToTextEnabled: (v: boolean) => void;
   setChibiProfessorMariEnabled: (v: boolean) => void;
+  setAchievementsEnabled: (v: boolean) => void;
+  setMusicPlayerEnabled: (v: boolean) => void;
+  setMusicPlayerSource: (v: MusicPlayerSource) => void;
   setSpotifyPlayerEnabled: (v: boolean) => void;
+  setYoutubePlayerEnabled: (v: boolean) => void;
+  setYoutubePlayerVolume: (v: number) => void;
   setSpotifyMobileWidgetCollapsed: (v: boolean) => void;
   setSpotifyMobileWidgetPosition: (position: FloatingWidgetPosition) => void;
   setIntuitiveSwipeNavigation: (v: boolean) => void;
   setIntuitiveSwipeRerollLatest: (v: boolean) => void;
   setEditLastMessageOnArrowUp: (v: boolean) => void;
+  setEditMessageOnDoubleClick: (v: boolean) => void;
   setSummaryPopoverSettings: (settings: Partial<SummaryPopoverSettings>) => void;
   setNarrationFontColor: (v: string) => void;
   setNarrationOpacity: (v: number) => void;
   setChatFontColor: (v: string) => void;
+  setChatChromeTextColor: (v: string) => void;
   setChatFontOpacity: (v: number) => void;
   setRoleplayAvatarStyle: (v: RoleplayAvatarStyle) => void;
   setRoleplayAvatarScale: (v: number) => void;
+  setRoleplayAvatarsScrollable: (v: boolean) => void;
   setRoleplaySpriteScale: (v: number) => void;
   setGameAvatarScale: (v: number) => void;
   setGameFullBodySpriteScale: (v: number) => void;
@@ -597,6 +735,8 @@ interface UIState {
   setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   setConvoNotificationSound: (v: boolean) => void;
   setRpNotificationSound: (v: boolean) => void;
+  setGameNotificationSound: (v: boolean) => void;
+  setConversationBrowserNotifications: (v: boolean) => void;
   setCustomConversationPrompt: (v: string | null) => void;
   setScheduleGenerationPreferences: (v: string) => void;
   rememberGameSetupOptions: (
@@ -636,6 +776,7 @@ interface UIState {
   setUserStatus: (status: UserStatus) => void;
   setUserStatusManual: (status: UserStatus) => void;
   setUserActivity: (activity: string) => void;
+  rememberUserActivity: (activity: string) => void;
 }
 
 function getMobileDetailReturnState(state: UIState) {
@@ -651,6 +792,39 @@ function restoreMobileDetailReturnPanel(panel: Panel | null) {
     detailReturnRightPanel: null,
     ...(panel && { rightPanelOpen: true, rightPanel: panel }),
   };
+}
+
+function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
+  const surfaceKeys = [
+    "regexDetailId",
+    "personaDetailId",
+    "toolDetailId",
+    "agentDetailId",
+    "connectionDetailId",
+    "presetDetailId",
+    "characterDetailId",
+    "lorebookDetailId",
+    "characterLibraryOpen",
+    "botBrowserOpen",
+    "gameAssetsBrowserOpen",
+  ] as const;
+  let found = false;
+  for (const key of surfaceKeys) {
+    const value = persisted[key];
+    const isOpen = typeof value === "string" ? value.trim().length > 0 : value === true;
+    if (!isOpen) {
+      if (typeof value === "string") persisted[key] = null;
+      if (typeof value === "boolean") persisted[key] = false;
+      continue;
+    }
+    if (!found) {
+      found = true;
+      continue;
+    }
+    persisted[key] = typeof value === "string" ? null : false;
+  }
+  persisted.editorDirty = false;
+  persisted.detailReturnRightPanel = null;
 }
 
 /**
@@ -671,11 +845,14 @@ export function pickSyncedSettings(state: UIState) {
     trackerPanelThoughtBubbleDisplay: state.trackerPanelThoughtBubbleDisplay,
     trackerPanelDockedThoughtsAlwaysVisible: state.trackerPanelDockedThoughtsAlwaysVisible,
     trackerPanelSizeProfile: state.trackerPanelSizeProfile,
+    trackerPanelBackgroundColor: state.trackerPanelBackgroundColor,
     trackerTemperatureUnit: state.trackerTemperatureUnit,
     trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
     trackerPanelSectionOrder: state.trackerPanelSectionOrder,
     theme: state.theme,
+    appAccentColor: state.appAccentColor,
     chatBackground: state.chatBackground,
+    defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
     language: state.language,
     fontFamily: state.fontFamily,
@@ -689,12 +866,16 @@ export function pickSyncedSettings(state: UIState) {
     reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
     imageBackgroundWidth: state.imageBackgroundWidth,
     imageBackgroundHeight: state.imageBackgroundHeight,
+    imageIllustrationWidth: state.imageIllustrationWidth,
+    imageIllustrationHeight: state.imageIllustrationHeight,
     imagePortraitWidth: state.imagePortraitWidth,
     imagePortraitHeight: state.imagePortraitHeight,
     imageSelfieWidth: state.imageSelfieWidth,
     imageSelfieHeight: state.imageSelfieHeight,
+    [IMAGE_STYLE_PROFILES_STORAGE_KEY]: state.imageStyleProfiles,
 
     messageGrouping: state.messageGrouping,
+    conversationMessageStyle: state.conversationMessageStyle,
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
     showTokenUsage: state.showTokenUsage,
@@ -708,22 +889,31 @@ export function pickSyncedSettings(state: UIState) {
     messagesPerPage: state.messagesPerPage,
     boldDialogue: state.boldDialogue,
     quoteFormat: state.quoteFormat,
+    convertLatexSymbols: state.convertLatexSymbols,
     trimIncompleteModelOutput: state.trimIncompleteModelOutput,
     speechToTextEnabled: state.speechToTextEnabled,
     chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
+    achievementsEnabled: state.achievementsEnabled,
+    musicPlayerEnabled: state.musicPlayerEnabled,
+    musicPlayerSource: state.musicPlayerSource,
     spotifyPlayerEnabled: state.spotifyPlayerEnabled,
+    youtubePlayerEnabled: state.youtubePlayerEnabled,
+    youtubePlayerVolume: state.youtubePlayerVolume,
     spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
     spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
     intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
     intuitiveSwipeRerollLatest: state.intuitiveSwipeRerollLatest,
     editLastMessageOnArrowUp: state.editLastMessageOnArrowUp,
+    editMessageOnDoubleClick: state.editMessageOnDoubleClick,
     summaryPopoverSettings: state.summaryPopoverSettings,
     narrationFontColor: state.narrationFontColor,
     narrationOpacity: state.narrationOpacity,
     chatFontColor: state.chatFontColor,
+    chatChromeTextColor: state.chatChromeTextColor,
     chatFontOpacity: state.chatFontOpacity,
     roleplayAvatarStyle: state.roleplayAvatarStyle,
     roleplayAvatarScale: state.roleplayAvatarScale,
+    roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
     roleplaySpriteScale: state.roleplaySpriteScale,
     gameAvatarScale: state.gameAvatarScale,
     gameFullBodySpriteScale: state.gameFullBodySpriteScale,
@@ -738,11 +928,15 @@ export function pickSyncedSettings(state: UIState) {
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     gameTutorialDisabled: state.gameTutorialDisabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
+    echoChamberOpen: state.echoChamberOpen,
     echoChamberSide: state.echoChamberSide,
     userStatusManual: state.userStatusManual,
     userActivity: state.userActivity,
+    recentUserActivities: state.recentUserActivities,
     convoNotificationSound: state.convoNotificationSound,
     rpNotificationSound: state.rpNotificationSound,
+    gameNotificationSound: state.gameNotificationSound,
+    conversationBrowserNotifications: state.conversationBrowserNotifications,
     customConversationPrompt: state.customConversationPrompt,
     scheduleGenerationPreferences: state.scheduleGenerationPreferences,
     impersonatePromptTemplate: state.impersonatePromptTemplate,
@@ -762,7 +956,7 @@ export const useUIStore = create<UIState>()(
   persist(
     (set, get) => ({
       sidebarOpen: true,
-      sidebarWidth: 280,
+      sidebarWidth: 320,
       rightPanelOpen: false,
       rightPanelWidth: 320,
       rightPanel: "chat" as Panel,
@@ -774,13 +968,16 @@ export const useUIStore = create<UIState>()(
       trackerPanelThoughtBubbleDisplay: "inline" as TrackerThoughtBubbleDisplay,
       trackerPanelDockedThoughtsAlwaysVisible: false,
       trackerPanelSizeProfile: "standard" as TrackerPanelSizeProfile,
+      trackerPanelBackgroundColor: TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
       trackerTemperatureUnit: "celsius" as TrackerTemperatureUnit,
       trackerPanelCollapsedSections: {},
       trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
       settingsTab: "general",
       modal: null,
       theme: "dark" as const,
+      appAccentColor: "",
       chatBackground: null,
+      defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
       chatBackgroundBlur: 0,
       characterDetailId: null,
       lorebookDetailId: null,
@@ -790,9 +987,16 @@ export const useUIStore = create<UIState>()(
       toolDetailId: null,
       personaDetailId: null,
       regexDetailId: null,
+      regexDetailDefaultCharacterIds: null,
+      regexDetailReturn: null,
+      characterDetailInitialTab: null,
       botBrowserOpen: false,
       gameAssetsBrowserOpen: false,
       characterLibraryOpen: false,
+      characterLibrarySelectedId: null,
+      characterLibrarySort: "name-asc" as CharacterLibrarySort,
+      characterPanelScrollTop: 0,
+      characterLibraryScrollTop: 0,
       editorDirty: false,
       detailReturnRightPanel: null,
 
@@ -812,12 +1016,16 @@ export const useUIStore = create<UIState>()(
       reviewImagePromptsBeforeSend: false,
       imageBackgroundWidth: 1280,
       imageBackgroundHeight: 720,
+      imageIllustrationWidth: 896,
+      imageIllustrationHeight: 1280,
       imagePortraitWidth: 1024,
       imagePortraitHeight: 1024,
       imageSelfieWidth: 896,
       imageSelfieHeight: 1152,
+      imageStyleProfiles: normalizeImageStyleProfileSettings(null),
 
       messageGrouping: true,
+      conversationMessageStyle: "classic" as ConversationMessageStyle,
       showTimestamps: false,
       showModelName: false,
       showTokenUsage: false,
@@ -831,22 +1039,31 @@ export const useUIStore = create<UIState>()(
       messagesPerPage: 20,
       boldDialogue: true,
       quoteFormat: "straight" as QuoteFormat,
+      convertLatexSymbols: true,
       trimIncompleteModelOutput: false,
       speechToTextEnabled: false,
       chibiProfessorMariEnabled: true,
+      achievementsEnabled: true,
+      musicPlayerEnabled: true,
+      musicPlayerSource: "youtube" as MusicPlayerSource,
       spotifyPlayerEnabled: false,
+      youtubePlayerEnabled: true,
+      youtubePlayerVolume: 70,
       spotifyMobileWidgetCollapsed: true,
       spotifyMobileWidgetPosition: { x: 16, y: 96 },
       intuitiveSwipeNavigation: false,
       intuitiveSwipeRerollLatest: false,
       editLastMessageOnArrowUp: true,
+      editMessageOnDoubleClick: true,
       summaryPopoverSettings: DEFAULT_SUMMARY_POPOVER_SETTINGS,
       narrationFontColor: "",
       narrationOpacity: 80,
       chatFontColor: "",
+      chatChromeTextColor: "",
       chatFontOpacity: 90,
       roleplayAvatarStyle: "circles" as RoleplayAvatarStyle,
       roleplayAvatarScale: 1,
+      roleplayAvatarsScrollable: false,
       roleplaySpriteScale: 1,
       gameAvatarScale: 1,
       gameFullBodySpriteScale: 1.35,
@@ -859,6 +1076,8 @@ export const useUIStore = create<UIState>()(
       },
       convoNotificationSound: true,
       rpNotificationSound: true,
+      gameNotificationSound: true,
+      conversationBrowserNotifications: false,
       customConversationPrompt: null,
       scheduleGenerationPreferences: "",
       learnedGameSetupOptions: DEFAULT_GAME_SETUP_LEARNED_OPTIONS,
@@ -881,6 +1100,7 @@ export const useUIStore = create<UIState>()(
       userStatusManual: "active" as const,
       userStatus: "active" as UserStatus,
       userActivity: "",
+      recentUserActivities: [],
       centerCompact: false,
       chatModeShortcutRequest: null,
 
@@ -920,6 +1140,8 @@ export const useUIStore = create<UIState>()(
         set({ trackerPanelDockedThoughtsAlwaysVisible: visible }),
       setTrackerPanelSizeProfile: (profile) =>
         set({ trackerPanelSizeProfile: normalizeTrackerPanelSizeProfile(profile) }),
+      setTrackerPanelBackgroundColor: (color) =>
+        set({ trackerPanelBackgroundColor: normalizeTrackerPanelBackgroundColor(color) }),
       setTrackerTemperatureUnit: (unit) => set({ trackerTemperatureUnit: normalizeTrackerTemperatureUnit(unit) }),
       setTrackerPanelSectionOrder: (order) =>
         set({ trackerPanelSectionOrder: normalizeTrackerPanelSectionOrder(order) }),
@@ -957,19 +1179,34 @@ export const useUIStore = create<UIState>()(
       openModal: (type, props) => set({ modal: { type, props } }),
       closeModal: () => set({ modal: null }),
       setTheme: (theme) => set({ theme }),
+      setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
       setChatBackground: (url) => set({ chatBackground: url }),
+      setDefaultRoleplayBackground: (url) => set({ defaultRoleplayBackground: normalizeDefaultRoleplayBackground(url) }),
       setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
-      openCharacterDetail: (id) =>
-        set((s) => ({
-          characterDetailId: id,
-          lorebookDetailId: null,
-          presetDetailId: null,
-          connectionDetailId: null,
-          agentDetailId: null,
-          personaDetailId: null,
-          regexDetailId: null,
-          ...getMobileDetailReturnState(s),
-        })),
+      setCharacterLibrarySelectedId: (id) => set({ characterLibrarySelectedId: id }),
+      setCharacterLibrarySort: (sort) => set({ characterLibrarySort: normalizeCharacterLibrarySort(sort) }),
+      setCharacterPanelScrollTop: (scrollTop) => set({ characterPanelScrollTop: normalizeScrollTop(scrollTop) }),
+      setCharacterLibraryScrollTop: (scrollTop) => set({ characterLibraryScrollTop: normalizeScrollTop(scrollTop) }),
+      openCharacterDetail: (id, options) =>
+        set((s) => {
+          const preserveCharacterLibrary = options?.preserveCharacterLibrary ?? s.characterLibraryOpen;
+          return {
+            characterDetailId: id,
+            characterDetailInitialTab: null,
+            lorebookDetailId: null,
+            presetDetailId: null,
+            connectionDetailId: null,
+            agentDetailId: null,
+            toolDetailId: null,
+            personaDetailId: null,
+            regexDetailId: null,
+            characterLibraryOpen: preserveCharacterLibrary ? s.characterLibraryOpen : false,
+            characterLibrarySelectedId: preserveCharacterLibrary ? id : s.characterLibrarySelectedId,
+            botBrowserOpen: false,
+            gameAssetsBrowserOpen: false,
+            ...getMobileDetailReturnState(s),
+          };
+        }),
       closeCharacterDetail: () =>
         set((s) => ({
           characterDetailId: null,
@@ -980,10 +1217,13 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           lorebookDetailId: id,
           characterLibraryOpen: false,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           characterDetailId: null,
           presetDetailId: null,
           connectionDetailId: null,
           agentDetailId: null,
+          toolDetailId: null,
           personaDetailId: null,
           regexDetailId: null,
           ...getMobileDetailReturnState(s),
@@ -998,10 +1238,13 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           presetDetailId: id,
           characterLibraryOpen: false,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
           connectionDetailId: null,
           agentDetailId: null,
+          toolDetailId: null,
           personaDetailId: null,
           regexDetailId: null,
           ...getMobileDetailReturnState(s),
@@ -1016,10 +1259,13 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           connectionDetailId: id,
           characterLibraryOpen: false,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
           presetDetailId: null,
           agentDetailId: null,
+          toolDetailId: null,
           personaDetailId: null,
           regexDetailId: null,
           ...getMobileDetailReturnState(s),
@@ -1034,6 +1280,8 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           agentDetailId: agentType,
           characterLibraryOpen: false,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
           presetDetailId: null,
@@ -1054,6 +1302,8 @@ export const useUIStore = create<UIState>()(
           toolDetailId: id,
           agentDetailId: null,
           characterLibraryOpen: false,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
           presetDetailId: null,
@@ -1072,6 +1322,8 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           personaDetailId: id,
           characterLibraryOpen: false,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
           presetDetailId: null,
@@ -1087,11 +1339,15 @@ export const useUIStore = create<UIState>()(
           editorDirty: false,
           ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
         })),
-      openRegexDetail: (id) =>
+      openRegexDetail: (id, options) =>
         set((s) => ({
           regexDetailId: id,
+          regexDetailDefaultCharacterIds: options?.defaultCharacterIds ?? null,
+          regexDetailReturn: options?.returnTo ?? null,
           personaDetailId: null,
           characterLibraryOpen: false,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
           presetDetailId: null,
@@ -1101,11 +1357,26 @@ export const useUIStore = create<UIState>()(
           ...getMobileDetailReturnState(s),
         })),
       closeRegexDetail: () =>
-        set((s) => ({
-          regexDetailId: null,
-          editorDirty: false,
-          ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
-        })),
+        set((s) => {
+          const ret = s.regexDetailReturn;
+          if (ret) {
+            // Opened from a character's scoped-regex manager — return to that character's tab.
+            return {
+              regexDetailId: null,
+              regexDetailReturn: null,
+              regexDetailDefaultCharacterIds: null,
+              characterDetailId: ret.characterId,
+              characterDetailInitialTab: ret.tab ?? null,
+              editorDirty: false,
+            };
+          }
+          return {
+            regexDetailId: null,
+            regexDetailReturn: null,
+            editorDirty: false,
+            ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
+          };
+        }),
       openCharacterLibrary: () =>
         set({
           characterLibraryOpen: true,
@@ -1233,6 +1504,11 @@ export const useUIStore = create<UIState>()(
           imageBackgroundWidth: clampImageDimension(width),
           imageBackgroundHeight: clampImageDimension(height),
         }),
+      setImageIllustrationDimensions: (width, height) =>
+        set({
+          imageIllustrationWidth: clampImageDimension(width),
+          imageIllustrationHeight: clampImageDimension(height),
+        }),
       setImagePortraitDimensions: (width, height) =>
         set({
           imagePortraitWidth: clampImageDimension(width),
@@ -1243,8 +1519,10 @@ export const useUIStore = create<UIState>()(
           imageSelfieWidth: clampImageDimension(width),
           imageSelfieHeight: clampImageDimension(height),
         }),
+      setImageStyleProfiles: (settings) => set({ imageStyleProfiles: normalizeImageStyleProfileSettings(settings) }),
 
       setMessageGrouping: (v) => set({ messageGrouping: v }),
+      setConversationMessageStyle: (v) => set({ conversationMessageStyle: normalizeConversationMessageStyle(v) }),
       setShowTimestamps: (v) => set({ showTimestamps: v }),
       setShowModelName: (v) => set({ showModelName: v }),
       setShowTokenUsage: (v) => set({ showTokenUsage: v }),
@@ -1258,10 +1536,26 @@ export const useUIStore = create<UIState>()(
       setMessagesPerPage: (n) => set({ messagesPerPage: n }),
       setBoldDialogue: (v) => set({ boldDialogue: v }),
       setQuoteFormat: (v) => set({ quoteFormat: normalizeQuoteFormat(v) }),
+      setConvertLatexSymbols: (v) => set({ convertLatexSymbols: v }),
       setTrimIncompleteModelOutput: (v) => set({ trimIncompleteModelOutput: v }),
       setSpeechToTextEnabled: (v) => set({ speechToTextEnabled: v }),
       setChibiProfessorMariEnabled: (v) => set({ chibiProfessorMariEnabled: v }),
+      setAchievementsEnabled: (v) => set({ achievementsEnabled: v }),
+      setMusicPlayerEnabled: (v) =>
+        set((state) => ({
+          musicPlayerEnabled: v,
+          spotifyPlayerEnabled: v && state.musicPlayerSource === "spotify",
+          youtubePlayerEnabled: v && state.musicPlayerSource === "youtube",
+        })),
+      setMusicPlayerSource: (v) =>
+        set((state) => ({
+          musicPlayerSource: v,
+          spotifyPlayerEnabled: state.musicPlayerEnabled && v === "spotify",
+          youtubePlayerEnabled: state.musicPlayerEnabled && v === "youtube",
+        })),
       setSpotifyPlayerEnabled: (v) => set({ spotifyPlayerEnabled: v }),
+      setYoutubePlayerEnabled: (v) => set({ youtubePlayerEnabled: v }),
+      setYoutubePlayerVolume: (v) => set({ youtubePlayerVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setSpotifyMobileWidgetCollapsed: (v) => set({ spotifyMobileWidgetCollapsed: v }),
       setSpotifyMobileWidgetPosition: (position) =>
         set({
@@ -1273,6 +1567,7 @@ export const useUIStore = create<UIState>()(
       setIntuitiveSwipeNavigation: (v) => set({ intuitiveSwipeNavigation: v }),
       setIntuitiveSwipeRerollLatest: (v) => set({ intuitiveSwipeRerollLatest: v }),
       setEditLastMessageOnArrowUp: (v) => set({ editLastMessageOnArrowUp: v }),
+      setEditMessageOnDoubleClick: (v) => set({ editMessageOnDoubleClick: v }),
       setSummaryPopoverSettings: (settings) =>
         set((state) => ({
           summaryPopoverSettings: normalizeSummaryPopoverSettings({
@@ -1283,10 +1578,12 @@ export const useUIStore = create<UIState>()(
       setNarrationFontColor: (v) => set({ narrationFontColor: v }),
       setNarrationOpacity: (v) => set({ narrationOpacity: Math.max(0, Math.min(100, v)) }),
       setChatFontColor: (v) => set({ chatFontColor: v }),
+      setChatChromeTextColor: (v) => set({ chatChromeTextColor: normalizeChatChromeTextColor(v) }),
       setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
       setRoleplayAvatarStyle: (v) => set({ roleplayAvatarStyle: v }),
       setRoleplayAvatarScale: (v) =>
         set({ roleplayAvatarScale: Math.max(ROLEPLAY_AVATAR_SCALE_MIN, Math.min(ROLEPLAY_AVATAR_SCALE_MAX, v)) }),
+      setRoleplayAvatarsScrollable: (v) => set({ roleplayAvatarsScrollable: v }),
       setRoleplaySpriteScale: (v) =>
         set({ roleplaySpriteScale: Math.max(ROLEPLAY_SPRITE_SCALE_MIN, Math.min(ROLEPLAY_SPRITE_SCALE_MAX, v)) }),
       setGameAvatarScale: (v) => set({ gameAvatarScale: Math.max(0.75, Math.min(1.75, v)) }),
@@ -1304,6 +1601,8 @@ export const useUIStore = create<UIState>()(
         })),
       setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
       setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
+      setGameNotificationSound: (v) => set({ gameNotificationSound: v }),
+      setConversationBrowserNotifications: (v) => set({ conversationBrowserNotifications: v }),
       setCustomConversationPrompt: (v) => set({ customConversationPrompt: v }),
       setScheduleGenerationPreferences: (v) => set({ scheduleGenerationPreferences: v }),
       rememberGameSetupOptions: (options, text) =>
@@ -1376,11 +1675,22 @@ export const useUIStore = create<UIState>()(
       setEchoChamberSide: (side) => set({ echoChamberSide: side }),
       setUserStatus: (status) => set({ userStatus: status }),
       setUserStatusManual: (status) => set({ userStatusManual: status, userStatus: status }),
-      setUserActivity: (activity) => set({ userActivity: activity.slice(0, 120) }),
+      setUserActivity: (activity) => set({ userActivity: activity.slice(0, USER_ACTIVITY_MAX_LENGTH) }),
+      rememberUserActivity: (activity) =>
+        set((state) => {
+          const normalized = normalizeUserActivity(activity);
+          if (!normalized) return { recentUserActivities: state.recentUserActivities };
+          return {
+            recentUserActivities: [
+              normalized,
+              ...state.recentUserActivities.filter((item) => item.toLowerCase() !== normalized.toLowerCase()),
+            ].slice(0, RECENT_USER_ACTIVITY_LIMIT),
+          };
+        }),
     }),
     {
       name: "marinara-engine-ui",
-      version: 37,
+      version: 56,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -1473,6 +1783,9 @@ export const useUIStore = create<UIState>()(
           if (persisted.rightPanelWidth === undefined) {
             persisted.rightPanelWidth = 320;
           }
+          if (persisted.sidebarWidth === 280) {
+            persisted.sidebarWidth = 320;
+          }
         }
         // v8 → v9: add roleplay avatar layout setting
         if (version <= 8) {
@@ -1512,6 +1825,8 @@ export const useUIStore = create<UIState>()(
           }
           if (persisted.imageBackgroundWidth === undefined) persisted.imageBackgroundWidth = 1280;
           if (persisted.imageBackgroundHeight === undefined) persisted.imageBackgroundHeight = 720;
+          if (persisted.imageIllustrationWidth === undefined) persisted.imageIllustrationWidth = 896;
+          if (persisted.imageIllustrationHeight === undefined) persisted.imageIllustrationHeight = 1280;
           if (persisted.imagePortraitWidth === undefined) persisted.imagePortraitWidth = 1024;
           if (persisted.imagePortraitHeight === undefined) persisted.imagePortraitHeight = 1024;
           if (persisted.imageSelfieWidth === undefined) persisted.imageSelfieWidth = 896;
@@ -1631,6 +1946,9 @@ export const useUIStore = create<UIState>()(
             persisted.roleplaySpriteScale = 1;
           }
         }
+        if (persisted.roleplayAvatarsScrollable === undefined) {
+          persisted.roleplayAvatarsScrollable = false;
+        }
         // v27 -> v28: enable Up-Arrow recall of the last user message by default.
         if (version <= 27 && persisted.editLastMessageOnArrowUp === undefined) {
           persisted.editLastMessageOnArrowUp = true;
@@ -1696,13 +2014,118 @@ export const useUIStore = create<UIState>()(
           persisted.quoteFormat = normalizeQuoteFormat(persisted.quoteFormat);
         }
         persisted.quoteFormat = normalizeQuoteFormat(persisted.quoteFormat);
+        // v37 -> v38: customizable image style profiles.
+        if (version <= 37) {
+          persisted.imageStyleProfiles = normalizeImageStyleProfileSettings(
+            persisted[IMAGE_STYLE_PROFILES_STORAGE_KEY] ?? persisted.imageStyleProfiles,
+          );
+        }
+        persisted.imageStyleProfiles = normalizeImageStyleProfileSettings(persisted.imageStyleProfiles);
+        // v38 -> v39: opt-in browser notifications for background replies.
+        if (version <= 38 && persisted.conversationBrowserNotifications === undefined) {
+          persisted.conversationBrowserNotifications = false;
+        }
+        // v39 -> v40: selectable Conversation message layout.
+        persisted.conversationMessageStyle = normalizeConversationMessageStyle(persisted.conversationMessageStyle);
+        // v40 -> v41: reconcile parallel v40 UI preference additions.
+        if (persisted.editMessageOnDoubleClick === undefined) {
+          persisted.editMessageOnDoubleClick = true;
+        }
+        // v40 -> v41: separate Illustrator/scene illustration canvas from backgrounds.
+        if (version <= 40) {
+          if (persisted.imageIllustrationWidth === undefined) persisted.imageIllustrationWidth = 896;
+          if (persisted.imageIllustrationHeight === undefined) persisted.imageIllustrationHeight = 1280;
+        }
+        // v41 -> v42: Game mode gets its own turn-loaded notification sound setting.
+        if (version <= 41 && persisted.gameNotificationSound === undefined) {
+          persisted.gameNotificationSound = true;
+        }
+        // v42 -> v44: reconcile parallel v43 UI preference additions.
+        if (version <= 43 && persisted.youtubePlayerEnabled === undefined) {
+          persisted.youtubePlayerEnabled = true;
+        }
+        if (version <= 43) {
+          persisted.trackerPanelBackgroundColor = normalizeTrackerPanelBackgroundColor(
+            persisted.trackerPanelBackgroundColor,
+          );
+        }
+        persisted.trackerPanelBackgroundColor = normalizeTrackerPanelBackgroundColor(
+          persisted.trackerPanelBackgroundColor,
+        );
+        if (version <= 44) {
+          const spotifyEnabled = persisted.spotifyPlayerEnabled === true;
+          const youtubeEnabled = persisted.youtubePlayerEnabled !== false;
+          if (persisted.musicPlayerSource !== "spotify" && persisted.musicPlayerSource !== "youtube") {
+            persisted.musicPlayerSource = spotifyEnabled ? "spotify" : "youtube";
+          }
+          if (persisted.musicPlayerEnabled === undefined) {
+            persisted.musicPlayerEnabled = spotifyEnabled || youtubeEnabled;
+          }
+          persisted.spotifyPlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "spotify";
+          persisted.youtubePlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "youtube";
+        }
+        if (version <= 45) {
+          persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
+        }
+        if (version <= 46 && typeof persisted.youtubePlayerVolume !== "number") {
+          persisted.youtubePlayerVolume = 70;
+        }
+        if (version <= 47 && persisted.chatChromeTextColor === undefined) {
+          persisted.chatChromeTextColor = "";
+        }
+        if (version <= 48 && !Array.isArray(persisted.recentUserActivities)) {
+          persisted.recentUserActivities = [];
+        }
+        if (version <= 49 && persisted.defaultRoleplayBackground === undefined) {
+          persisted.defaultRoleplayBackground = DEFAULT_ROLEPLAY_BACKGROUND_URL;
+        }
+        if (version <= 50 && persisted.achievementsEnabled === undefined) {
+          persisted.achievementsEnabled = true;
+        }
+        if (version <= 52 && persisted.convertLatexSymbols === undefined) {
+          persisted.convertLatexSymbols = true;
+        }
+        persisted.characterLibrarySort = normalizeCharacterLibrarySort(persisted.characterLibrarySort);
+        persisted.characterPanelScrollTop = normalizeScrollTop(persisted.characterPanelScrollTop);
+        persisted.characterLibraryScrollTop = normalizeScrollTop(persisted.characterLibraryScrollTop);
+        normalizePersistedMainSurface(persisted);
+        if (Array.isArray(persisted.recentUserActivities)) {
+          persisted.recentUserActivities = persisted.recentUserActivities
+            .filter((activity: unknown): activity is string => typeof activity === "string")
+            .map((activity: string) => normalizeUserActivity(activity))
+            .filter(Boolean)
+            .slice(0, RECENT_USER_ACTIVITY_LIMIT);
+        } else {
+          persisted.recentUserActivities = [];
+        }
+        persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
+        persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
+        persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
         return persisted;
       },
       partialize: (state) => ({
         sidebarOpen: state.sidebarOpen,
         sidebarWidth: state.sidebarWidth,
+        rightPanelOpen: state.rightPanelOpen,
         rightPanelWidth: state.rightPanelWidth,
+        rightPanel: state.rightPanel,
+        settingsTab: state.settingsTab,
+        characterDetailId: state.characterDetailId,
+        lorebookDetailId: state.lorebookDetailId,
+        presetDetailId: state.presetDetailId,
+        connectionDetailId: state.connectionDetailId,
+        agentDetailId: state.agentDetailId,
+        toolDetailId: state.toolDetailId,
+        personaDetailId: state.personaDetailId,
+        regexDetailId: state.regexDetailId,
+        botBrowserOpen: state.botBrowserOpen,
+        gameAssetsBrowserOpen: state.gameAssetsBrowserOpen,
+        characterLibraryOpen: state.characterLibraryOpen,
+        characterLibrarySelectedId: state.characterLibrarySelectedId,
+        characterLibrarySort: state.characterLibrarySort,
+        characterPanelScrollTop: state.characterPanelScrollTop,
+        characterLibraryScrollTop: state.characterLibraryScrollTop,
         trackerPanelEnabled: state.trackerPanelEnabled,
         trackerPanelOpen: state.trackerPanelOpen,
         trackerPanelSide: state.trackerPanelSide,
@@ -1711,11 +2134,14 @@ export const useUIStore = create<UIState>()(
         trackerPanelThoughtBubbleDisplay: state.trackerPanelThoughtBubbleDisplay,
         trackerPanelDockedThoughtsAlwaysVisible: state.trackerPanelDockedThoughtsAlwaysVisible,
         trackerPanelSizeProfile: state.trackerPanelSizeProfile,
+        trackerPanelBackgroundColor: state.trackerPanelBackgroundColor,
         trackerTemperatureUnit: state.trackerTemperatureUnit,
         trackerPanelCollapsedSections: state.trackerPanelCollapsedSections,
         trackerPanelSectionOrder: state.trackerPanelSectionOrder,
         theme: state.theme,
+        appAccentColor: state.appAccentColor,
         chatBackground: state.chatBackground,
+        defaultRoleplayBackground: state.defaultRoleplayBackground,
         chatBackgroundBlur: state.chatBackgroundBlur,
         fontSize: state.fontSize,
         language: state.language,
@@ -1732,12 +2158,16 @@ export const useUIStore = create<UIState>()(
         reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
         imageBackgroundWidth: state.imageBackgroundWidth,
         imageBackgroundHeight: state.imageBackgroundHeight,
+        imageIllustrationWidth: state.imageIllustrationWidth,
+        imageIllustrationHeight: state.imageIllustrationHeight,
         imagePortraitWidth: state.imagePortraitWidth,
         imagePortraitHeight: state.imagePortraitHeight,
         imageSelfieWidth: state.imageSelfieWidth,
         imageSelfieHeight: state.imageSelfieHeight,
+        imageStyleProfiles: state.imageStyleProfiles,
 
         messageGrouping: state.messageGrouping,
+        conversationMessageStyle: state.conversationMessageStyle,
         showTimestamps: state.showTimestamps,
         showModelName: state.showModelName,
         showTokenUsage: state.showTokenUsage,
@@ -1751,22 +2181,31 @@ export const useUIStore = create<UIState>()(
         messagesPerPage: state.messagesPerPage,
         boldDialogue: state.boldDialogue,
         quoteFormat: state.quoteFormat,
+        convertLatexSymbols: state.convertLatexSymbols,
         trimIncompleteModelOutput: state.trimIncompleteModelOutput,
         speechToTextEnabled: state.speechToTextEnabled,
         chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
+        achievementsEnabled: state.achievementsEnabled,
+        musicPlayerEnabled: state.musicPlayerEnabled,
+        musicPlayerSource: state.musicPlayerSource,
         spotifyPlayerEnabled: state.spotifyPlayerEnabled,
+        youtubePlayerEnabled: state.youtubePlayerEnabled,
+        youtubePlayerVolume: state.youtubePlayerVolume,
         spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
         spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
         intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
         intuitiveSwipeRerollLatest: state.intuitiveSwipeRerollLatest,
         editLastMessageOnArrowUp: state.editLastMessageOnArrowUp,
+        editMessageOnDoubleClick: state.editMessageOnDoubleClick,
         summaryPopoverSettings: state.summaryPopoverSettings,
         narrationFontColor: state.narrationFontColor,
         narrationOpacity: state.narrationOpacity,
         chatFontColor: state.chatFontColor,
+        chatChromeTextColor: state.chatChromeTextColor,
         chatFontOpacity: state.chatFontOpacity,
         roleplayAvatarStyle: state.roleplayAvatarStyle,
         roleplayAvatarScale: state.roleplayAvatarScale,
+        roleplayAvatarsScrollable: state.roleplayAvatarsScrollable,
         roleplaySpriteScale: state.roleplaySpriteScale,
         gameAvatarScale: state.gameAvatarScale,
         gameFullBodySpriteScale: state.gameFullBodySpriteScale,
@@ -1786,12 +2225,16 @@ export const useUIStore = create<UIState>()(
         hasMigratedExtensionsToServer: state.hasMigratedExtensionsToServer,
         hasCompletedOnboarding: state.hasCompletedOnboarding,
         linkApiBannerDismissed: state.linkApiBannerDismissed,
+        echoChamberOpen: state.echoChamberOpen,
         echoChamberSide: state.echoChamberSide,
         userStatusManual: state.userStatusManual,
         userStatus: state.userStatus,
         userActivity: state.userActivity,
+        recentUserActivities: state.recentUserActivities,
         convoNotificationSound: state.convoNotificationSound,
         rpNotificationSound: state.rpNotificationSound,
+        gameNotificationSound: state.gameNotificationSound,
+        conversationBrowserNotifications: state.conversationBrowserNotifications,
         customConversationPrompt: state.customConversationPrompt,
         scheduleGenerationPreferences: state.scheduleGenerationPreferences,
         impersonatePromptTemplate: state.impersonatePromptTemplate,

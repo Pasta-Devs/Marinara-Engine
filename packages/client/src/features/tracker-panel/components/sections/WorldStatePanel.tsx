@@ -1,15 +1,17 @@
 import { type ReactNode } from "react";
 import { MapPin } from "lucide-react";
-import type { GameState } from "@marinara-engine/shared";
+import { worldTrackerLockKey, type GameState } from "@marinara-engine/shared";
 import type { GameStatePatchField } from "../../../../hooks/use-game-state-patcher";
 import type { TrackerPanelSizeProfile, TrackerTemperatureUnit } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
 import {
   getWorldAmbienceStyle,
-  getWorldDashboardGridClass,
   getWorldDateDisplay,
+  getWorldTimeDisplay,
   WORLD_FREEFORM_DATE_GRID_BASE_CLASS,
+  WORLD_FREEFORM_DATE_GRID_PHRASE_TIME_CLASS,
   WORLD_GRID_BASE_CLASS,
+  WORLD_GRID_PHRASE_TIME_CLASS,
 } from "../../lib/world-state-display";
 import { SectionHeader } from "../controls/SectionControls";
 import { WorldDateTile, WorldTimeTile } from "./WorldDateTimeTiles";
@@ -35,16 +37,21 @@ export function WorldStatePanel({
 }) {
   const dateDisplay = getWorldDateDisplay(state?.date);
   const hasFreeformDate = dateDisplay.kind === "freeform";
-  const dashboardGridClass = getWorldDashboardGridClass(state?.weather, state?.temperature, state?.location, {
-    hasFreeformDate,
-  });
+  const hasPhraseTime = getWorldTimeDisplay(state?.time).kind === "phrase";
+  const gridColumnsClass = hasFreeformDate
+    ? hasPhraseTime
+      ? WORLD_FREEFORM_DATE_GRID_PHRASE_TIME_CLASS
+      : WORLD_FREEFORM_DATE_GRID_BASE_CLASS
+    : hasPhraseTime
+      ? WORLD_GRID_PHRASE_TIME_CLASS
+      : WORLD_GRID_BASE_CLASS;
 
   return (
     <div
       className="relative z-10 overflow-hidden border-b border-[var(--border)] shadow-inner transition-colors duration-200"
       style={getWorldAmbienceStyle(state)}
     >
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[var(--primary)]/20" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[var(--foreground)]/10" />
 
       <SectionHeader
         icon={<MapPin size="0.6875rem" />}
@@ -56,18 +63,19 @@ export function WorldStatePanel({
 
       {!collapsed && (
         <div
-          className={cn(
-            "relative grid gap-px p-1 @min-[380px]:gap-1 @min-[380px]:p-1.5",
-            hasFreeformDate ? WORLD_FREEFORM_DATE_GRID_BASE_CLASS : WORLD_GRID_BASE_CLASS,
-            dashboardGridClass,
-          )}
+          className={cn("relative grid gap-px p-1 @min-[380px]:gap-1 @min-[380px]:p-1.5", gridColumnsClass)}
         >
           <WorldDateTile
             value={state?.date}
             display={dateDisplay}
             onSave={(value) => onSaveField("date", value || null)}
+            lockKey={worldTrackerLockKey("date")}
           />
-          <WorldTimeTile value={state?.time} onSave={(value) => onSaveField("time", value || null)} />
+          <WorldTimeTile
+            value={state?.time}
+            onSave={(value) => onSaveField("time", value || null)}
+            lockKey={worldTrackerLockKey("time")}
+          />
           <WorldForecastTile
             weather={state?.weather}
             temperature={state?.temperature}
@@ -75,11 +83,14 @@ export function WorldStatePanel({
             trackerTemperatureUnit={trackerTemperatureUnit}
             onSaveWeather={(value) => onSaveField("weather", value || null)}
             onSaveTemperature={(value) => onSaveField("temperature", value || null)}
+            weatherLockKey={worldTrackerLockKey("weather")}
+            temperatureLockKey={worldTrackerLockKey("temperature")}
           />
           <WorldLocationPlate
             value={state?.location}
             onSave={(value) => onSaveField("location", value || null)}
-            className="col-span-3 @min-[380px]:col-span-1"
+            className="col-span-full"
+            lockKey={worldTrackerLockKey("location")}
           />
         </div>
       )}

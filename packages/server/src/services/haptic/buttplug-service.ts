@@ -16,7 +16,13 @@ import {
   DeviceOutputValueConstructor,
   OutputType,
 } from "buttplug";
-import type { HapticDevice, HapticCapability, HapticDeviceCommand, HapticStatus } from "@marinara-engine/shared";
+import type {
+  HapticDevice,
+  HapticCapability,
+  HapticDeviceCommand,
+  HapticFeedbackPattern,
+  HapticStatus,
+} from "@marinara-engine/shared";
 import { getIntifaceUrl } from "../../config/runtime-config.js";
 
 const POSITION_WITH_DURATION_OUTPUT =
@@ -79,6 +85,73 @@ function durationSeconds(value: unknown): number {
   return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
 }
 
+interface HapticPatternStep {
+  delayMs: number;
+  intensity: number;
+  duration: number;
+}
+
+function normalizePattern(value: unknown): HapticFeedbackPattern | null {
+  if (typeof value !== "string") return null;
+  const key = value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+  if (key === "steady") return "steady";
+  if (key === "tap") return "tap";
+  if (key === "pulse") return "pulse";
+  if (key === "wave") return "wave";
+  if (key === "ramp") return "ramp";
+  if (key === "impact") return "impact";
+  return null;
+}
+
+function buildPatternSteps(pattern: HapticFeedbackPattern, intensity: number, duration: number): HapticPatternStep[] {
+  const total = Math.max(0.2, Math.min(8, duration || 1.5));
+  const base = Math.max(0.01, Math.min(1, intensity));
+  const scaled = (multiplier: number) => Math.max(0.01, Math.min(1, base * multiplier));
+
+  switch (pattern) {
+    case "tap":
+      return [{ delayMs: 0, intensity: scaled(1), duration: Math.min(0.35, total) }];
+    case "impact":
+      return [
+        { delayMs: 0, intensity: scaled(1.2), duration: Math.min(0.22, total) },
+        { delayMs: Math.min(280, total * 500), intensity: scaled(0.35), duration: Math.min(0.3, total) },
+      ];
+    case "pulse": {
+      const count = Math.max(2, Math.min(4, Math.round(total / 0.75)));
+      const interval = (total * 1000) / count;
+      return Array.from({ length: count }, (_, index) => ({
+        delayMs: Math.round(interval * index),
+        intensity: scaled(index % 2 === 0 ? 1 : 0.75),
+        duration: Math.min(0.32, (interval / 1000) * 0.55),
+      }));
+    }
+    case "wave": {
+      const multipliers = [0.4, 0.75, 0.55, 1];
+      const interval = (total * 1000) / multipliers.length;
+      return multipliers.map((multiplier, index) => ({
+        delayMs: Math.round(interval * index),
+        intensity: scaled(multiplier),
+        duration: Math.min(0.9, (interval / 1000) * 0.8),
+      }));
+    }
+    case "ramp": {
+      const multipliers = [0.35, 0.65, 1];
+      const interval = (total * 1000) / multipliers.length;
+      return multipliers.map((multiplier, index) => ({
+        delayMs: Math.round(interval * index),
+        intensity: scaled(multiplier),
+        duration: Math.min(1.1, (interval / 1000) * 0.85),
+      }));
+    }
+    case "steady":
+    default:
+      return [{ delayMs: 0, intensity: base, duration: total }];
+  }
+}
+
 function deviceName(device: ButtplugClientDevice): string {
   return device.displayName || device.name || `Device ${device.index}`;
 }
@@ -106,7 +179,8 @@ class ButtplugService {
   private client: ButtplugClient;
   private serverUrl: string | null = null;
   private preferredServerUrl: string | null = null;
-  private stopTimers = new Map<number | "all", ReturnType<typeof setTimeout>>();
+  private stopTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private patternTimerCounter = 0;
 
   constructor() {
     this.client = new ButtplugClient("Marinara Engine");
@@ -190,6 +264,13 @@ class ButtplugService {
 
   /** Execute a haptic command. */
   async executeCommand(cmd: HapticDeviceCommand): Promise<void> {
+    await this.executeCommandInternal(cmd, { clearExistingTimers: true });
+  }
+
+  private async executeCommandInternal(
+    cmd: HapticDeviceCommand,
+    options: { clearExistingTimers: boolean },
+  ): Promise<void> {
     if (!this.client.connected) throw new Error("Not connected to Intiface Central");
 
     const targets = this.resolveTargets(cmd.deviceIndex);
@@ -198,11 +279,20 @@ class ButtplugService {
     const action = normalizeAction(cmd.action);
     if (!action) throw new Error(`Unknown action: ${String(cmd.action)}`);
 
+    if (options.clearExistingTimers) this.clearTimersForTarget(cmd.deviceIndex);
+
     // Handle stop command
     if (action === "stop") {
+      this.clearTimersForTarget(cmd.deviceIndex);
       for (const device of targets) {
         await device.stop();
       }
+      return;
+    }
+
+    const pattern = normalizePattern(cmd.pattern);
+    if (pattern && pattern !== "steady" && action !== "position") {
+      await this.executePatternCommand(cmd, pattern);
       return;
     }
 
@@ -273,24 +363,7 @@ class ButtplugService {
 
     // Schedule auto-stop if duration is specified and action isn't position
     if (duration > 0 && action !== "position" && successfulTargets > 0) {
-      const timerKey = cmd.deviceIndex;
-      // Clear any existing timer for this target
-      const existing = this.stopTimers.get(timerKey);
-      if (existing) clearTimeout(existing);
-
-      this.stopTimers.set(
-        timerKey,
-        setTimeout(async () => {
-          this.stopTimers.delete(timerKey);
-          for (const device of targets) {
-            try {
-              await device.stop();
-            } catch {
-              // Device may have disconnected
-            }
-          }
-        }, duration * 1000),
-      );
+      this.setStopTimer(cmd.deviceIndex, duration, targets);
     }
   }
 
@@ -306,6 +379,76 @@ class ButtplugService {
     if (deviceIndex === "all") return all;
     const device = this.client.devices.get(deviceIndex);
     return device ? [device] : []; // return empty if index not found
+  }
+
+  private async executePatternCommand(cmd: HapticDeviceCommand, pattern: HapticFeedbackPattern): Promise<void> {
+    const intensity = clampUnit(cmd.intensity, 0.5);
+    const duration = durationSeconds(cmd.duration) || 1.5;
+    const steps = buildPatternSteps(pattern, intensity, duration);
+    const timerTarget = String(cmd.deviceIndex);
+
+    for (const step of steps) {
+      const stepCommand: HapticDeviceCommand = {
+        ...cmd,
+        intensity: step.intensity,
+        duration: step.duration,
+        pattern: "steady",
+      };
+
+      if (step.delayMs <= 0) {
+        await this.executeCommandInternal(stepCommand, { clearExistingTimers: false });
+        continue;
+      }
+
+      const timerKey = `pattern:${timerTarget}:${++this.patternTimerCounter}`;
+      const timer = setTimeout(() => {
+        this.stopTimers.delete(timerKey);
+        void this.executeCommandInternal(stepCommand, { clearExistingTimers: false }).catch((err) => {
+          logger.warn(err, "[haptic] Pattern step %s failed", pattern);
+        });
+      }, step.delayMs);
+      this.stopTimers.set(timerKey, timer);
+    }
+  }
+
+  private setStopTimer(deviceIndex: number | "all", duration: number, targets: ButtplugClientDevice[]): void {
+    const timerKey = `stop:${String(deviceIndex)}`;
+    const existing = this.stopTimers.get(timerKey);
+    if (existing) clearTimeout(existing);
+
+    this.stopTimers.set(
+      timerKey,
+      setTimeout(async () => {
+        this.stopTimers.delete(timerKey);
+        for (const device of targets) {
+          try {
+            await device.stop();
+          } catch {
+            // Device may have disconnected.
+          }
+        }
+      }, duration * 1000),
+    );
+  }
+
+  private clearTimersForTarget(deviceIndex: number | "all"): void {
+    if (deviceIndex === "all") {
+      this.clearAllTimers();
+      return;
+    }
+
+    const target = String(deviceIndex);
+    for (const [key, timer] of this.stopTimers.entries()) {
+      if (
+        key === `stop:${target}` ||
+        key.startsWith(`pattern:${target}:`) ||
+        key === "stop:all" ||
+        key.startsWith("pattern:all:")
+      ) {
+        clearTimeout(timer);
+        this.stopTimers.delete(key);
+      }
+    }
   }
 
   private clearAllTimers(): void {

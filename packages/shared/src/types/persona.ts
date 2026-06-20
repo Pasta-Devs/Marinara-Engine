@@ -31,8 +31,6 @@ export interface Persona {
   trackerCardColors?: TrackerCardColorConfig | string;
   /** Persona status bars configuration (Satiety, Energy, etc.) */
   personaStats?: PersonaStatsConfig;
-  /** Alternative description extensions (toggleable additions to the main description) */
-  altDescriptions?: AltDescription[];
   /** Tags for organizing personas */
   tags?: string[];
   /** Saved Conversation mode activity/status text options for this persona */
@@ -101,17 +99,6 @@ export interface LegacyPersonaAvatarCrop {
   offsetX: number;
   offsetY: number;
   fullImage?: boolean;
-}
-
-/** A toggleable alternative/extended description block for a persona. */
-export interface AltDescription {
-  id: string;
-  /** Short label for this description block (e.g. "Combat Skills", "Relationships") */
-  label: string;
-  /** The description content */
-  content: string;
-  /** Whether this block is currently active and appended to the prompt */
-  active: boolean;
 }
 
 /** A single persona status bar definition. */

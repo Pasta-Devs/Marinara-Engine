@@ -2,17 +2,10 @@
 // Chat background URL <-> metadata helpers
 // ──────────────────────────────────────────────
 
-const USER_BACKGROUND_URL_PREFIX = "/api/backgrounds/file/";
-const GAME_ASSET_BACKGROUND_URL_PREFIX = "/api/game-assets/file/";
-const GAME_ASSET_BACKGROUND_META_PREFIX = "gameAsset:";
+import { GAME_ASSET_FILE_URL_PREFIX, gameAssetFileUrl } from "./game-asset-urls";
 
-function encodePathSegments(path: string): string {
-  return path
-    .split("/")
-    .filter(Boolean)
-    .map((segment) => encodeURIComponent(segment))
-    .join("/");
-}
+const USER_BACKGROUND_URL_PREFIX = "/api/backgrounds/file/";
+const GAME_ASSET_BACKGROUND_META_PREFIX = "gameAsset:";
 
 function safeDecode(value: string): string {
   try {
@@ -27,7 +20,7 @@ export function chatBackgroundMetadataToUrl(value: unknown): string | null {
   const background = value.trim();
   if (!background) return null;
 
-  if (background.startsWith(USER_BACKGROUND_URL_PREFIX) || background.startsWith(GAME_ASSET_BACKGROUND_URL_PREFIX)) {
+  if (background.startsWith(USER_BACKGROUND_URL_PREFIX) || background.startsWith(GAME_ASSET_FILE_URL_PREFIX)) {
     return background;
   }
   if (/^(https?:|data:|blob:)/i.test(background) || background.startsWith("/")) {
@@ -36,7 +29,7 @@ export function chatBackgroundMetadataToUrl(value: unknown): string | null {
 
   if (background.startsWith(GAME_ASSET_BACKGROUND_META_PREFIX)) {
     const assetPath = background.slice(GAME_ASSET_BACKGROUND_META_PREFIX.length).replace(/^\/+/, "");
-    return assetPath ? `${GAME_ASSET_BACKGROUND_URL_PREFIX}${encodePathSegments(assetPath)}` : null;
+    return gameAssetFileUrl(assetPath);
   }
 
   return `${USER_BACKGROUND_URL_PREFIX}${encodeURIComponent(background)}`;
@@ -49,8 +42,8 @@ export function chatBackgroundUrlToMetadata(url: string | null): string | null {
     return safeDecode(url.slice(USER_BACKGROUND_URL_PREFIX.length));
   }
 
-  if (url.startsWith(GAME_ASSET_BACKGROUND_URL_PREFIX)) {
-    const assetPath = safeDecode(url.slice(GAME_ASSET_BACKGROUND_URL_PREFIX.length)).replace(/^\/+/, "");
+  if (url.startsWith(GAME_ASSET_FILE_URL_PREFIX)) {
+    const assetPath = safeDecode(url.slice(GAME_ASSET_FILE_URL_PREFIX.length)).replace(/^\/+/, "");
     return assetPath ? `${GAME_ASSET_BACKGROUND_META_PREFIX}${assetPath}` : null;
   }
 
@@ -58,5 +51,5 @@ export function chatBackgroundUrlToMetadata(url: string | null): string | null {
 }
 
 export function isManagedChatBackgroundUrl(url: string | null): boolean {
-  return !!url && (url.startsWith(USER_BACKGROUND_URL_PREFIX) || url.startsWith(GAME_ASSET_BACKGROUND_URL_PREFIX));
+  return !!url && (url.startsWith(USER_BACKGROUND_URL_PREFIX) || url.startsWith(GAME_ASSET_FILE_URL_PREFIX));
 }

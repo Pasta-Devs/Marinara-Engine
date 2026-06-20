@@ -2,6 +2,9 @@
 // Shared Markdown rendering utilities
 // ──────────────────────────────────────────────
 import { type ReactNode } from "react";
+import { normalizeCardAssetImageSyntax, resolveCardAssetUrl } from "./card-asset-links";
+import { convertBasicLatexSymbols, convertBasicLatexSymbolsInHtml } from "./latex-symbols";
+import { useUIStore } from "../stores/ui.store";
 
 // ─── Inline Markdown ────────────────────────────────────────────────────────
 
@@ -20,12 +23,24 @@ import { type ReactNode } from "react";
  *   11    Italic (*)        *text*
  *   12    Italic (_)        _text_   (not inside a word)
  */
-const INLINE_MD_RE =
-  // eslint-disable-next-line no-useless-escape
-  /\\([-\\*_~`#|>!=\[\]{}])|(!?\[([^\]]*)\]\((https?:\/\/[^)]+)\))|`([^`\n]+)`|==(.+?)==|~~(.+?)~~|\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|(?<![_\w])_([^_]+?)_(?![_\w])/g;
+const MD_LINK_TARGET_SOURCE = String.raw`(?:https?:\/\/[^)\s]+|card:\/\/[^)\s]+|\/api\/[^)\s]+)`;
+const INLINE_MD_RE = new RegExp(
+  "\\\\([-\\\\*_~`#|>!=\\[\\]{}])|(!?\\[([^\\]]*)\\]\\((" +
+    MD_LINK_TARGET_SOURCE +
+    ")\\))|`([^`\\n]+)`|==(.+?)==|~~(.+?)~~|\\*\\*\\*(.+?)\\*\\*\\*|\\*\\*(.+?)\\*\\*|__(.+?)__|\\*(.+?)\\*|(?<![_\\w])_([^_]+?)_(?![_\\w])",
+  "g",
+);
 
 /** Maximum recursion depth for nested inline markdown. */
 const MAX_INLINE_DEPTH = 6;
+
+function shouldConvertLatexSymbols(): boolean {
+  return useUIStore.getState().convertLatexSymbols !== false;
+}
+
+function maybeConvertLatexSymbols(text: string, enabled = shouldConvertLatexSymbols()): string {
+  return enabled ? convertBasicLatexSymbols(text) : text;
+}
 
 /**
  * Apply inline markdown formatting to a text string.
@@ -40,6 +55,8 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
   // Safety: prevent runaway recursion
   if (_depth > MAX_INLINE_DEPTH) return [text];
 
+  const markdownText = normalizeCardAssetImageSyntax(text);
+  const convertLatex = shouldConvertLatexSymbols();
   const regex = new RegExp(INLINE_MD_RE.source, INLINE_MD_RE.flags);
   const nodes: ReactNode[] = [];
   let lastIndex = 0;
@@ -50,10 +67,10 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
   const recurse = (inner: string, tag: string): ReactNode[] =>
     applyInlineMarkdown(inner, `${keyPrefix}${tag}${key}`, _depth + 1);
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(markdownText)) !== null) {
     // Push any plain text before this match
     if (match.index > lastIndex) {
-      nodes.push(text.slice(lastIndex, match.index));
+      nodes.push(maybeConvertLatexSymbols(markdownText.slice(lastIndex, match.index), convertLatex));
     }
 
     if (match[1] != null) {
@@ -61,11 +78,12 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
       nodes.push(match[1]);
     } else if (match[3] != null && match[4] != null) {
       // ── Image: ![alt](url) or Link: [text](url) ──
+      const resolvedUrl = resolveCardAssetUrl(match[4]);
       if (match[0].startsWith("!")) {
         nodes.push(
           <img
             key={`${keyPrefix}img${key++}`}
-            src={match[4]}
+            src={resolvedUrl}
             alt={match[3] || ""}
             className="my-1 inline-block max-w-full rounded-lg align-bottom sm:max-w-md"
             loading="lazy"
@@ -77,7 +95,7 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
         nodes.push(
           <a
             key={`${keyPrefix}a${key++}`}
-            href={match[4]}
+            href={resolvedUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-400 underline hover:text-blue-300"
@@ -132,11 +150,11 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
   }
 
   // Remaining plain text
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
+  if (lastIndex < markdownText.length) {
+    nodes.push(maybeConvertLatexSymbols(markdownText.slice(lastIndex), convertLatex));
   }
 
-  return nodes.length > 0 ? nodes : [text];
+  return nodes.length > 0 ? nodes : [maybeConvertLatexSymbols(markdownText, convertLatex)];
 }
 
 // ─── Block-level Markdown ───────────────────────────────────────────────────
@@ -148,7 +166,7 @@ const HEADING_RE = /^(#{1,6})\s+(.+)$/;
 const HR_LINE_RE = /^(?:\*{3,}|-{3,})$/;
 
 /** Regex to match a standalone image line (entire line is just one image). */
-const MD_IMAGE_LINE_RE = /^!\[([^\]]*)\]\((https?:\/\/[^)]+)\)$/;
+const MD_IMAGE_LINE_RE = new RegExp(String.raw`^!\[([^\]]*)\]\((${MD_LINK_TARGET_SOURCE})\)$`);
 
 /** Regex to match a task list item: - [ ] or - [x]. */
 const TASK_ITEM_RE = /^(\s*)[-*+] \[([ xX])\]\s+(.+)/;
@@ -357,7 +375,7 @@ export function renderMarkdownBlocks(
   renderInline: (text: string, keyPrefix: string) => ReactNode[] = applyInlineMarkdown,
   keyBase = "md",
 ): ReactNode {
-  const lines = text.split("\n");
+  const lines = normalizeCardAssetImageSyntax(text).split("\n");
   const segments: ReactNode[] = [];
   let key = 0;
 
@@ -485,7 +503,7 @@ export function renderMarkdownBlocks(
       segments.push(
         <img
           key={`${keyBase}img${key++}`}
-          src={imgMatch[2]}
+          src={resolveCardAssetUrl(imgMatch[2]!)}
           alt={imgMatch[1] || ""}
           className="my-1 max-w-full rounded-lg sm:max-w-md"
           loading="lazy"
@@ -613,22 +631,28 @@ export function renderMarkdownBlocks(
  * via dangerouslySetInnerHTML.
  */
 export function applyInlineMarkdownHTML(html: string): string {
+  let next = html
+    // Pre-process: replace backslash-escaped markdown chars with HTML entities
+    // so they are not matched by subsequent regex patterns.
+    .replace(/\\([-\\*_~`#|>!=[\]{}])/g, (_m, char: string) => `&#${char.charCodeAt(0)};`)
+    // Fenced code blocks (``` … ```) — must run before inline code
+    .replace(
+      /(?:^|(?<=<br[^>]*>))\s*`{3,}([^\n<]*?)(?:<br[^>]*>)([\s\S]*?)(?:<br[^>]*>)\s*`{3,}\s*(?:$|(?=<br[^>]*>))/g,
+      (_m, lang: string, code: string) => {
+        const langTrimmed = lang.trim();
+        const langLabel = langTrimmed ? `<span class="mari-md-codeblock-lang">${langTrimmed}</span>` : "";
+        return `<pre class="mari-md-codeblock">${langLabel}<code>${code}</code></pre>`;
+      },
+    )
+    // Inline code: `code`
+    .replace(/`([^`\n]+)`/g, '<code class="mari-md-inline-code">$1</code>');
+
+  if (shouldConvertLatexSymbols()) {
+    next = convertBasicLatexSymbolsInHtml(next);
+  }
+
   return (
-    html
-      // Pre-process: replace backslash-escaped markdown chars with HTML entities
-      // so they are not matched by subsequent regex patterns.
-      .replace(/\\([-\\*_~`#|>!=[\]{}])/g, (_m, char: string) => `&#${char.charCodeAt(0)};`)
-      // Fenced code blocks (``` … ```) — must run before inline code
-      .replace(
-        /(?:^|(?<=<br[^>]*>))\s*`{3,}([^\n<]*?)(?:<br[^>]*>)([\s\S]*?)(?:<br[^>]*>)\s*`{3,}\s*(?:$|(?=<br[^>]*>))/g,
-        (_m, lang: string, code: string) => {
-          const langTrimmed = lang.trim();
-          const langLabel = langTrimmed ? `<span class="mari-md-codeblock-lang">${langTrimmed}</span>` : "";
-          return `<pre class="mari-md-codeblock">${langLabel}<code>${code}</code></pre>`;
-        },
-      )
-      // Inline code: `code`
-      .replace(/`([^`\n]+)`/g, '<code class="mari-md-inline-code">$1</code>')
+    next
       // Highlight: ==text==
       .replace(/==(.+?)==/g, '<mark class="mari-md-highlight">$1</mark>')
       // Strikethrough: ~~text~~

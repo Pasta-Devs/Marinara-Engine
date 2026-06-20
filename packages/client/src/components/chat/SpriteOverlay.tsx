@@ -2,12 +2,18 @@
 // Sprite Overlay — VN-style character sprites in chat
 // Supports persisted free placement to avoid group-chat overlap.
 // ──────────────────────────────────────────────
-import { useState, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useMemo, useRef, type CSSProperties, type RefObject } from "react";
 import { motion, AnimatePresence, type TargetAndTransition } from "framer-motion";
+import { Check } from "lucide-react";
 import type { SpritePlacement, SpriteSide } from "@marinara-engine/shared";
 import { useCharacterSprites, type SpriteInfo } from "../../hooks/use-characters";
+import { normalizeSpriteExpressionKey, resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { useAgentStore } from "../../stores/agent.store";
 import {
+  SPRITE_DISPLAY_OPACITY_MAX,
+  SPRITE_DISPLAY_OPACITY_MIN,
+  SPRITE_DISPLAY_SCALE_MAX,
+  SPRITE_DISPLAY_SCALE_MIN,
   isFullBodySpriteExpression,
   normalizeSpriteDisplayModes,
   type SpriteDisplayMode,
@@ -29,16 +35,24 @@ interface SpriteOverlayProps {
   spritePlacements?: SpritePlacementMap;
   /** Whether the overlay is currently in drag-to-arrange mode */
   editing?: boolean;
-  /** Called when expression changes (to persist it) */
-  onExpressionChange?: (characterId: string, expression: string) => void;
   /** Called when a sprite is moved (to persist it) */
-  onPlacementChange?: (characterId: string, placement: SpritePlacement) => void;
+  onPlacementChange?: (placementKey: string, placement: SpritePlacement) => void;
+  /** Called when the user confirms placement from an individual sprite control. */
+  onFinishPlacement?: () => void;
   /** When true, only show full-body sprites (full_ prefix) and hide characters without any */
   fullBodyOnly?: boolean;
   /** Multiplier for sprite size. Game mode passes this for full-body sprites. */
   spriteScale?: number;
+  /** Multiplier for roleplay expression sprite size. Falls back to spriteScale. */
+  expressionSpriteScale?: number;
+  /** Multiplier for roleplay full-body sprite size. Falls back to spriteScale. */
+  fullBodySpriteScale?: number;
   /** Opacity multiplier for visible sprites. */
   spriteOpacity?: number;
+  /** Opacity multiplier for roleplay expression sprites. Falls back to spriteOpacity. */
+  expressionSpriteOpacity?: number;
+  /** Opacity multiplier for roleplay full-body sprites. Falls back to spriteOpacity. */
+  fullBodySpriteOpacity?: number;
 }
 
 type Transition = "crossfade" | "bounce" | "shake" | "hop" | "none";
@@ -46,6 +60,40 @@ type Transition = "crossfade" | "bounce" | "shake" | "hop" | "none";
 interface CharacterExpressionState {
   expression: string;
   transition: Transition;
+}
+
+type SpriteRenderMode = "expressions" | "full-body";
+
+interface VisibleSpriteEntry {
+  characterId: string;
+  placementKey: string;
+  renderMode: SpriteRenderMode;
+  placement: SpritePlacement;
+  zIndex: number;
+}
+
+function getSpritePlacementKey(characterId: string, renderMode: SpriteRenderMode) {
+  return `${characterId}:${renderMode}`;
+}
+
+function hasTokenContainmentMatch(requested: string, candidate: string): boolean {
+  if (requested.length < 3 || candidate.length < 3) return false;
+  const requestedTokens = requested.split("_").filter(Boolean);
+  const candidateTokens = candidate.split("_").filter(Boolean);
+  return requestedTokens.includes(candidate) || candidateTokens.includes(requested);
+}
+
+function offsetPairedSpritePlacement(
+  placement: SpritePlacement,
+  renderMode: SpriteRenderMode,
+  side: SpriteSide | "center",
+): SpritePlacement {
+  const fullBodyOffset = side === "right" ? 10 : -10;
+  const expressionOffset = side === "right" ? -12 : 12;
+  return clampSpritePlacement({
+    x: placement.x + (renderMode === "full-body" ? fullBodyOffset : expressionOffset),
+    y: placement.y,
+  });
 }
 
 /** Simple keyword-based expression detection from message text. */
@@ -83,11 +131,15 @@ export function SpriteOverlay({
   spriteExpressions,
   spritePlacements,
   editing = false,
-  onExpressionChange,
   onPlacementChange,
+  onFinishPlacement,
   fullBodyOnly = false,
   spriteScale = 1,
+  expressionSpriteScale,
+  fullBodySpriteScale,
   spriteOpacity = 1,
+  expressionSpriteOpacity,
+  fullBodySpriteOpacity,
 }: SpriteOverlayProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const resolvedSpriteDisplayModes = useMemo(
@@ -111,7 +163,8 @@ export function SpriteOverlay({
     return initial;
   });
 
-  // When agent result arrives, prefer it over keyword detection
+  // When agent result arrives, prefer it over keyword detection.
+  // Persistence happens server-side after validation; this layer only reflects the live result.
   useEffect(() => {
     // Full-body sprites use poses from spriteExpressions (game mode); the facial-expression agent would overwrite them with values like "happy" that don't match any full_* sprite.
     if (fullBodyOnly) return;
@@ -137,14 +190,10 @@ export function SpriteOverlay({
           }
           return next;
         });
-        // Persist expression changes outside setState to avoid side-effects in updater
-        for (const u of updates) {
-          onExpressionChange?.(u.characterId, u.expression);
-        }
         return;
       }
     }
-  }, [expressionResult, onExpressionChange, fullBodyOnly]);
+  }, [expressionResult, fullBodyOnly]);
 
   // Apply saved per-swipe expressions whenever the prop changes (e.g. user swipes).
   // This runs independently of the agent store so swiping always updates the sprite.
@@ -201,45 +250,78 @@ export function SpriteOverlay({
     setStates(newStates);
   }, [messages, characterIds, expressionResult, spriteExpressions, fullBodyOnly]);
 
-  const visibleChars = characterIds.slice(0, 3);
-  const resolvedPlacements = useMemo(() => {
-    const placements: Record<string, SpritePlacement> = {};
+  const visibleChars = useMemo(() => characterIds.slice(0, 3), [characterIds]);
+  const renderModes = useMemo<SpriteRenderMode[]>(() => {
+    if (fullBodyOnly) return ["full-body"];
+    const modes: SpriteRenderMode[] = [];
+    if (resolvedSpriteDisplayModes.includes("full-body")) modes.push("full-body");
+    if (resolvedSpriteDisplayModes.includes("expressions")) modes.push("expressions");
+    return modes;
+  }, [fullBodyOnly, resolvedSpriteDisplayModes]);
+  const visibleSpriteEntries = useMemo<VisibleSpriteEntry[]>(() => {
+    const entries: VisibleSpriteEntry[] = [];
+    const hasPairedSprites = renderModes.length > 1;
+
     for (const [index, charId] of visibleChars.entries()) {
-      placements[charId] = clampSpritePlacement(
+      const basePlacement = clampSpritePlacement(
         spritePlacements?.[charId] ?? getDefaultSpritePlacement(index, visibleChars.length, side),
       );
-    }
-    return placements;
-  }, [side, spritePlacements, visibleChars]);
 
-  if (visibleChars.length === 0) return null;
+      for (const [modeIndex, renderMode] of renderModes.entries()) {
+        const placementKey = getSpritePlacementKey(charId, renderMode);
+        const fallbackPlacement = hasPairedSprites
+          ? offsetPairedSpritePlacement(basePlacement, renderMode, side)
+          : basePlacement;
+        entries.push({
+          characterId: charId,
+          placementKey,
+          renderMode,
+          placement: clampSpritePlacement(spritePlacements?.[placementKey] ?? fallbackPlacement),
+          zIndex: 10 + index * 3 + modeIndex,
+        });
+      }
+    }
+
+    return entries;
+  }, [renderModes, side, spritePlacements, visibleChars]);
+
+  if (visibleSpriteEntries.length === 0) return null;
 
   const stageZIndexClass = editing ? "z-[35]" : fullBodyOnly ? "z-[5]" : "z-[5] md:z-[15]";
+  const resolvedExpressionSpriteScale = expressionSpriteScale ?? spriteScale;
+  const resolvedFullBodySpriteScale = fullBodySpriteScale ?? spriteScale;
+  const resolvedExpressionSpriteOpacity = expressionSpriteOpacity ?? spriteOpacity;
+  const resolvedFullBodySpriteOpacity = fullBodySpriteOpacity ?? spriteOpacity;
 
   return (
     <div ref={stageRef} className={`pointer-events-none absolute inset-0 overflow-hidden ${stageZIndexClass}`}>
-      {visibleChars.map((charId, index) => (
+      {visibleSpriteEntries.map((entry) => (
         <CharacterSprite
-          key={charId}
-          characterId={charId}
-          expression={states[charId]?.expression ?? "neutral"}
-          transition={states[charId]?.transition ?? "crossfade"}
-          placement={resolvedPlacements[charId]!}
+          key={entry.placementKey}
+          characterId={entry.characterId}
+          placementKey={entry.placementKey}
+          renderMode={entry.renderMode}
+          expression={states[entry.characterId]?.expression ?? "neutral"}
+          transition={states[entry.characterId]?.transition ?? "crossfade"}
+          placement={entry.placement}
           spriteCount={visibleChars.length}
           editing={editing}
-          zIndex={10 + index}
+          zIndex={entry.zIndex}
           stageRef={stageRef}
           onPlacementChange={onPlacementChange}
+          onFinishPlacement={onFinishPlacement}
           fullBodyOnly={fullBodyOnly}
-          spriteDisplayModes={resolvedSpriteDisplayModes}
-          spriteScale={spriteScale}
-          spriteOpacity={spriteOpacity}
+          spriteDisplayModes={[entry.renderMode]}
+          spriteScale={entry.renderMode === "full-body" ? resolvedFullBodySpriteScale : resolvedExpressionSpriteScale}
+          spriteOpacity={
+            entry.renderMode === "full-body" ? resolvedFullBodySpriteOpacity : resolvedExpressionSpriteOpacity
+          }
         />
       ))}
 
       {editing && (
         <div className="pointer-events-none absolute bottom-4 left-1/2 z-[30] -translate-x-1/2 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-[0.625rem] font-medium text-white/80 shadow-lg backdrop-blur-md">
-          Drag sprites to reposition them. Changes save automatically.
+          Drag sprites to reposition them. Use the check above a sprite to finish.
         </div>
       )}
     </div>
@@ -296,6 +378,8 @@ const TRANSITION_VARIANTS: Record<Transition, SpriteVariant> = {
 
 function CharacterSprite({
   characterId,
+  placementKey,
+  renderMode,
   expression,
   transition,
   placement,
@@ -304,20 +388,24 @@ function CharacterSprite({
   zIndex,
   stageRef,
   onPlacementChange,
+  onFinishPlacement,
   fullBodyOnly = false,
   spriteDisplayModes,
   spriteScale = 1,
   spriteOpacity = 1,
 }: {
   characterId: string;
+  placementKey: string;
+  renderMode: SpriteRenderMode;
   expression: string;
   transition: Transition;
   placement: SpritePlacement;
   spriteCount: number;
   editing: boolean;
   zIndex: number;
-  stageRef: React.RefObject<HTMLDivElement | null>;
-  onPlacementChange?: (characterId: string, placement: SpritePlacement) => void;
+  stageRef: RefObject<HTMLDivElement | null>;
+  onPlacementChange?: (placementKey: string, placement: SpritePlacement) => void;
+  onFinishPlacement?: () => void;
   fullBodyOnly?: boolean;
   spriteDisplayModes: SpriteDisplayMode[];
   spriteScale?: number;
@@ -339,6 +427,7 @@ function CharacterSprite({
   const spriteUrl = useMemo(() => {
     if (!sprites || !(sprites as SpriteInfo[]).length) return null;
     const exprLower = expression.toLowerCase();
+    const exprKey = normalizeSpriteExpressionKey(expression);
     const allSprites = sprites as SpriteInfo[];
     const allowExpressions = !fullBodyOnly && spriteDisplayModes.includes("expressions");
     const allowFullBody = fullBodyOnly || spriteDisplayModes.includes("full-body");
@@ -365,50 +454,51 @@ function CharacterSprite({
     if (exact) return exact;
 
     const partial = findMatchingSprite((spriteExpression) => {
-      const baseExpression = fullBodyBaseExpression(spriteExpression);
-      return (
-        spriteExpression.includes(exprLower) ||
-        exprLower.includes(spriteExpression) ||
-        baseExpression.includes(exprLower) ||
-        exprLower.includes(baseExpression)
-      );
+      const spriteKey = normalizeSpriteExpressionKey(spriteExpression);
+      const baseExpression = fullBodyBaseExpression(spriteKey);
+      return hasTokenContainmentMatch(exprKey, spriteKey) || hasTokenContainmentMatch(exprKey, baseExpression);
     });
     if (partial) return partial;
 
-    const neutral = findMatchingSprite((spriteExpression) => {
-      const baseExpression = fullBodyBaseExpression(spriteExpression);
-      return baseExpression === "neutral" || baseExpression === "default" || baseExpression === "idle";
-    });
-    if (neutral) return neutral;
+    for (const spriteList of spritePools) {
+      const semantic = resolveSpriteExpression(spriteList, expression);
+      if (semantic) return semantic.url;
+    }
 
-    return fullBodySprites[0]?.url ?? expressionSprites[0]?.url ?? null;
+    for (const spriteList of spritePools) {
+      const first = spriteList[0];
+      if (first) return first.url;
+    }
+
+    return null;
   }, [sprites, expression, fullBodyOnly, spriteDisplayModes]);
 
   const standardSizeClass =
     spriteCount >= 3
-      ? "max-h-[min(68vh,calc(50vh*var(--game-sprite-scale)))] max-w-[min(82vw,calc(55vw*var(--game-sprite-scale)))] md:max-h-[min(70vh,calc(44vh*var(--game-sprite-scale)))] md:max-w-[min(38vw,calc(26vw*var(--game-sprite-scale)))]"
+      ? "h-[calc(50vh*var(--game-sprite-scale))] max-w-[calc(55vw*var(--game-sprite-scale))] md:h-[calc(44vh*var(--game-sprite-scale))] md:max-w-[calc(26vw*var(--game-sprite-scale))]"
       : spriteCount === 2
-        ? "max-h-[min(74vh,calc(55vh*var(--game-sprite-scale)))] max-w-[min(86vw,calc(60vw*var(--game-sprite-scale)))] md:max-h-[min(76vh,calc(52vh*var(--game-sprite-scale)))] md:max-w-[min(46vw,calc(32vw*var(--game-sprite-scale)))]"
-        : "max-h-[min(82vh,calc(65vh*var(--game-sprite-scale)))] max-w-[min(92vw,calc(80vw*var(--game-sprite-scale)))] md:max-h-[min(78vh,calc(60vh*var(--game-sprite-scale)))] md:max-w-[min(58vw,calc(38vw*var(--game-sprite-scale)))]";
+        ? "h-[calc(55vh*var(--game-sprite-scale))] max-w-[calc(60vw*var(--game-sprite-scale))] md:h-[calc(52vh*var(--game-sprite-scale))] md:max-w-[calc(32vw*var(--game-sprite-scale))]"
+        : "h-[calc(65vh*var(--game-sprite-scale))] max-w-[calc(80vw*var(--game-sprite-scale))] md:h-[calc(60vh*var(--game-sprite-scale))] md:max-w-[calc(38vw*var(--game-sprite-scale))]";
   const fullBodySizeClass =
     spriteCount >= 3
-      ? "h-[min(78vh,calc(54vh*var(--game-sprite-scale)))] max-w-[min(86vw,calc(58vw*var(--game-sprite-scale)))] md:h-[min(82vh,calc(50vh*var(--game-sprite-scale)))] md:max-w-[min(42vw,calc(28vw*var(--game-sprite-scale)))]"
+      ? "h-[calc(54vh*var(--game-sprite-scale))] max-w-[calc(58vw*var(--game-sprite-scale))] md:h-[calc(50vh*var(--game-sprite-scale))] md:max-w-[calc(28vw*var(--game-sprite-scale))]"
       : spriteCount === 2
-        ? "h-[min(82vh,calc(60vh*var(--game-sprite-scale)))] max-w-[min(90vw,calc(64vw*var(--game-sprite-scale)))] md:h-[min(86vh,calc(56vh*var(--game-sprite-scale)))] md:max-w-[min(52vw,calc(34vw*var(--game-sprite-scale)))]"
-        : "h-[min(86vh,calc(64vh*var(--game-sprite-scale)))] max-w-[min(96vw,calc(86vw*var(--game-sprite-scale)))] md:h-[min(90vh,calc(62vh*var(--game-sprite-scale)))] md:max-w-[min(70vw,calc(44vw*var(--game-sprite-scale)))]";
+        ? "h-[calc(60vh*var(--game-sprite-scale))] max-w-[calc(64vw*var(--game-sprite-scale))] md:h-[calc(56vh*var(--game-sprite-scale))] md:max-w-[calc(34vw*var(--game-sprite-scale))]"
+        : "h-[calc(64vh*var(--game-sprite-scale))] max-w-[calc(86vw*var(--game-sprite-scale))] md:h-[calc(62vh*var(--game-sprite-scale))] md:max-w-[calc(44vw*var(--game-sprite-scale))]";
   const fullBodyLayout =
     fullBodyOnly || (spriteDisplayModes.includes("full-body") && !spriteDisplayModes.includes("expressions"));
   const sizeClass = fullBodyLayout ? fullBodySizeClass : standardSizeClass;
   const spriteScaleStyle = useMemo<CSSProperties>(
     () =>
       ({
-        "--game-sprite-scale": fullBodyLayout
-          ? Math.max(0.75, Math.min(2.75, spriteScale))
-          : Math.max(0.5, Math.min(1.75, spriteScale)),
+        "--game-sprite-scale": Math.max(SPRITE_DISPLAY_SCALE_MIN, Math.min(SPRITE_DISPLAY_SCALE_MAX, spriteScale)),
       }) as CSSProperties,
-    [fullBodyLayout, spriteScale],
+    [spriteScale],
   );
-  const resolvedSpriteOpacity = Math.max(0.15, Math.min(1, spriteOpacity));
+  const resolvedSpriteOpacity = Math.max(
+    SPRITE_DISPLAY_OPACITY_MIN,
+    Math.min(SPRITE_DISPLAY_OPACITY_MAX, spriteOpacity),
+  );
 
   useEffect(() => {
     currentPlacementRef.current = currentPlacement;
@@ -452,7 +542,7 @@ function CharacterSprite({
       if (!dragState || event.pointerId !== dragState.pointerId) return;
       dragRef.current = null;
       setIsDragging(false);
-      onPlacementChange?.(characterId, currentPlacementRef.current);
+      onPlacementChange?.(placementKey, currentPlacementRef.current);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -464,7 +554,7 @@ function CharacterSprite({
       window.removeEventListener("pointerup", finishDrag);
       window.removeEventListener("pointercancel", finishDrag);
     };
-  }, [characterId, isDragging, onPlacementChange, stageRef]);
+  }, [isDragging, onPlacementChange, placementKey, stageRef]);
 
   if (!spriteUrl) return null;
 
@@ -494,17 +584,36 @@ function CharacterSprite({
       }}
     >
       {editing && (
-        <div className="pointer-events-none absolute left-1/2 top-0 z-[2] -translate-x-1/2 -translate-y-full rounded-full border border-white/10 bg-black/65 px-2 py-1 text-[0.5625rem] font-semibold uppercase tracking-wide text-white/75 shadow-md">
-          {isDragging ? "Release to Save" : "Drag to Move"}
+        <div className="absolute left-1/2 top-0 z-[2] flex -translate-x-1/2 -translate-y-[calc(100%+0.35rem)] items-center gap-1">
+          <button
+            type="button"
+            title="Finish placing sprite"
+            aria-label="Finish placing sprite"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onPlacementChange?.(placementKey, currentPlacementRef.current);
+              onFinishPlacement?.();
+            }}
+            className="pointer-events-auto flex h-6 w-6 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text-hover)] shadow-lg backdrop-blur-md transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          >
+            <Check size="0.75rem" strokeWidth={2.4} />
+          </button>
+          <div className="pointer-events-none rounded-full border border-white/10 bg-black/65 px-2 py-1 text-[0.5625rem] font-semibold uppercase tracking-wide text-white/75 shadow-md">
+            {isDragging ? "Release to Save" : "Drag to Move"}
+          </div>
         </div>
       )}
 
       <div style={{ opacity: resolvedSpriteOpacity }}>
         <AnimatePresence mode="wait">
           <motion.img
-            key={`${characterId}-${expression}`}
+            key={`${placementKey}-${expression}`}
             src={spriteUrl}
-            alt={`${expression} sprite`}
+            alt={`${renderMode === "full-body" ? "full-body" : "expression"} ${expression} sprite`}
             className={`${sizeClass} w-auto object-contain drop-shadow-[0_0_20px_rgba(0,0,0,0.5)] ${editing ? "cursor-grab active:cursor-grabbing" : ""}`}
             style={spriteScaleStyle}
             draggable={false}

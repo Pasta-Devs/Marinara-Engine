@@ -18,6 +18,7 @@ export interface AgentConfigRow {
   phase: string;
   enabled: string;
   connectionId: string | null;
+  imagePath: string | null;
   promptTemplate: string;
   settings: string;
   createdAt: string;
@@ -73,6 +74,18 @@ export function useUpdateAgent() {
     mutationFn: ({ id, ...data }: { id: string } & Record<string, unknown>) => api.patch(`/agents/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: agentKeys.all });
+    },
+  });
+}
+
+export function useUploadAgentImage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, image }: { id: string; image: string }) =>
+      api.post<AgentConfigRow>(`/agents/${id}/image`, { image }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: agentKeys.all });
+      qc.invalidateQueries({ queryKey: agentKeys.detail(variables.id) });
     },
   });
 }

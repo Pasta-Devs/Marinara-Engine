@@ -17,6 +17,8 @@ export const customTools = sqliteTable("custom_tools", {
   staticResult: text("static_result"),
   /** JS expression for execution_type=script — evaluated server-side in a sandbox */
   scriptBody: text("script_body"),
+  /** Whether webhook/script execution receives hidden Marinara runtime context */
+  includeHiddenContext: text("include_hidden_context").notNull().default("false"),
   enabled: text("enabled").notNull().default("true"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

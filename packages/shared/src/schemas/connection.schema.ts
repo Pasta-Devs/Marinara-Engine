@@ -25,6 +25,7 @@ export const createConnectionSchema = z.object({
   baseUrl: z.string().url().or(z.literal("")).default(""),
   apiKey: z.string().default(""),
   model: z.string().default(""),
+  imagePath: z.string().nullable().default(null),
   maxContext: z.number().int().min(1).default(128000),
   isDefault: z.boolean().default(false),
   useForRandom: z.boolean().default(false),

@@ -1,628 +1,915 @@
 // ──────────────────────────────────────────────
-// Panel: Agents & Tools
+// Panel: Agents
 // ──────────────────────────────────────────────
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   Sparkles,
   Pencil,
   Plus,
-  Wrench,
   ChevronDown,
+  ChevronRight,
   Trash2,
-  Regex,
+  Search,
   PenLine,
   Radar,
   Puzzle,
-  GripVertical,
-  ToggleLeft,
-  ToggleRight,
+  Camera,
+  Download,
+  Check,
+  FolderPlus,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import {
   useAgentConfigs,
+  useCreateAgent,
   useDeleteAgent,
-  useUpdateAgent,
-  useUpdateAgentByType,
+  useUploadAgentImage,
   type AgentConfigRow,
 } from "../../hooks/use-agents";
-import { useCustomTools, useDeleteCustomTool, type CustomToolRow } from "../../hooks/use-custom-tools";
 import {
-  useRegexScripts,
-  useDeleteRegexScript,
-  useCreateRegexScript,
-  useUpdateRegexScript,
-  useReorderRegexScripts,
-  type RegexScriptRow,
-} from "../../hooks/use-regex-scripts";
-import { BUILT_IN_AGENTS, type AgentCategory } from "@marinara-engine/shared";
-import { showConfirmDialog } from "../../lib/app-dialogs";
+  BUILT_IN_AGENTS,
+  DEFAULT_AGENT_TOOLS,
+  createFolderEntry,
+  getDefaultBuiltInAgentSettings,
+  getFolderImportEntries,
+  getFolderManifestConfig,
+  isAgentConfigDeleted,
+  isRetiredBuiltInAgentId,
+  normalizeAgentPhaseForType,
+  normalizeAgentPhaseValue,
+  type AgentCategory,
+} from "@marinara-engine/shared";
+import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { downloadJsonFile } from "../../lib/download-json";
+import { downloadZipFile } from "../../lib/download-zip";
+import { sanitizeAgentSettingsForTransfer } from "../../lib/agent-transfer";
+import { isZipFile, readTextFileFromZip } from "../../lib/read-zip-text";
+import { SelectionActionBar } from "../ui/SelectionActionBar";
+import {
+  getNextUnnamedLibraryFolderName,
+  useCreateLibraryFolder,
+  useDeleteLibraryFolder,
+  useLibraryFolders,
+  useMoveLibraryItem,
+  useUpdateLibraryFolder,
+} from "../../hooks/use-library-folders";
+
+type JsonRecord = Record<string, unknown>;
+const BUILT_IN_AGENT_TYPE_SET = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
+const AGENT_GRADIENT_SURFACE =
+  "bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 text-white shadow-purple-500/25";
+const AGENT_GRADIENT_BUTTON =
+  "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500 text-white shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/25";
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseBooleanValue(value: unknown, fallback = true) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value === "true" || value === "1";
+  return fallback;
+}
+
+function parseAgentSettings(value: unknown): JsonRecord {
+  if (isJsonRecord(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value);
+      return isJsonRecord(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function getAgentImportEntries(parsed: unknown) {
+  return getFolderImportEntries(parsed, ["agents"]);
+}
+
+function serializeAgentConfig(agent: AgentConfigRow) {
+  const settings = sanitizeAgentSettingsForTransfer(parseAgentSettings(agent.settings));
+  if (typeof settings.author !== "string" || !settings.author.trim()) {
+    settings.author = "Unknown";
+  }
+  const resultType = typeof settings.resultType === "string" ? settings.resultType : undefined;
+  return {
+    type: agent.type,
+    name: agent.name,
+    description: agent.description,
+    phase: normalizeAgentPhaseForType(agent.type, agent.phase),
+    enabled: parseBooleanValue(agent.enabled),
+    connectionId: null,
+    imagePath: null,
+    promptTemplate: agent.promptTemplate,
+    settings,
+    ...(resultType ? { resultType } : {}),
+  };
+}
+
+function serializeAgentFolderEntry(agent: AgentConfigRow) {
+  return createFolderEntry({
+    folderName: "Agents",
+    itemName: agent.type,
+    itemKind: "marinara.agent",
+    config: serializeAgentConfig(agent),
+    fallbackName: "custom-agent",
+  });
+}
+
+function createBuiltInAgentConfigRow(
+  agent: (typeof BUILT_IN_AGENTS)[number],
+  config: AgentConfigRow | null | undefined,
+): AgentConfigRow {
+  const defaultSettings = {
+    ...getDefaultBuiltInAgentSettings(agent.id),
+    ...(DEFAULT_AGENT_TOOLS[agent.id]?.length ? { enabledTools: DEFAULT_AGENT_TOOLS[agent.id] } : {}),
+  };
+  return {
+    id: agent.id,
+    type: agent.id,
+    name: agent.name,
+    description: config?.description ?? agent.description,
+    phase: normalizeAgentPhaseForType(agent.id, config?.phase ?? agent.phase),
+    enabled: config?.enabled ?? String(agent.enabledByDefault),
+    connectionId: config?.connectionId ?? null,
+    imagePath: config?.imagePath ?? null,
+    promptTemplate: config?.promptTemplate ?? "",
+    settings: config?.settings ?? JSON.stringify(defaultSettings),
+    createdAt: config?.createdAt ?? "",
+    updatedAt: config?.updatedAt ?? "",
+  };
+}
+
+function getAgentLibraryDisplayName(agent: AgentConfigRow) {
+  return BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.name ?? agent.name;
+}
+
+function normalizeAgentImportEntry(entry: unknown) {
+  const source = getFolderManifestConfig(entry);
+  if (!isJsonRecord(source)) return null;
+
+  const type = typeof source.type === "string" ? source.type.trim() : "";
+  const name = typeof source.name === "string" ? source.name.trim() : "";
+  const description = typeof source.description === "string" ? source.description : "";
+  if (!type || !name) return null;
+  const phase = normalizeAgentPhaseForType(type, normalizeAgentPhaseValue(source.phase));
+
+  const settings = sanitizeAgentSettingsForTransfer(parseAgentSettings(source.settings));
+  if (typeof source.author === "string" && !settings.author) {
+    settings.author = source.author;
+  }
+  if (Array.isArray(source.promptTemplates) && settings.promptTemplates === undefined) {
+    settings.promptTemplates = source.promptTemplates;
+  }
+  if (typeof settings.author !== "string" || !settings.author.trim()) {
+    settings.author = "Unknown";
+  }
+  const resultType = typeof source.resultType === "string" ? source.resultType : settings.resultType;
+
+  return {
+    type,
+    name,
+    description,
+    phase,
+    enabled: parseBooleanValue(source.enabled),
+    connectionId: null,
+    imagePath: null,
+    promptTemplate: typeof source.promptTemplate === "string" ? source.promptTemplate : "",
+    settings,
+    ...(typeof resultType === "string" ? { resultType } : {}),
+  };
+}
 
 export function AgentsPanel() {
   const { data: agentConfigs, isLoading } = useAgentConfigs();
-  const { data: customTools } = useCustomTools();
-  const { data: regexScripts } = useRegexScripts();
+  const createAgent = useCreateAgent();
   const deleteAgent = useDeleteAgent();
-  const updateAgent = useUpdateAgent();
-  const updateAgentByType = useUpdateAgentByType();
-  const deleteTool = useDeleteCustomTool();
-  const deleteRegex = useDeleteRegexScript();
-  const updateRegex = useUpdateRegexScript();
-  const reorderRegexScripts = useReorderRegexScripts();
+  const uploadAgentImage = useUploadAgentImage();
+  const { data: agentFolders = [] } = useLibraryFolders("agents");
+  const createAgentFolder = useCreateLibraryFolder("agents");
+  const updateAgentFolder = useUpdateLibraryFolder("agents");
+  const deleteAgentFolder = useDeleteLibraryFolder("agents");
+  const moveAgentItem = useMoveLibraryItem("agents");
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
-  const openToolDetail = useUIStore((s) => s.openToolDetail);
-  const openRegexDetail = useUIStore((s) => s.openRegexDetail);
-  const createRegexScript = useCreateRegexScript();
-  const [importError, setImportError] = useState<string | null>(null);
-  const [importSuccess, setImportSuccess] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"category" | "status">("category");
-  const [draggedRegexId, setDraggedRegexId] = useState<string | null>(null);
-  const [regexDragReadyId, setRegexDragReadyId] = useState<string | null>(null);
+  const [agentSearch, setAgentSearch] = useState("");
+  const agentImageInputRef = useRef<HTMLInputElement>(null);
+  const agentImportInputRef = useRef<HTMLInputElement>(null);
+  const imageTargetAgentIdRef = useRef<string | null>(null);
+  const [agentImportError, setAgentImportError] = useState<string | null>(null);
+  const [agentImportSuccess, setAgentImportSuccess] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedAgentIds, setSelectedAgentIds] = useState<Set<string>>(new Set());
+  const [exportingSelected, setExportingSelected] = useState(false);
+  const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState("");
+  const [draggedAgentId, setDraggedAgentId] = useState<string | null>(null);
 
-  const sortedRegexScripts = useMemo(
-    () => [...((regexScripts ?? []) as RegexScriptRow[])].sort((a, b) => a.order - b.order),
-    [regexScripts],
+  const agentConfigRows = useMemo(() => (agentConfigs ?? []) as AgentConfigRow[], [agentConfigs]);
+  const visibleAgentConfigs = useMemo(
+    () => agentConfigRows.filter((config) => !isAgentConfigDeleted(config.settings)),
+    [agentConfigRows],
   );
-
-  // Handler for importing regex scripts from JSON (supports ST format and native)
-  const handleImportRegex = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    setImportError(null);
-    setImportSuccess(null);
-    const file = event.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      // Accept a single object or an array
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
-      if (arr.length === 0) throw new Error("No regex scripts found in file");
-      let imported = 0;
-      for (const obj of arr) {
-        // Resolve name: ST uses scriptName, native uses name
-        const name = obj.name || obj.scriptName;
-        // ST wraps regex in /delimiters/flags — extract pattern and flags
-        let findRegex = obj.findRegex ?? "";
-        let flags = obj.flags ?? "gi";
-        const delimited = findRegex.match(/^\/(.+)\/([gimsuy]*)$/s);
-        if (delimited) {
-          findRegex = delimited[1];
-          flags = delimited[2] || "g";
-        }
-        if (!name || !findRegex) continue;
-        // ST placement uses numbers: 1 = user_input, 2 = ai_output
-        const stPlacementMap: Record<number, string> = { 1: "user_input", 2: "ai_output" };
-        let placement: string[] = ["ai_output"];
-        if (Array.isArray(obj.placement)) {
-          const mapped = obj.placement
-            .map((p: unknown) => (typeof p === "number" ? stPlacementMap[p] : p))
-            .filter((p: unknown): p is string => p === "ai_output" || p === "user_input");
-          if (mapped.length > 0) placement = mapped;
-        }
-        // ST uses disabled (inverted), native uses enabled
-        let enabled = true;
-        if (typeof obj.enabled === "boolean") enabled = obj.enabled;
-        else if (typeof obj.enabled === "string") enabled = obj.enabled !== "false";
-        else if (typeof obj.disabled === "boolean") enabled = !obj.disabled;
-
-        await createRegexScript.mutateAsync({
-          name,
-          enabled,
-          findRegex,
-          replaceString: obj.replaceString ?? "",
-          trimStrings: obj.trimStrings ?? [],
-          placement,
-          flags,
-          promptOnly: obj.promptOnly ?? false,
-          order: obj.order ?? 0,
-          minDepth: obj.minDepth ?? null,
-          maxDepth: obj.maxDepth ?? null,
-        });
-        imported++;
-      }
-      setImportSuccess(`Imported ${imported} regex script(s).`);
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : "Failed to import regex scripts");
-    }
-    event.target.value = ""; // reset file input
-  };
-
+  const deletedBuiltInTypes = useMemo(
+    () =>
+      new Set(
+        agentConfigRows
+          .filter((config) => BUILT_IN_AGENT_TYPE_SET.has(config.type))
+          .filter((config) => isAgentConfigDeleted(config.settings))
+          .map((config) => config.type),
+      ),
+    [agentConfigRows],
+  );
+  const visibleBuiltInAgents = useMemo(
+    () => BUILT_IN_AGENTS.filter((agent) => !agent.libraryHidden && !deletedBuiltInTypes.has(agent.id)),
+    [deletedBuiltInTypes],
+  );
   // Custom agents = DB entries whose type doesn't match any built-in
-  const customAgents = ((agentConfigs ?? []) as AgentConfigRow[]).filter(
-    (c) => !BUILT_IN_AGENTS.some((b) => b.id === c.type),
+  const customAgents = useMemo(
+    () =>
+      visibleAgentConfigs.filter(
+        (config) => !BUILT_IN_AGENT_TYPE_SET.has(config.type) && !isRetiredBuiltInAgentId(config.type),
+      ),
+    [visibleAgentConfigs],
   );
-  const configByType = new Map(((agentConfigs ?? []) as AgentConfigRow[]).map((config) => [config.type, config]));
+  const configByType = useMemo(
+    () => new Map(visibleAgentConfigs.map((config) => [config.type, config])),
+    [visibleAgentConfigs],
+  );
+  const visibleBuiltInDisplayAgents = useMemo(
+    () =>
+      visibleBuiltInAgents.map((agent) => {
+        const config = configByType.get(agent.id);
+        return {
+          ...agent,
+          name: agent.name,
+          description: config?.description ?? agent.description,
+        };
+      }),
+    [configByType, visibleBuiltInAgents],
+  );
+  const builtInExportRows = useMemo(
+    () => visibleBuiltInAgents.map((agent) => createBuiltInAgentConfigRow(agent, configByType.get(agent.id))),
+    [configByType, visibleBuiltInAgents],
+  );
+  const selectableAgents = useMemo(() => [...builtInExportRows, ...customAgents], [builtInExportRows, customAgents]);
+  const selectableAgentById = useMemo(
+    () => new Map(selectableAgents.map((agent) => [agent.id, agent])),
+    [selectableAgents],
+  );
+  const folderedAgentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const folder of agentFolders) {
+      for (const id of folder.itemIds) ids.add(id);
+    }
+    return ids;
+  }, [agentFolders]);
 
-  const statusAgents = [
-    ...BUILT_IN_AGENTS.map((agent) => ({
-      id: agent.id,
-      type: agent.id,
-      name: agent.name,
-      description: agent.description,
-      category: agent.category,
-      enabled: configByType.get(agent.id)?.enabled !== "false",
-      custom: false,
-    })),
-    ...customAgents.map((agent) => ({
-      id: agent.id,
-      type: agent.type,
-      name: agent.name,
-      description: agent.description,
-      category: "custom" as const,
-      enabled: agent.enabled !== "false",
-      custom: true,
-    })),
+  const agentSearchQuery = agentSearch.trim().toLowerCase();
+  const agentSearchActive = agentSearchQuery.length > 0;
+  const matchesAgentSearch = (agent: { name: string; description: string; category: string }) =>
+    !agentSearchQuery ||
+    agent.name.toLowerCase().includes(agentSearchQuery) ||
+    agent.description.toLowerCase().includes(agentSearchQuery) ||
+    agent.category.toLowerCase().includes(agentSearchQuery);
+  const getAgentSearchData = (agent: AgentConfigRow) => ({
+    name: agent.name,
+    description: agent.description,
+    category: BUILT_IN_AGENT_TYPE_SET.has(agent.type)
+      ? (BUILT_IN_AGENTS.find((entry) => entry.id === agent.type)?.category ?? "misc")
+      : "custom",
+  });
+  const agentCategorySections: Array<{ category: AgentCategory; title: string; icon: ReactNode }> = [
+    { category: "writer", title: "Writer Agents", icon: <PenLine size="0.8125rem" /> },
+    { category: "tracker", title: "Tracker Agents", icon: <Radar size="0.8125rem" /> },
+    { category: "misc", title: "Misc Agents", icon: <Puzzle size="0.8125rem" /> },
   ];
-
-  const activeAgents = statusAgents.filter((agent) => agent.enabled);
-  const inactiveAgents = statusAgents.filter((agent) => !agent.enabled);
+  const visibleCustomAgents = customAgents
+    .filter(
+      (agent) =>
+        !folderedAgentIds.has(agent.id) &&
+        matchesAgentSearch({
+          name: agent.name,
+          description: agent.description,
+          category: "custom",
+        }),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const hasVisibleFolderAgents = agentFolders.some((folder) =>
+    folder.itemIds.some((id) => {
+      const agent = selectableAgentById.get(id);
+      return agent ? matchesAgentSearch(getAgentSearchData(agent)) : false;
+    }),
+  );
+  const hasVisibleAgents =
+    agentCategorySections.some((section) =>
+      visibleBuiltInDisplayAgents.some(
+        (agent) => !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+      ),
+    ) ||
+    visibleCustomAgents.length > 0 ||
+    hasVisibleFolderAgents;
+  const selectedAgents = useMemo(
+    () => selectableAgents.filter((agent) => selectedAgentIds.has(agent.id)),
+    [selectableAgents, selectedAgentIds],
+  );
 
   const handleCreateAgent = () => {
     // Create a new custom agent immediately in DB then open editor
     openAgentDetail("__new__");
   };
 
-  const handleCreateTool = () => {
-    openToolDetail("__new__");
-  };
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedAgentIds(new Set());
+  }, []);
 
-  const handleCreateRegex = () => {
-    openRegexDetail("__new__");
-  };
+  const toggleAgentSelection = useCallback((agentId: string) => {
+    setSelectedAgentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(agentId)) next.delete(agentId);
+      else next.add(agentId);
+      return next;
+    });
+  }, []);
 
-  const toggleAgentEnabled = (agent: { id: string; type: string; custom: boolean; enabled: boolean }) => {
-    if (agent.custom) {
-      updateAgent.mutate({ id: agent.id, enabled: !agent.enabled });
-    } else {
-      updateAgentByType.mutate({ agentType: agent.type, enabled: !agent.enabled });
+  const getDraggedAgentIds = useCallback(
+    (agentId: string) => (selectionMode && selectedAgentIds.has(agentId) ? Array.from(selectedAgentIds) : [agentId]),
+    [selectedAgentIds, selectionMode],
+  );
+
+  const handleCreateFolder = useCallback(() => {
+    createAgentFolder.mutate(
+      { name: getNextUnnamedLibraryFolderName(agentFolders) },
+      {
+        onSuccess: (folder) => setExpandedFolderId(folder.id),
+      },
+    );
+  }, [agentFolders, createAgentFolder]);
+
+  const handleRenameFolder = useCallback(
+    (folderId: string) => {
+      const name = editFolderName.trim();
+      if (name) updateAgentFolder.mutate({ id: folderId, name });
+      setEditingFolderId(null);
+      setEditFolderName("");
+    },
+    [editFolderName, updateAgentFolder],
+  );
+
+  const handleAgentDrop = useCallback(
+    (folderId: string | null, agentIds?: string[]) => {
+      if (!draggedAgentId) return;
+      moveAgentItem.mutate({ itemIds: agentIds ?? [draggedAgentId], folderId });
+      setDraggedAgentId(null);
+    },
+    [draggedAgentId, moveAgentItem],
+  );
+
+  const handleExportSelectedAgents = useCallback(async () => {
+    if (selectedAgents.length === 0) {
+      toast.error("Select at least one agent to export");
+      return;
     }
-  };
 
-  const agentTogglePending = updateAgent.isPending || updateAgentByType.isPending;
+    setExportingSelected(true);
+    try {
+      const envelope = {
+        kind: "marinara.agent-folder",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        folderName: "Agents",
+        agents: selectedAgents.map(serializeAgentFolderEntry),
+      };
+      if (selectedAgents.length > 1) {
+        downloadZipFile(
+          [{ path: "marinara-agents.json", content: JSON.stringify(envelope, null, 2) }],
+          "marinara-agents.zip",
+        );
+      } else {
+        downloadJsonFile(envelope, "marinara-agents.json");
+      }
+      toast.success(`Exported ${selectedAgents.length} agent${selectedAgents.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to export agents");
+    } finally {
+      setExportingSelected(false);
+    }
+  }, [selectedAgents]);
 
-  const handleRegexDrop = (targetId: string) => {
-    if (!draggedRegexId || draggedRegexId === targetId) return;
-    const nextIds = sortedRegexScripts.map((script) => script.id);
-    const from = nextIds.indexOf(draggedRegexId);
-    const to = nextIds.indexOf(targetId);
-    if (from < 0 || to < 0) return;
-    const [moved] = nextIds.splice(from, 1);
-    if (!moved) return;
-    nextIds.splice(to, 0, moved);
-    reorderRegexScripts.mutate(nextIds);
-    setDraggedRegexId(null);
-    setRegexDragReadyId(null);
-  };
+  const handleDeleteSelectedAgents = useCallback(async () => {
+    const ids = selectedAgents.map((agent) => agent.id);
+    if (ids.length === 0) return;
+    const agentNoun = ids.length === 1 ? "agent" : "agents";
+    const deleteMessage =
+      `Delete ${ids.length} selected ${agentNoun}? ` + "Basic agents will be hidden from the library and pickers.";
+
+    if (
+      !(await showConfirmDialog({
+        title: "Delete Agents",
+        message: deleteMessage,
+        confirmLabel: "Delete",
+        tone: "destructive",
+      }))
+    ) {
+      return;
+    }
+
+    const results = await Promise.allSettled(ids.map((id) => deleteAgent.mutateAsync(id)));
+    const failedIds = ids.filter((_, index) => results[index]?.status === "rejected");
+    const deletedCount = ids.length - failedIds.length;
+
+    if (deletedCount > 0) {
+      toast.success(`Deleted ${deletedCount} agent${deletedCount === 1 ? "" : "s"}`);
+    }
+    if (failedIds.length > 0) {
+      setSelectedAgentIds(new Set(failedIds));
+      toast.error(`Failed to delete ${failedIds.length} agent${failedIds.length === 1 ? "" : "s"}`);
+      return;
+    }
+
+    exitSelectionMode();
+  }, [deleteAgent, exitSelectionMode, selectedAgents]);
+
+  const handleImportAgents = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      setAgentImportError(null);
+      setAgentImportSuccess(null);
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const text = isZipFile(file) ? await readTextFileFromZip(file, ["marinara-agents.json"]) : await file.text();
+        const parsed = JSON.parse(text);
+        const entries = getAgentImportEntries(parsed);
+        if (entries.length === 0) throw new Error("No agents found in file");
+
+        let imported = 0;
+        const failed: string[] = [];
+        for (const entry of entries) {
+          const normalized = normalizeAgentImportEntry(entry);
+          if (!normalized) continue;
+          try {
+            await createAgent.mutateAsync(normalized);
+            imported++;
+          } catch (error) {
+            failed.push(error instanceof Error ? error.message : `Failed to import ${normalized.name}`);
+          }
+        }
+
+        if (imported === 0 && failed.length === 0) {
+          throw new Error("No valid agents found in file");
+        }
+        if (imported > 0) {
+          setAgentImportSuccess(`Imported ${imported} agent${imported === 1 ? "" : "s"}.`);
+        }
+        if (failed.length > 0) {
+          setAgentImportError(`${failed.length} agent${failed.length === 1 ? "" : "s"} failed. ${failed[0]}`);
+        }
+      } catch (error) {
+        setAgentImportError(error instanceof Error ? error.message : "Failed to import agents");
+      }
+
+      event.target.value = "";
+    },
+    [createAgent],
+  );
+
+  const handlePickAgentImage = useCallback((agentIdOrType: string) => {
+    imageTargetAgentIdRef.current = agentIdOrType;
+    if (agentImageInputRef.current) {
+      agentImageInputRef.current.value = "";
+      agentImageInputRef.current.click();
+    }
+  }, []);
+
+  const renderFolderAgentCard = useCallback(
+    (agent: AgentConfigRow) => {
+      const builtInMeta = BUILT_IN_AGENTS.find((entry) => entry.id === agent.type);
+      const custom = !builtInMeta;
+      const category = custom ? "custom" : builtInMeta.category;
+      return renderAgentCard({
+        id: agent.id,
+        type: agent.type,
+        name: getAgentLibraryDisplayName(agent),
+        description: agent.description,
+        category,
+        imagePath: agent.imagePath ?? null,
+        custom,
+        openAgentDetail,
+        onImagePick: () => handlePickAgentImage(custom ? agent.id : agent.type),
+        selectionMode,
+        selected: selectedAgentIds.has(agent.id),
+        onToggleSelected: () => toggleAgentSelection(agent.id),
+        isDragging: draggedAgentId === agent.id,
+        onDragStart: (event) => {
+          const ids = getDraggedAgentIds(agent.id);
+          setDraggedAgentId(agent.id);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
+          event.dataTransfer.setData("text/plain", agent.id);
+        },
+        onDragEnd: () => setDraggedAgentId(null),
+        onDelete: async () => {
+          const deleteMessage = custom
+            ? `Delete "${agent.name}"?`
+            : `Delete "${agent.name}"? This basic agent will be hidden from the library and pickers.`;
+          if (
+            await showConfirmDialog({
+              title: "Delete Agent",
+              message: deleteMessage,
+              confirmLabel: "Delete",
+              tone: "destructive",
+            })
+          ) {
+            deleteAgent.mutate(custom ? agent.id : agent.type);
+          }
+        },
+      });
+    },
+    [
+      deleteAgent,
+      draggedAgentId,
+      getDraggedAgentIds,
+      handlePickAgentImage,
+      openAgentDetail,
+      selectedAgentIds,
+      selectionMode,
+      toggleAgentSelection,
+    ],
+  );
+
+  const handleAgentImageSelected = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      const agentId = imageTargetAgentIdRef.current;
+      if (!file || !agentId) return;
+
+      if (!file.type.startsWith("image/")) {
+        imageTargetAgentIdRef.current = null;
+        toast.error("Choose an image file for the agent picture");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const image = typeof reader.result === "string" ? reader.result : "";
+        if (!image) {
+          toast.error("Could not read that image");
+          return;
+        }
+
+        try {
+          await uploadAgentImage.mutateAsync({ id: agentId, image });
+          toast.success("Agent picture updated");
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to upload agent picture");
+        } finally {
+          imageTargetAgentIdRef.current = null;
+        }
+      };
+      reader.onerror = () => {
+        imageTargetAgentIdRef.current = null;
+        toast.error("Could not read that image");
+      };
+      reader.readAsDataURL(file);
+    },
+    [uploadAgentImage],
+  );
 
   return (
-    <div className="flex flex-col gap-1 p-3">
-      {isLoading && <div className="py-4 text-center text-xs text-[var(--muted-foreground)]">Loading...</div>}
+    <div
+      onDragOver={(event) => {
+        if (draggedAgentId) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+        }
+      }}
+      onDrop={(event) => {
+        if (!draggedAgentId) return;
+        event.preventDefault();
+        const target = event.target as Element | null;
+        if (target?.closest("[data-agent-folder-id]")) return;
+        const payload = event.dataTransfer.getData("application/x-marinara-agent-ids");
+        handleAgentDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
+      }}
+      className="flex min-h-full flex-col gap-2 p-3"
+    >
+      <input
+        ref={agentImageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleAgentImageSelected}
+      />
+      <input
+        ref={agentImportInputRef}
+        type="file"
+        accept="application/json,application/zip,.json,.zip"
+        className="hidden"
+        onChange={handleImportAgents}
+      />
 
-      <div className="mb-1 flex items-center gap-1 rounded-lg bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
+      <div className="flex gap-2">
         <button
-          onClick={() => setViewMode("category")}
+          onClick={handleCreateAgent}
           className={cn(
-            "flex-1 rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
-            viewMode === "category"
-              ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/25"
-              : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+            "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium transition-all hover:brightness-110 active:scale-[0.98]",
+            AGENT_GRADIENT_BUTTON,
           )}
+          title="New"
         >
-          By Category
+          <Plus size="0.8125rem" /> <span className="md:hidden">New</span>
         </button>
         <button
-          onClick={() => setViewMode("status")}
-          className={cn(
-            "flex-1 rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
-            viewMode === "status"
-              ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/25"
-              : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-          )}
+          onClick={() => agentImportInputRef.current?.click()}
+          className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
+          title="Import agents"
         >
-          By Status
+          <Download size="0.8125rem" /> <span className="md:hidden">Import</span>
+        </button>
+        <button
+          onClick={() => {
+            if (selectionMode) exitSelectionMode();
+            else setSelectionMode(true);
+          }}
+          disabled={selectableAgents.length === 0}
+          className={cn(
+            "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
+            selectionMode && "mari-chrome-control--selected",
+          )}
+          title="Select agents"
+        >
+          <Check size="0.8125rem" /> <span className="md:hidden">Select</span>
         </button>
       </div>
 
-      {/* ── Regex Scripts (moved to top) ── */}
-      <PanelSection
-        title="Regex Scripts"
-        icon={<Regex size="0.8125rem" />}
-        action={
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleCreateRegex}
-              className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)]"
-              title="Create regex script"
-            >
-              <Plus size="0.8125rem" />
-            </button>
-            <label
-              className="inline-flex items-center justify-center rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] cursor-pointer"
-              title="Import regex scripts from JSON"
-            >
-              <input type="file" accept="application/json" className="hidden" onChange={handleImportRegex} />
-              <svg
-                width="0.9375rem"
-                height="0.9375rem"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M10 3v10m0 0l-4-4m4 4l4-4"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <rect x="3" y="17" width="14" height="2" rx="1" fill="currentColor" />
-              </svg>
-            </label>
-          </div>
-        }
-      >
-        <div className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">
-          Find/replace patterns applied to AI output or user input — like SillyTavern regex scripts.
+      {agentImportError && (
+        <div className="rounded-lg bg-red-500/10 px-2 py-1.5 text-xs text-red-500">{agentImportError}</div>
+      )}
+      {agentImportSuccess && (
+        <div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-xs text-emerald-500">{agentImportSuccess}</div>
+      )}
+
+      <div className="relative">
+        <Search
+          size="0.8125rem"
+          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+        />
+        <input
+          value={agentSearch}
+          onChange={(event) => setAgentSearch(event.target.value)}
+          placeholder="Search agents"
+          className="mari-chrome-field w-full py-2 pl-8 pr-3 text-xs"
+        />
+      </div>
+
+      {isLoading && <div className="py-4 text-center text-xs text-[var(--muted-foreground)]">Loading...</div>}
+
+      {!hasVisibleAgents && (
+        <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">No agents match your search.</p>
+      )}
+
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleCreateFolder}
+            className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
+          >
+            <FolderPlus size="0.75rem" />
+            New Folder
+          </button>
         </div>
-        {importError && <div className="text-xs text-red-500 mb-1">{importError}</div>}
-        {importSuccess && <div className="text-xs text-green-500 mb-1">{importSuccess}</div>}
-        {sortedRegexScripts.length === 0 ? (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1 py-2">No regex scripts yet.</p>
-        ) : (
-          sortedRegexScripts.map((script) => {
-            const placements = (() => {
-              try {
-                return JSON.parse(script.placement) as string[];
-              } catch {
-                return [];
-              }
-            })();
-            const enabled = script.enabled === "true";
-            return (
-              <div
-                key={script.id}
-                className={cn(
-                  "flex items-start gap-2.5 rounded-lg p-2 transition-colors hover:bg-[var(--sidebar-accent)]",
-                  !enabled && "opacity-50",
-                  draggedRegexId === script.id && "opacity-40",
-                )}
-                draggable={regexDragReadyId === script.id}
-                onDragStart={(event) => {
-                  setDraggedRegexId(script.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", script.id);
-                }}
-                onDragOver={(event) => {
-                  if (draggedRegexId && draggedRegexId !== script.id) {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }
-                }}
-                onDrop={(event) => {
+        {agentFolders.length > 0 && (
+          <p className="mari-folder-helper">Drag and drop agents to folders</p>
+        )}
+        {agentFolders.map((folder) => {
+          const isEditing = editingFolderId === folder.id;
+          const folderAgents = folder.itemIds
+            .map((id) => selectableAgentById.get(id))
+            .filter((agent): agent is AgentConfigRow => Boolean(agent))
+            .filter((agent) => matchesAgentSearch(getAgentSearchData(agent)));
+          if (agentSearchActive && folderAgents.length === 0) return null;
+          const isExpanded = (agentSearchActive && folderAgents.length > 0) || expandedFolderId === folder.id;
+          return (
+            <div
+              key={folder.id}
+              data-agent-folder-id={folder.id}
+              onDragOver={(event) => {
+                if (draggedAgentId) {
                   event.preventDefault();
-                  handleRegexDrop(script.id);
-                }}
-                onDragEnd={() => {
-                  setDraggedRegexId(null);
-                  setRegexDragReadyId(null);
-                }}
+                  event.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const payload = event.dataTransfer.getData("application/x-marinara-agent-ids");
+                handleAgentDrop(folder.id, payload ? (JSON.parse(payload) as string[]) : undefined);
+              }}
+              className="flex flex-col rounded-lg transition-colors"
+            >
+              <div
+                className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
+                onClick={() => setExpandedFolderId(isExpanded ? null : folder.id)}
               >
-                <button
-                  className="mt-0.5 shrink-0 cursor-grab rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:cursor-grabbing"
-                  title="Drag to reorder"
-                  onClick={(event) => event.stopPropagation()}
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                    setRegexDragReadyId(script.id);
-                  }}
-                  onMouseUp={(event) => {
-                    event.stopPropagation();
-                    setRegexDragReadyId(null);
-                  }}
-                >
-                  <GripVertical size="0.8125rem" />
-                </button>
-                <Regex size="0.875rem" className="mt-0.5 shrink-0 text-orange-400" />
-                <button className="min-w-0 flex-1 text-left" onClick={() => openRegexDetail(script.id)}>
-                  <div className="text-xs font-medium">{script.name}</div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    {placements.map((p: string) => (
-                      <span
-                        key={p}
-                        className="rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]"
-                      >
-                        {p === "ai_output" ? "AI" : "User"}
-                      </span>
-                    ))}
-                    <span className="text-[0.5625rem] text-[var(--muted-foreground)] font-mono truncate max-w-[6.25rem]">
-                      /{script.findRegex}/{script.flags}
-                    </span>
-                  </div>
-                </button>
-                <button
-                  className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)]"
-                  title={enabled ? "Disable script" : "Enable script"}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    updateRegex.mutate({ id: script.id, enabled: !enabled });
-                  }}
-                >
-                  {enabled ? (
-                    <ToggleRight size="0.875rem" className="text-amber-400" />
-                  ) : (
-                    <ToggleLeft size="0.875rem" />
+                <ChevronRight
+                  size="0.75rem"
+                  className={cn(
+                    "shrink-0 text-[var(--muted-foreground)] transition-transform",
+                    isExpanded && "rotate-90",
                   )}
-                </button>
-                <button
-                  className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)]"
-                  title="Edit script"
-                  onClick={() => openRegexDetail(script.id)}
-                >
-                  <Pencil size="0.8125rem" />
-                </button>
-                <button
-                  className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
-                  title="Delete script"
-                  onClick={async () => {
+                />
+                <div className="min-w-0 flex-1">
+                  {isEditing ? (
+                    <input
+                      autoFocus
+                      value={editFolderName}
+                      onChange={(event) => setEditFolderName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.currentTarget.blur();
+                        if (event.key === "Escape") {
+                          setEditingFolderId(null);
+                          setEditFolderName("");
+                        }
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      onBlur={() => handleRenameFolder(folder.id)}
+                      className="w-full rounded bg-transparent px-1 py-0.5 text-xs font-medium outline-none ring-1 ring-[var(--border)]"
+                    />
+                  ) : (
+                    <div className="truncate text-xs font-medium text-[var(--muted-foreground)]">{folder.name}</div>
+                  )}
+                </div>
+                {(agentSearchActive ? folderAgents.length : folder.itemIds.length) > 0 && (
+                  <span className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)]">
+                    {agentSearchActive ? folderAgents.length : folder.itemIds.length}
+                  </span>
+                )}
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setEditingFolderId(folder.id);
+                      setEditFolderName(folder.name);
+                    }}
+	                    className="mari-chrome-control mari-chrome-control--small p-1"
+	                    title="Rename folder"
+	                  >
+                    <Pencil size="0.6875rem" />
+                  </button>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void confirmNonEmptyFolderDelete(folder.itemIds.length, {
+                        title: "Delete Folder",
+                        message: `Delete "${folder.name}"? Its ${folder.itemIds.length} agent${
+                          folder.itemIds.length === 1 ? "" : "s"
+                        } will move out of the folder.`,
+                        confirmLabel: "Delete",
+                        tone: "destructive",
+                      }).then((ok) => {
+                        if (!ok) return;
+                        deleteAgentFolder.mutate(folder.id);
+                        if (expandedFolderId === folder.id) setExpandedFolderId(null);
+                      });
+                    }}
+	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
+	                    title="Delete folder"
+	                  >
+                    <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
+                  </button>
+                </div>
+              </div>
+              {isExpanded && (
+                <div className="ml-4 flex flex-col gap-0.5 border-l border-[var(--border)]/20 pb-1 pl-1">
+                  {folderAgents.length === 0 ? (
+                    <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop agents here.</p>
+                  ) : (
+                    folderAgents.map((agent) => renderFolderAgentCard(agent))
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {agentCategorySections.map((section) => {
+        const visibleAgents = visibleBuiltInDisplayAgents.filter(
+          (agent) =>
+            !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+        );
+        if (visibleAgents.length === 0 && agentSearchQuery) return null;
+        return (
+          <PanelSection key={section.category} title={section.title} icon={section.icon}>
+            {visibleAgents.length === 0 ? (
+              <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
+                No {section.title.toLowerCase()} yet.
+              </p>
+            ) : (
+              visibleAgents.map((agent) =>
+                renderAgentCard({
+                  id: agent.id,
+                  type: agent.id,
+                  name: agent.name,
+                  description: agent.description,
+                  category: agent.category,
+                  imagePath: configByType.get(agent.id)?.imagePath ?? null,
+                  custom: false,
+                  openAgentDetail,
+                  onImagePick: () => handlePickAgentImage(agent.id),
+                  selectionMode,
+                  selected: selectedAgentIds.has(agent.id),
+                  onToggleSelected: () => toggleAgentSelection(agent.id),
+                  isDragging: draggedAgentId === agent.id,
+                  onDragStart: (event) => {
+                    const ids = getDraggedAgentIds(agent.id);
+                    setDraggedAgentId(agent.id);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
+                    event.dataTransfer.setData("text/plain", agent.id);
+                  },
+                  onDragEnd: () => setDraggedAgentId(null),
+                  onDelete: async () => {
+                    const deleteMessage =
+                      `Delete "${agent.name}"? ` + "This basic agent will be hidden from the library and pickers.";
                     if (
                       await showConfirmDialog({
-                        title: "Delete Regex Script",
-                        message: `Delete "${script.name}"?`,
+                        title: "Delete Agent",
+                        message: deleteMessage,
                         confirmLabel: "Delete",
                         tone: "destructive",
                       })
                     ) {
-                      deleteRegex.mutate(script.id);
+                      deleteAgent.mutate(agent.id);
                     }
-                  }}
-                >
-                  <Trash2 size="0.8125rem" />
-                </button>
-              </div>
-            );
-          })
-        )}
-      </PanelSection>
-
-      {viewMode === "category" ? (
-        <>
-          {/* ── Built-in Agents ── */}
-          {[
-            {
-              category: "writer" as AgentCategory,
-              title: "Writer Agents",
-              icon: <PenLine size="0.8125rem" />,
-              desc: "Prose quality, continuity, directions, and narrative flow.",
-            },
-            {
-              category: "tracker" as AgentCategory,
-              title: "Tracker Agents",
-              icon: <Radar size="0.8125rem" />,
-              desc: "Track world state, expressions, quests, backgrounds, and characters.",
-            },
-            {
-              category: "misc" as AgentCategory,
-              title: "Misc Agents",
-              icon: <Puzzle size="0.8125rem" />,
-              desc: "Utilities, combat, illustrations, and other helpers.",
-            },
-          ].map(({ category, title, icon, desc }) => {
-            const agents = BUILT_IN_AGENTS.filter((a) => a.category === category);
-            return (
-              <PanelSection key={category} title={title} icon={icon}>
-                <div className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{desc}</div>
-                {!agents.length ? (
-                  <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                    No agents in this category.
-                  </p>
-                ) : (
-                  agents.map((agent) =>
-                    renderAgentCard({
-                      id: agent.id,
-                      type: agent.id,
-                      name: agent.name,
-                      description: agent.description,
-                      category: agent.category,
-                      enabled: configByType.get(agent.id)?.enabled !== "false",
-                      custom: false,
-                      openAgentDetail,
-                      onToggleEnabled: toggleAgentEnabled,
-                      togglePending: agentTogglePending,
-                    }),
-                  )
-                )}
-              </PanelSection>
-            );
-          })}
-        </>
-      ) : (
-        <>
-          <PanelSection title="Enabled Agents" icon={<Sparkles size="0.8125rem" />}>
-            <div className="mb-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-              Built-ins default to active unless explicitly disabled in their config.
-            </div>
-            {!activeAgents.length ? (
-              <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">No active agents.</p>
-            ) : (
-              activeAgents.map((agent) =>
-                renderAgentCard({
-                  ...agent,
-                  openAgentDetail,
-                  onToggleEnabled: toggleAgentEnabled,
-                  togglePending: agentTogglePending,
+                  },
                 }),
               )
             )}
           </PanelSection>
-          <PanelSection title="Disabled Agents" icon={<Sparkles size="0.8125rem" />}>
-            {!inactiveAgents.length ? (
-              <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">No inactive agents.</p>
-            ) : (
-              inactiveAgents.map((agent) =>
-                renderAgentCard({
-                  ...agent,
-                  openAgentDetail,
-                  onToggleEnabled: toggleAgentEnabled,
-                  togglePending: agentTogglePending,
-                }),
-              )
-            )}
-          </PanelSection>
-        </>
-      )}
+        );
+      })}
 
-      {viewMode === "category" && (
-        <PanelSection
-          title="Custom Agents"
-          icon={<Sparkles size="0.8125rem" />}
-          action={
-            <button
-              onClick={handleCreateAgent}
-              className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)]"
-              title="Create custom agent"
-            >
-              <Plus size="0.8125rem" />
-            </button>
-          }
-        >
-          <div className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">
-            Create your own AI agents with custom instructions and settings.
-          </div>
-          {!customAgents.length ? (
-            <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1 py-2">No custom agents yet.</p>
+      {(visibleCustomAgents.length > 0 || !agentSearchQuery) && (
+        <PanelSection title="Custom Agents" icon={<Sparkles size="0.8125rem" />}>
+          {visibleCustomAgents.length === 0 ? (
+            <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">No custom agents yet</p>
           ) : (
-            customAgents.map((agent) => {
-              return (
-                <div
-                  key={agent.id}
-                  data-agent-card
-                  data-agent-name={agent.name}
-                  data-agent-enabled={String(agent.enabled !== "false")}
-                  className="flex items-start gap-2.5 rounded-lg p-2 transition-colors hover:bg-[var(--sidebar-accent)]"
-                >
-                  <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-                  <button className="min-w-0 flex-1 text-left" onClick={() => openAgentDetail(agent.id)}>
-                    <div className="text-xs font-medium font-mono">{agent.name}</div>
-                    <div className="text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
-                      {agent.description || "No description"}
-                    </div>
-                  </button>
-                  <button
-                    className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
-                    title={agent.enabled === "false" ? "Enable agent" : "Disable agent"}
-                    aria-label={agent.enabled === "false" ? "Enable agent" : "Disable agent"}
-                    disabled={agentTogglePending}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleAgentEnabled({
-                        id: agent.id,
-                        type: agent.type,
-                        custom: true,
-                        enabled: agent.enabled !== "false",
-                      });
-                    }}
-                  >
-                    {agent.enabled === "false" ? (
-                      <ToggleLeft size="0.875rem" />
-                    ) : (
-                      <ToggleRight size="0.875rem" className="text-amber-400" />
-                    )}
-                  </button>
-                  <button
-                    className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)]"
-                    title="Edit agent"
-                    onClick={() => openAgentDetail(agent.id)}
-                  >
-                    <Pencil size="0.8125rem" />
-                  </button>
-                  <button
-                    className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
-                    title="Delete agent"
-                    onClick={async () => {
-                      if (
-                        await showConfirmDialog({
-                          title: "Delete Agent",
-                          message: `Delete "${agent.name}"?`,
-                          confirmLabel: "Delete",
-                          tone: "destructive",
-                        })
-                      ) {
-                        deleteAgent.mutate(agent.id);
-                      }
-                    }}
-                  >
-                    <Trash2 size="0.8125rem" />
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </PanelSection>
-      )}
-
-      {/* ── Custom Function Tools ── */}
-      <PanelSection
-        title="Custom Tools"
-        icon={<Wrench size="0.8125rem" />}
-        action={
-          <button
-            onClick={handleCreateTool}
-            className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)]"
-            title="Create custom tool"
-          >
-            <Plus size="0.8125rem" />
-          </button>
-        }
-      >
-        <div className="text-[0.625rem] text-[var(--muted-foreground)] mb-1.5">
-          Define custom functions the AI can call during generation (webhook, script, or static).
-        </div>
-        {!customTools || (customTools as CustomToolRow[]).length === 0 ? (
-          <p className="text-[0.625rem] text-[var(--muted-foreground)] px-1 py-2">No custom tools yet.</p>
-        ) : (
-          (customTools as CustomToolRow[]).map((tool) => (
-            <div
-              key={tool.id}
-              className="flex items-start gap-2.5 rounded-lg p-2 transition-colors hover:bg-[var(--sidebar-accent)]"
-            >
-              <Wrench size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-              <button className="min-w-0 flex-1 text-left" onClick={() => openToolDetail(tool.id)}>
-                <div className="text-xs font-medium font-mono">{tool.name}</div>
-                <div className="text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
-                  {tool.description || "No description"}
-                </div>
-              </button>
-              <span className="mt-0.5 rounded bg-[var(--secondary)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
-                {tool.executionType}
-              </span>
-              <button
-                className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)]"
-                title="Edit tool"
-                onClick={() => openToolDetail(tool.id)}
-              >
-                <Pencil size="0.8125rem" />
-              </button>
-              <button
-                className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
-                title="Delete tool"
-                onClick={async () => {
+            visibleCustomAgents.map((agent) =>
+              renderAgentCard({
+                id: agent.id,
+                type: agent.type,
+                name: agent.name,
+                description: agent.description,
+                category: "custom",
+                imagePath: agent.imagePath ?? null,
+                custom: true,
+                openAgentDetail,
+                onImagePick: () => handlePickAgentImage(agent.id),
+                selectionMode,
+                selected: selectedAgentIds.has(agent.id),
+                onToggleSelected: () => toggleAgentSelection(agent.id),
+                isDragging: draggedAgentId === agent.id,
+                onDragStart: (event) => {
+                  const ids = getDraggedAgentIds(agent.id);
+                  setDraggedAgentId(agent.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
+                  event.dataTransfer.setData("text/plain", agent.id);
+                },
+                onDragEnd: () => setDraggedAgentId(null),
+                onDelete: async () => {
                   if (
                     await showConfirmDialog({
-                      title: "Delete Tool",
-                      message: `Delete "${tool.name}"?`,
+                      title: "Delete Agent",
+                      message: `Delete "${agent.name}"?`,
                       confirmLabel: "Delete",
                       tone: "destructive",
                     })
                   ) {
-                    deleteTool.mutate(tool.id);
+                    deleteAgent.mutate(agent.id);
                   }
-                }}
-              >
-                <Trash2 size="0.8125rem" />
-              </button>
-            </div>
-          ))
-        )}
-      </PanelSection>
+                },
+              }),
+            )
+          )}
+        </PanelSection>
+      )}
+
+      {selectionMode && (
+        <SelectionActionBar
+          selectedCount={selectedAgents.length}
+          onExport={() => void handleExportSelectedAgents()}
+          onDelete={handleDeleteSelectedAgents}
+          exporting={exportingSelected}
+        />
+      )}
     </div>
   );
 }
@@ -633,62 +920,143 @@ function renderAgentCard({
   name,
   description,
   category,
-  enabled,
+  imagePath,
   custom,
   openAgentDetail,
-  onToggleEnabled,
-  togglePending = false,
+  onImagePick,
+  onDelete,
+  selectionMode = false,
+  selected = false,
+  onToggleSelected,
+  isDragging = false,
+  onDragStart,
+  onDragEnd,
 }: {
   id: string;
   type: string;
   name: string;
   description: string;
   category: AgentCategory | "custom";
-  enabled: boolean;
+  imagePath?: string | null;
   custom: boolean;
   openAgentDetail: (id: string) => void;
-  onToggleEnabled?: (agent: { id: string; type: string; custom: boolean; enabled: boolean }) => void;
-  togglePending?: boolean;
+  onImagePick: () => void;
+  onDelete?: () => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelected?: () => void;
+  isDragging?: boolean;
+  onDragStart?: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd?: () => void;
 }) {
+  const iconContent = imagePath ? (
+    <img src={imagePath} alt="" className="h-full w-full object-cover" draggable={false} />
+  ) : (
+    <Sparkles size="1rem" />
+  );
+  const iconClasses = cn(
+    "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm",
+    imagePath ? "bg-[var(--muted)]" : AGENT_GRADIENT_SURFACE,
+  );
+
   return (
     <div
       key={id}
       data-agent-card
       data-agent-name={name}
-      data-agent-enabled={String(enabled)}
-      className="flex items-start gap-2.5 rounded-lg p-2 transition-colors hover:bg-[var(--sidebar-accent)]"
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={() => {
+        if (selectionMode && onToggleSelected) onToggleSelected();
+      }}
+      className={cn(
+        "group relative flex cursor-pointer items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)]",
+        selectionMode && selected && "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/40",
+        isDragging && "opacity-50",
+      )}
     >
-      <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-      <button className="min-w-0 flex-1 text-left" onClick={() => openAgentDetail(custom ? id : type)}>
-        <div className="truncate text-xs font-medium font-mono">{name}</div>
+      {selectionMode && (
+        <div
+          className={cn(
+            "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
+            selected
+              ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+              : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+          )}
+        >
+          <Check size="0.75rem" />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (selectionMode && onToggleSelected) {
+            onToggleSelected();
+            return;
+          }
+          onImagePick();
+        }}
+        className={cn(
+          iconClasses,
+          "transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]/50",
+        )}
+        title={selectionMode ? "Select agent" : imagePath ? "Replace agent picture" : "Upload agent picture"}
+        aria-label={selectionMode ? "Select agent" : imagePath ? "Replace agent picture" : "Upload agent picture"}
+      >
+        {iconContent}
+        {!selectionMode && (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
+            <Camera size="0.875rem" />
+          </span>
+        )}
+      </button>
+      <button
+        className={cn("min-w-0 flex-1 text-left", !selectionMode && (onDelete ? "pr-16" : "pr-10"))}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (selectionMode && onToggleSelected) {
+            onToggleSelected();
+            return;
+          }
+          openAgentDetail(custom ? id : type);
+        }}
+      >
+        <div className="truncate text-sm font-medium">{name}</div>
         <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)] line-clamp-2">
           {description || "No description"}
         </div>
-        <div className="mt-1 text-[0.5625rem] uppercase tracking-wide text-[var(--muted-foreground)]/80">
+        <div className="mt-1 text-[0.5625rem] uppercase text-[var(--muted-foreground)]/80">
           {custom ? "custom" : category}
         </div>
       </button>
-      {onToggleEnabled && (
-        <button
-          className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
-          title={enabled ? "Disable agent" : "Enable agent"}
-          aria-label={enabled ? "Disable agent" : "Enable agent"}
-          disabled={togglePending}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleEnabled({ id, type, custom, enabled });
-          }}
-        >
-          {enabled ? <ToggleRight size="0.875rem" className="text-amber-400" /> : <ToggleLeft size="0.875rem" />}
-        </button>
+      {!selectionMode && (
+        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+          <button
+	            className="mari-chrome-control mari-chrome-control--small p-1.5"
+	            title="Edit agent"
+            onClick={(event) => {
+              event.stopPropagation();
+              openAgentDetail(custom ? id : type);
+            }}
+          >
+            <Pencil size="0.75rem" />
+          </button>
+          {onDelete && (
+            <button
+	              className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
+	              title="Delete agent"
+              onClick={(event) => {
+                event.stopPropagation();
+                void onDelete();
+              }}
+            >
+              <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+            </button>
+          )}
+        </div>
       )}
-      <button
-        className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--primary)]"
-        title="Edit agent"
-        onClick={() => openAgentDetail(custom ? id : type)}
-      >
-        <Pencil size="0.8125rem" />
-      </button>
     </div>
   );
 }
@@ -702,27 +1070,30 @@ function PanelSection({
   children,
 }: {
   title: string;
-  icon: React.ReactNode;
-  action?: React.ReactNode;
+  icon: ReactNode;
+  action?: ReactNode;
   defaultOpen?: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-[var(--border)] pb-1 mb-1 last:border-b-0">
-      <div className="flex items-center gap-1.5 px-1 py-1.5">
-        <button onClick={() => setOpen((o) => !o)} className="flex flex-1 items-center gap-1.5 text-left">
-          <span className="text-[var(--muted-foreground)]">{icon}</span>
-          <span className="text-[0.6875rem] font-semibold">{title}</span>
+    <div className="mt-1">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-1.5 px-1 py-1 text-left text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+        >
           <ChevronDown
-            size="0.6875rem"
+            size="0.75rem"
             className={cn("text-[var(--muted-foreground)] transition-transform", open && "rotate-180")}
           />
+          <span className="text-[var(--muted-foreground)]">{icon}</span>
+          {title}
         </button>
         {action}
       </div>
-      {open && <div className="px-0.5">{children}</div>}
+      {open && <div className="mt-1 flex flex-col gap-1">{children}</div>}
     </div>
   );
 }

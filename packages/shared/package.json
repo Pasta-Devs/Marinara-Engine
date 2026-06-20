@@ -1,6 +1,6 @@
 {
   "name": "@marinara-engine/shared",
-  "version": "1.6.1",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -12,10 +12,10 @@
     }
   },
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "node scripts/generate-feature-registries.mjs && tsc",
+    "dev": "node scripts/generate-feature-registries.mjs && tsc --watch --preserveWatchOutput",
     "clean": "node -e \"const fs=require('fs');['dist','tsconfig.tsbuildinfo'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
-    "lint": "tsc --noEmit"
+    "lint": "node scripts/generate-feature-registries.mjs && tsc --noEmit"
   },
   "dependencies": {
     "zod": "^3.25.76"

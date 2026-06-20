@@ -27,6 +27,8 @@ export const gameStateSnapshots = sqliteTable("game_state_snapshots", {
 
   /** JSON object of manually-edited fields — keys are field names, values are the user-set values. */
   manualOverrides: text("manual_overrides"),
+  /** JSON object of tracker field lock keys → enabled. */
+  fieldLocks: text("field_locks"),
 
   /** Whether this snapshot has been "committed" (user sent a follow-up message). */
   committed: integer("committed").notNull().default(0),

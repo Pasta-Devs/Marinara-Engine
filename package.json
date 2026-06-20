@@ -1,6 +1,6 @@
 {
   "name": "marinara-engine",
-  "version": "1.6.1",
+  "version": "2.0.0",
   "private": true,
   "description": "AI Chat & Roleplay Frontend — Conversation, Roleplay, Visual Novel",
   "author": "Marianna",
@@ -13,7 +13,7 @@
   },
   "scripts": {
     "preinstall": "node ./scripts/clean-stale-client-artifacts.mjs",
-    "dev": "pnpm build:shared && pnpm --filter @marinara-engine/server --filter @marinara-engine/client -r --parallel run dev",
+    "dev": "node ./scripts/dev.mjs",
     "dev:server": "pnpm --filter @marinara-engine/server dev",
     "dev:client": "pnpm build:shared && pnpm --filter @marinara-engine/client dev",
     "build": "pnpm clean:stale-client && pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build",
@@ -36,6 +36,7 @@
     "clean": "pnpm -r --if-present run clean && node ./scripts/clean-workspace.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "esbuild": "^0.27.7",
     "prettier": "^3.8.3"
   }

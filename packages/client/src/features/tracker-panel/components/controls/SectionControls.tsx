@@ -22,7 +22,7 @@ export function AddRowButton({
       title={label}
       aria-label={label}
       className={cn(
-        "flex items-center justify-center rounded-sm bg-[var(--primary)]/8 text-[0.625rem] font-medium text-[var(--primary)] ring-1 ring-[var(--primary)]/16 transition-colors hover:bg-[var(--primary)]/14 hover:ring-[var(--primary)]/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-95",
+        "flex items-center justify-center rounded-sm bg-[var(--foreground)]/8 text-[0.625rem] font-medium text-[var(--foreground)]/70 ring-1 ring-[var(--border)]/70 transition-colors hover:bg-[var(--foreground)]/12 hover:text-[var(--foreground)] hover:ring-[var(--foreground)]/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border)] active:scale-95",
         children ? "min-h-6 gap-1 px-1.5 py-0.5" : "h-6 min-h-6 w-6 min-w-6 p-0",
         className,
       )}
@@ -59,12 +59,12 @@ export function SectionIconButton({
       aria-label={title}
       aria-pressed={pressed}
       className={cn(
-        "flex h-6 min-h-6 w-6 min-w-6 shrink-0 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40",
+        "flex h-6 min-h-6 w-6 min-w-6 shrink-0 items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40",
         tone === "feature"
           ? pressed
-            ? "bg-[var(--primary)]/10 text-[var(--primary)] ring-1 ring-[var(--primary)]/18 hover:bg-[var(--primary)]/14"
-            : "text-[var(--muted-foreground)]/45 hover:bg-[var(--secondary)]/65 hover:text-[var(--primary)]/86"
-          : "text-[var(--muted-foreground)]/62 hover:bg-[var(--secondary)]/65 hover:text-[var(--primary)]",
+            ? "bg-[var(--foreground)]/10 text-[var(--foreground)] ring-1 ring-[var(--foreground)]/18 hover:bg-[var(--foreground)]/14"
+            : "text-[var(--muted-foreground)]/45 hover:bg-[var(--secondary)]/65 hover:text-[var(--foreground)]/86"
+          : "text-[var(--muted-foreground)]/62 hover:bg-[var(--secondary)]/65 hover:text-[var(--foreground)]",
         className,
       )}
     >
@@ -99,7 +99,7 @@ export function SectionHeader({
   const mainClassName = cn(
     "flex min-w-0 flex-1 items-center gap-1 self-stretch rounded-sm px-0 text-left",
     collapsible &&
-      "cursor-pointer select-none transition-colors hover:bg-[var(--accent)]/18 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--primary)]/50",
+      "cursor-pointer select-none transition-colors hover:bg-[var(--accent)]/18 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--border)]",
   );
   const mainContent = (
     <>
@@ -108,14 +108,14 @@ export function SectionHeader({
           <ChevronDown
             size="0.6875rem"
             className={cn(
-              "text-[color:var(--tracker-profile-icon,var(--primary))] opacity-60 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
+              "text-[color:var(--tracker-profile-icon,var(--muted-foreground))] opacity-60 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
               collapsed && "-rotate-90",
             )}
           />
         </span>
       )}
       <span
-        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[color:var(--tracker-profile-icon,var(--primary))] opacity-75"
+        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-[color:var(--tracker-profile-icon,var(--muted-foreground))] opacity-75"
         aria-hidden="true"
       >
         {icon}

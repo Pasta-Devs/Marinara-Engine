@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
+import { getChatToolbarButtonClass } from "../chat/ChatToolbarControls";
+import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 
 const STATE_CONFIG: Record<GameActiveState, { icon: typeof Compass; label: string; color: string }> = {
   exploration: { icon: Compass, label: "Exploration", color: "text-emerald-300" },
@@ -32,6 +34,15 @@ const STATE_CONFIG: Record<GameActiveState, { icon: typeof Compass; label: strin
 const MAP_ZOOM_MIN = 0.75;
 const MAP_ZOOM_MAX = 1.8;
 const MAP_ZOOM_STEP = 0.25;
+const GAME_MAP_PANEL_CLASS = cn(
+  NEUTRAL_SURFACE_VARIABLES,
+  "marinara-chat-popover rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-text)] shadow-lg shadow-black/35 backdrop-blur-md",
+);
+const GAME_MAP_DIVIDER_CLASS = "border-[var(--marinara-chat-chrome-panel-divider)]";
+const GAME_MAP_FIELD_CLASS =
+  "rounded-md border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] text-[var(--marinara-chat-chrome-panel-text)] outline-none transition-colors focus:border-[var(--marinara-chat-chrome-input-border-focus)]";
+const GAME_MAP_ACTION_ITEM_CLASS =
+  "text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] disabled:cursor-not-allowed disabled:opacity-35";
 
 type TimePhase = "midnight" | "night" | "dawn" | "morning" | "noon" | "afternoon" | "evening";
 
@@ -102,9 +113,9 @@ function getTimePhaseLabel(phase: TimePhase): string {
 function getSkyClasses(phase: TimePhase): string {
   switch (phase) {
     case "midnight":
-      return "bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900";
+      return "bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900";
     case "night":
-      return "bg-gradient-to-b from-slate-800 via-indigo-900 to-slate-950";
+      return "bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950";
     case "dawn":
       return "bg-gradient-to-b from-rose-300 via-amber-200 to-sky-300";
     case "morning":
@@ -114,7 +125,7 @@ function getSkyClasses(phase: TimePhase): string {
     case "afternoon":
       return "bg-gradient-to-b from-sky-400 via-cyan-300 to-amber-100";
     case "evening":
-      return "bg-gradient-to-b from-violet-400 via-rose-300 to-amber-200";
+      return "bg-gradient-to-b from-slate-500 via-rose-300 to-amber-200";
   }
 }
 
@@ -226,7 +237,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
   const skipCommitRef = useRef(false);
   const timeLabel = getTimeOfDayStatusLabel(timeOfDay);
   const rootClassName = cn(
-    "inline-flex shrink-0 items-stretch overflow-hidden rounded-full border border-white/20 bg-black/55 text-white/85 shadow-[0_2px_8px_rgba(0,0,0,0.2)]",
+    "inline-flex shrink-0 items-stretch overflow-hidden rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text-hover)] shadow-[0_2px_8px_rgba(0,0,0,0.2)]",
     size === "mobile" ? "h-7 text-[0.6875rem]" : "h-5 text-[0.625rem]",
     className,
   );
@@ -234,7 +245,10 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
     "flex items-center justify-center font-semibold leading-none",
     size === "mobile" ? "min-w-14 px-2.5" : "min-w-11 px-1.5",
   );
-  const dividerClassName = cn("my-auto w-px shrink-0 bg-white/20", size === "mobile" ? "h-5" : "h-3.5");
+  const dividerClassName = cn(
+    "my-auto w-px shrink-0 bg-[var(--marinara-chat-chrome-panel-divider)]",
+    size === "mobile" ? "h-5" : "h-3.5",
+  );
   const timeClassName = cn(
     "h-full rounded-l-none rounded-r-full border-0 shadow-none",
     size === "mobile" ? "w-8" : "w-7",
@@ -264,7 +278,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
   if (editing) {
     return (
       <div
-        className={cn(rootClassName, "focus-within:ring-2 focus-within:ring-white/35")}
+        className={cn(rootClassName, "focus-within:ring-2 focus-within:ring-[var(--marinara-chat-chrome-focus-ring)]")}
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => event.stopPropagation()}
         title={`Day ${safeDay}. ${timeLabel}.`}
@@ -290,7 +304,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
             }
           }}
           className={cn(
-            "h-full bg-transparent text-center font-semibold text-white outline-none",
+            "h-full bg-transparent text-center font-semibold text-[var(--marinara-chat-chrome-panel-title)] outline-none",
             size === "mobile" ? "w-14 px-2.5 text-[0.6875rem]" : "w-11 px-1.5 text-[0.625rem]",
           )}
           aria-label="Edit game day"
@@ -311,7 +325,7 @@ function DayTimeIndicator({ day, timeOfDay, onDayChange, size = "desktop", class
       onPointerDown={(event) => event.stopPropagation()}
       className={cn(
         rootClassName,
-        "transition-colors hover:bg-black/75 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/35",
+        "transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--marinara-chat-chrome-focus-ring)]",
       )}
       title={`Day ${safeDay}. ${timeLabel}. Tap to edit day.`}
       aria-label={`Day ${safeDay}. ${timeLabel}. Tap to edit day.`}
@@ -370,7 +384,7 @@ function MapZoomControls({ zoom, onZoomOut, onZoomIn }: MapZoomControlsProps) {
 
   return (
     <div
-      className="absolute right-1.5 top-1.5 z-20 flex h-6 overflow-hidden rounded-md border border-white/15 bg-black/85 shadow-lg shadow-black/35"
+      className="absolute right-1.5 top-1.5 z-20 flex h-6 overflow-hidden rounded-md border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] shadow-lg shadow-black/35 backdrop-blur-md"
       onPointerDown={stopPointer}
       title={`Map zoom: ${Math.round(zoom * 100)}%`}
     >
@@ -381,13 +395,13 @@ function MapZoomControls({ zoom, onZoomOut, onZoomIn }: MapZoomControlsProps) {
           onZoomOut();
         }}
         disabled={atMin}
-        className="flex h-full w-5 items-center justify-center text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+        className={cn("flex h-full w-5 items-center justify-center", GAME_MAP_ACTION_ITEM_CLASS)}
         title="Zoom out"
         aria-label="Zoom out map"
       >
         <Minus size={11} />
       </button>
-      <span className="w-px bg-white/15" />
+      <span className="w-px bg-[var(--marinara-chat-chrome-button-border)]" />
       <button
         type="button"
         onClick={(event) => {
@@ -395,7 +409,7 @@ function MapZoomControls({ zoom, onZoomOut, onZoomIn }: MapZoomControlsProps) {
           onZoomIn();
         }}
         disabled={atMax}
-        className="flex h-full w-5 items-center justify-center text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+        className={cn("flex h-full w-5 items-center justify-center", GAME_MAP_ACTION_ITEM_CLASS)}
         title="Zoom in"
         aria-label="Zoom in map"
       >
@@ -444,7 +458,12 @@ function MapGenerateButton({ onGenerateMap, disabled, onAfterGenerate }: MapGene
         onAfterGenerate?.();
       }}
       disabled={disabled}
-      className="absolute left-1.5 top-1.5 z-20 flex h-6 w-6 items-center justify-center rounded-md border border-white/15 bg-black/85 text-white/80 shadow-lg shadow-black/35 transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+      className={getChatToolbarButtonClass({
+        compact: true,
+        sizeClassName: "h-6 w-6",
+        className:
+          "absolute left-1.5 top-1.5 z-20 shadow-lg shadow-black/35 disabled:cursor-not-allowed disabled:opacity-45",
+      })}
       title="Generate another map"
       aria-label="Generate another map"
     >
@@ -499,14 +518,15 @@ export function GameMapPanel({
     return (
       <div
         data-tour="game-map"
-        className="flex w-52 flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 p-3 text-[var(--muted-foreground)] shadow-lg backdrop-blur-sm"
+        className={cn(GAME_MAP_PANEL_CLASS, "flex w-52 flex-col items-center justify-center gap-2 p-3")}
       >
-        <span className="text-[0.625rem]">No map yet</span>
+        <span className="text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)]">No map yet</span>
         {onGenerateMap && (
           <button
+            type="button"
             onClick={onGenerateMap}
             disabled={disabled}
-            className="flex items-center gap-1 rounded-md bg-[var(--primary)] px-2 py-1 text-[0.625rem] font-medium text-[var(--primary-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50"
+            className="flex items-center gap-1 rounded-md border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] px-2 py-1 text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-button-text-hover)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Wand2 size={10} />
             Generate
@@ -533,8 +553,9 @@ export function GameMapPanel({
       onDragEnd={handleDragEnd}
       style={{ x, y }}
       className={cn(
-        "game-map-container flex w-52 flex-col gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)]/92 p-2 shadow-lg backdrop-blur-sm",
-        !locked && "cursor-grab ring-1 ring-white/20 active:cursor-grabbing",
+        GAME_MAP_PANEL_CLASS,
+        "game-map-container flex w-52 flex-col gap-1 p-2",
+        !locked && "cursor-grab ring-1 ring-[var(--marinara-chat-chrome-focus-ring)] active:cursor-grabbing",
       )}
     >
       <div
@@ -547,7 +568,7 @@ export function GameMapPanel({
             setCollapsed(!collapsed);
           }
         }}
-        className="relative flex cursor-pointer items-center gap-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+        className="relative flex cursor-pointer items-center gap-1.5 text-xs text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:text-[var(--marinara-chat-chrome-panel-title)]"
       >
         {hasLeadingStatus && (
           <div className="flex shrink-0 items-center gap-1.5">
@@ -560,7 +581,7 @@ export function GameMapPanel({
               >
                 <StateIcon size={13} />
                 {stateHovered && (
-                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 px-1.5 py-0.5 text-[0.55rem] text-white/90 shadow z-50">
+                  <span className="absolute -bottom-6 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-[var(--marinara-chat-chrome-panel-bg)] px-1.5 py-0.5 text-[0.55rem] text-[var(--marinara-chat-chrome-panel-title)] shadow">
                     {stateCfg!.label}
                   </span>
                 )}
@@ -569,7 +590,7 @@ export function GameMapPanel({
             <DayTimeIndicator day={day} timeOfDay={timeOfDay} onDayChange={onDayChange} />
           </div>
         )}
-        <span className="block min-w-0 flex-1 overflow-hidden text-center font-semibold text-[var(--foreground)]">
+        <span className="block min-w-0 flex-1 overflow-hidden text-center font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
           {shouldMarquee ? (
             <span className="game-map-marquee-track inline-flex whitespace-nowrap">
               <span className="pr-8">{mapName}</span>
@@ -580,14 +601,16 @@ export function GameMapPanel({
           )}
         </span>
         <PanelLockButton locked={locked} onToggle={toggleLocked} size={11} />
-        <span className="shrink-0">{collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}</span>
+        <span className="shrink-0 text-[var(--marinara-chat-chrome-button-text)]">
+          {collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+        </span>
       </div>
       {!collapsed && mapOptions.length > 1 && (
         <div className="flex items-center gap-1">
           <select
             value={selectedMapId ?? ""}
             onChange={(event) => onViewedMapChange?.(event.target.value)}
-            className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/35 px-1.5 py-1 text-[0.625rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+            className={cn(GAME_MAP_FIELD_CLASS, "min-w-0 flex-1 px-1.5 py-1 text-[0.625rem]")}
             title="View map"
           >
             {mapOptions.map((option, index) => {
@@ -634,7 +657,7 @@ export function GameMapPanel({
   );
 }
 
-// ── Mobile Map: Icon trigger + fullscreen modal ──
+// ── Mobile Map: icon trigger + anchored popover ──
 
 interface MobileMapButtonProps {
   map: GameMap | null;
@@ -653,7 +676,7 @@ interface MobileMapButtonProps {
   onDayChange?: (day: number) => void;
 }
 
-/** Mobile-only: map icon button in top-left that opens a centered modal. */
+/** Mobile-only: map icon button in top-left that opens a compact anchored popover. */
 export function MobileMapButton({
   map,
   maps,
@@ -673,6 +696,7 @@ export function MobileMapButton({
   const [open, setOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const mapOptions = buildMapOptions(map, maps);
   const selectedMapId = viewedMapId ?? getMapId(map);
   const activeMap = activeMapId == null || selectedMapId === activeMapId;
@@ -689,6 +713,31 @@ export function MobileMapButton({
     if (!open) return;
     setSelectedNode(typeof selectedPosition === "string" ? selectedPosition : null);
   }, [open, selectedPosition]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event: globalThis.PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
+      setSelectedNode(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      setSelectedNode(null);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   const stateCfg = gameState ? STATE_CONFIG[gameState] : null;
   const StateIcon = stateCfg?.icon ?? Compass;
@@ -723,39 +772,40 @@ export function MobileMapButton({
     (selectedNodeData?.discovered || adjacentIds.has(selectedNode) || selectedNode === currentNode?.id);
 
   return (
-    <>
+    <div ref={popoverRef} className="relative flex items-center">
       {/* Floating map icon */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center">
         <button
-          onClick={() => setOpen(true)}
-          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-black/60 text-white/80 shadow-lg backdrop-blur-md transition-colors active:bg-white/10"
-          aria-label="Open map"
-          title="Open map"
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className={getChatToolbarButtonClass({ open, className: "shadow-lg shadow-black/25" })}
+          aria-expanded={open}
+          aria-label={open ? "Close map" : "Open map"}
+          title={open ? "Close map" : "Open map"}
         >
-          <MapIcon size={18} />
+          <MapIcon size={14} />
         </button>
-        <DayTimeIndicator day={day} timeOfDay={timeOfDay} onDayChange={onDayChange} size="mobile" />
       </div>
 
-      {/* Modal overlay */}
+      {/* Anchored map popover */}
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-          onClick={() => {
-            setOpen(false);
-            setSelectedNode(null);
-          }}
+          className={cn(
+            GAME_MAP_PANEL_CLASS,
+            "absolute left-0 top-[calc(100%+0.375rem)] z-50 w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden shadow-2xl shadow-black/45",
+          )}
+          data-game-skip-bg-nav="true"
         >
           <div
-            className="relative flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl border border-white/15 bg-[var(--card)]/95 shadow-2xl backdrop-blur-md"
+            className="relative flex max-h-[min(68dvh,26rem)] flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-              <StateIcon size={14} className={stateCfg?.color ?? "text-white/60"} />
+            <div className={cn("flex items-center gap-2 border-b px-2.5 py-2", GAME_MAP_DIVIDER_CLASS)}>
+              <StateIcon size={14} className={stateCfg?.color ?? "text-[var(--marinara-chat-chrome-panel-muted)]"} />
               <DayTimeIndicator day={day} timeOfDay={timeOfDay} onDayChange={onDayChange} size="mobile" />
               <div className="min-w-0 flex-1 overflow-hidden">
-                <p className="block overflow-hidden whitespace-nowrap text-sm font-bold text-[var(--foreground)]">
+                <p className="block overflow-hidden whitespace-nowrap text-xs font-bold text-[var(--marinara-chat-chrome-panel-title)]">
                   {(map?.name || "Map").length > 18 ? (
                     <span className="game-map-marquee-track inline-flex whitespace-nowrap">
                       <span className="pr-8">{map?.name || "Map"}</span>
@@ -766,7 +816,7 @@ export function MobileMapButton({
                   )}
                 </p>
                 {currentNode && (
-                  <p className="block overflow-hidden whitespace-nowrap text-[0.625rem] text-[var(--muted-foreground)]">
+                  <p className="block overflow-hidden whitespace-nowrap text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)]">
                     {currentNode.label.length > 22 ? (
                       <span className="game-map-marquee-track inline-flex whitespace-nowrap">
                         <span className="pr-8">📍 {currentNode.label}</span>
@@ -784,7 +834,7 @@ export function MobileMapButton({
                       onViewedMapChange?.(event.target.value);
                       setSelectedNode(null);
                     }}
-                    className="mt-1 w-full rounded-md border border-white/10 bg-black/35 px-1.5 py-1 text-[0.625rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                    className={cn(GAME_MAP_FIELD_CLASS, "mt-1 w-full px-1.5 py-1 text-[0.625rem]")}
                     title="View map"
                   >
                     {mapOptions.map((option, index) => {
@@ -800,29 +850,33 @@ export function MobileMapButton({
                 )}
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setOpen(false);
                   setSelectedNode(null);
                 }}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10"
+                className={getChatToolbarButtonClass({ compact: true, sizeClassName: "h-7 w-7 shrink-0" })}
+                aria-label="Close map"
+                title="Close map"
               >
                 <X size={14} />
               </button>
             </div>
 
             {/* Map body */}
-            <div className="flex-1 overflow-auto p-3">
+            <div className="min-h-0 overflow-auto p-2 overscroll-contain">
               {!map ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-8 text-[var(--muted-foreground)]">
                   <span className="text-xs">No map yet</span>
                   {onGenerateMap && (
                     <button
+                      type="button"
                       onClick={() => {
                         onGenerateMap();
                         setOpen(false);
                       }}
                       disabled={disabled}
-                      className="flex items-center gap-1 rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] px-3 py-1.5 text-xs font-medium text-[var(--marinara-chat-chrome-button-text-hover)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Wand2 size={12} />
                       Generate
@@ -836,6 +890,7 @@ export function MobileMapButton({
                   disabled={mapInteractionDisabled}
                   showPartyPosition={activeMap}
                   zoom={mapZoom}
+                  compactFit
                   topLeftAction={
                     onGenerateMap ? (
                       <MapGenerateButton
@@ -862,6 +917,7 @@ export function MobileMapButton({
                   disabled={mapInteractionDisabled}
                   showPartyPosition={activeMap}
                   zoom={mapZoom}
+                  compactFit
                   topLeftAction={
                     onGenerateMap ? (
                       <MapGenerateButton
@@ -881,15 +937,16 @@ export function MobileMapButton({
 
             {/* Selected node footer — shown when a node is tapped */}
             {selectedNodeData && (
-              <div className="flex items-center gap-2 border-t border-white/10 px-4 py-2.5">
+              <div className={cn("flex items-center gap-2 border-t px-2.5 py-2", GAME_MAP_DIVIDER_CLASS)}>
                 <span className="text-sm">{selectedNodeData.discovered ? selectedNodeData.emoji : "❓"}</span>
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--foreground)]">
                   {selectedNodeData.discovered ? selectedNodeData.label : "Unknown location"}
                 </span>
                 {canTravel && selectedNode !== currentNode?.id && (
                   <button
+                    type="button"
                     onClick={handleTravel}
-                    className="shrink-0 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--primary-foreground)] transition-colors active:opacity-80"
+                    className="shrink-0 rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] px-3 py-1.5 text-[0.6875rem] font-semibold text-[var(--marinara-chat-chrome-button-text-hover)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] active:opacity-80"
                   >
                     Set destination
                   </button>
@@ -902,6 +959,6 @@ export function MobileMapButton({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

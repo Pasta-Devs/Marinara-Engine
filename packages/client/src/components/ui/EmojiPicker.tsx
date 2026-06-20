@@ -1126,11 +1126,15 @@ interface EmojiPickerProps {
   anchorRef?: React.RefObject<HTMLElement | null>;
   /** Container (e.g. input bar) whose top edge determines vertical placement */
   containerRef?: React.RefObject<HTMLElement | null>;
+  /** Optional extra tab (e.g. custom emojis) shown after the standard categories. */
+  customTab?: { icon: React.ReactNode; label?: string; render: (query: string) => React.ReactNode };
+  /** Render inline to fill a parent (no portal/positioning) — e.g. inside the mobile composer sheet. */
+  embedded?: boolean;
 }
 
-export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }: EmojiPickerProps) {
+export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef, customTab, embedded }: EmojiPickerProps) {
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState(0);
+  const [activeCategory, setActiveCategory] = useState<number | "custom">(0);
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -1161,28 +1165,51 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }
   }, [open, onClose]);
 
   // Position state for portal
-  const [pos, setPos] = useState<{ bottom: number; right?: number; left?: number }>({ bottom: 0 });
+  const [pos, setPos] = useState<{
+    top?: number;
+    bottom?: number;
+    right?: number;
+    left?: number;
+    maxHeight?: number;
+  }>({});
 
   useLayoutEffect(() => {
     if (!open || !anchorRef?.current) return;
     const btnRect = anchorRef.current.getBoundingClientRect();
-    const barRect = containerRef?.current?.getBoundingClientRect();
     const pad = 8;
     const pickerWidth = 336; // 21rem
-
-    // Vertical: pin bottom edge above the input bar's top edge
-    const refTop = barRect ? barRect.top : btnRect.top;
-    const bottom = window.innerHeight - refTop + pad;
-    // Horizontal: on small screens center it, on larger screens align right edge to button
+    const pickerHeight = 352; // 22rem
     const vw = window.innerWidth;
-    if (vw < 480) {
-      // Center horizontally on mobile
-      const left = Math.max(8, (vw - Math.min(pickerWidth, vw - 16)) / 2);
-      setPos({ bottom, left });
-    } else {
-      const right = Math.max(8, window.innerWidth - btnRect.right);
-      setPos({ bottom, right });
+    const vh = window.innerHeight;
+
+    // Composer mode (anchored to an input bar): pin the bottom edge above the bar's
+    // top and grow upward. The bar sits at the bottom of the screen, so this fits.
+    if (containerRef?.current) {
+      const barRect = containerRef.current.getBoundingClientRect();
+      const bottom = vh - barRect.top + pad;
+      if (vw < 480) {
+        // Center horizontally on mobile
+        const left = Math.max(pad, (vw - Math.min(pickerWidth, vw - 2 * pad)) / 2);
+        setPos({ bottom, left });
+      } else {
+        const right = Math.max(pad, vw - btnRect.right);
+        setPos({ bottom, right });
+      }
+      return;
     }
+
+    // Anchored mode (e.g. a message's reaction button, which can sit anywhere on
+    // screen): open BELOW the anchor; flip above only when there isn't room below;
+    // and clamp to the viewport so the panel never crosses an edge.
+    const maxHeight = Math.min(pickerHeight, vh - 2 * pad);
+    const spaceBelow = vh - btnRect.bottom;
+    const openBelow = spaceBelow >= maxHeight + pad || spaceBelow >= btnRect.top;
+    let top = openBelow ? btnRect.bottom + pad : btnRect.top - pad - maxHeight;
+    top = Math.max(pad, Math.min(top, vh - maxHeight - pad));
+    // Align the panel's right edge to the button, then clamp into view.
+    let left = btnRect.right - pickerWidth;
+    left = Math.max(pad, Math.min(left, vw - pickerWidth - pad));
+    setPos({ top, left, maxHeight });
   }, [open, anchorRef, containerRef]);
 
   const handleSelect = useCallback(
@@ -1208,68 +1235,102 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef }
       })()
     : CATEGORIES;
 
-  return createPortal(
-    <div
-      ref={panelRef}
-      className="fixed z-[9999] flex h-[22rem] w-[21rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-xl"
-      style={{
-        bottom: pos.bottom,
-        ...(pos.right != null ? { right: pos.right } : {}),
-        ...(pos.left != null ? { left: pos.left } : {}),
-      }}
-    >
-      {/* Search */}
-      <div className="border-b border-[var(--border)] px-3 py-2">
+  const content = (
+    <>
+      {/* Search — filters the active standard category, or the custom tab's emojis */}
+      <div className="border-b border-foreground/10 px-3 py-2">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search emojis..."
-          className="w-full rounded-md bg-[var(--secondary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--muted-foreground)]/50"
-          autoFocus
+          className="w-full rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs outline-none ring-1 ring-foreground/10 transition-shadow placeholder:text-foreground/35 focus:ring-foreground/20"
+          autoFocus={!embedded}
         />
       </div>
 
       {/* Category tabs */}
-      <div className="flex items-center gap-0.5 border-b border-[var(--border)] px-2 py-1">
+      <div className="flex items-center gap-0.5 border-b border-foreground/10 px-2 py-1">
         {CATEGORIES.map((cat, i) => (
           <button
             key={cat.label}
+            type="button"
             onClick={() => setActiveCategory(i)}
             className={cn(
               "rounded-md p-1.5 text-sm transition-colors",
               activeCategory === i
-                ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
+                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
             )}
             title={cat.label}
           >
             {cat.icon}
           </button>
         ))}
+        {customTab && (
+          <button
+            type="button"
+            onClick={() => setActiveCategory("custom")}
+            className={cn(
+              "ml-auto flex items-center rounded-md p-1.5 text-sm transition-colors",
+              activeCategory === "custom"
+                ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
+                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
+            )}
+            title={customTab.label ?? "Custom"}
+          >
+            {customTab.icon}
+          </button>
+        )}
       </div>
 
-      {/* Emoji grid */}
+      {/* Emoji grid (or the custom-emoji tab content) */}
       <div className="flex-1 overflow-y-auto px-2 py-2">
-        {(search.trim() ? filteredCategories : [CATEGORIES[activeCategory]]).map((cat) => (
-          <div key={cat.label}>
-            <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-              {cat.label}
-            </p>
-            <div className="grid grid-cols-8 gap-0.5">
-              {cat.emojis.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => handleSelect(emoji)}
-                  className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-[var(--accent)] active:scale-100"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
+        {activeCategory === "custom" && customTab
+          ? customTab.render(search)
+          : (search.trim()
+              ? filteredCategories
+              : [CATEGORIES[typeof activeCategory === "number" ? activeCategory : 0]]
+            ).map((cat) => (
+              <div key={cat.label}>
+                <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/45">
+                  {cat.label}
+                </p>
+                <div className="grid grid-cols-8 gap-0.5">
+                  {cat.emojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleSelect(emoji)}
+                      className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-foreground/10 active:scale-100"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="flex h-full min-h-0 flex-col overflow-hidden">{content}</div>;
+  }
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      className="fixed z-[9999] flex h-[22rem] w-[21rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl"
+      style={{
+        ...(pos.top != null ? { top: pos.top } : {}),
+        ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
+        ...(pos.right != null ? { right: pos.right } : {}),
+        ...(pos.left != null ? { left: pos.left } : {}),
+        ...(pos.maxHeight != null ? { maxHeight: pos.maxHeight } : {}),
+      }}
+    >
+      {content}
     </div>,
     document.body,
   );

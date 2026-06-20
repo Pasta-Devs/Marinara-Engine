@@ -7,7 +7,7 @@ import type { TreeNode } from "../../hooks/use-game-assets";
 import { useGameAssetFileInfo } from "../../hooks/use-game-assets";
 import { cn } from "../../lib/utils";
 import { formatBytes, formatDate } from "../../lib/format";
-import { encodeAssetPath } from "./encode-asset-path";
+import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 
 /**
  * Full-screen image preview overlay with optional metadata side panel.
@@ -33,16 +33,16 @@ export function ImagePreviewModal({ node, onClose }: { node: TreeNode; onClose: 
       role="dialog"
       aria-modal="true"
       aria-label={`Image preview: ${node.name}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
-      <div className="relative flex max-h-[90vh] max-w-[90vw]">
+      <div className="relative flex max-h-[90vh] max-w-[90vw] supports-[height:100dvh]:max-h-[90dvh]">
         <div className="relative">
           <img
-            src={`/api/game-assets/file/${encodeAssetPath(node.path)}`}
+            src={gameAssetFileUrl(node.path) ?? ""}
             alt={node.name}
             className={cn(
-              "max-h-[85vh] rounded-lg object-contain shadow-2xl",
+              "max-h-[85vh] rounded-lg object-contain shadow-2xl supports-[height:100dvh]:max-h-[85dvh]",
               showInfo ? "max-w-[60vw]" : "max-w-[80vw]",
             )}
             onClick={(e) => e.stopPropagation()}

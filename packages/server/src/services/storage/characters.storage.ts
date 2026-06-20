@@ -3,9 +3,16 @@
 // ──────────────────────────────────────────────
 import { and, desc, eq } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
-import { characters, characterCardVersions, personas, characterGroups, personaGroups } from "../../db/schema/index.js";
+import {
+  characters,
+  characterCardVersions,
+  personas,
+  personaCardVersions,
+  characterGroups,
+  personaGroups,
+} from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
-import type { CharacterData } from "@marinara-engine/shared";
+import type { CharacterData, PersonaCardSnapshot } from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 
 function resolveTimestamps(overrides?: TimestampOverrides | null) {
@@ -21,7 +28,15 @@ function parseCharacterData(data: string): CharacterData {
   return JSON.parse(data) as CharacterData;
 }
 
+function parsePersonaSnapshot(data: string): PersonaCardSnapshot {
+  return JSON.parse(data) as PersonaCardSnapshot;
+}
+
 function characterDataChanged(current: CharacterData, next: CharacterData) {
+  return JSON.stringify(current) !== JSON.stringify(next);
+}
+
+function personaSnapshotChanged(current: PersonaCardSnapshot, next: PersonaCardSnapshot) {
   return JSON.stringify(current) !== JSON.stringify(next);
 }
 
@@ -48,6 +63,58 @@ function mergeCharacterData(
   return {
     ...merged,
     extensions: extensions as CharacterData["extensions"],
+  };
+}
+
+type PersonaRow = typeof personas.$inferSelect;
+
+function buildPersonaSnapshot(persona: PersonaRow): PersonaCardSnapshot {
+  return {
+    name: persona.name ?? "",
+    creator: persona.creator ?? "",
+    personaVersion: persona.personaVersion?.trim() ? persona.personaVersion : "1.0",
+    creatorNotes: persona.creatorNotes ?? "",
+    description: persona.description ?? "",
+    personality: persona.personality ?? "",
+    scenario: persona.scenario ?? "",
+    backstory: persona.backstory ?? "",
+    appearance: persona.appearance ?? "",
+    avatarCrop: persona.avatarCrop ?? "",
+    nameColor: persona.nameColor ?? "",
+    dialogueColor: persona.dialogueColor ?? "",
+    boxColor: persona.boxColor ?? "",
+    trackerCardColors: persona.trackerCardColors ?? '{"mode":"chat"}',
+    personaStats: persona.personaStats ?? "",
+    tags: persona.tags ?? "[]",
+  };
+}
+
+function mergePersonaSnapshot(current: PersonaCardSnapshot, updates: Partial<PersonaCardSnapshot>): PersonaCardSnapshot {
+  return {
+    ...current,
+    ...updates,
+    personaVersion: updates.personaVersion !== undefined ? updates.personaVersion : current.personaVersion,
+  };
+}
+
+function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapshot {
+  return {
+    name: data.name ?? "",
+    creator: data.creator ?? "",
+    personaVersion: data.personaVersion?.trim() ? data.personaVersion : "1.0",
+    creatorNotes: data.creatorNotes ?? "",
+    description: data.description ?? "",
+    personality: data.personality ?? "",
+    scenario: data.scenario ?? "",
+    backstory: data.backstory ?? "",
+    appearance: data.appearance ?? "",
+    avatarCrop: data.avatarCrop ?? "",
+    nameColor: data.nameColor ?? "",
+    dialogueColor: data.dialogueColor ?? "",
+    boxColor: data.boxColor ?? "",
+    trackerCardColors: data.trackerCardColors ?? '{"mode":"chat"}',
+    personaStats: data.personaStats ?? "",
+    tags: data.tags ?? "[]",
   };
 }
 
@@ -255,12 +322,64 @@ export function createCharactersStorage(db: DB) {
       return rows[0] ?? null;
     },
 
+    async listPersonaVersions(personaId: string) {
+      const rows = await db
+        .select()
+        .from(personaCardVersions)
+        .where(eq(personaCardVersions.personaId, personaId))
+        .orderBy(desc(personaCardVersions.createdAt));
+
+      return rows.map((row) => ({
+        ...row,
+        data: parsePersonaSnapshot(row.data),
+      }));
+    },
+
+    async getPersonaVersionById(personaId: string, versionId: string) {
+      const rows = await db
+        .select()
+        .from(personaCardVersions)
+        .where(and(eq(personaCardVersions.personaId, personaId), eq(personaCardVersions.id, versionId)));
+      const row = rows[0];
+      if (!row) return null;
+      return {
+        ...row,
+        data: parsePersonaSnapshot(row.data),
+      };
+    },
+
+    async createPersonaVersionSnapshot(
+      personaId: string,
+      options?: { source?: string; reason?: string; createdAt?: string | null },
+    ) {
+      const existing = await this.getPersona(personaId);
+      if (!existing) return null;
+      const currentData = buildPersonaSnapshot(existing);
+      const timestamp = options?.createdAt ?? now();
+      const id = newId();
+      await db.insert(personaCardVersions).values({
+        id,
+        personaId,
+        data: JSON.stringify(currentData),
+        comment: existing.comment ?? "",
+        avatarPath: existing.avatarPath ?? null,
+        version: currentData.personaVersion ?? "",
+        source: options?.source ?? "manual",
+        reason: options?.reason ?? "",
+        createdAt: timestamp,
+      });
+      return this.getPersonaVersionById(personaId, id);
+    },
+
     async createPersona(
       name: string,
       description: string,
       avatarPath?: string,
       extra?: {
         comment?: string;
+        creator?: string;
+        personaVersion?: string;
+        creatorNotes?: string;
         personality?: string;
         scenario?: string;
         backstory?: string;
@@ -270,7 +389,6 @@ export function createCharactersStorage(db: DB) {
         boxColor?: string;
         trackerCardColors?: string;
         personaStats?: string;
-        altDescriptions?: string;
         tags?: string;
         savedStatusOptions?: string;
         avatarCrop?: string;
@@ -283,6 +401,9 @@ export function createCharactersStorage(db: DB) {
         id,
         name,
         comment: extra?.comment ?? "",
+        creator: extra?.creator ?? "",
+        personaVersion: extra?.personaVersion?.trim() ? extra.personaVersion : "1.0",
+        creatorNotes: extra?.creatorNotes ?? "",
         description,
         personality: extra?.personality ?? "",
         scenario: extra?.scenario ?? "",
@@ -296,7 +417,6 @@ export function createCharactersStorage(db: DB) {
         boxColor: extra?.boxColor ?? "",
         trackerCardColors: extra?.trackerCardColors ?? '{"mode":"chat"}',
         personaStats: extra?.personaStats ?? "",
-        altDescriptions: extra?.altDescriptions ?? "[]",
         tags: extra?.tags ?? "[]",
         savedStatusOptions: extra?.savedStatusOptions ?? "[]",
         createdAt: timestamp.createdAt,
@@ -325,6 +445,9 @@ export function createCharactersStorage(db: DB) {
         id: newPId,
         name: `${source.name || "Persona"} (Copy)`,
         comment: source.comment ?? "",
+        creator: source.creator ?? "",
+        personaVersion: source.personaVersion?.trim() ? source.personaVersion : "1.0",
+        creatorNotes: source.creatorNotes ?? "",
         description: source.description ?? "",
         personality: source.personality ?? "",
         scenario: source.scenario ?? "",
@@ -338,7 +461,6 @@ export function createCharactersStorage(db: DB) {
         boxColor: source.boxColor ?? "",
         trackerCardColors: source.trackerCardColors ?? '{"mode":"chat"}',
         personaStats: source.personaStats ?? "",
-        altDescriptions: source.altDescriptions ?? "[]",
         tags: source.tags ?? "[]",
         savedStatusOptions: source.savedStatusOptions ?? "[]",
         createdAt: timestamp,
@@ -352,26 +474,70 @@ export function createCharactersStorage(db: DB) {
       updates: {
         name?: string;
         comment?: string;
+        creator?: string;
+        personaVersion?: string;
+        creatorNotes?: string;
         description?: string;
         personality?: string;
         scenario?: string;
         backstory?: string;
         appearance?: string;
-        avatarPath?: string;
+        avatarPath?: string | null;
         avatarCrop?: string;
         nameColor?: string;
         dialogueColor?: string;
         boxColor?: string;
         trackerCardColors?: string;
         personaStats?: string;
-        altDescriptions?: string;
         tags?: string;
         savedStatusOptions?: string;
       },
+      options?: {
+        versionSource?: string | null;
+        versionReason?: string | null;
+        skipVersionSnapshot?: boolean;
+      },
     ) {
+      const existing = await this.getPersona(id);
+      if (!existing) return null;
+      const currentData = buildPersonaSnapshot(existing);
+      const nextData = mergePersonaSnapshot(currentData, {
+        ...(updates.name !== undefined && { name: updates.name }),
+        ...(updates.creator !== undefined && { creator: updates.creator }),
+        ...(updates.personaVersion !== undefined && { personaVersion: updates.personaVersion }),
+        ...(updates.creatorNotes !== undefined && { creatorNotes: updates.creatorNotes }),
+        ...(updates.description !== undefined && { description: updates.description }),
+        ...(updates.personality !== undefined && { personality: updates.personality }),
+        ...(updates.scenario !== undefined && { scenario: updates.scenario }),
+        ...(updates.backstory !== undefined && { backstory: updates.backstory }),
+        ...(updates.appearance !== undefined && { appearance: updates.appearance }),
+        ...(updates.avatarCrop !== undefined && { avatarCrop: updates.avatarCrop }),
+        ...(updates.nameColor !== undefined && { nameColor: updates.nameColor }),
+        ...(updates.dialogueColor !== undefined && { dialogueColor: updates.dialogueColor }),
+        ...(updates.boxColor !== undefined && { boxColor: updates.boxColor }),
+        ...(updates.trackerCardColors !== undefined && { trackerCardColors: updates.trackerCardColors }),
+        ...(updates.personaStats !== undefined && { personaStats: updates.personaStats }),
+        ...(updates.tags !== undefined && { tags: updates.tags }),
+      });
+      const nextComment = updates.comment !== undefined ? updates.comment : (existing.comment ?? "");
+      const nextAvatarPath = updates.avatarPath !== undefined ? updates.avatarPath : existing.avatarPath;
+      const shouldSnapshot =
+        !options?.skipVersionSnapshot &&
+        (personaSnapshotChanged(currentData, nextData) ||
+          nextComment !== (existing.comment ?? "") ||
+          nextAvatarPath !== existing.avatarPath);
+      if (shouldSnapshot) {
+        await this.createPersonaVersionSnapshot(id, {
+          source: options?.versionSource ?? "manual",
+          reason: options?.versionReason ?? "",
+        });
+      }
       const sets: Record<string, unknown> = { updatedAt: now() };
       if (updates.name !== undefined) sets.name = updates.name;
       if (updates.comment !== undefined) sets.comment = updates.comment;
+      if (updates.creator !== undefined) sets.creator = updates.creator;
+      if (updates.personaVersion !== undefined) sets.personaVersion = updates.personaVersion;
+      if (updates.creatorNotes !== undefined) sets.creatorNotes = updates.creatorNotes;
       if (updates.description !== undefined) sets.description = updates.description;
       if (updates.personality !== undefined) sets.personality = updates.personality;
       if (updates.scenario !== undefined) sets.scenario = updates.scenario;
@@ -384,11 +550,52 @@ export function createCharactersStorage(db: DB) {
       if (updates.boxColor !== undefined) sets.boxColor = updates.boxColor;
       if (updates.trackerCardColors !== undefined) sets.trackerCardColors = updates.trackerCardColors;
       if (updates.personaStats !== undefined) sets.personaStats = updates.personaStats;
-      if (updates.altDescriptions !== undefined) sets.altDescriptions = updates.altDescriptions;
       if (updates.tags !== undefined) sets.tags = updates.tags;
       if (updates.savedStatusOptions !== undefined) sets.savedStatusOptions = updates.savedStatusOptions;
       await db.update(personas).set(sets).where(eq(personas.id, id));
       return this.getPersona(id);
+    },
+
+    async restorePersonaVersion(personaId: string, versionId: string) {
+      const version = await this.getPersonaVersionById(personaId, versionId);
+      if (!version) return null;
+      const existing = await this.getPersona(personaId);
+      if (!existing) return null;
+      const data = normalizePersonaSnapshot(version.data);
+      await db
+        .update(personas)
+        .set({
+          name: data.name,
+          comment: version.comment ?? "",
+          creator: data.creator,
+          personaVersion: data.personaVersion,
+          creatorNotes: data.creatorNotes,
+          description: data.description,
+          personality: data.personality,
+          scenario: data.scenario,
+          backstory: data.backstory,
+          appearance: data.appearance,
+          avatarPath: version.avatarPath ?? null,
+          avatarCrop: data.avatarCrop,
+          nameColor: data.nameColor,
+          dialogueColor: data.dialogueColor,
+          boxColor: data.boxColor,
+          trackerCardColors: data.trackerCardColors,
+          personaStats: data.personaStats,
+          tags: data.tags,
+          updatedAt: now(),
+        })
+        .where(eq(personas.id, personaId));
+      return this.getPersona(personaId);
+    },
+
+    async deletePersonaVersion(personaId: string, versionId: string) {
+      const version = await this.getPersonaVersionById(personaId, versionId);
+      if (!version) return false;
+      await db
+        .delete(personaCardVersions)
+        .where(and(eq(personaCardVersions.personaId, personaId), eq(personaCardVersions.id, versionId)));
+      return true;
     },
 
     // ── Character Groups ──

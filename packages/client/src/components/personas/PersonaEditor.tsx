@@ -1,23 +1,34 @@
 // ──────────────────────────────────────────────
 // Persona Editor — Full-page detail view
 // Replaces the chat area when editing a persona.
-// Sections: Description, Personality, Backstory,
-//           Appearance, Scenario
+// Sections: Metadata, Card, Lorebook, Sprites, Colors, Stats
 // ──────────────────────────────────────────────
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { toast } from "sonner";
-import { usePersonas, useUpdatePersona, useUploadPersonaAvatar, useDeletePersona } from "../../hooks/use-characters";
+import {
+  useCreateCharacter,
+  usePersonas,
+  useUpdatePersona,
+  useUploadAvatar,
+  useUploadPersonaAvatar,
+  useDeletePersona,
+  useDuplicatePersona,
+  usePersonaVersions,
+  useRestorePersonaVersion,
+  useDeletePersonaVersion,
+  usePersonaGalleryImages,
+  useUploadPersonaGalleryImage,
+  useDeletePersonaGalleryImage,
+  useTagPersonaGalleryImage,
+  type PersonaGalleryImage,
+} from "../../hooks/use-characters";
 import { useConnections } from "../../hooks/use-connections";
 import { useUIStore } from "../../stores/ui.store";
 import {
   ArrowLeft,
   Save,
   User,
-  FileText,
-  Heart,
-  BookOpen,
-  Eye,
-  MapPin,
+  IdCard,
   Camera,
   Trash2,
   AlertTriangle,
@@ -25,30 +36,37 @@ import {
   Activity,
   Plus,
   X,
-  Maximize2,
   Tag,
   Image,
   Upload,
+  Download,
   FolderOpen,
+  History,
   Loader2,
+  Copy,
+  UserPlus,
   Wand2,
   ImageDown,
   Eraser,
   RotateCcw,
   Crop,
+  Library,
 } from "lucide-react";
 import { cn, generateClientId, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
-import { showAlertDialog, showConfirmDialog } from "../../lib/app-dialogs";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ColorPicker } from "../ui/ColorPicker";
-import { ExpandedTextarea } from "../ui/ExpandedTextarea";
+import { MacroTextarea } from "../ui/MacroTextarea";
+import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
+import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { api } from "../../lib/api-client";
 import { parseTrackerCardColorConfig, serializeTrackerCardColorConfig } from "../../lib/tracker-card-colors";
 import {
   useCharacterSprites,
   useUploadSprite,
   useDeleteSprite,
+  useExportSprites,
   useCleanupSavedSprites,
   useRestoreSpriteCleanupBackup,
   useSpriteCapabilities,
@@ -63,33 +81,81 @@ import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
 import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { Modal } from "../ui/Modal";
-import type { TrackerCardColorConfig } from "@marinara-engine/shared";
+import { EditorTabRail } from "../ui/EditorTabRail";
+import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
+import type {
+  CharacterData,
+  PersonaCardSnapshot,
+  PersonaCardVersion,
+  RPGStatsConfig,
+  TrackerCardColorConfig,
+} from "@marinara-engine/shared";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
+import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
 
 // ── Tabs ──
 const TABS = [
-  { id: "description", label: "Description", icon: FileText },
-  { id: "personality", label: "Personality", icon: Heart },
-  { id: "backstory", label: "Backstory", icon: BookOpen },
-  { id: "appearance", label: "Appearance", icon: Eye },
-  { id: "scenario", label: "Scenario", icon: MapPin },
+  { id: "metadata", label: "Metadata", icon: User },
+  { id: "card", label: "Card", icon: IdCard },
+  { id: "lorebook", label: "Lorebook", icon: Library },
   { id: "sprites", label: "Sprites", icon: Image },
+  { id: "gallery", label: "Gallery", icon: Camera },
   { id: "colors", label: "Colors", icon: Palette },
   { id: "stats", label: "Stats", icon: Activity },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
-interface AltDescriptionEntry {
-  id: string;
-  label: string;
-  content: string;
-  active: boolean;
-}
+const PERSONA_CARD_SECTIONS = [
+  { id: "persona-card-description", label: "Description" },
+  { id: "persona-card-personality", label: "Personality" },
+  { id: "persona-card-backstory", label: "Backstory" },
+  { id: "persona-card-appearance", label: "Appearance" },
+  { id: "persona-card-scenario", label: "Scenario" },
+] as const;
+
+const PERSONA_METADATA_HELP =
+  "Use metadata for identity, sharing, and library organization. Name is injected as your persona name, creator/version help track authorship and revisions, tags make the persona searchable, and creator notes stay private.";
+
+const PERSONA_CARD_HELP =
+  "Write the fields that define how the model sees your persona. Description, personality, backstory, appearance, and scenario are kept together so the card feels like one writing document.";
+
+const PERSONA_DESCRIPTION_HELP =
+  "Your persona's general identity and role. This is sent in prompts so the AI knows who you are in the scene.";
+
+const PERSONA_PERSONALITY_HELP =
+  "Your temperament, behavior, speech habits, preferences, and emotional patterns.";
+
+const PERSONA_BACKSTORY_HELP =
+  "History, origin, important relationships, and formative events that explain your persona.";
+
+const PERSONA_APPEARANCE_HELP =
+  "Physical description, clothing, posture, distinguishing marks, and visual details the model should remember.";
+
+const PERSONA_SCENARIO_HELP =
+  "Your default situation or context for roleplays. Use it to establish where your persona starts and what is already true.";
+
+const PERSONA_LOREBOOK_HELP =
+  "Attach lorebook/world-info entries to this persona. Entries can be used as extra context when your persona needs private background, abilities, or relationships.";
+
+const PERSONA_SPRITES_HELP =
+  "Upload sprites one by one, or use Upload Folder to bulk-import a folder of PNGs. Each filename becomes the expression name, for example admiration.png becomes admiration. To rotate variants, share a prefix before an underscore, for example happy_01.png and happy_blush.png. Persona sprites can be used in Game Mode and roleplay with the Expression Engine. Use transparent PNGs for best results.";
+
+const PERSONA_COLORS_HELP =
+  "Name color is applied to your persona's display name in chat. Gradients use CSS linear-gradient. Dialogue color applies to text inside dialogue quotation marks and can optionally be bolded from Settings. Box color sets the background color of your persona's message bubble. Leave any field empty to use the default theme colors.";
+
+const PERSONA_STATS_HELP =
+  "Status bars represent your persona's physical and mental state, such as hunger, energy, or mood. The Persona Stats agent adjusts values realistically based on what happens in the narrative. Bars are displayed in the HUD widget during chat with color-coded gradients. Values set here serve as the initial defaults for new conversations.";
+
+const PERSONA_RPG_ATTRIBUTES_HELP =
+  "HP is injected into the prompt so the AI knows your persona's current health. Attributes are custom stats, like STR or DEX, that define your persona's capabilities. The Character Tracker agent can adjust values based on combat, healing, and narrative events. Values set here serve as the initial/default state for new conversations.";
 
 interface PersonaFormData {
   name: string;
   comment: string;
+  creator: string;
+  personaVersion: string;
+  creatorNotes: string;
   description: string;
   personality: string;
   scenario: string;
@@ -100,8 +166,8 @@ interface PersonaFormData {
   boxColor: string;
   trackerCardColors: TrackerCardColorConfig;
   personaStats: string;
-  altDescriptions: AltDescriptionEntry[];
   tags: string[];
+  savedStatusOptions: string;
   /** Avatar crop region (parsed from the persona row's JSON-encoded `avatarCrop`).
    *  May be the current source-relative shape, the legacy zoom+offset shape (held
    *  through until the user re-edits via the cropper), or null when unset. */
@@ -112,6 +178,9 @@ interface PersonaRow {
   id: string;
   name: string;
   comment?: string;
+  creator?: string;
+  personaVersion?: string;
+  creatorNotes?: string;
   description: string;
   personality: string;
   scenario: string;
@@ -126,8 +195,8 @@ interface PersonaRow {
   boxColor?: string;
   trackerCardColors?: string;
   personaStats?: string;
-  altDescriptions?: string;
   tags?: string;
+  savedStatusOptions?: string;
 }
 
 function appendNewTags(existingTags: string[], rawInput: string) {
@@ -153,26 +222,226 @@ function formatPersonaFieldValue<K extends keyof PersonaFormData>(
   if (PERSONA_QUOTE_FIELD_KEYS.has(String(key)) && typeof value === "string") {
     return formatQuotes(value) as PersonaFormData[K];
   }
-  if (key === "altDescriptions" && Array.isArray(value)) {
-    return value.map((entry) =>
-      entry && typeof entry === "object" && "content" in entry && typeof entry.content === "string"
-        ? { ...entry, content: formatQuotes(entry.content) }
-        : entry,
-    ) as PersonaFormData[K];
-  }
   return value;
+}
+
+// ── Gallery Tab ──
+
+function PersonaGalleryTab({ personaId, personaName }: { personaId: string; personaName?: string }) {
+  const { data: images, isLoading } = usePersonaGalleryImages(personaId);
+  const upload = useUploadPersonaGalleryImage(personaId);
+  const remove = useDeletePersonaGalleryImage(personaId);
+  const tag = useTagPersonaGalleryImage(personaId);
+  const [lightbox, setLightbox] = useState<PersonaGalleryImage | null>(null);
+
+  const handleUpload = useCallback(
+    (files: File[]) => {
+      if (files.length === 0) return;
+      upload.mutate(files, { onError: (err) => toast.error(err.message) });
+    },
+    [upload],
+  );
+
+  const handleDelete = useCallback(
+    async (image: PersonaGalleryImage) => {
+      if (
+        !(await showConfirmDialog({
+          title: "Delete Persona Image",
+          message: "Delete this persona gallery image?",
+          confirmLabel: "Delete",
+          tone: "destructive",
+        }))
+      ) {
+        return;
+      }
+      try {
+        await remove.mutateAsync(image.id);
+        if (lightbox?.id === image.id) setLightbox(null);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to delete persona image.");
+      }
+    },
+    [lightbox?.id, remove],
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="mb-4">
+        <h2 className="text-lg font-bold">Persona Gallery</h2>
+        <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+          Keep reference art and alternate looks attached to this persona, independent of any chat.
+        </p>
+      </div>
+
+      <ImageUploadDropzone
+        label="Upload Persona Images"
+        pending={upload.isPending}
+        pendingLabel="Uploading…"
+        dragLabel="Drop persona images to upload"
+        onFilesSelected={handleUpload}
+        icon={<Upload size="1rem" />}
+        className="w-full"
+      />
+
+      {isLoading ? (
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="shimmer aspect-square rounded-xl" />
+          ))}
+        </div>
+      ) : images && images.length > 0 ? (
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
+          {images.map((image) => (
+            <div
+              key={image.id}
+              className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
+            >
+              <CustomEmojiTagButton image={image} onApply={(patch) => tag.mutate({ imageId: image.id, patch })} />
+              <button
+                type="button"
+                className="block aspect-square w-full bg-[var(--secondary)]"
+                onClick={() => setLightbox(image)}
+              >
+                <img
+                  src={image.url}
+                  alt={image.prompt || personaName || "Persona image"}
+                  className="h-full w-full object-cover"
+                />
+              </button>
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/25 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+                <span className="max-w-[8rem] truncate text-[0.6875rem] font-medium text-white/85">
+                  {new Date(image.createdAt).toLocaleDateString()}
+                </span>
+                <div className="flex gap-1">
+                  <a
+                    href={image.url}
+                    download
+                    className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25"
+                    title="Download"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Download size="0.75rem" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void handleDelete(image)}
+                    className="rounded-lg bg-red-500/35 p-1.5 text-white transition-colors hover:bg-red-500/55"
+                    title="Delete"
+                  >
+                    <Trash2 size="0.75rem" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
+          <Camera size="1.75rem" className="text-[var(--muted-foreground)]/40" />
+          <div>
+            <p className="text-sm font-medium text-[var(--muted-foreground)]">No persona images yet</p>
+            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
+              Upload images here to keep them tied to {personaName || "this persona"} instead of a specific chat.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 max-md:pt-[env(safe-area-inset-top)]"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw] w-[min(90vw,90vh)]" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={lightbox.url}
+              alt={lightbox.prompt || personaName || "Persona image"}
+              className="max-h-[85vh] w-full rounded-lg object-contain shadow-2xl"
+            />
+            <div className="absolute right-2 top-2 flex gap-2">
+              <a
+                href={lightbox.url}
+                download
+                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+              >
+                <Download size="0.875rem" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setLightbox(null)}
+                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+              >
+                <X size="0.875rem" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function parsePersonaRpgStats(personaStats: string): RPGStatsConfig | undefined {
+  if (!personaStats.trim()) return undefined;
+
+  try {
+    const parsed = JSON.parse(personaStats) as { rpgStats?: RPGStatsConfig } | null;
+    if (!parsed || typeof parsed !== "object" || !parsed.rpgStats || typeof parsed.rpgStats !== "object") {
+      return undefined;
+    }
+    return parsed.rpgStats;
+  } catch {
+    return undefined;
+  }
+}
+
+function createCharacterDataFromPersona(formData: PersonaFormData): CharacterData {
+  const rpgStats = parsePersonaRpgStats(formData.personaStats);
+
+  return {
+    name: formData.name.trim(),
+    description: formData.description ?? "",
+    personality: formData.personality ?? "",
+    scenario: formData.scenario ?? "",
+    first_mes: "",
+    mes_example: "",
+    creator_notes: formData.creatorNotes ?? "",
+    system_prompt: "",
+    post_history_instructions: "",
+    tags: formData.tags ?? [],
+    creator: formData.creator ?? "",
+    character_version: formData.personaVersion ?? "1.0",
+    alternate_greetings: [],
+    character_book: null,
+    extensions: {
+      talkativeness: 0.5,
+      fav: false,
+      world: "",
+      depth_prompt: { prompt: "", depth: 4, role: "system" },
+      backstory: formData.backstory ?? "",
+      appearance: formData.appearance ?? "",
+      nameColor: formData.nameColor || undefined,
+      dialogueColor: formData.dialogueColor || undefined,
+      boxColor: formData.boxColor || undefined,
+      trackerCardColors: serializeTrackerCardColorConfig(formData.trackerCardColors),
+      ...(rpgStats ? { rpgStats } : {}),
+    },
+  };
 }
 
 export function PersonaEditor() {
   const personaId = useUIStore((s) => s.personaDetailId);
   const closeDetail = useUIStore((s) => s.closePersonaDetail);
   const { data: allPersonas, isLoading } = usePersonas();
+  const createCharacter = useCreateCharacter();
   const updatePersona = useUpdatePersona();
+  const uploadCharacterAvatar = useUploadAvatar();
   const uploadAvatar = useUploadPersonaAvatar();
   const deletePersona = useDeletePersona();
+  const duplicatePersona = useDuplicatePersona();
   const { data: connectionsList } = useConnections();
 
-  const [activeTab, setActiveTab] = useState<TabId>("description");
+  const [activeTab, setActiveTab] = useState<TabId>("metadata");
   const [formData, setFormData] = useState<PersonaFormData | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -204,14 +473,6 @@ export function PersonaEditor() {
     if (!isSwitchingPersona && dirty) return;
 
     loadedPersonaIdRef.current = rawPersona.id;
-
-    let parsedAltDescs: AltDescriptionEntry[] = [];
-    try {
-      const raw = rawPersona.altDescriptions;
-      if (raw) parsedAltDescs = JSON.parse(raw);
-    } catch {
-      /* ignore */
-    }
 
     let parsedAvatarCrop: AvatarCrop | LegacyAvatarCrop | null = null;
     try {
@@ -265,6 +526,9 @@ export function PersonaEditor() {
     setFormData({
       name: rawPersona.name,
       comment: rawPersona.comment ?? "",
+      creator: rawPersona.creator ?? "",
+      personaVersion: rawPersona.personaVersion ?? "1.0",
+      creatorNotes: rawPersona.creatorNotes ?? "",
       description: rawPersona.description,
       personality: rawPersona.personality ?? "",
       scenario: rawPersona.scenario ?? "",
@@ -275,7 +539,6 @@ export function PersonaEditor() {
       boxColor: rawPersona.boxColor ?? "",
       trackerCardColors: parseTrackerCardColorConfig(rawPersona.trackerCardColors),
       personaStats: rawPersona.personaStats ?? "",
-      altDescriptions: parsedAltDescs,
       tags: (() => {
         try {
           return rawPersona.tags ? JSON.parse(rawPersona.tags) : [];
@@ -283,6 +546,7 @@ export function PersonaEditor() {
           return [];
         }
       })(),
+      savedStatusOptions: rawPersona.savedStatusOptions ?? "[]",
       avatarCrop: parsedAvatarCrop,
     });
     setAvatarPreview(rawPersona.avatarPath);
@@ -302,11 +566,10 @@ export function PersonaEditor() {
     if (!personaId || !formData) return;
     setSaving(true);
     try {
-      const { altDescriptions, tags, avatarCrop, ...rest } = formData;
+      const { tags, avatarCrop, ...rest } = formData;
       await updatePersona.mutateAsync({
         id: personaId,
         ...rest,
-        altDescriptions: JSON.stringify(altDescriptions),
         tags: JSON.stringify(tags),
         trackerCardColors: serializeTrackerCardColorConfig(formData.trackerCardColors),
         // Persist as JSON string; empty string means "no crop" so the row keeps
@@ -389,6 +652,69 @@ export function PersonaEditor() {
     closeDetail();
   };
 
+  const getAvatarDataUrl = useCallback(async (src: string) => {
+    if (src.startsWith("data:")) return src;
+
+    const response = await fetch(src);
+    if (!response.ok) {
+      throw new Error("Failed to read persona avatar");
+    }
+
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+          return;
+        }
+        reject(new Error("Failed to convert avatar"));
+      };
+      reader.onerror = () => reject(reader.error ?? new Error("Failed to convert avatar"));
+      reader.readAsDataURL(blob);
+    });
+  }, []);
+
+  const handleAddAsCharacter = useCallback(async () => {
+    if (!formData) return;
+
+    const characterName = formData.name.trim();
+    if (!characterName) {
+      toast.error("Persona needs a name before it can be added as a character.");
+      return;
+    }
+
+    try {
+      const created = (await createCharacter.mutateAsync({
+        comment: formData.comment ?? "",
+        data: createCharacterDataFromPersona(formData),
+      })) as { id?: string };
+
+      const characterId = created?.id;
+      if (!characterId) {
+        throw new Error("Character was created without an id");
+      }
+
+      if (avatarPreview) {
+        try {
+          await uploadCharacterAvatar.mutateAsync({
+            id: characterId,
+            avatar: await getAvatarDataUrl(avatarPreview),
+          });
+        } catch (error) {
+          console.warn("[PersonaEditor] Failed to copy avatar to added character:", error);
+          toast.error("Character added, but the avatar could not be copied.");
+          return;
+        }
+      }
+
+      toast.success(`Added "${characterName}" as a character.`);
+    } catch (error) {
+      console.error("[PersonaEditor] Failed to add persona as character:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to add persona as character.");
+    }
+  }, [avatarPreview, createCharacter, formData, getAvatarDataUrl, uploadCharacterAvatar]);
+
   const handleClose = useCallback(() => {
     if (dirty) {
       setShowUnsavedWarning(true);
@@ -414,8 +740,77 @@ export function PersonaEditor() {
     );
   }
 
+  const headerActionButtonClass = "mari-editor-action inline-flex";
+  const saveDisabled = !dirty || saving;
+  const saveLabel = saving ? "Saving…" : "Save";
+  const saveButtonClass = cn(
+    "mari-editor-action mari-editor-action--primary mari-editor-action--save inline-flex",
+    saveDisabled && "cursor-not-allowed opacity-50",
+  );
+  const headerActions = (
+    <>
+      <button
+        type="button"
+        onClick={() => setExportDialogOpen(true)}
+        className={headerActionButtonClass}
+        title="Export persona"
+      >
+        <svg width="1rem" height="1rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M10 13V3m0 0l-4 4m4-4l4 4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        onClick={handleAddAsCharacter}
+        disabled={createCharacter.isPending || uploadCharacterAvatar.isPending}
+        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
+        title="Add persona as character"
+      >
+        {createCharacter.isPending || uploadCharacterAvatar.isPending ? (
+          <Loader2 size="1rem" className="animate-spin" />
+        ) : (
+          <UserPlus size="1rem" />
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => {
+          if (!personaId) return;
+          duplicatePersona.mutate(personaId, {
+            onSuccess: () => {
+              toast.success("Persona duplicated");
+            },
+          });
+        }}
+        disabled={duplicatePersona.isPending}
+        className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
+        title="Duplicate persona"
+      >
+        {duplicatePersona.isPending ? <Loader2 size="1rem" className="animate-spin" /> : <Copy size="1rem" />}
+      </button>
+
+      <button
+        type="button"
+        onClick={handleDelete}
+        className="mari-editor-action mari-editor-action--danger inline-flex"
+        title="Delete persona"
+      >
+        <Trash2 size="1rem" />
+      </button>
+    </>
+  );
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
+    <div className="mari-editor-shell flex flex-1 flex-col overflow-hidden">
       <ExportFormatDialog
         open={exportDialogOpen}
         title="Export Persona"
@@ -439,113 +834,77 @@ export function PersonaEditor() {
       />
 
       {/* ── Header ── */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 max-md:gap-2 max-md:px-3">
-        <button
-          type="button"
-          onClick={handleClose}
-          className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
-          title="Back"
-        >
-          <ArrowLeft size="1.125rem" />
-        </button>
+      <div className="mari-editor-header items-start">
+        <div className="mari-editor-header-main max-md:min-w-full">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="mari-editor-action inline-flex"
+            title="Back"
+          >
+            <ArrowLeft size="1.125rem" />
+          </button>
 
-        {/* Avatar */}
-        <div
-          className="group relative flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-md shadow-emerald-500/20 max-md:h-10 max-md:w-10"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {avatarPreview ? (
-            <img
-              src={avatarPreview}
-              alt={formData.name}
-              className="h-full w-full object-cover"
-              style={getAvatarCropStyle(formData.avatarCrop)}
-            />
-          ) : (
-            <User size="1.375rem" className="text-white" />
-          )}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-            <Camera size="1rem" className="text-white" />
+          {/* Avatar */}
+          <div
+            className="mari-editor-avatar-tile group relative"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {avatarPreview ? (
+              <img
+                src={avatarPreview}
+                alt={formData.name}
+                className="h-full w-full object-cover"
+                style={getAvatarCropStyle(formData.avatarCrop)}
+              />
+            ) : (
+              <User size="1.375rem" className="text-white" />
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+              <Camera size="1rem" className="text-white" />
+            </div>
+            {imageGenerationAvailable && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setAvatarGeneratorOpen(true);
+                }}
+                className="absolute right-0.5 top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--card)]/95 text-[var(--primary)] opacity-0 shadow-md ring-1 ring-[var(--border)] transition-opacity hover:bg-[var(--card)] group-hover:opacity-100 max-md:opacity-100"
+                title="Generate avatar"
+              >
+                <Wand2 size="0.75rem" />
+              </button>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
           </div>
-          {imageGenerationAvailable && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setAvatarGeneratorOpen(true);
-              }}
-              className="absolute right-0.5 top-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--card)]/95 text-[var(--primary)] opacity-0 shadow-md ring-1 ring-[var(--border)] transition-opacity hover:bg-[var(--card)] group-hover:opacity-100 max-md:opacity-100"
-              title="Generate avatar"
-            >
-              <Wand2 size="0.75rem" />
-            </button>
-          )}
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-        </div>
 
-        <div className="min-w-0 flex-1">
-          <input
-            value={formData.name}
-            onChange={(e) => updateField("name", e.target.value)}
-            className="w-full bg-transparent text-lg font-bold outline-none"
-            placeholder="Persona name"
-          />
-          <input
-            value={formData.comment}
-            onChange={(e) => updateField("comment", e.target.value)}
-            className="w-full bg-transparent text-xs text-[var(--muted-foreground)] outline-none"
-            placeholder="Comment (e.g. 'Modern AU version')"
-          />
-          <p className="flex items-center gap-1 truncate text-xs text-[var(--muted-foreground)]">
-            Your persona
-            <HelpTooltip text="This is how the AI sees you. Fill in description, personality, backstory, and appearance — just like a character card. The active persona is injected into every prompt." />
-          </p>
-        </div>
-
-        {/* Export */}
-        <button
-          type="button"
-          onClick={() => setExportDialogOpen(true)}
-          className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          title="Export persona"
-        >
-          <svg width="1.125rem" height="1.125rem" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M10 13V3m0 0l-4 4m4-4l4 4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <div className="min-w-0 flex-1">
+            <input
+              value={formData.name}
+              onChange={(e) => updateField("name", e.target.value)}
+              className="mari-editor-title-input"
+              placeholder="Persona name"
             />
-            <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
-          </svg>
-        </button>
+            <input
+              value={formData.comment}
+              onChange={(e) => updateField("comment", e.target.value)}
+              className="mari-editor-subtitle-input"
+              placeholder="Comment (e.g. 'Modern AU version')"
+            />
+            <p className="mari-editor-meta text-[0.625rem]">
+              {formData.creator ? `by ${formData.creator}` : "No creator"} · v{formData.personaVersion || "1.0"}
+            </p>
+          </div>
+        </div>
 
-        {/* Delete */}
-        <button
-          type="button"
-          onClick={handleDelete}
-          className="rounded-xl p-2 text-[var(--muted-foreground)] transition-all hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-          title="Delete persona"
-        >
-          <Trash2 size="1.125rem" />
-        </button>
-
-        {/* Save */}
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!dirty || saving}
-          className={cn(
-            "flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-medium transition-all",
-            dirty
-              ? "bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-md shadow-emerald-500/20 hover:shadow-lg active:scale-[0.98]"
-              : "bg-[var(--secondary)] text-[var(--muted-foreground)] cursor-not-allowed",
-          )}
-        >
-          <Save size="0.8125rem" />
-          <span className="max-md:hidden">{saving ? "Saving…" : "Save"}</span>
-        </button>
+        <div className="mari-editor-actions flex">
+          <button type="button" onClick={handleSave} disabled={saveDisabled} className={saveButtonClass}>
+            <Save size="0.9375rem" />
+            <span>{saveLabel}</span>
+          </button>
+          {headerActions}
+        </div>
       </div>
 
       {/* ── Unsaved changes warning ── */}
@@ -573,7 +932,7 @@ export function PersonaEditor() {
               await handleSave();
               closeDetail();
             }}
-            className="rounded-lg bg-gradient-to-r from-emerald-400 to-teal-500 px-3 py-1 text-xs font-medium text-white shadow-sm transition-all hover:shadow-md"
+            className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex rounded-lg px-3 py-1"
           >
             Save & close
           </button>
@@ -581,80 +940,29 @@ export function PersonaEditor() {
       )}
 
       {/* ── Body: Tabs + Content ── */}
-      <div className="flex flex-1 overflow-hidden @max-5xl:flex-col">
-        {/* Tab Rail */}
-        <nav className="flex w-44 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-[var(--border)] bg-[var(--card)] p-2 @max-5xl:w-full @max-5xl:flex-row @max-5xl:overflow-x-auto @max-5xl:border-r-0 @max-5xl:border-b @max-5xl:p-1.5">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                type="button"
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition-all text-left @max-5xl:whitespace-nowrap @max-5xl:px-2.5 @max-5xl:py-1.5",
-                  activeTab === tab.id
-                    ? "bg-gradient-to-r from-emerald-400/15 to-teal-500/15 text-emerald-400 ring-1 ring-emerald-400/20"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                )}
-              >
-                <Icon size="0.875rem" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
+      <div className="mari-editor-body @max-5xl:flex-col">
+        <EditorTabRail tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
 
         {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto p-6 @max-5xl:p-4">
-          <div className="mx-auto max-w-2xl">
-            {activeTab === "description" && (
-              <DescriptionTab
+        <div className="mari-editor-content @max-5xl:p-4">
+          <div className="mari-editor-content-inner">
+            {activeTab === "metadata" && (
+              <PersonaMetadataTab
+                personaId={personaId}
                 formData={formData}
                 updateField={updateField}
-                setDirty={setDirty}
                 avatarPreview={avatarPreview}
               />
             )}
-            {activeTab === "personality" && (
-              <TextareaTab
-                title="Personality"
-                subtitle="Your personality traits, temperament, and behavioral patterns."
-                value={formData.personality}
-                onChange={(v) => updateField("personality", v)}
-                placeholder="Calm and analytical, but quick to act when someone's in danger. Has a dry sense of humor…"
-                rows={8}
+            {activeTab === "card" && (
+              <PersonaCardTab
+                formData={formData}
+                updateField={updateField}
+                setDirty={setDirty}
               />
             )}
-            {activeTab === "backstory" && (
-              <TextareaTab
-                title="Backstory"
-                subtitle="Your character's history, origin story, and formative life events."
-                value={formData.backstory}
-                onChange={(v) => updateField("backstory", v)}
-                placeholder="Grew up in a frontier town, apprenticed under a traveling scholar…"
-                rows={12}
-              />
-            )}
-            {activeTab === "appearance" && (
-              <TextareaTab
-                title="Appearance"
-                subtitle="Physical description — height, build, hair, eyes, clothing, distinguishing features."
-                value={formData.appearance}
-                onChange={(v) => updateField("appearance", v)}
-                placeholder="Average height, dark hair worn loose. Prefers practical clothing — boots, a worn jacket…"
-                rows={8}
-              />
-            )}
-            {activeTab === "scenario" && (
-              <TextareaTab
-                title="Scenario"
-                subtitle="Your default situation or context within roleplays."
-                value={formData.scenario}
-                onChange={(v) => updateField("scenario", v)}
-                placeholder="A wandering adventurer seeking answers about a mysterious artifact…"
-                rows={8}
-              />
+            {activeTab === "lorebook" && personaId && (
+              <PersonaLorebookTab personaId={personaId} personaName={formData.name} />
             )}
             {activeTab === "colors" && (
               <PersonaColorsTab formData={formData} updateField={updateField} avatarUrl={avatarPreview} />
@@ -662,9 +970,13 @@ export function PersonaEditor() {
             {activeTab === "sprites" && personaId && (
               <PersonaSpritesTab
                 personaId={personaId}
+                personaName={formData.name}
                 defaultAppearance={formData.appearance || formData.description}
                 defaultAvatarUrl={avatarPreview}
               />
+            )}
+            {activeTab === "gallery" && personaId && (
+              <PersonaGalleryTab personaId={personaId} personaName={formData.name} />
             )}
             {activeTab === "stats" && <PersonaStatsTab formData={formData} updateField={updateField} />}
           </div>
@@ -691,12 +1003,24 @@ const DEFAULT_EXPRESSIONS = [
   "smirk",
 ];
 
+function sanitizeSpriteExportFolderName(value: string, fallback: string): string {
+  const sanitized = value
+    .replace(/[\\/]/g, "_")
+    .replace(/[^a-z0-9._ -]+/gi, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[.\s_-]+|[.\s_-]+$/g, "");
+  return sanitized || fallback;
+}
+
 function PersonaSpritesTab({
   personaId,
+  personaName,
   defaultAppearance,
   defaultAvatarUrl,
 }: {
   personaId: string;
+  personaName?: string;
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
 }) {
@@ -706,6 +1030,7 @@ function PersonaSpritesTab({
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const uploadSprite = useUploadSprite();
   const deleteSprite = useDeleteSprite();
+  const exportSprites = useExportSprites();
   const cleanupSavedSprites = useCleanupSavedSprites();
   const restoreSpriteCleanupBackup = useRestoreSpriteCleanupBackup();
   const queryClient = useQueryClient();
@@ -867,36 +1192,28 @@ function PersonaSpritesTab({
       if (spritesToExport.length === 0) return;
 
       setExporting(true);
-      let successCount = 0;
 
       try {
-        for (const sprite of spritesToExport) {
-          try {
-            await downloadSpriteFile(sprite);
-            successCount += 1;
-          } catch {
-            // Continue exporting remaining sprites.
-          }
-        }
-
-        if (successCount === 0) {
-          await showAlertDialog({
-            title: "Export Failed",
-            message: "No sprites were exported. Please try again.",
-            tone: "destructive",
-          });
-        } else {
-          toast.success(
-            modeLabel === "all"
-              ? `Exported ${successCount} sprite${successCount === 1 ? "" : "s"}.`
-              : `Exported ${successCount} ${category === "full-body" ? "full-body" : "expression"} sprite${successCount === 1 ? "" : "s"}.`,
-          );
-        }
+        const scopeLabel =
+          modeLabel === "all" ? "sprites" : category === "full-body" ? "full-body-sprites" : "expressions";
+        const folderName = sanitizeSpriteExportFolderName(`${personaName || "persona"}-${scopeLabel}`, "sprites");
+        await exportSprites.mutateAsync({
+          characterId: personaId,
+          expressions: spritesToExport.map((sprite) => sprite.expression),
+          folderName,
+        });
+        toast.success(
+          modeLabel === "all"
+            ? `Exported ${spritesToExport.length} sprite${spritesToExport.length === 1 ? "" : "s"} as a folder.`
+            : `Exported ${spritesToExport.length} ${category === "full-body" ? "full-body" : "expression"} sprite${spritesToExport.length === 1 ? "" : "s"} as a folder.`,
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "No sprites were exported. Please try again.");
       } finally {
         setExporting(false);
       }
     },
-    [category, downloadSpriteFile],
+    [category, exportSprites, personaId, personaName],
   );
 
   const handleCleanVisibleSprites = useCallback(async () => {
@@ -1007,12 +1324,11 @@ function PersonaSpritesTab({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-sm font-semibold">Persona Sprites</h3>
-        <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-          Upload VN-style sprites for your persona. These are used in Game Mode and roleplay with the Expression Engine.
-        </p>
-      </div>
+      <SectionHeader
+        title="Persona Sprites"
+        subtitle="Upload VN-style sprites for your persona. These are used in Game Mode and roleplay with the Expression Engine."
+        helpText={PERSONA_SPRITES_HELP}
+      />
 
       <div className="inline-flex rounded-xl bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
         <button
@@ -1453,6 +1769,7 @@ function PersonaColorsTab({
       <SectionHeader
         title="Persona Colors"
         subtitle="Customize how your persona appears in chats. Colors are applied to your name, dialogue, and message bubble."
+        helpText={PERSONA_COLORS_HELP}
       />
 
       <button
@@ -1544,24 +1861,6 @@ function PersonaColorsTab({
         helpText="Background color for your persona's chat message bubbles. Use a semi-transparent color for best results (e.g. rgba)."
       />
 
-      <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
-        <h4 className="mb-1.5 text-xs font-semibold">How colors work</h4>
-        <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-          <li>
-            &bull; <strong className="text-[var(--foreground)]">Name color</strong> — Applied to your persona&apos;s
-            display name in chat. Gradients use CSS linear-gradient.
-          </li>
-          <li>
-            &bull; <strong className="text-[var(--foreground)]">Dialogue color</strong> — All text inside dialogue
-            quotation marks is automatically colored with this value, and can optionally be bolded from Settings.
-          </li>
-          <li>
-            &bull; <strong className="text-[var(--foreground)]">Box color</strong> — Sets the background color of your
-            persona&apos;s message bubble.
-          </li>
-          <li>&bull; Leave any field empty to use the default theme colors.</li>
-        </ul>
-      </div>
     </div>
   );
 }
@@ -1677,6 +1976,7 @@ function PersonaStatsTab({
       <SectionHeader
         title="Persona Status Bars"
         subtitle="Track your persona's physical and mental needs. These are updated by the Persona Stats agent after each message."
+        helpText={PERSONA_STATS_HELP}
       />
 
       {/* Enable toggle */}
@@ -1685,7 +1985,7 @@ function PersonaStatsTab({
           type="checkbox"
           checked={parsed.enabled}
           onChange={(e) => save({ ...parsed, enabled: e.target.checked })}
-          className="h-4 w-4 rounded accent-emerald-500"
+          className="h-4 w-4 rounded accent-[var(--primary)]"
         />
         <div>
           <p className="text-sm font-medium">Enable Persona Stats</p>
@@ -1748,25 +2048,6 @@ function PersonaStatsTab({
             </div>
           </div>
 
-          {/* Info */}
-          <div className="rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
-            <h4 className="mb-1.5 text-xs font-semibold">How persona stats work</h4>
-            <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-              <li>
-                &bull; <strong className="text-[var(--foreground)]">Status bars</strong> — Represent your persona&apos;s
-                physical and mental state (hunger, energy, hygiene, etc.)
-              </li>
-              <li>
-                &bull; The <strong className="text-[var(--foreground)]">Persona Stats agent</strong> adjusts values
-                realistically based on what happens in the narrative.
-              </li>
-              <li>
-                &bull; Bars are displayed in the <strong className="text-[var(--foreground)]">HUD widget</strong> during
-                chat with color-coded gradients.
-              </li>
-              <li>&bull; Values set here serve as the initial defaults for new conversations.</li>
-            </ul>
-          </div>
         </>
       )}
 
@@ -1775,6 +2056,7 @@ function PersonaStatsTab({
         <SectionHeader
           title="RPG Attributes"
           subtitle="Define your persona's RPG stats (STR, DEX, etc.) and HP — just like character cards. Tracked via Persona Stats in the game state."
+          helpText={PERSONA_RPG_ATTRIBUTES_HELP}
         />
 
         <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
@@ -1782,7 +2064,7 @@ function PersonaStatsTab({
             type="checkbox"
             checked={rpgStats.enabled}
             onChange={(e) => updateRpg({ enabled: e.target.checked })}
-            className="h-4 w-4 rounded accent-purple-500"
+            className="h-4 w-4 rounded accent-[var(--primary)]"
           />
           <div>
             <p className="text-sm font-medium">Enable RPG Attributes</p>
@@ -1856,25 +2138,6 @@ function PersonaStatsTab({
               </div>
             </div>
 
-            {/* Info */}
-            <div className="mt-4 rounded-xl bg-[var(--card)] p-4 ring-1 ring-[var(--border)]">
-              <h4 className="mb-1.5 text-xs font-semibold">How RPG attributes work</h4>
-              <ul className="space-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
-                <li>
-                  &bull; <strong className="text-[var(--foreground)]">HP</strong> — Injected into the prompt so the AI
-                  knows your persona&apos;s current health.
-                </li>
-                <li>
-                  &bull; <strong className="text-[var(--foreground)]">Attributes</strong> — Custom stats (STR, DEX,
-                  etc.) that define your persona&apos;s capabilities.
-                </li>
-                <li>
-                  &bull; The Character Tracker agent adjusts these values based on narrative events (combat, healing,
-                  etc.).
-                </li>
-                <li>&bull; Values set here serve as the initial/default state for new conversations.</li>
-              </ul>
-            </div>
           </>
         )}
       </div>
@@ -1886,21 +2149,17 @@ function PersonaStatsTab({
 // Sub-components
 // ──────────────────────────────────────────────
 
-// ── Description Tab with Alt Descriptions ──
-
-function DescriptionTab({
+function PersonaMetadataTab({
+  personaId,
   formData,
   updateField,
-  setDirty: _setDirty,
   avatarPreview,
 }: {
+  personaId: string | null;
   formData: PersonaFormData;
   updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
-  setDirty: (v: boolean) => void;
   avatarPreview: string | null;
 }) {
-  const altDescs = formData.altDescriptions;
-  const [expandedField, setExpandedField] = useState<"description" | string | null>(null);
   const [newTag, setNewTag] = useState("");
 
   const addTag = () => {
@@ -1917,82 +2176,103 @@ function DescriptionTab({
     );
   };
 
-  const updateAltDescs = (next: AltDescriptionEntry[]) => {
-    updateField("altDescriptions", next);
+  const removeAllTags = () => {
+    updateField("tags", []);
   };
-
-  const addAltDesc = () => {
-    updateAltDescs([...altDescs, { id: generateClientId(), label: "Extension", content: "", active: true }]);
-  };
-
-  const toggleAltDesc = (id: string) => {
-    updateAltDescs(altDescs.map((d) => (d.id === id ? { ...d, active: !d.active } : d)));
-  };
-
-  const updateAltDescField = (id: string, field: "label" | "content", value: string) => {
-    updateAltDescs(altDescs.map((d) => (d.id === id ? { ...d, [field]: value } : d)));
-  };
-
-  const removeAltDesc = (id: string) => {
-    updateAltDescs(altDescs.filter((d) => d.id !== id));
-  };
-
-  // Pass through whichever shape is saved (or null when unset). The widget
-  // initializes the cropper from the saved value or a centered max-square.
-  const avatarCrop: AvatarCrop | LegacyAvatarCrop | null = formData.avatarCrop;
 
   return (
-    <div className="space-y-6">
-      {/* Avatar Crop / Zoom */}
+    <div className="space-y-5">
+      <SectionHeader
+        title="Metadata"
+        subtitle="Basic persona info — name, creator, version, avatar, tags."
+        helpText={PERSONA_METADATA_HELP}
+      />
+
       {avatarPreview && (
         <AvatarCropWidget
           src={avatarPreview}
           alt={formData.name}
-          crop={avatarCrop}
+          crop={formData.avatarCrop}
           onChange={(next) => updateField("avatarCrop", next)}
         />
       )}
-      {/* Main description */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold">Description</h3>
-            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-              Your general description. This is sent in every prompt so the AI knows who you are.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setExpandedField("description")}
-            className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            title="Expand editor"
-          >
-            <Maximize2 size="0.875rem" />
-          </button>
-        </div>
-        <textarea
-          value={formData.description}
-          onChange={(e) => updateField("description", e.target.value)}
-          placeholder="Describe who you are, your role in the story, and your key traits…"
-          rows={12}
-          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
-        />
-        <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
-          {formData.description.length} characters
-        </p>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="space-y-1.5">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Name{" "}
+            <HelpTooltip text="Your persona's display name. This is injected into prompts as the user's persona identity." />
+          </span>
+          <input
+            value={formData.name}
+            onChange={(e) => updateField("name", e.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            placeholder="Persona name"
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Creator{" "}
+            <HelpTooltip text="The person who made this persona. Useful for credit when sharing persona cards." />
+          </span>
+          <input
+            value={formData.creator}
+            onChange={(e) => updateField("creator", e.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            placeholder="Your name"
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Title / Comment{" "}
+            <HelpTooltip text="A short private note shown under the persona name in the library, useful for variants or alternate versions." />
+          </span>
+          <input
+            value={formData.comment}
+            onChange={(e) => updateField("comment", e.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            placeholder="Modern AU version"
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Version <HelpTooltip text="Version number for tracking changes to this persona definition over time." />
+          </span>
+          <input
+            value={formData.personaVersion}
+            onChange={(e) => updateField("personaVersion", e.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            placeholder="1.0"
+          />
+          <PersonaVersionHistoryPanel
+            personaId={personaId}
+            currentData={formData}
+            currentAvatarPath={avatarPreview}
+          />
+        </label>
       </div>
 
-      {/* Tags */}
       <div className="space-y-2">
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-          Tags{" "}
-          <HelpTooltip text="Labels for organizing personas. Use tags like 'fantasy', 'modern', 'OC' etc. to categorize and filter." />
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Tags{" "}
+            <HelpTooltip text="Labels for organizing personas. Use tags like 'fantasy', 'modern', 'OC' etc. to categorize and filter." />
+          </span>
+          {formData.tags.length > 0 && (
+            <button
+              type="button"
+              onClick={removeAllTags}
+              className="rounded-lg px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+            >
+              Remove All
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {formData.tags.map((tag) => (
             <span
               key={tag}
-              className="flex items-center gap-1 rounded-full bg-emerald-400/10 px-2.5 py-1 text-[0.6875rem] font-medium text-emerald-400"
+              className="flex items-center gap-1 rounded-full bg-[var(--primary)]/10 px-2.5 py-1 text-[0.6875rem] font-medium text-[var(--primary)]"
             >
               <Tag size="0.625rem" />
               {tag}
@@ -2016,142 +2296,443 @@ function DescriptionTab({
                 addTag();
               }
             }}
-            placeholder="Add tag…"
-            className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none focus:border-emerald-400/40"
+            placeholder="Add tag..."
+            className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs outline-none focus:border-[var(--primary)]/40"
           />
           <button
             type="button"
             onClick={addTag}
-            className="rounded-xl bg-emerald-400/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-all hover:bg-emerald-400/25"
+            className="rounded-xl bg-[var(--primary)]/15 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25"
           >
             Add
           </button>
         </div>
       </div>
 
-      {/* Alt Descriptions */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold">Description Extensions</h3>
-            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-              Toggleable additions appended to your main description. Use these for situational details like combat
-              skills, relationships, or temporary states.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={addAltDesc}
-            className="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[0.6875rem] font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25"
-          >
-            <Plus size="0.75rem" />
-            Add
-          </button>
-        </div>
-
-        {altDescs.length === 0 ? (
-          <p className="text-[0.6875rem] text-[var(--muted-foreground)] italic">
-            No description extensions yet. Add one to toggle extra context on and off.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {altDescs.map((desc) => (
-              <div
-                key={desc.id}
-                className={cn(
-                  "rounded-xl border bg-[var(--card)] p-4 transition-all",
-                  desc.active
-                    ? "border-emerald-400/30 ring-1 ring-emerald-400/10"
-                    : "border-[var(--border)] opacity-60",
-                )}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  {/* Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => toggleAltDesc(desc.id)}
-                    className={cn(
-                      "flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors",
-                      desc.active ? "bg-emerald-500" : "bg-[var(--muted-foreground)]/30",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                        desc.active && "translate-x-4",
-                      )}
-                    />
-                  </button>
-                  {/* Label */}
-                  <input
-                    value={desc.label}
-                    onChange={(e) => updateAltDescField(desc.id, "label", e.target.value)}
-                    className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2.5 py-1 text-xs font-medium outline-none focus:border-emerald-400/40"
-                    placeholder="Label (e.g. Combat Skills)"
-                  />
-                  {/* Remove */}
-                  <button
-                    type="button"
-                    onClick={() => removeAltDesc(desc.id)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-400"
-                    title="Remove extension"
-                  >
-                    <X size="0.75rem" />
-                  </button>
-                  {/* Expand */}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedField(desc.id)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
-                    title="Expand editor"
-                  >
-                    <Maximize2 size="0.75rem" />
-                  </button>
-                </div>
-                {/* Content */}
-                <textarea
-                  value={desc.content}
-                  onChange={(e) => updateAltDescField(desc.id, "content", e.target.value)}
-                  placeholder="Additional description content…"
-                  rows={4}
-                  className="w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
-                />
-                <p className="mt-1 text-right text-[0.625rem] text-[var(--muted-foreground)]">
-                  {desc.content.length} characters
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <ExpandedTextarea
-        open={expandedField === "description"}
-        onClose={() => setExpandedField(null)}
-        title="Description"
-        value={formData.description}
-        onChange={(value) => updateField("description", value)}
-        placeholder="Describe who you are, your role in the story, and your key traits…"
-      />
-      {altDescs.map((desc) => (
-        <ExpandedTextarea
-          key={desc.id}
-          open={expandedField === desc.id}
-          onClose={() => setExpandedField(null)}
-          title={desc.label || "Description Extension"}
-          value={desc.content}
-          onChange={(value) => updateAltDescField(desc.id, "content", value)}
-          placeholder="Additional description content…"
+      <div className="block space-y-1.5">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+          Creator Notes{" "}
+          <HelpTooltip text="Private notes about this persona — tips for use, known quirks, recommended settings. Not sent to the AI." />
+        </span>
+        <MacroTextarea
+          value={formData.creatorNotes}
+          onChange={(value) => updateField("creatorNotes", value)}
+          rows={4}
+          title="Creator Notes"
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+          placeholder="Notes about this persona, intended use, tips for best results..."
         />
-      ))}
+      </div>
     </div>
   );
 }
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; label: string }> = [
+  { key: "name", label: "Name" },
+  { key: "creator", label: "Creator" },
+  { key: "creatorNotes", label: "Creator Notes" },
+  { key: "description", label: "Description" },
+  { key: "personality", label: "Personality" },
+  { key: "scenario", label: "Scenario" },
+  { key: "backstory", label: "Backstory" },
+  { key: "appearance", label: "Appearance" },
+  { key: "avatarCrop", label: "Avatar Crop" },
+  { key: "nameColor", label: "Name Color" },
+  { key: "dialogueColor", label: "Dialogue Color" },
+  { key: "boxColor", label: "Box Color" },
+  { key: "personaStats", label: "Persona Stats" },
+  { key: "tags", label: "Tags" },
+];
+
+function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnapshot {
+  return {
+    name: formData.name,
+    creator: formData.creator,
+    personaVersion: formData.personaVersion,
+    creatorNotes: formData.creatorNotes,
+    description: formData.description,
+    personality: formData.personality,
+    scenario: formData.scenario,
+    backstory: formData.backstory,
+    appearance: formData.appearance,
+    avatarCrop: formData.avatarCrop ? JSON.stringify(formData.avatarCrop) : "",
+    nameColor: formData.nameColor,
+    dialogueColor: formData.dialogueColor,
+    boxColor: formData.boxColor,
+    trackerCardColors: serializeTrackerCardColorConfig(formData.trackerCardColors),
+    personaStats: formData.personaStats,
+    tags: JSON.stringify(formData.tags),
+  };
+}
+
+function formatVersionTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getPersonaVersionTitle(version: PersonaCardVersion): string {
+  return version.version?.trim() ? `v${version.version}` : "Untitled version";
+}
+
+function formatPersonaVersionValue(data: PersonaCardSnapshot, key: keyof PersonaCardSnapshot): string {
+  const value = data[key];
+  if (typeof value !== "string") return "";
+  if (!value.trim()) return "";
+  if (
+    key === "avatarCrop" ||
+    key === "trackerCardColors" ||
+    key === "personaStats" ||
+    key === "tags"
+  ) {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
+function PersonaVersionHistoryPanel({
+  personaId,
+  currentData,
+  currentAvatarPath,
+}: {
+  personaId: string | null;
+  currentData: PersonaFormData;
+  currentAvatarPath: string | null;
+}) {
+  const { data: versions = [], isLoading } = usePersonaVersions(personaId);
+  const restoreVersion = useRestorePersonaVersion();
+  const deleteVersion = useDeletePersonaVersion();
+  const [selectedVersion, setSelectedVersion] = useState<PersonaCardVersion | null>(null);
+
+  if (!personaId) return null;
+
+  const currentSnapshot = buildCurrentPersonaSnapshot(currentData);
+
+  const handleRestore = async (version: PersonaCardVersion) => {
+    const confirmed = await showConfirmDialog({
+      title: "Restore Persona Version",
+      message: `Restore ${currentData.name || "this persona"} to ${getPersonaVersionTitle(version)}? The current persona card will become exactly that saved version without creating another history entry.`,
+      confirmLabel: "Restore",
+    });
+    if (!confirmed) return;
+    try {
+      await restoreVersion.mutateAsync({ id: personaId, versionId: version.id });
+      toast.success(`Restored ${getPersonaVersionTitle(version)}.`);
+      setSelectedVersion(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to restore persona version.");
+    }
+  };
+
+  const handleDeleteVersion = async (version: PersonaCardVersion) => {
+    const confirmed = await showConfirmDialog({
+      title: "Delete Saved Version",
+      message: `Delete ${getPersonaVersionTitle(version)} from version history? This does not change the current persona card.`,
+      confirmLabel: "Delete",
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    try {
+      await deleteVersion.mutateAsync({ id: personaId, versionId: version.id });
+      toast.success(`Deleted ${getPersonaVersionTitle(version)}.`);
+      setSelectedVersion((current) => (current?.id === version.id ? null : current));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete persona version.");
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+          <History size="0.75rem" />
+          Version history
+        </span>
+        <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+          {isLoading ? "Loading" : `${versions.length} saved`}
+        </span>
+      </div>
+
+      {versions.length === 0 ? (
+        <p className="mt-2 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+          Previous persona states will appear here after the next edit.
+        </p>
+      ) : (
+        <div className="mt-2 flex max-h-36 flex-col gap-1.5 overflow-y-auto pr-1">
+          {versions.map((version) => (
+            <div
+              key={version.id}
+              className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1.5"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedVersion(version)}
+                className="min-w-0 flex-1 text-left"
+                title="Compare with current persona"
+              >
+                <span className="block truncate text-[0.6875rem] font-medium text-[var(--foreground)]">
+                  {getPersonaVersionTitle(version)}
+                </span>
+                <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                  {formatVersionTimestamp(version.createdAt)}
+                  {version.source ? ` · ${version.source}` : ""}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRestore(version)}
+                disabled={restoreVersion.isPending || deleteVersion.isPending}
+                className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                title="Restore this version"
+              >
+                {restoreVersion.isPending ? (
+                  <Loader2 size="0.75rem" className="animate-spin" />
+                ) : (
+                  <RotateCcw size="0.75rem" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteVersion(version)}
+                disabled={restoreVersion.isPending || deleteVersion.isPending}
+                className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-50"
+                title="Delete this saved version"
+              >
+                {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
+                  <Loader2 size="0.75rem" className="animate-spin" />
+                ) : (
+                  <Trash2 size="0.75rem" />
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        open={!!selectedVersion}
+        onClose={() => setSelectedVersion(null)}
+        title={selectedVersion ? `Compare ${getPersonaVersionTitle(selectedVersion)}` : "Compare Version"}
+        width="max-w-5xl"
+      >
+        {selectedVersion && (
+          <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto">
+            <div className="grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs md:grid-cols-2">
+              <div>
+                <p className="font-semibold text-[var(--foreground)]">Current persona</p>
+                <p className="mt-1 text-[var(--muted-foreground)]">
+                  v{currentData.personaVersion || "1.0"}
+                  {currentData.comment ? ` · ${currentData.comment}` : ""}
+                  {currentAvatarPath ? " · has avatar" : ""}
+                </p>
+              </div>
+              <div>
+                <p className="font-semibold text-[var(--foreground)]">{getPersonaVersionTitle(selectedVersion)}</p>
+                <p className="mt-1 text-[var(--muted-foreground)]">
+                  {formatVersionTimestamp(selectedVersion.createdAt)}
+                  {selectedVersion.reason ? ` · ${selectedVersion.reason}` : ""}
+                  {selectedVersion.avatarPath ? " · has avatar" : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {PERSONA_VERSION_COMPARE_FIELDS.map((field) => {
+                const currentValue = formatPersonaVersionValue(currentSnapshot, field.key);
+                const savedValue = formatPersonaVersionValue(selectedVersion.data, field.key);
+                const changed = currentValue !== savedValue;
+                if (!changed && !currentValue && !savedValue) return null;
+                return (
+                  <div key={field.key} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-[var(--foreground)]">{field.label}</span>
+                      {changed && (
+                        <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[0.625rem] font-medium text-[var(--primary)]">
+                          changed
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <div className="min-h-20 whitespace-pre-wrap rounded-lg bg-[var(--secondary)] p-2 text-xs leading-relaxed text-[var(--foreground)]">
+                        {currentValue || <span className="text-[var(--muted-foreground)]">Empty</span>}
+                      </div>
+                      <div className="min-h-20 whitespace-pre-wrap rounded-lg bg-[var(--secondary)] p-2 text-xs leading-relaxed text-[var(--foreground)]">
+                        {savedValue || <span className="text-[var(--muted-foreground)]">Empty</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end border-t border-[var(--border)] pt-3">
+              <button
+                type="button"
+                onClick={() => handleRestore(selectedVersion)}
+                disabled={restoreVersion.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {restoreVersion.isPending ? (
+                  <Loader2 size="0.75rem" className="animate-spin" />
+                ) : (
+                  <RotateCcw size="0.75rem" />
+                )}
+                Restore this version
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+function PersonaCardTab({
+  formData,
+  updateField,
+  setDirty,
+}: {
+  formData: PersonaFormData;
+  updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
+  setDirty: (v: boolean) => void;
+}) {
+  return (
+    <div>
+      <SectionHeader
+        title="Card"
+        subtitle="Write your core persona card fields in one focused workspace."
+        helpText={PERSONA_CARD_HELP}
+      />
+      <EditorSectionJumps items={PERSONA_CARD_SECTIONS} />
+      <div className="space-y-10">
+        <EditorSectionAnchor id="persona-card-description">
+          <DescriptionTab formData={formData} updateField={updateField} setDirty={setDirty} />
+        </EditorSectionAnchor>
+        <EditorSectionAnchor id="persona-card-personality">
+          <TextareaTab
+            title="Personality"
+            subtitle="Your personality traits, temperament, and behavioral patterns."
+            helpText={PERSONA_PERSONALITY_HELP}
+            value={formData.personality}
+            onChange={(v) => updateField("personality", v)}
+            placeholder="Calm and analytical, but quick to act when someone's in danger. Has a dry sense of humor…"
+            rows={8}
+          />
+        </EditorSectionAnchor>
+        <EditorSectionAnchor id="persona-card-backstory">
+          <TextareaTab
+            title="Backstory"
+            subtitle="Your character's history, origin story, and formative life events."
+            helpText={PERSONA_BACKSTORY_HELP}
+            value={formData.backstory}
+            onChange={(v) => updateField("backstory", v)}
+            placeholder="Grew up in a frontier town, apprenticed under a traveling scholar…"
+            rows={12}
+          />
+        </EditorSectionAnchor>
+        <EditorSectionAnchor id="persona-card-appearance">
+          <TextareaTab
+            title="Appearance"
+            subtitle="Physical description, height, build, hair, eyes, clothing, distinguishing features."
+            helpText={PERSONA_APPEARANCE_HELP}
+            value={formData.appearance}
+            onChange={(v) => updateField("appearance", v)}
+            placeholder="Average height, dark hair worn loose. Prefers practical clothing, boots, a worn jacket…"
+            rows={8}
+          />
+        </EditorSectionAnchor>
+        <EditorSectionAnchor id="persona-card-scenario">
+          <TextareaTab
+            title="Scenario"
+            subtitle="Your default situation or context within roleplays."
+            helpText={PERSONA_SCENARIO_HELP}
+            value={formData.scenario}
+            onChange={(v) => updateField("scenario", v)}
+            placeholder="A wandering adventurer seeking answers about a mysterious artifact…"
+            rows={8}
+          />
+        </EditorSectionAnchor>
+      </div>
+    </div>
+  );
+}
+
+function PersonaLorebookTab({ personaId, personaName }: { personaId: string; personaName: string }) {
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        title="Persona Lorebook"
+        subtitle="World-building entries attached to your persona."
+        helpText={PERSONA_LOREBOOK_HELP}
+      />
+      <LorebookAssignmentSection ownerType="persona" ownerId={personaId} ownerName={personaName} />
+    </div>
+  );
+}
+
+// ── Description Tab ──
+
+function DescriptionTab({
+  formData,
+  updateField,
+  setDirty: _setDirty,
+}: {
+  formData: PersonaFormData;
+  updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
+  setDirty: (v: boolean) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Main description */}
+      <div>
+        <SectionHeader
+          title="Description"
+          subtitle="Your general description. This is sent in every prompt so the AI knows who you are."
+          helpText={PERSONA_DESCRIPTION_HELP}
+        />
+        <MacroTextarea
+          value={formData.description}
+          onChange={(value) => updateField("description", value)}
+          placeholder="Describe who you are, your role in the story, and your key traits…"
+          rows={12}
+          title="Description"
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
+        />
+        <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
+          {formData.description.length} characters
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  title,
+  subtitle,
+  helpText,
+  helpWide = true,
+}: {
+  title: string;
+  subtitle?: string;
+  helpText?: ReactNode;
+  helpWide?: boolean;
+}) {
   return (
     <div className="mb-4">
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold">
+        {title}
+        {helpText && <HelpTooltip text={helpText} side="bottom" wide={helpWide} size="0.8125rem" />}
+      </h3>
       {subtitle && <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{subtitle}</p>}
     </div>
   );
@@ -2164,47 +2745,28 @@ function TextareaTab({
   onChange,
   placeholder,
   rows = 8,
+  helpText,
 }: {
   title: string;
   subtitle: string;
+  helpText?: ReactNode;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   rows?: number;
 }) {
-  const [expanded, setExpanded] = useState(false);
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{subtitle}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="shrink-0 rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          title="Expand editor"
-        >
-          <Maximize2 size="0.875rem" />
-        </button>
-      </div>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
-      />
-      <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">{value.length} characters</p>
-      <ExpandedTextarea
-        open={expanded}
-        onClose={() => setExpanded(false)}
-        title={title}
+      <SectionHeader title={title} subtitle={subtitle} helpText={helpText} />
+      <MacroTextarea
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        rows={rows}
+        title={title}
+        className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />
+      <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">{value.length} characters</p>
     </div>
   );
 }

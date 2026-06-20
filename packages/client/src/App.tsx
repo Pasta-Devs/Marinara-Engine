@@ -11,10 +11,11 @@ import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
 import { ChibiProfessorMariEasterEgg } from "./components/ui/ChibiProfessorMariEasterEgg";
 import { CsrfOriginWarningBanner } from "./components/diagnostics/CsrfOriginWarningBanner";
 import { Toaster } from "sonner";
-import { useUIStore } from "./stores/ui.store";
+import { getDefaultChatChromeTextColor, useUIStore } from "./stores/ui.store";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { api } from "./lib/api-client";
 import { forceRefreshSpa } from "./lib/browser-runtime";
+import { getCssColorFallback, isCssGradient } from "./lib/css-colors";
 import { useLegacyThemeMigration } from "./hooks/use-themes";
 import { useLegacyExtensionMigration } from "./hooks/use-extensions";
 import { useSettingsSync } from "./hooks/use-settings-sync";
@@ -91,6 +92,8 @@ export function App() {
   const language = useUIStore((s) => s.language);
   const visualTheme = useUIStore((s) => s.visualTheme);
   const fontFamily = useUIStore((s) => s.fontFamily);
+  const appAccentColor = useUIStore((s) => s.appAccentColor);
+  const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
   useLegacyThemeMigration();
   useLegacyExtensionMigration();
@@ -149,6 +152,43 @@ export function App() {
     document.documentElement.dataset.theme = theme;
     document.documentElement.style.colorScheme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const accent = appAccentColor.trim();
+    if (accent) {
+      if (isCssGradient(accent)) {
+        root.style.setProperty("--marinara-chat-chrome-accent", getCssColorFallback(accent, "#d4d4d4"));
+        root.style.setProperty("--marinara-chat-chrome-accent-gradient", accent);
+        root.dataset.marinaraChatChromeAccentMode = "gradient";
+      } else {
+        root.style.setProperty("--marinara-chat-chrome-accent", accent);
+        root.style.removeProperty("--marinara-chat-chrome-accent-gradient");
+        delete root.dataset.marinaraChatChromeAccentMode;
+      }
+    } else {
+      root.style.removeProperty("--marinara-chat-chrome-accent");
+      root.style.removeProperty("--marinara-chat-chrome-accent-gradient");
+      delete root.dataset.marinaraChatChromeAccentMode;
+    }
+  }, [appAccentColor]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const textColor = chatChromeTextColor.trim();
+    const variables = [
+      "--marinara-chat-chrome-text",
+      "--marinara-chat-chrome-button-text-base",
+      "--marinara-chat-chrome-highlight-text-base",
+    ];
+
+    if (textColor) {
+      const resolvedColor = getCssColorFallback(textColor, getDefaultChatChromeTextColor(theme));
+      variables.forEach((variable) => root.style.setProperty(variable, resolvedColor));
+    } else {
+      variables.forEach((variable) => root.style.removeProperty(variable));
+    }
+  }, [chatChromeTextColor, theme]);
 
   // Apply visual theme (default / sillytavern) to the document root
   useEffect(() => {
@@ -291,7 +331,8 @@ export function App() {
       <AppDialogRenderer />
       <CsrfOriginWarningBanner />
       <Toaster
-        position="bottom-right"
+        position="top-center"
+        offset="4rem"
         theme={theme}
         closeButton
         toastOptions={{

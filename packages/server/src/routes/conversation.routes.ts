@@ -28,6 +28,7 @@ import {
   recordAssistantActivity,
   recordAutonomousClientPresence,
   markGenerationInProgress,
+  clearGenerationInProgress,
   initializeActivityFromMessages,
 } from "../services/conversation/autonomous.service.js";
 
@@ -650,8 +651,8 @@ export async function conversationRoutes(app: FastifyInstance) {
     });
 
     if (result.shouldTrigger) {
-      markGenerationInProgress(chatId);
-      return reply.send(result);
+      const generationStartedAt = markGenerationInProgress(chatId);
+      return reply.send({ ...result, generationStartedAt });
     }
 
     // ── Offline catch-up: if any character is now online and last messages are from user ──
@@ -670,18 +671,31 @@ export async function conversationRoutes(app: FastifyInstance) {
         const last = messages[messages.length - 1]!;
         if (last.role === "user") {
           // Character is online but hasn't responded — trigger catch-up
-          markGenerationInProgress(chatId);
+          const generationStartedAt = markGenerationInProgress(chatId);
           return reply.send({
             shouldTrigger: true,
             characterIds: onlineCharIds.slice(0, 1), // Pick first online character
             reason: "user_inactivity",
             inactivityMs: 0,
+            generationStartedAt,
           });
         }
       }
     }
 
     return reply.send(result);
+  });
+
+  // ─────────────────────────────────────────────
+  // POST /autonomous/clear-in-progress — Clear a claimed autonomous generation marker
+  // ─────────────────────────────────────────────
+  app.post<{
+    Body: { chatId: string; startedAt?: number };
+  }>("/autonomous/clear-in-progress", async (req, reply) => {
+    const startedAt =
+      typeof req.body.startedAt === "number" && Number.isFinite(req.body.startedAt) ? req.body.startedAt : undefined;
+    clearGenerationInProgress(req.body.chatId, startedAt);
+    return reply.send({ ok: true });
   });
 
   // ─────────────────────────────────────────────

@@ -25,6 +25,11 @@ export type ExpressionValidationResult<T extends SpriteExpressionEntry> = {
   warnings: ExpressionValidationWarning[];
 };
 
+export type SpriteExpressionCompletionOptions = {
+  defaultSourceText?: string;
+  sourceTextByCharacterId?: ReadonlyMap<string, string>;
+};
+
 const DEFAULT_SPRITE_DISPLAY_MODES: SpriteDisplayMode[] = ["expressions", "full-body"];
 
 function uniqueStrings(values: string[]): string[] {
@@ -79,6 +84,20 @@ export function buildAvailableSpriteCharacter(
   };
 }
 
+export function normalizeRequiredSpriteExpressionIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const id = entry.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
 function normalizeLookupToken(value: unknown): string {
   if (typeof value !== "string") return "";
   return value
@@ -116,6 +135,22 @@ function hasUsefulContainmentMatch(candidate: string, option: string): boolean {
 function pickRandomExpression(expressions: string[]): string | null {
   if (expressions.length === 0) return null;
   return expressions[Math.floor(Math.random() * expressions.length)] ?? expressions[0] ?? null;
+}
+
+function pickStableExpression(expressions: string[], sourceText: string): string | null {
+  if (expressions.length === 0) return null;
+  let hash = 2166136261;
+  const seed = sourceText.trim() || expressions.join("|");
+  for (let index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return expressions[Math.abs(hash) % expressions.length] ?? expressions[0] ?? null;
+}
+
+function isOverSpecificFallbackExpression(expression: string): boolean {
+  const normalized = normalizeExpressionToken(expression);
+  return /(smirk|sly|teas|mischiev|wink|flirt|seduc)/.test(normalized);
 }
 
 function getExpressionPrefixVariant(expression: string, groupKey: string): boolean {
@@ -185,6 +220,99 @@ function resolveExpression(expression: string, availableExpressions: string[]): 
       return hasUsefulContainmentMatch(normalized, option);
     }) ?? null
   );
+}
+
+function inferExpressionCandidatesFromText(text: string): string[] {
+  const lower = text.toLowerCase();
+  const candidates: string[] = [];
+
+  const add = (...values: string[]) => {
+    for (const value of values) {
+      if (!candidates.includes(value)) candidates.push(value);
+    }
+  };
+
+  if (/\b(blush|blushing|fluster|flustered|embarrass|embarrassed|shy|bashful)\b/.test(lower)) {
+    add("blush", "embarrassed", "shy", "flustered");
+  }
+  if (/\b(angry|anger|rage|furious|annoyed|irritated|frustrated|glare|scowl)\b/.test(lower)) {
+    add("angry", "annoyed", "irritated");
+  }
+  if (/\b(sad|cry|crying|tears|sorrow|grief|hurt|heartbroken|melancholy)\b/.test(lower)) {
+    add("sad", "crying", "melancholy");
+  }
+  if (/\b(happy|smile|smiling|grin|grinning|laugh|laughing|joy|excited|delighted)\b/.test(lower)) {
+    add("happy", "smile", "joy", "excited");
+  }
+  if (/\b(surprised|surprise|shock|shocked|gasp|startled|stunned)\b/.test(lower)) {
+    add("surprised", "shocked", "startled");
+  }
+  if (/\b(scared|afraid|fear|fearful|terrified|panic|panicked|nervous|anxious)\b/.test(lower)) {
+    add("scared", "afraid", "nervous", "anxious");
+  }
+  if (/\b(disgust|disgusted|gross|repulsed|repulsing)\b/.test(lower)) {
+    add("disgusted", "disgust");
+  }
+  if (/\b(think|thinking|consider|considering|wonder|wondering|hmm|thoughtful|ponder)\b/.test(lower)) {
+    add("thinking", "thoughtful", "ponder");
+  }
+
+  add("neutral", "default", "normal", "calm", "idle");
+  return candidates;
+}
+
+function pickFallbackExpression(expressions: string[], sourceText: string): string | null {
+  for (const candidate of inferExpressionCandidatesFromText(sourceText)) {
+    const resolved = resolveExpression(candidate, expressions);
+    if (resolved) return resolved;
+  }
+
+  const broadChoices = expressions.filter((expression) => !isOverSpecificFallbackExpression(expression));
+  return pickStableExpression(broadChoices.length > 0 ? broadChoices : expressions, sourceText);
+}
+
+export function completeRequiredSpriteExpressionEntries<T extends SpriteExpressionEntry>(
+  expressions: T[],
+  availableSprites: AvailableSpriteCharacter[] | undefined,
+  requiredCharacterIds: Iterable<string> | undefined,
+  options: SpriteExpressionCompletionOptions = {},
+): ExpressionValidationResult<T> {
+  const warnings: ExpressionValidationWarning[] = [];
+  if (!Array.isArray(availableSprites) || !requiredCharacterIds) {
+    return { expressions, warnings };
+  }
+
+  const completed = [...expressions];
+  const presentIds = new Set(
+    completed
+      .map((entry) => (typeof entry.characterId === "string" ? entry.characterId.trim() : ""))
+      .filter((id) => id.length > 0),
+  );
+
+  for (const rawId of requiredCharacterIds) {
+    const characterId = typeof rawId === "string" ? rawId.trim() : "";
+    if (!characterId || presentIds.has(characterId)) continue;
+
+    const character = availableSprites.find((sprite) => sprite.characterId === characterId);
+    if (!character) continue;
+
+    const sourceText = options.sourceTextByCharacterId?.get(characterId) ?? options.defaultSourceText ?? "";
+    const expression = pickFallbackExpression(character.expressions, sourceText);
+    if (!expression) continue;
+
+    completed.push({
+      characterId: character.characterId,
+      characterName: character.characterName,
+      expression,
+      transition: "crossfade",
+    } as T);
+    presentIds.add(characterId);
+    warnings.push({
+      message: `Expression agent omitted ${character.characterName} — filled missing required expression "${expression}"`,
+    });
+  }
+
+  return { expressions: completed, warnings };
 }
 
 export function validateSpriteExpressionEntries<T extends SpriteExpressionEntry>(

@@ -1,8 +1,10 @@
+import type { CSSProperties } from "react";
 import type { TrackerPanelSizeProfile, TrackerTemperatureUnit } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
 import { getTemperatureColor, getTemperatureGaugeDisplay, getWeatherEmoji } from "../../lib/world-state-display";
 import { visibleText } from "../../lib/tracker-display";
 import { FittedText } from "../controls/InlineControls";
+import { useTrackerFieldLock } from "../TrackerLockContext";
 import { WorldRenderedEdit, WorldTileShell } from "./WorldEditableTile";
 
 export function WorldForecastTile({
@@ -12,6 +14,8 @@ export function WorldForecastTile({
   trackerTemperatureUnit,
   onSaveWeather,
   onSaveTemperature,
+  weatherLockKey,
+  temperatureLockKey,
 }: {
   weather: string | null | undefined;
   temperature: string | null | undefined;
@@ -19,7 +23,11 @@ export function WorldForecastTile({
   trackerTemperatureUnit: TrackerTemperatureUnit;
   onSaveWeather?: (value: string) => void;
   onSaveTemperature?: (value: string) => void;
+  weatherLockKey?: string;
+  temperatureLockKey?: string;
 }) {
+  const weatherLock = useTrackerFieldLock(weatherLockKey);
+  const temperatureLock = useTrackerFieldLock(temperatureLockKey);
   const weatherText = visibleText(weather, "Set weather");
   const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
   const useHorizontalTempRail = trackerPanelSizeProfile !== "compact";
@@ -37,7 +45,7 @@ export function WorldForecastTile({
         >
           {getWeatherEmoji(weather)}
         </div>
-        <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_28%,transparent)_0%,transparent_48%),radial-gradient(ellipse_at_82%_45%,color-mix(in_srgb,var(--primary)_10%,transparent)_0%,transparent_58%)]" />
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(90deg,color-mix(in_srgb,var(--background)_28%,transparent)_0%,transparent_48%),radial-gradient(ellipse_at_82%_45%,color-mix(in_srgb,var(--foreground)_7%,transparent)_0%,transparent_58%)]" />
         <div className="pointer-events-none absolute inset-1 z-[1] rounded-[3px] opacity-[0.14] [background-image:repeating-linear-gradient(135deg,color-mix(in_srgb,var(--foreground)_24%,transparent)_0_1px,transparent_1px_7px)]" />
         <WorldRenderedEdit
           label="Weather"
@@ -61,6 +69,7 @@ export function WorldForecastTile({
               ? "right-[4.45rem] @min-[7rem]:right-[4.6rem] @min-[10rem]:right-[4.7rem] @min-[14rem]:right-[4.8rem]"
               : "right-[2.45rem] @min-[7rem]:right-[2.65rem] @min-[10rem]:right-[2.95rem] @min-[14rem]:right-[3.25rem]",
           )}
+          {...weatherLock}
         >
           <WorldWeatherLabel text={weatherText} trackerPanelSizeProfile={trackerPanelSizeProfile} />
         </WorldRenderedEdit>
@@ -85,6 +94,7 @@ export function WorldForecastTile({
             )}
             inputClassName={cn("text-center text-[0.625rem]", useHorizontalTempRail && "text-[0.6875rem]")}
             showEditHint={false}
+            {...temperatureLock}
           >
             <span
               className={cn(
@@ -264,7 +274,8 @@ function WorldThermometerGauge({
   display: ReturnType<typeof getTemperatureGaugeDisplay>;
   variant?: "compact" | "expanded";
 }) {
-  const fillStyle = { backgroundColor: display.color };
+  const fillStyle = { "--temperature-glow": display.color, backgroundColor: display.color } as CSSProperties &
+    Record<"--temperature-glow", string>;
   const expanded = variant === "expanded";
   return (
     <div className={cn("relative", expanded ? "h-[2.55rem] w-[1.15rem]" : "h-[1.55rem] w-[0.95rem]")}>
@@ -282,7 +293,7 @@ function WorldThermometerGauge({
         >
           <span
             className={cn(
-              "absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full shadow-[0_0_6px_color-mix(in_srgb,var(--primary)_16%,transparent)] transition-[height] duration-200",
+              "absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full shadow-[0_0_6px_color-mix(in_srgb,var(--temperature-glow)_16%,transparent)] transition-[height] duration-200",
               expanded ? "w-[0.25rem]" : "w-[0.2rem]",
             )}
             style={{ ...fillStyle, height: `${display.percent}%` }}
@@ -297,14 +308,14 @@ function WorldThermometerGauge({
       </div>
       <span
         className={cn(
-          "absolute left-1/2 z-[1] -translate-x-1/2 shadow-[0_0_6px_color-mix(in_srgb,var(--primary)_14%,transparent)]",
+          "absolute left-1/2 z-[1] -translate-x-1/2 shadow-[0_0_6px_color-mix(in_srgb,var(--temperature-glow)_14%,transparent)]",
           expanded ? "bottom-[0.49rem] h-[0.42rem] w-[0.27rem]" : "bottom-[0.36rem] h-[0.3rem] w-[0.22rem]",
         )}
         style={fillStyle}
       />
       <div
         className={cn(
-          "absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full border border-[var(--border)]/42 bg-[var(--background)]/54 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.26),0_0_6px_color-mix(in_srgb,var(--primary)_9%,transparent)]",
+          "absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full border border-[var(--border)]/42 bg-[var(--background)]/54 shadow-[inset_0_-2px_4px_rgba(0,0,0,0.26),0_0_6px_color-mix(in_srgb,var(--temperature-glow)_9%,transparent)]",
           expanded ? "h-[0.92rem] w-[0.92rem]" : "h-[0.72rem] w-[0.72rem]",
         )}
       >

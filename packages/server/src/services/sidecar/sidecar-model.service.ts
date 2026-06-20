@@ -104,9 +104,10 @@ function isRuntimePreference(value: unknown): value is SidecarConfig["runtimePre
   return typeof value === "string" && (SIDECAR_RUNTIME_PREFERENCES as readonly string[]).includes(value);
 }
 
-function normalizeIntegerSetting(value: unknown, fallback: number, min: number, max: number): number {
+function normalizeIntegerSetting(value: unknown, fallback: number, min: number, max?: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(value)));
+  const rounded = Math.max(min, Math.round(value));
+  return max === undefined ? rounded : Math.min(max, rounded);
 }
 
 function normalizeFloatSetting(value: unknown, fallback: number, min: number, max: number): number {
@@ -139,13 +140,11 @@ class SidecarModelService {
           nextConfig.contextSize,
           SIDECAR_DEFAULT_CONFIG.contextSize,
           512,
-          32768,
         );
         nextConfig.maxTokens = normalizeIntegerSetting(
           nextConfig.maxTokens,
           SIDECAR_DEFAULT_CONFIG.maxTokens,
           64,
-          32768,
         );
         nextConfig.temperature = normalizeFloatSetting(
           nextConfig.temperature,

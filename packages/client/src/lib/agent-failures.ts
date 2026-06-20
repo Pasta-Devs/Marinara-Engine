@@ -76,10 +76,10 @@ export function formatAgentFailuresToast(failures: AgentFailure[]): string {
   if (failures.length === 1) {
     const failure = failures[0]!;
     const reason = failure.reasonLabel ? `: ${failure.reasonLabel}` : "";
-    return `${failure.agentName} failed${reason}. Use the retry button in the chat header to try again.`;
+    return `${failure.agentName} failed${reason}. Use Retry Failed Agents in the Agents menu to try again.`;
   }
 
   const visible = failures.slice(0, 3).map(formatAgentFailureTitle).join(", ");
   const remaining = failures.length > 3 ? `, +${failures.length - 3} more` : "";
-  return `${failures.length} agents failed: ${visible}${remaining}. Use the retry button in the chat header to try again.`;
+  return `${failures.length} agents failed: ${visible}${remaining}. Use Retry Failed Agents in the Agents menu to try again.`;
 }

@@ -8,11 +8,14 @@ import { newId, now } from "../../utils/id-generator.js";
 import {
   BUILT_IN_AGENTS,
   getDefaultBuiltInAgentSettings,
+  markAgentConfigDeletedSettings,
+  normalizeAgentPhaseForType,
   type CreateAgentConfigInput,
   type AgentResult,
 } from "@marinara-engine/shared";
 
 const BUILTIN_AGENT_ID_PREFIX = "builtin:";
+const REMOVED_BUILT_IN_AGENT_TYPES = new Set(["editor"]);
 const BUILT_IN_AGENT_TYPES = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
 type AgentRunRow = typeof agentRuns.$inferSelect;
 type AgentConfigRow = typeof agentConfigs.$inferSelect;
@@ -40,6 +43,17 @@ function keepLatestConfigPerType<T extends { type: string }>(rows: T[]): T[] {
     latestRows.push(row);
   }
   return latestRows;
+}
+
+function normalizeAgentConfigRow<T extends AgentConfigRow | null>(row: T): T {
+  if (!row) return row;
+  const phase = normalizeAgentPhaseForType(row.type, row.phase);
+  if (phase === row.phase) return row;
+  return { ...row, phase } as T;
+}
+
+function isRemovedBuiltInAgentType(type: string): boolean {
+  return REMOVED_BUILT_IN_AGENT_TYPES.has(type);
 }
 
 function parseRunData(value: string): unknown {
@@ -71,17 +85,18 @@ function serializeRunWithConfig(row: { agent_runs: AgentRunRow; agent_configs: A
 export function createAgentsStorage(db: DB) {
   async function getById(id: string) {
     const rows = await db.select().from(agentConfigs).where(eq(agentConfigs.id, id));
-    return rows[0] ?? null;
+    return normalizeAgentConfigRow(rows[0] ?? null);
   }
 
   async function getByType(type: string) {
+    if (isRemovedBuiltInAgentType(type)) return null;
     const rows = await db
       .select()
       .from(agentConfigs)
       .where(eq(agentConfigs.type, type))
       .orderBy(desc(agentConfigs.updatedAt))
       .limit(1);
-    return rows[0] ?? null;
+    return normalizeAgentConfigRow(rows[0] ?? null);
   }
 
   async function getUniqueCustomType(requestedType: string, id: string) {
@@ -100,7 +115,9 @@ export function createAgentsStorage(db: DB) {
 
   async function listLatest() {
     const rows = await db.select().from(agentConfigs).orderBy(desc(agentConfigs.updatedAt));
-    return keepLatestConfigPerType(rows);
+    return keepLatestConfigPerType(
+      rows.filter((row) => !isRemovedBuiltInAgentType(row.type)).map((row) => normalizeAgentConfigRow(row)),
+    );
   }
 
   async function ensureBuiltinConfig(type: string) {
@@ -119,9 +136,10 @@ export function createAgentsStorage(db: DB) {
         type: builtIn.id,
         name: builtIn.name,
         description: builtIn.description,
-        phase: builtIn.phase,
+        phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
         enabled: String(builtIn.enabledByDefault),
         connectionId: null,
+        imagePath: null,
         promptTemplate: "",
         settings: JSON.stringify(getDefaultBuiltInAgentSettings(builtIn.id)),
         createdAt: timestamp,
@@ -141,6 +159,11 @@ export function createAgentsStorage(db: DB) {
     return config?.id ?? agentConfigId;
   }
 
+  async function removeRuntimeData(id: string) {
+    await db.delete(agentRuns).where(eq(agentRuns.agentConfigId, id));
+    await db.delete(agentMemory).where(eq(agentMemory.agentConfigId, id));
+  }
+
   return {
     // ── Config CRUD ──
 
@@ -157,6 +180,8 @@ export function createAgentsStorage(db: DB) {
 
     getByType,
 
+    ensureBuiltinConfig,
+
     async create(input: CreateAgentConfigInput) {
       const builtInType = isBuiltInAgentType(input.type);
       if (builtInType) {
@@ -168,7 +193,8 @@ export function createAgentsStorage(db: DB) {
 
       const id = newId();
       const timestamp = now();
-      const type = builtInType ? input.type : await getUniqueCustomType(input.type, id);
+      const requestedCustomType = isRemovedBuiltInAgentType(input.type) ? `${input.type}-custom` : input.type;
+      const type = builtInType ? input.type : await getUniqueCustomType(requestedCustomType, id);
       const settings = { ...(input.settings ?? {}) };
       if (input.resultType) settings.resultType = input.resultType;
       await db.insert(agentConfigs).values({
@@ -176,9 +202,10 @@ export function createAgentsStorage(db: DB) {
         type,
         name: input.name,
         description: input.description ?? "",
-        phase: input.phase,
+        phase: normalizeAgentPhaseForType(type, input.phase),
         enabled: String(input.enabled ?? true),
         connectionId: input.connectionId ?? null,
+        imagePath: input.imagePath ?? null,
         promptTemplate: input.promptTemplate ?? "",
         settings: JSON.stringify(settings),
         createdAt: timestamp,
@@ -191,9 +218,13 @@ export function createAgentsStorage(db: DB) {
       const updateFields: Record<string, unknown> = { updatedAt: now() };
       if (data.name !== undefined) updateFields.name = data.name;
       if (data.description !== undefined) updateFields.description = data.description;
-      if (data.phase !== undefined) updateFields.phase = data.phase;
+      if (data.phase !== undefined) {
+        const current = await getById(id);
+        updateFields.phase = normalizeAgentPhaseForType(current?.type ?? "", data.phase);
+      }
       if (data.enabled !== undefined) updateFields.enabled = String(data.enabled);
       if (data.connectionId !== undefined) updateFields.connectionId = data.connectionId;
+      if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
       if (data.promptTemplate !== undefined) updateFields.promptTemplate = data.promptTemplate;
       if (data.settings !== undefined || data.resultType !== undefined) {
         if (data.settings !== undefined) {
@@ -211,9 +242,34 @@ export function createAgentsStorage(db: DB) {
     },
 
     async remove(id: string) {
-      await db.delete(agentRuns).where(eq(agentRuns.agentConfigId, id));
-      await db.delete(agentMemory).where(eq(agentMemory.agentConfigId, id));
+      await removeRuntimeData(id);
       await db.delete(agentConfigs).where(eq(agentConfigs.id, id));
+    },
+
+    async softDeleteBuiltIn(type: string) {
+      const builtIn = BUILT_IN_AGENTS.find((agent) => agent.id === type);
+      if (!builtIn) return null;
+
+      const existing = await getByType(type);
+      if (existing) {
+        await removeRuntimeData(existing.id);
+        return this.update(existing.id, {
+          enabled: false,
+          settings: markAgentConfigDeletedSettings(existing.settings),
+        });
+      }
+
+      return this.create({
+        type: builtIn.id,
+        name: builtIn.name,
+        description: builtIn.description,
+        phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
+        enabled: false,
+        connectionId: null,
+        imagePath: null,
+        promptTemplate: "",
+        settings: markAgentConfigDeletedSettings(getDefaultBuiltInAgentSettings(builtIn.id)),
+      });
     },
 
     // ── Agent Runs ──

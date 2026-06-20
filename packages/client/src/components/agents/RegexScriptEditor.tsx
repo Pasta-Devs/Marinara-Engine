@@ -11,6 +11,7 @@ import {
   useDeleteRegexScript,
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
+import { useCharacters } from "../../hooks/use-characters";
 import {
   ArrowLeft,
   Save,
@@ -25,8 +26,11 @@ import {
   ToggleRight,
   Plus,
   Minus,
+  Users,
+  Upload,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { applyRegexReplacement, resolveMacros, type MacroContext, type RegexPlacement } from "@marinara-engine/shared";
 
@@ -73,15 +77,43 @@ function resolveLiveTestMacros(value: string, context: MacroContext): string {
   return resolveMacros(value, context, { trimResult: false });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
+  if (typeof value !== "string") return [];
+  try {
+    return parseStringArray(JSON.parse(value) as unknown);
+  } catch {
+    return [];
+  }
+}
+
+function parseCharacterData(value: unknown): Record<string, unknown> {
+  if (isRecord(value)) return value;
+  if (typeof value !== "string") return {};
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isRecord(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 // ═══════════════════════════════════════════════
 //  Main Editor
 // ═══════════════════════════════════════════════
 export function RegexScriptEditor() {
   const regexDetailId = useUIStore((s) => s.regexDetailId);
+  const regexDetailDefaultCharacterIds = useUIStore((s) => s.regexDetailDefaultCharacterIds);
+  const regexDetailReturn = useUIStore((s) => s.regexDetailReturn);
   const closeRegexDetail = useUIStore((s) => s.closeRegexDetail);
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
 
   const { data: regexScripts } = useRegexScripts();
+  const { data: characters } = useCharacters();
   const updateScript = useUpdateRegexScript();
   const createScript = useCreateRegexScript();
   const deleteScript = useDeleteRegexScript();
@@ -103,6 +135,8 @@ export function RegexScriptEditor() {
   const [localPlacement, setLocalPlacement] = useState<RegexPlacement[]>(["ai_output"]);
   const [localFlags, setLocalFlags] = useState("gi");
   const [localPromptOnly, setLocalPromptOnly] = useState(false);
+  const [localCharacterScopeEnabled, setLocalCharacterScopeEnabled] = useState(false);
+  const [localTargetCharacterIds, setLocalTargetCharacterIds] = useState<string[]>([]);
   const [localOrder, setLocalOrder] = useState(0);
   const [localMinDepth, setLocalMinDepth] = useState<number | null>(null);
   const [localMaxDepth, setLocalMaxDepth] = useState<number | null>(null);
@@ -118,6 +152,25 @@ export function RegexScriptEditor() {
 
   // ── Test area ──
   const [testInput, setTestInput] = useState("");
+
+  const characterOptions = useMemo(() => {
+    if (!Array.isArray(characters)) return [];
+    return characters
+      .map((character) => {
+        if (!isRecord(character) || typeof character.id !== "string") return null;
+        const row = character as Record<string, unknown>;
+        const data = parseCharacterData(row.data);
+        const name =
+          typeof data.name === "string" && data.name.trim()
+            ? data.name.trim()
+            : typeof row.name === "string" && row.name.trim()
+              ? row.name.trim()
+              : "Unnamed";
+        return { id: character.id, name };
+      })
+      .filter((character): character is { id: string; name: string } => character !== null)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [characters]);
 
   // Populate from DB row or defaults for new
   useEffect(() => {
@@ -139,6 +192,9 @@ export function RegexScriptEditor() {
       }
       setLocalFlags(dbRow.flags);
       setLocalPromptOnly(dbRow.promptOnly === "true");
+      const targetCharacterIds = parseStringArray(dbRow.targetCharacterIds);
+      setLocalTargetCharacterIds(targetCharacterIds);
+      setLocalCharacterScopeEnabled(targetCharacterIds.length > 0);
       setLocalOrder(dbRow.order);
       setLocalMinDepth(dbRow.minDepth);
       setLocalMaxDepth(dbRow.maxDepth);
@@ -152,6 +208,10 @@ export function RegexScriptEditor() {
       setLocalPlacement(["ai_output"]);
       setLocalFlags("gi");
       setLocalPromptOnly(false);
+      // Pre-scope when opened from a character's scoped-regex manager.
+      const defaultScope = regexDetailDefaultCharacterIds ?? [];
+      setLocalTargetCharacterIds(defaultScope);
+      setLocalCharacterScopeEnabled(defaultScope.length > 0);
       setLocalOrder(0);
       setLocalMinDepth(null);
       setLocalMaxDepth(null);
@@ -159,7 +219,7 @@ export function RegexScriptEditor() {
     setDirty(false);
     setSaveError(null);
     setTestInput("");
-  }, [regexDetailId, dbRow]);
+  }, [regexDetailId, dbRow, regexDetailDefaultCharacterIds]);
 
   // Regex validity check
   const regexError = useMemo(() => {
@@ -206,6 +266,10 @@ export function RegexScriptEditor() {
   const handleSave = useCallback(async () => {
     if (!regexDetailId) return;
     setSaveError(null);
+    if (localCharacterScopeEnabled && localTargetCharacterIds.length === 0) {
+      setSaveError("Choose at least one target character.");
+      return;
+    }
 
     const payload = {
       name: localName,
@@ -216,6 +280,7 @@ export function RegexScriptEditor() {
       placement: localPlacement,
       flags: localFlags,
       promptOnly: localPromptOnly,
+      targetCharacterIds: localCharacterScopeEnabled ? localTargetCharacterIds : [],
       order: localOrder,
       minDepth: localMinDepth,
       maxDepth: localMaxDepth,
@@ -227,7 +292,8 @@ export function RegexScriptEditor() {
       } else {
         const created = (await createScript.mutateAsync(payload)) as RegexScriptRow | undefined;
         if (created?.id) {
-          openRegexDetail(created.id);
+          // Preserve the return target (e.g. back to the character card) across the post-save re-open.
+          openRegexDetail(created.id, regexDetailReturn ? { returnTo: regexDetailReturn } : undefined);
         }
       }
       setDirty(false);
@@ -246,6 +312,8 @@ export function RegexScriptEditor() {
     localPlacement,
     localFlags,
     localPromptOnly,
+    localCharacterScopeEnabled,
+    localTargetCharacterIds,
     localOrder,
     localMinDepth,
     localMaxDepth,
@@ -253,6 +321,7 @@ export function RegexScriptEditor() {
     updateScript,
     createScript,
     openRegexDetail,
+    regexDetailReturn,
   ]);
 
   const markDirty = useCallback(() => setDirty(true), []);
@@ -282,6 +351,48 @@ export function RegexScriptEditor() {
     markDirty();
   };
 
+  const toggleCharacterScope = () => {
+    // Scope and prompt-only are independent: a scoped script can transform the
+    // prompt (prompt-only) OR displayed messages (gated by the chat's scoped mode).
+    setLocalCharacterScopeEnabled((prev) => !prev);
+    markDirty();
+  };
+
+  const togglePromptOnly = () => {
+    setLocalPromptOnly((prev) => !prev);
+    markDirty();
+  };
+
+  const toggleTargetCharacter = (characterId: string) => {
+    setLocalTargetCharacterIds((prev) =>
+      prev.includes(characterId) ? prev.filter((id) => id !== characterId) : [...prev, characterId],
+    );
+    markDirty();
+  };
+
+  const handleExport = () => {
+    downloadJsonFile(
+      {
+        kind: "marinara.regex-script",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        name: localName,
+        enabled: localEnabled,
+        findRegex: localFindRegex,
+        replaceString: localReplaceString,
+        trimStrings: localTrimStrings,
+        placement: localPlacement,
+        flags: localFlags,
+        promptOnly: localPromptOnly,
+        targetCharacterIds: localCharacterScopeEnabled ? localTargetCharacterIds : [],
+        order: localOrder,
+        minDepth: localMinDepth,
+        maxDepth: localMaxDepth,
+      },
+      `${sanitizeExportFilenamePart(localName, "regex-script")}.json`,
+    );
+  };
+
   // ── Loading / not found ──
   if (!regexDetailId || (!dbRow && !isNew)) {
     return (
@@ -292,21 +403,23 @@ export function RegexScriptEditor() {
   }
 
   const isPending = updateScript.isPending || createScript.isPending;
+  const characterScopeError =
+    localCharacterScopeEnabled && localTargetCharacterIds.length === 0 ? "Choose at least one character." : null;
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-[var(--background)]">
+    <div className="mari-editor-shell flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 py-3">
+      <div className="mari-editor-header">
         <button
           type="button"
           onClick={handleClose}
           aria-label="Back to regex scripts"
-          className="rounded-xl p-2 transition-all hover:bg-[var(--accent)] active:scale-95"
+          className="mari-editor-action inline-flex"
         >
           <ArrowLeft size="1.125rem" />
         </button>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-sm">
-          <Regex size="1.125rem" />
+        <div className="mari-editor-icon-tile">
+          <Regex size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
         </div>
         <input
           value={localName}
@@ -314,29 +427,39 @@ export function RegexScriptEditor() {
             setLocalName(e.target.value);
             markDirty();
           }}
-          className="flex-1 bg-transparent text-lg font-semibold outline-none placeholder:text-[var(--muted-foreground)]"
+          className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
           placeholder="Script name…"
         />
-        <div className="flex items-center gap-1.5">
+        <div className="mari-editor-actions flex max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
           {saveError && (
-            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-red-400">
+            <span className="mari-editor-status mr-2 text-red-400">
               <AlertCircle size="0.6875rem" /> Save failed
             </span>
           )}
           {savedFlash && !dirty && (
-            <span className="mr-2 flex items-center gap-1 text-[0.625rem] font-medium text-emerald-400">
+            <span className="mari-editor-status mr-2 text-emerald-400">
               <Check size="0.6875rem" /> Saved
             </span>
           )}
-          {dirty && !saveError && <span className="mr-2 text-[0.625rem] font-medium text-amber-400">Unsaved</span>}
+          {dirty && !saveError && <span className="mari-editor-status mr-2 text-amber-400">Unsaved</span>}
+          <button
+            onClick={handleSave}
+            disabled={isPending || !!regexError || !!characterScopeError}
+            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
+            title="Save regex script"
+            aria-label="Save regex script"
+          >
+            <Save size="0.8125rem" /> <span className="max-md:hidden">Save</span>
+          </button>
           {/* Enable/Disable toggle */}
           <button
             onClick={() => {
               setLocalEnabled((e) => !e);
               markDirty();
             }}
-            className="flex items-center gap-1 rounded-xl px-2 py-2 text-xs font-medium transition-all hover:bg-[var(--accent)]"
+            className="mari-editor-action inline-flex"
             title={localEnabled ? "Enabled" : "Disabled"}
+            aria-label={localEnabled ? "Disable regex script" : "Enable regex script"}
           >
             {localEnabled ? (
               <ToggleRight size="1.125rem" className="text-emerald-400" />
@@ -344,21 +467,24 @@ export function RegexScriptEditor() {
               <ToggleLeft size="1.125rem" className="text-[var(--muted-foreground)]" />
             )}
           </button>
+          <button
+            onClick={handleExport}
+            className="mari-editor-action inline-flex"
+            title="Export regex script"
+            aria-label="Export regex script"
+          >
+            <Upload size="0.9375rem" />
+          </button>
           {dbRow && (
             <button
               onClick={handleDelete}
-              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/15 active:scale-[0.98]"
+              className="mari-editor-action mari-editor-action--danger inline-flex"
+              title="Delete regex script"
+              aria-label="Delete regex script"
             >
-              <Trash2 size="0.8125rem" /> Delete
+              <Trash2 size="0.9375rem" />
             </button>
           )}
-          <button
-            onClick={handleSave}
-            disabled={isPending || !!regexError}
-            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-400 to-red-500 px-4 py-2 text-xs font-medium text-white shadow-md transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-50"
-          >
-            <Save size="0.8125rem" /> Save
-          </button>
         </div>
       </div>
 
@@ -506,6 +632,72 @@ export function RegexScriptEditor() {
                 },
               )}
             </div>
+            <div className="rounded-xl bg-[var(--secondary)]/60 p-3 ring-1 ring-[var(--border)]">
+              <div className="flex items-start gap-2.5">
+                <button
+                  type="button"
+                  aria-label="Toggle character target scope"
+                  aria-pressed={localCharacterScopeEnabled}
+                  onClick={toggleCharacterScope}
+                  className="mt-0.5 shrink-0"
+                >
+                  {localCharacterScopeEnabled ? (
+                    <ToggleRight size="1.125rem" className="text-orange-400" />
+                  ) : (
+                    <ToggleLeft size="1.125rem" className="text-[var(--muted-foreground)]" />
+                  )}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <Users size="0.75rem" className="text-orange-400" />
+                    Specific Characters
+                    <HelpTooltip text="Limit this script to the selected characters. Prompt-only scripts then run only for those characters' prompts; display scripts apply per the chat's Scoped Regex mode." />
+                  </div>
+                  <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localCharacterScopeEnabled
+                      ? `${localTargetCharacterIds.length} selected`
+                      : "Applies to all characters"}
+                  </div>
+                </div>
+              </div>
+              {localCharacterScopeEnabled && (
+                <div className="mt-3 rounded-lg bg-[var(--background)]/60 p-2 ring-1 ring-[var(--border)]">
+                  {characterOptions.length > 0 ? (
+                    <div className="grid max-h-36 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
+                      {characterOptions.map((character) => {
+                        const selected = localTargetCharacterIds.includes(character.id);
+                        return (
+                          <button
+                            key={character.id}
+                            type="button"
+                            onClick={() => toggleTargetCharacter(character.id)}
+                            title={character.name}
+                            className={cn(
+                              "flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[0.6875rem] ring-1 transition-all",
+                              selected
+                                ? "bg-orange-400/10 text-orange-400 ring-orange-400/50"
+                                : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                            )}
+                          >
+                            <span className="min-w-0 truncate">{character.name}</span>
+                            {selected && <Check size="0.6875rem" className="shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+                      No characters found.
+                    </div>
+                  )}
+                  {characterScopeError && (
+                    <div className="mt-2 flex items-center gap-1 text-[0.625rem] font-medium text-amber-400">
+                      <AlertCircle size="0.6875rem" /> {characterScopeError}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </FieldGroup>
 
           {/* ── Trim Strings ── */}
@@ -564,10 +756,7 @@ export function RegexScriptEditor() {
                   type="button"
                   aria-label="Toggle Prompt Only"
                   aria-pressed={localPromptOnly}
-                  onClick={() => {
-                    setLocalPromptOnly((v) => !v);
-                    markDirty();
-                  }}
+                  onClick={togglePromptOnly}
                   className="shrink-0 cursor-pointer"
                 >
                   {localPromptOnly ? (

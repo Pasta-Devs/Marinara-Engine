@@ -15,7 +15,7 @@ export interface AutonomousCheckResult {
   /** Which character(s) should send a message */
   characterIds: string[];
   /** Why this was triggered */
-  reason: "user_inactivity" | "character_exchange" | "none";
+  reason: "user_inactivity" | "user_reaction" | "character_exchange" | "none";
   /** How long the user has been inactive (ms) */
   inactivityMs: number;
 }
@@ -25,11 +25,22 @@ export type AutonomousClientPresenceStatus = "active" | "idle" | "dnd";
 /** Auto-reset generationInProgress after this many ms (5 minutes) */
 const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 
+/**
+ * A lone user reaction (no text after it) lets the first autonomous response fire
+ * after this fraction of the character's normal quiet threshold — snappier than
+ * plain silence, since the user actively engaged…
+ */
+const REACTION_GATE_FRACTION = 0.34;
+/** …but never sooner than this, so a character never reacts within a few seconds. */
+const REACTION_MIN_GATE_MS = 30 * 1000;
+
 export interface ChatActivityState {
   /** Timestamp of the last user message */
   lastUserMessageAt: number;
   /** Timestamp of the last assistant message */
   lastAssistantMessageAt: number;
+  /** Timestamp of the last lone user reaction (an emoji reaction with no text after it). */
+  lastUserReactionAt?: number;
   /** Per-character autonomous message tracking: count sent + timestamp of last autonomous msg */
   autonomousMessages: Map<string, { count: number; lastSentAt: number }>;
   /** Timestamp when generation started, or null if not in progress */
@@ -58,6 +69,28 @@ export function recordUserActivity(chatId: string, opts: { preserveGenerationInP
     activityStates.set(chatId, {
       lastUserMessageAt: now,
       lastAssistantMessageAt: 0,
+      autonomousMessages: new Map(),
+      generationInProgressSince: null,
+    });
+  }
+}
+
+/**
+ * Record that the user reacted to a message (an emoji reaction). Tracked separately
+ * from messages so a lone reaction can nudge the autonomous cadence a little sooner
+ * than plain silence, WITHOUT counting as a full user message (which would reset
+ * follow-up state and clear the un-needy escalation).
+ */
+export function recordUserReaction(chatId: string): void {
+  const now = Date.now();
+  const existing = activityStates.get(chatId);
+  if (existing) {
+    existing.lastUserReactionAt = now;
+  } else {
+    activityStates.set(chatId, {
+      lastUserMessageAt: 0,
+      lastAssistantMessageAt: 0,
+      lastUserReactionAt: now,
       autonomousMessages: new Map(),
       generationInProgressSince: null,
     });
@@ -204,13 +237,19 @@ export function checkAutonomousMessaging(
   }
 
   const now = Date.now();
-  const inactivityMs = now - state.lastUserMessageAt;
+  const lastReactionAt = state.lastUserReactionAt ?? 0;
+  // A lone reaction (no text after it) is the latest user action when it's newer
+  // than the last user message. It opens a shorter gate for the FIRST autonomous
+  // response and never accelerates follow-ups, so characters stay un-needy.
+  const hasLoneReaction = lastReactionAt > state.lastUserMessageAt;
+  const inactivityMs = state.lastUserMessageAt > 0 ? now - state.lastUserMessageAt : 0;
+  const timeSinceReaction = hasLoneReaction ? now - lastReactionAt : Infinity;
 
-  // Don't trigger if user has never sent a message (fresh chat)
-  if (state.lastUserMessageAt === 0) return noTrigger;
+  // Nothing to act on — the user has neither messaged nor reacted
+  if (state.lastUserMessageAt === 0 && !hasLoneReaction) return noTrigger;
 
   // ── Check each character for inactivity threshold ──
-  const eligibleCharacters: Array<{ id: string; priority: number }> = [];
+  const eligibleCharacters: Array<{ id: string; priority: number; reactionDriven: boolean }> = [];
 
   // Maximum autonomous follow-ups before a character stops messaging
   const maxFollowups = Math.max(1, Math.min(3, Math.floor(opts.maxFollowups ?? 3)));
@@ -234,16 +273,27 @@ export function checkAutonomousMessaging(
     if (sentCount >= maxFollowups) continue;
 
     if (sentCount === 0) {
-      // First autonomous message — use normal inactivity from user's last message
-      if (inactivityMs >= baseThresholdMs) {
+      // First autonomous message. Normally gated by inactivity since the user's
+      // last message; a lone reaction opens a shorter, reaction-specific gate (a
+      // fraction of the threshold, floored so it's never near-instant).
+      const reactionGateMs = Math.min(
+        baseThresholdMs,
+        Math.max(REACTION_MIN_GATE_MS, Math.round(baseThresholdMs * REACTION_GATE_FRACTION)),
+      );
+      const inactivityEligible = state.lastUserMessageAt > 0 && inactivityMs >= baseThresholdMs;
+      const reactionEligible = hasLoneReaction && timeSinceReaction >= reactionGateMs;
+      if (inactivityEligible || reactionEligible) {
+        const reactionDriven = reactionEligible && !inactivityEligible;
         eligibleCharacters.push({
           id: charId,
-          priority: schedule.talkativeness + (status === "online" ? 20 : 0),
+          priority: schedule.talkativeness + (status === "online" ? 20 : 0) + (reactionDriven ? 15 : 0),
+          reactionDriven,
         });
       }
     } else {
       // Follow-up messages — measure from the last autonomous message, with escalating cooldown
-      // Each follow-up doubles the cooldown: 2x, 4x base threshold
+      // Each follow-up doubles the cooldown: 2x, 4x base threshold. Reactions do NOT
+      // accelerate follow-ups (keeps characters un-needy after the first reach-out).
       const cooldownMultiplier = Math.pow(2, sentCount);
       const followUpThresholdMs = baseThresholdMs * cooldownMultiplier;
       const timeSinceLastAutonomous = now - (prevAutonomous?.lastSentAt ?? 0);
@@ -252,6 +302,7 @@ export function checkAutonomousMessaging(
         eligibleCharacters.push({
           id: charId,
           priority: schedule.talkativeness + (status === "online" ? 20 : 0) - sentCount * 10, // Lower priority for repeat messages
+          reactionDriven: false,
         });
       }
     }
@@ -262,24 +313,17 @@ export function checkAutonomousMessaging(
   // Sort by priority (highest first)
   eligibleCharacters.sort((a, b) => b.priority - a.priority);
 
+  const top = eligibleCharacters[0]!;
+  const reason: AutonomousCheckResult["reason"] = top.reactionDriven ? "user_reaction" : "user_inactivity";
+
   if (isGroupChat) {
     // In group chats, potentially multiple characters can exchange
     // but start with just the top character
-    return {
-      shouldTrigger: true,
-      characterIds: [eligibleCharacters[0]!.id],
-      reason: "user_inactivity",
-      inactivityMs,
-    };
+    return { shouldTrigger: true, characterIds: [top.id], reason, inactivityMs };
   }
 
   // In DMs, only one character
-  return {
-    shouldTrigger: true,
-    characterIds: [eligibleCharacters[0]!.id],
-    reason: "user_inactivity",
-    inactivityMs,
-  };
+  return { shouldTrigger: true, characterIds: [top.id], reason, inactivityMs };
 }
 
 /**

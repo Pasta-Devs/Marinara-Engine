@@ -14,7 +14,7 @@ import { AddRowButton, EmptySection, SectionHeader } from "../controls/SectionCo
 import { CharacterTrackerCard } from "../character-card/CharacterTrackerCard";
 
 const COMPACT_CHARACTER_GHOST_SLOT_CLASS =
-  "pointer-events-none relative hidden min-h-0 self-stretch overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--border)_28%,transparent)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--card)_18%,transparent),color-mix(in_srgb,var(--background)_12%,transparent)_48%,transparent)] opacity-55 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_3%,transparent),inset_0_-1px_0_color-mix(in_srgb,var(--background)_18%,transparent)] @min-[260px]:block before:pointer-events-none before:absolute before:left-0 before:right-2 before:top-0.5 before:h-5 before:rounded-l-[4px] before:rounded-r-[2px] before:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_78%,var(--card)_22%),color-mix(in_srgb,var(--card)_42%,transparent))] before:opacity-65 after:pointer-events-none after:absolute after:inset-1 after:rounded-[4px] after:bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--border)_12%,transparent)_0_1px,transparent_1px_7px)] after:opacity-35";
+  "pointer-events-none relative hidden min-h-0 self-stretch overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--border)_28%,transparent)] bg-[var(--tracker-panel-card-background,linear-gradient(135deg,color-mix(in_srgb,var(--card)_18%,transparent),color-mix(in_srgb,var(--background)_12%,transparent)_48%,transparent))] opacity-55 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_3%,transparent),inset_0_-1px_0_color-mix(in_srgb,var(--background)_18%,transparent)] @min-[260px]:block before:pointer-events-none before:absolute before:left-0 before:right-2 before:top-0.5 before:h-5 before:rounded-l-[4px] before:rounded-r-[2px] before:bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_78%,var(--card)_22%),color-mix(in_srgb,var(--card)_42%,transparent))] before:opacity-65 after:pointer-events-none after:absolute after:inset-1 after:rounded-[4px] after:bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--border)_12%,transparent)_0_1px,transparent_1px_7px)] after:opacity-35";
 const COMPACT_CHARACTER_CARD_SLOT_CLASS = "min-h-0 h-full";
 
 export function CharacterTrackerPanel({
@@ -115,6 +115,7 @@ export function CharacterTrackerPanel({
         dockedThoughtsAlwaysVisible={dockedThoughtsAlwaysVisible}
         onUpdate={(updated) => onUpdateCharacter(index, updated)}
         onRemove={() => onRemoveCharacter(index)}
+        characterIndex={index}
         deleteMode={deleteMode}
         addMode={addMode}
         featured={featured}
@@ -154,7 +155,7 @@ export function CharacterTrackerPanel({
 
   return (
     <section
-      className="group/characters relative z-10 border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--card)_5%,transparent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_5%,transparent)]"
+      className="group/characters relative z-10 border-b border-[var(--border)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_5%,transparent))] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_5%,transparent)]"
       aria-label="Characters"
     >
       <SectionHeader

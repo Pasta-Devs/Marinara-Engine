@@ -16,6 +16,10 @@ export interface SpritesExpressionSheetCtx extends Record<string, string | numbe
   expressionCount: number;
   expressionList: string;
   appearance: string;
+  sheetWidth?: number;
+  sheetHeight?: number;
+  cellWidth?: number;
+  cellHeight?: number;
 }
 
 export const SPRITES_EXPRESSION_SHEET: PromptOverrideKeyDef<SpritesExpressionSheetCtx> = {
@@ -35,13 +39,23 @@ export const SPRITES_EXPRESSION_SHEET: PromptOverrideKeyDef<SpritesExpressionShe
       description: "Character appearance description.",
       example: "auburn hair, green eyes, leather jacket",
     },
+    { name: "sheetWidth", description: "Target output canvas width in pixels.", example: "1024" },
+    { name: "sheetHeight", description: "Target output canvas height in pixels.", example: "1024" },
+    { name: "cellWidth", description: "Target width of each slice cell in pixels.", example: "256" },
+    { name: "cellHeight", description: "Target height of each slice cell in pixels.", example: "256" },
   ],
   defaultBuilder: (ctx) =>
     [
       `character expression sprite sheet source image, designed to be sliced into cells,`,
+      ctx.sheetWidth && ctx.sheetHeight && ctx.cellWidth && ctx.cellHeight
+        ? `target output canvas is ${ctx.sheetWidth}x${ctx.sheetHeight} pixels, with each cell exactly ${ctx.cellWidth}x${ctx.cellHeight} pixels,`
+        : undefined,
       `EXACTLY ${ctx.expressionCount} total portrait cells and every cell must be filled,`,
       `strict ${ctx.cols} columns by ${ctx.rows} rows grid, no extra rows, no extra columns, no extra panels,`,
       `${ctx.expressionCount} equally sized square cells arranged in one perfectly uniform grid,`,
+      ctx.cellWidth && ctx.cellHeight
+        ? `all vertical grid cuts are evenly spaced every ${ctx.cellWidth} pixels and all horizontal grid cuts every ${ctx.cellHeight} pixels,`
+        : undefined,
       `solid white background, thin straight borders or clean gutters separating every cell,`,
       `same character in every cell, same outfit, same camera distance, same lighting, consistent art style,`,
       `expressions left-to-right top-to-bottom, one cell per expression, no duplicates and none missing: ${ctx.expressionList},`,
@@ -51,13 +65,19 @@ export const SPRITES_EXPRESSION_SHEET: PromptOverrideKeyDef<SpritesExpressionShe
       `all cells same size, perfectly aligned, no overlapping, no merged cells, no blank cells,`,
       `the final image must stop after row ${ctx.rows}; do not draw bonus rows, bonus expressions, or extra characters,`,
       `no text, no labels, no numbers, no captions, no watermark`,
-    ].join(" "),
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(" "),
   exampleContext: {
     cols: 2,
     rows: 3,
     expressionCount: 6,
     expressionList: "neutral, happy, sad, angry, surprised, embarrassed",
     appearance: "auburn hair, green eyes, leather jacket",
+    sheetWidth: 1024,
+    sheetHeight: 1536,
+    cellWidth: 512,
+    cellHeight: 512,
   },
 };
 

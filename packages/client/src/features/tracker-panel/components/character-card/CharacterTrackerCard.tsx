@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 import { Eye, HeartPulse, Maximize2, Shirt, X } from "lucide-react";
-import type { PresentCharacter } from "@marinara-engine/shared";
+import {
+  characterCustomFieldTrackerLockKey,
+  characterStatTrackerLockKey,
+  characterTrackerLockKey,
+  isTrackerFieldLocked,
+  type PresentCharacter,
+} from "@marinara-engine/shared";
 import type {
   TrackerPanelSide,
   TrackerPanelSizeProfile,
@@ -17,6 +23,7 @@ import {
 } from "../controls/TrackerProfileChrome";
 import { StatList } from "../controls/StatList";
 import { FeaturedCharacterTrackerCard } from "./FeaturedCharacterTrackerCard";
+import { useTrackerFieldLock, useTrackerLockContext } from "../TrackerLockContext";
 import { CharacterTrackerAvatar } from "./CharacterTrackerAvatar";
 import {
   COMPACT_CHARACTER_MOOD_EDIT_CLASS,
@@ -25,7 +32,7 @@ import {
 } from "./CharacterTrackerField";
 
 const CHARACTER_CARD_CLASS =
-  "group/character @container relative isolate h-full min-w-0 overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--tracker-profile-rule)_52%,transparent)] bg-[image:var(--tracker-profile-material)] p-0.5 shadow-[0_0_9px_color-mix(in_srgb,var(--tracker-profile-dialogue-glow)_13%,transparent),inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent),inset_0_-1px_0_color-mix(in_srgb,var(--background)_24%,transparent)] transition-colors duration-200 hover:border-[color-mix(in_srgb,var(--primary)_22%,var(--tracker-profile-rule)_78%)] [background-blend-mode:var(--tracker-profile-material-blend)]";
+  "group/character @container relative isolate h-full min-w-0 overflow-hidden rounded-md border border-[color-mix(in_srgb,var(--tracker-profile-rule)_52%,transparent)] bg-[image:var(--tracker-profile-material)] p-0.5 shadow-[0_0_9px_color-mix(in_srgb,var(--tracker-profile-dialogue-glow)_13%,transparent),inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent),inset_0_-1px_0_color-mix(in_srgb,var(--background)_24%,transparent)] transition-colors duration-200 hover:border-[color-mix(in_srgb,var(--foreground)_18%,var(--tracker-profile-rule)_82%)] [background-blend-mode:var(--tracker-profile-material-blend)]";
 const CHARACTER_CARD_TONE_OVERLAY_CLASS =
   "pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_22%_12%,color-mix(in_srgb,var(--tracker-profile-nameplate-glow)_10%,transparent),transparent_36%),linear-gradient(135deg,color-mix(in_srgb,var(--foreground)_2%,transparent),transparent_46%,color-mix(in_srgb,var(--tracker-profile-accent-solid)_4%,transparent))] opacity-[var(--tracker-profile-accent-wash-opacity,0)]";
 const CHARACTER_CARD_TEXTURE_CLASS =
@@ -35,13 +42,13 @@ const CHARACTER_CARD_BODY_MATERIAL_CLASS =
 const CHARACTER_AVATAR_CORNER_SHADE_CLASS =
   "pointer-events-none absolute left-0 top-[1.35rem] z-0 h-[3.1rem] w-[7.25rem] bg-[radial-gradient(ellipse_at_0%_0%,color-mix(in_srgb,var(--background)_48%,transparent)_0%,color-mix(in_srgb,var(--background)_24%,transparent)_34%,transparent_72%)] mix-blend-multiply [mask-image:linear-gradient(180deg,black_0%,black_60%,transparent_100%)]";
 const CHARACTER_REMOVE_BUTTON_CLASS =
-  "rounded p-1 text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-90";
+  "rounded p-1 text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--border)] active:scale-90";
 const CHARACTER_HEADER_CLASS = "relative -mt-2.5 flex items-start gap-1 px-0.5";
 const CHARACTER_HEADER_COPY_CLASS = "relative z-[1] min-w-0 flex-1 pt-3";
 const CHARACTER_HEADER_VOID_TEXTURE_CLASS =
   "pointer-events-none absolute inset-x-0 bottom-[-0.125rem] top-[2.05rem] z-0 rounded-b-[5px] bg-[radial-gradient(ellipse_at_48%_0%,color-mix(in_srgb,var(--tracker-profile-accent-solid)_11%,transparent)_0%,transparent_62%),repeating-linear-gradient(135deg,color-mix(in_srgb,var(--tracker-profile-rule)_18%,transparent)_0_1px,transparent_1px_7px),repeating-linear-gradient(0deg,color-mix(in_srgb,var(--foreground)_4%,transparent)_0_1px,transparent_1px_5px)] opacity-[0.56] mix-blend-soft-light [mask-image:linear-gradient(180deg,transparent_0%,black_22%,black_82%,transparent_100%)]";
 const CHARACTER_FEATURE_BUTTON_CLASS =
-  "absolute left-0 top-0 z-[6] flex h-[1.35rem] w-[1.35rem] items-center justify-center rounded-tl-[5px] rounded-br-[5px] bg-transparent text-[var(--tracker-profile-nameplate-text)]/42 transition-all hover:bg-[color-mix(in_srgb,var(--tracker-profile-nameplate-rule)_10%,transparent)] hover:text-[var(--tracker-profile-nameplate-text)]/74 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--primary)]/50 active:scale-95 [&>svg]:drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]";
+  "absolute left-0 top-0 z-[6] flex h-[1.35rem] w-[1.35rem] items-center justify-center rounded-tl-[5px] rounded-br-[5px] bg-transparent text-[var(--tracker-profile-nameplate-text)]/42 transition-all hover:bg-[color-mix(in_srgb,var(--tracker-profile-nameplate-rule)_10%,transparent)] hover:text-[var(--tracker-profile-nameplate-text)]/74 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-[var(--border)] active:scale-95 [&>svg]:drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]";
 const CHARACTER_NAMEPLATE_CLASS =
   "relative z-[3] -mx-0.5 -mt-0.5 mb-0.5 flex h-[1.35rem] min-w-0 items-center overflow-hidden rounded-t-[5px] border-x border-t border-[color-mix(in_srgb,var(--tracker-profile-nameplate-rule)_20%,transparent)] bg-[image:var(--tracker-profile-nameplate)] pl-[clamp(4.05rem,43cqw,4.85rem)] pr-1.5 shadow-[0_0_4px_color-mix(in_srgb,var(--tracker-profile-nameplate-glow)_9%,transparent),inset_0_-1px_0_color-mix(in_srgb,var(--background)_24%,transparent)] [background-blend-mode:normal]";
 const CHARACTER_NAMEPLATE_GLEAM_CLASS =
@@ -78,10 +85,13 @@ function CompactCharacterNameplate({ children }: { children: ReactNode }) {
 function CompactThoughtBubble({
   value,
   onSave,
+  lockKey,
 }: {
   value: string | null | undefined;
   onSave?: (value: string) => void;
+  lockKey?: string;
 }) {
+  const lock = useTrackerFieldLock(lockKey);
   const thoughtText = visibleText(value, "Thoughts").replace(/\s+/g, " ");
 
   return (
@@ -97,8 +107,8 @@ function CompactThoughtBubble({
               className="min-h-4 w-full min-w-0 px-0 py-0 text-[0.59375rem] font-medium italic leading-[1.05] [--foreground:color-mix(in_srgb,var(--tracker-profile-text)_90%,var(--tracker-profile-accent-solid)_10%)] [--muted-foreground:color-mix(in_srgb,var(--tracker-profile-muted-text)_82%,var(--tracker-profile-accent-solid)_18%)] hover:bg-[var(--tracker-profile-accent-solid)]/10"
               showEditHint={false}
               previewLineCount={3}
-              editHintMode="overlay"
               previewClassName="tracking-[0]"
+              {...lock}
             />
           ) : (
             <p className="line-clamp-3 break-words text-[0.59375rem] font-medium italic leading-[1.05] tracking-[0] text-[color-mix(in_srgb,var(--tracker-profile-text)_90%,var(--tracker-profile-accent-solid)_10%)]">
@@ -125,6 +135,7 @@ export function CharacterTrackerCard({
   action,
   onUpdate,
   onRemove,
+  characterIndex = 0,
   deleteMode = false,
   addMode = false,
   featured = false,
@@ -144,12 +155,14 @@ export function CharacterTrackerCard({
   action?: ReactNode;
   onUpdate?: (character: PresentCharacter) => void;
   onRemove?: () => void;
+  characterIndex?: number;
   deleteMode?: boolean;
   addMode?: boolean;
   featured?: boolean;
   onToggleFeatured?: () => void;
   onUploadAvatar?: () => void;
 }) {
+  const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   if (featured) {
     return (
       <FeaturedCharacterTrackerCard
@@ -166,6 +179,7 @@ export function CharacterTrackerCard({
         action={action}
         onUpdate={onUpdate}
         onRemove={onRemove}
+        characterIndex={characterIndex}
         deleteMode={deleteMode}
         addMode={addMode}
         onToggleFeatured={onToggleFeatured}
@@ -187,6 +201,7 @@ export function CharacterTrackerCard({
   const hasDenseContent = characterStats.length > 0 || customFields.length > 0;
   const readableDetailRows = hasDenseContent;
   const readableCustomFields = trackerPanelSizeProfile === "expanded";
+  const emojiLockKey = characterTrackerLockKey(character, characterIndex, "emoji");
   const avatarSize = hasDenseContent
     ? "z-[5] mt-0 w-[clamp(2.25rem,28%,3rem)] -translate-y-0.5"
     : "z-[5] mt-0 w-[clamp(3rem,36%,3.75rem)] -translate-y-0.5";
@@ -243,6 +258,13 @@ export function CharacterTrackerCard({
             showEditHint={false}
             fitPreview
             fitMinScale={0.58}
+            locked={isTrackerFieldLocked(fieldLocks, characterTrackerLockKey(character, characterIndex, "name"))}
+            lockMode={lockMode}
+            onToggleLock={
+              onToggleFieldLock
+                ? () => onToggleFieldLock(characterTrackerLockKey(character, characterIndex, "name"))
+                : undefined
+            }
           />
         ) : (
           <FittedText
@@ -274,12 +296,17 @@ export function CharacterTrackerCard({
           avatarMedia={avatarMedia}
           avatarSize={avatarSize}
           onUploadAvatar={compactAvatarUpload}
+          onSaveEmoji={onUpdate ? (emoji) => onUpdate({ ...character, emoji }) : undefined}
+          emojiLocked={isTrackerFieldLocked(fieldLocks, emojiLockKey)}
+          lockMode={lockMode}
+          onToggleEmojiLock={onToggleFieldLock ? () => onToggleFieldLock(emojiLockKey) : undefined}
         />
         <div className={CHARACTER_HEADER_COPY_CLASS}>
           {showThoughts && (
             <CompactThoughtBubble
               value={character.thoughts}
               onSave={onUpdate ? (thoughts) => onUpdate({ ...character, thoughts: thoughts || null }) : undefined}
+              lockKey={characterTrackerLockKey(character, characterIndex, "thoughts")}
             />
           )}
           {!showThoughts && <div className={CHARACTER_HEADER_FILLER_CLASS} />}
@@ -298,6 +325,7 @@ export function CharacterTrackerCard({
               tone="mood"
               readable={readableDetailRows}
               valueClassName={onUpdate ? COMPACT_CHARACTER_MOOD_EDIT_CLASS : COMPACT_CHARACTER_MOOD_STATIC_CLASS}
+              lockKey={characterTrackerLockKey(character, characterIndex, "mood")}
             />
           )}
           {showAppearance && (
@@ -309,6 +337,7 @@ export function CharacterTrackerCard({
               onSave={onUpdate ? (appearance) => onUpdate({ ...character, appearance: appearance || null }) : undefined}
               tone="appearance"
               readable={readableDetailRows}
+              lockKey={characterTrackerLockKey(character, characterIndex, "appearance")}
             />
           )}
           {showOutfit && (
@@ -320,6 +349,7 @@ export function CharacterTrackerCard({
               onSave={onUpdate ? (outfit) => onUpdate({ ...character, outfit: outfit || null }) : undefined}
               tone="outfit"
               readable={readableDetailRows}
+              lockKey={characterTrackerLockKey(character, characterIndex, "outfit")}
             />
           )}
         </div>
@@ -334,6 +364,7 @@ export function CharacterTrackerCard({
             nameMode="truncate"
             deleteMode={deleteMode}
             addMode={addMode}
+            getLockKey={(statIndex, field) => characterStatTrackerLockKey(character, characterIndex, statIndex, field)}
           />
         </div>
       )}
@@ -349,6 +380,17 @@ export function CharacterTrackerCard({
                   placeholder="Field"
                   className="min-w-0 px-0.5 py-0 font-medium"
                   scrollOnHover
+                  locked={isTrackerFieldLocked(
+                    fieldLocks,
+                    characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"),
+                  )}
+                  lockMode={lockMode}
+                  onToggleLock={
+                    onToggleFieldLock
+                      ? () =>
+                          onToggleFieldLock(characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"))
+                      : undefined
+                  }
                 />
               ) : (
                 <span className="truncate font-medium text-[color:var(--tracker-profile-muted-text)]">{name}</span>
@@ -361,7 +403,19 @@ export function CharacterTrackerCard({
                   className="min-w-0 px-0.5 py-0"
                   scrollOnHover={!readableCustomFields}
                   twoLinePreview={readableCustomFields}
-                  editHintMode={readableCustomFields ? "overlay" : "inline"}
+                  locked={isTrackerFieldLocked(
+                    fieldLocks,
+                    characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"),
+                  )}
+                  lockMode={lockMode}
+                  onToggleLock={
+                    onToggleFieldLock
+                      ? () =>
+                          onToggleFieldLock(
+                            characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"),
+                          )
+                      : undefined
+                  }
                 />
               ) : (
                 <span

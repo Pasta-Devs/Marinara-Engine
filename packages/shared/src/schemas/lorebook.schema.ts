@@ -2,8 +2,16 @@
 // Lorebook Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { LIMITS } from "../constants/defaults.js";
 
 export const lorebookCategorySchema = z.enum(["world", "character", "npc", "spellbook", "uncategorized"]);
+
+export const lorebookScopeModeSchema = z.enum(["all", "disabled", "specific"]);
+
+export const lorebookScopeSchema = z.object({
+  mode: lorebookScopeModeSchema.default("all"),
+  chatIds: z.array(z.string()).default([]),
+});
 
 export const selectiveLogicSchema = z.enum(["and", "or", "not"]);
 
@@ -30,6 +38,11 @@ export const lorebookScheduleSchema = z.object({
   activeDates: z.array(z.string()).default([]),
   activeLocations: z.array(z.string()).default([]),
 });
+
+const lorebookGeneratedBySchema = z
+  .enum(["user", "agent", "import", "lorebook-maker"])
+  .nullable()
+  .transform((value) => (value === "lorebook-maker" ? "agent" : value));
 
 // ──────────────────────────────────────────────
 // Folders — collapsible containers for entries
@@ -58,6 +71,12 @@ export const createLorebookSchema = z.object({
   imagePath: z.string().nullable().default(null),
   scanDepth: z.number().int().min(0).default(2),
   tokenBudget: z.number().int().min(0).default(2048),
+  entryLimit: z
+    .number()
+    .int()
+    .min(LIMITS.LOREBOOK_ENTRY_LIMIT_MIN)
+    .max(LIMITS.LOREBOOK_ENTRY_LIMIT_MAX)
+    .default(LIMITS.LOREBOOK_ENTRY_LIMIT_DEFAULT),
   recursiveScanning: z.boolean().default(false),
   maxRecursionDepth: z.number().int().min(1).max(10).default(3),
   excludeFromVectorization: z.boolean().default(false),
@@ -68,8 +87,9 @@ export const createLorebookSchema = z.object({
   chatId: z.string().nullable().default(null),
   isGlobal: z.boolean().default(false),
   enabled: z.boolean().default(true),
+  scope: lorebookScopeSchema.default({ mode: "all", chatIds: [] }),
   tags: z.array(z.string()).default([]),
-  generatedBy: z.enum(["user", "agent", "import", "lorebook-maker"]).nullable().default(null),
+  generatedBy: lorebookGeneratedBySchema.default(null),
   sourceAgentId: z.string().nullable().default(null),
 });
 
@@ -81,6 +101,12 @@ export const updateLorebookSchema = z
     imagePath: z.string().nullable().optional(),
     scanDepth: z.number().int().min(0).optional(),
     tokenBudget: z.number().int().min(0).optional(),
+    entryLimit: z
+      .number()
+      .int()
+      .min(LIMITS.LOREBOOK_ENTRY_LIMIT_MIN)
+      .max(LIMITS.LOREBOOK_ENTRY_LIMIT_MAX)
+      .optional(),
     recursiveScanning: z.boolean().optional(),
     maxRecursionDepth: z.number().int().min(1).max(10).optional(),
     excludeFromVectorization: z.boolean().optional(),
@@ -91,8 +117,9 @@ export const updateLorebookSchema = z
     chatId: z.string().nullable().optional(),
     isGlobal: z.boolean().optional(),
     enabled: z.boolean().optional(),
+    scope: lorebookScopeSchema.optional(),
     tags: z.array(z.string()).optional(),
-    generatedBy: z.enum(["user", "agent", "import", "lorebook-maker"]).nullable().optional(),
+    generatedBy: lorebookGeneratedBySchema.optional(),
     sourceAgentId: z.string().nullable().optional(),
   })
   .superRefine((value, ctx) => {

@@ -6,13 +6,14 @@
 // character card's fields (description, personality, etc.) based on what
 // happened in the roleplay. Unlike the Lorebook Keeper, card edits require
 // the user's explicit approval — this modal shows the old → new diff and
-// asks the user to approve or reject each batch.
-import { useMemo, useState } from "react";
-import { Loader2, UserCog, Check, X, AlertCircle } from "lucide-react";
+// asks the user to approve, edit, regenerate, or reject each batch.
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, UserCog, Check, X, AlertCircle, RefreshCw } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { useAgentStore } from "../../stores/agent.store";
 import { useCharacter, useUpdateCharacter } from "../../hooks/use-characters";
-import type { EditableCharacterCardField } from "@marinara-engine/shared";
+import { type CharacterCardFieldUpdate, type EditableCharacterCardField } from "@marinara-engine/shared";
+import { useGenerate } from "../../hooks/use-generate";
 
 function getCharacterCardFieldValue(data: Record<string, unknown>, field: EditableCharacterCardField): string | null {
   if (field === "backstory" || field === "appearance") {
@@ -67,14 +68,25 @@ interface Props {
   onClose: () => void;
 }
 
+type BusyAction = "approve" | "regenerate" | null;
+
 export function CharacterCardUpdateModal({ open, onClose }: Props) {
   const pending = useAgentStore((s) => s.pendingCardUpdates);
   const dismissPendingCardUpdate = useAgentStore((s) => s.dismissPendingCardUpdate);
 
   const entry = pending[0] ?? null;
+  const { retryAgents } = useGenerate();
   const { data: character } = useCharacter(entry?.characterId ?? null);
   const updateCharacter = useUpdateCharacter();
   const [error, setError] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<BusyAction>(null);
+  const [draftUpdates, setDraftUpdates] = useState<CharacterCardFieldUpdate[]>([]);
+
+  useEffect(() => {
+    setDraftUpdates(entry?.updates ?? []);
+    setError(null);
+    setBusyAction(null);
+  }, [entry?.id, entry?.updates]);
 
   // Character rows come back from /characters with `data` serialized as a JSON
   // string, so parse it once here and reuse below.
@@ -96,20 +108,21 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
   // slice of a field that often contains multiple paragraphs.
   const applicableUpdates = useMemo(() => {
     if (!entry || !character) return [];
-    return entry.updates.filter((u) => {
+    return draftUpdates.filter((u) => {
       const current = getCharacterCardFieldValue(parsedData, u.field);
       return typeof current === "string" && u.oldText.length > 0 && current.includes(u.oldText);
     });
-  }, [entry, character, parsedData]);
+  }, [entry, character, draftUpdates, parsedData]);
 
   if (!entry) return null;
 
   const closeAndAdvance = () => {
     dismissPendingCardUpdate(entry.id);
     setError(null);
+    setBusyAction(null);
     // If another pending update is queued, keep the modal open so the user
     // can triage them in sequence; otherwise close.
-    if (pending.length <= 1) {
+    if (useAgentStore.getState().pendingCardUpdates.length === 0) {
       onClose();
     }
   };
@@ -122,6 +135,8 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     // Apply each edit as a targeted substring replace inside the field's current
     // value, NOT by overwriting the field with newText (which would erase
     // everything around the edited sentence).
+    setBusyAction("approve");
+    setError(null);
     let nextData: Record<string, unknown> = { ...parsedData };
     for (const u of applicableUpdates) {
       const base = getCharacterCardFieldValue(nextData, u.field);
@@ -139,11 +154,38 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
       closeAndAdvance();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to apply character updates");
+    } finally {
+      setBusyAction(null);
     }
   };
 
   const handleReject = () => {
     closeAndAdvance();
+  };
+
+  const handleRegenerate = async () => {
+    if (!entry.chatId || !entry.agentType) {
+      setError("This proposal cannot be regenerated automatically.");
+      return;
+    }
+    setBusyAction("regenerate");
+    setError(null);
+    try {
+      const didRegenerate = await retryAgents(entry.chatId, [entry.agentType]);
+      if (!didRegenerate) {
+        setError("Failed to regenerate character card updates");
+        return;
+      }
+      closeAndAdvance();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to regenerate character card updates");
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const updateDraftNewText = (index: number, newText: string) => {
+    setDraftUpdates((current) => current.map((update, idx) => (idx === index ? { ...update, newText } : update)));
   };
 
   const queueNote = pending.length > 1 ? ` (${pending.length - 1} more queued)` : "";
@@ -160,7 +202,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
               {(typeof parsedData.name === "string" && parsedData.name) || entry.characterName}
             </p>
             <p className="text-xs text-[var(--muted-foreground)]">
-              {entry.agentName} proposed {entry.updates.length} {entry.updates.length === 1 ? "change" : "changes"}
+              {entry.agentName} proposed {draftUpdates.length} {draftUpdates.length === 1 ? "change" : "changes"}
               {queueNote}
             </p>
           </div>
@@ -175,7 +217,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
         )}
 
         <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
-          {entry.updates.map((u, idx) => {
+          {draftUpdates.map((u, idx) => {
             const stale = !applicableUpdates.includes(u);
             return (
               <div
@@ -207,9 +249,13 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
                   <span className="text-[10px] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
                     After
                   </span>
-                  <p className="whitespace-pre-wrap rounded-md bg-emerald-500/5 p-2 text-xs leading-relaxed text-[var(--foreground)]">
-                    {u.newText}
-                  </p>
+                  <textarea
+                    value={u.newText}
+                    onChange={(event) => updateDraftNewText(idx, event.target.value)}
+                    disabled={busyAction !== null}
+                    rows={Math.max(3, Math.min(8, u.newText.split(/\r?\n/).length + 1))}
+                    className="w-full resize-y rounded-md border border-emerald-500/10 bg-emerald-500/5 p-2 text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/55 focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)] disabled:opacity-70"
+                  />
                 </div>
               </div>
             );
@@ -227,7 +273,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
           <button
             type="button"
             onClick={handleReject}
-            disabled={updateCharacter.isPending}
+            disabled={busyAction !== null || updateCharacter.isPending}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
           >
             <X size="0.75rem" />
@@ -235,11 +281,29 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
           </button>
           <button
             type="button"
+            onClick={handleRegenerate}
+            disabled={busyAction !== null || updateCharacter.isPending}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            title="Regenerate this proposal"
+          >
+            {busyAction === "regenerate" ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <RefreshCw size="0.75rem" />
+            )}
+            Regenerate
+          </button>
+          <button
+            type="button"
             onClick={handleApprove}
-            disabled={updateCharacter.isPending || applicableUpdates.length === 0}
+            disabled={busyAction !== null || updateCharacter.isPending || applicableUpdates.length === 0}
             className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
           >
-            {updateCharacter.isPending ? <Loader2 size="0.75rem" className="animate-spin" /> : <Check size="0.75rem" />}
+            {busyAction === "approve" || updateCharacter.isPending ? (
+              <Loader2 size="0.75rem" className="animate-spin" />
+            ) : (
+              <Check size="0.75rem" />
+            )}
             Approve {applicableUpdates.length > 0 ? `(${applicableUpdates.length})` : ""}
           </button>
         </div>

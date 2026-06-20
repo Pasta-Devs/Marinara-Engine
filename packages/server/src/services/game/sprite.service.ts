@@ -96,7 +96,9 @@ export function listCharacterSprites(
   if (!existsSync(dir)) return null;
 
   try {
-    const files = readdirSync(dir).filter((f) => SPRITE_EXTS.has(extname(f).toLowerCase()));
+    const files = readdirSync(dir)
+      .filter((f) => SPRITE_EXTS.has(extname(f).toLowerCase()))
+      .sort((a, b) => a.localeCompare(b));
     const expressions: string[] = [];
     const fullBody: string[] = [];
     const automaticFullBody: string[] = [];

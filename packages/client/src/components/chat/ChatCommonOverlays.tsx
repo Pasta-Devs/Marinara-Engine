@@ -30,6 +30,7 @@ const PeekPromptModal = lazy(async () => {
 });
 
 type ChatData = ComponentProps<typeof ChatSettingsDrawer>["chat"];
+export type ChatFloatingPanelAnchor = { right: number; top: number } | null;
 
 type SharedSceneSettingsProps = {
   spriteArrangeMode: boolean;
@@ -62,7 +63,10 @@ function DeleteConfirmationDialog({
   if (!messageId) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] sm:p-4"
+      onClick={onClose}
+    >
       <div
         className="mx-4 w-full max-w-xs rounded-xl bg-[var(--card)] p-5 shadow-2xl ring-1 ring-[var(--border)]"
         onClick={(e) => e.stopPropagation()}
@@ -176,8 +180,10 @@ type ChatCommonOverlaysProps = {
   chat: ChatData | null | undefined;
   activeChatId: string;
   settingsOpen: boolean;
+  settingsAnchor: ChatFloatingPanelAnchor;
   filesOpen: boolean;
   galleryOpen: boolean;
+  galleryAnchor: ChatFloatingPanelAnchor;
   wizardOpen: boolean;
   peekPromptData: PeekPromptData | null;
   deleteDialogMessageId: string | null;
@@ -209,8 +215,10 @@ export function ChatCommonOverlays({
   chat,
   activeChatId,
   settingsOpen,
+  settingsAnchor,
   filesOpen,
   galleryOpen,
+  galleryAnchor,
   wizardOpen,
   peekPromptData,
   deleteDialogMessageId,
@@ -245,6 +253,7 @@ export function ChatCommonOverlays({
               chat={chat}
               open={settingsOpen}
               onClose={onCloseSettings}
+              anchor={settingsAnchor}
               spriteArrangeMode={sceneSettings.spriteArrangeMode}
               onToggleSpriteArrange={sceneSettings.onToggleSpriteArrange}
               onResetSpritePlacements={sceneSettings.onResetSpritePlacements}
@@ -261,7 +270,13 @@ export function ChatCommonOverlays({
       {chat && (
         <Suspense fallback={null}>
           {galleryOpen && (
-            <ChatGalleryDrawer chat={chat} open={galleryOpen} onClose={onCloseGallery} onIllustrate={onIllustrate} />
+            <ChatGalleryDrawer
+              chat={chat}
+              open={galleryOpen}
+              onClose={onCloseGallery}
+              anchor={galleryAnchor}
+              onIllustrate={onIllustrate}
+            />
           )}
         </Suspense>
       )}

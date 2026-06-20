@@ -16,11 +16,11 @@ export function useIdleDetection() {
 
   useEffect(() => {
     const resetTimer = () => {
-      const { userStatusManual, setUserStatus } = useUIStore.getState();
+      const { userStatus, userStatusManual, setUserStatus } = useUIStore.getState();
       // Only manage idle if the user's manual choice is "active"
       if (userStatusManual !== "active") return;
 
-      if (isIdleRef.current) {
+      if (isIdleRef.current || userStatus === "idle") {
         isIdleRef.current = false;
         setUserStatus("active");
       }
@@ -36,7 +36,7 @@ export function useIdleDetection() {
     };
 
     // Activity events
-    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"] as const;
+    const events = ["pointermove", "pointerdown", "mousemove", "mousedown", "keydown", "touchstart", "wheel", "scroll"] as const;
     for (const evt of events) {
       window.addEventListener(evt, resetTimer, { passive: true });
     }

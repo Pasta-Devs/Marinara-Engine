@@ -1,26 +1,39 @@
 // ──────────────────────────────────────────────
-// Reusable help tooltip — hover ? icon to see explanation
+// Reusable help tooltip — hover or click/tap ? icon to see explanation
 // ──────────────────────────────────────────────
-import { useState, useRef, useLayoutEffect, useEffect } from "react";
+import { useState, useRef, useLayoutEffect, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { HelpCircle } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface HelpTooltipProps {
-  /** The help text to display */
-  text: string;
+  /** The help content to display */
+  text: ReactNode;
+  /** Optional visible label shown before the help icon */
+  label?: string;
   /** Optional size of the icon (default "0.75rem") */
   size?: string | number;
   /** Preferred position */
   side?: "top" | "bottom" | "left" | "right";
   /** Extra class on the icon wrapper */
   className?: string;
+  /** Extra class on the clickable help button */
+  buttonClassName?: string;
   /** Use a wider tooltip panel (long explanations) */
   wide?: boolean;
 }
 
-export function HelpTooltip({ text, size = "0.75rem", side = "top", className, wide }: HelpTooltipProps) {
+export function HelpTooltip({
+  text,
+  label,
+  size = "0.75rem",
+  side = "top",
+  className,
+  buttonClassName,
+  wide,
+}: HelpTooltipProps) {
   const [show, setShow] = useState(false);
+  const [pinned, setPinned] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; ready: boolean }>({ top: 0, left: 0, ready: false });
@@ -62,14 +75,17 @@ export function HelpTooltip({ text, size = "0.75rem", side = "top", className, w
     if (!show) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (!wrapRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!wrapRef.current?.contains(target) && !tipRef.current?.contains(target)) {
         setShow(false);
+        setPinned(false);
       }
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setShow(false);
+        setPinned(false);
       }
     };
 
@@ -82,22 +98,36 @@ export function HelpTooltip({ text, size = "0.75rem", side = "top", className, w
   }, [show]);
 
   return (
-    <span ref={wrapRef} className={cn("relative inline-flex", className)} onMouseLeave={() => setShow(false)}>
+    <span
+      ref={wrapRef}
+      className={cn("relative inline-flex", className)}
+      onMouseLeave={() => {
+        if (!pinned) setShow(false);
+      }}
+    >
       <button
         type="button"
-        aria-label="Show help"
-        className="inline-flex cursor-help items-center rounded-full text-[var(--muted-foreground)] opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]/40"
+        aria-label={label ? `Show help: ${label}` : "Show help"}
+        aria-expanded={show}
+        className={cn(
+          "inline-flex cursor-help items-center gap-1 rounded-full text-[var(--muted-foreground)] opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]/40",
+          buttonClassName,
+        )}
         onMouseEnter={() => setShow(true)}
         onPointerDown={(event) => {
-          event.preventDefault();
           event.stopPropagation();
         }}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          setShow((current) => !current);
+          setPinned((current) => {
+            const nextPinned = !current;
+            setShow(nextPinned);
+            return nextPinned;
+          });
         }}
       >
+        {label && <span>{label}</span>}
         <HelpCircle size={size} />
       </button>
       {show &&
@@ -105,7 +135,7 @@ export function HelpTooltip({ text, size = "0.75rem", side = "top", className, w
           <div
             ref={tipRef}
             className={cn(
-              "pointer-events-none fixed z-[9999] rounded-lg bg-[var(--popover)] px-3 py-2 text-[0.6875rem] leading-relaxed text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]",
+              "fixed z-[9999] rounded-lg bg-[var(--popover)] px-3 py-2 text-left text-[0.6875rem] leading-relaxed text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]",
               wide ? "w-[min(22rem,calc(100vw-1.5rem))] max-w-[22rem]" : "w-56",
             )}
             style={{ top: pos.top, left: pos.left, visibility: pos.ready ? "visible" : "hidden" }}
