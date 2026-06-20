@@ -89,6 +89,7 @@ interface SidecarState {
         | "topP"
         | "topK"
         | "gpuLayers"
+        | "enableNativeToolCalls"
         | "runtimePreference"
       >
     >,

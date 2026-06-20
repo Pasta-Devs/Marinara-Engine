@@ -351,6 +351,7 @@ class SidecarProcessService {
       port,
       contextSize: config.contextSize,
       runtimeVariant: runtime.variant,
+      enableNativeToolCalls: config.enableNativeToolCalls,
     });
   }
 
@@ -421,6 +422,7 @@ class SidecarProcessService {
           modelRef,
           contextSize: config.contextSize,
           gpuLayers: config.gpuLayers,
+          enableNativeToolCalls: config.enableNativeToolCalls,
         });
   }
 

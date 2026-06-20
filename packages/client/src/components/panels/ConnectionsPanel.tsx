@@ -132,6 +132,8 @@ function SidecarCard() {
   const [expanded, setExpanded] = useState(false);
   const activeModelName = isDownloaded ? modelDisplayName : null;
   const backendLabel = config.backend === "mlx" ? "MLX" : "GGUF";
+  const nativeToolLabel =
+    config.backend === "llama_cpp" ? ` • Native tools ${config.enableNativeToolCalls ? "on" : "off"}` : "";
   const trackerAgents = useMemo(
     () => BUILT_IN_AGENTS.filter((agent) => agent.category === "tracker" && !agent.libraryHidden),
     [],
@@ -224,7 +226,7 @@ function SidecarCard() {
           <div className="text-sm font-medium">Local Model</div>
           <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
             {isDownloaded
-              ? `${activeModelName ?? "Model"} • ${backendLabel}${modelSize ? ` • ${formatBytes(modelSize)}` : ""}${
+              ? `${activeModelName ?? "Model"} • ${backendLabel}${nativeToolLabel}${modelSize ? ` • ${formatBytes(modelSize)}` : ""}${
                   status === "starting_server"
                     ? " • Starting"
                     : status === "server_error"

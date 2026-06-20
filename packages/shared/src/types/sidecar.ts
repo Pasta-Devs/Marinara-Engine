@@ -76,6 +76,8 @@ export interface SidecarConfig {
   topK: number;
   /** GPU layers to offload (-1 = try max GPU offload first, then fall back if startup fails). */
   gpuLayers: number;
+  /** Start llama.cpp with Jinja chat templates so OpenAI-compatible native tool calls can work. */
+  enableNativeToolCalls: boolean;
   /** Which runtime target to install for llama.cpp-based local inference. */
   runtimePreference: SidecarRuntimePreference;
 }
@@ -288,6 +290,7 @@ export const SIDECAR_DEFAULT_CONFIG: SidecarConfig = {
   topP: 0.95,
   topK: 64,
   gpuLayers: -1,
+  enableNativeToolCalls: false,
   runtimePreference: "auto",
 };
 
