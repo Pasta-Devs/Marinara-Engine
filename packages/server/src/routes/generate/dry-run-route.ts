@@ -32,7 +32,7 @@ import {
 } from "../../services/prompt/index.js";
 import { mergeAdjacentMessages } from "../../services/prompt/merger.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
-import { type BaseLLMProvider, type ChatMessage } from "../../services/llm/base-provider.js";
+import { yieldToEventLoop, type BaseLLMProvider, type ChatMessage } from "../../services/llm/base-provider.js";
 import {
   fitMessagesForModelAccess,
   mergeModelContextLimit,
@@ -1622,16 +1622,21 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }, 15_000);
 
       const STREAM_CHUNK = 6;
+      const STREAM_CHUNK_YIELD_EVERY = 64;
+      let chunksSinceYield = 0;
       let full = "";
-      const onToken = (chunk: string) => {
-        full += chunk;
-        if (chunk.length <= STREAM_CHUNK) {
-          sendSseEvent(reply, { type: "token", data: chunk });
-        } else {
-          for (let i = 0; i < chunk.length; i += STREAM_CHUNK) {
-            sendSseEvent(reply, { type: "token", data: chunk.slice(i, i + STREAM_CHUNK) });
+      const sendTokenTextChunked = async (text: string) => {
+        for (let i = 0; i < text.length; i += STREAM_CHUNK) {
+          sendSseEvent(reply, { type: "token", data: text.slice(i, i + STREAM_CHUNK) });
+          chunksSinceYield += 1;
+          if (chunksSinceYield % STREAM_CHUNK_YIELD_EVERY === 0) {
+            await yieldToEventLoop();
           }
         }
+      };
+      const onToken = async (chunk: string) => {
+        full += chunk;
+        await sendTokenTextChunked(chunk);
       };
 
       try {
@@ -1655,7 +1660,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         });
 
         if (result.content && !full.endsWith(result.content)) {
-          onToken(result.content);
+          await onToken(result.content);
         }
 
         sendSseEvent(reply, { type: "result", data: { content: full || result.content || "" } });

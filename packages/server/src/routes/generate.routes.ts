@@ -88,7 +88,7 @@ import {
   type AssemblerInput,
 } from "../services/prompt/index.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
-import { type ChatMessage, type LLMUsage } from "../services/llm/base-provider.js";
+import { yieldToEventLoop, type ChatMessage, type LLMUsage } from "../services/llm/base-provider.js";
 import { executeToolCalls } from "../services/tools/tool-executor.js";
 import { createAgentPipeline, type ResolvedAgent, type AgentInjection } from "../services/agents/agent-pipeline.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -5300,14 +5300,33 @@ export async function generateRoutes(app: FastifyInstance) {
         };
         const captureReasoning = chatMode === "roleplay" && showThoughts;
 
-        // Helper: write text content progressively as small SSE token chunks
-        const writeContentChunked = (text: string) => {
-          const CHUNK_SIZE = 6;
-          for (let i = 0; i < text.length; i += CHUNK_SIZE) {
-            const chunk = text.slice(i, i + CHUNK_SIZE);
+        // Helper: write text content progressively as small SSE token chunks.
+        // Some providers dump a full buffered response through the streaming
+        // path; yield periodically so health checks and chat navigation are not
+        // starved while we fan that response out to the client.
+        const TOKEN_CHUNK_SIZE = 6;
+        const TOKEN_CHUNK_YIELD_EVERY = 64;
+        let tokenChunksSinceYield = 0;
+        const sendTokenTextChunked = async (text: string) => {
+          for (let i = 0; i < text.length; i += TOKEN_CHUNK_SIZE) {
+            const chunk = text.slice(i, i + TOKEN_CHUNK_SIZE);
+            trySendSseEvent(reply, { type: "token", data: chunk });
+            tokenChunksSinceYield += 1;
+            if (tokenChunksSinceYield % TOKEN_CHUNK_YIELD_EVERY === 0) {
+              await yieldToEventLoop();
+            }
+          }
+        };
+        const writeContentChunked = async (text: string) => {
+          for (let i = 0; i < text.length; i += TOKEN_CHUNK_SIZE) {
+            const chunk = text.slice(i, i + TOKEN_CHUNK_SIZE);
             fullResponse += chunk;
             if (!holdForProseGuardianRewrite) {
               trySendSseEvent(reply, { type: "token", data: chunk });
+              tokenChunksSinceYield += 1;
+              if (tokenChunksSinceYield % TOKEN_CHUNK_YIELD_EVERY === 0) {
+                await yieldToEventLoop();
+              }
             }
           }
         };
@@ -5673,7 +5692,7 @@ export async function generateRoutes(app: FastifyInstance) {
           fullThinking = "";
           providerThinking = "";
           if (tailMessages.assistantPrefillInjected && assistantPrefill) {
-            writeContentChunked(assistantPrefill);
+            await writeContentChunked(assistantPrefill);
           }
           let geminiResponseParts: unknown[] | null = null;
           let chatCompletionsReasoning: Record<string, unknown> | null = null;
@@ -5774,8 +5793,7 @@ export async function generateRoutes(app: FastifyInstance) {
               // Some providers (e.g. Gemini with thinking) return the entire response
               // in one chunk. Break large chunks into small pieces so the client sees
               // progressive streaming instead of the whole message appearing at once.
-              const STREAM_CHUNK = 6;
-              const onToken = (chunk: string) => {
+              const onToken = async (chunk: string) => {
                 // If the request has been aborted, skip emitting any further tokens.
                 if (abortController.signal.aborted) {
                   return;
@@ -5784,15 +5802,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (holdForProseGuardianRewrite) {
                   return;
                 }
-                if (chunk.length <= STREAM_CHUNK) {
-                  reply.raw.write(`data: ${JSON.stringify({ type: "token", data: chunk })}\n\n`);
-                } else {
-                  for (let i = 0; i < chunk.length; i += STREAM_CHUNK) {
-                    reply.raw.write(
-                      `data: ${JSON.stringify({ type: "token", data: chunk.slice(i, i + STREAM_CHUNK) })}\n\n`,
-                    );
-                  }
-                }
+                await sendTokenTextChunked(chunk);
               };
 
               for (let round = 0; round < maxToolRounds; round++) {
@@ -5856,7 +5866,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 // If provider doesn't support onToken (fell back to non-streaming),
                 // write the content conventionally
                 if (result.content && !fullResponse.endsWith(result.content)) {
-                  writeContentChunked(result.content);
+                  await writeContentChunked(result.content);
                 }
 
                 // Accumulate usage across tool rounds
@@ -5995,7 +6005,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     onChatCompletionsReasoning: rememberChatCompletionsReasoning,
                   });
                   if (finalResult.content && fullResponse.length === prevLen) {
-                    writeContentChunked(finalResult.content);
+                    await writeContentChunked(finalResult.content);
                   }
                   if (finalResult.usage) {
                     if (!usage) {
@@ -6060,13 +6070,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   result = await gen.next();
                   continue;
                 }
-                if (val.length <= 6) {
-                  reply.raw.write(`data: ${JSON.stringify({ type: "token", data: val })}\n\n`);
-                } else {
-                  for (let i = 0; i < val.length; i += 6) {
-                    reply.raw.write(`data: ${JSON.stringify({ type: "token", data: val.slice(i, i + 6) })}\n\n`);
-                  }
-                }
+                await sendTokenTextChunked(val);
                 result = await gen.next();
               }
               // Generator return value contains usage

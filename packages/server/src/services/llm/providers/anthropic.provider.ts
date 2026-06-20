@@ -299,7 +299,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     for (const block of blocks) {
       if (block.type === "thinking" && typeof block.thinking === "string") options.onThinking?.(block.thinking);
     }
-    if (text && options.onToken) options.onToken(text);
+    if (text && options.onToken) await options.onToken(text);
 
     const toolCalls = blocks
       .map((block) => anthropicToolCallFromBlock(block))

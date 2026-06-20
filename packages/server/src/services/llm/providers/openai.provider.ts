@@ -1283,14 +1283,14 @@ export class OpenAIProvider extends BaseLLMProvider {
           if (!reasoning && blocks.thinking && options.onThinking) options.onThinking(blocks.thinking);
           if (blocks.text) {
             content += blocks.text;
-            options.onToken?.(blocks.text);
+            await options.onToken?.(blocks.text);
           }
         } else if (delta?.content) {
           content += delta.content as string;
-          options.onToken?.(delta.content as string);
+          await options.onToken?.(delta.content as string);
         } else if (typeof delta?.refusal === "string" && delta.refusal) {
           content += delta.refusal;
-          options.onToken?.(delta.refusal);
+          await options.onToken?.(delta.refusal);
         }
 
         // Accumulate tool call deltas. Some OpenAI-compatible backends (including llama.cpp)
@@ -1916,7 +1916,7 @@ export class OpenAIProvider extends BaseLLMProvider {
               const delta = parsed.delta as string | undefined;
               if (delta) {
                 content += delta;
-                options.onToken?.(delta);
+                await options.onToken?.(delta);
               }
               break;
             }
@@ -1925,7 +1925,7 @@ export class OpenAIProvider extends BaseLLMProvider {
               const delta = parsed.delta as string | undefined;
               if (delta) {
                 content += delta;
-                options.onToken?.(delta);
+                await options.onToken?.(delta);
               }
               break;
             }
@@ -2004,7 +2004,7 @@ export class OpenAIProvider extends BaseLLMProvider {
                   const fallback = this.extractResponsesText(resp);
                   if (fallback) {
                     content = fallback;
-                    options.onToken?.(fallback);
+                    await options.onToken?.(fallback);
                   }
                 }
               }

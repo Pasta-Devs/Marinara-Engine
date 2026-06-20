@@ -518,7 +518,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const lowerBase = baseUrl.toLowerCase();
       const sanitizeProviderBody = (body: string): string => {
         if (body.includes("<html") || body.includes("<!DOCTYPE")) {
-          return "Provider returned an HTML page instead of JSON. Check the Base URL for this image service.";
+          const hint =
+            conn.provider === "image_generation"
+              ? "Check the Base URL for this image service."
+              : "Check the Base URL for this connection.";
+          return `Provider returned an HTML page instead of JSON. ${hint}`;
         }
         return body.slice(0, 300);
       };

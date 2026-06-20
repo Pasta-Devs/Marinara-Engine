@@ -443,7 +443,7 @@ export class GoogleProvider extends BaseLLMProvider {
       const call = geminiToolCallFromPart(part, i);
       if (call) toolCalls.push(call);
     }
-    if (content && options.onToken) options.onToken(content);
+    if (content && options.onToken) await options.onToken(content);
 
     return {
       content: content || null,

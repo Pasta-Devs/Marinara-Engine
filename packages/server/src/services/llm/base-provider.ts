@@ -39,6 +39,10 @@ export function llmFetch(
   });
 }
 
+export function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
@@ -101,7 +105,7 @@ export interface ChatOptions {
   /** Prefer provider APIs that expose reasoning summaries when available */
   captureReasoning?: boolean;
   /** Callback for streaming text tokens as they arrive (used in tool path) */
-  onToken?: (chunk: string) => void;
+  onToken?: (chunk: string) => void | Promise<void>;
   /** Enable extended thinking (reasoning models) */
   enableThinking?: boolean;
   /** Reasoning effort level for models that support it */
@@ -606,7 +610,7 @@ export abstract class BaseLLMProvider {
     while (!result.done) {
       content += result.value;
       if (options.onToken) {
-        options.onToken(result.value);
+        await options.onToken(result.value);
       }
       result = await gen.next();
     }

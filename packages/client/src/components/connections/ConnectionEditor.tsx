@@ -2,7 +2,7 @@
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
 // ──────────────────────────────────────────────
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import {
   useConnection,
@@ -199,48 +199,8 @@ export function ConnectionEditor() {
   // Model search
   const [modelSearch, setModelSearch] = useState("");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
-  const modelTriggerRef = useRef<HTMLDivElement>(null);
   const modelSearchInputRef = useRef<HTMLInputElement>(null);
   const comfyWorkflowTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; maxH: number } | null>(
-    null,
-  );
-
-  useLayoutEffect(() => {
-    if (!showModelDropdown || !modelTriggerRef.current) {
-      setDropdownRect(null);
-      return;
-    }
-
-    const update = () => {
-      if (!modelTriggerRef.current) return;
-      const rect = modelTriggerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom - 8;
-      const spaceAbove = rect.top - 8;
-      // Flip above trigger if there's more space above
-      const openAbove = spaceBelow < 120 && spaceAbove > spaceBelow;
-      const maxH = Math.min(320, openAbove ? spaceAbove : spaceBelow);
-      setDropdownRect({
-        top: openAbove ? rect.top - maxH - 4 : rect.bottom + 4,
-        left: rect.left,
-        width: rect.width,
-        maxH,
-      });
-    };
-
-    update();
-
-    // Recalculate on scroll/resize so the dropdown tracks the trigger
-    const scrollParent =
-      modelTriggerRef.current.closest(".overflow-y-auto, .overflow-auto, .overflow-y-scroll, .overflow-scroll") ??
-      window;
-    scrollParent.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update, { passive: true });
-    return () => {
-      scrollParent.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, [showModelDropdown]);
 
   // Remote models fetched from provider API
   const [remoteModels, setRemoteModels] = useState<RemoteConnectionModel[]>([]);
@@ -1237,7 +1197,7 @@ export function ConnectionEditor() {
             help="The specific AI model to use. You can pick from the list or type a custom model ID directly."
           >
             {/* Standard model dropdown + manual input (used for all providers including image_generation) */}
-            <div ref={modelTriggerRef} className="relative">
+            <div className={cn("relative", showModelDropdown && "z-50")}>
               <div
                 onClick={() => setShowModelDropdown(!showModelDropdown)}
                 className={cn(
@@ -1298,17 +1258,7 @@ export function ConnectionEditor() {
                     }}
                   />
                   <div
-                    className="fixed z-50 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
-                    style={
-                      dropdownRect
-                        ? {
-                            top: dropdownRect.top,
-                            left: dropdownRect.left,
-                            width: dropdownRect.width,
-                            maxHeight: dropdownRect.maxH,
-                          }
-                        : undefined
-                    }
+                    className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
                   >
                     {/* Fetch from API button */}
                     <div className="sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--card)] p-2">
