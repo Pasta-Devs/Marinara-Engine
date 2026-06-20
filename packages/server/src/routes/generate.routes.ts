@@ -5321,12 +5321,12 @@ export async function generateRoutes(app: FastifyInstance) {
           for (let i = 0; i < text.length; i += TOKEN_CHUNK_SIZE) {
             const chunk = text.slice(i, i + TOKEN_CHUNK_SIZE);
             fullResponse += chunk;
+            tokenChunksSinceYield += 1;
             if (!holdForProseGuardianRewrite) {
               trySendSseEvent(reply, { type: "token", data: chunk });
-              tokenChunksSinceYield += 1;
-              if (tokenChunksSinceYield % TOKEN_CHUNK_YIELD_EVERY === 0) {
-                await yieldToEventLoop();
-              }
+            }
+            if (tokenChunksSinceYield % TOKEN_CHUNK_YIELD_EVERY === 0) {
+              await yieldToEventLoop();
             }
           }
         };
