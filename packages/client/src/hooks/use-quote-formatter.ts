@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { formatTextQuotes } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
+import { captureTextSelection, restoreTextSelectionAfterRender, type TextSelectionSnapshot } from "../lib/text-selection";
 
 type TextInputElement = HTMLInputElement | HTMLTextAreaElement;
 
@@ -14,53 +15,28 @@ function getActiveTextInput(value: string): TextInputElement | null {
 
 export function useQuoteFormatter() {
   const quoteFormat = useUIStore((s) => s.quoteFormat);
-  const restoreFrameRef = useRef<number | null>(null);
+  const cancelSelectionRestoreRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => {
-      if (restoreFrameRef.current !== null && typeof window !== "undefined") {
-        window.cancelAnimationFrame(restoreFrameRef.current);
-      }
+      cancelSelectionRestoreRef.current?.();
     };
   }, []);
 
   return useCallback(
     (value: string) => {
       const activeInput = getActiveTextInput(value);
-      const selection =
-        activeInput && activeInput.selectionStart !== null
-          ? {
-              element: activeInput,
-              start: activeInput.selectionStart,
-              end: activeInput.selectionEnd ?? activeInput.selectionStart,
-              direction: activeInput.selectionDirection ?? "none",
-            }
-          : null;
+      const selection: TextSelectionSnapshot | null = activeInput ? captureTextSelection(activeInput) : null;
 
       const formatted = formatTextQuotes(value, quoteFormat);
 
       if (selection && activeInput && activeInput.value !== formatted) {
         activeInput.value = formatted;
-        const max = formatted.length;
-        activeInput.setSelectionRange(
-          Math.min(selection.start, max),
-          Math.min(selection.end, max),
-          selection.direction,
-        );
       }
 
-      if (selection && typeof window !== "undefined") {
-        if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current);
-        restoreFrameRef.current = window.requestAnimationFrame(() => {
-          restoreFrameRef.current = null;
-          if (document.activeElement !== selection.element) return;
-          const max = selection.element.value.length;
-          selection.element.setSelectionRange(
-            Math.min(selection.start, max),
-            Math.min(selection.end, max),
-            selection.direction,
-          );
-        });
+      if (selection) {
+        cancelSelectionRestoreRef.current?.();
+        cancelSelectionRestoreRef.current = restoreTextSelectionAfterRender(selection);
       }
 
       return formatted;
