@@ -44,6 +44,7 @@ import {
   ChevronUp,
   ExternalLink,
   BookOpen,
+  FolderOpen,
   Upload,
   Loader2,
   ImageIcon,
@@ -133,8 +134,30 @@ function createCustomAgentType(name: string): string {
 const LOREBOOK_WRITE_TOOL_NAME = "save_lorebook_entry";
 const MESSAGE_EDIT_TOOL_NAME = "edit_chat_message";
 const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
+type MusicProvider = "spotify" | "youtube" | "custom";
+type CustomMusicSource = "game-assets" | "folder";
 const DEFAULT_PROSE_GUARDIAN_AVOID =
   "no repetition of any phrases or sentence structure from the last messages, if the last output started with dialogue line, this one needs to start with narration, no purple prose";
+
+function normalizeCustomMusicFolderInput(value: string): string {
+  const normalized = value.trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+$/g, "");
+  if (!normalized || normalized.includes("..")) return "music";
+  return normalized.startsWith("music") ? normalized : `music/${normalized}`;
+}
+
+function normalizeMusicProvider(settings: Record<string, unknown>): MusicProvider {
+  if (settings.musicProvider === "custom" || settings.musicPlayerSource === "custom") return "custom";
+  if (settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube") return "youtube";
+  return "spotify";
+}
+
+function normalizeCustomMusicSource(settings: Record<string, unknown>): CustomMusicSource {
+  return settings.customMusicSource === "folder" || settings.localMusicSource === "folder" ? "folder" : "game-assets";
+}
+
+function normalizeExternalMusicFolderInput(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
 
 // Mirrors the server's buildSpotifyRedirectUri rule: Spotify only accepts
 // https:// or http://127.0.0.1, so fall back to loopback whenever the page
@@ -492,7 +515,10 @@ export function AgentEditor() {
   const [toolsSectionOpen, setToolsSectionOpen] = useState(false);
   const [localLorebookWriteEnabled, setLocalLorebookWriteEnabled] = useState(false);
   const [localWritableLorebookId, setLocalWritableLorebookId] = useState("");
-  const [localMusicProvider, setLocalMusicProvider] = useState<"spotify" | "youtube">("spotify");
+  const [localMusicProvider, setLocalMusicProvider] = useState<MusicProvider>("spotify");
+  const [localCustomMusicSource, setLocalCustomMusicSource] = useState<CustomMusicSource>("game-assets");
+  const [localCustomMusicFolder, setLocalCustomMusicFolder] = useState("music");
+  const [localCustomMusicExternalFolder, setLocalCustomMusicExternalFolder] = useState("");
   const [localSpotifyClientId, setLocalSpotifyClientId] = useState("");
   const [localSourceLorebookIds, setLocalSourceLorebookIds] = useState<string[]>([]);
   const [localUseChatActiveLorebooks, setLocalUseChatActiveLorebooks] = useState(false);
@@ -587,8 +613,19 @@ export function AgentEditor() {
         settings.lorebookWriteEnabled === true || enabledTools.includes(LOREBOOK_WRITE_TOOL_NAME),
       );
       setLocalWritableLorebookId(writableLorebookId);
-      setLocalMusicProvider(
-        settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube" ? "youtube" : "spotify",
+      setLocalMusicProvider(normalizeMusicProvider(settings));
+      setLocalCustomMusicSource(normalizeCustomMusicSource(settings));
+      setLocalCustomMusicFolder(
+        normalizeCustomMusicFolderInput(
+          typeof settings.customMusicFolder === "string"
+            ? settings.customMusicFolder
+            : typeof settings.localMusicFolder === "string"
+              ? settings.localMusicFolder
+              : "music",
+        ),
+      );
+      setLocalCustomMusicExternalFolder(
+        normalizeExternalMusicFolderInput(settings.customMusicExternalFolder ?? settings.localMusicExternalFolder),
       );
       setLocalSpotifyClientId(typeof settings.spotifyClientId === "string" ? settings.spotifyClientId : "");
       setLocalSourceLorebookIds(normalizeStringArray(settings.sourceLorebookIds));
@@ -685,7 +722,18 @@ export function AgentEditor() {
       setLocalIncludeParallelResults(false);
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
-      setLocalMusicProvider(defaultSettings.musicProvider === "youtube" ? "youtube" : "spotify");
+      setLocalMusicProvider(normalizeMusicProvider(defaultSettings));
+      setLocalCustomMusicSource(normalizeCustomMusicSource(defaultSettings));
+      setLocalCustomMusicFolder(
+        normalizeCustomMusicFolderInput(
+          typeof defaultSettings.customMusicFolder === "string" ? defaultSettings.customMusicFolder : "music",
+        ),
+      );
+      setLocalCustomMusicExternalFolder(
+        normalizeExternalMusicFolderInput(
+          defaultSettings.customMusicExternalFolder ?? defaultSettings.localMusicExternalFolder,
+        ),
+      );
       setLocalPrompt("");
     } else {
       // Brand new custom agent — start empty
@@ -727,6 +775,9 @@ export function AgentEditor() {
       setLocalLorebookWriteEnabled(false);
       setLocalWritableLorebookId("");
       setLocalMusicProvider("spotify");
+      setLocalCustomMusicSource("game-assets");
+      setLocalCustomMusicFolder("music");
+      setLocalCustomMusicExternalFolder("");
       setLocalPrompt("");
     }
     setDirty(false);
@@ -751,12 +802,16 @@ export function AgentEditor() {
   // JSON, so the editor reflects the YouTube-specific built-in prompt and skips the
   // (Spotify-only) tool toggles.
   const musicDjYoutubeMode = isMusicAgent && localMusicProvider === "youtube";
+  const musicDjCustomMode = isMusicAgent && localMusicProvider === "custom";
 
   // Default prompt for this agent type. Music DJ has a separate built-in prompt per
-  // provider, so show the YouTube prompt when the YouTube provider is selected.
+  // provider, so show the service-specific prompt when that provider is selected.
   const defaultPrompt = useMemo(
-    () => (agentDetailId ? getDefaultAgentPrompt(musicDjYoutubeMode ? "youtube" : agentDetailId) : ""),
-    [agentDetailId, musicDjYoutubeMode],
+    () =>
+      agentDetailId
+        ? getDefaultAgentPrompt(musicDjCustomMode ? "local-music" : musicDjYoutubeMode ? "youtube" : agentDetailId)
+        : "",
+    [agentDetailId, musicDjCustomMode, musicDjYoutubeMode],
   );
 
   // Lorebook Keeper agent — run interval setting
@@ -979,8 +1034,17 @@ export function AgentEditor() {
         ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
         ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
         ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
-        ...(isMusicAgent ? { musicProvider: localMusicProvider } : {}),
-        enabledTools: isMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
+        ...(isMusicAgent
+          ? {
+              musicProvider: localMusicProvider,
+              customMusicSource: localCustomMusicSource,
+              customMusicFolder: normalizeCustomMusicFolderInput(localCustomMusicFolder),
+              ...(localCustomMusicExternalFolder.trim()
+                ? { customMusicExternalFolder: localCustomMusicExternalFolder.trim() }
+                : {}),
+            }
+          : {}),
+        enabledTools: isMusicAgent && localMusicProvider !== "spotify" ? [] : effectiveEnabledTools,
         ...(lorebookWriterEnabled
           ? { lorebookWriteEnabled: true, writableLorebookId, writableLorebookIds: [writableLorebookId] }
           : {}),
@@ -1070,6 +1134,9 @@ export function AgentEditor() {
     localLorebookWriteEnabled,
     localWritableLorebookId,
     localMusicProvider,
+    localCustomMusicSource,
+    localCustomMusicFolder,
+    localCustomMusicExternalFolder,
     localSpotifyClientId,
     localUseChatActiveLorebooks,
     localSourceLorebookIds,
@@ -1150,8 +1217,17 @@ export function AgentEditor() {
       ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
       ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
       ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
-      ...(exportingMusicAgent ? { musicProvider: localMusicProvider } : {}),
-      enabledTools: exportingMusicAgent && localMusicProvider === "youtube" ? [] : effectiveEnabledTools,
+      ...(exportingMusicAgent
+        ? {
+            musicProvider: localMusicProvider,
+            customMusicSource: localCustomMusicSource,
+            customMusicFolder: normalizeCustomMusicFolderInput(localCustomMusicFolder),
+            ...(localCustomMusicExternalFolder.trim()
+              ? { customMusicExternalFolder: localCustomMusicExternalFolder.trim() }
+              : {}),
+          }
+        : {}),
+      enabledTools: exportingMusicAgent && localMusicProvider !== "spotify" ? [] : effectiveEnabledTools,
       ...(lorebookWriterEnabled
         ? { lorebookWriteEnabled: true, writableLorebookId, writableLorebookIds: [writableLorebookId] }
         : {}),
@@ -1229,16 +1305,51 @@ export function AgentEditor() {
   const markDirty = useCallback(() => setDirty(true), []);
 
   const handleMusicProviderChange = useCallback(
-    (provider: "spotify" | "youtube") => {
+    (provider: MusicProvider) => {
       setLocalMusicProvider(provider);
       setMusicPlayerSource(provider);
       if (provider === "spotify" && localEnabledTools.length === 0) {
         setLocalEnabledTools(DEFAULT_AGENT_TOOLS.spotify ?? []);
+      } else if (provider !== "spotify" && localEnabledTools.length > 0) {
+        setLocalEnabledTools([]);
       }
       setDirty(true);
     },
     [localEnabledTools.length, setMusicPlayerSource],
   );
+
+  const handleOpenCustomMusicFolder = useCallback(async () => {
+    const subfolder = normalizeCustomMusicFolderInput(localCustomMusicFolder);
+    try {
+      await fetch("/api/game-assets/open-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subfolder }),
+      });
+      toast.success(`Opened Game Assets/${subfolder}`);
+    } catch {
+      toast.error("Could not open the Custom music folder.");
+    }
+  }, [localCustomMusicFolder]);
+
+  const handleSelectCustomMusicFolder = useCallback(async () => {
+    try {
+      const res = await fetch("/api/game-assets/pick-local-music-folder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = (await res.json().catch(() => ({}))) as { success?: boolean; path?: string; error?: string };
+      if (!res.ok || data.success !== true || !data.path) {
+        throw new Error(data.error ?? "No folder selected.");
+      }
+      setLocalCustomMusicExternalFolder(data.path);
+      setLocalCustomMusicSource("folder");
+      setDirty(true);
+      toast.success("Selected custom music folder.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not select a custom music folder.");
+    }
+  }, []);
 
   const toggleCustomCapability = useCallback(
     (capability: CustomAgentCapability) => {
@@ -2383,9 +2494,10 @@ export function AgentEditor() {
               help="Choose which service Music DJ should use for future music picks. The same choice switches the visible player surface."
             >
               <div className="flex flex-col gap-2">
-                <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-                  {(["spotify", "youtube"] as const).map((provider) => {
+                <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+                  {(["spotify", "youtube", "custom"] as const).map((provider) => {
                     const active = localMusicProvider === provider;
+                    const label = provider === "spotify" ? "Spotify" : provider === "youtube" ? "YouTube" : "Custom";
                     return (
                       <button
                         key={provider}
@@ -2398,14 +2510,21 @@ export function AgentEditor() {
                             : "text-white/45 hover:bg-white/8 hover:text-white/75",
                         )}
                       >
-                        {provider === "spotify" ? "Spotify" : "YouTube"}
+                        {label}
                       </button>
                     );
                   })}
                 </div>
                 <p className="text-[0.625rem] text-white/40">
-                  Visible player: {musicPlayerSource === "spotify" ? "Spotify" : "YouTube"}. Saved provider:{" "}
-                  {localMusicProvider === "spotify" ? "Spotify" : "YouTube"}.
+                  Visible player:{" "}
+                  {musicPlayerSource === "spotify" ? "Spotify" : musicPlayerSource === "youtube" ? "YouTube" : "Custom"}
+                  . Saved provider:{" "}
+                  {localMusicProvider === "spotify"
+                    ? "Spotify"
+                    : localMusicProvider === "youtube"
+                      ? "YouTube"
+                      : "Custom"}
+                  .
                 </p>
               </div>
             </FieldGroup>
@@ -2832,6 +2951,97 @@ export function AgentEditor() {
                     music as the scene&apos;s mood shifts.
                   </p>
                 </div>
+              </div>
+            </FieldGroup>
+          )}
+
+          {isMusicAgent && (
+            <FieldGroup
+              label="Custom Music Library"
+              icon={<FolderOpen size="0.875rem" className="text-[var(--muted-foreground)]" />}
+              help="Choose where the Custom Music DJ looks for local audio files."
+            >
+              <div className="space-y-3">
+                <EditorSwitchRow
+                  label="Use Game Assets music folder"
+                  checked={localCustomMusicSource === "game-assets"}
+                  onChange={(checked) => {
+                    setLocalCustomMusicSource(checked ? "game-assets" : "folder");
+                    setDirty(true);
+                  }}
+                  description={
+                    localCustomMusicSource === "game-assets"
+                      ? "Custom mode will search audio uploaded to Game Assets."
+                      : "Custom mode will search the folder selected from this device."
+                  }
+                />
+
+                {localCustomMusicSource === "game-assets" ? (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                    <label className="mb-1 block text-[0.6875rem] font-medium text-white/60">
+                      Game Assets music folder
+                    </label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        value={localCustomMusicFolder}
+                        onChange={(event) => {
+                          setLocalCustomMusicFolder(event.target.value);
+                          setDirty(true);
+                        }}
+                        onBlur={() => setLocalCustomMusicFolder((current) => normalizeCustomMusicFolderInput(current))}
+                        placeholder="music"
+                        className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white outline-none placeholder-white/30 focus:border-[var(--primary)]/50 focus:ring-1 focus:ring-[var(--primary)]/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleOpenCustomMusicFolder}
+                        className="mari-editor-action mari-editor-action--secondary inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold"
+                      >
+                        <ExternalLink size="0.8rem" />
+                        Open Folder
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[0.625rem] leading-relaxed text-white/40">
+                      Use <code>music</code> for the whole Game Assets music library, or a subfolder like{" "}
+                      <code>music/combat</code>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                    <label className="mb-1 block text-[0.6875rem] font-medium text-white/60">
+                      Music folder on this device
+                    </label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        value={localCustomMusicExternalFolder}
+                        onChange={(event) => {
+                          setLocalCustomMusicExternalFolder(event.target.value);
+                          setDirty(true);
+                        }}
+                        onBlur={() =>
+                          setLocalCustomMusicExternalFolder((current) => normalizeExternalMusicFolderInput(current))
+                        }
+                        placeholder="No folder selected"
+                        className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white outline-none placeholder-white/30"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSelectCustomMusicFolder}
+                        className="mari-editor-action mari-editor-action--secondary inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold"
+                      >
+                        <FolderOpen size="0.8rem" />
+                        Select Folder
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[0.625rem] leading-relaxed text-white/40">
+                      The folder picker opens on the device running Marinara&apos;s server. Custom mode will list and
+                      play supported audio files from that folder. On devices without a folder picker, paste the path
+                      here.
+                    </p>
+                  </div>
+                )}
               </div>
             </FieldGroup>
           )}

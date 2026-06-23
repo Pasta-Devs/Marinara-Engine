@@ -184,6 +184,8 @@ export interface AssemblerInput {
   lastGenerationType?: string;
   /** Human-readable idle duration for {{idle_duration}}. */
   idleDuration?: string;
+  /** IANA timezone used by date/time macros. */
+  timeZone?: string;
   /** Preserve character-scoped macros for a later known-speaker finalization pass. */
   deferCharacterMacros?: boolean;
 }
@@ -287,6 +289,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     chatId: input.chatId,
     lastGenerationType: input.lastGenerationType,
     idleDuration: input.idleDuration,
+    timeZone: input.timeZone,
   });
 
   // Resolve macros inside variable values themselves (e.g. {{user}} in a choice value)

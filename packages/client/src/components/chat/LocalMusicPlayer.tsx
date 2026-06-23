@@ -1,4 +1,14 @@
 import {
+  GripVertical,
+  Music2,
+  Pause,
+  Play,
+  Volume2,
+  VolumeX,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -7,34 +17,12 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { ChevronDown, ChevronUp, GripVertical, Loader2, Pause, Play, Volume2, VolumeX, X } from "lucide-react";
-import { useAgentStore } from "@/stores/agent.store";
-import { useUIStore } from "@/stores/ui.store";
-import { api } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
-import { MusicSourceButton, MusicSourceGlyph } from "@/components/music/MusicSourceButton";
+import { encodeAssetPath } from "../game-assets/encode-asset-path";
+import { MusicSourceButton, MusicSourceGlyph } from "../music/MusicSourceButton";
+import { cn } from "../../lib/utils";
+import { useAgentStore } from "../../stores/agent.store";
+import { useUIStore } from "../../stores/ui.store";
 
-// The YouTube IFrame API attaches itself to window; it has no bundled types.
-type YTPlayer = {
-  loadVideoById: (id: string) => void;
-  playVideo: () => void;
-  pauseVideo: () => void;
-  stopVideo: () => void;
-  setVolume: (v: number) => void;
-  seekTo: (seconds: number, allowSeekAhead: boolean) => void;
-  destroy: () => void;
-};
-
-interface SearchResult {
-  videoId: string;
-  title: string;
-  channel: string;
-  thumbnail: string | null;
-}
-
-let ytApiPromise: Promise<void> | null = null;
-
-const MUSIC_NEUTRAL_BORDER_CLASS = "border-[#f7f3ef]/15";
 const MUSIC_NEUTRAL_SHELL_BORDER_CLASS = "border-[#f7f3ef]/15";
 const MUSIC_NEUTRAL_SHELL_BG_CLASS = "bg-[#0f0f0f]/95";
 const MUSIC_NEUTRAL_BUTTON_BG_CLASS = "bg-[#f7f3ef]/5";
@@ -43,11 +31,9 @@ const MUSIC_NEUTRAL_TEXT_CLASS = "text-[#f7f3ef]";
 const MUSIC_NEUTRAL_MUTED_CLASS = "text-[#aaa]";
 const MUSIC_NEUTRAL_ICON_CLASS = "text-[#aaa]";
 const MUSIC_NEUTRAL_ICON_HOVER_CLASS = "hover:bg-[#f7f3ef]/10 hover:text-[#f7f3ef]";
+const MUSIC_NEUTRAL_ACTION_BG_CLASS = "bg-[var(--primary)]";
+const MUSIC_NEUTRAL_ACTION_TEXT_CLASS = "text-[var(--primary-foreground)]";
 const MUSIC_NEUTRAL_PROGRESS_BG_CLASS = "bg-[#f7f3ef]/15";
-const MUSIC_NEUTRAL_PROGRESS_FILL_CLASS = "bg-[#FF0000]";
-const MUSIC_NEUTRAL_ACTION_BG_CLASS = "bg-[#f7f3ef]";
-const MUSIC_NEUTRAL_ACTION_TEXT_CLASS = "text-[#0f0f0f]";
-const YOUTUBE_LOGO_CLASS = "text-[#FF0000]";
 const MOBILE_WIDGET_COLLAPSED_SIZE = 48;
 const MOBILE_WIDGET_EXPANDED_MAX_WIDTH = 320;
 const MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER = 24;
@@ -76,10 +62,7 @@ function getMobileWidgetStyle(
   position: { x: number; y: number },
   collapsed: boolean,
 ): Pick<CSSProperties, "left" | "top"> {
-  if (typeof window === "undefined") {
-    return { left: position.x, top: position.y };
-  }
-
+  if (typeof window === "undefined") return { left: position.x, top: position.y };
   return {
     left: Math.max(
       MOBILE_WIDGET_VIEWPORT_PADDING,
@@ -96,7 +79,6 @@ function getMobileWidgetStyle(
 
 function getMobileExpandedPanelStyle(position: { x: number; y: number }): CSSProperties {
   if (typeof window === "undefined") return {};
-
   const width = Math.min(
     MOBILE_WIDGET_EXPANDED_MAX_WIDTH,
     window.innerWidth - MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER,
@@ -109,54 +91,38 @@ function getMobileExpandedPanelStyle(position: { x: number; y: number }): CSSPro
     MOBILE_WIDGET_VIEWPORT_PADDING,
     Math.min(window.innerWidth - width - MOBILE_WIDGET_VIEWPORT_PADDING, preferredLeft),
   );
-
   return {
     width,
     transform: `translateX(${Math.round(clampedLeft - position.x)}px)`,
   };
 }
 
-/** Load the YouTube IFrame Player API script exactly once. */
-function loadYouTubeApi(): Promise<void> {
-  const w = window as any;
-  if (w.YT?.Player) return Promise.resolve();
-  if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise<void>((resolve) => {
-    const prev = w.onYouTubeIframeAPIReady;
-    w.onYouTubeIframeAPIReady = () => {
-      prev?.();
-      resolve();
-    };
-    const tag = document.createElement("script");
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.head.appendChild(tag);
-  });
-  return ytApiPromise;
+function getTrackUrl(path: string) {
+  if (path.startsWith("local-music:")) {
+    return `/api/game-assets/local-music-file/${encodeURIComponent(path.slice("local-music:".length))}`;
+  }
+  return `/api/game-assets/file/${encodeAssetPath(path)}`;
 }
 
-/**
- * Embedded player for Music DJ's YouTube mode. Listens for the agent's "play"
- * intent in the agent store, resolves the search query to a video server-side,
- * and plays it in an in-app IFrame player. No OAuth, no external device.
- */
-export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
-  const youtubePlay = useAgentStore((s) => s.youtubePlay);
-  const youtubeVolume = useAgentStore((s) => s.youtubeVolume);
-  const clearYoutube = useAgentStore((s) => s.clearYoutube);
-  const playerVolume = useUIStore((s) => s.youtubePlayerVolume);
-  const setPlayerVolume = useUIStore((s) => s.setYoutubePlayerVolume);
-  const musicPlayerActive = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "youtube");
+function LocalPlayerIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return <Icon size="0.875rem" className="text-[var(--primary)]" />;
+}
+
+export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) {
+  const localMusicPlay = useAgentStore((s) => s.localMusicPlay);
+  const localMusicVolume = useAgentStore((s) => s.localMusicVolume);
+  const clearLocalMusic = useAgentStore((s) => s.clearLocalMusic);
+  const playerVolume = useUIStore((s) => s.localMusicPlayerVolume);
+  const setPlayerVolume = useUIStore((s) => s.setLocalMusicPlayerVolume);
+  const musicPlayerActive = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "custom");
   const collapsed = useUIStore((s) => s.spotifyMobileWidgetCollapsed);
   const setCollapsed = useUIStore((s) => s.setSpotifyMobileWidgetCollapsed);
   const mobilePosition = useUIStore((s) => s.spotifyMobileWidgetPosition);
   const setMobilePosition = useUIStore((s) => s.setSpotifyMobileWidgetPosition);
   const desktopViewport = useMediaQuery("(min-width: 768px)");
 
-  const hostRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<YTPlayer | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastNonceRef = useRef(0);
-  const lastQueryRef = useRef("");
-  const volumeRef = useRef<number | null>(null);
   const prevVolumeRef = useRef(70);
   const dragRef = useRef<{
     pointerId: number;
@@ -166,155 +132,77 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
     originY: number;
   } | null>(null);
 
-  const [nowPlaying, setNowPlaying] = useState<{
-    title: string;
-    mood: string;
-    channel: string;
-    thumbnail: string | null;
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [nowPlaying, setNowPlaying] = useState<{ path: string; title: string; mood: string } | null>(null);
+  const [paused, setPaused] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [paused, setPaused] = useState(false);
-  const [showVideo, setShowVideo] = useState(false);
 
-  volumeRef.current = playerVolume;
   const active = musicPlayerActive && (mobile || desktopViewport);
 
-  /** Create the IFrame player on first use (idempotent). */
-  const ensurePlayer = useCallback(async () => {
-    if (playerRef.current) return playerRef.current;
-    await loadYouTubeApi();
-    const w = window as any;
-    const inner = document.createElement("div"); // YT replaces this node; React never tracks it
-    hostRef.current?.appendChild(inner);
-    return await new Promise<YTPlayer>((resolve) => {
-      const player: YTPlayer = new w.YT.Player(inner, {
-        width: "246",
-        height: "138",
-        playerVars: { autoplay: 1, playsinline: 1, modestbranding: 1, rel: 0 },
-        events: {
-          onReady: () => {
-            if (volumeRef.current != null) player.setVolume(volumeRef.current);
-            playerRef.current = player;
-            resolve(player);
-          },
-          onStateChange: (e: { data: number }) => {
-            // 1 = playing, 2 = paused, 0 = ended
-            if (e.data === 1) setPaused(false);
-            if (e.data === 2) setPaused(true);
-            // Loop the current track until the DJ picks a new one.
-            if (e.data === 0) {
-              player.seekTo(0, true);
-              player.playVideo();
-            }
-          },
-        },
+  useEffect(() => {
+    if (!active) return;
+    if (!localMusicPlay) return;
+    if (localMusicPlay.nonce === lastNonceRef.current) return;
+    lastNonceRef.current = localMusicPlay.nonce;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const src = getTrackUrl(localMusicPlay.path);
+    setError(null);
+    setNowPlaying({ path: localMusicPlay.path, title: localMusicPlay.title, mood: localMusicPlay.mood });
+    setPaused(false);
+    audio.src = src;
+    audio.loop = true;
+    audio.volume = Math.max(0, Math.min(1, playerVolume / 100));
+    audio
+      .play()
+      .then(() => setPaused(false))
+      .catch((err) => {
+        setPaused(true);
+        setError(err instanceof Error ? err.message : "Local playback failed");
       });
-    });
-  }, []);
+  }, [active, localMusicPlay, playerVolume]);
 
-  // React to a new "play" intent.
   useEffect(() => {
-    if (!active) return; // player disabled or handled by the other viewport instance
-    if (!youtubePlay) return;
-    if (youtubePlay.nonce === lastNonceRef.current) return;
-    lastNonceRef.current = youtubePlay.nonce;
-    const query = youtubePlay.searchQuery;
-    // Skip if the DJ asked for the same track again — don't restart playback.
-    if (query === lastQueryRef.current && playerRef.current) return;
+    if (localMusicVolume != null) setPlayerVolume(localMusicVolume);
+  }, [localMusicVolume, setPlayerVolume]);
 
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await api.get<{ results: SearchResult[] }>(`/youtube/search?q=${encodeURIComponent(query)}`);
-        const top = res.results?.[0];
-        if (!top) {
-          if (!cancelled) setError(`No YouTube results for "${query}"`);
-          return;
-        }
-        const player = await ensurePlayer();
-        if (cancelled) return;
-        lastQueryRef.current = query;
-        player.loadVideoById(top.videoId);
-        if (volumeRef.current != null) player.setVolume(volumeRef.current);
-        setNowPlaying({
-          title: top.title,
-          mood: youtubePlay.mood,
-          channel: top.channel,
-          thumbnail: top.thumbnail,
-        });
-        setPaused(false);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "YouTube playback failed");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [youtubePlay, ensurePlayer, active]);
-
-  // Stop playback immediately if the user disables the player mid-track.
   useEffect(() => {
-    if (active) return;
-    try {
-      playerRef.current?.stopVideo();
-    } catch {
-      /* ignore */
-    }
-    lastQueryRef.current = "";
-    setNowPlaying(null);
-  }, [active]);
-
-  // When the DJ picks a volume, fold it into the user-facing player volume so the
-  // slider stays the single source of truth (the effect below applies it to the player).
-  useEffect(() => {
-    if (youtubeVolume != null) setPlayerVolume(youtubeVolume);
-  }, [youtubeVolume, setPlayerVolume]);
-
-  // Apply the user-facing volume to the player without changing the track.
-  useEffect(() => {
-    playerRef.current?.setVolume(playerVolume);
+    if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, playerVolume / 100));
   }, [playerVolume]);
 
-  // Remember the last audible volume so unmute can restore it, whether the user
-  // muted via the button or dragged the slider all the way to zero.
   useEffect(() => {
     if (playerVolume > 0) prevVolumeRef.current = playerVolume;
   }, [playerVolume]);
 
-  // Clean up the player on unmount.
   useEffect(() => {
-    return () => {
-      try {
-        playerRef.current?.destroy();
-      } catch {
-        /* ignore */
-      }
-      playerRef.current = null;
-    };
-  }, []);
+    if (active) return;
+    audioRef.current?.pause();
+    setNowPlaying(null);
+    setPaused(true);
+  }, [active]);
 
   const togglePlay = () => {
-    const player = playerRef.current;
-    if (!player) return;
-    if (paused) player.playVideo();
-    else player.pauseVideo();
+    const audio = audioRef.current;
+    if (!audio || !nowPlaying) return;
+    if (paused) {
+      audio
+        .play()
+        .then(() => setPaused(false))
+        .catch((err) => setError(err instanceof Error ? err.message : "Local playback failed"));
+    } else {
+      audio.pause();
+      setPaused(true);
+    }
   };
 
   const close = () => {
-    try {
-      playerRef.current?.stopVideo();
-    } catch {
-      /* ignore */
-    }
-    lastQueryRef.current = "";
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.currentTime = 0;
     setNowPlaying(null);
+    setPaused(true);
     setError(null);
-    clearYoutube();
+    clearLocalMusic();
   };
 
   const toggleMute = useCallback(() => {
@@ -343,7 +231,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
       try {
         event.currentTarget.setPointerCapture(event.pointerId);
       } catch {
-        // Some mobile browsers can deny capture if the pointer was already cancelled.
+        // Some mobile browsers deny capture if the pointer was already cancelled.
       }
     },
     [mobile, mobilePosition.x, mobilePosition.y],
@@ -382,20 +270,16 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
     [collapsed, mobile, setCollapsed],
   );
 
-  const hasPlayerContent = !!nowPlaying || loading || !!error;
+  const hasPlayerContent = !!nowPlaying || !!error;
   const showPlayer = active;
-  const displayTitle = loading ? "Finding a track..." : error ? error : (nowPlaying?.title ?? "YouTube");
-  const displaySubtitle = loading
-    ? "Searching YouTube"
-    : error
-      ? "Playback needs attention"
-      : (nowPlaying?.channel ?? nowPlaying?.mood ?? "Ready for Music DJ");
+  const displayTitle = error ? error : (nowPlaying?.title ?? "Custom Music");
+  const displaySubtitle = error ? "Playback needs attention" : (nowPlaying?.mood ?? "Ready for Music DJ");
   const mobileWidgetStyle = useMemo(() => getMobileWidgetStyle(mobilePosition, collapsed), [collapsed, mobilePosition]);
   const mobileExpandedPanelStyle = useMemo(() => getMobileExpandedPanelStyle(mobilePosition), [mobilePosition]);
-
   const volumeMuted = playerVolume <= 0;
   const VolumeIcon = volumeMuted ? VolumeX : Volume2;
   const stopPointer = (event: ReactPointerEvent<HTMLElement>) => event.stopPropagation();
+
   const volumeControls = (
     <div
       className="flex w-full shrink-0 items-center gap-1"
@@ -424,9 +308,10 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
         step={1}
         value={playerVolume}
         onChange={(event) => setPlayerVolume(Number(event.target.value))}
-        className="mari-youtube-volume-slider w-full"
+        className="mari-local-music-volume-slider w-full"
         title="Volume"
-        aria-label="YouTube volume"
+        aria-label="Custom music volume"
+        style={{ "--range-progress": `${playerVolume}%` } as CSSProperties}
       />
     </div>
   );
@@ -434,21 +319,14 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   const compactBody = (
     <>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <MusicSourceButton source="youtube" className={cn(MUSIC_NEUTRAL_BORDER_CLASS, MUSIC_NEUTRAL_BUTTON_BG_CLASS)} />
+        <MusicSourceButton source="custom" className={MUSIC_NEUTRAL_BUTTON_BG_CLASS} />
         <div
           className={cn(
-            "flex h-7 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] ring-1",
+            "flex h-7 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[0.375rem] ring-1 ring-[#f7f3ef]/10",
             MUSIC_NEUTRAL_TILE_BG_CLASS,
-            "ring-[#f7f3ef]/10",
           )}
         >
-          {loading ? (
-            <Loader2 size="0.875rem" className={cn("animate-spin", MUSIC_NEUTRAL_MUTED_CLASS)} />
-          ) : nowPlaying?.thumbnail ? (
-            <img src={nowPlaying.thumbnail} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <Play size="0.875rem" className={cn("translate-x-px", MUSIC_NEUTRAL_MUTED_CLASS)} />
-          )}
+          <LocalPlayerIcon icon={Music2} />
         </div>
         <div className="min-w-0">
           <p
@@ -465,27 +343,13 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           type="button"
           onClick={togglePlay}
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-full shadow-[0_1px_8px_rgba(255,255,255,0.18)] transition-transform hover:scale-105 active:scale-95",
+            "inline-flex h-7 w-7 items-center justify-center rounded-full shadow-[0_1px_8px_color-mix(in_srgb,var(--primary)_45%,transparent)] transition-transform hover:scale-105 active:scale-95",
             MUSIC_NEUTRAL_ACTION_BG_CLASS,
             MUSIC_NEUTRAL_ACTION_TEXT_CLASS,
           )}
           aria-label={paused ? "Play" : "Pause"}
         >
-          {paused ? <Play size="0.8125rem" className="translate-x-px" /> : <Pause size="0.8125rem" />}
-        </button>
-      )}
-      {hasPlayerContent && (
-        <button
-          type="button"
-          onClick={() => setShowVideo((v) => !v)}
-          className={cn(
-            "inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-90",
-            MUSIC_NEUTRAL_ICON_CLASS,
-            MUSIC_NEUTRAL_ICON_HOVER_CLASS,
-          )}
-          aria-label={showVideo ? "Hide video" : "Show video"}
-        >
-          {showVideo ? <ChevronUp size="0.8125rem" /> : <ChevronDown size="0.8125rem" />}
+          {paused ? <Play size="0.8125rem" className="translate-x-px fill-current" /> : <Pause size="0.8125rem" />}
         </button>
       )}
       {hasPlayerContent && (
@@ -505,39 +369,10 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
     </>
   );
 
-  const videoPanel = (
-    <div
-      className={cn(
-        "fixed top-14 z-40 w-[calc(100vw-1rem)] max-w-80 overflow-hidden rounded-xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-opacity",
-        MUSIC_NEUTRAL_SHELL_BORDER_CLASS,
-        MUSIC_NEUTRAL_SHELL_BG_CLASS,
-        active && hasPlayerContent && showVideo ? "left-2 opacity-100" : "pointer-events-none -left-[9999px] opacity-0",
-      )}
-    >
-      {/* The IFrame player lives here; YT injects the iframe into this host. */}
-      <div ref={hostRef} className="aspect-video w-full bg-black [&_iframe]:size-full" />
-      {(nowPlaying || error) && (
-        <div className="px-3 py-2">
-          {error ? (
-            <div className="text-xs text-[var(--destructive)]">{error}</div>
-          ) : (
-            <div className="min-w-0">
-              <div className={cn("truncate text-xs font-medium", MUSIC_NEUTRAL_TEXT_CLASS)} title={nowPlaying?.title}>
-                {nowPlaying?.title}
-              </div>
-              {nowPlaying?.mood && (
-                <div className={cn("truncate text-[11px]", MUSIC_NEUTRAL_MUTED_CLASS)}>{nowPlaying.mood}</div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
   if (mobile) {
     return (
       <>
+        <audio ref={audioRef} className="hidden" />
         {showPlayer && (
           <div
             className="fixed z-[60] touch-none select-none md:hidden"
@@ -555,7 +390,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
                   MUSIC_NEUTRAL_SHELL_BG_CLASS,
                 )}
               >
-                <MusicSourceGlyph source="youtube" className={cn("h-5 w-5", YOUTUBE_LOGO_CLASS)} />
+                <MusicSourceGlyph source="custom" className="h-5 w-5 text-[var(--primary)]" />
               </div>
             ) : (
               <div
@@ -569,7 +404,7 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
                 <div className="mb-1 flex items-center gap-1">
                   <GripVertical size="0.875rem" className={MUSIC_NEUTRAL_ICON_CLASS} />
                   <span className={cn("flex-1 truncate text-[0.625rem] font-medium", MUSIC_NEUTRAL_ICON_CLASS)}>
-                    YouTube
+                    Custom
                   </span>
                   <button
                     type="button"
@@ -597,14 +432,13 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
             )}
           </div>
         )}
-        {videoPanel}
       </>
     );
   }
 
   return (
     <>
-      {/* Compact mini-player pill — lives in the top bar (upper-left), like Spotify's. */}
+      <audio ref={audioRef} className="hidden" />
       {showPlayer && (
         <div
           className={cn(
@@ -623,27 +457,24 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           >
             <div
               className={cn(
-                "h-full rounded-full",
-                MUSIC_NEUTRAL_PROGRESS_FILL_CLASS,
+                "h-full rounded-full bg-[var(--primary)]",
                 hasPlayerContent && !paused ? "w-full opacity-80" : "w-8 opacity-50",
               )}
             />
           </div>
         </div>
       )}
-
-      {videoPanel}
     </>
   );
 }
 
-export function YouTubeMobileWidget() {
-  const enabled = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "youtube");
+export function LocalMusicMobileWidget() {
+  const enabled = useUIStore((s) => s.musicPlayerEnabled && s.musicPlayerSource === "custom");
   const isMobileViewport = useMediaQuery("(max-width: 767px)");
 
   if (!enabled || !isMobileViewport) return null;
 
-  return <YouTubePlayer mobile />;
+  return <LocalMusicPlayer mobile />;
 }
 
 function useMediaQuery(query: string) {

@@ -1412,6 +1412,10 @@ export function BotBrowserView() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
+  const mainScrollRef = useRef<HTMLDivElement | null>(null);
+  const resultsScrollTopRef = useRef(0);
+  const restoreResultsScrollRef = useRef(false);
+  const openDetailScrollRef = useRef(false);
 
   // ── Auth state ──
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -1585,7 +1589,29 @@ export function BotBrowserView() {
     };
   }, [doSearch, query]);
 
+  useLayoutEffect(() => {
+    const scrollContainer = mainScrollRef.current;
+    if (!scrollContainer) return;
+
+    if (selectedCard && openDetailScrollRef.current) {
+      openDetailScrollRef.current = false;
+      scrollContainer.scrollTop = 0;
+      return;
+    }
+
+    if (!selectedCard && restoreResultsScrollRef.current) {
+      restoreResultsScrollRef.current = false;
+      const savedTop = resultsScrollTopRef.current;
+      scrollContainer.scrollTop = savedTop;
+      requestAnimationFrame(() => {
+        scrollContainer.scrollTop = savedTop;
+      });
+    }
+  }, [selectedCard]);
+
   const openDetail = async (card: BrowseCard) => {
+    resultsScrollTopRef.current = mainScrollRef.current?.scrollTop ?? 0;
+    openDetailScrollRef.current = true;
     setSelectedCard(card);
     setDetail(null);
     setDetailLoading(true);
@@ -1594,6 +1620,7 @@ export function BotBrowserView() {
       setDetail(d);
     } catch {
       toast.error("Failed to load character details");
+      restoreResultsScrollRef.current = true;
       setSelectedCard(null);
     } finally {
       setDetailLoading(false);
@@ -2058,7 +2085,7 @@ export function BotBrowserView() {
         )}
 
         {/* ═══ Main area ═══ */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div ref={mainScrollRef} className="flex-1 overflow-y-auto p-4">
           {selectedCard ? (
             <DetailView
               card={selectedCard}
@@ -2067,6 +2094,7 @@ export function BotBrowserView() {
               importing={importing}
               provider={provider}
               onBack={() => {
+                restoreResultsScrollRef.current = true;
                 setSelectedCard(null);
                 setDetail(null);
               }}

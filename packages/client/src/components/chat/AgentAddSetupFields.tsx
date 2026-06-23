@@ -31,6 +31,7 @@ import {
 } from "./sprite-display-modes";
 
 export type KnowledgeAgentType = "knowledge-retrieval" | "knowledge-router";
+export type MusicProvider = "spotify" | "youtube" | "custom";
 
 export type AgentAddSetupState = {
   directorMode: "natural" | "random";
@@ -60,7 +61,8 @@ export type AgentAddSetupState = {
   spotifyPlaylistId: string;
   spotifyPlaylistName: string | null;
   spotifyArtist: string;
-  musicProvider: "spotify" | "youtube";
+  musicProvider: MusicProvider;
+  customMusicFolder: string;
   hapticFeedbackEnabled: boolean;
   hapticSensitivity: HapticFeedbackSensitivity;
   hapticIncidentalContact: boolean;
@@ -123,6 +125,17 @@ function readString(value: unknown, fallback = ""): string {
 
 function normalizeSpotifySourceType(value: unknown): SpotifySourceType {
   return value === "playlist" || value === "artist" || value === "any" ? value : "liked";
+}
+
+function normalizeMusicProvider(value: unknown, fallback: MusicProvider): MusicProvider {
+  return value === "spotify" || value === "youtube" || value === "custom" ? value : fallback;
+}
+
+function normalizeCustomMusicFolder(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim().replace(/\\/g, "/") : "";
+  const normalized = raw.replace(/^\/+/, "").replace(/\/+$/g, "");
+  if (!normalized || normalized.includes("..")) return "music";
+  return normalized.startsWith("music") ? normalized : `music/${normalized}`;
 }
 
 function normalizeHapticSensitivity(value: unknown): HapticFeedbackSensitivity {
@@ -208,17 +221,14 @@ export function buildInitialAgentAddSetupState({
   agentId: string;
   settings: Record<string, unknown>;
   metadata: Record<string, unknown>;
-  musicPlayerSource: "spotify" | "youtube";
+  musicPlayerSource: MusicProvider;
   roleplaySpriteScale: number;
   allowSecretPlot?: boolean;
 }): AgentAddSetupState {
   const proseBanned = readString(settings.banned, DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
   const proseAvoid = readString(settings.avoid, DEFAULT_PROSE_GUARDIAN_AVOID);
   const spotifySourceType = normalizeSpotifySourceType(metadata.spotifySourceType);
-  const musicProvider =
-    settings.musicProvider === "spotify" || settings.musicProvider === "youtube"
-      ? settings.musicProvider
-      : musicPlayerSource;
+  const musicProvider = normalizeMusicProvider(settings.musicProvider ?? settings.musicPlayerSource, musicPlayerSource);
   const spriteScale = normalizeSpriteDisplayValue(
     metadata.spriteScale,
     roleplaySpriteScale,
@@ -306,6 +316,7 @@ export function buildInitialAgentAddSetupState({
     spotifyPlaylistName: readString(metadata.spotifyPlaylistName) || null,
     spotifyArtist: readString(metadata.spotifyArtist),
     musicProvider,
+    customMusicFolder: normalizeCustomMusicFolder(settings.customMusicFolder ?? metadata.customMusicFolder),
     hapticFeedbackEnabled: metadata.enableHapticFeedback === true,
     hapticSensitivity: normalizeHapticSensitivity(metadata.hapticSensitivity),
     hapticIncidentalContact: metadata.hapticIncidentalContact === true,
@@ -346,6 +357,9 @@ export function applyAgentAddSetupToAgentSettings(
   }
   if (agentId === "spotify") {
     next.musicProvider = setup.musicProvider;
+    next.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
+    next.enabledTools =
+      setup.musicProvider === "spotify" ? next.enabledTools : [];
   }
   if (agentId === "illustrator") {
     next.includeCharacterAppearance = setup.includeCharacterAppearance;
@@ -398,6 +412,9 @@ export function buildAgentAddMetadataPatch(
   if (agentId === "lorebook-keeper") {
     patch.lorebookKeeperTargetLorebookId = setup.lorebookKeeperTargetLorebookId || null;
     patch.lorebookKeeperReadBehindMessages = setup.lorebookKeeperReadBehindMessages;
+  }
+  if (agentId === "spotify") {
+    patch.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
   }
   if (agentId === "expression") {
     patch.spriteDisplayModes = setup.spriteDisplayModes;
@@ -1084,7 +1101,8 @@ function MusicDjSetupFields({
   return (
     <div className="space-y-2.5 rounded-lg bg-[var(--background)]/65 px-3 py-2.5 ring-1 ring-[var(--border)]">
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        Active player: {value.musicProvider === "spotify" ? "Spotify" : "YouTube"}.
+        Active player:{" "}
+        {value.musicProvider === "spotify" ? "Spotify" : value.musicProvider === "youtube" ? "YouTube" : "Custom"}.
       </p>
       {value.musicProvider === "spotify" ? (
         <>
@@ -1179,10 +1197,25 @@ function MusicDjSetupFields({
             </label>
           )}
         </>
-      ) : (
+      ) : value.musicProvider === "youtube" ? (
         <p className="rounded-lg bg-[var(--background)]/75 px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
           YouTube mode uses the Music DJ agent's saved YouTube connection and embedded player.
         </p>
+      ) : (
+        <label className="flex flex-col gap-1 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+          <SetupLabel>Custom Music Folder</SetupLabel>
+          <input
+            value={value.customMusicFolder}
+            disabled={disabled}
+            onChange={(event) => onChange({ customMusicFolder: event.target.value })}
+            onBlur={() => onChange({ customMusicFolder: normalizeCustomMusicFolder(value.customMusicFolder) })}
+            placeholder="music"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+            Reads local audio from Game Assets, for example <code>music</code> or <code>music/combat</code>.
+          </span>
+        </label>
       )}
     </div>
   );

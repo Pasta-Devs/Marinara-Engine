@@ -9,7 +9,14 @@ const loadChatSettingsDrawer = async () => {
   return { default: module.ChatSettingsDrawer };
 };
 
-const ChatSettingsDrawer = lazy(loadChatSettingsDrawer);
+let chatSettingsDrawerLoadPromise: ReturnType<typeof loadChatSettingsDrawer> | null = null;
+
+export function preloadChatSettingsDrawer() {
+  chatSettingsDrawerLoadPromise ??= loadChatSettingsDrawer();
+  return chatSettingsDrawerLoadPromise;
+}
+
+const ChatSettingsDrawer = lazy(preloadChatSettingsDrawer);
 
 const ChatFilesDrawer = lazy(async () => {
   const module = await import("./ChatFilesDrawer");
@@ -252,7 +259,7 @@ export function ChatCommonOverlays({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const warmSettingsDrawer = () => {
-      void loadChatSettingsDrawer();
+      void preloadChatSettingsDrawer();
     };
 
     if ("requestIdleCallback" in window) {
@@ -266,23 +273,21 @@ export function ChatCommonOverlays({
 
   return (
     <>
-      {chat && (
+      {chat && settingsOpen && (
         <Suspense fallback={null}>
-          {settingsOpen && (
-            <ChatSettingsDrawer
-              chat={chat}
-              open={settingsOpen}
-              onClose={onCloseSettings}
-              anchor={settingsAnchor}
-              initialSection={settingsInitialSection}
-              spriteArrangeMode={sceneSettings.spriteArrangeMode}
-              onToggleSpriteArrange={sceneSettings.onToggleSpriteArrange}
-              onResetSpritePlacements={sceneSettings.onResetSpritePlacements}
-              onSpriteSideChange={sceneSettings.onSpriteSideChange}
-              spriteVisualSettings={sceneSettings.spriteVisualSettings}
-              onSpriteVisualSettingsChange={sceneSettings.onSpriteVisualSettingsChange}
-            />
-          )}
+          <ChatSettingsDrawer
+            chat={chat}
+            open={settingsOpen}
+            onClose={onCloseSettings}
+            anchor={settingsAnchor}
+            initialSection={settingsInitialSection}
+            spriteArrangeMode={sceneSettings.spriteArrangeMode}
+            onToggleSpriteArrange={sceneSettings.onToggleSpriteArrange}
+            onResetSpritePlacements={sceneSettings.onResetSpritePlacements}
+            onSpriteSideChange={sceneSettings.onSpriteSideChange}
+            spriteVisualSettings={sceneSettings.spriteVisualSettings}
+            onSpriteVisualSettingsChange={sceneSettings.onSpriteVisualSettingsChange}
+          />
         </Suspense>
       )}
       {chat && (

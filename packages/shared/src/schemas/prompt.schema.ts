@@ -57,6 +57,18 @@ export const generationParametersSchema = z.object({
     .max(20)
     .default([]),
   customParameters: z.record(z.unknown()).default({}),
+  enabledParameters: z
+    .object({
+      temperature: z.boolean().optional(),
+      maxTokens: z.boolean().optional(),
+      topP: z.boolean().optional(),
+      topK: z.boolean().optional(),
+      frequencyPenalty: z.boolean().optional(),
+      presencePenalty: z.boolean().optional(),
+      reasoningEffort: z.boolean().optional(),
+      verbosity: z.boolean().optional(),
+    })
+    .optional(),
   squashSystemMessages: z.boolean().default(true),
   showThoughts: z.boolean().default(true),
   useMaxContext: z.boolean().default(false),

@@ -65,6 +65,7 @@ function parseMetadata(raw: RawChat["metadata"]): Record<string, unknown> {
 function shouldConsiderChat(chat: RawChat): boolean {
   if (chat.mode !== "conversation") return false;
   const meta = parseMetadata(chat.metadata);
+  if (meta.internalAssistant === "professor-mari") return false;
   return meta.autonomousMessages === true && meta.sceneStatus !== "active";
 }
 

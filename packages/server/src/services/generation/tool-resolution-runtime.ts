@@ -679,6 +679,8 @@ export async function resolveGenerationTools({
       agent.type === "spotify" &&
       agentSettings.musicProvider !== "youtube" &&
       agentSettings.musicPlayerSource !== "youtube" &&
+      agentSettings.musicProvider !== "custom" &&
+      agentSettings.musicPlayerSource !== "custom" &&
       agentEnabledNames.length === 0
     ) {
       agentEnabledNames = [...spotifyToolNames];

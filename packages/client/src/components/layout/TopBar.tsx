@@ -10,6 +10,7 @@ import { useAgentStore } from "../../stores/agent.store";
 import { cn } from "../../lib/utils";
 import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
 import { YouTubePlayer } from "../chat/YouTubePlayer";
+import { LocalMusicPlayer } from "../chat/LocalMusicPlayer";
 
 type RightPanelButtonPanel = "lorebooks" | "presets" | "connections" | "agents" | "personas";
 
@@ -297,6 +298,7 @@ export function TopBar() {
         </div>
         {spotifyDesktopViewport && <SpotifyMiniPlayer forceFloating={spotifyUseFloatingFallback} />}
         <YouTubePlayer />
+        <LocalMusicPlayer />
       </div>
 
       {/* Right section - Panel toggles */}

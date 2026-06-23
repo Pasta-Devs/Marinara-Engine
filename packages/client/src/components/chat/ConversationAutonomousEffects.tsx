@@ -3,7 +3,7 @@ import { X } from "lucide-react";
 import type { Message } from "@marinara-engine/shared";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
-import { playNotificationPing } from "../../lib/notification-sound";
+import { playConfiguredNotificationPing } from "../../lib/notification-sound";
 import { generateClientId } from "../../lib/utils";
 import { useAutonomousMessaging } from "../../hooks/use-autonomous-messaging";
 import type { CharacterMap } from "./chat-area.types";
@@ -31,9 +31,8 @@ export function ConversationAutonomousEffects({
       const charInfo = characterMap.get(characterId);
       const name = charInfo?.name ?? "Someone";
 
-      if (useUIStore.getState().convoNotificationSound) {
-        playNotificationPing();
-      }
+      const uiState = useUIStore.getState();
+      playConfiguredNotificationPing(uiState.convoNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused);
 
       if (useChatStore.getState().activeChatId !== chatId) {
         useChatStore.getState().incrementUnread(chatId);

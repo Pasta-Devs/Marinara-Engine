@@ -33,6 +33,7 @@ export interface BuildPromptMacroContextInput {
   model?: string;
   lastGenerationType?: string;
   idleDuration?: string;
+  timeZone?: string;
 }
 
 export interface CharacterMacroData {
@@ -249,6 +250,7 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
     model: input.model,
     lastGenerationType: input.lastGenerationType,
     idleDuration: input.idleDuration,
+    timeZone: input.timeZone,
     characterFields: {
       ...(characterMacroData.primaryFields ?? {}),
       ...(input.groupScenarioOverrideText ? { scenario: input.groupScenarioOverrideText } : {}),

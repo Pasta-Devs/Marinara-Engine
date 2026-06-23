@@ -4,6 +4,19 @@
 
 let audioCtx: AudioContext | null = null;
 
+type NotificationPingOptions = {
+  onlyWhenUnfocused?: boolean;
+};
+
+export function isMarinaraFocused(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.visibilityState === "visible" && document.hasFocus();
+}
+
+export function shouldPlayNotificationPing(options: NotificationPingOptions = {}): boolean {
+  return !options.onlyWhenUnfocused || !isMarinaraFocused();
+}
+
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!audioCtx) {
@@ -21,8 +34,9 @@ function getAudioContext(): AudioContext | null {
  * Uses two layered sine oscillators with a quick exponential decay
  * to produce a soft "ding" reminiscent of Discord/iMessage notifications.
  */
-export function playNotificationPing(): void {
+export function playNotificationPing(options: NotificationPingOptions = {}): void {
   try {
+    if (!shouldPlayNotificationPing(options)) return;
     const ctx = getAudioContext();
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -58,4 +72,9 @@ export function playNotificationPing(): void {
   } catch {
     // Silently ignore — audio may not be available
   }
+}
+
+export function playConfiguredNotificationPing(enabled: boolean, onlyWhenUnfocused: boolean): void {
+  if (!enabled) return;
+  playNotificationPing({ onlyWhenUnfocused });
 }

@@ -46,6 +46,7 @@ import { useTrackAchievement } from "../../hooks/use-achievements";
 import { chatKeys } from "../../hooks/use-chats";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
 import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
+import { formatGenerationParameterError } from "../../lib/generation-parameter-errors";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -117,7 +118,9 @@ function rememberConnectionId(id: string) {
 
 function describeProfessorMariError(error: unknown) {
   const message = getPrivilegedActionErrorMessage(error, "").trim();
-  if (message) return `${message} This message will stay visible long enough to screenshot for troubleshooting.`;
+  if (message) {
+    return `${formatGenerationParameterError(message)} This message will stay visible long enough to screenshot for troubleshooting.`;
+  }
   return "The request failed before Professor Mari could answer. This message will stay visible long enough to screenshot for troubleshooting.";
 }
 
@@ -1176,6 +1179,26 @@ function summarizeTables(tables: Record<string, number>) {
     .join(", ");
 }
 
+function summarizeDeletedRow(change: MariDbPendingApproval["diffPreview"][number]) {
+  const name =
+    typeof change.before?.name === "string"
+      ? change.before.name
+      : typeof change.before?.title === "string"
+        ? change.before.title
+        : null;
+  return name ? `${change.table}: ${name}` : `${change.table}: ${change.id}`;
+}
+
+function formatRowPreview(row: Record<string, unknown> | null | undefined) {
+  if (!row) return "No row snapshot available.";
+  try {
+    const text = JSON.stringify(row, null, 2);
+    return text.length > 700 ? `${text.slice(0, 700)}\n...` : text;
+  } catch {
+    return "Row snapshot could not be displayed.";
+  }
+}
+
 function WorkspaceErrorEvent({ message }: { message: string }) {
   return (
     <TranscriptRow marker={<AlertTriangle size="0.8rem" className="mt-1 text-[var(--destructive)]" />}>
@@ -1193,19 +1216,21 @@ function WorkspaceApprovalCard({
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
 }) {
+  const deletedRows = approval.diffPreview.filter((change) => change.action === "delete");
+
   return (
     <TranscriptRow marker={<ShieldAlert size="0.85rem" className="mt-1 text-amber-400" />}>
-      <div className="border-t border-amber-400/25 py-2 text-xs text-[var(--foreground)]">
+      <div className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-xs text-[var(--foreground)]">
         <div className="flex min-w-0 items-center gap-2">
           <span className="font-semibold">Approve database change</span>
           <span className="rounded-full bg-amber-400/10 px-1.5 py-0.5 text-[0.625rem] text-amber-300">
             {approval.validationStatus}
           </span>
         </div>
-        <p className="mt-1 truncate font-mono text-[0.6875rem] text-[var(--muted-foreground)]" title={approval.command}>
+        <pre className="mt-2 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--background)]/80 p-2 font-mono text-[0.6875rem] text-[var(--muted-foreground)]">
           {approval.command}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+        </pre>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-[var(--muted-foreground)]">
           <span className="inline-flex items-center gap-1">
             <Database size="0.7rem" /> {summarizeTables(approval.affectedTables)}
           </span>
@@ -1213,6 +1238,34 @@ function WorkspaceApprovalCard({
             {approval.affectedRows} row{approval.affectedRows === 1 ? "" : "s"}
           </span>
         </div>
+        {deletedRows.length > 0 && (
+          <div className="mt-2 rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 p-2 text-[0.6875rem] text-[var(--foreground)]">
+            <div className="flex items-center gap-1.5 font-semibold text-[var(--destructive)]">
+              <Trash2 size="0.75rem" />
+              Mari is about to delete {deletedRows.length} item{deletedRows.length === 1 ? "" : "s"}.
+            </div>
+            <p className="mt-1 text-[var(--muted-foreground)]">
+              A restore copy is written to the approval journal before the delete is applied.
+            </p>
+            <div className="mt-2 space-y-2">
+              {deletedRows.slice(0, 3).map((change) => (
+                <details key={`${change.table}:${change.id}`} className="rounded-md bg-[var(--background)]/80 p-2">
+                  <summary className="cursor-pointer font-medium text-[var(--foreground)]">
+                    {summarizeDeletedRow(change)}
+                  </summary>
+                  <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words text-[0.625rem] text-[var(--muted-foreground)]">
+                    {formatRowPreview(change.before)}
+                  </pre>
+                </details>
+              ))}
+              {deletedRows.length > 3 && (
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {deletedRows.length - 3} more delete{deletedRows.length - 3 === 1 ? "" : "s"} hidden in this preview.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
         <div className="mt-2 flex justify-end gap-1.5">
           <button
             type="button"
@@ -1797,7 +1850,15 @@ export function HomeProfessorMariChat({
         await refreshWorkspaceStatus().catch(() => undefined);
         if (result.history?.status === "approved") {
           await invalidateWorkspaceData();
-          toast.success("Workspace change applied. App data refreshed.");
+          const deletedCount = result.approval?.diffPreview.filter((change) => change.action === "delete").length ?? 0;
+          if (deletedCount > 0) {
+            toast.success(
+              `Mari deleted ${deletedCount} item${deletedCount === 1 ? "" : "s"}. A restore copy was saved to the approval journal.`,
+              { duration: 20_000 },
+            );
+          } else {
+            toast.success("Workspace change applied. App data refreshed.");
+          }
         } else if (result.completed === false) {
           window.setTimeout(() => {
             void invalidateWorkspaceData();

@@ -28,7 +28,8 @@ import { PinnedImageOverlay } from "./PinnedImageOverlay";
 import { useChatStore } from "../../stores/chat.store";
 import { useUnoGameStore } from "../../stores/uno-game.store";
 import { useUIStore } from "../../stores/ui.store";
-import { playNotificationPing } from "../../lib/notification-sound";
+import { playConfiguredNotificationPing } from "../../lib/notification-sound";
+import { messageHasPendingPostProcessing } from "../../lib/chat-message-extra";
 import { getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../lib/transcript-render-window";
 import { useConversationCustomEmojis } from "../../hooks/use-conversation-custom-emojis";
 import { useConversationCustomStickers } from "../../hooks/use-conversation-custom-stickers";
@@ -716,6 +717,7 @@ export function ConversationView({
   // component remounts. This prevents sounds/stagger replaying when the user
   // navigates away and comes back to the same chat.
   const globalSeenKeysRef = useRef(globalSeenKeys);
+  const pendingPostProcessingKeysRef = useRef<Set<string>>(new Set());
   // Persist stagger timers in a ref so they survive effect re-runs caused by
   // query refetches arriving shortly after the initial message_saved upsert.
   const staggerTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>[]>>({});
@@ -727,6 +729,7 @@ export function ConversationView({
     initialLoadSettledRef.current = false;
     prevRenderedKeysRef.current = new Set();
     renderedMessageKeysRef.current = new Set();
+    pendingPostProcessingKeysRef.current = new Set();
     Object.values(staggerTimersRef.current).forEach((timers) => timers.forEach(clearTimeout));
     staggerTimersRef.current = {};
     setVisiblePartCounts({});
@@ -735,6 +738,9 @@ export function ConversationView({
   useLayoutEffect(() => {
     const messageItems = renderedItems.filter((item) => item.type === "message");
     const currentKeys = new Set(messageItems.map((item) => item.key));
+    const pendingPostProcessingKeys = new Set(
+      messageItems.filter((item) => messageHasPendingPostProcessing(item.msg)).map((item) => item.key),
+    );
     renderedMessageKeysRef.current = currentKeys;
     for (const key of Object.keys(staggerTimersRef.current)) {
       if (!currentKeys.has(key)) {
@@ -758,7 +764,10 @@ export function ConversationView({
       if (currentKeys.size > 0) {
         prevRenderedKeysRef.current = currentKeys;
         // Mark all current keys as globally seen so remount won't replay them
-        for (const k of currentKeys) globalSeenKeysRef.current.add(k);
+        for (const item of messageItems) {
+          if (!pendingPostProcessingKeys.has(item.key)) globalSeenKeysRef.current.add(item.key);
+        }
+        pendingPostProcessingKeysRef.current = pendingPostProcessingKeys;
         initialLoadSettledRef.current = true;
       }
       return;
@@ -784,12 +793,15 @@ export function ConversationView({
 
     for (const item of messageItems) {
       const key = item.key;
-      if (prevKeys.has(key) || seenGlobal.has(key)) continue;
+      const isPendingPostProcessing = pendingPostProcessingKeys.has(key);
+      if (isPendingPostProcessing) continue;
+      const wasPendingPostProcessing = pendingPostProcessingKeysRef.current.has(key);
+      if ((prevKeys.has(key) || seenGlobal.has(key)) && !wasPendingPostProcessing) continue;
 
       // Check if this message is fresh (created recently, meaning it was
       // generated while the user is actively in this chat)
       const ts = keyTimestampMap.get(key) ?? 0;
-      const isFresh = now - ts < FRESHNESS_MS;
+      const isFresh = wasPendingPostProcessing || now - ts < FRESHNESS_MS;
 
       if (!isFresh) {
         // Stale message from cache refetch — silently mark as seen, skip animation
@@ -804,12 +816,16 @@ export function ConversationView({
     }
 
     // Mark all current keys as globally seen
-    for (const k of currentKeys) seenGlobal.add(k);
+    for (const item of messageItems) {
+      if (!pendingPostProcessingKeys.has(item.key)) seenGlobal.add(item.key);
+    }
     prevRenderedKeysRef.current = currentKeys;
+    pendingPostProcessingKeysRef.current = pendingPostProcessingKeys;
 
     // Play notification for the first new message appearance
-    if (hasNewAssistantMessage && useUIStore.getState().convoNotificationSound) {
-      playNotificationPing();
+    if (hasNewAssistantMessage) {
+      const uiState = useUIStore.getState();
+      playConfiguredNotificationPing(uiState.convoNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused);
     }
 
     if (newPartMessages.length === 0) return;
@@ -835,9 +851,8 @@ export function ConversationView({
             return;
           }
           setVisiblePartCounts((prev) => ({ ...prev, [key]: partIndex }));
-          if (useUIStore.getState().convoNotificationSound) {
-            playNotificationPing();
-          }
+          const uiState = useUIStore.getState();
+          playConfiguredNotificationPing(uiState.convoNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused);
           staggerTimersRef.current[key] = (staggerTimersRef.current[key] ?? []).filter(
             (activeTimer) => activeTimer !== timer,
           );

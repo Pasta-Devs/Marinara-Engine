@@ -8,6 +8,7 @@ import { toast, type ExternalToast } from "sonner";
 import { api } from "../lib/api-client";
 import { formatAgentFailuresToast, toAgentFailure, type AgentFailure } from "../lib/agent-failures";
 import { chatBackgroundMetadataToUrl } from "../lib/backgrounds";
+import { formatGenerationParameterError } from "../lib/generation-parameter-errors";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
 import { agentKeys } from "./use-agents";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
@@ -37,8 +38,9 @@ type RetryAgentsFn = (chatId: string, agentTypes: string[], options?: RetryAgent
 
 /** Show a persistent, copyable error toast and log to console */
 function showError(msg: string, options?: Pick<ExternalToast, "action">) {
+  const formatted = formatGenerationParameterError(msg);
   console.error("[Generation]", msg);
-  toast.error(msg, { duration: 15000, ...options });
+  toast.error(formatted, { duration: 15000, ...options });
 }
 
 function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void) {
@@ -387,7 +389,8 @@ import { characterKeys } from "./use-characters";
 import { connectionKeys } from "./use-connections";
 import { lorebookKeys } from "./use-lorebooks";
 import { presetKeys } from "./use-presets";
-import { playNotificationPing } from "../lib/notification-sound";
+import { playConfiguredNotificationPing } from "../lib/notification-sound";
+import { messageHasPendingPostProcessing } from "../lib/chat-message-extra";
 import { stripGmTagsKeepReadables } from "../lib/game-tag-parser";
 import type { APIConnection, Chat, GameMap, Message } from "@marinara-engine/shared";
 
@@ -888,6 +891,8 @@ export function useGenerate() {
   const clearCyoaChoices = useAgentStore((s) => s.clearCyoaChoices);
   const setYoutubePlay = useAgentStore((s) => s.setYoutubePlay);
   const setYoutubeVolume = useAgentStore((s) => s.setYoutubeVolume);
+  const setLocalMusicPlay = useAgentStore((s) => s.setLocalMusicPlay);
+  const setLocalMusicVolume = useAgentStore((s) => s.setLocalMusicVolume);
   const enqueuePendingCardUpdate = useAgentStore((s) => s.enqueuePendingCardUpdate);
   const enqueuePendingAgentWriteApproval = useAgentStore((s) => s.enqueuePendingAgentWriteApproval);
   const setFailedAgentFailures = useAgentStore((s) => s.setFailedAgentFailures);
@@ -901,6 +906,7 @@ export function useGenerate() {
       lorebookIds?: string[];
       userMessage?: string;
       regenerateMessageId?: string;
+      continueMessageId?: string;
       impersonate?: boolean;
       autonomous?: boolean;
       autonomousIntentKey?: string;
@@ -1051,7 +1057,8 @@ export function useGenerate() {
       const transportStreaming = useUIStore.getState().enableStreaming;
       const streamingEnabled = transportStreaming;
       const chatModeForGeneration = getCachedChatMode(qc, params.chatId);
-      const shouldDisplayRawStream = chatModeForGeneration !== "conversation" || !!params.regenerateMessageId;
+      const shouldDisplayRawStream =
+        chatModeForGeneration !== "conversation" || !!params.regenerateMessageId || !!params.continueMessageId;
       const leadingSpeakerPrefixFilter = createLeadingSpeakerPrefixFilter([
         ...getCachedChatSpeakerNames(qc, params.chatId),
         ...(params.mentionedCharacterNames ?? []),
@@ -1473,6 +1480,30 @@ export function useGenerate() {
                     setYoutubePlay({ searchQuery: d.searchQuery.trim(), mood: (d.mood as string) ?? "" });
                   }
                 }
+
+                // Drive the embedded Custom local player from the agent's exact asset pick.
+                if (result.resultType === "local_music_control") {
+                  const d = result.data as Record<string, unknown>;
+                  const action = d.action as string;
+                  if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
+                    setLocalMusicVolume(Math.max(0, Math.min(100, d.volume)));
+                  }
+                  const path = typeof d.path === "string" ? d.path.trim() : "";
+                  if (action === "play" && path) {
+                    const trackName = typeof d.trackName === "string" ? d.trackName.trim() : "";
+                    const fallbackTitle =
+                      path
+                        .split("/")
+                        .pop()
+                        ?.replace(/\.[^.]+$/, "")
+                        .replace(/[-_]+/g, " ") || "Local track";
+                    setLocalMusicPlay({
+                      path,
+                      title: trackName || fallbackTitle,
+                      mood: (d.mood as string) ?? "",
+                    });
+                  }
+                }
               }
 
               // Character card updates are never applied automatically — enqueue
@@ -1635,9 +1666,10 @@ export function useGenerate() {
                   const soundOn = isRpMode
                     ? useUIStore.getState().rpNotificationSound
                     : useUIStore.getState().convoNotificationSound;
-                  if (soundOn) {
-                    playNotificationPing();
-                  }
+                  playConfiguredNotificationPing(
+                    soundOn && !messageHasPendingPostProcessing(previousGroupMessage),
+                    useUIStore.getState().notificationSoundsOnlyWhenUnfocused,
+                  );
                 }
                 // Reset the stream buffer for the new character
                 fullBuffer = "";
@@ -1865,7 +1897,7 @@ export function useGenerate() {
               // Once an ordinary roleplay stream is saved, the durable message
               // should own the transcript even if post-generation agents
               // (Illustrator, Spotify, etc.) are still running.
-              if (params.regenerateMessageId || !streamingEnabled) {
+              if (params.regenerateMessageId || params.continueMessageId || !streamingEnabled) {
                 upsertPersistedMessages(qc, params.chatId, [savedMessage]);
               } else if (shouldDisplayRawStream && !isGameGeneration) {
                 await waitForTypewriterDrain();
@@ -2231,8 +2263,9 @@ export function useGenerate() {
           // persisted active-swipe row after generation-time SSE patches.
           await refreshVisibleGameStateAfterGeneration(params.chatId);
         }
-        if (isGameGeneration && sawDoneEvent && receivedContent && useUIStore.getState().gameNotificationSound) {
-          playNotificationPing();
+        if (isGameGeneration && sawDoneEvent && receivedContent) {
+          const uiState = useUIStore.getState();
+          playConfiguredNotificationPing(uiState.gameNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused);
           gameTurnLoadedSoundPlayed = true;
         }
         // Re-sort sidebar so this chat floats to the top
@@ -2275,9 +2308,7 @@ export function useGenerate() {
             : isRp
               ? uiState.rpNotificationSound
               : uiState.convoNotificationSound;
-          if (soundEnabled) {
-            playNotificationPing();
-          }
+          playConfiguredNotificationPing(soundEnabled, uiState.notificationSoundsOnlyWhenUnfocused);
         }
         // Only clean up global streaming state if this generation still
         // "owns" it. We check AbortController identity rather than chatId
@@ -2287,7 +2318,11 @@ export function useGenerate() {
         const stillOwner = stillOwnerAtCleanupStart;
         const partialContent = normalizeLineBreakSpacing(fullBuffer + pendingText).trim();
         const unpersistedPartialMessage: Message | null =
-          receivedContent && persistedMessages.size === 0 && partialContent && !params.regenerateMessageId
+          receivedContent &&
+          persistedMessages.size === 0 &&
+          partialContent &&
+          !params.regenerateMessageId &&
+          !params.continueMessageId
             ? {
                 id: `__partial_${params.chatId}_${Date.now()}`,
                 chatId: params.chatId,
@@ -2367,7 +2402,9 @@ export function useGenerate() {
         // Always notify game surface that generation completed for this chat.
         // Dispatched unconditionally — GameSurface uses lastProcessedMsgRef
         // to prevent duplicate processing.
-        if (debugMode) console.warn("[use-generate] dispatching generation-complete for chat:", params.chatId);
+        if (useUIStore.getState().debugMode) {
+          console.warn("[use-generate] dispatching generation-complete for chat:", params.chatId);
+        }
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
 
         // Auto-translate newly generated assistant messages if enabled
@@ -2451,6 +2488,8 @@ export function useGenerate() {
       clearCyoaChoices,
       setYoutubePlay,
       setYoutubeVolume,
+      setLocalMusicPlay,
+      setLocalMusicVolume,
       enqueuePendingCardUpdate,
       enqueuePendingAgentWriteApproval,
       clearFailedAgentTypes,
@@ -2612,6 +2651,28 @@ export function useGenerate() {
                   }
                   if (action === "play" && typeof d.searchQuery === "string" && d.searchQuery.trim()) {
                     setYoutubePlay({ searchQuery: d.searchQuery.trim(), mood: (d.mood as string) ?? "" });
+                  }
+                }
+                if (result.resultType === "local_music_control" && isActiveChat()) {
+                  const d = result.data as Record<string, unknown>;
+                  const action = d.action as string;
+                  if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
+                    setLocalMusicVolume(Math.max(0, Math.min(100, d.volume)));
+                  }
+                  const path = typeof d.path === "string" ? d.path.trim() : "";
+                  if (action === "play" && path) {
+                    const trackName = typeof d.trackName === "string" ? d.trackName.trim() : "";
+                    const fallbackTitle =
+                      path
+                        .split("/")
+                        .pop()
+                        ?.replace(/\.[^.]+$/, "")
+                        .replace(/[-_]+/g, " ") || "Local track";
+                    setLocalMusicPlay({
+                      path,
+                      title: trackName || fallbackTitle,
+                      mood: (d.mood as string) ?? "",
+                    });
                   }
                 }
                 if (result.resultType === "background_change") {
@@ -2785,6 +2846,8 @@ export function useGenerate() {
       setCyoaChoices,
       setYoutubePlay,
       setYoutubeVolume,
+      setLocalMusicPlay,
+      setLocalMusicVolume,
       setFailedAgentFailures,
       setProcessing,
       qc,
@@ -2923,6 +2986,17 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
       const display = typeof d.display === "string" ? d.display.trim() : "";
       if (action === "none") return mood ? `🎵 Keeping current track — ${mood}` : "🎵 Keeping current track";
       if (action === "play") {
+        const localPath = typeof d.path === "string" ? d.path.trim() : "";
+        if (localPath) {
+          const trackName = typeof d.trackName === "string" ? d.trackName.trim() : "";
+          const fallbackTitle =
+            localPath
+              .split("/")
+              .pop()
+              ?.replace(/\.[^.]+$/, "")
+              .replace(/[-_]+/g, " ") || localPath;
+          return `🎵 ${trackName || fallbackTitle}${mood ? ` — ${mood}` : ""}`;
+        }
         // Support both array and singular formats
         const trackNames: string[] = Array.isArray(d.trackNames)
           ? (d.trackNames as string[])

@@ -9,9 +9,11 @@ import {
   useState,
   lazy,
   Suspense,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import { useGameModeStore } from "../../stores/game-mode.store";
@@ -104,7 +106,13 @@ import type {
   SceneSpotifyTrackSelection,
 } from "@marinara-engine/shared";
 import type { SceneSegmentEffect } from "@marinara-engine/shared";
-import { formatTextQuotes, normalizeTextForMatch, scoreMusic, scoreAmbient } from "@marinara-engine/shared";
+import {
+  PROFESSOR_MARI_ID,
+  formatTextQuotes,
+  normalizeTextForMatch,
+  scoreMusic,
+  scoreAmbient,
+} from "@marinara-engine/shared";
 import { GameNarration, formatNarration } from "./GameNarration";
 import { GameInput } from "./GameInput";
 import { GameMapPanel, MobileMapButton } from "./GameMap";
@@ -116,11 +124,10 @@ import { GameDiceResult } from "./GameDiceResult";
 import { GameSkillCheckResult } from "./GameSkillCheckResult";
 import { GameElementReaction } from "./GameElementReaction";
 import { GameTravelView } from "./GameTravelView";
-import { GameSessionHistory, type CurrentSessionSecrets } from "./GameSessionHistory";
+import type { CurrentSessionSecrets } from "./GameSessionHistory";
 import { GameTransitionManager } from "./GameTransitionManager";
 import { GameChoiceCards } from "./GameChoiceCards";
 import { GameQteOverlay } from "./GameQteOverlay";
-import { GameJournal } from "./GameJournal";
 import { GameJsonRepairModal } from "./GameJsonRepairModal";
 import {
   GameImagePromptReviewModal,
@@ -137,20 +144,20 @@ import {
   buildMissingSceneAssetGenerationPayload,
   normalizeSceneAssetNameForGeneration,
 } from "./game-asset-generation-payload";
-import { ChatGalleryDrawer } from "../chat/ChatGalleryDrawer";
 import { PinnedImageOverlay } from "../chat/PinnedImageOverlay";
 import { ChatBranchSelector } from "../chat/ChatBranchSelector";
-import { GameAssetsBrowserView } from "../game-assets/GameAssetsBrowserView";
 import {
   CHAT_FLOATING_PANEL_SELECTOR,
   CHAT_TOOLBAR_ICON_GAP_CLASS,
   CHAT_TOOLBAR_OVERFLOW_BUTTON_SIZE_CLASS,
   CHAT_TOOLBAR_OVERFLOW_MENU_CLASS,
-  announceChatToolbarAction,
   getChatToolbarButtonClass,
   readChatToolbarFloatingPanelAnchor,
+  type ChatToolbarFloatingPanelAnchor,
 } from "../chat/ChatToolbarControls";
 import {
+  ROLEPLAY_POPOVER_CLOSE_BUTTON,
+  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
   ROLEPLAY_POPOVER_HEADER,
   ROLEPLAY_POPOVER_SCROLL_AREA,
   ROLEPLAY_POPOVER_SHELL,
@@ -175,6 +182,7 @@ type GameAssetGenerationPayload = {
   includeCharacterAppearance?: boolean;
   forceIllustration?: boolean;
   debugMode?: boolean;
+  queueImageGenerationRequests?: boolean;
   imageSizes?: {
     background?: { width: number; height: number };
     portrait?: { width: number; height: number };
@@ -200,11 +208,29 @@ const GAME_ACTION_MENU = cn(ROLEPLAY_POPOVER_SHELL, "flex w-72 max-w-[calc(100vw
 const GAME_MOBILE_ACTIONS_MENU = cn(CHAT_TOOLBAR_OVERFLOW_MENU_CLASS, "absolute right-0 top-9");
 const GAME_MOBILE_ACTION_MENU = cn(ROLEPLAY_POPOVER_SHELL, "flex w-72 max-w-[calc(100vw-4rem)] flex-col gap-1 p-1.5");
 const GAME_MOBILE_FLOATING_PANEL =
-  "absolute right-9 top-0 z-[9999] h-[min(42rem,calc(100dvh-4.75rem))] w-[min(42rem,calc(100vw-4.75rem))]";
-const GAME_MOBILE_FLOATING_MENU =
-  "absolute right-9 top-0 z-[9999] max-h-[min(32rem,calc(100dvh-4.75rem))] overflow-y-auto";
+  "fixed z-[9999] h-[min(42rem,calc(100dvh-4.75rem))] w-[min(42rem,calc(100vw-4.75rem))]";
+const GAME_MOBILE_FLOATING_MENU = "fixed z-[9999] max-h-[min(32rem,calc(100dvh-4.75rem))] overflow-y-auto";
 const GAME_ACTION_MENU_ITEM =
   "marinara-chat-popover__item flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent";
+
+function getGameMobileFloatingPanelStyle(anchor: ChatToolbarFloatingPanelAnchor): CSSProperties {
+  if (!anchor) {
+    return {
+      right: "0.75rem",
+      top: "calc(3.75rem + env(safe-area-inset-top))",
+    };
+  }
+
+  return {
+    right: `${anchor.right}px`,
+    top: `${anchor.top}px`,
+  };
+}
+
+function renderGameMobilePortal(node: ReactNode): ReactNode {
+  if (typeof document === "undefined") return node;
+  return createPortal(node, document.body);
+}
 
 type PreparedCombatState = {
   messageId: string;
@@ -1019,6 +1045,26 @@ const SpriteOverlay = lazy(async () => {
   return { default: module.SpriteOverlay };
 });
 
+const GameSessionHistory = lazy(async () => {
+  const module = await import("./GameSessionHistory");
+  return { default: module.GameSessionHistory };
+});
+
+const GameJournal = lazy(async () => {
+  const module = await import("./GameJournal");
+  return { default: module.GameJournal };
+});
+
+const ChatGalleryDrawer = lazy(async () => {
+  const module = await import("../chat/ChatGalleryDrawer");
+  return { default: module.ChatGalleryDrawer };
+});
+
+const GameAssetsBrowserView = lazy(async () => {
+  const module = await import("../game-assets/GameAssetsBrowserView");
+  return { default: module.GameAssetsBrowserView };
+});
+
 const GameCombatUI = lazy(async () => {
   const module = await import("./GameCombatUI");
   return { default: module.GameCombatUI };
@@ -1599,8 +1645,10 @@ interface GameVolumeMixerProps {
   onTtsVolumeChange: (value: number) => void;
   onAmbientVolumeChange: (value: number) => void;
   onToggleMute: () => void;
+  onClose: () => void;
   onAudioInteract?: () => void;
   className?: string;
+  style?: CSSProperties;
 }
 
 function GameVolumeMixer({
@@ -1616,8 +1664,10 @@ function GameVolumeMixer({
   onTtsVolumeChange,
   onAmbientVolumeChange,
   onToggleMute,
+  onClose,
   onAudioInteract,
   className,
+  style,
 }: GameVolumeMixerProps) {
   const rows = [
     { id: "master", label: "Master", value: masterVolume, onChange: onMasterVolumeChange },
@@ -1628,24 +1678,39 @@ function GameVolumeMixer({
   ];
 
   return (
-    <div data-chat-floating-panel className={cn(ROLEPLAY_POPOVER_SHELL, "w-64 max-w-[calc(100vw-1.5rem)] p-3", className)}>
+    <div
+      data-chat-floating-panel
+      className={cn(ROLEPLAY_POPOVER_SHELL, "w-64 max-w-[calc(100vw-1.5rem)] p-3", className)}
+      style={style}
+    >
       <div className="mb-2 flex items-center justify-between gap-3 border-b border-[var(--marinara-chat-chrome-panel-divider)] pb-2">
         <span className="text-[0.6875rem] font-semibold uppercase text-[var(--marinara-chat-chrome-panel-muted)]">
           Volume
         </span>
-        <button
-          onClick={onToggleMute}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
-            audioMuted
-              ? "bg-red-500/30 text-red-300 hover:bg-red-500/50"
-              : "bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-          )}
-          title={audioMuted ? "Unmute" : "Mute"}
-          aria-label={audioMuted ? "Unmute" : "Mute"}
-        >
-          {audioMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onToggleMute}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
+              audioMuted
+                ? "bg-red-500/30 text-red-300 hover:bg-red-500/50"
+                : "bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
+            )}
+            title={audioMuted ? "Unmute" : "Mute"}
+            aria-label={audioMuted ? "Unmute" : "Mute"}
+          >
+            {audioMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+            aria-label="Close volume"
+          >
+            <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2.5">
@@ -1890,13 +1955,19 @@ export function GameSurface({
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const musicPlayerSource = useUIStore((s) => s.musicPlayerSource);
   const gameSnapshot = useGameStateStore((s) => (s.current?.chatId === activeChatId ? s.current : null));
-  const chatCharacterIds = useMemo(() => getChatCharacterIds(chat.characterIds), [chat.characterIds]);
+  const chatCharacterIds = useMemo(
+    () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
+    [chat.characterIds],
+  );
   const gameMusicDjEnabled =
     chatMeta.gameUseMusicDj === true ||
     chatMeta.gameUseSpotifyMusic === true ||
     (Array.isArray(chatMeta.activeAgentIds) && (chatMeta.activeAgentIds as string[]).includes("youtube"));
   const useSpotifyGameMusic = gameMusicDjEnabled && musicPlayerSource === "spotify";
   const useYoutubeGameMusic = gameMusicDjEnabled && musicPlayerSource === "youtube";
+  const useCustomGameMusic = gameMusicDjEnabled && musicPlayerSource === "custom";
+  const useJsonMusicDjGameMusic = useYoutubeGameMusic || useCustomGameMusic;
+  const useMusicDjPlayerMusic = useSpotifyGameMusic || useJsonMusicDjGameMusic;
   const activeGameMetaId = typeof chatMeta.gameId === "string" ? chatMeta.gameId : "";
   const sceneRuntimeScopeKey = `${activeChatId}:${activeGameMetaId}`;
   const { data: connectionsList } = useConnections();
@@ -2061,15 +2132,19 @@ export function GameSurface({
   const fetchManifest = useGameAssetStore((s) => s.fetchManifest);
 
   useEffect(() => {
-    if (!useSpotifyGameMusic && !useYoutubeGameMusic) return;
+    if (!useMusicDjPlayerMusic) return;
     audioManager.stopMusic();
     useGameAssetStore.getState().setCurrentMusic(null);
-  }, [useSpotifyGameMusic, useYoutubeGameMusic]);
+  }, [useMusicDjPlayerMusic]);
 
   const [sessionPanelOpen, setSessionPanelOpen] = useState(false);
   const [sessionPanelTab, setSessionPanelTab] = useState<"history" | "journal">("history");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryAnchor, setGalleryAnchor] = useState<{ right: number; top: number } | null>(null);
+  const [mobileRetryMenuAnchor, setMobileRetryMenuAnchor] = useState<ChatToolbarFloatingPanelAnchor>(null);
+  const [mobileSessionPanelAnchor, setMobileSessionPanelAnchor] = useState<ChatToolbarFloatingPanelAnchor>(null);
+  const [mobileVolumePopoverAnchor, setMobileVolumePopoverAnchor] = useState<ChatToolbarFloatingPanelAnchor>(null);
+  const [mobileGameAssetsPanelAnchor, setMobileGameAssetsPanelAnchor] = useState<ChatToolbarFloatingPanelAnchor>(null);
   const [combatLogsOpen, setCombatLogsOpen] = useState(false);
   const [spotifyRetryPending, setSpotifyRetryPending] = useState(false);
   const [youtubeRetryPending, setYoutubeRetryPending] = useState(false);
@@ -2086,29 +2161,48 @@ export function GameSurface({
   const readFloatingPanelAnchor = useCallback((event?: ReactMouseEvent<HTMLElement>) => {
     return readChatToolbarFloatingPanelAnchor(event?.currentTarget ?? null);
   }, []);
-  const handleToolbarKeyboardAction = useCallback((event: ReactKeyboardEvent<HTMLElement>) => {
-    if (event.key === "Enter" || event.key === " ") announceChatToolbarAction();
+  const closeLocalFloatingWindows = useCallback(() => {
+    setSessionPanelOpen(false);
+    setMobileSessionPanelAnchor(null);
+    setGameAssetsPanelOpen(false);
+    setMobileGameAssetsPanelAnchor(null);
+    setRetryMenuOpen(false);
+    setMobileRetryMenuOpen(false);
+    setMobileRetryMenuAnchor(null);
+    setVolumePopoverOpen(false);
+    setMobileVolumePopoverAnchor(null);
+    setGalleryOpen(false);
+    setGalleryAnchor(null);
   }, []);
+  const dismissOtherFloatingWindows = useCallback(() => {
+    closeLocalFloatingWindows();
+    onCloseSettings();
+  }, [closeLocalFloatingWindows, onCloseSettings]);
   const handleOpenGalleryPanel = useCallback(
     (event?: ReactMouseEvent<HTMLElement>) => {
+      closeLocalFloatingWindows();
       onCloseSettings();
       setGalleryAnchor(readFloatingPanelAnchor(event));
       setGalleryOpen(true);
     },
-    [onCloseSettings, readFloatingPanelAnchor],
+    [closeLocalFloatingWindows, onCloseSettings, readFloatingPanelAnchor],
   );
   const handleOpenSettingsPanel = useCallback(
     (event?: ReactMouseEvent<HTMLElement>) => {
-      setGalleryOpen(false);
-      setGalleryAnchor(null);
+      closeLocalFloatingWindows();
       onOpenSettings(event);
     },
-    [onOpenSettings],
+    [closeLocalFloatingWindows, onOpenSettings],
   );
   const handleCloseGalleryPanel = useCallback(() => {
     setGalleryOpen(false);
     setGalleryAnchor(null);
   }, []);
+  const closeChatDrawers = useCallback(() => {
+    setGalleryOpen(false);
+    setGalleryAnchor(null);
+    onCloseSettings();
+  }, [onCloseSettings]);
   const [activeChoices, setActiveChoices] = useState<string[] | null>(null);
   const [activeQte, setActiveQte] = useState<{ actions: string[]; timer: number } | null>(null);
   const [queuedQte, setQueuedQte] = useState<{ qte: { actions: string[]; timer: number }; messageId: string } | null>(
@@ -2359,8 +2453,11 @@ export function GameSurface({
     setGalleryOpen(false);
     setGalleryAnchor(null);
     setCombatLogsOpen(false);
-    setMobileActionsOpen(false);
     setMobileRetryMenuOpen(false);
+    setMobileRetryMenuAnchor(null);
+    setMobileSessionPanelAnchor(null);
+    setMobileVolumePopoverAnchor(null);
+    setMobileGameAssetsPanelAnchor(null);
     setVolumePopoverOpen(false);
     setRetryMenuOpen(false);
     setInventoryOpen(false);
@@ -2634,7 +2731,7 @@ export function GameSurface({
             const resolved = resolveAssetTag(fx.background, "backgrounds", assetMap);
             useGameAssetStore.getState().setCurrentBackground(resolved);
           }
-          if (fx.music && !useSpotifyGameMusic && !useYoutubeGameMusic) {
+          if (fx.music && !useMusicDjPlayerMusic) {
             const resolved = resolveAssetTag(fx.music, "music", assetMap);
             audioManager.playMusic(resolved, assetMap);
             useGameAssetStore.getState().setCurrentMusic(resolved);
@@ -2668,8 +2765,7 @@ export function GameSurface({
       scopedAssetMap,
       applyInventoryUpdates,
       playDirections,
-      useSpotifyGameMusic,
-      useYoutubeGameMusic,
+      useMusicDjPlayerMusic,
     ],
   );
 
@@ -2709,8 +2805,7 @@ export function GameSurface({
       }
     }
     if (
-      !useSpotifyGameMusic &&
-      !useYoutubeGameMusic &&
+      !useMusicDjPlayerMusic &&
       currentMusic &&
       assetMap?.[currentMusic] &&
       !audioManager.getState().musicTag
@@ -2720,7 +2815,7 @@ export function GameSurface({
     if (currentAmbient && assetMap?.[currentAmbient] && !audioManager.getState().ambientTag) {
       audioManager.playAmbient(currentAmbient, assetMap);
     }
-  }, [assetManifest, chatMeta.gameSceneBackground, scopedAssetMap, useSpotifyGameMusic, useYoutubeGameMusic]);
+  }, [assetManifest, chatMeta.gameSceneBackground, scopedAssetMap, useMusicDjPlayerMusic]);
 
   const gameCharacterIds = useMemo(() => {
     const ids = new Set<string>();
@@ -3154,7 +3249,7 @@ export function GameSurface({
   const canRetrySpotifyMusic =
     useSpotifyGameMusic && !!activeChatId && !isStreaming && !sceneAnalysis.isPending && !spotifyRetryPending;
   const canRetryYoutubeMusic =
-    useYoutubeGameMusic && !!activeChatId && !isStreaming && !sceneAnalysis.isPending && !youtubeRetryPending;
+    useJsonMusicDjGameMusic && !!activeChatId && !isStreaming && !sceneAnalysis.isPending && !youtubeRetryPending;
 
   const fetchSpotifySceneCandidates = useCallback(
     async (
@@ -3347,7 +3442,7 @@ export function GameSurface({
     // same-chat remount (store may already match) and different-chat mount.
     useGameAssetStore.getState().setCurrentBackground(savedBg ?? null);
 
-    if (savedMusic && !useSpotifyGameMusic && !useYoutubeGameMusic && assetMap?.[savedMusic]) {
+    if (savedMusic && !useMusicDjPlayerMusic && assetMap?.[savedMusic]) {
       useGameAssetStore.getState().setCurrentMusic(savedMusic);
       // Play music — may be blocked by autoplay, audioManager queues retry on gesture
       if (audioManager.getState().musicTag !== savedMusic) {
@@ -3404,8 +3499,7 @@ export function GameSurface({
     hasQteResponseAfterMessage,
     hasCombatResultAfterMessage,
     handlePartyChangeCommands,
-    useSpotifyGameMusic,
-    useYoutubeGameMusic,
+    useMusicDjPlayerMusic,
   ]);
 
   // ── Restore party dialogue from the last [party-chat] message on page load ──
@@ -4148,7 +4242,7 @@ export function GameSurface({
       recentMusic: recentMusicHistoryRef.current,
       availableMusic: musicTags,
     });
-    if (scoredMusic && !useSpotifyGameMusic && !useYoutubeGameMusic) {
+    if (scoredMusic && !useMusicDjPlayerMusic) {
       audioManager.playMusic(scoredMusic, assetMap);
       useGameAssetStore.getState().setCurrentMusic(scoredMusic);
     }
@@ -4252,6 +4346,7 @@ export function GameSurface({
         useAvatarReferences: assetPayload.useAvatarReferences ?? gameImageUseAvatarReferences,
         includeCharacterAppearance: assetPayload.includeCharacterAppearance ?? gameImageIncludeCharacterAppearance,
         debugMode: useUIStore.getState().debugMode,
+        queueImageGenerationRequests: useUIStore.getState().queueImageGenerationRequests,
         imageSizes: getConfiguredGameAssetImageSizes(),
       };
 
@@ -4392,7 +4487,7 @@ export function GameSurface({
         useGameAssetStore.getState().setCurrentBackground(pick);
       }
     }
-    if (result.music && !useSpotifyGameMusic && !useYoutubeGameMusic) {
+    if (result.music && !useMusicDjPlayerMusic) {
       const resolved = resolveAssetTag(result.music, "music", assetMap);
       audioManager.playMusic(resolved, assetMap);
       useGameAssetStore.getState().setCurrentMusic(resolved);
@@ -4420,7 +4515,7 @@ export function GameSurface({
             const resolved = resolveAssetTag(fx.background, "backgrounds", assetMap);
             useGameAssetStore.getState().setCurrentBackground(resolved);
           }
-          if (fx.music && !useSpotifyGameMusic && !useYoutubeGameMusic) {
+          if (fx.music && !useMusicDjPlayerMusic) {
             const resolved = resolveAssetTag(fx.music, "music", assetMap);
             audioManager.playMusic(resolved, assetMap);
             useGameAssetStore.getState().setCurrentMusic(resolved);
@@ -4888,24 +4983,29 @@ export function GameSurface({
   }, [activeChatId, generate, isStreaming]);
 
   const handleRetryYoutubeMusic = useCallback(async () => {
-    if (!activeChatId || !useYoutubeGameMusic || isStreaming || sceneAnalysis.isPending) return;
+    if (!activeChatId || !useJsonMusicDjGameMusic || isStreaming || sceneAnalysis.isPending) return;
     setRetryMenuOpen(false);
     setMobileRetryMenuOpen(false);
     setMobileActionsOpen(false);
     setYoutubeRetryPending(true);
     try {
-      // Music DJ YouTube mode needs no scene-candidate flow — re-running the agent (with the
+      // Music DJ YouTube/Custom modes need no scene-candidate flow — re-running the agent (with the
       // manualRetry constraint the server injects) emits a fresh play intent that
       // the in-app player swaps in.
       await retryAgents(activeChatId, ["spotify"]);
-      toast.success("Music DJ picking a fresh YouTube track…", { duration: 1800 });
+      toast.success(
+        musicPlayerSource === "custom"
+          ? "Music DJ picking a fresh local track..."
+          : "Music DJ picking a fresh YouTube track...",
+        { duration: 1800 },
+      );
     } catch (error) {
       console.warn("[youtube/game] Retry failed:", error);
       toast.error("Music DJ retry failed.");
     } finally {
       setYoutubeRetryPending(false);
     }
-  }, [activeChatId, isStreaming, retryAgents, sceneAnalysis.isPending, useYoutubeGameMusic]);
+  }, [activeChatId, isStreaming, musicPlayerSource, retryAgents, sceneAnalysis.isPending, useJsonMusicDjGameMusic]);
 
   const handleRetrySpotifyMusic = useCallback(async () => {
     if (!activeChatId || !useSpotifyGameMusic || isStreaming || sceneAnalysis.isPending) return;
@@ -7762,24 +7862,41 @@ export function GameSurface({
   }, [gameAssetsPanelOpen, sessionPanelOpen]);
 
   const handleOpenSessionPanel = useCallback(
-    (tab: "history" | "journal" = "history") => {
+    (tab: "history" | "journal" = "history", event?: ReactMouseEvent<HTMLElement>) => {
+      const nextOpen = tab === sessionPanelTab ? !sessionPanelOpen : true;
+      if (nextOpen) dismissOtherFloatingWindows();
+      closeChatDrawers();
       setSessionPanelTab(tab);
-      setSessionPanelOpen((open) => (tab === sessionPanelTab ? !open : true));
+      setSessionPanelOpen(nextOpen);
+      setMobileSessionPanelAnchor(nextOpen ? readFloatingPanelAnchor(event) : null);
       setGameAssetsPanelOpen(false);
+      setMobileGameAssetsPanelAnchor(null);
       setRetryMenuOpen(false);
       setMobileRetryMenuOpen(false);
+      setMobileRetryMenuAnchor(null);
       setVolumePopoverOpen(false);
+      setMobileVolumePopoverAnchor(null);
     },
-    [sessionPanelTab],
+    [closeChatDrawers, dismissOtherFloatingWindows, readFloatingPanelAnchor, sessionPanelOpen, sessionPanelTab],
   );
 
-  const handleOpenGameAssetsPanel = useCallback(() => {
-    setGameAssetsPanelOpen((open) => !open);
-    setSessionPanelOpen(false);
-    setRetryMenuOpen(false);
-    setMobileRetryMenuOpen(false);
-    setVolumePopoverOpen(false);
-  }, []);
+  const handleOpenGameAssetsPanel = useCallback(
+    (event?: ReactMouseEvent<HTMLElement>) => {
+      const nextOpen = !gameAssetsPanelOpen;
+      if (nextOpen) dismissOtherFloatingWindows();
+      closeChatDrawers();
+      setGameAssetsPanelOpen(nextOpen);
+      setMobileGameAssetsPanelAnchor(nextOpen ? readFloatingPanelAnchor(event) : null);
+      setSessionPanelOpen(false);
+      setMobileSessionPanelAnchor(null);
+      setRetryMenuOpen(false);
+      setMobileRetryMenuOpen(false);
+      setMobileRetryMenuAnchor(null);
+      setVolumePopoverOpen(false);
+      setMobileVolumePopoverAnchor(null);
+    },
+    [closeChatDrawers, dismissOtherFloatingWindows, gameAssetsPanelOpen, readFloatingPanelAnchor],
+  );
 
   const handleBranchMessage = useCallback(
     (messageId: string) => {
@@ -8356,147 +8473,175 @@ export function GameSurface({
     handleStartNewSession();
   };
 
-  const renderSessionPanel = (mobile = false) => (
-    <div
-      data-chat-floating-panel
-      className={cn(
-        ROLEPLAY_POPOVER_SHELL,
-        "flex min-h-0 flex-col overflow-hidden",
-        mobile
-          ? GAME_MOBILE_FLOATING_PANEL
-          : "absolute right-0 top-9 z-50 max-h-[min(42rem,calc(100vh-6rem))] w-[min(42rem,calc(100vw-1.5rem))]",
-      )}
-    >
-      <div className={ROLEPLAY_POPOVER_HEADER}>
-        <div>
-          <div className={ROLEPLAY_POPOVER_TITLE}>
-            <Feather size="0.8rem" className="shrink-0 text-[var(--muted-foreground)]" />
-            Session
+  const renderSessionPanel = (mobile = false) => {
+    const panel = (
+      <div
+        data-chat-floating-panel
+        className={cn(
+          ROLEPLAY_POPOVER_SHELL,
+          "flex min-h-0 flex-col overflow-hidden",
+          mobile
+            ? GAME_MOBILE_FLOATING_PANEL
+            : "absolute right-0 top-9 z-50 max-h-[min(42rem,calc(100vh-6rem))] w-[min(42rem,calc(100vw-1.5rem))]",
+        )}
+        style={mobile ? getGameMobileFloatingPanelStyle(mobileSessionPanelAnchor) : undefined}
+      >
+        <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex items-start gap-3")}>
+          <div className="min-w-0 flex-1">
+            <div className={ROLEPLAY_POPOVER_TITLE}>
+              <Feather size="0.8rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              Session
+            </div>
+            <div className={ROLEPLAY_POPOVER_SUBTITLE}>
+              Session {displaySessionNumber} · {sessionStatus}
+            </div>
           </div>
-          <div className={ROLEPLAY_POPOVER_SUBTITLE}>
-            Session {displaySessionNumber} · {sessionStatus}
+          <div className="ml-auto flex shrink-0 items-center gap-1 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setTutorialOpen(true)}
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+              title="Game tutorial"
+              aria-label="Game tutorial"
+            >
+              <CircleHelp size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSessionPanelOpen(false)}
+              className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+              aria-label="Close session"
+            >
+              <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setTutorialOpen(true)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-            title="Game tutorial"
-            aria-label="Game tutorial"
-          >
-            <CircleHelp size={14} />
-          </button>
-        </div>
-      </div>
 
-      <div className="flex gap-1 border-b border-[var(--marinara-chat-chrome-panel-divider)] p-2">
-        {(["history", "journal"] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setSessionPanelTab(tab)}
+        <div className="flex gap-1 border-b border-[var(--marinara-chat-chrome-panel-divider)] p-2">
+          {(["history", "journal"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setSessionPanelTab(tab)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[0.6875rem] font-medium transition-colors",
+                sessionPanelTab === tab
+                  ? "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]"
+                  : "text-[var(--marinara-chat-chrome-panel-muted)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]",
+              )}
+            >
+              {tab === "history" ? <ScrollText size={12} /> : <BookOpen size={12} />}
+              {tab === "history" ? "Session History" : "Journal"}
+            </button>
+          ))}
+        </div>
+
+        {sessionPanelTab === "history" ? (
+          <div
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[0.6875rem] font-medium transition-colors",
-              sessionPanelTab === tab
-                ? "bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]"
-                : "text-[var(--marinara-chat-chrome-panel-muted)] hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]",
+              ROLEPLAY_POPOVER_SCROLL_AREA,
+              "min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-2 [-webkit-overflow-scrolling:touch]",
             )}
           >
-            {tab === "history" ? <ScrollText size={12} /> : <BookOpen size={12} />}
-            {tab === "history" ? "Session History" : "Journal"}
-          </button>
-        ))}
+            <Suspense fallback={null}>
+              <GameSessionHistory
+                summaries={sessionSummaries}
+                currentSessionNumber={displaySessionNumber}
+                currentSessionDate={
+                  (chatMeta.gameCurrentSessionStartedAt as string | undefined) || chat.createdAt || chat.updatedAt
+                }
+                currentSecrets={currentSessionSecrets}
+                savingSessionNumber={savingSessionSummary}
+                savingCurrentSecrets={savingCurrentSessionSecrets}
+                regeneratingSessionNumber={
+                  regenerateSessionConclusion.isPending
+                    ? (regenerateSessionConclusion.variables?.sessionNumber ?? null)
+                    : null
+                }
+                lorebookKeeperEnabled={chatMeta.gameLorebookKeeperEnabled === true}
+                lorebookKeeperLastRun={
+                  chatMeta.gameLorebookKeeperLastRun &&
+                  typeof chatMeta.gameLorebookKeeperLastRun === "object" &&
+                  !Array.isArray(chatMeta.gameLorebookKeeperLastRun)
+                    ? (chatMeta.gameLorebookKeeperLastRun as {
+                        sessionNumber: number;
+                        status: "running" | "success" | "failed";
+                        updatedAt: string;
+                        entryCount?: number;
+                        error?: string;
+                      })
+                    : null
+                }
+                regeneratingLorebookSessionNumber={
+                  regenerateSessionLorebook.isPending
+                    ? (regenerateSessionLorebook.variables?.sessionNumber ?? null)
+                    : null
+                }
+                updatingPlotArcsSessionNumber={
+                  updateCampaignProgression.isPending
+                    ? (updateCampaignProgression.variables?.sessionNumber ?? null)
+                    : null
+                }
+                onSaveCurrentSecrets={handleSaveCurrentSessionSecrets}
+                onSaveSession={handleSaveSessionDetails}
+                onRegenerateSession={handleRegenerateSessionConclusion}
+                onRegenerateLorebook={handleRegenerateSessionLorebook}
+                onUpdatePlotArcs={handleUpdateCampaignProgression}
+                currentSessionActionLabel={sessionActionLabel}
+                currentSessionActionIcon={sessionActionIcon}
+                currentSessionActionDisabled={sessionActionDisabled}
+                onCurrentSessionAction={handleSessionAction}
+                onClose={() => setSessionPanelOpen(false)}
+                embedded
+              />
+            </Suspense>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <Suspense fallback={null}>
+              <GameJournal
+                chatId={activeChatId}
+                npcs={npcs}
+                onClose={() => setSessionPanelOpen(false)}
+                onNpcPortraitClick={handleNpcPortraitClick}
+                onNpcPortraitGenerate={handleNpcPortraitGenerate}
+                npcPortraitGenerationEnabled={
+                  chatMeta.enableSpriteGeneration === true && typeof chatMeta.gameImageConnectionId === "string"
+                }
+                generatingNpcPortraitNames={generatingNpcPortraitNames}
+                onNpcRemove={handleRemoveNpcFromJournal}
+                embedded
+              />
+            </Suspense>
+          </div>
+        )}
       </div>
+    );
 
-      {sessionPanelTab === "history" ? (
-        <div
-          className={cn(
-            ROLEPLAY_POPOVER_SCROLL_AREA,
-            "min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain p-2 [-webkit-overflow-scrolling:touch]",
-          )}
-        >
-          <GameSessionHistory
-            summaries={sessionSummaries}
-            currentSessionNumber={displaySessionNumber}
-            currentSessionDate={
-              (chatMeta.gameCurrentSessionStartedAt as string | undefined) || chat.createdAt || chat.updatedAt
-            }
-            currentSecrets={currentSessionSecrets}
-            savingSessionNumber={savingSessionSummary}
-            savingCurrentSecrets={savingCurrentSessionSecrets}
-            regeneratingSessionNumber={
-              regenerateSessionConclusion.isPending
-                ? (regenerateSessionConclusion.variables?.sessionNumber ?? null)
-                : null
-            }
-            lorebookKeeperEnabled={chatMeta.gameLorebookKeeperEnabled === true}
-            lorebookKeeperLastRun={
-              chatMeta.gameLorebookKeeperLastRun &&
-              typeof chatMeta.gameLorebookKeeperLastRun === "object" &&
-              !Array.isArray(chatMeta.gameLorebookKeeperLastRun)
-                ? (chatMeta.gameLorebookKeeperLastRun as {
-                    sessionNumber: number;
-                    status: "running" | "success" | "failed";
-                    updatedAt: string;
-                    entryCount?: number;
-                    error?: string;
-                  })
-                : null
-            }
-            regeneratingLorebookSessionNumber={
-              regenerateSessionLorebook.isPending ? (regenerateSessionLorebook.variables?.sessionNumber ?? null) : null
-            }
-            updatingPlotArcsSessionNumber={
-              updateCampaignProgression.isPending ? (updateCampaignProgression.variables?.sessionNumber ?? null) : null
-            }
-            onSaveCurrentSecrets={handleSaveCurrentSessionSecrets}
-            onSaveSession={handleSaveSessionDetails}
-            onRegenerateSession={handleRegenerateSessionConclusion}
-            onRegenerateLorebook={handleRegenerateSessionLorebook}
-            onUpdatePlotArcs={handleUpdateCampaignProgression}
-            currentSessionActionLabel={sessionActionLabel}
-            currentSessionActionIcon={sessionActionIcon}
-            currentSessionActionDisabled={sessionActionDisabled}
-            onCurrentSessionAction={handleSessionAction}
-            onClose={() => setSessionPanelOpen(false)}
-            embedded
-          />
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <GameJournal
-            chatId={activeChatId}
-            npcs={npcs}
-            onClose={() => setSessionPanelOpen(false)}
-            onNpcPortraitClick={handleNpcPortraitClick}
-            onNpcPortraitGenerate={handleNpcPortraitGenerate}
-            npcPortraitGenerationEnabled={
-              chatMeta.enableSpriteGeneration === true && typeof chatMeta.gameImageConnectionId === "string"
-            }
-            generatingNpcPortraitNames={generatingNpcPortraitNames}
-            onNpcRemove={handleRemoveNpcFromJournal}
-            embedded
-          />
-        </div>
-      )}
-    </div>
-  );
+    return mobile ? renderGameMobilePortal(panel) : panel;
+  };
 
-  const renderGameAssetsPanel = (mobile = false) => (
-    <div
-      data-chat-floating-panel
-      className={cn(
-        ROLEPLAY_POPOVER_SHELL,
-        "flex min-h-0 flex-col overflow-hidden",
-        mobile
-          ? GAME_MOBILE_FLOATING_PANEL
-          : "absolute right-0 top-9 z-50 h-[min(42rem,calc(100vh-6rem))] w-[min(54rem,calc(100vw-1.5rem))]",
-      )}
-    >
-      <GameAssetsBrowserView embedded onClose={() => setGameAssetsPanelOpen(false)} />
-    </div>
-  );
+  const renderGameAssetsPanel = (mobile = false) => {
+    const panel = (
+      <div
+        data-chat-floating-panel
+        className={cn(
+          ROLEPLAY_POPOVER_SHELL,
+          "flex min-h-0 flex-col overflow-hidden",
+          mobile
+            ? GAME_MOBILE_FLOATING_PANEL
+            : "absolute right-0 top-9 z-50 h-[min(42rem,calc(100vh-6rem))] w-[min(54rem,calc(100vw-1.5rem))]",
+        )}
+        style={mobile ? getGameMobileFloatingPanelStyle(mobileGameAssetsPanelAnchor) : undefined}
+      >
+        <Suspense fallback={null}>
+          <GameAssetsBrowserView embedded onClose={() => setGameAssetsPanelOpen(false)} />
+        </Suspense>
+      </div>
+    );
+
+    return mobile ? renderGameMobilePortal(panel) : panel;
+  };
 
   return (
     <div className="relative flex h-full overflow-hidden bg-black mari-card-css" data-chat-mode="game">
@@ -8546,18 +8691,21 @@ export function GameSurface({
                 {/* Desktop controls */}
                 <div
                   className={cn("pointer-events-auto hidden items-center md:flex", CHAT_TOOLBAR_ICON_GAP_CLASS)}
-                  onPointerDownCapture={announceChatToolbarAction}
-                  onKeyDownCapture={handleToolbarKeyboardAction}
                 >
                   <ChatBranchSelector
                     activeChatId={activeChatId}
                     activeChatName={chat.name}
                     groupId={chat.groupId ?? null}
                     variant="roleplay"
+                    onOpen={dismissOtherFloatingWindows}
                   />
                   <div className="relative" ref={retryMenuRef}>
                     <button
-                      onClick={() => setRetryMenuOpen((open) => !open)}
+                      onClick={() => {
+                        const nextOpen = !retryMenuOpen;
+                        if (nextOpen) dismissOtherFloatingWindows();
+                        setRetryMenuOpen(nextOpen);
+                      }}
                       className={GAME_TOP_ICON_BUTTON}
                       title="Retry..."
                       aria-label="Retry..."
@@ -8569,6 +8717,20 @@ export function GameSurface({
                     </button>
                     {retryMenuOpen && (
                       <div className={cn(GAME_ACTION_MENU, "absolute right-0 top-9 z-50")}>
+                        <div className="mb-1 flex items-center justify-between gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-2 pb-1.5 pt-0.5">
+                          <div className={ROLEPLAY_POPOVER_TITLE}>
+                            <RotateCcw size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                            <span>Retry</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setRetryMenuOpen(false)}
+                            className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+                            aria-label="Close retry menu"
+                          >
+                            <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+                          </button>
+                        </div>
                         <button
                           onClick={() => {
                             void handleRetryTurn();
@@ -8597,7 +8759,7 @@ export function GameSurface({
                             <span>Retry Music DJ</span>
                           </button>
                         )}
-                        {useYoutubeGameMusic && (
+                        {useJsonMusicDjGameMusic && (
                           <button
                             onClick={handleRetryYoutubeMusic}
                             disabled={!canRetryYoutubeMusic}
@@ -8627,7 +8789,7 @@ export function GameSurface({
                   </div>
                   <div className="relative" ref={sessionPanelRef}>
                     <button
-                      onClick={() => handleOpenSessionPanel("history")}
+                      onClick={(event) => handleOpenSessionPanel("history", event)}
                       className={getChatToolbarButtonClass({
                         open: sessionPanelOpen,
                       })}
@@ -8641,11 +8803,17 @@ export function GameSurface({
                   <div className="relative" ref={volumePopoverRef}>
                     <button
                       onClick={() => {
-                        setVolumePopoverOpen((v) => !v);
+                        const nextOpen = !volumePopoverOpen;
+                        if (nextOpen) dismissOtherFloatingWindows();
+                        setMobileVolumePopoverAnchor(null);
+                        setVolumePopoverOpen(nextOpen);
                         setSessionPanelOpen(false);
+                        setMobileSessionPanelAnchor(null);
                         setGameAssetsPanelOpen(false);
+                        setMobileGameAssetsPanelAnchor(null);
                         setRetryMenuOpen(false);
                         setMobileRetryMenuOpen(false);
+                        setMobileRetryMenuAnchor(null);
                       }}
                       className={GAME_TOP_ICON_BUTTON}
                       title="Volume"
@@ -8669,13 +8837,14 @@ export function GameSurface({
                           handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)
                         }
                         onToggleMute={handleToggleMute}
+                        onClose={() => setVolumePopoverOpen(false)}
                         onAudioInteract={handleAudioInteract}
                       />
                     )}
                   </div>
                   <div className="relative" ref={gameAssetsPanelRef}>
                     <button
-                      onClick={handleOpenGameAssetsPanel}
+                      onClick={(event) => handleOpenGameAssetsPanel(event)}
                       className={getChatToolbarButtonClass({
                         open: gameAssetsPanelOpen,
                       })}
@@ -8690,6 +8859,7 @@ export function GameSurface({
                     chatId={activeChatId}
                     iconSize={14}
                     buttonClassName={GAME_TOP_ICON_BUTTON}
+                    onOpen={dismissOtherFloatingWindows}
                   />
                   <button onClick={handleOpenGalleryPanel} className={GAME_TOP_ICON_BUTTON} title="Gallery">
                     <Image size={14} />
@@ -8700,17 +8870,22 @@ export function GameSurface({
                 </div>
 
                 {/* Mobile controls */}
-                <div
-                  className="pointer-events-auto md:hidden"
-                  onPointerDownCapture={announceChatToolbarAction}
-                  onKeyDownCapture={handleToolbarKeyboardAction}
-                >
+                <div className="pointer-events-auto md:hidden">
                   <div className="relative">
                     <button
                       onClick={() => {
                         setMobileActionsOpen((open) => {
                           const nextOpen = !open;
-                          if (!nextOpen) setVolumePopoverOpen(false);
+                          if (!nextOpen) {
+                            setVolumePopoverOpen(false);
+                            setMobileVolumePopoverAnchor(null);
+                            setMobileRetryMenuOpen(false);
+                            setMobileRetryMenuAnchor(null);
+                            setSessionPanelOpen(false);
+                            setMobileSessionPanelAnchor(null);
+                            setGameAssetsPanelOpen(false);
+                            setMobileGameAssetsPanelAnchor(null);
+                          }
                           return nextOpen;
                         });
                         setMobileRetryMenuOpen(false);
@@ -8729,14 +8904,21 @@ export function GameSurface({
                           groupId={chat.groupId ?? null}
                           variant="roleplay"
                           compact
+                          onOpen={dismissOtherFloatingWindows}
                         />
                         <div>
                           <button
-                            onClick={() => {
-                              setMobileRetryMenuOpen((v) => !v);
+                            onClick={(event) => {
+                              const nextOpen = !mobileRetryMenuOpen;
+                              if (nextOpen) dismissOtherFloatingWindows();
+                              setMobileRetryMenuAnchor(nextOpen ? readFloatingPanelAnchor(event) : null);
+                              setMobileRetryMenuOpen(nextOpen);
                               setSessionPanelOpen(false);
+                              setMobileSessionPanelAnchor(null);
                               setGameAssetsPanelOpen(false);
+                              setMobileGameAssetsPanelAnchor(null);
                               setVolumePopoverOpen(false);
+                              setMobileVolumePopoverAnchor(null);
                             }}
                             className={GAME_MOBILE_ICON_BUTTON}
                             title="Retry"
@@ -8747,83 +8929,100 @@ export function GameSurface({
                               className={sceneAnalysis.isPending || spotifyRetryPending ? "animate-spin" : ""}
                             />
                           </button>
-                          {mobileRetryMenuOpen && (
-                            <div
-                              data-chat-floating-panel
-                              className={cn(GAME_MOBILE_ACTION_MENU, GAME_MOBILE_FLOATING_MENU)}
-                            >
-                              <button
-                                onClick={() => {
-                                  setMobileRetryMenuOpen(false);
-                                  setMobileActionsOpen(false);
-                                  void handleRetryTurn();
-                                }}
-                                disabled={!canRetryTurn}
-                                className={GAME_ACTION_MENU_ITEM}
+                          {mobileRetryMenuOpen &&
+                            renderGameMobilePortal(
+                              <div
+                                data-chat-floating-panel
+                                className={cn(GAME_MOBILE_ACTION_MENU, GAME_MOBILE_FLOATING_MENU)}
+                                style={getGameMobileFloatingPanelStyle(mobileRetryMenuAnchor)}
                               >
-                                <RotateCcw size={13} />
-                                <span>Retry Turn</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  handleRetryScene();
-                                  setMobileRetryMenuOpen(false);
-                                  setMobileActionsOpen(false);
-                                }}
-                                disabled={!canRetryScene}
-                                className={GAME_ACTION_MENU_ITEM}
-                              >
-                                <RefreshCw size={13} className={sceneAnalysis.isPending ? "animate-spin" : ""} />
-                                <span>Retry Scene Analysis</span>
-                              </button>
-                              {useSpotifyGameMusic && (
+                                <div className="mb-1 flex items-center justify-between gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-2 pb-1.5 pt-0.5">
+                                  <div className={ROLEPLAY_POPOVER_TITLE}>
+                                    <RotateCcw size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                                    <span>Retry</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMobileRetryMenuOpen(false)}
+                                    className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
+                                    aria-label="Close retry menu"
+                                  >
+                                    <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+                                  </button>
+                                </div>
                                 <button
-                                  onClick={handleRetrySpotifyMusic}
-                                  disabled={!canRetrySpotifyMusic}
+                                  onClick={() => {
+                                    setMobileRetryMenuOpen(false);
+                                    setMobileActionsOpen(false);
+                                    void handleRetryTurn();
+                                  }}
+                                  disabled={!canRetryTurn}
                                   className={GAME_ACTION_MENU_ITEM}
                                 >
-                                  {spotifyRetryPending ? (
-                                    <RefreshCw size={13} className="animate-spin" />
-                                  ) : (
-                                    <Volume2 size={13} />
-                                  )}
-                                  <span>Retry Music DJ</span>
+                                  <RotateCcw size={13} />
+                                  <span>Retry Turn</span>
                                 </button>
-                              )}
-                              {useYoutubeGameMusic && (
                                 <button
-                                  onClick={handleRetryYoutubeMusic}
-                                  disabled={!canRetryYoutubeMusic}
+                                  onClick={() => {
+                                    handleRetryScene();
+                                    setMobileRetryMenuOpen(false);
+                                    setMobileActionsOpen(false);
+                                  }}
+                                  disabled={!canRetryScene}
                                   className={GAME_ACTION_MENU_ITEM}
                                 >
-                                  {youtubeRetryPending ? (
-                                    <RefreshCw size={13} className="animate-spin" />
-                                  ) : (
-                                    <Volume2 size={13} />
-                                  )}
-                                  <span>Retry Music DJ</span>
+                                  <RefreshCw size={13} className={sceneAnalysis.isPending ? "animate-spin" : ""} />
+                                  <span>Retry Scene Analysis</span>
                                 </button>
-                              )}
-                              <button
-                                onClick={() => {
-                                  setMobileRetryMenuOpen(false);
-                                  setMobileActionsOpen(false);
-                                  retryAssetGeneration({ showSuccessToast: true });
-                                }}
-                                disabled={!canRetryAssets}
-                                className={GAME_ACTION_MENU_ITEM}
-                              >
-                                <Image size={13} />
-                                <span>Retry Assets Image Generation</span>
-                              </button>
-                            </div>
-                          )}
+                                {useSpotifyGameMusic && (
+                                  <button
+                                    onClick={handleRetrySpotifyMusic}
+                                    disabled={!canRetrySpotifyMusic}
+                                    className={GAME_ACTION_MENU_ITEM}
+                                  >
+                                    {spotifyRetryPending ? (
+                                      <RefreshCw size={13} className="animate-spin" />
+                                    ) : (
+                                      <Volume2 size={13} />
+                                    )}
+                                    <span>Retry Music DJ</span>
+                                  </button>
+                                )}
+                                {useJsonMusicDjGameMusic && (
+                                  <button
+                                    onClick={handleRetryYoutubeMusic}
+                                    disabled={!canRetryYoutubeMusic}
+                                    className={GAME_ACTION_MENU_ITEM}
+                                  >
+                                    {youtubeRetryPending ? (
+                                      <RefreshCw size={13} className="animate-spin" />
+                                    ) : (
+                                      <Volume2 size={13} />
+                                    )}
+                                    <span>Retry Music DJ</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setMobileRetryMenuOpen(false);
+                                    setMobileActionsOpen(false);
+                                    retryAssetGeneration({ showSuccessToast: true });
+                                  }}
+                                  disabled={!canRetryAssets}
+                                  className={GAME_ACTION_MENU_ITEM}
+                                >
+                                  <Image size={13} />
+                                  <span>Retry Assets Image Generation</span>
+                                </button>
+                              </div>,
+                            )}
                         </div>
                         <div ref={mobileSessionPanelRef}>
                           <button
-                            onClick={() => {
-                              handleOpenSessionPanel("history");
+                            onClick={(event) => {
+                              handleOpenSessionPanel("history", event);
                               setMobileRetryMenuOpen(false);
+                              setMobileRetryMenuAnchor(null);
                             }}
                             className={getChatToolbarButtonClass({
                               compact: true,
@@ -8838,45 +9037,59 @@ export function GameSurface({
                         </div>
                         <div ref={mobileVolumePopoverRef}>
                           <button
-                            onClick={() => {
-                              setVolumePopoverOpen((open) => !open);
+                            onClick={(event) => {
+                              const nextOpen = !volumePopoverOpen;
+                              if (nextOpen) dismissOtherFloatingWindows();
+                              setMobileVolumePopoverAnchor(nextOpen ? readFloatingPanelAnchor(event) : null);
+                              setVolumePopoverOpen(nextOpen);
                               setMobileRetryMenuOpen(false);
+                              setMobileRetryMenuAnchor(null);
                               setSessionPanelOpen(false);
+                              setMobileSessionPanelAnchor(null);
                               setGameAssetsPanelOpen(false);
+                              setMobileGameAssetsPanelAnchor(null);
                             }}
                             className={GAME_MOBILE_ICON_BUTTON}
                             title="Volume"
                           >
                             {audioMuted || masterVolume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
                           </button>
-                          {volumePopoverOpen && (
-                            <GameVolumeMixer
-                              className="absolute right-9 top-0 z-[9999] max-w-[calc(100vw-4rem)]"
-                              audioMuted={audioMuted || masterVolume === 0}
-                              masterVolume={masterVolume}
-                              musicVolume={musicVolume}
-                              sfxVolume={sfxVolume}
-                              ttsVolume={ttsVolume}
-                              ambientVolume={ambientVolume}
-                              onMasterVolumeChange={handleMasterVolumeChange}
-                              onMusicVolumeChange={(value) =>
-                                handleChannelVolumeChange("musicVolume", setMusicVolume, value)
-                              }
-                              onSfxVolumeChange={(value) => handleChannelVolumeChange("sfxVolume", setSfxVolume, value)}
-                              onTtsVolumeChange={(value) => handleChannelVolumeChange("ttsVolume", setTtsVolume, value)}
-                              onAmbientVolumeChange={(value) =>
-                                handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)
-                              }
-                              onToggleMute={handleToggleMute}
-                              onAudioInteract={handleAudioInteract}
-                            />
-                          )}
+                          {volumePopoverOpen &&
+                            renderGameMobilePortal(
+                              <GameVolumeMixer
+                                className="fixed z-[9999] max-w-[calc(100vw-4rem)]"
+                                style={getGameMobileFloatingPanelStyle(mobileVolumePopoverAnchor)}
+                                audioMuted={audioMuted || masterVolume === 0}
+                                masterVolume={masterVolume}
+                                musicVolume={musicVolume}
+                                sfxVolume={sfxVolume}
+                                ttsVolume={ttsVolume}
+                                ambientVolume={ambientVolume}
+                                onMasterVolumeChange={handleMasterVolumeChange}
+                                onMusicVolumeChange={(value) =>
+                                  handleChannelVolumeChange("musicVolume", setMusicVolume, value)
+                                }
+                                onSfxVolumeChange={(value) =>
+                                  handleChannelVolumeChange("sfxVolume", setSfxVolume, value)
+                                }
+                                onTtsVolumeChange={(value) =>
+                                  handleChannelVolumeChange("ttsVolume", setTtsVolume, value)
+                                }
+                                onAmbientVolumeChange={(value) =>
+                                  handleChannelVolumeChange("ambientVolume", setAmbientVolume, value)
+                                }
+                                onToggleMute={handleToggleMute}
+                                onClose={() => setVolumePopoverOpen(false)}
+                                onAudioInteract={handleAudioInteract}
+                              />,
+                            )}
                         </div>
                         <div ref={mobileGameAssetsPanelRef}>
                           <button
-                            onClick={() => {
-                              handleOpenGameAssetsPanel();
+                            onClick={(event) => {
+                              handleOpenGameAssetsPanel(event);
                               setMobileRetryMenuOpen(false);
+                              setMobileRetryMenuAnchor(null);
                             }}
                             className={getChatToolbarButtonClass({
                               compact: true,
@@ -8899,6 +9112,7 @@ export function GameSurface({
                             })
                           }
                           title="Active Context"
+                          onOpen={dismissOtherFloatingWindows}
                         />
                         <button
                           onClick={(event) => {
@@ -9464,13 +9678,15 @@ export function GameSurface({
               />
 
               {/* Gallery drawer */}
-              <ChatGalleryDrawer
-                chat={chat}
-                open={galleryOpen}
-                onClose={handleCloseGalleryPanel}
-                anchor={galleryAnchor}
-                onIllustrate={handleManualSceneIllustration}
-              />
+              <Suspense fallback={null}>
+                <ChatGalleryDrawer
+                  chat={chat}
+                  open={galleryOpen}
+                  onClose={handleCloseGalleryPanel}
+                  anchor={galleryAnchor}
+                  onIllustrate={handleManualSceneIllustration}
+                />
+              </Suspense>
               <PinnedImageOverlay activeChatId={activeChatId} />
 
               {/* Inventory overlay */}

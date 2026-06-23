@@ -7,6 +7,7 @@ import {
   getEditableGenerationParameters,
   type EditableGenerationParameters,
   ROLEPLAY_PARAMETER_DEFAULTS,
+  STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS,
 } from "../../../components/ui/GenerationParametersEditor";
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
@@ -26,6 +27,7 @@ const EDITABLE_PARAMETER_KEYS: Array<keyof EditableGenerationParameters> = [
   "assistantPrefill",
   "customThinkingTags",
   "customParameters",
+  "enabledParameters",
 ];
 
 interface AdvancedParametersSectionProps {
@@ -52,8 +54,12 @@ export function AdvancedParametersSection({
   onExcludePastReasoningChange,
 }: AdvancedParametersSectionProps) {
   const modeDefaults = isConversation ? CHAT_PARAMETER_DEFAULTS : ROLEPLAY_PARAMETER_DEFAULTS;
+  const strictModeDefaults: EditableGenerationParameters = {
+    ...modeDefaults,
+    enabledParameters: STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS,
+  };
   const conn = connectionId ? connections.find((connection) => connection.id === connectionId) : null;
-  const defaults = getEditableGenerationParameters(modeDefaults, conn?.defaultParameters);
+  const defaults = getEditableGenerationParameters(strictModeDefaults, conn?.defaultParameters);
   const saveDefaults = useSaveConnectionDefaults();
   const [expanded, setExpanded] = useState(false);
   const params = (metadata.chatParameters as Record<string, unknown>) ?? {};
@@ -111,6 +117,7 @@ export function AdvancedParametersSection({
           <GenerationParametersFields
             value={effectiveParams}
             showOpenRouterServiceTier={conn?.provider === "openrouter"}
+            enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
             onChange={setParameters}
           />
           <div className="space-y-2 pt-3">

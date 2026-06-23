@@ -15,7 +15,7 @@ import { toAutonomousPresenceStatus } from "../lib/user-status";
 import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
 import { showConversationLocalNotification } from "../lib/local-notifications";
-import { playNotificationPing } from "../lib/notification-sound";
+import { playConfiguredNotificationPing } from "../lib/notification-sound";
 import { chatKeys } from "./use-chats";
 import { characterKeys } from "./use-characters";
 
@@ -102,6 +102,7 @@ export function useBackgroundAutonomousPolling() {
         if (chat.mode !== "conversation") return false;
         try {
           const meta = parseMeta(chat);
+          if (meta.internalAssistant === "professor-mari") return false;
           return !!meta.autonomousMessages;
         } catch {
           return false;
@@ -227,9 +228,11 @@ export function useBackgroundAutonomousPolling() {
                 }
 
                 // Play notification sound
-                if (useUIStore.getState().convoNotificationSound) {
-                  playNotificationPing();
-                }
+                const uiState = useUIStore.getState();
+                playConfiguredNotificationPing(
+                  uiState.convoNotificationSound,
+                  uiState.notificationSoundsOnlyWhenUnfocused,
+                );
 
                 // Increment unread badge
                 useChatStore.getState().incrementUnread(chat.id);

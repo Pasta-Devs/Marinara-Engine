@@ -39,6 +39,8 @@ import { cn, generateClientId } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { useConnections } from "../../hooks/use-connections";
 import {
+  ROLEPLAY_POPOVER_CLOSE_BUTTON,
+  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
   ROLEPLAY_POPOVER_SCROLL_AREA,
   ROLEPLAY_POPOVER_SHELL,
   ROLEPLAY_POPOVER_SUBTITLE,
@@ -92,7 +94,7 @@ type SummaryConnectionOption = Pick<APIConnection, "id" | "name" | "provider" | 
 };
 
 const MIN_SUMMARY_MESSAGES = 5;
-const MAX_SUMMARY_MESSAGES = 200;
+const MAX_SUMMARY_MESSAGES = 500;
 const SUMMARY_AGENT_ID = "chat-summary";
 const DEFAULT_AUTOMATIC_SUMMARY_INTERVAL = 5;
 const MIN_AUTOMATIC_SUMMARY_INTERVAL = 1;
@@ -834,10 +836,10 @@ export function SummaryPopover({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+              className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
               aria-label="Close summary"
             >
-              <X size="0.75rem" />
+              <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
             </button>
           </div>
         </div>

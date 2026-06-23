@@ -384,10 +384,11 @@ export function ConversationInput({
     });
   }, [activeChatId, qc]);
   const messagesData = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(activeChatId ?? ""));
-  const lastMessageRole = useMemo(() => {
+  const lastMessage = useMemo(() => {
     const firstPage = messagesData?.pages?.[0];
-    return firstPage?.[firstPage.length - 1]?.role ?? null;
+    return firstPage?.[firstPage.length - 1] ?? null;
   }, [messagesData]);
+  const lastMessageRole = lastMessage?.role ?? null;
   const canRetry = !isStreaming && groupResponseOrder !== "manual" && lastMessageRole === "user";
   const canSubmit = hasInput || attachments.length > 0 || canRetry;
   const showRetrySendState = canRetry && !hasInput && attachments.length === 0;
@@ -814,6 +815,7 @@ export function ConversationInput({
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames: activeCharacterNames,
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),
+        latestAssistantMessageId: lastMessage?.role === "assistant" ? lastMessage.id : null,
       };
       const submittedDraft = textareaRef.current?.value ?? "";
       const submittedHeight = textareaRef.current?.style.height ?? "auto";
@@ -951,6 +953,7 @@ export function ConversationInput({
     completions,
     _mentionQuery,
     mentionCompletions,
+    lastMessage,
     groupResponseOrder,
     qc,
     syncInputState,
@@ -983,6 +986,7 @@ export function ConversationInput({
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames: activeCharacterNames,
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),
+        latestAssistantMessageId: lastMessage?.role === "assistant" ? lastMessage.id : null,
       };
 
       const previousDraft = textareaRef.current?.value ?? "";
@@ -1044,6 +1048,7 @@ export function ConversationInput({
       mentionCompletions,
       createMessage,
       generate,
+      lastMessage,
       qc,
       setInputDraft,
       syncInputState,

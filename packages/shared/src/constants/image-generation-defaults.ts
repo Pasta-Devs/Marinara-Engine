@@ -191,29 +191,59 @@ export function sanitizeImageGenerationProfile(
 }
 
 export function mergePromptPrefix(prefix: string, prompt: string): string {
-  const trimmedPrefix = prefix.trim();
+  const trimmedPrefix = normalizePromptPrefixForMerge(prefix);
   const trimmedPrompt = prompt.trim();
   if (!trimmedPrefix) return trimmedPrompt;
   if (!trimmedPrompt) return trimmedPrefix;
-  if (trimmedPrompt === trimmedPrefix || trimmedPrompt.startsWith(`${trimmedPrefix},`)) return trimmedPrompt;
+  if (promptAlreadyStartsWithPrefix(trimmedPrompt, trimmedPrefix)) return trimmedPrompt;
   return `${trimmedPrefix}, ${trimmedPrompt}`;
 }
 
 export function mergeNegativePrompt(prefix: string, prompt?: string): string {
-  const trimmedPrefix = prefix.trim();
+  const trimmedPrefix = normalizePromptPrefixForMerge(prefix);
   const trimmedPrompt = (prompt ?? "").trim();
   if (!trimmedPrefix) return trimmedPrompt;
   if (!trimmedPrompt) return trimmedPrefix;
-  if (
-    trimmedPrompt === trimmedPrefix ||
-    trimmedPrompt.startsWith(`${trimmedPrefix},`) ||
-    trimmedPrompt.startsWith(`${trimmedPrefix}.`) ||
-    trimmedPrompt.startsWith(`${trimmedPrefix};`) ||
-    trimmedPrompt.startsWith(`${trimmedPrefix}\n`)
-  ) {
-    return trimmedPrompt;
-  }
+  if (promptAlreadyStartsWithPrefix(trimmedPrompt, trimmedPrefix)) return trimmedPrompt;
   return `${trimmedPrefix}, ${trimmedPrompt}`;
+}
+
+function normalizePromptPrefixForMerge(prefix: string): string {
+  return prefix
+    .trim()
+    .replace(/[\s,;.]+$/g, "")
+    .trim();
+}
+
+function promptAlreadyStartsWithPrefix(prompt: string, prefix: string): boolean {
+  if (prompt === prefix) return true;
+  if (prompt.startsWith(`${prefix},`) || prompt.startsWith(`${prefix}.`) || prompt.startsWith(`${prefix};`)) {
+    return true;
+  }
+  if (prompt.startsWith(`${prefix}\n`)) return true;
+
+  const prefixFragments = promptPrefixFragments(prefix);
+  if (prefixFragments.length === 0) return false;
+  const promptFragments = promptPrefixFragments(prompt);
+  if (promptFragments.length < prefixFragments.length) return false;
+  return prefixFragments.every((fragment, index) => promptFragments[index] === fragment);
+}
+
+function promptPrefixFragments(value: string): string[] {
+  return value
+    .split(/[,;\n]+/g)
+    .map((fragment) =>
+      fragment
+        .trim()
+        .replace(/^[([{]\s*(.+?)\s*[)\]}]$/g, "$1")
+        .replace(/: ?[+-]?\d+(?:\.\d+)?$/g, "")
+        .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+        .replace(/[_-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase(),
+    )
+    .filter(Boolean);
 }
 
 function normalizeAutomatic1111Defaults(rawDefaults: unknown): Automatic1111Defaults {

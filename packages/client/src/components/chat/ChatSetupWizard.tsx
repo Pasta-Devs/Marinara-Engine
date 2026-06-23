@@ -1736,7 +1736,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     const nextEnabledTools = nextSettings.enabledTools;
     if (
       builtInMeta &&
-      (!Array.isArray(nextEnabledTools) || (agent.id === "spotify" && nextEnabledTools.length === 0))
+      (!Array.isArray(nextEnabledTools) ||
+        (agent.id === "spotify" && nextSettings.musicProvider === "spotify" && nextEnabledTools.length === 0))
     ) {
       nextSettings.enabledTools = DEFAULT_AGENT_TOOLS[agent.id] ?? [];
     }

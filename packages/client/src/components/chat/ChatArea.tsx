@@ -51,6 +51,7 @@ import { Check, HelpCircle, List, X } from "lucide-react";
 import {
   APP_VERSION,
   BUILT_IN_AGENTS,
+  PROFESSOR_MARI_ID,
   buildGuidedGenerationInstructionMessage,
   type AchievementEvent,
   type SpritePlacement,
@@ -97,7 +98,7 @@ import { HomeCreditsModal } from "./HomeCreditsModal";
 import { HomeProfessorMariChat } from "./HomeProfessorMariChat";
 import { HomeAchievements } from "./HomeAchievements";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
-import { ChatCommonOverlays, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
+import { ChatCommonOverlays, preloadChatSettingsDrawer, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
 import { CreatorNotesCssInjector, type CardCssMode } from "./CreatorNotesCssInjector";
 import type { ChatModeFilter } from "../../lib/card-css";
 
@@ -215,6 +216,10 @@ function getPersonaSnapshotName(extra: Record<string, unknown>): string | null {
 function resolveExpressionAvatarSpriteUrl(sprites: SpriteInfo[] | undefined, expression: string): string | null {
   const expressionSprites = (sprites ?? []).filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_"));
   return resolveSpriteExpression(expressionSprites, expression)?.url ?? null;
+}
+
+function suppressBuiltInProfessorMariForMode(mode: string | undefined): boolean {
+  return mode === "game" || mode === "roleplay" || mode === "visual_novel";
 }
 
 const INTUITIVE_SWIPE_MIN_DISTANCE = 56;
@@ -432,6 +437,7 @@ export function ChatArea() {
   );
   const handleOpenSettingsPanel = useCallback(
     (event?: ReactMouseEvent<HTMLElement>, options?: OpenSettingsOptions) => {
+      void preloadChatSettingsDrawer();
       setGalleryOpen(false);
       setGalleryAnchor(null);
       setSettingsAnchor(readFloatingPanelAnchor(event));
@@ -478,17 +484,23 @@ export function ChatArea() {
     };
   }, [closeFloatingChatDrawers]);
   const chat = chatDetail ?? null;
-  // Game mode loads ALL messages (no pagination) so the in-game log
-  // shows the full session history instead of only the latest page.
-  const isGameChat = (chat as unknown as { mode?: string })?.mode === "game";
-  const messagePageSize = isGameChat ? 0 : messagesPerPage;
+  const rawMode = (chat as unknown as { mode?: string })?.mode;
+  // Remember the last known chat mode so that a transient `undefined` from
+  // React Query (cache invalidation, Suspense remount, concurrent batching)
+  // doesn't reset the layout from roleplay to conversation mid-session.
+  const lastModeRef = useRef<string>("conversation");
+  if (rawMode) lastModeRef.current = rawMode;
+  const chatMode = rawMode ?? lastModeRef.current;
+  const isRoleplay = chatMode === "roleplay" || chatMode === "visual_novel";
+  const suppressBuiltInProfessorMari = suppressBuiltInProfessorMariForMode(chatMode);
+  const isGameChat = chatMode === "game";
+  const messagePageSize = messagesPerPage;
   const {
     data: msgData,
     isLoading,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-    refetch: refetchMessages,
   } = useChatMessages(activeChatId, messagePageSize, !!chat);
   const messages = useMemo<MessageWithSwipes[] | undefined>(
     () => flattenLoadedMessagePages(msgData?.pages, messagePageSize),
@@ -504,11 +516,6 @@ export function ChatArea() {
   const { data: messageCountData } = useChatMessageCount(activeChatId);
   const totalMessageCount = messageCountData?.count ?? messages?.length ?? 0;
   const loadedMessageCount = messages?.length ?? 0;
-  useEffect(() => {
-    if (!isGameChat || loadedMessageCount <= 0) return;
-    if (totalMessageCount <= loadedMessageCount) return;
-    void refetchMessages();
-  }, [isGameChat, loadedMessageCount, refetchMessages, totalMessageCount]);
   const messageOffset = messages ? totalMessageCount - messages.length : 0;
   const messageIdByOrderIndex = useMemo(() => {
     const map = new Map<number, string>();
@@ -611,14 +618,19 @@ export function ChatArea() {
     const map: CharacterMap = new Map();
     if (!allCharacters) return map;
     for (const char of allCharacters as CharacterRow[]) {
+      if (suppressBuiltInProfessorMari && char.id === PROFESSOR_MARI_ID) continue;
       map.set(char.id, toCharacterMapValue(char));
     }
     return map;
-  }, [allCharacters]);
+  }, [allCharacters, suppressBuiltInProfessorMari]);
 
   const missingChatCharacterIds = useMemo(
-    () => chatCharIds.filter((id) => !baseCharacterMap.has(id)),
-    [baseCharacterMap, chatCharIds],
+    () =>
+      chatCharIds.filter((id) => {
+        if (suppressBuiltInProfessorMari && id === PROFESSOR_MARI_ID) return false;
+        return !baseCharacterMap.has(id);
+      }),
+    [baseCharacterMap, chatCharIds, suppressBuiltInProfessorMari],
   );
   const missingCharacterQueries = useQueries({
     queries: missingChatCharacterIds.map((id) => ({
@@ -679,6 +691,37 @@ export function ChatArea() {
     [characterMap, chatCharIds],
   );
 
+  const gameCharacters = useMemo(() => {
+    if (!allCharacters) return [];
+    return (
+      allCharacters as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>
+    ).flatMap((c) => {
+      if (c.id === PROFESSOR_MARI_ID) return [];
+      try {
+        const parsed = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
+        const display = parseCharacterDisplayData(c);
+        return [
+          {
+            id: c.id,
+            name: display.name,
+            comment: display.comment,
+            avatarUrl: c.avatarPath ?? undefined,
+            avatarCrop: parsed.extensions?.avatarCrop || null,
+            nameColor: parsed.extensions?.nameColor || undefined,
+            dialogueColor: parsed.extensions?.dialogueColor || undefined,
+            description: parsed.description ?? "",
+            personality: parsed.personality ?? "",
+            backstory: parsed.extensions?.backstory ?? "",
+            appearance: parsed.extensions?.appearance ?? "",
+            tags: parsed.tags ?? [],
+          },
+        ];
+      } catch {
+        return [{ id: c.id, name: "Unknown" }];
+      }
+    });
+  }, [allCharacters]);
+
   // Active persona info (for user message styling: name, avatar, colors)
   const personaInfo = useMemo(() => {
     if (!allPersonas) return undefined;
@@ -721,14 +764,6 @@ export function ChatArea() {
     };
   }, [allPersonas, chat]);
 
-  // Remember the last known chat mode so that a transient `undefined` from
-  // React Query (cache invalidation, Suspense remount, concurrent batching)
-  // doesn't reset the layout from roleplay to conversation mid-session.
-  const lastModeRef = useRef<string>("conversation");
-  const rawMode = (chat as unknown as { mode?: string })?.mode;
-  if (rawMode) lastModeRef.current = rawMode;
-  const chatMode = rawMode ?? lastModeRef.current;
-  const isRoleplay = chatMode === "roleplay" || chatMode === "visual_novel";
   const { startEncounter } = useEncounter();
   const { concludeScene, abandonScene, forkScene, isForking } = useScene();
   const encounterActive = useEncounterStore((s) => s.active || s.showConfigModal);
@@ -1097,13 +1132,13 @@ export function ChatArea() {
     [expressionAvatarsEnabled, spriteDisplayModes],
   );
   const expressionAvatarCharacterIds = useMemo(() => {
-    const allowedIds = new Set(chatCharIds);
+    const allowedIds = new Set(chatCharIds.filter((id) => !(suppressBuiltInProfessorMari && id === PROFESSOR_MARI_ID)));
     if (personaInfo?.id) allowedIds.add(personaInfo.id);
     const configuredIds =
       spriteCharacterIds.length > 0 ? spriteCharacterIds.filter((id) => allowedIds.has(id)) : Array.from(allowedIds);
     if (personaInfo?.id) configuredIds.push(personaInfo.id);
     return Array.from(new Set(configuredIds.filter((id) => typeof id === "string" && id.trim())));
-  }, [chatCharIds, personaInfo?.id, spriteCharacterIds]);
+  }, [chatCharIds, personaInfo?.id, spriteCharacterIds, suppressBuiltInProfessorMari]);
   const expressionAvatarSpriteQueries = useQueries({
     queries: expressionAvatarCharacterIds.map((characterId) => ({
       queryKey: spriteKeys.list(characterId),
@@ -2270,33 +2305,6 @@ export function ChatArea() {
   // ═══════════════════════════════════════════════
   if (chatMode === "game") {
     if (!chat) return surfaceFallback;
-
-    const gameCharacters = allCharacters
-      ? (allCharacters as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>).map(
-          (c) => {
-            try {
-              const parsed = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
-              const display = parseCharacterDisplayData(c);
-              return {
-                id: c.id,
-                name: display.name,
-                comment: display.comment,
-                avatarUrl: c.avatarPath ?? undefined,
-                avatarCrop: parsed.extensions?.avatarCrop || null,
-                nameColor: parsed.extensions?.nameColor || undefined,
-                dialogueColor: parsed.extensions?.dialogueColor || undefined,
-                description: parsed.description ?? "",
-                personality: parsed.personality ?? "",
-                backstory: parsed.extensions?.backstory ?? "",
-                appearance: parsed.extensions?.appearance ?? "",
-                tags: parsed.tags ?? [],
-              };
-            } catch {
-              return { id: c.id, name: "Unknown" };
-            }
-          },
-        )
-      : [];
 
     return (
       <Suspense fallback={surfaceFallback}>

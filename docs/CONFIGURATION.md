@@ -214,7 +214,19 @@ For the broader "trust every private network" toggle (RFC 1918 + CGNAT + ULA + l
 
 ### Privileged APIs
 
-Destructive or high-risk features require `ADMIN_SECRET` in addition to the global network/auth checks. The official client sends it as `X-Admin-Secret` after you save it in **Settings -> Advanced -> Admin Access**. These APIs fail closed when `ADMIN_SECRET` is unset or wrong:
+Destructive or high-risk features require `ADMIN_SECRET` in addition to the global network/auth checks. Set it on the server, then send the same value in the `X-Admin-Secret` header:
+
+```env
+ADMIN_SECRET=replace-this-with-a-long-random-secret
+```
+
+The official client sends that header for you after you paste the same value in **Settings -> Advanced -> Admin Access**. For raw API calls, include it yourself:
+
+```bash
+curl -H "X-Admin-Secret: replace-this-with-a-long-random-secret" http://127.0.0.1:7860/api/...
+```
+
+These APIs fail closed when `ADMIN_SECRET` is unset or wrong:
 
 - Admin data clearing and expunge.
 - Backup create/download/delete, profile export, and profile import. Profile exports redact obvious secret/token/password/API-key fields by default.

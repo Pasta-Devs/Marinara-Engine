@@ -31,6 +31,8 @@ export interface MacroContext {
   lastGenerationType?: string;
   /** Human-readable time since the last chat activity before this generation (for {{idle_duration}}) */
   idleDuration?: string;
+  /** IANA timezone name from the active browser/session, used by time macros */
+  timeZone?: string;
   /** Agent data keyed by agent type (for {{agent::TYPE}}) */
   agentData?: Record<string, string>;
   /** Current character card fields used by macros like {{description}} */
@@ -141,10 +143,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Context", syntax: "{{lastGenerationType}}", description: "Current generation type label" },
   { category: "Context", syntax: "{{idle_duration}}", description: "Time since the last chat activity" },
   { category: "Context", syntax: "{{agent::TYPE}}", description: "Cached output for an agent or tracker type" },
-  { category: "Time", syntax: "{{date}}", description: "Current real date in YYYY-MM-DD format" },
-  { category: "Time", syntax: "{{time}}", description: "Current real time in HH:MM format" },
-  { category: "Time", syntax: "{{datetime}} / {{isotime}}", description: "Current ISO timestamp" },
-  { category: "Time", syntax: "{{weekday}}", description: "Current weekday name" },
+  { category: "Time", syntax: "{{date}}", description: "Current real date in the user's timezone" },
+  { category: "Time", syntax: "{{time}}", description: "Current real time in the user's timezone" },
+  { category: "Time", syntax: "{{datetime}} / {{isotime}}", description: "Current timestamp in the user's timezone" },
+  { category: "Time", syntax: "{{weekday}}", description: "Current weekday name in the user's timezone" },
+  { category: "Time", syntax: "{{timezone}}", description: "Current user/browser timezone" },
   { category: "Random", syntax: "{{random}}", description: "Random number from 0 to 100" },
   { category: "Random", syntax: "{{random:X:Y}}", description: "Random number between X and Y" },
   { category: "Random", syntax: "{{random::A::B::C}}", description: "Randomly choose one of the provided options" },
@@ -222,6 +225,7 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
     model: base?.model,
     lastGenerationType: base?.lastGenerationType,
     idleDuration: base?.idleDuration,
+    timeZone: base?.timeZone,
     agentData: base?.agentData,
     personaFields: base?.personaFields,
     characterFields: {
@@ -721,6 +725,75 @@ function pickWeightedRandomChoice(choices: string[]): string {
   return weightedChoices.at(-1)?.text ?? "";
 }
 
+type MacroDateTimeParts = {
+  date: string;
+  time: string;
+  datetime: string;
+  isoTime: string;
+  weekday: string;
+  timeZone: string;
+};
+
+function shortOffsetToIsoSuffix(value: string | undefined): string {
+  if (!value || value === "GMT" || value === "UTC") return "Z";
+  const match = value.match(/^(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?$/u);
+  if (!match) return "";
+  const sign = match[1];
+  const hours = match[2];
+  const minutes = match[3] ?? "00";
+  if (!sign || !hours) return "";
+  return `${sign}${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`;
+}
+
+function formatMacroDateTime(now: Date, requestedTimeZone?: string): MacroDateTimeParts {
+  const preferredTimeZone =
+    typeof requestedTimeZone === "string" && requestedTimeZone.trim() ? requestedTimeZone.trim() : undefined;
+  const build = (timeZone?: string): MacroDateTimeParts => {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      ...(timeZone ? { timeZone } : {}),
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+      weekday: "long",
+      timeZoneName: "shortOffset",
+    });
+    const parts = new Map(formatter.formatToParts(now).map((part) => [part.type, part.value]));
+    const year = parts.get("year") ?? String(now.getFullYear()).padStart(4, "0");
+    const month = parts.get("month") ?? String(now.getMonth() + 1).padStart(2, "0");
+    const day = parts.get("day") ?? String(now.getDate()).padStart(2, "0");
+    const hour = parts.get("hour") ?? String(now.getHours()).padStart(2, "0");
+    const minute = parts.get("minute") ?? String(now.getMinutes()).padStart(2, "0");
+    const second = parts.get("second") ?? String(now.getSeconds()).padStart(2, "0");
+    const date = `${year}-${month}-${day}`;
+    const time = `${hour}:${minute}`;
+    const offset = shortOffsetToIsoSuffix(parts.get("timeZoneName"));
+    const datetime = `${date}T${time}:${second}${offset}`;
+    return {
+      date,
+      time,
+      datetime,
+      isoTime: datetime,
+      weekday: parts.get("weekday") ?? now.toLocaleDateString("en-US", { weekday: "long" }),
+      timeZone:
+        timeZone ??
+        Intl.DateTimeFormat()
+          .resolvedOptions()
+          .timeZone ??
+        "",
+    };
+  };
+
+  try {
+    return build(preferredTimeZone);
+  } catch {
+    return build();
+  }
+}
+
 /**
  * Replace macros in a prompt string with their values.
  *
@@ -731,11 +804,12 @@ function pickWeightedRandomChoice(choices: string[]): string {
  *  - {{characters}} — comma-separated list of all character names
  *  - {{description}} / {{personality}} / {{backstory}} / {{appearance}} / {{scenario}} / {{example}} — current character card fields
  *  - {{charSysInfo}} / {{charPostHistory}} — current character instruction fields
- *  - {{date}} — current real date (YYYY-MM-DD)
- *  - {{time}} — current real time (HH:MM)
- *  - {{datetime}} — full ISO datetime string
- *  - {{weekday}} — current day name (Monday, etc.)
- *  - {{isotime}} — ISO timestamp
+ *  - {{date}} — current real date in the user's timezone (YYYY-MM-DD)
+ *  - {{time}} — current real time in the user's timezone (HH:MM)
+ *  - {{datetime}} — current datetime in the user's timezone
+ *  - {{weekday}} — current day name in the user's timezone (Monday, etc.)
+ *  - {{isotime}} — timestamp in the user's timezone
+ *  - {{timezone}} — current user/browser timezone
  *  - {{random}} — random number 0-100
  *  - {{random:X:Y}} — random number X-Y
  *  - {{random::A::B::C}} — random choice from A, B, C
@@ -821,11 +895,13 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
 
   // ── Date/time ──
   const now = new Date();
-  result = result.replace(/\{\{date\}\}/gi, now.toISOString().slice(0, 10));
-  result = result.replace(/\{\{time\}\}/gi, now.toTimeString().slice(0, 5));
-  result = result.replace(/\{\{datetime\}\}/gi, now.toISOString());
-  result = result.replace(/\{\{isotime\}\}/gi, now.toISOString());
-  result = result.replace(/\{\{weekday\}\}/gi, now.toLocaleDateString("en-US", { weekday: "long" }));
+  const macroDateTime = formatMacroDateTime(now, ctx.timeZone);
+  result = result.replace(/\{\{date\}\}/gi, macroDateTime.date);
+  result = result.replace(/\{\{time\}\}/gi, macroDateTime.time);
+  result = result.replace(/\{\{datetime\}\}/gi, macroDateTime.datetime);
+  result = result.replace(/\{\{isotime\}\}/gi, macroDateTime.isoTime);
+  result = result.replace(/\{\{weekday\}\}/gi, macroDateTime.weekday);
+  result = result.replace(/\{\{timezone\}\}/gi, macroDateTime.timeZone);
 
   // ── Random values ──
   result = result.replace(/\{\{random\}\}/gi, () => String(Math.floor(Math.random() * 101)));

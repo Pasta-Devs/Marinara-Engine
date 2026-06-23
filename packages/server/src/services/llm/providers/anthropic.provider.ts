@@ -289,13 +289,15 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     const body: Record<string, unknown> = {
       model: options.model,
-      max_tokens: maxTokens,
+      ...(this.shouldSendParameter(options, "maxTokens") ? { max_tokens: maxTokens } : {}),
       ...(systemField !== undefined ? { system: systemField } : {}),
       messages: formatAnthropicPayloadMessages(trimTrailingAssistantWhitespace(messages)),
       tools: formatAnthropicTools(options.tools),
       stream: false,
-      ...(options.temperature !== undefined ? { temperature: clampAnthropicTemperature(options.temperature) } : {}),
-      ...(options.topK ? { top_k: options.topK } : {}),
+      ...(this.shouldSendParameter(options, "temperature") && options.temperature !== undefined
+        ? { temperature: clampAnthropicTemperature(options.temperature) }
+        : {}),
+      ...(this.shouldSendParameter(options, "topK") && options.topK ? { top_k: options.topK } : {}),
       ...(options.stop?.length ? { stop_sequences: options.stop } : {}),
     };
 
@@ -303,7 +305,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     const isAdaptiveOnly = isClaudeAdaptiveOnlyNoSamplingModel(options.model);
     if (isAdaptiveOnly) stripAnthropicSamplingParameters(body);
 
-    if (options.enableThinking) {
+    if (this.shouldSendParameter(options, "reasoningEffort") && options.enableThinking) {
       if (isAdaptiveOnly) {
         applyAdaptiveThinkingConfig(body, options, maxTokens);
       } else {
@@ -323,7 +325,9 @@ export class AnthropicProvider extends BaseLLMProvider {
     this.applyCustomParameters(body, options);
     if (isAdaptiveOnly) {
       stripAnthropicSamplingParameters(body);
-      if (options.enableThinking) applyAdaptiveThinkingConfig(body, options);
+      if (this.shouldSendParameter(options, "reasoningEffort") && options.enableThinking) {
+        applyAdaptiveThinkingConfig(body, options);
+      }
     }
 
     const response = await llmFetch(url, {
@@ -436,13 +440,15 @@ export class AnthropicProvider extends BaseLLMProvider {
     };
     if (!suppressModelParameters) {
       const outputMaxTokens = maxTokens ?? 4096;
-      body.max_tokens = outputMaxTokens;
+      if (this.shouldSendParameter(options, "maxTokens")) body.max_tokens = outputMaxTokens;
       body.stream = options.stream ?? true;
-      if (options.temperature !== undefined) body.temperature = clampAnthropicTemperature(options.temperature);
-      if (options.topK) body.top_k = options.topK;
+      if (this.shouldSendParameter(options, "temperature") && options.temperature !== undefined) {
+        body.temperature = clampAnthropicTemperature(options.temperature);
+      }
+      if (this.shouldSendParameter(options, "topK") && options.topK) body.top_k = options.topK;
       if (options.stop?.length) body.stop_sequences = options.stop;
     } else {
-      body.max_tokens = maxTokens ?? 4096;
+      if (this.shouldSendParameter(options, "maxTokens")) body.max_tokens = maxTokens ?? 4096;
       if (options.stream) body.stream = true;
     }
 
@@ -455,7 +461,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     }
 
     // Enable extended thinking for reasoning models
-    if (!suppressModelParameters && options.enableThinking) {
+    if (!suppressModelParameters && this.shouldSendParameter(options, "reasoningEffort") && options.enableThinking) {
       const outputMaxTokens = maxTokens ?? 4096;
       if (isAdaptiveOnly) {
         // Adaptive-only Claude models use adaptive thinking (budget_tokens removed).
@@ -483,7 +489,7 @@ export class AnthropicProvider extends BaseLLMProvider {
     this.applyCustomParameters(body, options);
     if (isAdaptiveOnly && !suppressModelParameters) {
       stripAnthropicSamplingParameters(body);
-      if (options.enableThinking) {
+      if (this.shouldSendParameter(options, "reasoningEffort") && options.enableThinking) {
         applyAdaptiveThinkingConfig(body, options);
       }
     }

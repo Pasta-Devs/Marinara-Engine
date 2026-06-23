@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import {
+  GENERATION_PARAMETER_SEND_KEYS,
   PROVIDERS,
   SUMMARY_TAIL_MESSAGES,
   applyTrackerFieldLocksToGameStatePatch,
@@ -9,6 +10,7 @@ import {
   parseTrackerFieldLocks,
   type CharacterStat,
   type GameState,
+  type GenerationParameterSendMap,
   type GenerationParameters,
   type InventoryItem,
   type PlayerStats,
@@ -1022,6 +1024,13 @@ export function parseStoredGenerationParameters(raw: unknown): StoredGenerationP
   }
   if (isPlainRecord(source.customParameters)) {
     out.customParameters = mergeCustomParameters({}, source.customParameters);
+  }
+  if (isPlainRecord(source.enabledParameters)) {
+    const enabledParameters: GenerationParameterSendMap = {};
+    for (const key of GENERATION_PARAMETER_SEND_KEYS) {
+      if (typeof source.enabledParameters[key] === "boolean") enabledParameters[key] = source.enabledParameters[key];
+    }
+    if (Object.keys(enabledParameters).length > 0) out.enabledParameters = enabledParameters;
   }
   for (const key of [
     "squashSystemMessages",

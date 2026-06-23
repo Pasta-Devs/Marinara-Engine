@@ -1,0 +1,4 @@
+/* Example only: adds a subtle accent ring to selected shared controls. */
+.mari-chrome-control--selected {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent);
+}

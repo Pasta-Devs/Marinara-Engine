@@ -24,6 +24,7 @@ export const agentResultTypeSchema = z.enum([
   "custom_tracker_update",
   "spotify_control",
   "youtube_control",
+  "local_music_control",
   "haptic_command",
   "cyoa_choices",
   "secret_plot",

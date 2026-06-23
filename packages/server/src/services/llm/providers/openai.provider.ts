@@ -563,6 +563,16 @@ export class OpenAIProvider extends BaseLLMProvider {
     return false;
   }
 
+  private stripUnsupportedSamplerParameters(body: Record<string, unknown>, options: ChatOptions): void {
+    if (!this.isNoTemperatureModel(options.model, options.reasoningEffort)) return;
+    delete body.temperature;
+    delete body.top_p;
+    delete body.top_k;
+    delete body.min_p;
+    delete body.frequency_penalty;
+    delete body.presence_penalty;
+  }
+
   /** GLM variants on Z.AI/BigModel use a boolean thinking toggle instead of effort-based reasoning config. */
   private isGLMModel(model: string): boolean {
     return model.toLowerCase().includes("glm");
@@ -721,7 +731,11 @@ export class OpenAIProvider extends BaseLLMProvider {
         ? (body.text as Record<string, unknown>)
         : {};
 
-    if (options.verbosity && this.supportsGpt5Verbosity(options.model)) {
+    if (
+      this.shouldSendParameter(options, "verbosity") &&
+      options.verbosity &&
+      this.supportsGpt5Verbosity(options.model)
+    ) {
       textOptions.verbosity = options.verbosity;
     }
 
@@ -856,10 +870,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.stream = effectiveStream;
     }
 
-    if (reasoning) {
+    if (this.shouldSendParameter(options, "maxTokens") && reasoning) {
       // Reasoning models use max_completion_tokens instead of max_tokens
       body.max_completion_tokens = maxTokens;
-    } else {
+    } else if (this.shouldSendParameter(options, "maxTokens")) {
       body.max_tokens = maxTokens;
     }
 
@@ -870,10 +884,11 @@ export class OpenAIProvider extends BaseLLMProvider {
 
       // o-series models never support temperature/topP; GPT-5.x only with effort=none
       if (!this.isNoTemperatureModel(options.model, options.reasoningEffort)) {
-        body.temperature = options.temperature ?? 1;
-        const topP = OpenAIProvider.normalizeTopP(options.topP);
+        if (this.shouldSendParameter(options, "temperature")) body.temperature = options.temperature ?? 1;
+        const topP = this.shouldSendParameter(options, "topP") ? OpenAIProvider.normalizeTopP(options.topP) : undefined;
         if (topP != null) body.top_p = topP;
         if (
+          this.shouldSendParameter(options, "topK") &&
           this.shouldSendTopK() &&
           typeof options.topK === "number" &&
           Number.isFinite(options.topK) &&
@@ -893,16 +908,22 @@ export class OpenAIProvider extends BaseLLMProvider {
           body.min_p = options.minP;
         }
         if (this.shouldSendPenaltyParams(options.model)) {
-          if (options.frequencyPenalty) body.frequency_penalty = options.frequencyPenalty;
-          if (options.presencePenalty) body.presence_penalty = options.presencePenalty;
+          if (this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty) {
+            body.frequency_penalty = options.frequencyPenalty;
+          }
+          if (this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty) {
+            body.presence_penalty = options.presencePenalty;
+          }
         }
       }
 
-      if (options.verbosity && this.supportsGpt5Verbosity(options.model)) {
+      if (this.shouldSendParameter(options, "verbosity") && options.verbosity && this.supportsGpt5Verbosity(options.model)) {
         body.verbosity = options.verbosity;
       }
 
-      this.applyChatCompletionsReasoning(body, options);
+      if (this.shouldSendParameter(options, "reasoningEffort")) {
+        this.applyChatCompletionsReasoning(body, options);
+      }
 
       // OpenRouter provider routing preference
       const openrouterProvider = this.resolveOpenrouterProvider(options.openrouterProvider);
@@ -921,6 +942,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     this.applyOpenRouterServiceTier(body, options);
     this.applyCustomParameters(body, options);
+    this.stripUnsupportedSamplerParameters(body, options);
 
     logger.debug(
       "[OpenAI chat()] stream=%s model=%s reasoning_effort=%s enableThinking=%s verbosity=%s max_completion_tokens=%s max_tokens=%s temperature=%s top_p=%s tools=%s",
@@ -1102,9 +1124,9 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.stream = useStream;
     }
 
-    if (reasoning) {
+    if (this.shouldSendParameter(options, "maxTokens") && reasoning) {
       body.max_completion_tokens = maxTokens;
-    } else {
+    } else if (this.shouldSendParameter(options, "maxTokens")) {
       body.max_tokens = maxTokens;
     }
 
@@ -1115,10 +1137,11 @@ export class OpenAIProvider extends BaseLLMProvider {
 
       // o-series models never support temperature/topP; GPT-5.x only with effort=none
       if (!this.isNoTemperatureModel(options.model, options.reasoningEffort)) {
-        body.temperature = options.temperature ?? 1;
-        const topP = OpenAIProvider.normalizeTopP(options.topP);
+        if (this.shouldSendParameter(options, "temperature")) body.temperature = options.temperature ?? 1;
+        const topP = this.shouldSendParameter(options, "topP") ? OpenAIProvider.normalizeTopP(options.topP) : undefined;
         if (topP != null) body.top_p = topP;
         if (
+          this.shouldSendParameter(options, "topK") &&
           this.shouldSendTopK() &&
           typeof options.topK === "number" &&
           Number.isFinite(options.topK) &&
@@ -1138,16 +1161,22 @@ export class OpenAIProvider extends BaseLLMProvider {
           body.min_p = options.minP;
         }
         if (this.shouldSendPenaltyParams(options.model)) {
-          if (options.frequencyPenalty) body.frequency_penalty = options.frequencyPenalty;
-          if (options.presencePenalty) body.presence_penalty = options.presencePenalty;
+          if (this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty) {
+            body.frequency_penalty = options.frequencyPenalty;
+          }
+          if (this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty) {
+            body.presence_penalty = options.presencePenalty;
+          }
         }
       }
 
-      if (options.verbosity && this.supportsGpt5Verbosity(options.model)) {
+      if (this.shouldSendParameter(options, "verbosity") && options.verbosity && this.supportsGpt5Verbosity(options.model)) {
         body.verbosity = options.verbosity;
       }
 
-      this.applyChatCompletionsReasoning(body, options);
+      if (this.shouldSendParameter(options, "reasoningEffort")) {
+        this.applyChatCompletionsReasoning(body, options);
+      }
 
       // OpenRouter provider routing preference
       const openrouterProvider = this.resolveOpenrouterProvider(options.openrouterProvider);
@@ -1166,6 +1195,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     this.applyOpenRouterServiceTier(body, options);
     this.applyCustomParameters(body, options);
+    this.stripUnsupportedSamplerParameters(body, options);
 
     logger.debug("[OpenAI chatComplete()] stream=%s model=%s onToken=%s", useStream, body.model, !!options.onToken);
 
@@ -1580,6 +1610,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (
       !isOpenAIChatGPT &&
+      this.shouldSendParameter(options, "maxTokens") &&
       options.maxTokens &&
       !this.isXAIMultiAgentModel(options.model)
     ) {
@@ -1592,12 +1623,12 @@ export class OpenAIProvider extends BaseLLMProvider {
       !suppressModelParameters &&
       !this.isNoTemperatureModel(options.model, options.reasoningEffort)
     ) {
-      if (options.temperature != null) body.temperature = options.temperature;
-      const topP = OpenAIProvider.normalizeTopP(options.topP);
+      if (this.shouldSendParameter(options, "temperature") && options.temperature != null) body.temperature = options.temperature;
+      const topP = this.shouldSendParameter(options, "topP") ? OpenAIProvider.normalizeTopP(options.topP) : undefined;
       if (topP != null) body.top_p = topP;
     }
 
-    if (!isOpenAIChatGPT && !suppressModelParameters) {
+    if (!isOpenAIChatGPT && !suppressModelParameters && this.shouldSendParameter(options, "reasoningEffort")) {
       this.applyResponsesReasoning(body, options);
     }
 
@@ -1630,6 +1661,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (!isOpenAIChatGPT) {
       this.applyCustomParameters(body, options);
+      this.stripUnsupportedSamplerParameters(body, options);
     }
 
     return body;
