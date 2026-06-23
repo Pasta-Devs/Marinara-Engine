@@ -25,6 +25,7 @@ interface ChatImageLightboxProps {
   alt?: string;
   pinEnabled?: boolean;
   downloadEnabled?: boolean;
+  onPin?: (image: ChatImage) => void;
   onClose: () => void;
 }
 
@@ -33,6 +34,7 @@ export function ChatImageLightbox({
   alt,
   pinEnabled = true,
   downloadEnabled = true,
+  onPin,
   onClose,
 }: ChatImageLightboxProps) {
   const pinImage = useGalleryStore((s) => s.pinImage);
@@ -81,8 +83,12 @@ export function ChatImageLightbox({
             {pinEnabled && (
               <button
                 type="button"
-                onClick={() => {
-                  pinImage(image);
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (onPin) onPin(image);
+                  else pinImage(image);
                   onClose();
                 }}
                 aria-label="Pin image to chat"

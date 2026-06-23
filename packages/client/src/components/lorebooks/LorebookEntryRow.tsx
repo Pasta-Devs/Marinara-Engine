@@ -1521,10 +1521,10 @@ function ExpandedDrawer({
           tooltip="Prevents the Lorebook Keeper agent from modifying this entry."
         />
         <ToggleButton
-          label="No Recursion"
-          value={form.preventRecursion ?? false}
-          onChange={(v) => update({ preventRecursion: v })}
-          tooltip="When enabled, this entry's content won't trigger additional entries during recursive scanning."
+          label="Recursion"
+          value={!(form.preventRecursion ?? true)}
+          onChange={(v) => update({ preventRecursion: !v })}
+          tooltip="When enabled, this entry's content can trigger additional entries during recursive scanning. Keep this off unless this entry should chain lore."
         />
         <ToggleButton
           label="No Vector"

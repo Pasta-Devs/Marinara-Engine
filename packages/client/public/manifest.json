@@ -2,7 +2,7 @@
   "name": "Marinara Engine",
   "short_name": "Marinara",
   "description": "AI Chat & Roleplay Frontend — Conversation, Roleplay, Visual Novel",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a0f",

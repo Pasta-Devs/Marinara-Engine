@@ -2931,6 +2931,19 @@ function findRecordByName(records: Array<Record<string, unknown>>, name: string)
   );
 }
 
+function resolveNpcPortraitAppearance(
+  npc: { description?: string | null },
+  metadataNpc: GameNpc | null,
+  presentCharacter: Record<string, unknown> | null,
+): string {
+  return (
+    optionalTrimmedString(npc.description) ??
+    optionalTrimmedString(metadataNpc?.description) ??
+    optionalTrimmedString(presentCharacter?.appearance) ??
+    ""
+  );
+}
+
 function hasReadableAvatar(avatarUrl: string | null | undefined): avatarUrl is string {
   return !!avatarUrl && !!readAvatarBase64(avatarUrl);
 }
@@ -3666,6 +3679,7 @@ export async function gameRoutes(app: FastifyInstance) {
     return {
       setup: setupData,
       worldOverview: (setupData.worldOverview as string) || null,
+      gameNpcs: (hydratedUpdates.gameNpcs as GameNpc[] | undefined) ?? [],
     };
   };
 
@@ -8017,12 +8031,13 @@ export async function gameRoutes(app: FastifyInstance) {
         if (!forceNpcAvatar && findCharAvatarFuzzy(npc.name, charAvatarByName)) continue;
         const metadataNpc = findNpcRecordByName(currentNpcs, npc.name);
         const presentCharacter = findRecordByName(presentCharacters, npc.name);
+        const appearance = resolveNpcPortraitAppearance(npc, metadataNpc, presentCharacter);
         const promptOverride = promptOverrideById.get(gameImagePromptReviewId("portrait", npc.name));
 
         const compiledReviewPrompt = await buildNpcPortraitProviderPrompt({
           chatId: input.chatId,
           npcName: npc.name,
-          appearance: npc.description,
+          appearance,
           gender: npc.gender ?? metadataNpc?.gender ?? optionalTrimmedString(presentCharacter?.gender),
           pronouns: npc.pronouns ?? metadataNpc?.pronouns ?? optionalTrimmedString(presentCharacter?.pronouns),
           artStyle,
@@ -8392,10 +8407,11 @@ export async function gameRoutes(app: FastifyInstance) {
               }
               const metadataNpc = findNpcRecordByName(currentNpcs, npc.name);
               const presentCharacter = findRecordByName(presentCharacters, npc.name);
+              const appearance = resolveNpcPortraitAppearance(npc, metadataNpc, presentCharacter);
               const avatarUrl = await generateNpcPortrait({
                 chatId: input.chatId,
                 npcName: npc.name,
-                appearance: npc.description,
+                appearance,
                 gender: npc.gender ?? metadataNpc?.gender ?? optionalTrimmedString(presentCharacter?.gender),
                 pronouns: npc.pronouns ?? metadataNpc?.pronouns ?? optionalTrimmedString(presentCharacter?.pronouns),
                 artStyle,

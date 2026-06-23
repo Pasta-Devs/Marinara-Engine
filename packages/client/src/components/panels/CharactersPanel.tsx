@@ -150,9 +150,18 @@ export function CharactersPanel() {
   const openCharacterLibrary = useUIStore((s) => s.openCharacterLibrary);
   const sort = useUIStore((s) => s.characterLibrarySort);
   const setCharacterLibrarySort = useUIStore((s) => s.setCharacterLibrarySort);
+  const search = useUIStore((s) => s.characterPanelSearch);
+  const setSearch = useUIStore((s) => s.setCharacterPanelSearch);
+  const includedTagValues = useUIStore((s) => s.characterPanelIncludedTags);
+  const setCharacterPanelIncludedTags = useUIStore((s) => s.setCharacterPanelIncludedTags);
+  const excludedTagValues = useUIStore((s) => s.characterPanelExcludedTags);
+  const setCharacterPanelExcludedTags = useUIStore((s) => s.setCharacterPanelExcludedTags);
+  const tagsExpanded = useUIStore((s) => s.characterPanelTagsExpanded);
+  const setTagsExpanded = useUIStore((s) => s.setCharacterPanelTagsExpanded);
+  const favFilter = useUIStore((s) => s.characterPanelFavoriteFilter);
+  const setFavFilter = useUIStore((s) => s.setCharacterPanelFavoriteFilter);
   const setCharacterPanelScrollTop = useUIStore((s) => s.setCharacterPanelScrollTop);
 
-  const [search, setSearch] = useState("");
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
@@ -163,10 +172,8 @@ export function CharactersPanel() {
   const suppressCharacterClickRef = useRef(false);
   const isMobileOverlay = usePanelMobileOverlay();
   const handleFolderRenameGesture = useFolderRenameGesture();
-  const [includedTags, setIncludedTags] = useState<Set<string>>(new Set());
-  const [excludedTags, setExcludedTags] = useState<Set<string>>(new Set());
-  const [tagsExpanded, setTagsExpanded] = useState(false);
-  const [favFilter, setFavFilter] = useState<"all" | "favorites" | "non-favorites">("all");
+  const includedTags = useMemo(() => new Set(includedTagValues), [includedTagValues]);
+  const excludedTags = useMemo(() => new Set(excludedTagValues), [excludedTagValues]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedCharacterIds, setSelectedCharacterIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -278,47 +285,52 @@ export function CharactersPanel() {
           await updateCharacter.mutateAsync({ id: c.id, data: { tags: newTags } });
         }
         if (includedTags.has(tag)) {
-          setIncludedTags((prev) => {
-            const next = new Set(prev);
-            next.delete(tag);
-            return next;
-          });
-        }
-        setExcludedTags((prev) => {
-          if (!prev.has(tag)) return prev;
-          const next = new Set(prev);
+          const next = new Set(includedTags);
           next.delete(tag);
-          return next;
-        });
+          setCharacterPanelIncludedTags([...next]);
+        }
+        if (excludedTags.has(tag)) {
+          const next = new Set(excludedTags);
+          next.delete(tag);
+          setCharacterPanelExcludedTags([...next]);
+        }
       } catch {
         toast.error("Failed to remove tag from some characters");
       }
     },
-    [parsedCharacters, updateCharacter, includedTags],
+    [
+      parsedCharacters,
+      updateCharacter,
+      includedTags,
+      excludedTags,
+      setCharacterPanelIncludedTags,
+      setCharacterPanelExcludedTags,
+    ],
   );
 
-  const toggleIncludedTag = useCallback((tag: string) => {
-    setIncludedTags((prev) => {
-      const next = new Set(prev);
-      if (next.has(tag)) {
-        next.delete(tag);
+  const toggleIncludedTag = useCallback(
+    (tag: string) => {
+      const nextIncluded = new Set(includedTags);
+      if (nextIncluded.has(tag)) {
+        nextIncluded.delete(tag);
       } else {
-        next.add(tag);
+        nextIncluded.add(tag);
       }
-      return next;
-    });
-    setExcludedTags((prev) => {
-      if (!prev.has(tag)) return prev;
-      const next = new Set(prev);
-      next.delete(tag);
-      return next;
-    });
-  }, []);
+      setCharacterPanelIncludedTags([...nextIncluded]);
+
+      if (excludedTags.has(tag)) {
+        const nextExcluded = new Set(excludedTags);
+        nextExcluded.delete(tag);
+        setCharacterPanelExcludedTags([...nextExcluded]);
+      }
+    },
+    [excludedTags, includedTags, setCharacterPanelExcludedTags, setCharacterPanelIncludedTags],
+  );
 
   const clearTagFilters = useCallback(() => {
-    setIncludedTags(new Set());
-    setExcludedTags(new Set());
-  }, []);
+    setCharacterPanelIncludedTags([]);
+    setCharacterPanelExcludedTags([]);
+  }, [setCharacterPanelExcludedTags, setCharacterPanelIncludedTags]);
 
   const sortedCharacters = useMemo(() => {
     const list = [...filteredCharacters];

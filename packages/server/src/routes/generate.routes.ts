@@ -69,7 +69,7 @@ import { cosineSimilarity } from "../services/lorebook/embeddings.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
-import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
+import { filterRelevantLorebooks, processLorebooks, type LorebookScanResult } from "../services/lorebook/index.js";
 import {
   filterGameInternalAgentIds,
   resolveGameLorebookScopeExclusions,
@@ -203,6 +203,7 @@ import {
   buildLockedPersonaTrackerPatch,
   extractImageAttachmentDataUrls,
   appendNonLeadingSystemMessagesToLastUser,
+  computeSummaryHideIds,
   injectIntoOutputFormatOrLastUser,
   isManualTrackerCharacterId,
   isMessageHiddenFromAI,
@@ -217,6 +218,7 @@ import {
   prefixGroupIndividualHistorySpeakers,
   resolveActiveCharacterIds,
   resolveBaseUrl,
+  resolveRoleplaySummaryTail,
   resolveCharacterNameMap,
   resolvePromptCharacterIdsForTarget,
   resolveRegenerationGameStateFallbackMessageIds,
@@ -405,6 +407,32 @@ import {
 } from "./generate/agent-write-approval.js";
 
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
+
+type LorebookScanSnapshot = {
+  activatedEntries: LorebookScanResult["activatedEntries"];
+  budgetSkippedEntries: LorebookScanResult["budgetSkippedEntries"];
+  totalTokensEstimate: number;
+  totalEntries: number;
+};
+
+function emptyLorebookScanSnapshot(): LorebookScanSnapshot {
+  return {
+    activatedEntries: [],
+    budgetSkippedEntries: [],
+    totalTokensEstimate: 0,
+    totalEntries: 0,
+  };
+}
+
+function toLorebookScanSnapshot(result: LorebookScanResult | null | undefined): LorebookScanSnapshot {
+  if (!result) return emptyLorebookScanSnapshot();
+  return {
+    activatedEntries: result.activatedEntries,
+    budgetSkippedEntries: result.budgetSkippedEntries,
+    totalTokensEstimate: result.totalTokensEstimate,
+    totalEntries: result.totalEntries,
+  };
+}
 
 function findResultAgent(result: AgentResult, agents: ResolvedAgent[]): ResolvedAgent | null {
   return agents.find((agent) => agent.id === result.agentId || agent.type === result.agentType) ?? null;
@@ -688,6 +716,8 @@ function appendContinuationMessageContent(existingContent: unknown, continuation
   if (!continuation) return existing;
   return `${existing}${continuation}`;
 }
+
+const CONTINUE_ASSISTANT_MESSAGE_PROMPT = "Your last message got cut off! Please, continue!";
 
 function isAutomaticRoleplaySummaryEnabled(chatMetadata: Record<string, unknown>): boolean {
   if (chatMetadata.automaticSummaryEnabled === false) return false;
@@ -1917,6 +1947,7 @@ export async function generateRoutes(app: FastifyInstance) {
           ? (chatMeta.activeLorebookIds as string[])
           : [];
         const gameLorebookScopeExclusions = resolveGameLorebookScopeExclusions(chatMode, chatMeta);
+        let lorebookScanSnapshot: LorebookScanSnapshot = emptyLorebookScanSnapshot();
         let presetHandledLorebooks = false;
         const presetHasLorebookMarker = (sections: Array<{ isMarker: string; markerConfig: string | null }>) =>
           sections.some((section) => {
@@ -2220,6 +2251,17 @@ export async function generateRoutes(app: FastifyInstance) {
           };
 
           const assembled = await assemblePrompt(assemblerInput);
+          if (assembled.lorebookActivatedEntries || assembled.lorebookBudgetSkippedEntries) {
+            lorebookScanSnapshot = {
+              activatedEntries: assembled.lorebookActivatedEntries ?? [],
+              budgetSkippedEntries: assembled.lorebookBudgetSkippedEntries ?? [],
+              totalTokensEstimate: Math.ceil(
+                (assembled.lorebookActivatedEntries ?? []).reduce((total, entry) => total + entry.content.length, 0) /
+                  4,
+              ),
+              totalEntries: (assembled.lorebookActivatedEntries ?? []).length,
+            };
+          }
           presetHandledLorebooks =
             presetHasLorebookMarker(sections) ||
             assembled.lorebookDepthEntriesCount > 0 ||
@@ -3443,6 +3485,7 @@ export async function generateRoutes(app: FastifyInstance) {
               generationTriggers: lorebookGenerationTriggers,
               resolveContent: resolvePromptMacrosForLorebook,
             });
+            lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
             rememberKnowledgeRouterActivatedLorebookIds(
               knowledgeRouterActivatedLorebookEntryIds,
               knowledgeRouterExcludedLorebookEntryIds,
@@ -3499,6 +3542,7 @@ export async function generateRoutes(app: FastifyInstance) {
             generationTriggers: lorebookGenerationTriggers,
             resolveContent: resolvePromptMacrosForLorebook,
           });
+          lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
           rememberKnowledgeRouterActivatedLorebookIds(
             knowledgeRouterActivatedLorebookEntryIds,
             knowledgeRouterExcludedLorebookEntryIds,
@@ -4187,6 +4231,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 resolveContent: resolvePromptMacrosForLorebook,
               },
             );
+            lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
             rememberKnowledgeRouterActivatedLorebookIds(
               knowledgeRouterActivatedLorebookEntryIds,
               knowledgeRouterExcludedLorebookEntryIds,
@@ -4367,6 +4412,14 @@ export async function generateRoutes(app: FastifyInstance) {
           logger.debug(
             "[generate/roleplay] Injected DM command reminder (%d chars) into last user message",
             dmCommandReminder.length,
+          );
+        }
+
+        if (input.continueMessageId) {
+          finalMessages.push({ role: "user" as const, content: CONTINUE_ASSISTANT_MESSAGE_PROMPT });
+          logger.debug(
+            "[generate] Injected continuation prompt for assistant message %s",
+            input.continueMessageId,
           );
         }
 
@@ -6960,6 +7013,9 @@ export async function generateRoutes(app: FastifyInstance) {
             extraUpdate.generationReplay = buildGenerationReplay(input);
             // Cache the final prompt (what was actually sent to the model) for Peek Prompt
             extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({ role: m.role, content: m.content }));
+            // Cache the lorebook scan that produced the prompt so Active Context
+            // reflects the last generation instead of a best-effort rescan.
+            extraUpdate.lorebookScan = lorebookScanSnapshot;
             extraUpdate.chatSummaryFingerprint = fingerprintChatSummary(chatMeta.summary);
             const persistentAttachments = resolveUserRegenerationPersistentAttachments(regenMsg ?? {});
             if (persistentAttachments) extraUpdate.attachments = persistentAttachments;
@@ -7397,6 +7453,17 @@ export async function generateRoutes(app: FastifyInstance) {
           let createdEntry: ChatSummaryEntry | null = null;
           let summaryEntries: ChatSummaryEntry[] = [];
           const shouldReviewSummary = requireAgentWriteApproval && !!newText;
+          const autoEntryMessageIds = selectedMessages.map((message: any) => message.id);
+          // Compute the hide subset up front so it can be persisted on the entry
+          // (deletion restores exactly this set) and reused for the actual hide.
+          const autoHideIds =
+            newText && !shouldReviewSummary && chatMeta.hideSummarisedMessages === true
+              ? computeSummaryHideIds({
+                  messages: freshMessages,
+                  entryMessageIds: autoEntryMessageIds,
+                  tail: resolveRoleplaySummaryTail(chatMeta.summaryTailMessages),
+                })
+              : [];
           const updatedChat = await chats.patchMetadata(
             input.chatId,
             (currentMeta) => {
@@ -7418,7 +7485,8 @@ export async function generateRoutes(app: FastifyInstance) {
                   content: newText,
                   enabled: true,
                   messageCount: selectedMessages.length,
-                  messageIds: selectedMessages.map((message: any) => message.id),
+                  messageIds: autoEntryMessageIds,
+                  ...(autoHideIds.length > 0 ? { hiddenMessageIds: autoHideIds } : {}),
                   promptTemplateId:
                     typeof chatMeta.activeSummaryPromptTemplateId === "string"
                       ? chatMeta.activeSummaryPromptTemplateId
@@ -7459,10 +7527,23 @@ export async function generateRoutes(app: FastifyInstance) {
               });
             } else {
               const combined = typeof chatMeta.summary === "string" ? chatMeta.summary : newText;
+              // Opt-in token compression: hide the messages this summary covered
+              // (except the protected recent tail, already excluded in autoHideIds)
+              // so the summary is a net token reduction. Best-effort; never aborts
+              // the stream. The same set is persisted on the entry above.
+              let hiddenMessageIds: string[] = [];
+              if (autoHideIds.length > 0) {
+                try {
+                  await chats.bulkSetHiddenFromAI(input.chatId, autoHideIds, true);
+                  hiddenMessageIds = autoHideIds;
+                } catch (err) {
+                  logger.error(err, "[chat-summary] Failed to auto-hide summarized roleplay messages");
+                }
+              }
               reply.raw.write(
                 `data: ${JSON.stringify({
                   type: "chat_summary",
-                  data: { summary: combined, entry: createdEntry, entries: summaryEntries },
+                  data: { summary: combined, entry: createdEntry, entries: summaryEntries, hiddenMessageIds },
                 })}\n\n`,
               );
             }

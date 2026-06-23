@@ -4,7 +4,7 @@
 // a compact preview and expandable editable popover.
 // Supports top (horizontal) and left/right (vertical) layout.
 // ──────────────────────────────────────────────
-import { Suspense, lazy, useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from "react";
+import { Suspense, lazy, useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import {
   MapPin,
@@ -64,6 +64,7 @@ import type { HudPosition, TrackerTemperatureUnit } from "../../stores/ui.store"
 
 const ACTIONS_DROPDOWN_WIDTH_PX = 288;
 const EMPTY_INVENTORY: InventoryItem[] = [];
+const EMPTY_AGENT_TYPE_SET = new Set<string>();
 
 interface RoleplayHUDProps {
   chatId: string;
@@ -126,16 +127,7 @@ export function RoleplayHUD({
   const { patchField, patchPlayerStats } = useGameStatePatcher(chatId, "roleplay-hud");
 
   const { data: agentConfigs } = useAgentConfigs();
-  const globalEnabledAgentTypes = useMemo(() => {
-    const set = new Set<string>();
-    if (agentConfigs) {
-      for (const a of agentConfigs as Array<{ type: string; enabled: string }>) {
-        if (a.enabled === "true") set.add(a.type);
-      }
-    }
-    return set;
-  }, [agentConfigs]);
-  const enabledAgentTypes = enabledAgentTypesProp ?? globalEnabledAgentTypes;
+  const enabledAgentTypes = enabledAgentTypesProp ?? EMPTY_AGENT_TYPE_SET;
 
   const thoughtBubbles = useAgentStore((s) => s.thoughtBubbles);
   const isAgentProcessing = useAgentStore((s) => s.isProcessing);

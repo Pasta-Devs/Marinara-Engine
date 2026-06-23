@@ -1888,7 +1888,7 @@ export class MariDbService {
           relationships: {},
           dynamicState: {},
           activationConditions: [],
-          preventRecursion: "false",
+          preventRecursion: "true",
           excludeRecursion: "false",
           delayUntilRecursion: "false",
           excludeFromVectorization: "false",

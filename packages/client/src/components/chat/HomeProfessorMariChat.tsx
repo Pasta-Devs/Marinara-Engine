@@ -1547,6 +1547,9 @@ export function HomeProfessorMariChat({
   const workspaceAbortRef = useRef<AbortController | null>(null);
   const handledWorkspaceRefreshIdsRef = useRef<Set<string>>(new Set());
   const workspaceStatusErrorToastShownRef = useRef(false);
+  const latestConnectionSelectionRef = useRef<string | null>(selectedConnectionId);
+  const pendingConnectionPersistRef = useRef<string | null>(null);
+  const connectionPersistInFlightRef = useRef(false);
 
   const hasActiveGeneration = useChatStore((state) => (chatId ? state.abortControllers.has(chatId) : false));
   const mariPhase = useChatStore((state) => (chatId ? (state.mariPhaseByChatId.get(chatId) ?? null) : null));
@@ -1658,25 +1661,24 @@ export function HomeProfessorMariChat({
   }, [invalidateWorkspaceData, workspaceStatus?.history]);
 
   useEffect(() => {
-    if (connectionOptions.length === 0) {
-      setSelectedConnectionId(null);
-      return;
-    }
-
-    setSelectedConnectionId((current) => {
-      if (current && connectionOptions.some((connection) => connection.id === current)) return current;
-      const next = connectionOptions.find((connection) => connection.isDefault)?.id ?? connectionOptions[0]?.id ?? null;
-      if (next) rememberConnectionId(next);
-      return next;
-    });
-  }, [connectionOptions]);
+    latestConnectionSelectionRef.current = selectedConnectionId;
+  }, [selectedConnectionId]);
 
   useEffect(() => {
     if (hasLoadedRef.current || connectionsLoading) return;
     hasLoadedRef.current = true;
     setLoadingHistory(true);
-    ensureProfessorMariChat(effectiveConnectionId)
-      .then((chat) => loadMessages(chat.id))
+    const storedConnectionExists =
+      !!selectedConnectionId && connectionOptions.some((connection) => connection.id === selectedConnectionId);
+    ensureProfessorMariChat(storedConnectionExists ? selectedConnectionId : null)
+      .then((chat) => {
+        const restoredConnectionId = typeof chat.connectionId === "string" && chat.connectionId ? chat.connectionId : null;
+        if (restoredConnectionId) {
+          setSelectedConnectionId(restoredConnectionId);
+          rememberConnectionId(restoredConnectionId);
+        }
+        return loadMessages(chat.id);
+      })
       .catch((error) => {
         console.error("[Professor Mari] Failed to load home assistant", error);
         toast.error("Professor Mari could not load.", {
@@ -1685,7 +1687,7 @@ export function HomeProfessorMariChat({
         });
       })
       .finally(() => setLoadingHistory(false));
-  }, [connectionsLoading, effectiveConnectionId, ensureProfessorMariChat, loadMessages]);
+  }, [connectionOptions, connectionsLoading, ensureProfessorMariChat, loadMessages, selectedConnectionId]);
 
   useEffect(() => {
     void refreshWorkspaceStatus().catch(() => {
@@ -1774,10 +1776,40 @@ export function HomeProfessorMariChat({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [connectionMenuOpen]);
 
+  const persistLatestConnectionSelection = useCallback(() => {
+    if (connectionPersistInFlightRef.current) return;
+    connectionPersistInFlightRef.current = true;
+
+    void (async () => {
+      try {
+        while (pendingConnectionPersistRef.current) {
+          const id = pendingConnectionPersistRef.current;
+          pendingConnectionPersistRef.current = null;
+          try {
+            await ensureProfessorMariChat(id);
+          } catch (error) {
+            if (!pendingConnectionPersistRef.current && latestConnectionSelectionRef.current === id) {
+              console.error("[Professor Mari] Failed to save selected connection", error);
+              toast.error("Professor Mari could not remember that connection.", {
+                description: describeProfessorMariError(error),
+                duration: 12_000,
+              });
+            }
+          }
+        }
+      } finally {
+        connectionPersistInFlightRef.current = false;
+      }
+    })();
+  }, [ensureProfessorMariChat]);
+
   const handleConnectionChange = (id: string) => {
     setSelectedConnectionId(id);
+    latestConnectionSelectionRef.current = id;
+    pendingConnectionPersistRef.current = id;
     rememberConnectionId(id);
     setConnectionMenuOpen(false);
+    persistLatestConnectionSelection();
   };
 
   const closeMobileFocusMode = useCallback(() => {

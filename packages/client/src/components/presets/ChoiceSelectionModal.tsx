@@ -19,6 +19,7 @@ interface ChoiceSelectionModalProps {
   chatId: string;
   /** Existing selections to pre-populate (variableName → value or values) */
   existingChoices?: Record<string, string | string[]>;
+  chatFloatingPanel?: boolean;
 }
 
 interface ChoiceOption {
@@ -88,6 +89,7 @@ export function ChoiceSelectionModal({
   presetId,
   chatId,
   existingChoices = {},
+  chatFloatingPanel = false,
 }: ChoiceSelectionModalProps) {
   const { data } = usePresetFull(presetId);
   const isLoading = !data && !!presetId;
@@ -206,7 +208,13 @@ export function ChoiceSelectionModal({
   );
 
   return (
-    <Modal open={open} onClose={onClose} title="Configure Preset Variables" width="max-w-lg">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Configure Preset Variables"
+      width="max-w-lg"
+      chatFloatingPanel={chatFloatingPanel}
+    >
       {variables.length === 0 ? (
         isLoading ? (
           <div className="flex items-center justify-center p-8">

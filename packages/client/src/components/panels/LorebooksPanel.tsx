@@ -31,7 +31,7 @@ import {
   Trash2,
   Camera,
 } from "lucide-react";
-import { useUIStore } from "../../stores/ui.store";
+import { useUIStore, type LorebookPanelCategory, type LorebookPanelSort } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import {
   useLorebooks,
@@ -114,11 +114,16 @@ function remapLorebookEntryRelationships(
 }
 
 export function LorebooksPanel() {
-  const [activeCategory, setActiveCategory] = useState<LorebookCategory | "all" | "active">("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<"name-asc" | "name-desc" | "newest" | "oldest" | "tokens">("name-asc");
-  const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [tagsExpanded, setTagsExpanded] = useState(false);
+  const activeCategory = useUIStore((s) => s.lorebookPanelCategory);
+  const setActiveCategory = useUIStore((s) => s.setLorebookPanelCategory);
+  const searchQuery = useUIStore((s) => s.lorebookPanelSearch);
+  const setSearchQuery = useUIStore((s) => s.setLorebookPanelSearch);
+  const sort = useUIStore((s) => s.lorebookPanelSort);
+  const setSort = useUIStore((s) => s.setLorebookPanelSort);
+  const activeTag = useUIStore((s) => s.lorebookPanelActiveTag);
+  const setActiveTag = useUIStore((s) => s.setLorebookPanelActiveTag);
+  const tagsExpanded = useUIStore((s) => s.lorebookPanelTagsExpanded);
+  const setTagsExpanded = useUIStore((s) => s.setLorebookPanelTagsExpanded);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedLorebookIds, setSelectedLorebookIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
@@ -255,7 +260,7 @@ export function LorebooksPanel() {
         toast.error("Failed to remove tag from some lorebooks");
       }
     },
-    [lorebooks, updateLorebook, activeTag],
+    [lorebooks, updateLorebook, activeTag, setActiveTag],
   );
 
   // Filter by search
@@ -772,7 +777,7 @@ export function LorebooksPanel() {
         <div className="relative">
           <select
             value={sort}
-            onChange={(e) => setSort(e.target.value as typeof sort)}
+            onChange={(e) => setSort(e.target.value as LorebookPanelSort)}
             className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
             title="Sort order"
           >
@@ -811,7 +816,7 @@ export function LorebooksPanel() {
           <select
             id="lorebook-category-filter"
             value={activeCategory}
-            onChange={(event) => setActiveCategory(event.target.value as LorebookCategory | "all" | "active")}
+            onChange={(event) => setActiveCategory(event.target.value as LorebookPanelCategory)}
             className="mari-chrome-field h-10 w-full min-w-0 appearance-none truncate py-0 pl-3 pr-8 text-xs"
             title="Lorebook category"
           >

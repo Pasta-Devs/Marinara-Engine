@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────
 // Game: HUD Widget Setup Editor
 // ──────────────────────────────────────────────
-import { useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Download, Plus, Trash2, Upload } from "lucide-react";
+import { toast } from "sonner";
 import {
   normalizeTextForMatch,
   type HudWidget,
@@ -13,6 +14,8 @@ import { cn } from "../../lib/utils";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 
 export const MAX_GAME_SETUP_WIDGETS = 4;
+const GAME_WIDGET_EXPORT_KIND = "marinara-game-hud-widgets";
+const GAME_WIDGET_EXPORT_VERSION = 1;
 
 const WIDGET_TYPES: readonly HudWidgetType[] = [
   "progress_bar",
@@ -262,6 +265,125 @@ export function normalizeGameHudWidgets(value: unknown): HudWidget[] {
   }
 
   return normalized;
+}
+
+function getImportedWidgetSource(value: unknown): unknown {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== "object") return [];
+  const record = value as { widgets?: unknown; hudWidgets?: unknown; gameWidgetState?: unknown };
+  if (Array.isArray(record.widgets)) return record.widgets;
+  if (Array.isArray(record.hudWidgets)) return record.hudWidgets;
+  if (Array.isArray(record.gameWidgetState)) return record.gameWidgetState;
+  return [];
+}
+
+function formatWidgetCount(count: number) {
+  return count === 1 ? "1 widget" : `${count} widgets`;
+}
+
+function buildWidgetExportFilename(filename?: string) {
+  const stem =
+    filename
+      ?.replace(/\.json$/i, "")
+      .trim()
+      .replace(/[^\p{L}\p{N}._-]+/gu, "-")
+      .replace(/^-+|-+$/g, "") || "marinara-game-widgets";
+  return `${stem}.json`;
+}
+
+function exportGameHudWidgets(widgets: readonly HudWidget[], filename?: string) {
+  const normalizedWidgets = normalizeGameHudWidgets(widgets);
+  const payload = {
+    kind: GAME_WIDGET_EXPORT_KIND,
+    version: GAME_WIDGET_EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    widgets: normalizedWidgets,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = buildWidgetExportFilename(filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  toast.success(`Exported ${formatWidgetCount(normalizedWidgets.length)}.`);
+}
+
+async function importGameHudWidgetsFromFile(file: File) {
+  const text = await file.text();
+  const parsed = JSON.parse(text) as unknown;
+  const widgets = normalizeGameHudWidgets(getImportedWidgetSource(parsed));
+  if (widgets.length === 0) {
+    throw new Error("No valid game widgets were found in that file.");
+  }
+  return widgets;
+}
+
+interface GameWidgetFileControlsProps {
+  widgets: HudWidget[];
+  onImport: (widgets: HudWidget[]) => void;
+  disabled?: boolean;
+  className?: string;
+  exportFilename?: string;
+  importSuccessMessage?: (count: number) => string;
+}
+
+export function GameWidgetFileControls({
+  widgets,
+  onImport,
+  disabled,
+  className,
+  exportFilename,
+  importSuccessMessage,
+}: GameWidgetFileControlsProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const normalizedWidgets = useMemo(() => normalizeGameHudWidgets(widgets), [widgets]);
+  const canExport = normalizedWidgets.length > 0 && !disabled;
+
+  const handleImport = async (file: File | undefined) => {
+    if (!file || disabled) return;
+    try {
+      const importedWidgets = await importGameHudWidgetsFromFile(file);
+      onImport(importedWidgets);
+      toast.success(importSuccessMessage?.(importedWidgets.length) ?? `Imported ${formatWidgetCount(importedWidgets.length)}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to import game widgets.");
+    } finally {
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className={cn("flex flex-wrap items-center justify-end gap-2", className)}>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={(event) => void handleImport(event.target.files?.[0])}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Download size="0.75rem" />
+        <span>Import Widgets</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => exportGameHudWidgets(normalizedWidgets, exportFilename)}
+        disabled={!canExport}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Upload size="0.75rem" />
+        <span>Export Widgets</span>
+      </button>
+    </div>
+  );
 }
 
 interface GameWidgetSetupEditorProps {

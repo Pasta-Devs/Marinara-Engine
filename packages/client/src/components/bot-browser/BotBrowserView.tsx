@@ -53,6 +53,13 @@ const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; descripti
 const SOURCE_MENU_MIN_WIDTH = 180;
 const SOURCE_MENU_MARGIN = 8;
 
+function encodeProxyPath(path: unknown): string {
+  return String(path ?? "")
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
 interface BrowseCard {
   id: string;
   name: string;
@@ -378,7 +385,7 @@ const chubProvider: ProviderConfig = {
   extraToggles: [],
   nsfwAvailable: true,
   nsfwMode: "free",
-  getAvatarUrl: (card) => `/api/bot-browser/chub/avatar/${card.id}`,
+  getAvatarUrl: (card) => `/api/bot-browser/chub/avatar/${encodeProxyPath(card.id)}`,
   getExternalUrl: (card) => `https://chub.ai/characters/${card.id}`,
   search: async (p) => {
     const preset = CHUB_SORT_PRESETS.find((pr) => pr.value === p.sort) ?? CHUB_SORT_PRESETS[0];
@@ -416,7 +423,7 @@ const chubProvider: ProviderConfig = {
         creator: (n.fullPath || "").split("/")[0] || "",
         tagline: n.tagline || "",
         tags: n.topics || [],
-        avatarUrl: `/api/bot-browser/chub/avatar/${n.fullPath}`,
+        avatarUrl: `/api/bot-browser/chub/avatar/${encodeProxyPath(n.fullPath)}`,
         stat1: n.starCount || 0,
         stat1Label: "Downloads",
         stat1Icon: "download" as const,
@@ -483,7 +490,7 @@ const jannyProvider: ProviderConfig = {
   extraToggles: [{ key: "showLowQuality", label: "Show Low Quality", icon: "🚫" }],
   nsfwAvailable: true,
   nsfwMode: "free",
-  getAvatarUrl: (card) => `/api/bot-browser/janny/avatar/${(card._raw as any)?.avatar || ""}`,
+  getAvatarUrl: (card) => `/api/bot-browser/janny/avatar/${encodeProxyPath((card._raw as any)?.avatar || "")}`,
   getExternalUrl: (card) => {
     const raw = card._raw as any;
     const slug = card.name
@@ -624,7 +631,7 @@ const jannyProvider: ProviderConfig = {
         creator: h.creatorUsername || "",
         tagline: (h.description || "").replace(/<[^>]*>/g, "").slice(0, 200),
         tags: jannyTagNames(h.tagIds),
-        avatarUrl: h.avatar ? `/api/bot-browser/janny/avatar/${h.avatar}` : "",
+        avatarUrl: h.avatar ? `/api/bot-browser/janny/avatar/${encodeProxyPath(h.avatar)}` : "",
         stat1: h.totalToken || 0,
         stat1Label: "Tokens",
         stat1Icon: "hash" as const,
@@ -786,7 +793,7 @@ const chartavernProvider: ProviderConfig = {
   extraToggles: [{ key: "isOC", label: "Original Character", icon: "⭐" }],
   nsfwAvailable: false,
   nsfwMode: "login",
-  getAvatarUrl: (card) => `/api/bot-browser/chartavern/avatar/${card.id}`,
+  getAvatarUrl: (card) => `/api/bot-browser/chartavern/avatar/${encodeProxyPath(card.id)}`,
   getExternalUrl: (card) => `https://character-tavern.com/character/${card.id}`,
   search: async (p) => {
     const params = new URLSearchParams({
@@ -813,7 +820,7 @@ const chartavernProvider: ProviderConfig = {
         creator: h.author || (h.path || "").split("/")[0] || "",
         tagline: h.tagline || "",
         tags: Array.isArray(h.tags) ? h.tags : [],
-        avatarUrl: h.path ? `/api/bot-browser/chartavern/avatar/${h.path}` : "",
+        avatarUrl: h.path ? `/api/bot-browser/chartavern/avatar/${encodeProxyPath(h.path)}` : "",
         stat1: h.downloads || 0,
         stat1Label: "Downloads",
         stat1Icon: "download" as const,
@@ -881,7 +888,7 @@ const pygmalionProvider: ProviderConfig = {
     const av = raw?.avatarUrl;
     if (!av) return "";
     if (av.startsWith("http")) return `/api/bot-browser/pygmalion/avatar/${encodeURIComponent(av)}`;
-    return `/api/bot-browser/pygmalion/avatar/${av}`;
+    return `/api/bot-browser/pygmalion/avatar/${encodeProxyPath(av)}`;
   },
   getExternalUrl: (card) => `https://pygmalion.chat/character/${card.id}`,
   search: async (p) => {
@@ -908,7 +915,7 @@ const pygmalionProvider: ProviderConfig = {
         if (av) {
           avatarProxyUrl = av.startsWith("http")
             ? `/api/bot-browser/pygmalion/avatar/${encodeURIComponent(av)}`
-            : `/api/bot-browser/pygmalion/avatar/${av}`;
+            : `/api/bot-browser/pygmalion/avatar/${encodeProxyPath(av)}`;
         }
         return {
           id: c.id || "",
@@ -995,7 +1002,7 @@ const wyvernProvider: ProviderConfig = {
     const src = raw?.avatar_url || raw?.avatar;
     if (!src) return "";
     if (src.startsWith("http")) return `/api/bot-browser/wyvern/avatar/${encodeURIComponent(src)}`;
-    return `/api/bot-browser/wyvern/avatar/${src}/public`;
+    return `/api/bot-browser/wyvern/avatar/${encodeProxyPath(src)}/public`;
   },
   getExternalUrl: (card) => `https://app.wyvern.chat/characters/${card.id}`,
   search: async (p) => {
@@ -1024,7 +1031,7 @@ const wyvernProvider: ProviderConfig = {
         if (src) {
           avatarProxyUrl = src.startsWith("http")
             ? `/api/bot-browser/wyvern/avatar/${encodeURIComponent(src)}`
-            : `/api/bot-browser/wyvern/avatar/${src}/public`;
+            : `/api/bot-browser/wyvern/avatar/${encodeProxyPath(src)}/public`;
         }
         return {
           id: c.id || "",
@@ -1149,7 +1156,7 @@ const datacatProvider: ProviderConfig = {
     const av = raw?.avatar || "";
     if (!av) return "";
     if (av.startsWith("http")) return `/api/bot-browser/datacat/avatar/${encodeURIComponent(av)}`;
-    return `/api/bot-browser/datacat/avatar/${av}`;
+    return `/api/bot-browser/datacat/avatar/${encodeProxyPath(av)}`;
   },
   getExternalUrl: (card) => {
     const raw = card._raw as any;
@@ -1229,7 +1236,7 @@ const datacatProvider: ProviderConfig = {
         const avatarProxyUrl = av
           ? av.startsWith("http")
             ? `/api/bot-browser/datacat/avatar/${encodeURIComponent(av)}`
-            : `/api/bot-browser/datacat/avatar/${av}`
+            : `/api/bot-browser/datacat/avatar/${encodeProxyPath(av)}`
           : "";
         const charId = c.characterId || c.character_id || c.id || "";
         return {

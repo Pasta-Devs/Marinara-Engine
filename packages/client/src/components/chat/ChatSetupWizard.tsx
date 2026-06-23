@@ -234,6 +234,12 @@ function readChatMetadata(chat: Chat): Record<string, unknown> {
   return raw ?? {};
 }
 
+function readChatActiveAgentIds(chat: Chat): string[] {
+  const metadata = readChatMetadata(chat);
+  const activeIds = metadata.activeAgentIds;
+  return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
+}
+
 function readConversationCommandToggles(value: unknown): Partial<Record<ConversationCommandKey, boolean>> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const source = value as Record<string, unknown>;
@@ -1385,6 +1391,10 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       ),
     [metadata.activeAgentIds],
   );
+  const readLatestActiveAgentIds = useCallback(() => {
+    const latestChat = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id));
+    return latestChat ? readChatActiveAgentIds(latestChat) : [...activeAgentIds];
+  }, [activeAgentIds, chat.id, queryClient]);
   const agentsEnabled = metadata.enableAgents === true;
   const agentConfigsByType = useMemo(() => {
     const map = new Map<string, AgentConfigRow>();
@@ -1710,13 +1720,14 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
   const removeAgentFromChat = useCallback(
     (agentId: string) => {
+      const latestActiveAgentIds = readLatestActiveAgentIds();
       updateMeta.mutate({
         id: chat.id,
-        activeAgentIds: activeAgentIds.filter((id) => id !== agentId),
+        activeAgentIds: latestActiveAgentIds.filter((id) => id !== agentId),
       });
       if (agentAddPreview?.agent.id === agentId) setAgentAddPreview(null);
     },
-    [activeAgentIds, agentAddPreview?.agent.id, chat.id, updateMeta],
+    [agentAddPreview?.agent.id, chat.id, readLatestActiveAgentIds, updateMeta],
   );
 
   const confirmAddAgent = useCallback(async () => {
@@ -1745,14 +1756,13 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     setAddingAgentToChat(true);
     try {
       if (config) {
-        await updateAgentConfig.mutateAsync({ id: config.id, enabled: true, settings: nextSettings });
+        await updateAgentConfig.mutateAsync({ id: config.id, settings: nextSettings });
       } else if (builtInMeta) {
         await createAgent.mutateAsync({
           type: builtInMeta.id,
           name: agent.name,
           description: agent.description,
           phase: normalizeAgentPhaseForType(agent.id, agent.phase),
-          enabled: true,
           connectionId: null,
           promptTemplate: "",
           settings: nextSettings,
@@ -1762,11 +1772,12 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       await updateMeta.mutateAsync({
         id: chat.id,
         enableAgents: true,
-        activeAgentIds: Array.from(new Set([...activeAgentIds, agent.id])),
+        activeAgentIds: Array.from(new Set([...readLatestActiveAgentIds(), agent.id])),
         ...buildAgentAddMetadataPatch(agent.id, setup, metadata, {
           allowSecretPlot: supportsNarrativeDirectorSecretPlot,
         }),
       });
+      toast.success(`Added ${agent.name}! You can access its settings in Agents section in Chat Settings!`);
       setAgentAddPreview(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add this agent to the chat.");
@@ -1774,11 +1785,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       setAddingAgentToChat(false);
     }
   }, [
-    activeAgentIds,
     agentAddPreview,
     chat.id,
     createAgent,
     metadata,
+    readLatestActiveAgentIds,
     supportsNarrativeDirectorSecretPlot,
     updateAgentConfig,
     updateMeta,
@@ -2114,7 +2125,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             updateMeta.mutate({
               id: chat.id,
               enableAgents: !agentsEnabled,
-              activeAgentIds: !agentsEnabled ? activeAgentIds : [],
+              activeAgentIds: !agentsEnabled ? readLatestActiveAgentIds() : [],
             })
           }
           className={cn(

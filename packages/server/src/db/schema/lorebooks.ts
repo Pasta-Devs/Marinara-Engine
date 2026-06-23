@@ -162,7 +162,7 @@ export const lorebookEntries = sqliteTable("lorebook_entries", {
   schedule: text("schedule"),
 
   /** When true, this entry's content won't trigger further entries during recursive scanning */
-  preventRecursion: text("prevent_recursion").notNull().default("false"),
+  preventRecursion: text("prevent_recursion").notNull().default("true"),
 
   /** When true, recursive scanning cannot activate this entry */
   excludeRecursion: text("exclude_recursion").notNull().default("false"),

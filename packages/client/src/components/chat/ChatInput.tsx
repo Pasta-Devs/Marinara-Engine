@@ -424,6 +424,15 @@ export const ChatInput = memo(function ChatInput({
     const firstPage = messagesData?.pages?.[0];
     return firstPage?.[firstPage.length - 1] ?? null;
   }, [messagesData]);
+  const latestAssistantMessage = useMemo(() => {
+    for (const page of messagesData?.pages ?? []) {
+      for (let i = page.length - 1; i >= 0; i--) {
+        const message = page[i];
+        if (message?.role === "assistant") return message;
+      }
+    }
+    return null;
+  }, [messagesData]);
   const lastMessageRole = lastMessage?.role ?? null;
 
   const canRetry = !isStreaming && lastMessageRole === "user";
@@ -547,7 +556,7 @@ export const ChatInput = memo(function ChatInput({
       invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
       characterNames: activeCharacterNames,
       characters: activeChatCharacters,
-      latestAssistantMessageId: lastMessage?.role === "assistant" ? lastMessage.id : null,
+      latestAssistantMessageId: latestAssistantMessage?.id ?? null,
       setSpriteExpression: onExpressionChange
         ? (characterId, expression) => onExpressionChange(characterId, expression, { immediate: true })
         : undefined,
@@ -559,7 +568,7 @@ export const ChatInput = memo(function ChatInput({
     createMessage,
     activeCharacterNames,
     activeChatCharacters,
-    lastMessage,
+    latestAssistantMessage,
     onExpressionChange,
     qc,
   ]);

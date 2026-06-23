@@ -388,6 +388,15 @@ export function ConversationInput({
     const firstPage = messagesData?.pages?.[0];
     return firstPage?.[firstPage.length - 1] ?? null;
   }, [messagesData]);
+  const latestAssistantMessage = useMemo(() => {
+    for (const page of messagesData?.pages ?? []) {
+      for (let i = page.length - 1; i >= 0; i--) {
+        const message = page[i];
+        if (message?.role === "assistant") return message;
+      }
+    }
+    return null;
+  }, [messagesData]);
   const lastMessageRole = lastMessage?.role ?? null;
   const canRetry = !isStreaming && groupResponseOrder !== "manual" && lastMessageRole === "user";
   const canSubmit = hasInput || attachments.length > 0 || canRetry;
@@ -815,7 +824,7 @@ export function ConversationInput({
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames: activeCharacterNames,
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),
-        latestAssistantMessageId: lastMessage?.role === "assistant" ? lastMessage.id : null,
+        latestAssistantMessageId: latestAssistantMessage?.id ?? null,
       };
       const submittedDraft = textareaRef.current?.value ?? "";
       const submittedHeight = textareaRef.current?.style.height ?? "auto";
@@ -953,7 +962,7 @@ export function ConversationInput({
     completions,
     _mentionQuery,
     mentionCompletions,
-    lastMessage,
+    latestAssistantMessage,
     groupResponseOrder,
     qc,
     syncInputState,
@@ -986,7 +995,7 @@ export function ConversationInput({
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames: activeCharacterNames,
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),
-        latestAssistantMessageId: lastMessage?.role === "assistant" ? lastMessage.id : null,
+        latestAssistantMessageId: latestAssistantMessage?.id ?? null,
       };
 
       const previousDraft = textareaRef.current?.value ?? "";
@@ -1048,7 +1057,7 @@ export function ConversationInput({
       mentionCompletions,
       createMessage,
       generate,
-      lastMessage,
+      latestAssistantMessage,
       qc,
       setInputDraft,
       syncInputState,

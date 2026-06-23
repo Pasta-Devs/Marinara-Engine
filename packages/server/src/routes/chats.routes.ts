@@ -442,14 +442,16 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.get<{ Querystring: { connectionId?: string; personaId?: string } }>("/internal/professor-mari", async (req) => {
     const chats = await storage.list();
     const existing = chats.find(isHomeProfessorMariChat);
+    const hasConnectionOverride = "connectionId" in req.query;
     const connectionId =
       typeof req.query.connectionId === "string" && req.query.connectionId ? req.query.connectionId : null;
     const personaId = typeof req.query.personaId === "string" && req.query.personaId ? req.query.personaId : null;
 
     if (existing) {
+      const nextConnectionId = hasConnectionOverride ? connectionId : (existing.connectionId ?? null);
       await storage.update(existing.id, {
         characterIds: [PROFESSOR_MARI_ID],
-        connectionId,
+        connectionId: nextConnectionId,
         personaId,
         promptPresetId: null,
       });

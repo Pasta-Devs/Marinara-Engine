@@ -42,6 +42,7 @@ import {
 } from "../ui/neutral-surface-styles";
 import {
   createDefaultGameHudWidget,
+  GameWidgetFileControls,
   GameWidgetSetupEditor,
   normalizeGameHudWidgets,
 } from "./GameWidgetSetupEditor";
@@ -1626,6 +1627,17 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
               </button>
               {enableCustomWidgets && (
                 <div className="mt-3 space-y-3 border-t border-[var(--border)] pt-3">
+                  <GameWidgetFileControls
+                    widgets={customHudWidgets}
+                    onImport={(widgets) => {
+                      setCustomHudWidgets(normalizeGameHudWidgets(widgets));
+                      setManualWidgetSetupEnabled(true);
+                    }}
+                    exportFilename="game-setup-widgets"
+                    importSuccessMessage={(count) =>
+                      `Imported ${count === 1 ? "1 widget" : `${count} widgets`} for this game setup.`
+                    }
+                  />
                   <button
                     type="button"
                     onClick={() => setManualWidgetSetupEnabled((enabled) => !enabled)}

@@ -90,6 +90,13 @@ export function ChatGallery({ chatId, mode, onIllustrate }: ChatGalleryProps) {
     }
   };
 
+  const handlePinImage = useCallback(
+    (image: ChatImage) => {
+      pinImage({ ...image, chatId });
+    },
+    [chatId, pinImage],
+  );
+
   const handleInsertAsset = useCallback(
     (asset: ChatAssetBrowserItem) => {
       const label = asset.prompt.trim() || asset.name;
@@ -187,7 +194,7 @@ export function ChatGallery({ chatId, mode, onIllustrate }: ChatGalleryProps) {
                     <div className="flex gap-1">
                       <button
                         type="button"
-                        onClick={() => pinImage(img)}
+                        onClick={() => handlePinImage(img)}
                         aria-label="Pin image to chat"
                         className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
                         title="Pin to chat"
@@ -334,7 +341,9 @@ export function ChatGallery({ chatId, mode, onIllustrate }: ChatGalleryProps) {
         )}
 
       {/* Lightbox */}
-      {lightbox && <ChatImageLightbox image={lightbox} onClose={() => setLightbox(null)} />}
+      {lightbox && (
+        <ChatImageLightbox image={lightbox} onPin={handlePinImage} onClose={() => setLightbox(null)} />
+      )}
     </>
   );
 }

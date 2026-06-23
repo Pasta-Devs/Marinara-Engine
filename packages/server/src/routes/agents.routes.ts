@@ -122,7 +122,6 @@ export async function agentsRoutes(app: FastifyInstance) {
       name: builtIn.name,
       description: builtIn.description,
       phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
-      enabled: true,
       connectionId: null,
       imagePath: null,
       promptTemplate: "",
@@ -289,7 +288,7 @@ export async function agentsRoutes(app: FastifyInstance) {
 
     const existing = await storage.getByType(agentType);
     if (existing) {
-      return storage.update(existing.id, { enabled: true });
+      return existing;
     }
 
     // First toggle — create a normal config; chats decide whether it runs.
@@ -298,7 +297,6 @@ export async function agentsRoutes(app: FastifyInstance) {
       name: builtIn.name,
       description: builtIn.description,
       phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
-      enabled: true,
       connectionId: null,
       imagePath: null,
       promptTemplate: "",

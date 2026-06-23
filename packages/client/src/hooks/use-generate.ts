@@ -1775,7 +1775,7 @@ export function useGenerate() {
                     shouldDisplayRawStream &&
                     !useChatStore.getState().committedStreamChatIds.has(params.chatId);
                   if (textRewriteUsesLiveStream) {
-                    replaceGeneratedContentWithTypewriter(rewrittenText, { retype: true });
+                    replaceGeneratedContentWithTypewriter(rewrittenText, { retype: rw.rewriteApplied === true });
                     await waitForTypewriterDrain();
                   } else {
                     fullBuffer = rewrittenText;
@@ -1879,19 +1879,24 @@ export function useGenerate() {
                   pendingPostProcessingAgentType === "continuity" ||
                   pendingPostProcessingAgentType === "text-rewrite")
               ) {
-                holdingTextRewrite = true;
-                heldTextRewriteMessage = savedMessage;
-                receivedContent = true;
-                leadingSpeakerPrefixFilter.discard();
+                const heldExtra = { ...savedExtra };
+                delete heldExtra.postProcessingPending;
+                flushThinkingStreamFilter();
+                flushLeadingSpeakerPrefix();
                 thinkingStreamFilter.reset();
-                cancelAnimationFrame(rafId);
-                pendingText = "";
-                typingActive = false;
-                fullBuffer = "";
-                upsertPersistedMessages(qc, params.chatId, [savedMessage]);
-                clearStreamBuffer(params.chatId);
-                clearThinkingBuffer(params.chatId);
-                setStreamCommitted(params.chatId, true);
+                const generatedText = normalizeLineBreakSpacing(fullBuffer + pendingText);
+                const heldMessage = {
+                  ...savedMessage,
+                  content: generatedText || savedMessage.content,
+                  extra: heldExtra as unknown as Message["extra"],
+                };
+                holdingTextRewrite = true;
+                heldTextRewriteMessage = heldMessage;
+                receivedContent = true;
+                persistedMessages.set(heldMessage.id, heldMessage);
+                if (!streamingEnabled || !shouldDisplayRawStream) {
+                  upsertPersistedMessages(qc, params.chatId, [heldMessage]);
+                }
                 break;
               }
               // Once an ordinary roleplay stream is saved, the durable message

@@ -4,6 +4,32 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+## [2.0.4]
+
+### Added
+
+- Added Game mode HUD widget import/export controls in Chat Settings and the Game Setup Wizard so widget layouts can be reused between games.
+
+### Fixed
+
+- Fixed Roleplay streaming so failed post-processing/rewrite agent calls no longer drop the Typewriter effect from the final generated message.
+- Fixed Roleplay Chat Settings preset-variable configuration so clicking inside the "Configure Preset Variables" modal no longer closes Chat Settings before users can edit choices.
+- Fixed `/continue` so it can find the latest assistant message even when the transcript tail is not an assistant turn, injects a continuation cue into the prompt, and appends the model output to the continued assistant message.
+- Fixed Professor Mari's home-page chat connection so the selected connection is remembered across Marinara restarts instead of resetting to the first/default connection.
+- Fixed legacy group chats with the old Professor Mari character so those chats can still resolve her restored card while keeping the home-page assistant avatar out of Roleplay/Game expression matching.
+- Fixed agent activation regressions after removing the old global enabled state so adding agents to chats no longer depends on a legacy per-agent flag.
+- Fixed pinned Gallery images so pinned chat images persist across refresh/restart/chat switches and pinning from the full image view actually pins instead of only closing the lightbox.
+- Fixed Active Context lorebook reporting so Conversation, Roleplay, and Game modes show the cached lorebook scan from the last generation instead of a best-effort rescan that could disagree with the prompt.
+- Fixed Lorebook recursion defaults by making recursion opt-in with a "Recursion" toggle that is off by default for new/imported entries, and fixed keyword entry so pending keys are added when the user clicks away.
+- Fixed Game mode generated NPC portrait prompts so NPC descriptions created during world setup are available to portrait generation even when the NPC is not in the character library.
+- Fixed Characters and Lorebooks panel filters so search, sort, tag, category, and favorite filters persist while opening and returning from editors.
+- Fixed v2.0.4 release metadata across packages, the homepage-visible app version, Windows installer sources, PWA manifest, README release pointer, and Android APK metadata.
+
+### Platform Notes
+
+- Android `versionName` is `2.0.4` with `versionCode 23`.
+- Windows, macOS/Linux, Termux, Docker, APK, and PWA users can update through the usual v2 updater paths once release assets are published.
+
 ## [2.0.3]
 
 ### Added
