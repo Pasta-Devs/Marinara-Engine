@@ -397,20 +397,22 @@ function CustomAgentRunsSection({
 }
 
 function hasActiveInjectableCustomAgent(configs: AgentConfigRow[], enabledAgentTypes?: Set<string>): boolean {
+  if (!enabledAgentTypes) return false;
   const builtInTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
   return configs.some((config) => {
     if (builtInTypes.has(config.type)) return false;
-    if (enabledAgentTypes ? !enabledAgentTypes.has(config.type) : config.enabled !== "true") return false;
+    if (!enabledAgentTypes.has(config.type)) return false;
     const settings = parseAgentSettings(config.settings);
     return settings.injectAsSection === true;
   });
 }
 
 function hasActiveCustomAgentType(configs: AgentConfigRow[], enabledAgentTypes?: Set<string>): boolean {
+  if (!enabledAgentTypes) return false;
   const builtInTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
   return configs.some((config) => {
     if (builtInTypes.has(config.type)) return false;
-    return enabledAgentTypes ? enabledAgentTypes.has(config.type) : config.enabled === "true";
+    return enabledAgentTypes.has(config.type);
   });
 }
 
@@ -419,12 +421,13 @@ function getLatestInjectableCustomRuns(
   configs: AgentConfigRow[],
   enabledAgentTypes?: Set<string>,
 ): AgentRunRow[] {
+  if (!enabledAgentTypes) return [];
   const builtInTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
   const injectableTypes = new Set(
     configs
       .filter((config) => {
         if (builtInTypes.has(config.type)) return false;
-        if (enabledAgentTypes ? !enabledAgentTypes.has(config.type) : config.enabled !== "true") return false;
+        if (!enabledAgentTypes.has(config.type)) return false;
         const settings = parseAgentSettings(config.settings);
         return settings.injectAsSection === true;
       })

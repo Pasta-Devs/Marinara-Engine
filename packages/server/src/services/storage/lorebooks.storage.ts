@@ -566,7 +566,7 @@ export function createLorebooksStorage(db: DB) {
         activationConditions: JSON.stringify(input.activationConditions ?? []),
         schedule: input.schedule ? JSON.stringify(input.schedule) : null,
         locked: String(input.locked ?? false),
-        preventRecursion: String(input.preventRecursion ?? false),
+        preventRecursion: String(input.preventRecursion ?? true),
         excludeRecursion: String(input.excludeRecursion ?? false),
         delayUntilRecursion: String(input.delayUntilRecursion ?? false),
         excludeFromVectorization: String(input.excludeFromVectorization ?? false),

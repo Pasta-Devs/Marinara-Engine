@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   lazy,
+  memo,
   Suspense,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -959,6 +960,7 @@ function extractNarrationNpcCandidates(
 
 function mergeSceneAssetNpcCandidates(
   trackedNpcs: GameNpc[],
+  metadataNpcs: unknown,
   presentCharacters: SceneAssetPresentCharacter[],
   excludedNames: string[],
   currentLocation: string | null | undefined,
@@ -967,10 +969,35 @@ function mergeSceneAssetNpcCandidates(
   const excluded = new Set(excludedNames.map(normalizeSceneAssetName));
   const candidates = new Map<string, GameNpc>();
 
+  const addNpcCandidate = (npc: GameNpc) => {
+    const name = typeof npc.name === "string" ? npc.name.trim() : "";
+    const normalizedName = normalizeSceneAssetName(name);
+    if (!normalizedName) return;
+    const existing = candidates.get(normalizedName);
+    if (!existing) {
+      candidates.set(normalizedName, { ...npc, name });
+      return;
+    }
+    candidates.set(normalizedName, {
+      ...existing,
+      description: existing.description || npc.description,
+      descriptionSource: existing.descriptionSource || npc.descriptionSource,
+      gender: existing.gender ?? npc.gender ?? null,
+      pronouns: existing.pronouns ?? npc.pronouns ?? null,
+      location: existing.location || npc.location,
+      avatarUrl: existing.avatarUrl || npc.avatarUrl,
+    });
+  };
+
   for (const npc of trackedNpcs) {
-    const normalizedName = normalizeSceneAssetName(npc.name);
-    if (!normalizedName) continue;
-    candidates.set(normalizedName, npc);
+    addNpcCandidate(npc);
+  }
+
+  if (Array.isArray(metadataNpcs)) {
+    for (const rawNpc of metadataNpcs) {
+      if (!rawNpc || typeof rawNpc !== "object") continue;
+      addNpcCandidate(rawNpc as GameNpc);
+    }
   }
 
   for (const presentCharacter of presentCharacters) {
@@ -1886,7 +1913,7 @@ interface GameSurfaceProps {
   selectedMessageIds?: Set<string>;
 }
 
-export function GameSurface({
+function GameSurfaceComponent({
   activeChatId,
   chat,
   chatMeta,
@@ -3148,12 +3175,20 @@ export function GameSurface({
     () =>
       mergeSceneAssetNpcCandidates(
         npcs,
+        chatMeta.gameNpcs,
         (gameSnapshot?.presentCharacters as SceneAssetPresentCharacter[] | undefined) ?? [],
         sceneWrapCharacterNames,
         gameSnapshot?.location ?? null,
         latestNarrationText,
       ),
-    [gameSnapshot?.location, gameSnapshot?.presentCharacters, latestNarrationText, npcs, sceneWrapCharacterNames],
+    [
+      chatMeta.gameNpcs,
+      gameSnapshot?.location,
+      gameSnapshot?.presentCharacters,
+      latestNarrationText,
+      npcs,
+      sceneWrapCharacterNames,
+    ],
   );
 
   const npcAvatarLookup = useMemo(
@@ -9897,3 +9932,5 @@ export function GameSurface({
     </div>
   );
 }
+
+export const GameSurface = memo(GameSurfaceComponent);

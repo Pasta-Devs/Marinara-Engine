@@ -45,11 +45,20 @@ function getLorebookEntryStatus(entry: { constant?: boolean; selective?: boolean
 function ActiveLorebookEntryRow({
   entry,
 }: {
-  entry: { name: string; keys: string[]; content: string; constant: boolean; selective: boolean; order: number };
+  entry: {
+    name: string;
+    keys: string[];
+    content: string;
+    constant: boolean;
+    selective: boolean;
+    order: number;
+    matchedKeys?: string[];
+  };
 }) {
   const [expanded, setExpanded] = useState(false);
   const status = getLorebookEntryStatus(entry);
   const statusStyle = LOREBOOK_ENTRY_STATUS_STYLE[status];
+  const matchedKeys = entry.matchedKeys ?? [];
 
   return (
     <div
@@ -68,6 +77,12 @@ function ActiveLorebookEntryRow({
         <p className="mt-0.5 truncate text-[0.625rem] text-[var(--muted-foreground)]">
           Keys: {entry.keys.slice(0, 5).join(", ")}
           {entry.keys.length > 5 && ` +${entry.keys.length - 5}`}
+        </p>
+      )}
+      {matchedKeys.length > 0 && (
+        <p className="mt-0.5 truncate text-[0.625rem] text-[var(--muted-foreground)]">
+          Matched: {matchedKeys.slice(0, 5).join(", ")}
+          {matchedKeys.length > 5 && ` +${matchedKeys.length - 5}`}
         </p>
       )}
       {expanded && (

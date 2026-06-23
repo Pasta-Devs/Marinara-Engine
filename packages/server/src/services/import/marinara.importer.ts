@@ -516,7 +516,7 @@ async function importLorebook(data: unknown, db: DB) {
         groupWeight: e.groupWeight != null ? Number(e.groupWeight) : null,
         folderId: newFolderId,
         locked: Boolean(e.locked),
-        preventRecursion: Boolean(e.preventRecursion),
+        preventRecursion: e.preventRecursion == null ? true : Boolean(e.preventRecursion),
         excludeRecursion: Boolean(e.excludeRecursion),
         delayUntilRecursion: Boolean(e.delayUntilRecursion),
         excludeFromVectorization: Boolean(e.excludeFromVectorization),

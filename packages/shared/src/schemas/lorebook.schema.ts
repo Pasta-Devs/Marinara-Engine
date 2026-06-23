@@ -188,7 +188,7 @@ export const createLorebookEntrySchema = z.object({
   groupWeight: z.number().nullable().default(null),
   /** Optional folder this entry belongs to. Null/omitted = root level. */
   folderId: z.string().nullable().default(null),
-  preventRecursion: z.boolean().default(false),
+  preventRecursion: z.boolean().default(true),
   excludeRecursion: z.boolean().default(false),
   delayUntilRecursion: z.boolean().default(false),
   locked: z.boolean().default(false),

@@ -49,8 +49,8 @@ function keepLatestConfigPerType<T extends { type: string }>(rows: T[]): T[] {
 function normalizeAgentConfigRow<T extends AgentConfigRow | null>(row: T): T {
   if (!row) return row;
   const phase = normalizeAgentPhaseForType(row.type, row.phase);
-  if (phase === row.phase && row.enabled === "true") return row;
-  return { ...row, phase, enabled: "true" } as T;
+  if (phase === row.phase) return row;
+  return { ...row, phase } as T;
 }
 
 function isRemovedBuiltInAgentType(type: string): boolean {
@@ -77,7 +77,6 @@ function mergeBuiltInCreateUpdate(
     name: input.name,
     description: input.description,
     phase: input.phase,
-    enabled: true,
     settings: nextSettings,
   };
 
@@ -245,7 +244,6 @@ export function createAgentsStorage(db: DB) {
         const current = await getById(id);
         updateFields.phase = normalizeAgentPhaseForType(current?.type ?? "", data.phase);
       }
-      if (data.enabled !== undefined) updateFields.enabled = "true";
       if (data.connectionId !== undefined) updateFields.connectionId = data.connectionId;
       if (data.imagePath !== undefined) updateFields.imagePath = data.imagePath;
       if (data.promptTemplate !== undefined) updateFields.promptTemplate = data.promptTemplate;
@@ -277,7 +275,6 @@ export function createAgentsStorage(db: DB) {
       if (existing) {
         await removeRuntimeData(existing.id);
         return this.update(existing.id, {
-          enabled: true,
           settings: markAgentConfigDeletedSettings(existing.settings),
         });
       }
@@ -287,7 +284,6 @@ export function createAgentsStorage(db: DB) {
         name: builtIn.name,
         description: builtIn.description,
         phase: normalizeAgentPhaseForType(builtIn.id, builtIn.phase),
-        enabled: true,
         connectionId: null,
         imagePath: null,
         promptTemplate: "",

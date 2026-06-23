@@ -46,7 +46,8 @@ export const createAgentConfigSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().default(""),
   phase: agentPhaseSchema,
-  enabled: z.boolean().default(true),
+  /** Legacy compatibility only. Agent activation is chat-scoped via chat metadata. */
+  enabled: z.boolean().optional(),
   connectionId: z.string().nullable().default(null),
   imagePath: z.string().nullable().default(null),
   resultType: agentResultTypeSchema.optional(),

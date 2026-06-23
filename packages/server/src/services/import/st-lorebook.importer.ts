@@ -475,7 +475,7 @@ export async function importSTLorebook(
       dynamicState: {},
       activationConditions: [],
       schedule: null,
-      preventRecursion: Boolean(entry.preventRecursion ?? false),
+      preventRecursion: entry.preventRecursion == null ? true : Boolean(entry.preventRecursion),
       excludeRecursion: Boolean(entry.excludeRecursion ?? false),
       delayUntilRecursion: Boolean(entry.delayUntilRecursion ?? false),
       excludeFromVectorization: entry.vectorized === false ? true : entry.excludeFromVectorization === true,

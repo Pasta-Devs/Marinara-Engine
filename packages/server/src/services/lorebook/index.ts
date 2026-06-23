@@ -699,12 +699,14 @@ export function resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostic
   tokenBudget: number,
   maxEntries: number,
   resolveContent?: LorebookFinalContentResolver,
+  recursiveLorebookIds?: ReadonlySet<string>,
 ): { selected: ActivatedEntry[]; budgetSkippedEntries: LorebookBudgetSkippedEntry[] } {
   let state = createLorebookBudgetSelectionState();
   const processedIds = new Set<string>();
   const selectedGroups = new Set<string>();
   const probabilityDecisions = options.probabilityDecisions ?? new Map<string, boolean>();
   const scanOptions = { ...options, probabilityDecisions };
+  const canRecurseEntry = (entry: LorebookEntry) => !recursiveLorebookIds || recursiveLorebookIds.has(entry.lorebookId);
   let frontier = scanForActivatedEntries(messages, entries, scanOptions);
   const budgetSkippedEntries: LorebookBudgetSkippedEntry[] = [];
 
@@ -734,7 +736,7 @@ export function resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostic
     }
 
     const recursiveContentParts = selectedBatch.selectedFromCandidates
-      .filter((selected) => !selected.entry.preventRecursion)
+      .filter((selected) => canRecurseEntry(selected.entry) && !selected.entry.preventRecursion)
       .map((selected) => selected.entry.content);
 
     if (depth >= maxDepth) break;
@@ -747,6 +749,7 @@ export function resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostic
       (entry) =>
         !processedIds.has(entry.id) &&
         !state.selectedIds.has(entry.id) &&
+        canRecurseEntry(entry) &&
         !entry.excludeRecursion &&
         !(entry.group && selectedGroups.has(entry.group)),
     );
@@ -773,6 +776,7 @@ export function resolveBudgetAndRecursivelyActivateLorebookEntries(
   tokenBudget: number,
   maxEntries: number,
   resolveContent?: LorebookFinalContentResolver,
+  recursiveLorebookIds?: ReadonlySet<string>,
 ): ActivatedEntry[] {
   return resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostics(
     messages,
@@ -783,6 +787,7 @@ export function resolveBudgetAndRecursivelyActivateLorebookEntries(
     tokenBudget,
     maxEntries,
     resolveContent,
+    recursiveLorebookIds,
   ).selected;
 }
 
@@ -921,8 +926,11 @@ export async function processLorebooks(
   };
 
   // Determine recursion settings from relevant enabled lorebooks only.
+  const recursiveLorebookIds = new Set(
+    relevantLorebooks.filter((b: { recursiveScanning: boolean }) => b.recursiveScanning).map((b) => b.id),
+  );
   const anyRecursive =
-    options?.enableRecursive || relevantLorebooks.some((b: { recursiveScanning: boolean }) => b.recursiveScanning);
+    options?.enableRecursive || recursiveLorebookIds.size > 0;
   const maxRecursionDepth = relevantLorebooks.reduce(
     (max: number, b: { recursiveScanning: boolean; maxRecursionDepth?: number }) => {
       if (!b.recursiveScanning) return max;
@@ -941,6 +949,7 @@ export async function processLorebooks(
         tokenBudget,
         0,
         options?.resolveContent,
+        options?.enableRecursive ? undefined : recursiveLorebookIds,
       )
     : resolveAndBudgetActivatedLorebookEntriesWithDiagnostics(
         scanForActivatedEntries(messages, allEntries, scanOpts),

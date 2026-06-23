@@ -393,6 +393,7 @@ export interface ActiveLorebookEntry {
   order: number;
   constant: boolean;
   selective: boolean;
+  matchedKeys?: string[];
 }
 
 export interface BudgetSkippedLorebookEntry {

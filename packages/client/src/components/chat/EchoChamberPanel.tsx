@@ -9,7 +9,6 @@ import { X, Trash2, RefreshCw } from "lucide-react";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import type { EchoChamberSide } from "../../stores/ui.store";
-import { useAgentConfigs } from "../../hooks/use-agents";
 import { useChatStore } from "../../stores/chat.store";
 import { useChat } from "../../hooks/use-chats";
 import { useGenerate } from "../../hooks/use-generate";
@@ -154,7 +153,6 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const isStreaming = useChatStore((s) => s.isStreaming);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const { data: chat } = useChat(activeChatId);
-  const { data: agentConfigs } = useAgentConfigs();
   const { retryAgents } = useGenerate();
   const echoRetryBusy = isAgentProcessing || (isStreaming && streamingChatId === activeChatId);
 
@@ -165,14 +163,8 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     const meta = typeof raw === "string" ? JSON.parse(raw) : ((raw ?? {}) as Record<string, unknown>);
     if (!meta.enableAgents) return false;
     const activeAgentIds: string[] = Array.isArray(meta.activeAgentIds) ? meta.activeAgentIds : [];
-    if (activeAgentIds.length > 0) {
-      return activeAgentIds.includes("echo-chamber");
-    }
-    // Fallback: check global agent config
-    if (!agentConfigs) return false;
-    const cfg = (agentConfigs as Array<{ type: string; enabled: string }>).find((a) => a.type === "echo-chamber");
-    return cfg?.enabled === "true";
-  }, [chat, agentConfigs]);
+    return activeAgentIds.includes("echo-chamber");
+  }, [chat]);
 
   // ── Timed reveal: show one more message every 30 s ──
   // visibleCount and baseline live in the Zustand store so they survive

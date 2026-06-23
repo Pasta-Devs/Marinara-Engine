@@ -618,19 +618,14 @@ export function ChatArea() {
     const map: CharacterMap = new Map();
     if (!allCharacters) return map;
     for (const char of allCharacters as CharacterRow[]) {
-      if (suppressBuiltInProfessorMari && char.id === PROFESSOR_MARI_ID) continue;
       map.set(char.id, toCharacterMapValue(char));
     }
     return map;
-  }, [allCharacters, suppressBuiltInProfessorMari]);
+  }, [allCharacters]);
 
   const missingChatCharacterIds = useMemo(
-    () =>
-      chatCharIds.filter((id) => {
-        if (suppressBuiltInProfessorMari && id === PROFESSOR_MARI_ID) return false;
-        return !baseCharacterMap.has(id);
-      }),
-    [baseCharacterMap, chatCharIds, suppressBuiltInProfessorMari],
+    () => chatCharIds.filter((id) => !baseCharacterMap.has(id)),
+    [baseCharacterMap, chatCharIds],
   );
   const missingCharacterQueries = useQueries({
     queries: missingChatCharacterIds.map((id) => ({
@@ -1087,7 +1082,7 @@ export function ChatArea() {
     [chat?.id, hasCustomSpritePlacements, patchLocalSpriteVisualSettings, spritePlacements, spritePosition],
   );
 
-  // Set of enabled agent type IDs (respects both global enableAgents toggle and per-chat agent list)
+  // Set of active agent type IDs for this chat.
   const enabledAgentTypes = useMemo(() => {
     const set = new Set<string>();
     if (!chatMeta.enableAgents) return set;

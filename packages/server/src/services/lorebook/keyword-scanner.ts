@@ -535,6 +535,9 @@ export function scanForActivatedEntries(
   if (chatEmbedding && chatEmbedding.length > 0) {
     for (const entry of entries) {
       if (!entry.enabled || entry.constant || activatedIds.has(entry.id)) continue;
+      // Explicit primary keys mean the entry is keyword-gated. Vectorization is
+      // still useful for router/search flows, but it must not bypass those keys.
+      if (entry.keys.some((key) => key.trim().length > 0)) continue;
       if (entry.delayUntilRecursion && !recursionPass) continue;
       if (entry.excludeRecursion && recursionPass) continue;
       if (entry.excludeFromVectorization) continue;

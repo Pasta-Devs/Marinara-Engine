@@ -275,22 +275,29 @@ export function createChatPresetsStorage(db: DB) {
           }
         })();
 
+        const presetMetadata = (preset.settings.metadata ?? {}) as Record<string, unknown>;
+
         // Preserve only chat-specific (non-preset) metadata keys.
         const preserved: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(currentMetadata)) {
           if (isPresetExcludedMetadataKey(key)) preserved[key] = value;
+        }
+        if (!Object.prototype.hasOwnProperty.call(presetMetadata, "activeAgentIds")) {
+          preserved.activeAgentIds = sanitizePresetAgentIds(currentMetadata.activeAgentIds);
+        }
+        if (!Object.prototype.hasOwnProperty.call(presetMetadata, "agentOverrides")) {
+          preserved.agentOverrides = sanitizePresetAgentMap(currentMetadata.agentOverrides);
+        }
+        if (!Object.prototype.hasOwnProperty.call(presetMetadata, "agentPromptTemplateIds")) {
+          preserved.agentPromptTemplateIds = sanitizePresetAgentMap(currentMetadata.agentPromptTemplateIds);
         }
 
         const baseDefaults: Record<string, unknown> = {
           summary: null,
           tags: [],
           enableAgents: true,
-          agentOverrides: {},
-          activeAgentIds: [],
           activeToolIds: [],
         };
-
-        const presetMetadata = (preset.settings.metadata ?? {}) as Record<string, unknown>;
 
         const newMetadata: Record<string, unknown> = {
           ...baseDefaults,

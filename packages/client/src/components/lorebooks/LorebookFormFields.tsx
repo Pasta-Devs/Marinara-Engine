@@ -68,11 +68,13 @@ export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onBlur={addKey}
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addKey())}
           className="mari-editor-field flex-1 px-2 py-1.5 text-xs"
-          placeholder="Type a keyword and press Enter…"
+          placeholder="Type a keyword, press Enter, or click away…"
         />
         <button
+          type="button"
           onClick={addKey}
           className="mari-editor-action mari-editor-action--compact px-2 py-1.5 text-[0.6875rem]"
         >

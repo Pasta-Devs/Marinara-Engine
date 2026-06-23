@@ -22,6 +22,7 @@ import type {
   GameActiveState,
   GameMap,
   GameSetupConfig,
+  GameNpc,
   DiceRollResult,
   SessionSummary,
   Combatant,
@@ -49,6 +50,7 @@ interface CreateGameResponse {
 interface SetupResponse {
   setup: Record<string, unknown>;
   worldOverview: string | null;
+  gameNpcs?: GameNpc[];
 }
 
 interface StartGameResponse {
@@ -204,8 +206,11 @@ export function useGameSetup() {
         streaming: useUIStore.getState().enableStreaming,
         debugMode: useUIStore.getState().debugMode,
       }),
-    onSuccess: () => {
+    onSuccess: (res) => {
       store.getState().setSetupActive(false);
+      if (Array.isArray(res.gameNpcs)) {
+        store.getState().setNpcs(res.gameNpcs);
+      }
       const sessionChatId = store.getState().activeSessionChatId;
       if (sessionChatId) {
         qc.invalidateQueries({ queryKey: chatKeys.detail(sessionChatId) });

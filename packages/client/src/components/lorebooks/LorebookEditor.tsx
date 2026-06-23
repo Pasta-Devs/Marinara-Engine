@@ -1344,6 +1344,7 @@ export function LorebookEditor() {
       name: "New Entry",
       content: "",
       keys: [],
+      preventRecursion: true,
     });
     if (result && typeof result === "object" && "id" in result) {
       // Auto-expand the new entry's drawer so the user can fill it in.
