@@ -1509,6 +1509,8 @@ function GeneralSettings() {
 }
 
 function ImageGenerationSettings() {
+  const queueImageGenerationRequests = useUIStore((s) => s.queueImageGenerationRequests);
+  const setQueueImageGenerationRequests = useUIStore((s) => s.setQueueImageGenerationRequests);
   const reviewImagePromptsBeforeSend = useUIStore((s) => s.reviewImagePromptsBeforeSend);
   const setReviewImagePromptsBeforeSend = useUIStore((s) => s.setReviewImagePromptsBeforeSend);
   const imageBackgroundWidth = useUIStore((s) => s.imageBackgroundWidth);
@@ -1533,6 +1535,12 @@ function ImageGenerationSettings() {
       icon={<Image size="0.875rem" />}
     >
       <div className="flex flex-col gap-2.5">
+        <ToggleSetting
+          label="Queue image generation requests"
+          checked={queueImageGenerationRequests}
+          onChange={setQueueImageGenerationRequests}
+          help="Sends image generation jobs one at a time. Keep this on for providers that reject simultaneous background, illustration, or portrait requests."
+        />
         <ToggleSetting
           label="Expose image prompts before sending"
           checked={reviewImagePromptsBeforeSend}
@@ -3889,7 +3897,7 @@ function describeExtensionImportError(error: unknown, name?: string) {
         : "Failed to import extension.";
   const subject = name ? `Failed to install "${name}": ${rawMessage}` : rawMessage;
   if (error instanceof ApiError && error.status === 403) {
-    return `${subject} Installing extensions requires loopback access or admin access. Open Marinara Engine through localhost, or set ADMIN_SECRET on the server and enter it in Settings.`;
+    return `${subject} Installing extensions requires loopback access or admin access. Open Marinara Engine through localhost, or set ADMIN_SECRET=<secret> in the server .env and paste the same value in Settings → Advanced → Admin Access. Marinara sends it as the X-Admin-Secret header.`;
   }
   return subject;
 }

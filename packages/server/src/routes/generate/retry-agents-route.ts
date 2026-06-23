@@ -365,16 +365,20 @@ function musicAgentUsesYoutube(settings: Record<string, unknown> | null | undefi
   return settings?.musicProvider === "youtube" || settings?.musicPlayerSource === "youtube";
 }
 
+function musicAgentUsesCustom(settings: Record<string, unknown> | null | undefined): boolean {
+  return settings?.musicProvider === "custom" || settings?.musicPlayerSource === "custom";
+}
+
 function applyRetryMusicPlayerSource(
   settings: Record<string, unknown>,
-  activeMusicPlayerSource: "spotify" | "youtube" | null | undefined,
+  activeMusicPlayerSource: "spotify" | "youtube" | "custom" | null | undefined,
 ): Record<string, unknown> {
   if (!activeMusicPlayerSource) return settings;
   return {
     ...settings,
     musicProvider: activeMusicPlayerSource,
     musicPlayerSource: activeMusicPlayerSource,
-    enabledTools: activeMusicPlayerSource === "youtube" ? [] : (DEFAULT_AGENT_TOOLS.spotify ?? []),
+    enabledTools: activeMusicPlayerSource === "spotify" ? (DEFAULT_AGENT_TOOLS.spotify ?? []) : [],
   };
 }
 
@@ -386,6 +390,9 @@ function resolveRetryAgentRuntimePhase(agentType: string, configuredPhase: strin
 function getRetryAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
   if (agentType === "spotify" && musicAgentUsesYoutube(settings)) {
     return getDefaultAgentPrompt("youtube");
+  }
+  if (agentType === "spotify" && musicAgentUsesCustom(settings)) {
+    return getDefaultAgentPrompt("local-music");
   }
   return getDefaultAgentPrompt(agentType);
 }
@@ -861,7 +868,9 @@ async function buildRetryAgentContext(args: {
   }
 
   const spotifyRetryConfig = enabledConfigs.find((config) => config.type === "spotify");
-  const spotifyMusicUsesYoutube = musicAgentUsesYoutube(parseSettingsRecord(spotifyRetryConfig?.settings));
+  const spotifyMusicSettings = parseSettingsRecord(spotifyRetryConfig?.settings);
+  const spotifyMusicUsesYoutube = musicAgentUsesYoutube(spotifyMusicSettings);
+  const spotifyMusicUsesCustom = musicAgentUsesCustom(spotifyMusicSettings);
 
   if (resolvedAgentTypes.has("youtube") || (resolvedAgentTypes.has("spotify") && spotifyMusicUsesYoutube)) {
     const mode = ((chat as any).mode ?? "conversation") as string;
@@ -876,7 +885,20 @@ async function buildRetryAgentContext(args: {
     };
   }
 
-  if (resolvedAgentTypes.has("spotify") && !spotifyMusicUsesYoutube) {
+  if (resolvedAgentTypes.has("spotify") && spotifyMusicUsesCustom) {
+    const mode = ((chat as any).mode ?? "conversation") as string;
+    agentContext.memory._customMusicDjConstraints = {
+      manualRetry: true,
+      forceFreshPick: true,
+      mode,
+      retryNote:
+        mode === "game"
+          ? "This is a manual Music DJ Custom retry from game mode. Pick a fresh fitting local track path now with action 'play'; do not keep the current track merely because it still fits."
+          : "This is a manual Music DJ Custom retry. Pick a fresh fitting local track path now with action 'play'.",
+    };
+  }
+
+  if (resolvedAgentTypes.has("spotify") && !spotifyMusicUsesYoutube && !spotifyMusicUsesCustom) {
     const mode = ((chat as any).mode ?? "conversation") as string;
     agentContext.memory._spotifyDjConstraints = {
       ...buildSpotifyDjConstraints({
@@ -900,7 +922,7 @@ async function resolveRetryAgents(args: {
   chat: any;
   conns: ReturnType<typeof createConnectionsStorage>;
   agentsStore: ReturnType<typeof createAgentsStorage>;
-  activeMusicPlayerSource?: "spotify" | "youtube" | null;
+  activeMusicPlayerSource?: "spotify" | "youtube" | "custom" | null;
 }): Promise<ResolvedRetryAgents> {
   const { agentTypes, chat, conns, agentsStore, activeMusicPlayerSource } = args;
   const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
@@ -1491,7 +1513,10 @@ async function attachRetrySpotifyToolContexts(args: {
     // YouTube-mode Music DJ is a pure-JSON agent (no tools) — don't backfill the
     // Spotify tools, or it runs as a tool-caller and never emits a youtube_control result.
     const spotifyEnabledNames =
-      entry.resolved.type === "spotify" && !musicAgentUsesYoutube(settings) && enabledNames.length === 0
+      entry.resolved.type === "spotify" &&
+      !musicAgentUsesYoutube(settings) &&
+      !musicAgentUsesCustom(settings) &&
+      enabledNames.length === 0
         ? [...spotifyToolNames]
         : enabledNames.filter((name) => spotifyToolNames.has(name));
     if (spotifyEnabledNames.length === 0) continue;
@@ -2911,7 +2936,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       lorebookKeeperBackfill?: boolean;
       /** When set, scope history and game state to this assistant message (as at original generation), not the latest turn. */
       forMessageId?: string;
-      musicPlayerSource?: "spotify" | "youtube";
+      musicPlayerSource?: "spotify" | "youtube" | "custom";
       musicPlayerEnabled?: boolean;
       /** Secret Plot re-run mode: full = refresh arc+turn data, turn_only = preserve arc and refresh only turn guidance. */
       secretPlotRerollMode?: "full" | "turn_only";
@@ -3025,7 +3050,11 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         conns,
         agentsStore,
         activeMusicPlayerSource:
-          musicPlayerEnabled === false ? null : musicPlayerSource === "youtube" ? "youtube" : "spotify",
+          musicPlayerEnabled === false
+            ? null
+            : musicPlayerSource === "youtube" || musicPlayerSource === "custom"
+              ? musicPlayerSource
+              : "spotify",
       });
       const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
       const retryWrapFormat = await resolveRetryAgentWrapFormat({

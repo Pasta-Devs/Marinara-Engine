@@ -101,7 +101,7 @@
 
 ## Latest Release
 
-Current stable release: **[v2.0.2](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.0.2)**.
+Current stable release: **[v2.0.3](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.0.3)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page. Android APKs are Termux bootstrap + WebView shells: they can download Termux from F-Droid, launch Android's installer, start the Termux setup flow after required permission prompts, then open the local Marinara server on the same device.
 
@@ -174,6 +174,7 @@ Export individual chats or bulk transcript zips as JSONL or plain text. Fully lo
 | [docs/INSTALLATION.md](docs/INSTALLATION.md)         | Installation guide index (all platforms)                        |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md)       | Environment variables and `.env` reference                      |
 | [docs/IMAGE_GENERATION.md](docs/IMAGE_GENERATION.md) | Image provider setup, style profiles, and prompt cleanup        |
+| [docs/EXTENSIONS.md](docs/EXTENSIONS.md)             | Extension folder manifests, package format, and examples        |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)   | Common issues and fixes                                         |
 | [docs/FAQ.md](docs/FAQ.md)                           | Frequently asked questions (LAN access, etc.)                   |
 | [docs/MACROS.md](docs/MACROS.md)                     | Prompt macro syntax, including weighted random choices          |

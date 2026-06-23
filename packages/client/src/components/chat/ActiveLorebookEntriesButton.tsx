@@ -39,12 +39,13 @@ type ActiveLorebookEntriesButtonProps = {
   buttonClassName?: string | ((state: ButtonClassNameInput) => string);
   iconSize?: number | string;
   title?: string;
+  onOpen?: () => void;
 };
 
 function getMobileActiveContextPanelStyle(anchor: NonNullable<ChatToolbarFloatingPanelAnchor>) {
   return {
     top: anchor.top,
-    right: `calc(var(--mari-chat-ui-inset-right, 0px) + ${anchor.right}px)`,
+    right: `${anchor.right}px`,
     width: "min(20rem, calc(100vw - 4.75rem))",
     maxHeight: `min(32rem, calc(100dvh - ${anchor.top + 8}px))`,
   };
@@ -82,7 +83,7 @@ export function ActiveLorebookEntriesModal({
         onTouchStart={(e) => e.stopPropagation()}
       >
         <Suspense fallback={<ActiveLorebookEntriesLoadingFallback />}>
-          <ActiveLorebookEntriesPanel chatId={chatId} isMobile onClose={onClose} />
+          <ActiveLorebookEntriesPanel chatId={chatId} onClose={onClose} />
         </Suspense>
       </div>,
       document.body,
@@ -99,7 +100,7 @@ export function ActiveLorebookEntriesModal({
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className={PANEL_CONTAINER} onClick={(e) => e.stopPropagation()}>
         <Suspense fallback={<ActiveLorebookEntriesLoadingFallback />}>
-          <ActiveLorebookEntriesPanel chatId={chatId} isMobile onClose={onClose} />
+          <ActiveLorebookEntriesPanel chatId={chatId} onClose={onClose} />
         </Suspense>
       </div>
     </div>,
@@ -112,6 +113,7 @@ export function ActiveLorebookEntriesButton({
   buttonClassName,
   iconSize = "0.875rem",
   title = "Active Context",
+  onOpen,
 }: ActiveLorebookEntriesButtonProps) {
   const [open, setOpen] = useState(false);
   const [mobileAnchor, setMobileAnchor] = useState<ChatToolbarFloatingPanelAnchor>(null);
@@ -186,6 +188,7 @@ export function ActiveLorebookEntriesButton({
         ref={buttonRef}
         onClick={() => {
           const nextOpen = !open;
+          if (nextOpen) onOpen?.();
           setMobileAnchor(nextOpen && isMobile ? readChatToolbarFloatingPanelAnchor(buttonRef.current) : null);
           setOpen(nextOpen);
         }}
@@ -213,7 +216,7 @@ export function ActiveLorebookEntriesButton({
             )}
           >
             <Suspense fallback={<ActiveLorebookEntriesLoadingFallback />}>
-              <ActiveLorebookEntriesPanel chatId={chatId} isMobile={isMobile} onClose={() => setOpen(false)} />
+              <ActiveLorebookEntriesPanel chatId={chatId} onClose={() => setOpen(false)} />
             </Suspense>
           </div>
         ))}

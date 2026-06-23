@@ -2,10 +2,12 @@
 // Chat: Gallery Drawer — per-chat image gallery
 // ──────────────────────────────────────────────
 import { Image, X } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { cn } from "../../lib/utils";
 import { ChatGallery } from "./ChatGallery";
 import {
+  ROLEPLAY_POPOVER_CLOSE_BUTTON,
+  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
   ROLEPLAY_POPOVER_HEADER,
   ROLEPLAY_POPOVER_SCROLL_AREA,
   ROLEPLAY_POPOVER_SHELL,
@@ -23,23 +25,33 @@ interface ChatGalleryDrawerProps {
 }
 
 export function ChatGalleryDrawer({ chat, open, onClose, anchor, onIllustrate }: ChatGalleryDrawerProps) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panelRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest("[data-chat-floating-panel]")) return;
+      onClose();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [onClose, open]);
+
   if (!open) return null;
-  const backdropStyle: CSSProperties = {
-    left: "var(--mari-chat-ui-inset-left, 0px)",
-    right: "var(--mari-chat-ui-inset-right, 0px)",
-    top: anchor ? `${anchor.top}px` : "3.5rem",
-    bottom: 0,
-  };
   const panelStyle: CSSProperties | undefined = anchor
-    ? { right: `calc(var(--mari-chat-ui-inset-right, 0px) + ${anchor.right}px)`, top: `${anchor.top}px` }
+    ? { right: `${anchor.right}px`, top: `${anchor.top}px` }
     : undefined;
 
   return (
     <>
-      <div data-chat-floating-panel className="fixed z-[65] bg-transparent" style={backdropStyle} onClick={onClose} />
-
       {/* Floating panel */}
       <div
+        ref={panelRef}
         data-chat-floating-panel
         className={cn(
           ROLEPLAY_POPOVER_SHELL,
@@ -58,9 +70,9 @@ export function ChatGalleryDrawer({ chat, open, onClose, anchor, onIllustrate }:
             type="button"
             onClick={onClose}
             aria-label="Close gallery"
-            className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]"
+            className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
           >
-            <X size="1rem" />
+            <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
           </button>
         </div>
 

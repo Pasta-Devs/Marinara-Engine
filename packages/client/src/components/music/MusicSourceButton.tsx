@@ -1,5 +1,6 @@
 import { useUIStore, type MusicPlayerSource } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
+import { Play } from "lucide-react";
 
 function SpotifyGlyph({ className }: { className?: string }) {
   return (
@@ -26,20 +27,30 @@ function YouTubeGlyph({ className }: { className?: string }) {
 }
 
 export function MusicSourceGlyph({ source, className }: { source: MusicPlayerSource; className?: string }) {
-  return source === "spotify" ? (
-    <SpotifyGlyph className={cn("h-4 w-4 [--music-glyph-stroke:#06110a]", className)} />
-  ) : (
-    <YouTubeGlyph className={cn("h-4 w-4 [--music-glyph-stroke:#f7f3ef]", className)} />
-  );
+  if (source === "spotify") {
+    return <SpotifyGlyph className={cn("h-4 w-4 [--music-glyph-stroke:#06110a]", className)} />;
+  }
+  if (source === "youtube") {
+    return <YouTubeGlyph className={cn("h-4 w-4 [--music-glyph-stroke:#f7f3ef]", className)} />;
+  }
+  return <Play className={cn("h-4 w-4 fill-current", className)} aria-hidden="true" />;
 }
 
 export function MusicSourceButton({ source, className }: { source: MusicPlayerSource; className?: string }) {
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
-  const nextSource: MusicPlayerSource = source === "spotify" ? "youtube" : "spotify";
-  const sourceClasses =
-    source === "spotify"
-      ? "border-[#f7f3ef]/15 bg-[#f7f3ef]/5 text-[#1DB954] hover:border-[#f7f3ef]/30 hover:bg-[#f7f3ef]/10"
-      : "border-[#f7f3ef]/15 bg-[#f7f3ef]/5 text-[#FF0000] hover:border-[#f7f3ef]/30 hover:bg-[#f7f3ef]/10";
+  const sourceOrder: MusicPlayerSource[] = ["spotify", "youtube", "custom"];
+  const nextSource = sourceOrder[(sourceOrder.indexOf(source) + 1) % sourceOrder.length] ?? "spotify";
+  const labels: Record<MusicPlayerSource, string> = {
+    spotify: "Spotify",
+    youtube: "YouTube",
+    custom: "Custom",
+  };
+  const sourceClasses = cn(
+    "border-[#f7f3ef]/15 bg-[#f7f3ef]/5 hover:border-[#f7f3ef]/30 hover:bg-[#f7f3ef]/10",
+    source === "spotify" && "text-[#1DB954]",
+    source === "youtube" && "text-[#FF0000]",
+    source === "custom" && "text-[var(--primary)]",
+  );
 
   return (
     <button
@@ -53,8 +64,8 @@ export function MusicSourceButton({ source, className }: { source: MusicPlayerSo
         sourceClasses,
         className,
       )}
-      title={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}
-      aria-label={`Switch to ${nextSource === "spotify" ? "Spotify" : "YouTube"} player`}
+      title={`Switch to ${labels[nextSource]} player`}
+      aria-label={`Switch to ${labels[nextSource]} player`}
     >
       <MusicSourceGlyph source={source} />
     </button>

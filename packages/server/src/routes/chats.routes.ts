@@ -456,6 +456,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       const updated = await storage.patchMetadata(existing.id, {
         internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
         enableAgents: false,
+        autonomousMessages: false,
+        characterExchanges: false,
         tags: ["internal"],
       });
       return sanitizeChatGameNpcAvatars(updated ?? existing);
@@ -474,6 +476,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     const updated = await storage.patchMetadata(created.id, {
       internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
       enableAgents: false,
+      autonomousMessages: false,
+      characterExchanges: false,
       tags: ["internal"],
     });
     return sanitizeChatGameNpcAvatars(updated ?? created);
@@ -1416,7 +1420,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       const chat = await storage.getById(req.params.id);
       const chatCharIds: string[] = (() => {
         try {
-          return JSON.parse((chat?.characterIds as string) ?? "[]");
+          const parsed = JSON.parse((chat?.characterIds as string) ?? "[]");
+          return Array.isArray(parsed) ? parsed.filter((id) => id !== PROFESSOR_MARI_ID) : [];
         } catch {
           return [];
         }
@@ -2708,7 +2713,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const contextSize = Math.max(
       5,
-      Math.min(200, Number(body.contextSize) || (chatMeta.summaryContextSize as number) || 50),
+      Math.min(500, Number(body.contextSize) || (chatMeta.summaryContextSize as number) || 50),
     );
     const requestedRangeStartMessageId = typeof body.rangeStartMessageId === "string" ? body.rangeStartMessageId : null;
     const requestedRangeEndMessageId = typeof body.rangeEndMessageId === "string" ? body.rangeEndMessageId : null;
@@ -2773,8 +2778,8 @@ export async function chatsRoutes(app: FastifyInstance) {
           const from = Math.min(startIndex, endIndex);
           const to = Math.max(startIndex, endIndex);
           const count = to - from + 1;
-          if (count > 200) {
-            return { error: "Summary ranges cannot include more than 200 messages" as const };
+          if (count > 500) {
+            return { error: "Summary ranges cannot include more than 500 messages" as const };
           }
           selectedRangeStartIndex = from + 1;
           selectedRangeEndIndex = to + 1;

@@ -117,6 +117,7 @@ import type {
   GameSetupConfig,
   GameMap,
   GameNpc,
+  GenerationParameterSendMap,
   GenerationParameters,
   APIProvider,
   SceneIllustrationRequest,
@@ -1558,14 +1559,27 @@ function mergeStoredGenerationParameters(...sources: Array<unknown>): StoredGene
   for (const source of sources) {
     const parsed = parseStoredGenerationParameters(source);
     if (parsed) {
-      const { customParameters, ...rest } = parsed;
+      const { customParameters, enabledParameters, ...rest } = parsed;
       Object.assign(merged, rest);
       if (customParameters) {
         merged.customParameters = mergeCustomParameters(merged.customParameters, customParameters);
       }
+      if (enabledParameters) {
+        merged.enabledParameters = { ...(merged.enabledParameters ?? {}), ...enabledParameters };
+      }
     }
   }
   return Object.keys(merged).length > 0 ? merged : null;
+}
+
+function mergeEnabledParameters(
+  ...sources: Array<GenerationParameterSendMap | null | undefined>
+): GenerationParameterSendMap | undefined {
+  const merged: GenerationParameterSendMap = {};
+  for (const source of sources) {
+    if (source) Object.assign(merged, source);
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 function resolveStoredGameGenerationParameters(
@@ -1665,6 +1679,7 @@ function gameGenOptions(
   const { suppressModelParameters } = resolveModelAccessPolicy({ provider, model });
   if (suppressModelParameters) {
     const customParameters = mergeCustomParameters(parameters?.customParameters, overrides.customParameters);
+    const enabledParameters = mergeEnabledParameters(parameters?.enabledParameters, overrides.enabledParameters);
     const stripped: ChatOptions = {
       model,
       suppressModelParameters: true,
@@ -1677,6 +1692,7 @@ function gameGenOptions(
     if (overrides.onResponseParts) stripped.onResponseParts = overrides.onResponseParts;
     if (overrides.signal) stripped.signal = overrides.signal;
     if (Object.keys(customParameters).length > 0) stripped.customParameters = customParameters;
+    if (enabledParameters) stripped.enabledParameters = enabledParameters;
     return stripped;
   }
 
@@ -1718,6 +1734,9 @@ function gameGenOptions(
     if (parameters.customParameters) {
       base.customParameters = mergeCustomParameters(base.customParameters, parameters.customParameters);
     }
+    if (parameters.enabledParameters) {
+      base.enabledParameters = { ...(base.enabledParameters ?? {}), ...parameters.enabledParameters };
+    }
     if (parameters.reasoningEffort !== undefined) {
       const resolvedReasoningEffort = resolveGameReasoningEffort(model, parameters.reasoningEffort, provider);
       if (resolvedReasoningEffort) {
@@ -1738,9 +1757,13 @@ function gameGenOptions(
   }
 
   const mergedCustomParameters = mergeCustomParameters(base.customParameters, overrides.customParameters);
+  const mergedEnabledParameters = mergeEnabledParameters(base.enabledParameters, overrides.enabledParameters);
   const merged: ChatOptions = { ...base, ...overrides };
   if (Object.keys(mergedCustomParameters).length > 0) {
     merged.customParameters = mergedCustomParameters;
+  }
+  if (mergedEnabledParameters) {
+    merged.enabledParameters = mergedEnabledParameters;
   }
   if (Object.prototype.hasOwnProperty.call(overrides, "reasoningEffort")) {
     const resolvedReasoningEffort = resolveGameReasoningEffort(model, overrides.reasoningEffort ?? null, provider);
@@ -7759,6 +7782,7 @@ export async function gameRoutes(app: FastifyInstance) {
     useAvatarReferences: z.boolean().optional(),
     includeCharacterAppearance: z.boolean().optional(),
     forceIllustration: z.boolean().optional(),
+    queueImageGenerationRequests: z.boolean().default(true),
     debugMode: z.boolean().optional().default(false),
   });
 
@@ -8052,10 +8076,11 @@ export async function gameRoutes(app: FastifyInstance) {
       const agents = createAgentsStorage(app.db);
 
       logger.info(
-        "[game/generate-assets] request: chatId=%s bg=%s npcs=%s",
+        "[game/generate-assets] request: chatId=%s bg=%s npcs=%s queued=%s",
         input.chatId,
         input.backgroundTag ?? "none",
         input.npcsNeedingAvatars?.length ?? 0,
+        input.queueImageGenerationRequests,
       );
       if (debugLogsEnabled) {
         debugLog(
@@ -8068,6 +8093,7 @@ export async function gameRoutes(app: FastifyInstance) {
               illustration: input.illustration ?? null,
               useAvatarReferences: input.useAvatarReferences ?? null,
               includeCharacterAppearance: input.includeCharacterAppearance ?? null,
+              queueImageGenerationRequests: input.queueImageGenerationRequests,
             },
             null,
             2,
@@ -8404,7 +8430,9 @@ export async function gameRoutes(app: FastifyInstance) {
             }
           }
         };
-        const portraitWorkerCount = Math.min(GAME_ASSET_PORTRAIT_CONCURRENCY, input.npcsNeedingAvatars.length);
+        const portraitWorkerCount = input.queueImageGenerationRequests
+          ? 1
+          : Math.min(GAME_ASSET_PORTRAIT_CONCURRENCY, input.npcsNeedingAvatars.length);
         await Promise.all(Array.from({ length: portraitWorkerCount }, () => runPortraitWorker()));
 
         // Persist avatar URLs to NPC list in metadata

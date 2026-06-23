@@ -35,6 +35,7 @@ export interface SlashCommandContext {
     userMessage?: string;
     generationGuide?: string;
     generationGuideSource?: "narrator" | "guide" | "game_start";
+    continueMessageId?: string;
     impersonate?: boolean;
     attachments?: { type: string; data: string }[];
     impersonatePresetId?: string;
@@ -50,6 +51,8 @@ export interface SlashCommandContext {
   characterNames: string[];
   /** Characters available in the current roleplay scene */
   characters?: Array<{ id: string; name: string }>;
+  /** Latest assistant message, used when /continue appends to an unfinished reply */
+  latestAssistantMessageId?: string | null;
   /** Apply a manual sprite expression override */
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
 }
@@ -393,7 +396,10 @@ const COMMANDS: SlashCommand[] = [
     description: "Continue the AI response without sending a message",
     usage: "/continue",
     async execute(_args, ctx) {
-      await ctx.generate({ chatId: ctx.chatId, connectionId: null });
+      if (!ctx.latestAssistantMessageId) {
+        return { handled: true, feedback: "There is no assistant message to continue." };
+      }
+      await ctx.generate({ chatId: ctx.chatId, connectionId: null, continueMessageId: ctx.latestAssistantMessageId });
       return { handled: true };
     },
   },

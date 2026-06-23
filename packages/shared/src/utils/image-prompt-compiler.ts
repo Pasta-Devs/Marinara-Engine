@@ -39,10 +39,10 @@ export function compileImagePrompt(input: CompileImagePromptInput): CompiledImag
   const generatedStyle = input.generatedStyle?.trim() ?? "";
   const promptPrefix = imagePromptPrefixFromDefaults(input.imageDefaults);
   const negativePromptPrefix = imageNegativePromptPrefixFromDefaults(input.imageDefaults);
-  const preserveScenePrompt = input.kind === "illustration" || input.kind === "background";
-  const compactTags = !preserveScenePrompt && (promptMode === "tagged" || promptMode === "danbooru");
+  const preserveGeneratedPrompt = input.kind === "illustration" || input.kind === "background" || input.kind === "selfie";
+  const compactTags = !preserveGeneratedPrompt && (promptMode === "tagged" || promptMode === "danbooru");
   const compactVisualPrompt =
-    profile.baseStyle !== "z_image_turbo" && ["avatar", "portrait", "selfie", "sprite"].includes(input.kind);
+    profile.baseStyle !== "z_image_turbo" && ["avatar", "portrait", "sprite"].includes(input.kind);
   const compactPrompt = compactTags || compactVisualPrompt;
   const sourceCueText = [input.prompt, input.userPositive].filter(Boolean).join("\n");
   const sourceCues = compactPrompt ? deriveTaggedSourceCues(sourceCueText) : [];
@@ -82,7 +82,7 @@ export function compileImagePrompt(input: CompileImagePromptInput): CompiledImag
   const negativeFragments: string[] = [];
 
   for (const part of positiveParts) {
-    const shouldDistill = part.sourcePrompt && !preserveScenePrompt;
+    const shouldDistill = part.sourcePrompt && !preserveGeneratedPrompt;
     for (const fragment of splitPromptFragments(part.value, fragmentMode, shouldDistill)) {
       const negative = extractNegativeFragment(fragment);
       if (negative) {

@@ -84,6 +84,8 @@ export function ConversationSoundSetting() {
   const setRpNotificationSound = useUIStore((s) => s.setRpNotificationSound);
   const gameNotificationSound = useUIStore((s) => s.gameNotificationSound);
   const setGameNotificationSound = useUIStore((s) => s.setGameNotificationSound);
+  const notificationSoundsOnlyWhenUnfocused = useUIStore((s) => s.notificationSoundsOnlyWhenUnfocused);
+  const setNotificationSoundsOnlyWhenUnfocused = useUIStore((s) => s.setNotificationSoundsOnlyWhenUnfocused);
   const conversationBrowserNotifications = useUIStore((s) => s.conversationBrowserNotifications);
   const setConversationBrowserNotifications = useUIStore((s) => s.setConversationBrowserNotifications);
   const [browserPermission, setBrowserPermission] = useState<LocalNotificationPermission>("default");
@@ -150,6 +152,11 @@ export function ConversationSoundSetting() {
           setGameNotificationSound(v);
           if (v) playNotificationPing();
         }}
+      />
+      <ToggleSetting
+        label="Only when Marinara is unfocused"
+        checked={notificationSoundsOnlyWhenUnfocused}
+        onChange={setNotificationSoundsOnlyWhenUnfocused}
       />
       <div className="mt-1 flex items-center gap-1.5">
         <Bell size="0.75rem" className="text-[var(--muted-foreground)]" />

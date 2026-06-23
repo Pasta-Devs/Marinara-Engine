@@ -14,3 +14,8 @@ export const NEUTRAL_PANEL_SUBTITLE =
 
 export const NEUTRAL_PANEL_SCROLL_AREA =
   "marinara-chat-popover__scroll scrollbar-thin scrollbar-thumb-[var(--marinara-chat-chrome-panel-scrollbar)] scrollbar-track-transparent";
+
+export const NEUTRAL_PANEL_CLOSE_BUTTON =
+  "rounded-lg p-1.5 text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+
+export const NEUTRAL_PANEL_CLOSE_ICON_SIZE = "1rem";

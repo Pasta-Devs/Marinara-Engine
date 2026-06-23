@@ -50,7 +50,7 @@ type ResolveAgentPipelineAgentsArgs = {
   chatCustomParameters: Record<string, unknown>;
   chatMaxOutputTokens: number | null;
   chatMaxParallelJobs: number;
-  activeMusicPlayerSource?: "spotify" | "youtube" | null;
+  activeMusicPlayerSource?: "spotify" | "youtube" | "custom" | null;
   chatMetadata?: Record<string, unknown>;
   resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string;
 };
@@ -103,20 +103,23 @@ function resolveAgentSettings(agentType: string, settings: unknown): Record<stri
 
 function applyMusicPlayerSourceToMusicDjSettings(
   settings: Record<string, unknown>,
-  activeMusicPlayerSource: "spotify" | "youtube" | null | undefined,
+  activeMusicPlayerSource: "spotify" | "youtube" | "custom" | null | undefined,
 ): Record<string, unknown> {
   if (!activeMusicPlayerSource) return settings;
   return {
     ...settings,
     musicProvider: activeMusicPlayerSource,
     musicPlayerSource: activeMusicPlayerSource,
-    enabledTools: activeMusicPlayerSource === "youtube" ? [] : (DEFAULT_AGENT_TOOLS.spotify ?? []),
+    enabledTools: activeMusicPlayerSource === "spotify" ? (DEFAULT_AGENT_TOOLS.spotify ?? []) : [],
   };
 }
 
 function getAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
   if (agentType === "spotify" && (settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube")) {
     return getDefaultAgentPrompt("youtube");
+  }
+  if (agentType === "spotify" && (settings.musicProvider === "custom" || settings.musicPlayerSource === "custom")) {
+    return getDefaultAgentPrompt("local-music");
   }
   return getDefaultAgentPrompt(agentType);
 }
@@ -279,6 +282,8 @@ export async function resolveAgentPipelineAgents({
       cfg.type === "spotify" &&
       settings.musicProvider !== "youtube" &&
       settings.musicPlayerSource !== "youtube" &&
+      settings.musicProvider !== "custom" &&
+      settings.musicPlayerSource !== "custom" &&
       (!Array.isArray(settings.enabledTools) || settings.enabledTools.length === 0)
     ) {
       settings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
@@ -396,6 +401,8 @@ export async function resolveAgentPipelineAgents({
       builtIn.id === "spotify" &&
       builtInSettings.musicProvider !== "youtube" &&
       builtInSettings.musicPlayerSource !== "youtube" &&
+      builtInSettings.musicProvider !== "custom" &&
+      builtInSettings.musicPlayerSource !== "custom" &&
       (!Array.isArray(builtInSettings.enabledTools) || builtInSettings.enabledTools.length === 0)
     ) {
       builtInSettings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];

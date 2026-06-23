@@ -123,6 +123,10 @@ interface AgentState {
   youtubePlay: { searchQuery: string; mood: string; nonce: number } | null;
   /** Latest Music DJ YouTube volume directive (0-100), independent of track changes. */
   youtubeVolume: number | null;
+  /** Latest Music DJ Custom "play" intent. nonce bumps each pick so the player reacts. */
+  localMusicPlay: { path: string; title: string; mood: string; nonce: number } | null;
+  /** Latest Music DJ Custom volume directive (0-100), independent of track changes. */
+  localMusicVolume: number | null;
   pendingCardUpdates: PendingCardUpdate[];
   pendingAgentWriteApprovals: PendingAgentWriteApproval[];
 
@@ -149,6 +153,9 @@ interface AgentState {
   setYoutubePlay: (play: { searchQuery: string; mood: string }) => void;
   setYoutubeVolume: (volume: number | null) => void;
   clearYoutube: () => void;
+  setLocalMusicPlay: (play: { path: string; title: string; mood: string }) => void;
+  setLocalMusicVolume: (volume: number | null) => void;
+  clearLocalMusic: () => void;
   enqueuePendingCardUpdate: (entry: PendingCardUpdate) => void;
   dismissPendingCardUpdate: (id: string) => void;
   clearPendingCardUpdates: () => void;
@@ -174,6 +181,8 @@ export const useAgentStore = create<AgentState>((set) => ({
   cyoaChoicesChatId: null,
   youtubePlay: null,
   youtubeVolume: null,
+  localMusicPlay: null,
+  localMusicVolume: null,
   pendingCardUpdates: [],
   pendingAgentWriteApprovals: [],
 
@@ -251,6 +260,10 @@ export const useAgentStore = create<AgentState>((set) => ({
     set((s) => ({ youtubePlay: { searchQuery, mood, nonce: (s.youtubePlay?.nonce ?? 0) + 1 } })),
   setYoutubeVolume: (volume) => set({ youtubeVolume: volume }),
   clearYoutube: () => set({ youtubePlay: null, youtubeVolume: null }),
+  setLocalMusicPlay: ({ path, title, mood }) =>
+    set((s) => ({ localMusicPlay: { path, title, mood, nonce: (s.localMusicPlay?.nonce ?? 0) + 1 } })),
+  setLocalMusicVolume: (volume) => set({ localMusicVolume: volume }),
+  clearLocalMusic: () => set({ localMusicPlay: null, localMusicVolume: null }),
 
   enqueuePendingCardUpdate: (entry) =>
     set((s) => ({ pendingCardUpdates: [...s.pendingCardUpdates, entry].slice(-20) })),

@@ -3,7 +3,12 @@ import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Loader2, PenLine, X
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { type BudgetSkippedLorebookEntry, useActiveLorebookEntries } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
-import { ROLEPLAY_POPOVER_SUBTITLE, ROLEPLAY_POPOVER_TITLE } from "./roleplay-popover-styles";
+import {
+  ROLEPLAY_POPOVER_CLOSE_BUTTON,
+  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
+  ROLEPLAY_POPOVER_SUBTITLE,
+  ROLEPLAY_POPOVER_TITLE,
+} from "./roleplay-popover-styles";
 
 type LorebookEntryStatus = "normal" | "constant" | "selective";
 
@@ -156,11 +161,9 @@ function BudgetSkippedEntriesNotice({ entries }: { entries: BudgetSkippedLoreboo
 
 export function ActiveLorebookEntriesPanel({
   chatId,
-  isMobile,
   onClose,
 }: {
   chatId: string;
-  isMobile: boolean;
   onClose: () => void;
 }) {
   const { data, isLoading } = useActiveLorebookEntries(chatId, true);
@@ -172,14 +175,14 @@ export function ActiveLorebookEntriesPanel({
       <h3 className={cn(ROLEPLAY_POPOVER_TITLE, "mb-2")}>
         <BookOpen size="0.75rem" />
         Active Context
-        {isMobile && (
-          <button
-            onClick={onClose}
-            className="ml-auto rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            <X size="0.75rem" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close active context"
+          className={cn(ROLEPLAY_POPOVER_CLOSE_BUTTON, "ml-auto -my-1")}
+        >
+          <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+        </button>
       </h3>
       {isLoading ? (
         <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
@@ -211,12 +214,10 @@ export function ActiveLorebookEntriesPanel({
 export function AuthorNotesPanel({
   chatId,
   chatMeta,
-  isMobile,
   onClose,
 }: {
   chatId: string;
   chatMeta: Record<string, any>;
-  isMobile: boolean;
   onClose: () => void;
 }) {
   const [notes, setNotes] = useState((chatMeta.authorNotes as string) ?? "");
@@ -266,14 +267,14 @@ export function AuthorNotesPanel({
       <h3 className={cn(ROLEPLAY_POPOVER_TITLE, "mb-2")}>
         <PenLine size="0.75rem" />
         Author's Notes
-        {isMobile && (
-          <button
-            onClick={onClose}
-            className="ml-auto rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            <X size="0.75rem" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close author's notes"
+          className={cn(ROLEPLAY_POPOVER_CLOSE_BUTTON, "ml-auto -my-1")}
+        >
+          <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+        </button>
       </h3>
       <p className={cn(ROLEPLAY_POPOVER_SUBTITLE, "mb-2")}>
         Text here is injected into the prompt at the chosen depth every generation.

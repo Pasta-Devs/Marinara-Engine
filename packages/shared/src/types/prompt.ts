@@ -173,6 +173,20 @@ export interface PromptVariableOption {
   value: string;
 }
 
+export const GENERATION_PARAMETER_SEND_KEYS = [
+  "temperature",
+  "maxTokens",
+  "topP",
+  "topK",
+  "frequencyPenalty",
+  "presencePenalty",
+  "reasoningEffort",
+  "verbosity",
+] as const;
+
+export type GenerationParameterSendKey = (typeof GENERATION_PARAMETER_SEND_KEYS)[number];
+export type GenerationParameterSendMap = Partial<Record<GenerationParameterSendKey, boolean>>;
+
 /** Generation parameters sent with each API call. */
 export interface GenerationParameters {
   temperature: number;
@@ -195,6 +209,8 @@ export interface GenerationParameters {
   customThinkingTags: ThinkingTagPair[];
   /** Raw provider request parameters merged into the outgoing request body. */
   customParameters: Record<string, unknown>;
+  /** Per-parameter request switches. Missing map preserves legacy send behavior. */
+  enabledParameters?: GenerationParameterSendMap;
   /** Merge consecutive system messages */
   squashSystemMessages: boolean;
   /** Show model reasoning/thinking */

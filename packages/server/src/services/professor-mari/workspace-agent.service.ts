@@ -28,11 +28,13 @@ import { decryptApiKey } from "../../utils/crypto.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
 import {
+  GENERATION_PARAMETER_SEND_KEYS,
   findKnownModel,
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
   PROFESSOR_MARI_ID,
   type APIProvider,
+  type GenerationParameterSendMap,
 } from "@marinara-engine/shared";
 import type {
   MariDbCommandResult,
@@ -366,6 +368,31 @@ function parseJsonObject(value: unknown): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+function normalizeGenerationParameterSendMap(value: unknown): GenerationParameterSendMap | undefined {
+  if (!isRecord(value)) return undefined;
+  const enabledParameters: GenerationParameterSendMap = {};
+  for (const key of GENERATION_PARAMETER_SEND_KEYS) {
+    if (typeof value[key] === "boolean") enabledParameters[key] = value[key];
+  }
+  return Object.keys(enabledParameters).length > 0 ? enabledParameters : undefined;
+}
+
+function normalizeMariReasoningEffort(value: unknown): ChatOptions["reasoningEffort"] | undefined {
+  if (value === "maximum") return "xhigh";
+  if (value === "low" || value === "medium" || value === "high" || value === "xhigh" || value === "max") {
+    return value;
+  }
+  return undefined;
+}
+
+function normalizeMariVerbosity(value: unknown): ChatOptions["verbosity"] | undefined {
+  return value === "low" || value === "medium" || value === "high" ? value : undefined;
+}
+
+function normalizeMariMaxTokens(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
 }
 
 function parseExtra(value: unknown): Record<string, unknown> {
@@ -1434,16 +1461,22 @@ ${sections.join("\n\n")}
     onThinking: (delta: string) => void,
   ): ChatOptions {
     const defaultParameters = parseJsonObject(connection.defaultParameters);
+    const customParameters = isRecord(defaultParameters?.customParameters) ? defaultParameters.customParameters : {};
+    const reasoningEffort = normalizeMariReasoningEffort(defaultParameters?.reasoningEffort);
+    const verbosity = normalizeMariVerbosity(defaultParameters?.verbosity);
     return {
       model: connection.model,
       temperature: typeof defaultParameters?.temperature === "number" ? defaultParameters.temperature : 0.2,
-      maxTokens: resolveMariMaxOutputTokens(connection),
+      maxTokens: normalizeMariMaxTokens(defaultParameters?.maxTokens) ?? resolveMariMaxOutputTokens(connection),
       maxContext: connection.maxContext,
       enableCaching: bool(connection.enableCaching),
       cachingAtDepth: connection.cachingAtDepth ?? 5,
       serviceTier: normalizeServiceTier(defaultParameters?.serviceTier),
       openrouterProvider: connection.openrouterProvider,
-      customParameters: mergeCustomParameters(defaultParameters, null),
+      customParameters: mergeCustomParameters(customParameters, null),
+      enabledParameters: normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters),
+      reasoningEffort,
+      verbosity,
       signal,
       onThinking,
     };
@@ -1454,7 +1487,19 @@ ${sections.join("\n\n")}
     messages: ChatMessage[],
     baseOptions: ChatOptions,
   ): Promise<ChatCompletionResult> {
-    return provider.chatComplete(messages, { ...baseOptions, stream: false });
+    const options = { ...baseOptions, stream: false };
+    logger.debug(
+      "\n[debug/professor-mari] Prompt sent to model (%d messages):\n  Model: %s  Temp: %s  MaxTokens: %s  MaxContext: %s  Effort: %s  Verbosity: %s  Stream: false  CustomParameterKeys: %s",
+      messages.length,
+      options.model,
+      options.enabledParameters?.temperature === false ? "disabled" : (options.temperature ?? "default"),
+      options.enabledParameters?.maxTokens === false ? "disabled" : (options.maxTokens ?? "default"),
+      options.maxContext ?? "default",
+      options.enabledParameters?.reasoningEffort === false ? "disabled" : (options.reasoningEffort ?? "none"),
+      options.enabledParameters?.verbosity === false ? "disabled" : (options.verbosity ?? "default"),
+      Object.keys(options.customParameters ?? {}).join(",") || "none",
+    );
+    return provider.chatComplete(messages, options);
   }
 
   private async executeWorkspaceCommandBatch(

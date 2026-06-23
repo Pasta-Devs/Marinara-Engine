@@ -431,7 +431,7 @@ export class GoogleProvider extends BaseLLMProvider {
     const isGemini3 = /gemini-3/i.test(model);
     const supportsThinking = isGemini3 || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model);
     let thinkingConfig: Record<string, unknown> | undefined;
-    if (supportsThinking && (options.enableThinking || options.reasoningEffort)) {
+    if (this.shouldSendParameter(options, "reasoningEffort") && supportsThinking && (options.enableThinking || options.reasoningEffort)) {
       if (isGemini3) {
         const levelMap = { low: "low", medium: "medium", high: "high", xhigh: "high", max: "high" } as const;
         thinkingConfig = {
@@ -460,14 +460,18 @@ export class GoogleProvider extends BaseLLMProvider {
     const body: Record<string, unknown> = {
       contents: formatGoogleContents(messages),
       generationConfig: {
-        temperature: options.temperature ?? 1,
-        maxOutputTokens: maxTokens,
-        topP: options.topP ?? 1,
-        ...(typeof options.topK === "number" && Number.isFinite(options.topK)
+        ...(this.shouldSendParameter(options, "temperature") ? { temperature: options.temperature ?? 1 } : {}),
+        ...(this.shouldSendParameter(options, "maxTokens") ? { maxOutputTokens: maxTokens } : {}),
+        ...(this.shouldSendParameter(options, "topP") ? { topP: options.topP ?? 1 } : {}),
+        ...(this.shouldSendParameter(options, "topK") && typeof options.topK === "number" && Number.isFinite(options.topK)
           ? { topK: Math.max(0, Math.trunc(options.topK)) }
           : {}),
-        ...(options.frequencyPenalty ? { frequencyPenalty: options.frequencyPenalty } : {}),
-        ...(options.presencePenalty ? { presencePenalty: options.presencePenalty } : {}),
+        ...(this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty
+          ? { frequencyPenalty: options.frequencyPenalty }
+          : {}),
+        ...(this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty
+          ? { presencePenalty: options.presencePenalty }
+          : {}),
         ...(thinkingConfig ? { thinkingConfig } : {}),
         ...googleResponseFormatConfig(options.responseFormat),
         ...(options.stop?.length ? { stopSequences: options.stop } : {}),
@@ -547,7 +551,7 @@ export class GoogleProvider extends BaseLLMProvider {
       !suppressModelParameters && (isGemini3 || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model));
 
     let thinkingConfig: Record<string, unknown> | undefined;
-    if (supportsThinking && (options.enableThinking || options.reasoningEffort)) {
+    if (this.shouldSendParameter(options, "reasoningEffort") && supportsThinking && (options.enableThinking || options.reasoningEffort)) {
       if (isGemini3) {
         const levelMap = { low: "low", medium: "medium", high: "high", xhigh: "high", max: "high" } as const;
         thinkingConfig = {
@@ -614,16 +618,22 @@ export class GoogleProvider extends BaseLLMProvider {
 
     const outputMaxTokens = maxTokens ?? 4096;
     body.generationConfig = {
-      maxOutputTokens: outputMaxTokens,
+      ...(this.shouldSendParameter(options, "maxTokens") ? { maxOutputTokens: outputMaxTokens } : {}),
       ...(!suppressModelParameters
         ? {
-            temperature: options.temperature ?? 1,
-            topP: options.topP ?? 1,
-            ...(typeof options.topK === "number" && Number.isFinite(options.topK)
+            ...(this.shouldSendParameter(options, "temperature") ? { temperature: options.temperature ?? 1 } : {}),
+            ...(this.shouldSendParameter(options, "topP") ? { topP: options.topP ?? 1 } : {}),
+            ...(this.shouldSendParameter(options, "topK") &&
+            typeof options.topK === "number" &&
+            Number.isFinite(options.topK)
               ? { topK: Math.max(0, Math.trunc(options.topK)) }
               : {}),
-            ...(options.frequencyPenalty ? { frequencyPenalty: options.frequencyPenalty } : {}),
-            ...(options.presencePenalty ? { presencePenalty: options.presencePenalty } : {}),
+            ...(this.shouldSendParameter(options, "frequencyPenalty") && options.frequencyPenalty
+              ? { frequencyPenalty: options.frequencyPenalty }
+              : {}),
+            ...(this.shouldSendParameter(options, "presencePenalty") && options.presencePenalty
+              ? { presencePenalty: options.presencePenalty }
+              : {}),
             ...(thinkingConfig ? { thinkingConfig } : {}),
             ...googleResponseFormatConfig(options.responseFormat),
             ...(options.stop?.length ? { stopSequences: options.stop } : {}),

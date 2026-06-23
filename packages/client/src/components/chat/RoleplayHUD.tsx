@@ -152,7 +152,7 @@ export function RoleplayHUD({
   const showInjectionsTab = useUIStore((s) => s.debugMode);
 
   const isTrackerBusy = isAgentProcessing || isStreaming || gameStateRefreshing;
-  const showHudTrackerWidgets = !gameStateRefreshing && !(trackerPanelEnabled && trackerPanelHideHudWidgets);
+  const showHudTrackerWidgets = !(trackerPanelEnabled && trackerPanelHideHudWidgets);
 
   useEffect(() => {
     if (!chatId) return;

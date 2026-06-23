@@ -513,14 +513,29 @@ export const useChatStore = create<ChatState>()(
         return { responseQueues: queues };
       }),
 
-    setTypingCharacterName: (name) => set({ typingCharacterName: name, delayedCharacterInfo: null }),
+    setTypingCharacterName: (name) =>
+      set((state) => {
+        if (state.typingCharacterName === name && state.delayedCharacterInfo === null) return state;
+        return { typingCharacterName: name, delayedCharacterInfo: null };
+      }),
 
-    setGenerationPhase: (phase) => set({ generationPhase: phase }),
+    setGenerationPhase: (phase) =>
+      set((state) => {
+        if (state.generationPhase === phase) return state;
+        return { generationPhase: phase };
+      }),
 
-    setDelayedCharacterInfo: (info) => set({ delayedCharacterInfo: info, typingCharacterName: null }),
+    setDelayedCharacterInfo: (info) =>
+      set((state) => {
+        if (state.delayedCharacterInfo === info && state.typingCharacterName === null) return state;
+        return { delayedCharacterInfo: info, typingCharacterName: null };
+      }),
 
     setPerChatTyping: (chatId: string, name: string | null) =>
       set((state) => {
+        const currentTyping = state.perChatTyping.get(chatId) ?? null;
+        if (name === null && currentTyping === null) return state;
+        if (name !== null && currentTyping === name && !state.perChatDelayed.has(chatId)) return state;
         const m = new Map(state.perChatTyping);
         if (name) m.set(chatId, name);
         else m.delete(chatId);
@@ -531,6 +546,9 @@ export const useChatStore = create<ChatState>()(
 
     setPerChatDelayed: (chatId: string, info: DelayedCharacterInfo | null) =>
       set((state) => {
+        const currentDelayed = state.perChatDelayed.get(chatId) ?? null;
+        if (info === null && currentDelayed === null) return state;
+        if (info !== null && currentDelayed === info && !state.perChatTyping.has(chatId)) return state;
         const d = new Map(state.perChatDelayed);
         if (info) d.set(chatId, info);
         else d.delete(chatId);

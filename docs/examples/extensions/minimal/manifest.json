@@ -1,0 +1,11 @@
+{
+  "kind": "marinara.extension",
+  "version": 1,
+  "config": {
+    "name": "Example Accent Glow",
+    "description": "Example extension package for Marinara Engine.",
+    "enabled": true,
+    "cssPath": "extension.css",
+    "jsPath": "extension.js"
+  }
+}

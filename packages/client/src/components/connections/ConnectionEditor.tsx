@@ -58,8 +58,9 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "../panels/settings/SettingControls";
 import {
+  CONNECTION_PARAMETER_DEFAULTS,
   GenerationParametersFields,
-  ROLEPLAY_PARAMETER_DEFAULTS,
+  STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS,
   getEditableGenerationParameters,
   parseEditableGenerationParameters,
   type EditableGenerationParameters,
@@ -202,7 +203,7 @@ export function ConnectionEditor() {
   const [localTreatAsLocalEndpoint, setLocalTreatAsLocalEndpoint] = useState(false);
   const [localDefaultParametersEnabled, setLocalDefaultParametersEnabled] = useState(false);
   const [localDefaultParameters, setLocalDefaultParameters] =
-    useState<EditableGenerationParameters>(ROLEPLAY_PARAMETER_DEFAULTS);
+    useState<EditableGenerationParameters>(CONNECTION_PARAMETER_DEFAULTS);
   const [localImageDefaults, setLocalImageDefaults] = useState<ImageGenerationDefaultsProfile | null>(null);
   const [imageDefaultsExpanded, setImageDefaultsExpanded] = useState(false);
 
@@ -282,7 +283,7 @@ export function ConnectionEditor() {
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
     setLocalDefaultParametersEnabled(!!parseEditableGenerationParameters(c.defaultParameters));
-    setLocalDefaultParameters(getEditableGenerationParameters(ROLEPLAY_PARAMETER_DEFAULTS, c.defaultParameters));
+    setLocalDefaultParameters(getEditableGenerationParameters(CONNECTION_PARAMETER_DEFAULTS, c.defaultParameters));
     setLocalImageDefaults(
       defaultsService ? (storedImageDefaults ?? createDefaultImageGenerationProfile(defaultsService)) : null,
     );
@@ -992,7 +993,7 @@ export function ConnectionEditor() {
                     setLocalMaxContext(Number(defaultModel?.context) || 128000);
                     setLocalMaxTokensOverride(null);
                     setLocalDefaultParametersEnabled(false);
-                    setLocalDefaultParameters(ROLEPLAY_PARAMETER_DEFAULTS);
+                    setLocalDefaultParameters(CONNECTION_PARAMETER_DEFAULTS);
                     // Provider switches must not keep an encrypted key from
                     // the previous provider under the new provider identity.
                     setLocalApiKey("");
@@ -1781,6 +1782,7 @@ export function ConnectionEditor() {
                   <GenerationParametersFields
                     value={localDefaultParameters}
                     showOpenRouterServiceTier={localProvider === "openrouter"}
+                    enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
                     onChange={(next) => {
                       setLocalDefaultParameters(next);
                       markDirty();

@@ -4,6 +4,7 @@
 import { logger } from "../../lib/logger.js";
 import { getEmbeddingRequestTimeoutMs, isProviderLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { requestHeadersWithIdentityEncoding, safeFetch, type SafeFetchOptions } from "../../utils/security.js";
+import type { GenerationParameterSendKey, GenerationParameterSendMap } from "@marinara-engine/shared";
 
 /**
  * Shared undici Agent with a 5-minute headers timeout (time to first byte)
@@ -132,6 +133,8 @@ export interface ChatOptions {
   responseFormat?: { type: string; [key: string]: unknown };
   /** Raw provider request parameters merged into the outgoing request body. */
   customParameters?: Record<string, unknown>;
+  /** Per-parameter request switches. Missing map preserves legacy send behavior. */
+  enabledParameters?: GenerationParameterSendMap;
   /** Do not add inferred sampler/model parameters; max output tokens and customParameters still apply. */
   suppressModelParameters?: boolean;
   /**
@@ -608,6 +611,10 @@ export abstract class BaseLLMProvider {
   protected applyCustomParameters(body: Record<string, unknown>, options: ChatOptions): void {
     if (!options.customParameters || Object.keys(options.customParameters).length === 0) return;
     deepMergeRequestBody(body, options.customParameters);
+  }
+
+  protected shouldSendParameter(options: ChatOptions, key: GenerationParameterSendKey): boolean {
+    return options.enabledParameters?.[key] !== false;
   }
 
   /**

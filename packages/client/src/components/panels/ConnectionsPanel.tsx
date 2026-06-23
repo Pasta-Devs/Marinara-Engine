@@ -3,7 +3,9 @@
 // ──────────────────────────────────────────────
 import { useState, useEffect, useMemo, useCallback, useRef, type ChangeEvent, type TouchEvent } from "react";
 import { Reorder, useDragControls } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  connectionKeys,
   useConnections,
   useDuplicateConnection,
   useDeleteConnection,
@@ -409,6 +411,7 @@ function formatDefaultConnectionOption(connection: ConnectionRowData, fallbackMo
 function DefaultAgentConnectionCard({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const updateConnection = useUpdateConnection();
+  const qc = useQueryClient();
   const agentConnections = useMemo(
     () => connectionsList.filter((conn) => conn.provider !== "image_generation"),
     [connectionsList],
@@ -430,6 +433,10 @@ function DefaultAgentConnectionCard({ connectionsList }: { connectionsList: Conn
       return;
     }
     updateConnection.mutate({ id: nextConnectionId, defaultForAgents: true });
+  };
+  const openFreshConnectionDetail = (id: string) => {
+    qc.removeQueries({ queryKey: connectionKeys.detail(id) });
+    openConnectionDetail(id);
   };
 
   return (
@@ -458,7 +465,7 @@ function DefaultAgentConnectionCard({ connectionsList }: { connectionsList: Conn
         {defaultConnection && (
           <button
             type="button"
-            onClick={() => openConnectionDetail(defaultConnection.id)}
+            onClick={() => openFreshConnectionDetail(defaultConnection.id)}
             className="mari-chrome-control mari-chrome-control--small p-1.5"
             title="Open default agent connection"
           >
@@ -473,6 +480,7 @@ function DefaultAgentConnectionCard({ connectionsList }: { connectionsList: Conn
 function DefaultIllustratorConnectionCard({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const updateConnection = useUpdateConnection();
+  const qc = useQueryClient();
   const illustratorConnections = useMemo(
     () => connectionsList.filter((conn) => conn.provider === "image_generation"),
     [connectionsList],
@@ -494,6 +502,10 @@ function DefaultIllustratorConnectionCard({ connectionsList }: { connectionsList
       return;
     }
     updateConnection.mutate({ id: nextConnectionId, defaultForAgents: true });
+  };
+  const openFreshConnectionDetail = (id: string) => {
+    qc.removeQueries({ queryKey: connectionKeys.detail(id) });
+    openConnectionDetail(id);
   };
 
   return (
@@ -524,7 +536,7 @@ function DefaultIllustratorConnectionCard({ connectionsList }: { connectionsList
         {defaultConnection && (
           <button
             type="button"
-            onClick={() => openConnectionDetail(defaultConnection.id)}
+            onClick={() => openFreshConnectionDetail(defaultConnection.id)}
             className="mari-chrome-control mari-chrome-control--small p-1.5"
             title="Open default Illustrator connection"
           >

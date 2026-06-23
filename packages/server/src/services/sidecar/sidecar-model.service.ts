@@ -318,6 +318,12 @@ class SidecarModelService {
     }
   }
 
+  private getExactDownloadSize(modelInfo: SidecarModelInfo): number | null {
+    return typeof modelInfo.downloadSizeBytes === "number" && modelInfo.downloadSizeBytes > 0
+      ? modelInfo.downloadSizeBytes
+      : null;
+  }
+
   private removeInvalidModelFile(path: string): void {
     try {
       unlinkSync(path);
@@ -593,6 +599,7 @@ class SidecarModelService {
 
     const relativePath = modelInfo.filename;
     const destination = this.resolveModelPath(relativePath);
+    const expectedBytes = this.getExactDownloadSize(modelInfo);
     const nextConfig: SidecarConfig = {
       ...previousConfig,
       backend: "llama_cpp",
@@ -601,17 +608,18 @@ class SidecarModelService {
       quantization,
       customModelRepo: null,
     };
-    if (existsSync(destination) && this.isUsableModelFile(destination, modelInfo.sizeBytes)) {
+    if (existsSync(destination) && this.isUsableModelFile(destination, expectedBytes)) {
       this.cleanupPreviousModel(previousConfig, nextConfig);
       this.config = nextConfig;
       this.saveConfig();
       this.status = "downloaded";
+      const downloadedBytes = expectedBytes ?? statSync(destination).size;
       this.emitProgress(
         {
           phase: "model",
           status: "complete",
-          downloaded: modelInfo.sizeBytes,
-          total: modelInfo.sizeBytes,
+          downloaded: downloadedBytes,
+          total: downloadedBytes,
           speed: 0,
           label: modelInfo.label,
         },
@@ -632,7 +640,7 @@ class SidecarModelService {
         url: modelInfo.downloadUrl,
         relativePath,
         label: modelInfo.label,
-        expectedBytes: modelInfo.sizeBytes,
+        expectedBytes,
       },
       onProgress,
     );

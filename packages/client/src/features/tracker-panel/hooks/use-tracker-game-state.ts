@@ -45,6 +45,6 @@ export function useTrackerGameState(activeChatId: string | null) {
   return {
     currentGameState,
     gameStateRefreshing,
-    isLoadingGameState: loadingGameState || gameStateRefreshing,
+    isLoadingGameState: loadingGameState && !currentGameState,
   };
 }

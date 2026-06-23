@@ -2097,6 +2097,43 @@ input[type="range"].mari-youtube-volume-slider::-moz-range-thumb {
   background: var(--range-thumb-color);
 }
 
+input[type="range"].mari-local-music-volume-slider {
+  --range-track-color: color-mix(in srgb, var(--primary) 24%, transparent);
+  --range-fill-color: var(--primary);
+  --range-thumb-color: var(--primary);
+  --range-thumb-size: 0.6875rem;
+  --range-track-height: 0.25rem;
+  --range-thumb-shadow: 0 0 0 0.125rem #0f0f0f;
+
+  accent-color: var(--primary);
+}
+
+input[type="range"].mari-local-music-volume-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--range-fill-color) 0%,
+    var(--range-fill-color) var(--range-progress),
+    var(--range-track-color) var(--range-progress),
+    var(--range-track-color) 100%
+  );
+}
+
+input[type="range"].mari-local-music-volume-slider::-moz-range-track {
+  background: var(--range-track-color);
+}
+
+input[type="range"].mari-local-music-volume-slider::-moz-range-progress {
+  background: var(--range-fill-color);
+}
+
+input[type="range"].mari-local-music-volume-slider::-webkit-slider-thumb {
+  background: var(--range-thumb-color);
+}
+
+input[type="range"].mari-local-music-volume-slider::-moz-range-thumb {
+  background: var(--range-thumb-color);
+}
+
 @font-face {
   font-family: "Straight Quotes";
   src:

@@ -28,6 +28,7 @@ export const generateRequestSchema = z.object({
   chatId: z.string(),
   userMessage: z.string().nullable().default(null),
   regenerateMessageId: z.string().nullable().default(null),
+  continueMessageId: z.string().nullable().default(null),
   connectionId: z.string().nullable().default(null),
 
   impersonate: z.boolean().optional().default(false),
@@ -58,7 +59,7 @@ export const generateRequestSchema = z.object({
   debugMode: z.boolean().optional().default(false),
   trimIncompleteModelOutput: z.boolean().optional().default(false),
   musicPlayerEnabled: z.boolean().optional().default(true),
-  musicPlayerSource: z.enum(["spotify", "youtube"]).optional().default("spotify"),
+  musicPlayerSource: z.enum(["spotify", "youtube", "custom"]).optional().default("spotify"),
   attachments: z
     .array(
       z.object({

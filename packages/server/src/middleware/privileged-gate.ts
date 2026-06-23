@@ -40,7 +40,8 @@ export function requirePrivilegedAccess(
   if (!getAdminSecret()) {
     reply.status(403).send({
       error: "ADMIN_SECRET is required for privileged APIs",
-      message: "Set ADMIN_SECRET and send it in the X-Admin-Secret header.",
+      message:
+        "Set ADMIN_SECRET=<secret> in the server .env and send the same value in the X-Admin-Secret header.",
     });
     return false;
   }

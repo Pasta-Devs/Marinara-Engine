@@ -32,7 +32,7 @@ export type ConversationMessageStyle = "classic" | "bubble";
 export type HudPosition = "top" | "left" | "right";
 export type TrackerPanelSide = "left" | "right";
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
-export type MusicPlayerSource = "spotify" | "youtube";
+export type MusicPlayerSource = "spotify" | "youtube" | "custom";
 export const TRACKER_TEMPERATURE_UNITS = ["celsius", "fahrenheit"] as const;
 export type TrackerTemperatureUnit = (typeof TRACKER_TEMPERATURE_UNITS)[number];
 export const TRACKER_PANEL_SIZE_PROFILES = ["compact", "standard", "expanded"] as const;
@@ -441,6 +441,8 @@ interface UIState {
   gameTextSpeed: number;
   /** Delay in ms between auto-advancing narration segments when auto-play is enabled. */
   gameAutoPlayDelay: number;
+  /** When true, image generation requests are sent one at a time for providers that reject concurrent jobs. */
+  queueImageGenerationRequests: boolean;
   /** When true, generated game image prompts are shown for review before provider calls are sent. */
   reviewImagePromptsBeforeSend: boolean;
   imageBackgroundWidth: number;
@@ -491,6 +493,8 @@ interface UIState {
   youtubePlayerEnabled: boolean;
   /** User-set YouTube player volume (0–100). The DJ can also steer this. */
   youtubePlayerVolume: number;
+  /** User-set local Custom music player volume (0–100). The DJ can also steer this. */
+  localMusicPlayerVolume: number;
   /** Mobile Spotify widget collapsed state. */
   spotifyMobileWidgetCollapsed: boolean;
   /** Mobile Spotify widget position in viewport pixels. */
@@ -547,6 +551,7 @@ interface UIState {
   convoNotificationSound: boolean;
   rpNotificationSound: boolean;
   gameNotificationSound: boolean;
+  notificationSoundsOnlyWhenUnfocused: boolean;
   conversationBrowserNotifications: boolean;
 
   // ── Custom Conversation Prompt ──
@@ -709,6 +714,7 @@ interface UIState {
   setGameDialogueDisplayMode: (v: GameDialogueDisplayMode) => void;
   setGameTextSpeed: (v: number) => void;
   setGameAutoPlayDelay: (v: number) => void;
+  setQueueImageGenerationRequests: (v: boolean) => void;
   setReviewImagePromptsBeforeSend: (v: boolean) => void;
   setImageBackgroundDimensions: (width: number, height: number) => void;
   setImageIllustrationDimensions: (width: number, height: number) => void;
@@ -741,6 +747,7 @@ interface UIState {
   setSpotifyPlayerEnabled: (v: boolean) => void;
   setYoutubePlayerEnabled: (v: boolean) => void;
   setYoutubePlayerVolume: (v: number) => void;
+  setLocalMusicPlayerVolume: (v: number) => void;
   setSpotifyMobileWidgetCollapsed: (v: boolean) => void;
   setSpotifyMobileWidgetPosition: (position: FloatingWidgetPosition) => void;
   setIntuitiveSwipeNavigation: (v: boolean) => void;
@@ -769,6 +776,7 @@ interface UIState {
   setConvoNotificationSound: (v: boolean) => void;
   setRpNotificationSound: (v: boolean) => void;
   setGameNotificationSound: (v: boolean) => void;
+  setNotificationSoundsOnlyWhenUnfocused: (v: boolean) => void;
   setConversationBrowserNotifications: (v: boolean) => void;
   setCustomConversationPrompt: (v: string | null) => void;
   setScheduleGenerationPreferences: (v: string) => void;
@@ -898,6 +906,7 @@ export function pickSyncedSettings(state: UIState) {
     gameDialogueDisplayMode: state.gameDialogueDisplayMode,
     gameTextSpeed: state.gameTextSpeed,
     gameAutoPlayDelay: state.gameAutoPlayDelay,
+    queueImageGenerationRequests: state.queueImageGenerationRequests,
     reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
     imageBackgroundWidth: state.imageBackgroundWidth,
     imageBackgroundHeight: state.imageBackgroundHeight,
@@ -934,6 +943,7 @@ export function pickSyncedSettings(state: UIState) {
     spotifyPlayerEnabled: state.spotifyPlayerEnabled,
     youtubePlayerEnabled: state.youtubePlayerEnabled,
     youtubePlayerVolume: state.youtubePlayerVolume,
+    localMusicPlayerVolume: state.localMusicPlayerVolume,
     spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
     spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
     intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
@@ -971,6 +981,7 @@ export function pickSyncedSettings(state: UIState) {
     convoNotificationSound: state.convoNotificationSound,
     rpNotificationSound: state.rpNotificationSound,
     gameNotificationSound: state.gameNotificationSound,
+    notificationSoundsOnlyWhenUnfocused: state.notificationSoundsOnlyWhenUnfocused,
     conversationBrowserNotifications: state.conversationBrowserNotifications,
     customConversationPrompt: state.customConversationPrompt,
     scheduleGenerationPreferences: state.scheduleGenerationPreferences,
@@ -1052,6 +1063,7 @@ export const useUIStore = create<UIState>()(
       gameDialogueDisplayMode: "classic" as GameDialogueDisplayMode,
       gameTextSpeed: 50,
       gameAutoPlayDelay: 3000,
+      queueImageGenerationRequests: true,
       reviewImagePromptsBeforeSend: false,
       imageBackgroundWidth: 1280,
       imageBackgroundHeight: 720,
@@ -1088,6 +1100,7 @@ export const useUIStore = create<UIState>()(
       spotifyPlayerEnabled: false,
       youtubePlayerEnabled: true,
       youtubePlayerVolume: 70,
+      localMusicPlayerVolume: 70,
       spotifyMobileWidgetCollapsed: true,
       spotifyMobileWidgetPosition: { x: 16, y: 96 },
       intuitiveSwipeNavigation: false,
@@ -1116,6 +1129,7 @@ export const useUIStore = create<UIState>()(
       convoNotificationSound: true,
       rpNotificationSound: true,
       gameNotificationSound: true,
+      notificationSoundsOnlyWhenUnfocused: false,
       conversationBrowserNotifications: false,
       customConversationPrompt: null,
       scheduleGenerationPreferences: "",
@@ -1568,6 +1582,7 @@ export const useUIStore = create<UIState>()(
       setGameDialogueDisplayMode: (v) => set({ gameDialogueDisplayMode: v }),
       setGameTextSpeed: (v) => set({ gameTextSpeed: Math.max(1, Math.min(100, v)) }),
       setGameAutoPlayDelay: (v) => set({ gameAutoPlayDelay: Math.max(200, Math.min(10000, Math.round(v))) }),
+      setQueueImageGenerationRequests: (v) => set({ queueImageGenerationRequests: v }),
       setReviewImagePromptsBeforeSend: (v) => set({ reviewImagePromptsBeforeSend: v }),
       setImageBackgroundDimensions: (width, height) =>
         set({
@@ -1618,14 +1633,16 @@ export const useUIStore = create<UIState>()(
           youtubePlayerEnabled: v && state.musicPlayerSource === "youtube",
         })),
       setMusicPlayerSource: (v) =>
-        set((state) => ({
+        set({
+          musicPlayerEnabled: true,
           musicPlayerSource: v,
-          spotifyPlayerEnabled: state.musicPlayerEnabled && v === "spotify",
-          youtubePlayerEnabled: state.musicPlayerEnabled && v === "youtube",
-        })),
+          spotifyPlayerEnabled: v === "spotify",
+          youtubePlayerEnabled: v === "youtube",
+        }),
       setSpotifyPlayerEnabled: (v) => set({ spotifyPlayerEnabled: v }),
       setYoutubePlayerEnabled: (v) => set({ youtubePlayerEnabled: v }),
       setYoutubePlayerVolume: (v) => set({ youtubePlayerVolume: Math.max(0, Math.min(100, Math.round(v))) }),
+      setLocalMusicPlayerVolume: (v) => set({ localMusicPlayerVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setSpotifyMobileWidgetCollapsed: (v) => set({ spotifyMobileWidgetCollapsed: v }),
       setSpotifyMobileWidgetPosition: (position) =>
         set({
@@ -1719,6 +1736,7 @@ export const useUIStore = create<UIState>()(
       setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
       setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
       setGameNotificationSound: (v) => set({ gameNotificationSound: v }),
+      setNotificationSoundsOnlyWhenUnfocused: (v) => set({ notificationSoundsOnlyWhenUnfocused: v }),
       setConversationBrowserNotifications: (v) => set({ conversationBrowserNotifications: v }),
       setCustomConversationPrompt: (v) => set({ customConversationPrompt: v }),
       setScheduleGenerationPreferences: (v) => set({ scheduleGenerationPreferences: v }),
@@ -1807,7 +1825,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 62,
+      version: 65,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2157,6 +2175,18 @@ export const useUIStore = create<UIState>()(
         if (version <= 41 && persisted.gameNotificationSound === undefined) {
           persisted.gameNotificationSound = true;
         }
+        // v62 -> v63: optional focus-aware notification sounds.
+        if (version <= 62 && persisted.notificationSoundsOnlyWhenUnfocused === undefined) {
+          persisted.notificationSoundsOnlyWhenUnfocused = false;
+        }
+        // v63 -> v64: add the offline Custom music player volume.
+        if (version <= 63 && typeof persisted.localMusicPlayerVolume !== "number") {
+          persisted.localMusicPlayerVolume = 70;
+        }
+        // v64 -> v65: queue image generation requests by default for provider compatibility.
+        if (version <= 64 && persisted.queueImageGenerationRequests === undefined) {
+          persisted.queueImageGenerationRequests = true;
+        }
         // v42 -> v44: reconcile parallel v43 UI preference additions.
         if (version <= 43 && persisted.youtubePlayerEnabled === undefined) {
           persisted.youtubePlayerEnabled = true;
@@ -2172,7 +2202,11 @@ export const useUIStore = create<UIState>()(
         if (version <= 44) {
           const spotifyEnabled = persisted.spotifyPlayerEnabled === true;
           const youtubeEnabled = persisted.youtubePlayerEnabled !== false;
-          if (persisted.musicPlayerSource !== "spotify" && persisted.musicPlayerSource !== "youtube") {
+          if (
+            persisted.musicPlayerSource !== "spotify" &&
+            persisted.musicPlayerSource !== "youtube" &&
+            persisted.musicPlayerSource !== "custom"
+          ) {
             persisted.musicPlayerSource = spotifyEnabled ? "spotify" : "youtube";
           }
           if (persisted.musicPlayerEnabled === undefined) {
@@ -2316,6 +2350,7 @@ export const useUIStore = create<UIState>()(
         gameDialogueDisplayMode: state.gameDialogueDisplayMode,
         gameTextSpeed: state.gameTextSpeed,
         gameAutoPlayDelay: state.gameAutoPlayDelay,
+        queueImageGenerationRequests: state.queueImageGenerationRequests,
         reviewImagePromptsBeforeSend: state.reviewImagePromptsBeforeSend,
         imageBackgroundWidth: state.imageBackgroundWidth,
         imageBackgroundHeight: state.imageBackgroundHeight,
@@ -2352,6 +2387,7 @@ export const useUIStore = create<UIState>()(
         spotifyPlayerEnabled: state.spotifyPlayerEnabled,
         youtubePlayerEnabled: state.youtubePlayerEnabled,
         youtubePlayerVolume: state.youtubePlayerVolume,
+        localMusicPlayerVolume: state.localMusicPlayerVolume,
         spotifyMobileWidgetCollapsed: state.spotifyMobileWidgetCollapsed,
         spotifyMobileWidgetPosition: state.spotifyMobileWidgetPosition,
         intuitiveSwipeNavigation: state.intuitiveSwipeNavigation,
@@ -2395,6 +2431,7 @@ export const useUIStore = create<UIState>()(
         convoNotificationSound: state.convoNotificationSound,
         rpNotificationSound: state.rpNotificationSound,
         gameNotificationSound: state.gameNotificationSound,
+        notificationSoundsOnlyWhenUnfocused: state.notificationSoundsOnlyWhenUnfocused,
         conversationBrowserNotifications: state.conversationBrowserNotifications,
         customConversationPrompt: state.customConversationPrompt,
         scheduleGenerationPreferences: state.scheduleGenerationPreferences,

@@ -8,6 +8,7 @@ import { toast, type ExternalToast } from "sonner";
 import { api } from "../lib/api-client";
 import { formatAgentFailuresToast, toAgentFailure, type AgentFailure } from "../lib/agent-failures";
 import { chatBackgroundMetadataToUrl } from "../lib/backgrounds";
+import { formatGenerationParameterError } from "../lib/generation-parameter-errors";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
 import { agentKeys } from "./use-agents";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
@@ -37,8 +38,9 @@ type RetryAgentsFn = (chatId: string, agentTypes: string[], options?: RetryAgent
 
 /** Show a persistent, copyable error toast and log to console */
 function showError(msg: string, options?: Pick<ExternalToast, "action">) {
+  const formatted = formatGenerationParameterError(msg);
   console.error("[Generation]", msg);
-  toast.error(msg, { duration: 15000, ...options });
+  toast.error(formatted, { duration: 15000, ...options });
 }
 
 function showAgentFailuresError(failures: AgentFailure[], onRetry?: () => void) {
@@ -387,7 +389,8 @@ import { characterKeys } from "./use-characters";
 import { connectionKeys } from "./use-connections";
 import { lorebookKeys } from "./use-lorebooks";
 import { presetKeys } from "./use-presets";
-import { playNotificationPing } from "../lib/notification-sound";
+import { playConfiguredNotificationPing } from "../lib/notification-sound";
+import { messageHasPendingPostProcessing } from "../lib/chat-message-extra";
 import { stripGmTagsKeepReadables } from "../lib/game-tag-parser";
 import type { APIConnection, Chat, GameMap, Message } from "@marinara-engine/shared";
 
@@ -888,6 +891,8 @@ export function useGenerate() {
   const clearCyoaChoices = useAgentStore((s) => s.clearCyoaChoices);
   const setYoutubePlay = useAgentStore((s) => s.setYoutubePlay);
   const setYoutubeVolume = useAgentStore((s) => s.setYoutubeVolume);
+  const setLocalMusicPlay = useAgentStore((s) => s.setLocalMusicPlay);
+  const setLocalMusicVolume = useAgentStore((s) => s.setLocalMusicVolume);
   const enqueuePendingCardUpdate = useAgentStore((s) => s.enqueuePendingCardUpdate);
   const enqueuePendingAgentWriteApproval = useAgentStore((s) => s.enqueuePendingAgentWriteApproval);
   const setFailedAgentFailures = useAgentStore((s) => s.setFailedAgentFailures);
@@ -901,6 +906,7 @@ export function useGenerate() {
       lorebookIds?: string[];
       userMessage?: string;
       regenerateMessageId?: string;
+      continueMessageId?: string;
       impersonate?: boolean;
       autonomous?: boolean;
       autonomousIntentKey?: string;
@@ -957,7 +963,9 @@ export function useGenerate() {
         clearFailedAgentTypes();
         setRegenerateMessageId(params.regenerateMessageId ?? null);
       }
-      console.warn("[Generate] Starting generation for chat:", params.chatId);
+      if (useUIStore.getState().debugMode) {
+        console.warn("[Generate] Starting generation for chat:", params.chatId);
+      }
 
       // A stale in-flight message refetch can overwrite the saved assistant
       // message after it is upserted into the cache. Cancel early so the
@@ -1049,7 +1057,8 @@ export function useGenerate() {
       const transportStreaming = useUIStore.getState().enableStreaming;
       const streamingEnabled = transportStreaming;
       const chatModeForGeneration = getCachedChatMode(qc, params.chatId);
-      const shouldDisplayRawStream = chatModeForGeneration !== "conversation" || !!params.regenerateMessageId;
+      const shouldDisplayRawStream =
+        chatModeForGeneration !== "conversation" || !!params.regenerateMessageId || !!params.continueMessageId;
       const leadingSpeakerPrefixFilter = createLeadingSpeakerPrefixFilter([
         ...getCachedChatSpeakerNames(qc, params.chatId),
         ...(params.mentionedCharacterNames ?? []),
@@ -1375,17 +1384,18 @@ export function useGenerate() {
                 durationMs: number;
               };
 
-              // Always log agent results to console for visibility (use warn so it shows even if Info is filtered)
-              if (result.success) {
-                console.warn(
-                  `[Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
-                  result.data,
-                );
-              } else {
-                console.warn(
-                  `[Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
-                  result.data,
-                );
+              if (debugMode) {
+                if (result.success) {
+                  console.warn(
+                    `[Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
+                    result.data,
+                  );
+                } else {
+                  console.warn(
+                    `[Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
+                    result.data,
+                  );
+                }
               }
 
               if (result.success) {
@@ -1470,6 +1480,30 @@ export function useGenerate() {
                     setYoutubePlay({ searchQuery: d.searchQuery.trim(), mood: (d.mood as string) ?? "" });
                   }
                 }
+
+                // Drive the embedded Custom local player from the agent's exact asset pick.
+                if (result.resultType === "local_music_control") {
+                  const d = result.data as Record<string, unknown>;
+                  const action = d.action as string;
+                  if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
+                    setLocalMusicVolume(Math.max(0, Math.min(100, d.volume)));
+                  }
+                  const path = typeof d.path === "string" ? d.path.trim() : "";
+                  if (action === "play" && path) {
+                    const trackName = typeof d.trackName === "string" ? d.trackName.trim() : "";
+                    const fallbackTitle =
+                      path
+                        .split("/")
+                        .pop()
+                        ?.replace(/\.[^.]+$/, "")
+                        .replace(/[-_]+/g, " ") || "Local track";
+                    setLocalMusicPlay({
+                      path,
+                      title: trackName || fallbackTitle,
+                      mood: (d.mood as string) ?? "",
+                    });
+                  }
+                }
               }
 
               // Character card updates are never applied automatically — enqueue
@@ -1503,11 +1537,13 @@ export function useGenerate() {
               if (result.success && result.agentType === "quest" && result.data) {
                 const qd = result.data as Record<string, unknown>;
                 const updates = Array.isArray(qd.updates) ? qd.updates : [];
-                console.warn(`[Agent] Quest data:`, qd);
-                console.warn(`[Agent] Quest updates: ${updates.length} update(s)`, updates);
+                if (debugMode) {
+                  console.warn(`[Agent] Quest data:`, qd);
+                  console.warn(`[Agent] Quest updates: ${updates.length} update(s)`, updates);
+                }
                 if (updates.length > 0) {
                   const cur = useGameStateStore.getState().current;
-                  console.warn(`[Agent] Quest merge — current gameState:`, cur);
+                  if (debugMode) console.warn(`[Agent] Quest merge — current gameState:`, cur);
                   const existing = cur?.playerStats ?? {
                     stats: [],
                     attributes: null,
@@ -1518,9 +1554,9 @@ export function useGenerate() {
                   };
                   const questMerge = applyQuestUpdatesToPlayerStats(existing, updates);
                   const quests = questMerge.quests;
-                  console.warn(`[Agent] Quest merge result — activeQuests:`, quests);
+                  if (debugMode) console.warn(`[Agent] Quest merge result — activeQuests:`, quests);
                   applyGameStatePatchToStore(params.chatId, { playerStats: questMerge.playerStats });
-                } else {
+                } else if (debugMode) {
                   console.warn(`[Agent] Quest agent returned success but 0 updates — data shape:`, Object.keys(qd));
                 }
               }
@@ -1630,9 +1666,10 @@ export function useGenerate() {
                   const soundOn = isRpMode
                     ? useUIStore.getState().rpNotificationSound
                     : useUIStore.getState().convoNotificationSound;
-                  if (soundOn) {
-                    playNotificationPing();
-                  }
+                  playConfiguredNotificationPing(
+                    soundOn && !messageHasPendingPostProcessing(previousGroupMessage),
+                    useUIStore.getState().notificationSoundsOnlyWhenUnfocused,
+                  );
                 }
                 // Reset the stream buffer for the new character
                 fullBuffer = "";
@@ -1669,7 +1706,7 @@ export function useGenerate() {
             case "game_state":
             case "game_state_patch": {
               const patch = event.data as Record<string, unknown>;
-              console.warn(`[Generate] ${event.type} received:`, patch);
+              if (debugMode) console.warn(`[Generate] ${event.type} received:`, patch);
               if (!isActiveChat()) break;
               discardPendingGameStatePatch(params.chatId);
               applyGameStatePatchToStore(params.chatId, patch, gameStatePatchAnchor);
@@ -1860,7 +1897,7 @@ export function useGenerate() {
               // Once an ordinary roleplay stream is saved, the durable message
               // should own the transcript even if post-generation agents
               // (Illustrator, Spotify, etc.) are still running.
-              if (params.regenerateMessageId || !streamingEnabled) {
+              if (params.regenerateMessageId || params.continueMessageId || !streamingEnabled) {
                 upsertPersistedMessages(qc, params.chatId, [savedMessage]);
               } else if (shouldDisplayRawStream && !isGameGeneration) {
                 await waitForTypewriterDrain();
@@ -2226,8 +2263,9 @@ export function useGenerate() {
           // persisted active-swipe row after generation-time SSE patches.
           await refreshVisibleGameStateAfterGeneration(params.chatId);
         }
-        if (isGameGeneration && sawDoneEvent && receivedContent && useUIStore.getState().gameNotificationSound) {
-          playNotificationPing();
+        if (isGameGeneration && sawDoneEvent && receivedContent) {
+          const uiState = useUIStore.getState();
+          playConfiguredNotificationPing(uiState.gameNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused);
           gameTurnLoadedSoundPlayed = true;
         }
         // Re-sort sidebar so this chat floats to the top
@@ -2270,9 +2308,7 @@ export function useGenerate() {
             : isRp
               ? uiState.rpNotificationSound
               : uiState.convoNotificationSound;
-          if (soundEnabled) {
-            playNotificationPing();
-          }
+          playConfiguredNotificationPing(soundEnabled, uiState.notificationSoundsOnlyWhenUnfocused);
         }
         // Only clean up global streaming state if this generation still
         // "owns" it. We check AbortController identity rather than chatId
@@ -2282,7 +2318,11 @@ export function useGenerate() {
         const stillOwner = stillOwnerAtCleanupStart;
         const partialContent = normalizeLineBreakSpacing(fullBuffer + pendingText).trim();
         const unpersistedPartialMessage: Message | null =
-          receivedContent && persistedMessages.size === 0 && partialContent && !params.regenerateMessageId
+          receivedContent &&
+          persistedMessages.size === 0 &&
+          partialContent &&
+          !params.regenerateMessageId &&
+          !params.continueMessageId
             ? {
                 id: `__partial_${params.chatId}_${Date.now()}`,
                 chatId: params.chatId,
@@ -2362,7 +2402,9 @@ export function useGenerate() {
         // Always notify game surface that generation completed for this chat.
         // Dispatched unconditionally — GameSurface uses lastProcessedMsgRef
         // to prevent duplicate processing.
-        console.warn("[use-generate] dispatching generation-complete for chat:", params.chatId);
+        if (useUIStore.getState().debugMode) {
+          console.warn("[use-generate] dispatching generation-complete for chat:", params.chatId);
+        }
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
 
         // Auto-translate newly generated assistant messages if enabled
@@ -2446,6 +2488,8 @@ export function useGenerate() {
       clearCyoaChoices,
       setYoutubePlay,
       setYoutubeVolume,
+      setLocalMusicPlay,
+      setLocalMusicVolume,
       enqueuePendingCardUpdate,
       enqueuePendingAgentWriteApproval,
       clearFailedAgentTypes,
@@ -2486,13 +2530,14 @@ export function useGenerate() {
         let trackerPatchCount = 0;
         let spriteChangeReceived = false;
         const failedRetryFailures: Array<ReturnType<typeof toAgentFailure>> = [];
+        const retryDebugMode = useUIStore.getState().debugMode;
         for await (const event of api.streamEvents(
           "/generate/retry-agents",
           {
             chatId,
             agentTypes,
             streaming: useUIStore.getState().enableStreaming,
-            debugMode: useUIStore.getState().debugMode,
+            debugMode: retryDebugMode,
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
             musicPlayerSource: useUIStore.getState().musicPlayerSource,
             lorebookKeeperBackfill: options?.lorebookKeeperBackfill === true,
@@ -2520,17 +2565,18 @@ export function useGenerate() {
               };
               agentResultCount += 1;
 
-              // Log agent results (same as main generate handler)
-              if (result.success) {
-                console.warn(
-                  `[Retry Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
-                  result.data,
-                );
-              } else {
-                console.warn(
-                  `[Retry Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
-                  result.data,
-                );
+              if (retryDebugMode) {
+                if (result.success) {
+                  console.warn(
+                    `[Retry Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
+                    result.data,
+                  );
+                } else {
+                  console.warn(
+                    `[Retry Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
+                    result.data,
+                  );
+                }
               }
 
               if (result.success) {
@@ -2607,6 +2653,28 @@ export function useGenerate() {
                     setYoutubePlay({ searchQuery: d.searchQuery.trim(), mood: (d.mood as string) ?? "" });
                   }
                 }
+                if (result.resultType === "local_music_control" && isActiveChat()) {
+                  const d = result.data as Record<string, unknown>;
+                  const action = d.action as string;
+                  if (typeof d.volume === "number" && Number.isFinite(d.volume)) {
+                    setLocalMusicVolume(Math.max(0, Math.min(100, d.volume)));
+                  }
+                  const path = typeof d.path === "string" ? d.path.trim() : "";
+                  if (action === "play" && path) {
+                    const trackName = typeof d.trackName === "string" ? d.trackName.trim() : "";
+                    const fallbackTitle =
+                      path
+                        .split("/")
+                        .pop()
+                        ?.replace(/\.[^.]+$/, "")
+                        .replace(/[-_]+/g, " ") || "Local track";
+                    setLocalMusicPlay({
+                      path,
+                      title: trackName || fallbackTitle,
+                      mood: (d.mood as string) ?? "",
+                    });
+                  }
+                }
                 if (result.resultType === "background_change") {
                   const bg = result.data as { chosen?: string | null };
                   if (bg.chosen) {
@@ -2672,7 +2740,7 @@ export function useGenerate() {
             case "game_state":
             case "game_state_patch": {
               const patch = event.data as Record<string, unknown>;
-              console.warn(`[Retry] ${event.type} received:`, patch);
+              if (retryDebugMode) console.warn(`[Retry] ${event.type} received:`, patch);
               if (patch && Object.keys(patch).length > 0) trackerPatchCount += 1;
               if (!isActiveChat()) break;
               discardPendingGameStatePatch(chatId);
@@ -2778,6 +2846,8 @@ export function useGenerate() {
       setCyoaChoices,
       setYoutubePlay,
       setYoutubeVolume,
+      setLocalMusicPlay,
+      setLocalMusicVolume,
       setFailedAgentFailures,
       setProcessing,
       qc,
@@ -2916,6 +2986,17 @@ function formatAgentBubble(agentType: string, agentName: string, data: unknown):
       const display = typeof d.display === "string" ? d.display.trim() : "";
       if (action === "none") return mood ? `🎵 Keeping current track — ${mood}` : "🎵 Keeping current track";
       if (action === "play") {
+        const localPath = typeof d.path === "string" ? d.path.trim() : "";
+        if (localPath) {
+          const trackName = typeof d.trackName === "string" ? d.trackName.trim() : "";
+          const fallbackTitle =
+            localPath
+              .split("/")
+              .pop()
+              ?.replace(/\.[^.]+$/, "")
+              .replace(/[-_]+/g, " ") || localPath;
+          return `🎵 ${trackName || fallbackTitle}${mood ? ` — ${mood}` : ""}`;
+        }
         // Support both array and singular formats
         const trackNames: string[] = Array.isArray(d.trackNames)
           ? (d.trackNames as string[])

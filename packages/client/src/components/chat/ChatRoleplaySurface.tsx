@@ -33,11 +33,13 @@ import {
   ChevronUp,
   ArrowRightLeft,
   User,
+  X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { getConnectedChatDisplayName } from "../../lib/chat-display";
-import { playNotificationPing } from "../../lib/notification-sound";
+import { playConfiguredNotificationPing } from "../../lib/notification-sound";
+import { messageHasPendingPostProcessing } from "../../lib/chat-message-extra";
 import { getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../lib/transcript-render-window";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -54,12 +56,16 @@ import {
   ChatToolbarButton,
   ChatToolbarMenu,
   getChatToolbarButtonClass,
+  readChatToolbarFloatingPanelAnchor,
+  type ChatToolbarFloatingPanelAnchor,
 } from "./ChatToolbarControls";
 import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
 import {
+  ROLEPLAY_POPOVER_CLOSE_BUTTON,
+  ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
   ROLEPLAY_POPOVER_SCROLL_AREA,
   ROLEPLAY_POPOVER_SHELL,
   ROLEPLAY_POPOVER_TITLE,
@@ -553,9 +559,19 @@ function ActiveContextLinksButton({
     "flex min-w-0 items-center gap-1.5 rounded-md bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)] ring-1 ring-[var(--marinara-chat-chrome-panel-divider)]";
   const activeContextContent = (
     <>
-      <div className={cn(ROLEPLAY_POPOVER_TITLE, "px-2 pb-1")}>
-        <BookOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-        Active Context
+      <div className="flex items-center gap-2 px-2 pb-1">
+        <div className={cn(ROLEPLAY_POPOVER_TITLE, "min-w-0 flex-1")}>
+          <BookOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+          <span className="truncate">Active Context</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className={cn(ROLEPLAY_POPOVER_CLOSE_BUTTON, "-my-1 shrink-0")}
+          aria-label="Close active context"
+        >
+          <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
+        </button>
       </div>
       <div className="space-y-1">
         {characterIds.map((id, index) => (
@@ -825,7 +841,10 @@ function AuthorNotesButton({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [mobileFrame, setMobileFrame] = useState<MobileFloatingPanelFrame | null>(null);
+  const [desktopAnchor, setDesktopAnchor] = useState<ChatToolbarFloatingPanelAnchor>(null);
   const compact = useUIStore((s) => s.centerCompact);
+  const isMobileViewport = useIsMobileToolbarViewport();
+  const useMobilePanel = mobilePanel && isMobileViewport;
 
   useEffect(() => {
     if (!open || !renderPanel) return;
@@ -839,7 +858,7 @@ function AuthorNotesButton({
   }, [onOpenChange, open, renderPanel]);
 
   useLayoutEffect(() => {
-    if (!open || !renderPanel || !mobilePanel) {
+    if (!open || !renderPanel || !useMobilePanel) {
       setMobileFrame(null);
       return;
     }
@@ -851,7 +870,22 @@ function AuthorNotesButton({
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [mobilePanel, open, renderPanel]);
+  }, [open, renderPanel, useMobilePanel]);
+
+  useLayoutEffect(() => {
+    if (!open || !renderPanel || useMobilePanel) {
+      setDesktopAnchor(null);
+      return;
+    }
+    const update = () => setDesktopAnchor(readChatToolbarFloatingPanelAnchor(buttonRef.current));
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open, renderPanel, useMobilePanel]);
 
   useEffect(() => {
     if (!open || !renderPanel) return;
@@ -879,7 +913,8 @@ function AuthorNotesButton({
         ref={buttonRef}
         onClick={() => {
           const nextOpen = !open;
-          setMobileFrame(nextOpen && mobilePanel ? getMobileFloatingPanelFrame(buttonRef.current, 288) : null);
+          setMobileFrame(nextOpen && useMobilePanel ? getMobileFloatingPanelFrame(buttonRef.current, 288) : null);
+          setDesktopAnchor(nextOpen && !useMobilePanel ? readChatToolbarFloatingPanelAnchor(buttonRef.current) : null);
           onOpenChange(nextOpen);
         }}
         className={getChatToolbarButtonClass({ active: hasNotes, compact, open })}
@@ -889,7 +924,7 @@ function AuthorNotesButton({
       </button>
       {open &&
         renderPanel &&
-        (mobilePanel ? (
+        (useMobilePanel ? (
           mobileFrame &&
           createPortal(
             <div
@@ -915,7 +950,6 @@ function AuthorNotesButton({
                   <AuthorNotesPanel
                     chatId={chatId}
                     chatMeta={chatMeta}
-                    isMobile={mobilePanel}
                     onClose={() => onOpenChange(false)}
                   />
               </Suspense>
@@ -923,23 +957,35 @@ function AuthorNotesButton({
             document.body,
           )
         ) : (
-          <div ref={panelRef} className={cn(ROLEPLAY_POPOVER_SHELL, "absolute right-0 top-full z-50 mt-2 w-72 p-3")}>
-            <Suspense
-              fallback={
-                <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                  Loading author's notes...
-                </div>
-              }
+          desktopAnchor &&
+          createPortal(
+            <div
+              ref={panelRef}
+              data-chat-floating-panel
+              className={cn(ROLEPLAY_POPOVER_SHELL, "fixed z-[70] w-72 p-3")}
+              style={{
+                right: `${desktopAnchor.right}px`,
+                top: `${desktopAnchor.top}px`,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
             >
-              <AuthorNotesPanel
-                chatId={chatId}
-                chatMeta={chatMeta}
-                isMobile={mobilePanel}
-                onClose={() => onOpenChange(false)}
-              />
-            </Suspense>
-          </div>
+              <Suspense
+                fallback={
+                  <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
+                    <Loader2 size="0.75rem" className="animate-spin" />
+                    Loading author's notes...
+                  </div>
+                }
+              >
+                <AuthorNotesPanel
+                  chatId={chatId}
+                  chatMeta={chatMeta}
+                  onClose={() => onOpenChange(false)}
+                />
+              </Suspense>
+            </div>,
+            document.body,
+          )
         ))}
     </div>
   );
@@ -1173,6 +1219,7 @@ export function ChatRoleplaySurface({
   const initialLoadSettledRef = useRef(false);
   const prevMessageKeysRef = useRef<Set<string>>(new Set());
   const seenMessageKeysRef = useRef(roleplayNotificationSeenKeys);
+  const pendingPostProcessingKeysRef = useRef<Set<string>>(new Set());
   const topChromeRef = useRef<HTMLDivElement>(null);
   const inputChromeRef = useRef<HTMLDivElement>(null);
   const [chromeHeights, setChromeHeights] = useState({ top: 0, bottom: 0 });
@@ -1215,6 +1262,7 @@ export function ChatRoleplaySurface({
   useEffect(() => {
     initialLoadSettledRef.current = false;
     prevMessageKeysRef.current = new Set();
+    pendingPostProcessingKeysRef.current = new Set();
     setAuthorNotesOpenOwner(null);
   }, [activeChatId]);
 
@@ -1285,11 +1333,20 @@ export function ChatRoleplaySurface({
   useEffect(() => {
     if (!messages) return;
     const currentKeys = new Set(messages.map((message) => `${activeChatId}:${message.id}`));
+    const pendingPostProcessingKeys = new Set(
+      messages
+        .filter((message) => messageHasPendingPostProcessing(message))
+        .map((message) => `${activeChatId}:${message.id}`),
+    );
 
     if (!initialLoadSettledRef.current) {
       if (currentKeys.size > 0) {
         prevMessageKeysRef.current = currentKeys;
-        for (const key of currentKeys) seenMessageKeysRef.current.add(key);
+        for (const message of messages) {
+          const key = `${activeChatId}:${message.id}`;
+          if (!pendingPostProcessingKeys.has(key)) seenMessageKeysRef.current.add(key);
+        }
+        pendingPostProcessingKeysRef.current = pendingPostProcessingKeys;
         initialLoadSettledRef.current = true;
       }
       return;
@@ -1303,20 +1360,28 @@ export function ChatRoleplaySurface({
 
     for (const message of messages) {
       const key = `${activeChatId}:${message.id}`;
-      if (prevKeys.has(key) || seenKeys.has(key)) continue;
+      const isPendingPostProcessing = pendingPostProcessingKeys.has(key);
+      if (isPendingPostProcessing) continue;
+      const wasPendingPostProcessing = pendingPostProcessingKeysRef.current.has(key);
+      if ((prevKeys.has(key) || seenKeys.has(key)) && !wasPendingPostProcessing) continue;
 
       const createdAt = new Date(message.createdAt).getTime();
-      const isFresh = Number.isFinite(createdAt) && now - createdAt < FRESHNESS_MS;
+      const isFresh = wasPendingPostProcessing || (Number.isFinite(createdAt) && now - createdAt < FRESHNESS_MS);
       if (isFresh && message.role === "assistant") {
         hasNewAssistantMessage = true;
       }
     }
 
-    for (const key of currentKeys) seenKeys.add(key);
+    for (const message of messages) {
+      const key = `${activeChatId}:${message.id}`;
+      if (!pendingPostProcessingKeys.has(key)) seenKeys.add(key);
+    }
     prevMessageKeysRef.current = currentKeys;
+    pendingPostProcessingKeysRef.current = pendingPostProcessingKeys;
 
-    if (hasNewAssistantMessage && useUIStore.getState().rpNotificationSound) {
-      playNotificationPing();
+    if (hasNewAssistantMessage) {
+      const uiState = useUIStore.getState();
+      playConfiguredNotificationPing(uiState.rpNotificationSound, uiState.notificationSoundsOnlyWhenUnfocused);
     }
   }, [activeChatId, messages]);
 

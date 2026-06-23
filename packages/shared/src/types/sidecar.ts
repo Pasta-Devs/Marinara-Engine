@@ -257,6 +257,8 @@ export interface SidecarModelInfo {
   filename: string;
   /** Approximate file size in bytes. */
   sizeBytes: number;
+  /** Exact downloadable file size in bytes, when known. Used for validation only. */
+  downloadSizeBytes?: number;
   /** Approximate RAM needed at runtime. */
   ramBytes: number;
   /** HuggingFace download URL when the preset downloads a local file directly. */
@@ -309,6 +311,7 @@ export const SIDECAR_MODELS: SidecarModelInfo[] = [
     label: "Gemma 4 E2B — Q8 (Best Quality)",
     filename: "gemma-4-E2B-it-Q8_0.gguf",
     sizeBytes: 5_400_000_000,
+    downloadSizeBytes: 5_048_350_848,
     ramBytes: 5_800_000_000,
     downloadUrl: "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q8_0.gguf",
   },
@@ -318,6 +321,7 @@ export const SIDECAR_MODELS: SidecarModelInfo[] = [
     label: "Gemma 4 E2B — Q4_K_M (Smaller, Faster)",
     filename: "gemma-4-E2B-it-Q4_K_M.gguf",
     sizeBytes: 3_200_000_000,
+    downloadSizeBytes: 3_106_736_256,
     ramBytes: 3_600_000_000,
     downloadUrl: "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf",
   },

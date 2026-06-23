@@ -53,11 +53,12 @@ Character macros resolve against the current character in single-character chats
 
 | Macro | Resolves to |
 | --- | --- |
-| `{{date}}` | Current real date in `YYYY-MM-DD` format. |
-| `{{time}}` | Current real time in `HH:MM` format. |
-| `{{datetime}}` | Current ISO timestamp. |
+| `{{date}}` | Current real date in the user's browser timezone, in `YYYY-MM-DD` format. |
+| `{{time}}` | Current real time in the user's browser timezone, in `HH:MM` format. |
+| `{{datetime}}` | Current timestamp in the user's browser timezone. |
 | `{{isotime}}` | Alias for `{{datetime}}`. |
-| `{{weekday}}` | Current weekday name. |
+| `{{weekday}}` | Current weekday name in the user's browser timezone. |
+| `{{timezone}}` | User/browser timezone, such as `Europe/Warsaw`. |
 
 ## Random
 

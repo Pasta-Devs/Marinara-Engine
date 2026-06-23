@@ -44,13 +44,6 @@ export function announceChatToolbarAction() {
 export function readChatToolbarFloatingPanelAnchor(trigger: HTMLElement | null): ChatToolbarFloatingPanelAnchor {
   if (!trigger || typeof window === "undefined") return null;
 
-  const center = trigger.closest<HTMLElement>('[data-component="CenterContent"]');
-  const centerRect = center?.getBoundingClientRect();
-  const chatUiInsetRight = Number.parseFloat(
-    window.getComputedStyle(document.documentElement).getPropertyValue("--mari-chat-ui-inset-right"),
-  );
-  const rightBoundary =
-    centerRect?.right ?? window.innerWidth - (Number.isFinite(chatUiInsetRight) ? chatUiInsetRight : 0);
   const overflowMenu = trigger.closest<HTMLElement>(CHAT_TOOLBAR_OVERFLOW_MENU_SELECTOR);
 
   if (window.innerWidth < 768) {
@@ -59,14 +52,14 @@ export function readChatToolbarFloatingPanelAnchor(trigger: HTMLElement | null):
     const minimumPanelWidth = Math.min(160, Math.max(96, window.innerWidth - CHAT_FLOATING_PANEL_PADDING * 2));
     const rightEdge = Math.max(CHAT_FLOATING_PANEL_PADDING + minimumPanelWidth, menuRect.left - CHAT_FLOATING_PANEL_PADDING);
     return {
-      right: Math.max(CHAT_FLOATING_PANEL_PADDING, Math.round(rightBoundary - rightEdge)),
+      right: Math.max(CHAT_FLOATING_PANEL_PADDING, window.innerWidth - rightEdge),
       top: Math.max(CHAT_FLOATING_PANEL_PADDING, Math.round(menuRect.top)),
     };
   }
 
   const rect = trigger.getBoundingClientRect();
   return {
-    right: Math.max(12, Math.round(rightBoundary - rect.right)),
+    right: Math.max(0, window.innerWidth - rect.right),
     top: Math.max(56, Math.round(rect.bottom + 8)),
   };
 }
@@ -188,12 +181,9 @@ export function ChatToolbarMenu({
   useLayoutEffect(() => {
     if (!open || !btnRef.current) return;
     const rect = btnRef.current.getBoundingClientRect();
-    const center = btnRef.current.closest<HTMLElement>('[data-component="CenterContent"]');
-    const centerRect = center?.getBoundingClientRect();
-    const rightBoundary = centerRect?.right ?? window.innerWidth;
     setPos({
       top: rect.bottom + 4,
-      right: Math.max(8, rightBoundary - rect.right),
+      right: Math.max(8, window.innerWidth - rect.right),
     });
   }, [open]);
 
@@ -240,7 +230,7 @@ export function ChatToolbarMenu({
               ref={popRef}
               data-chat-toolbar-overflow-menu
               className={cn(CHAT_TOOLBAR_OVERFLOW_MENU_CLASS, "fixed z-[9999]")}
-              style={{ top: pos.top, right: `calc(var(--mari-chat-ui-inset-right, 0px) + ${pos.right}px)` }}
+              style={{ top: pos.top, right: pos.right }}
               onPointerDownCapture={announceChatToolbarAction}
             >
               {resolvedMobileChildren}
