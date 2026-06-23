@@ -957,7 +957,9 @@ export function useGenerate() {
         clearFailedAgentTypes();
         setRegenerateMessageId(params.regenerateMessageId ?? null);
       }
-      console.warn("[Generate] Starting generation for chat:", params.chatId);
+      if (useUIStore.getState().debugMode) {
+        console.warn("[Generate] Starting generation for chat:", params.chatId);
+      }
 
       // A stale in-flight message refetch can overwrite the saved assistant
       // message after it is upserted into the cache. Cancel early so the
@@ -1375,17 +1377,18 @@ export function useGenerate() {
                 durationMs: number;
               };
 
-              // Always log agent results to console for visibility (use warn so it shows even if Info is filtered)
-              if (result.success) {
-                console.warn(
-                  `[Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
-                  result.data,
-                );
-              } else {
-                console.warn(
-                  `[Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
-                  result.data,
-                );
+              if (debugMode) {
+                if (result.success) {
+                  console.warn(
+                    `[Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
+                    result.data,
+                  );
+                } else {
+                  console.warn(
+                    `[Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
+                    result.data,
+                  );
+                }
               }
 
               if (result.success) {
@@ -1503,11 +1506,13 @@ export function useGenerate() {
               if (result.success && result.agentType === "quest" && result.data) {
                 const qd = result.data as Record<string, unknown>;
                 const updates = Array.isArray(qd.updates) ? qd.updates : [];
-                console.warn(`[Agent] Quest data:`, qd);
-                console.warn(`[Agent] Quest updates: ${updates.length} update(s)`, updates);
+                if (debugMode) {
+                  console.warn(`[Agent] Quest data:`, qd);
+                  console.warn(`[Agent] Quest updates: ${updates.length} update(s)`, updates);
+                }
                 if (updates.length > 0) {
                   const cur = useGameStateStore.getState().current;
-                  console.warn(`[Agent] Quest merge — current gameState:`, cur);
+                  if (debugMode) console.warn(`[Agent] Quest merge — current gameState:`, cur);
                   const existing = cur?.playerStats ?? {
                     stats: [],
                     attributes: null,
@@ -1518,9 +1523,9 @@ export function useGenerate() {
                   };
                   const questMerge = applyQuestUpdatesToPlayerStats(existing, updates);
                   const quests = questMerge.quests;
-                  console.warn(`[Agent] Quest merge result — activeQuests:`, quests);
+                  if (debugMode) console.warn(`[Agent] Quest merge result — activeQuests:`, quests);
                   applyGameStatePatchToStore(params.chatId, { playerStats: questMerge.playerStats });
-                } else {
+                } else if (debugMode) {
                   console.warn(`[Agent] Quest agent returned success but 0 updates — data shape:`, Object.keys(qd));
                 }
               }
@@ -1669,7 +1674,7 @@ export function useGenerate() {
             case "game_state":
             case "game_state_patch": {
               const patch = event.data as Record<string, unknown>;
-              console.warn(`[Generate] ${event.type} received:`, patch);
+              if (debugMode) console.warn(`[Generate] ${event.type} received:`, patch);
               if (!isActiveChat()) break;
               discardPendingGameStatePatch(params.chatId);
               applyGameStatePatchToStore(params.chatId, patch, gameStatePatchAnchor);
@@ -2362,7 +2367,7 @@ export function useGenerate() {
         // Always notify game surface that generation completed for this chat.
         // Dispatched unconditionally — GameSurface uses lastProcessedMsgRef
         // to prevent duplicate processing.
-        console.warn("[use-generate] dispatching generation-complete for chat:", params.chatId);
+        if (debugMode) console.warn("[use-generate] dispatching generation-complete for chat:", params.chatId);
         window.dispatchEvent(new CustomEvent("marinara:generation-complete", { detail: { chatId: params.chatId } }));
 
         // Auto-translate newly generated assistant messages if enabled
@@ -2486,13 +2491,14 @@ export function useGenerate() {
         let trackerPatchCount = 0;
         let spriteChangeReceived = false;
         const failedRetryFailures: Array<ReturnType<typeof toAgentFailure>> = [];
+        const retryDebugMode = useUIStore.getState().debugMode;
         for await (const event of api.streamEvents(
           "/generate/retry-agents",
           {
             chatId,
             agentTypes,
             streaming: useUIStore.getState().enableStreaming,
-            debugMode: useUIStore.getState().debugMode,
+            debugMode: retryDebugMode,
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
             musicPlayerSource: useUIStore.getState().musicPlayerSource,
             lorebookKeeperBackfill: options?.lorebookKeeperBackfill === true,
@@ -2520,17 +2526,18 @@ export function useGenerate() {
               };
               agentResultCount += 1;
 
-              // Log agent results (same as main generate handler)
-              if (result.success) {
-                console.warn(
-                  `[Retry Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
-                  result.data,
-                );
-              } else {
-                console.warn(
-                  `[Retry Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
-                  result.data,
-                );
+              if (retryDebugMode) {
+                if (result.success) {
+                  console.warn(
+                    `[Retry Agent] ✓ ${result.agentName} (${result.agentType}) — ${(result.durationMs / 1000).toFixed(1)}s`,
+                    result.data,
+                  );
+                } else {
+                  console.warn(
+                    `[Retry Agent] ✗ ${result.agentName} (${result.agentType}) — ${result.error ?? "unknown error"}`,
+                    result.data,
+                  );
+                }
               }
 
               if (result.success) {
@@ -2672,7 +2679,7 @@ export function useGenerate() {
             case "game_state":
             case "game_state_patch": {
               const patch = event.data as Record<string, unknown>;
-              console.warn(`[Retry] ${event.type} received:`, patch);
+              if (retryDebugMode) console.warn(`[Retry] ${event.type} received:`, patch);
               if (patch && Object.keys(patch).length > 0) trackerPatchCount += 1;
               if (!isActiveChat()) break;
               discardPendingGameStatePatch(chatId);

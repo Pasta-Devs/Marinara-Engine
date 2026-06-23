@@ -13,6 +13,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Fixed
 
 - Fixed Conversation mode presence/status dots in the chat list and in-chat avatar overlay so they stay synced with live manual overrides and schedule-derived statuses instead of waiting for the next generation snapshot.
+- Fixed Conversation mode generation lag spikes by making repeated streaming indicator clears no-op and moving heavy generation/agent console payload logging behind Debug Mode.
 - Fixed local-provider textual tool calls so local models, including Gemma-style delimiter output, can be repaired into supported tool calls without rewriting unrelated assistant text.
 - Fixed Roleplay rolling summary compression so summarized tail messages can be auto-hidden from future AI context while preserving the summary ownership metadata needed to restore or inspect them.
 - Fixed summary auto-hide storage rollback reporting so a failed compensating undo is surfaced as a compound failure instead of looking like a clean all-or-nothing rollback.
