@@ -74,4 +74,4 @@ Android-specific rule:
 ## Frontend Changes
 
 - **Read `packages/client/.instructions.md` before editing any client code.** It is the authoritative reference for architecture, patterns, conventions, and common-mistake avoidance.
-- Validate with `pnpm check` (TypeScript + ESLint). There is no automated test suite.
+- Validate with `pnpm check` (TypeScript + ESLint). Use `pnpm regression:prompt` for prompt/lorebook/macro regressions and `pnpm smoke:ui` for the browser shell smoke suite when the change touches those areas.

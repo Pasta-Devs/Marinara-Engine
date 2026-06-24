@@ -7,6 +7,7 @@ interface SwipeJumpControlProps {
   activeSwipeIndex: number;
   swipeCount: number;
   onSetActiveSwipe: (index: number) => void;
+  onCreateNextSwipe?: () => void;
   className?: string;
   buttonClassName?: string;
   inputClassName?: string;
@@ -18,6 +19,7 @@ export function SwipeJumpControl({
   activeSwipeIndex,
   swipeCount,
   onSetActiveSwipe,
+  onCreateNextSwipe,
   className,
   buttonClassName,
   inputClassName,
@@ -32,6 +34,8 @@ export function SwipeJumpControl({
   if (swipeCount <= 1) return null;
 
   const inputId = `swipe-jump-${messageId}`;
+  const hasNextSwipe = activeSwipeIndex < swipeCount - 1;
+  const canCreateNextSwipe = !hasNextSwipe && Boolean(onCreateNextSwipe);
 
   const setSwipeByDisplayIndex = (displayIndex: number) => {
     const nextIndex = Math.min(Math.max(displayIndex, 1), swipeCount) - 1;
@@ -98,11 +102,15 @@ export function SwipeJumpControl({
         className={buttonClassName}
         onClick={(event) => {
           event.stopPropagation();
-          setSwipeByDisplayIndex(activeSwipeIndex + 2);
+          if (hasNextSwipe) {
+            setSwipeByDisplayIndex(activeSwipeIndex + 2);
+            return;
+          }
+          onCreateNextSwipe?.();
         }}
-        disabled={activeSwipeIndex >= swipeCount - 1}
-        aria-label="Next swipe"
-        title="Next swipe"
+        disabled={!hasNextSwipe && !canCreateNextSwipe}
+        aria-label={hasNextSwipe ? "Next swipe" : "Generate next swipe"}
+        title={hasNextSwipe ? "Next swipe" : "Generate next swipe"}
       >
         <ChevronRight size={iconSize} />
       </button>

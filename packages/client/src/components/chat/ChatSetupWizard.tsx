@@ -34,6 +34,7 @@ import { api } from "../../lib/api-client";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
 import { getAgentRunIntervalMeta } from "../../lib/agent-cadence";
 import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
+import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import {
   BUILT_IN_AGENTS,
@@ -1581,14 +1582,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                   .mutateAsync({ role: "assistant", content: firstMes, characterId: charId })
                   .then(async (msg) => {
                     if (msg?.id && altGreetings.length > 0) {
-                      for (const greeting of altGreetings) {
-                        if (greeting.trim()) {
-                          await api.post(`/chats/${chat.id}/messages/${msg.id}/swipes`, {
-                            content: greeting,
-                            silent: true,
-                          });
-                        }
-                      }
+                      await addSilentGreetingSwipes(chat.id, msg.id, altGreetings);
                       queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
                     }
                   })

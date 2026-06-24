@@ -1790,7 +1790,7 @@ const SESSION_SUMMARY_MIN_TRANSCRIPT_CHARS = 256;
 const GAME_SETUP_MIN_OUTPUT_TOKENS = 16_384;
 const SESSION_CONCLUSION_MIN_OUTPUT_TOKENS = 8192;
 const CAMPAIGN_PROGRESSION_MIN_OUTPUT_TOKENS = SESSION_CONCLUSION_MIN_OUTPUT_TOKENS;
-const GAME_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
+const GAME_GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 const GAME_ASSET_GENERATION_TIMEOUT_MS = 220 * 1000;
 const GAME_ASSET_PORTRAIT_CONCURRENCY = 2;
 const gameAssetGenerationLocks = new Map<string, Promise<void>>();
@@ -1802,6 +1802,29 @@ class GameGenerationTimeoutError extends Error {
   }
 }
 
+function createGameGenerationWatchdog(controller: AbortController, label: string, timeoutMs: number) {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutError = new GameGenerationTimeoutError(label, timeoutMs);
+  let rejectTimeout: (error: GameGenerationTimeoutError) => void = () => {};
+  const promise = new Promise<never>((_, reject) => {
+    rejectTimeout = reject;
+  });
+  const reset = () => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      controller.abort(timeoutError);
+      rejectTimeout(timeoutError);
+    }, timeoutMs);
+    timeout.unref?.();
+  };
+  const clear = () => {
+    if (timeout) clearTimeout(timeout);
+  };
+
+  reset();
+  return { promise, reset, clear };
+}
+
 async function runGameChatComplete(
   provider: { chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> },
   messages: ChatMessage[],
@@ -1810,7 +1833,6 @@ async function runGameChatComplete(
   timeoutMs = GAME_GENERATION_TIMEOUT_MS,
 ): Promise<ChatCompletionResult> {
   const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
   const parentSignal = options.signal;
   const abortFromParent = () => controller.abort(parentSignal?.reason);
   if (parentSignal?.aborted) {
@@ -1819,21 +1841,25 @@ async function runGameChatComplete(
     parentSignal?.addEventListener("abort", abortFromParent, { once: true });
   }
 
-  const timeoutError = new GameGenerationTimeoutError(label, timeoutMs);
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      controller.abort(timeoutError);
-      reject(timeoutError);
-    }, timeoutMs);
-  });
+  const watchdog = createGameGenerationWatchdog(controller, label, timeoutMs);
+  const onToken = options.onToken;
+  const watchedOptions: ChatOptions = {
+    ...options,
+    signal: controller.signal,
+    ...(onToken
+      ? {
+          onToken: async (chunk: string) => {
+            watchdog.reset();
+            await onToken(chunk);
+          },
+        }
+      : {}),
+  };
 
   try {
-    return await Promise.race([
-      provider.chatComplete(messages, { ...options, signal: controller.signal }),
-      timeoutPromise,
-    ]);
+    return await Promise.race([provider.chatComplete(messages, watchedOptions), watchdog.promise]);
   } finally {
-    if (timeout) clearTimeout(timeout);
+    watchdog.clear();
     parentSignal?.removeEventListener("abort", abortFromParent);
   }
 }
@@ -1846,7 +1872,6 @@ async function runGameChatStream(
   timeoutMs = GAME_GENERATION_TIMEOUT_MS,
 ): Promise<string> {
   const controller = new AbortController();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
   const parentSignal = options.signal;
   const abortFromParent = () => controller.abort(parentSignal?.reason);
   if (parentSignal?.aborted) {
@@ -1855,42 +1880,42 @@ async function runGameChatStream(
     parentSignal?.addEventListener("abort", abortFromParent, { once: true });
   }
 
-  const timeoutError = new GameGenerationTimeoutError(label, timeoutMs);
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      controller.abort(timeoutError);
-      reject(timeoutError);
-    }, timeoutMs);
-  });
+  const watchdog = createGameGenerationWatchdog(controller, label, timeoutMs);
   const streamPromise = (async () => {
     let streamed = "";
     for await (const chunk of provider.chat(messages, { ...options, signal: controller.signal, stream: true })) {
+      watchdog.reset();
       streamed += chunk;
     }
     return streamed;
   })();
 
   try {
-    return await Promise.race([streamPromise, timeoutPromise]);
+    return await Promise.race([streamPromise, watchdog.promise]);
   } finally {
-    if (timeout) clearTimeout(timeout);
+    watchdog.clear();
     parentSignal?.removeEventListener("abort", abortFromParent);
   }
 }
 
-function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number, label: string): AbortSignal {
+function createResponseAbortTracker(reply: FastifyReply, timeoutMs: number, label: string) {
   const controller = new AbortController();
   let finished = false;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   const abort = (reason: Error) => {
     if (!controller.signal.aborted) controller.abort(reason);
   };
-  const timeout = setTimeout(() => {
-    abort(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)} seconds`));
-  }, timeoutMs);
-  timeout.unref?.();
+  const touch = () => {
+    if (controller.signal.aborted) return;
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      abort(new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)} seconds`));
+    }, timeoutMs);
+    timeout.unref?.();
+  };
 
   const cleanup = () => {
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
     reply.raw.off("finish", onFinish);
     reply.raw.off("close", onClose);
   };
@@ -1905,7 +1930,12 @@ function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number, label
 
   reply.raw.once("finish", onFinish);
   reply.raw.once("close", onClose);
-  return controller.signal;
+  touch();
+  return { signal: controller.signal, touch };
+}
+
+function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number, label: string): AbortSignal {
+  return createResponseAbortTracker(reply, timeoutMs, label).signal;
 }
 
 function abortReasonAsError(signal: AbortSignal, fallback: string): Error {
@@ -4038,11 +4068,12 @@ export async function gameRoutes(app: FastifyInstance) {
       maxTokens: Math.max(GAME_SETUP_MIN_OUTPUT_TOKENS, setupGenerationParameters?.maxTokens ?? 0),
       maxTokensOverride: conn.maxTokensOverride,
     });
-    const setupAbortSignal = createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Game setup");
+    const setupAbort = createResponseAbortTracker(reply, GAME_GENERATION_TIMEOUT_MS, "Game setup");
     const setupOverrides: Partial<ChatOptions> = {
       maxTokens: setupMaxTokens,
-      stream: false,
-      signal: setupAbortSignal,
+      stream: streaming,
+      signal: setupAbort.signal,
+      ...(streaming ? { onToken: () => setupAbort.touch() } : {}),
     };
     if (!setupGenerationParameters?.reasoningEffort) {
       setupOverrides.reasoningEffort = undefined;

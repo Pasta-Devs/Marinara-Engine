@@ -59,23 +59,22 @@ export function NewChatConnectionGate({ mode, onClose }: NewChatConnectionGatePr
         name: `New ${label}`,
         mode,
         characterIds: [],
-        connectionId,
+        connectionId: starred?.settings.connectionId ?? connectionId,
+        promptPresetId: starred?.settings.promptPresetId ?? undefined,
       },
       {
-        onSuccess: async (chat) => {
+        onSuccess: (chat) => {
           const store = useChatStore.getState();
           store.setPendingNewChatMode(null);
           if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
           store.setActiveChatId(chat.id);
-          if (starred) {
-            try {
-              await applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id });
-            } catch {
-              /* non-fatal — chat still opens with system defaults */
-            }
-          }
           store.setShouldOpenSettings(true);
           store.setShouldOpenWizard(true);
+          if (starred) {
+            void applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id }).catch(() => {
+              /* non-fatal — chat still opens with system defaults */
+            });
+          }
         },
       },
     );

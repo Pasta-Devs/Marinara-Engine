@@ -6,6 +6,9 @@ import path from "path";
 
 const ENABLE_SOURCE_MAPS = process.env.VITE_ENABLE_SOURCEMAP === "true";
 const PWA_DISABLED = Boolean(process.env.SKIP_PWA);
+const DEV_SERVER_PORT = Number.parseInt(process.env.VITE_PORT ?? "5173", 10);
+const DEV_SERVER_HOST = process.env.VITE_HOST?.trim() || undefined;
+const DEV_SERVER_OPEN = process.env.VITE_OPEN_BROWSER !== "false" && process.env.AUTO_OPEN_BROWSER !== "false";
 
 function manualChunks(id: string) {
   if (!id.includes("node_modules")) return undefined;
@@ -111,8 +114,9 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
-    open: true,
+    host: DEV_SERVER_HOST,
+    port: Number.isFinite(DEV_SERVER_PORT) ? DEV_SERVER_PORT : 5173,
+    open: DEV_SERVER_OPEN,
     proxy: {
       "/api": {
         target: `http://127.0.0.1:${process.env.PORT ?? 7860}`,

@@ -947,11 +947,12 @@ function AuthorNotesButton({
                   </div>
                 }
               >
-                  <AuthorNotesPanel
-                    chatId={chatId}
-                    chatMeta={chatMeta}
-                    onClose={() => onOpenChange(false)}
-                  />
+                <AuthorNotesPanel
+                  key={chatId}
+                  chatId={chatId}
+                  chatMeta={chatMeta}
+                  onClose={() => onOpenChange(false)}
+                />
               </Suspense>
             </div>,
             document.body,
@@ -978,6 +979,7 @@ function AuthorNotesButton({
                 }
               >
                 <AuthorNotesPanel
+                  key={chatId}
                   chatId={chatId}
                   chatMeta={chatMeta}
                   onClose={() => onOpenChange(false)}

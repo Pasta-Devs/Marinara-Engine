@@ -2240,6 +2240,24 @@ export async function chatsRoutes(app: FastifyInstance) {
     return storage.addSwipe(req.params.messageId, content, silent);
   });
 
+  // Add multiple swipes in one round trip. Used for alternate greetings during chat setup.
+  app.post<{ Params: { chatId: string; messageId: string } }>(
+    "/:chatId/messages/:messageId/swipes/bulk",
+    async (req) => {
+      const { contents, silent } = req.body as { contents?: unknown; silent?: boolean };
+      const normalized = Array.isArray(contents)
+        ? contents
+            .map((content) => (typeof content === "string" ? content.trim() : ""))
+            .filter((content) => content.length > 0)
+        : [];
+      const created: Array<{ id: string; index: number }> = [];
+      for (const content of normalized) {
+        created.push(await storage.addSwipe(req.params.messageId, content, silent ?? true));
+      }
+      return { swipes: created };
+    },
+  );
+
   // Delete a swipe without deleting the parent message
   app.delete<{ Params: { chatId: string; messageId: string; index: string } }>(
     "/:chatId/messages/:messageId/swipes/:index",

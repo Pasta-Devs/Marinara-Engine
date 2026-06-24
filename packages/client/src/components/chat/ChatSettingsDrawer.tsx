@@ -119,6 +119,7 @@ import {
 import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
 import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
+import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { useUIStore } from "../../stores/ui.store";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import {
@@ -1628,11 +1629,7 @@ export function ChatSettingsDrawer({
     });
     // Add alternate greetings as swipes on the first message
     if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
-      for (const greeting of firstMesConfirm.alternateGreetings) {
-        if (greeting.trim()) {
-          await api.post(`/chats/${chat.id}/messages/${msg.id}/swipes`, { content: greeting, silent: true });
-        }
-      }
+      await addSilentGreetingSwipes(chat.id, msg.id, firstMesConfirm.alternateGreetings);
       qc.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
     }
     setFirstMesConfirm(null);

@@ -576,12 +576,14 @@ export function ConversationMessageSwipes({
   activeSwipeIndex,
   swipeCount,
   onSetActiveSwipe,
+  onCreateNextSwipe,
   className,
 }: {
   messageId: string;
   activeSwipeIndex: number;
   swipeCount: number;
   onSetActiveSwipe: (index: number) => void;
+  onCreateNextSwipe?: () => void;
   className?: string;
 }) {
   return (
@@ -590,6 +592,7 @@ export function ConversationMessageSwipes({
       activeSwipeIndex={activeSwipeIndex}
       swipeCount={swipeCount}
       onSetActiveSwipe={onSetActiveSwipe}
+      onCreateNextSwipe={onCreateNextSwipe}
       className={cn(
         "inline-flex items-center gap-0.5 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-1.5 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]",
         className,

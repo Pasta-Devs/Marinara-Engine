@@ -322,6 +322,7 @@ export function ConversationMessageGrouped({
                 activeSwipeIndex={message.activeSwipeIndex}
                 swipeCount={swipeCount}
                 onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
+                onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
               />
             </div>
           )}

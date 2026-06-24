@@ -1,6 +1,6 @@
 {
   "name": "marinara-engine",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "private": true,
   "description": "AI Chat & Roleplay Frontend — Conversation, Roleplay, Visual Novel",
   "author": "Marianna",
@@ -26,6 +26,9 @@
     "clean:stale-client": "node ./scripts/clean-stale-client-artifacts.mjs",
     "impeccable:check": "node ./scripts/check-impeccable-context.mjs",
     "lint": "pnpm -r run lint",
+    "regression": "pnpm regression:prompt && pnpm smoke:ui",
+    "regression:prompt": "pnpm build:shared && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/prompt.regression.ts",
+    "smoke:ui": "playwright test -c playwright.config.ts",
     "test": "node ./scripts/check-windows-installer-layout.mjs && pnpm -r run test",
     "version:sync": "node ./scripts/sync-version.mjs",
     "version:check": "node ./scripts/check-version-drift.mjs",

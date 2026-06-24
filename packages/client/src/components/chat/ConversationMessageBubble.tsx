@@ -54,6 +54,8 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
     hasSwipes,
     swipeCount,
     onSetActiveSwipe,
+    canRegenerate,
+    onRegenerate,
     onImageOpen,
     onRemoveAttachment,
     translatedText,
@@ -278,6 +280,7 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
             activeSwipeIndex={message.activeSwipeIndex}
             swipeCount={swipeCount}
             onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
+            onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
           />
         </div>
       )}
