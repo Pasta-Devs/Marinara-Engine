@@ -7,16 +7,21 @@ interface DraftTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaEle
 
 /**
  * Textarea that buffers keystrokes in local state and only propagates the value
- * on blur. Mirrors {@link DraftNumberInput}: typing updates local state
- * instantly so the field stays responsive even when committing the value is
- * expensive (e.g. it round-trips through a per-chat metadata mutation that
- * re-renders a large settings tree), and the draft re-seeds whenever the
- * external value changes. An in-progress edit is also flushed on unmount so
- * closing the host (e.g. the chat settings drawer) before blurring does not
- * drop typed text.
+ * on blur, so the field stays responsive even when committing is expensive
+ * (e.g. it round-trips through a per-chat metadata mutation that re-renders a
+ * large settings tree).
+ *
+ * Follows the same draft/commit/focus-guard pattern as the sibling
+ * `ThinkingTagsInput`/`CustomParametersInput`: the draft re-seeds from `value`
+ * only while the field is unfocused, so an external write to the persisted value
+ * (a background metadata refresh, a chat switch) cannot clobber keystrokes the
+ * user is mid-typing. Like `DraftNumberInput` it commits on blur; it
+ * additionally flushes a pending edit on unmount so closing the host (e.g. the
+ * chat settings drawer) does not drop typed text.
  */
-export function DraftTextarea({ value, onCommit, onBlur, ...props }: DraftTextareaProps) {
+export function DraftTextarea({ value, onCommit, onFocus, onBlur, ...props }: DraftTextareaProps) {
   const [draft, setDraft] = useState(value);
+  const [focused, setFocused] = useState(false);
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const valueRef = useRef(value);
@@ -25,8 +30,8 @@ export function DraftTextarea({ value, onCommit, onBlur, ...props }: DraftTextar
   onCommitRef.current = onCommit;
 
   useEffect(() => {
-    setDraft(value);
-  }, [value]);
+    if (!focused) setDraft(value);
+  }, [focused, value]);
 
   const commit = () => {
     if (draftRef.current !== valueRef.current) onCommitRef.current(draftRef.current);
@@ -44,8 +49,13 @@ export function DraftTextarea({ value, onCommit, onBlur, ...props }: DraftTextar
       {...props}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
+      onFocus={(event) => {
+        setFocused(true);
+        onFocus?.(event);
+      }}
       onBlur={(event) => {
         commit();
+        setFocused(false);
         onBlur?.(event);
       }}
     />

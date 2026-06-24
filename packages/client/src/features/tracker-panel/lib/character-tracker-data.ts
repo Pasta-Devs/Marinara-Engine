@@ -22,8 +22,15 @@ export function getCharacterFeatureKey(character: PresentCharacter, index: numbe
  * with a plain `findIndex` by id therefore collapses every action onto the
  * first character that shares that id. Follow the same rule the other tracker
  * list mutations use (`findUniqueNamedIndex`): trust the id only when it
- * uniquely identifies one character, otherwise fall back to the rendered index
- * the UI already passed in.
+ * uniquely identifies one character.
+ *
+ * Resolution order:
+ * - exactly one id match → that index (reorder-safe);
+ * - the id was provided but no longer exists in live state → return -1 so the
+ *   caller drops the action, matching the previous `findIndex(...) < 0` guard
+ *   (the named character is gone; a positional write would hit the wrong row);
+ * - a duplicate (ambiguous) or absent id → fall back to the rendered index the
+ *   UI passed in.
  */
 export function resolveCharacterTargetIndex(
   liveCharacters: PresentCharacter[],
@@ -40,6 +47,9 @@ export function resolveCharacterTargetIndex(
       }
     }
     if (matchCount === 1) return matchIndex;
+    // Named character is gone from live state — drop rather than write to whatever
+    // now sits at the rendered index. Duplicate ids (matchCount > 1) fall through.
+    if (matchCount === 0) return -1;
   }
   return fallbackIndex >= 0 && fallbackIndex < liveCharacters.length ? fallbackIndex : -1;
 }
