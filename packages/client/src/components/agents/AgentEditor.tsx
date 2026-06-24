@@ -1395,6 +1395,25 @@ export function AgentEditor() {
   );
 
   const currentAgentType = dbConfig?.type ?? builtIn?.id ?? agentDetailId ?? "";
+  const defaultPromptTemplateById = useMemo(() => {
+    const defaultSettings = getDefaultBuiltInAgentSettings(currentAgentType);
+    return new Map(
+      normalizeAgentPromptTemplateOptions(defaultSettings.promptTemplates).map((option) => [option.id, option]),
+    );
+  }, [currentAgentType]);
+  const handleResetPromptTemplate = useCallback(
+    (id: string) => {
+      const defaultOption = defaultPromptTemplateById.get(id);
+      if (!defaultOption) return;
+      setLocalPromptTemplates((options) =>
+        options.map((option) =>
+          option.id === id ? { ...option, promptTemplate: defaultOption.promptTemplate } : option,
+        ),
+      );
+      markDirty();
+    },
+    [defaultPromptTemplateById, markDirty],
+  );
   const normalizedLocalPhase = normalizeAgentPhaseForType(currentAgentType, localPhase);
   const phaseMeta = PHASE_META[normalizedLocalPhase];
   const effectivePhase =
@@ -3393,46 +3412,64 @@ export function AgentEditor() {
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {localPromptTemplates.map((option, index) => (
-                    <div
-                      key={option.id}
-                      className="rounded-xl bg-[var(--secondary)]/70 p-3 ring-1 ring-[var(--border)]"
-                    >
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--background)] text-[0.6875rem] font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                          {index + 1}
-                        </span>
+                  {localPromptTemplates.map((option, index) => {
+                    const defaultPromptTemplate = defaultPromptTemplateById.get(option.id);
+                    const matchesDefaultPrompt =
+                      !!defaultPromptTemplate && option.promptTemplate === defaultPromptTemplate.promptTemplate;
+                    return (
+                      <div
+                        key={option.id}
+                        className="rounded-xl bg-[var(--secondary)]/70 p-3 ring-1 ring-[var(--border)]"
+                      >
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--background)] text-[0.6875rem] font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                            {index + 1}
+                          </span>
+                          <input
+                            value={option.name}
+                            onChange={(e) => handleUpdatePromptTemplate(option.id, { name: e.target.value })}
+                            className="min-w-0 flex-1 rounded-lg bg-[var(--background)] px-2.5 py-1.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                            placeholder="Option name"
+                          />
+                          {defaultPromptTemplate && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetPromptTemplate(option.id)}
+                              disabled={matchesDefaultPrompt}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--muted-foreground)]"
+                              title={
+                                matchesDefaultPrompt ? "Prompt already matches the default" : "Restore default prompt"
+                              }
+                            >
+                              <RotateCcw size="0.75rem" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePromptTemplate(option.id)}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                            title="Remove prompt option"
+                          >
+                            <Trash2 size="0.75rem" />
+                          </button>
+                        </div>
                         <input
-                          value={option.name}
-                          onChange={(e) => handleUpdatePromptTemplate(option.id, { name: e.target.value })}
-                          className="min-w-0 flex-1 rounded-lg bg-[var(--background)] px-2.5 py-1.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                          placeholder="Option name"
+                          value={option.description ?? ""}
+                          onChange={(e) => handleUpdatePromptTemplate(option.id, { description: e.target.value })}
+                          className="mb-2 w-full rounded-lg bg-[var(--background)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                          placeholder="Short description shown in Chat Settings"
                         />
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePromptTemplate(option.id)}
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                          title="Remove prompt option"
-                        >
-                          <Trash2 size="0.75rem" />
-                        </button>
+                        <MacroTextarea
+                          value={option.promptTemplate}
+                          onChange={(value) => handleUpdatePromptTemplate(option.id, { promptTemplate: value })}
+                          rows={7}
+                          title={option.name ? `${option.name} Prompt` : `Prompt Option ${index + 1}`}
+                          className="w-full resize-y rounded-lg bg-[var(--background)] px-3 py-2 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                          placeholder="Write the prompt template for this option…"
+                        />
                       </div>
-                      <input
-                        value={option.description ?? ""}
-                        onChange={(e) => handleUpdatePromptTemplate(option.id, { description: e.target.value })}
-                        className="mb-2 w-full rounded-lg bg-[var(--background)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                        placeholder="Short description shown in Chat Settings"
-                      />
-                      <MacroTextarea
-                        value={option.promptTemplate}
-                        onChange={(value) => handleUpdatePromptTemplate(option.id, { promptTemplate: value })}
-                        rows={7}
-                        title={option.name ? `${option.name} Prompt` : `Prompt Option ${index + 1}`}
-                        className="w-full resize-y rounded-lg bg-[var(--background)] px-3 py-2 font-mono text-xs leading-relaxed ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                        placeholder="Write the prompt template for this option…"
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

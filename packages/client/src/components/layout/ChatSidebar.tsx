@@ -618,20 +618,24 @@ export function ChatSidebar() {
         ? (presets.find((p) => p.mode === presetMode && p.isActive && !p.isDefault) ?? null)
         : null;
       createChat.mutate(
-        { name: `New ${MODE_CONFIG[mode]?.label ?? mode}`, mode, characterIds: [] },
         {
-          onSuccess: async (chat) => {
+          name: `New ${MODE_CONFIG[mode]?.label ?? mode}`,
+          mode,
+          characterIds: [],
+          connectionId: starred?.settings.connectionId ?? undefined,
+          promptPresetId: starred?.settings.promptPresetId ?? undefined,
+        },
+        {
+          onSuccess: (chat) => {
             setActiveChatId(chat.id);
             if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
-            if (starred) {
-              try {
-                await applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id });
-              } catch {
-                /* non-fatal — chat still opens with system defaults */
-              }
-            }
             useChatStore.getState().setShouldOpenSettings(true);
             useChatStore.getState().setShouldOpenWizard(true);
+            if (starred) {
+              void applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id }).catch(() => {
+                /* non-fatal — chat still opens with system defaults */
+              });
+            }
           },
         },
       );

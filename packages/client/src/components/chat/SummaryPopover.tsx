@@ -797,6 +797,7 @@ export function SummaryPopover({
   const content = (
     <div
       ref={panelRef}
+      data-chat-floating-panel
       onMouseDown={handlePanelMouseDown}
       onPointerDown={handlePanelPointerDown}
       className={cn(isMobile ? "fixed z-[9999]" : "absolute right-0 top-full z-[100] mt-1")}

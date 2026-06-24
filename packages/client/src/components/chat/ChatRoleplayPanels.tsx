@@ -255,7 +255,7 @@ export function AuthorNotesPanel({
       notes: (chatMeta.authorNotes as string) ?? "",
       depth: (chatMeta.authorNotesDepth as number) ?? 4,
     };
-  }, [chatMeta.authorNotes, chatMeta.authorNotesDepth]);
+  }, [chatId, chatMeta.authorNotes, chatMeta.authorNotesDepth]);
 
   // Outside-click closes the popover via mousedown, which unmounts the
   // textarea before its onBlur (the only save trigger) can fire. Flush

@@ -24,7 +24,7 @@ import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/u
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent } from "../../hooks/use-agents";
 import { useChatStore } from "../../stores/chat.store";
-import { useUIStore } from "../../stores/ui.store";
+import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
   BUILT_IN_AGENTS,
@@ -40,6 +40,7 @@ import {
   Check,
   Download,
   Search,
+  ArrowUpDown,
   Shuffle,
   ExternalLink,
   X,
@@ -56,6 +57,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { sortBasicPanelItems } from "../../lib/panel-sort";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import {
@@ -383,6 +385,8 @@ type ConnectionRowData = {
   maxParallelJobs?: number;
   claudeFastMode?: boolean | string;
   folderId?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 function connectionMatchesSearch(conn: ConnectionRowData, query: string) {
@@ -886,6 +890,8 @@ export function ConnectionsPanel() {
   const openModal = useUIStore((s) => s.openModal);
   const linkApiBannerDismissed = useUIStore((s) => s.linkApiBannerDismissed);
   const dismissLinkApiBanner = useUIStore((s) => s.dismissLinkApiBanner);
+  const sort = useUIStore((s) => s.connectionPanelSort);
+  const setSort = useUIStore((s) => s.setConnectionPanelSort);
 
   // Folder hooks
   const { data: folders } = useConnectionFolders();
@@ -909,6 +915,16 @@ export function ConnectionsPanel() {
     const query = search.trim().toLowerCase();
     return connectionsList.filter((connection) => connectionMatchesSearch(connection, query));
   }, [connectionsList, search]);
+  const sortedConnections = useMemo(
+    () =>
+      sortBasicPanelItems(
+        filteredConnections,
+        sort,
+        (connection) => connection.name,
+        (connection) => connection.createdAt || connection.updatedAt,
+      ),
+    [filteredConnections, sort],
+  );
   const searchActive = search.trim().length > 0;
 
   // Sorted folder list + local order for optimistic drag-to-reorder
@@ -926,7 +942,7 @@ export function ConnectionsPanel() {
   const { unfiledConnections, folderConnectionsMap } = useMemo(() => {
     const unfiled: ConnectionRowData[] = [];
     const map = new Map<string, ConnectionRowData[]>();
-    for (const c of filteredConnections) {
+    for (const c of sortedConnections) {
       const fid = c.folderId ?? null;
       if (fid && sortedFolders.some((f) => f.id === fid)) {
         const arr = map.get(fid) ?? [];
@@ -937,7 +953,7 @@ export function ConnectionsPanel() {
       }
     }
     return { unfiledConnections: unfiled, folderConnectionsMap: map };
-  }, [filteredConnections, sortedFolders]);
+  }, [sortedConnections, sortedFolders]);
 
   const handleCreateFolder = () => {
     createFolderMut.mutate({ name: getNextUnnamedFolderName(sortedFolders) });
@@ -1231,19 +1247,39 @@ export function ConnectionsPanel() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search
-          size="0.8125rem"
-          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-        />
-        <input
-          type="text"
-          placeholder="Search connections..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-        />
+      {/* Search + Sort */}
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <Search
+            size="0.8125rem"
+            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+          />
+          <input
+            type="text"
+            placeholder="Search connections..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ResourcePanelSort)}
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            title="Sort order"
+            aria-label="Sort connections"
+          >
+            <option value="name-asc">A-Z</option>
+            <option value="name-desc">Z-A</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+          </select>
+          <ArrowUpDown
+            size="0.625rem"
+            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-0.5">

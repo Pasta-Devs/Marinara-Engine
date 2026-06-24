@@ -1111,10 +1111,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     const url = `${this.baseUrl}/chat/completions`;
     const reasoning = this.isReasoningModel(options.model);
 
-    // When tools are present, default to non-streaming so the full tool_calls JSON arrives
-    // in one piece. Allow explicit stream: true to override — local backends (e.g. llama.cpp
-    // with --jinja + Gemma 4) produce delta.tool_calls more reliably in streaming mode.
-    const useStream = options.stream === true ? true : options.tools?.length ? false : !!options.onToken;
+    const useStream = options.stream ?? !!options.onToken;
 
     const formatted = this.formatMessages(messages, options.model);
     if (!formatted.some((m) => m.role !== "system" && m.role !== "developer")) {

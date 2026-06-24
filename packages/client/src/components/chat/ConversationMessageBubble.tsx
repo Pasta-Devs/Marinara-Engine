@@ -54,6 +54,8 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
     hasSwipes,
     swipeCount,
     onSetActiveSwipe,
+    canRegenerate,
+    onRegenerate,
     onImageOpen,
     onRemoveAttachment,
     translatedText,
@@ -271,13 +273,14 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
       </div>
 
       {/* Swipe controls — separate row so avatar never drifts */}
-      {!hideActions && hasSwipes && (
+      {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
         <div className={cn("mt-1", isUser ? "flex justify-end" : "pl-12")}>
           <ConversationMessageSwipes
             messageId={message.id}
             activeSwipeIndex={message.activeSwipeIndex}
             swipeCount={swipeCount}
             onSetActiveSwipe={(idx) => onSetActiveSwipe?.(message.id, idx)}
+            onCreateNextSwipe={canRegenerate && onRegenerate ? () => onRegenerate(message.id) : undefined}
           />
         </div>
       )}

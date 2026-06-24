@@ -1193,6 +1193,7 @@ export const ChatMessage = memo(function ChatMessage({
   const isHiddenFromAI = extra.hiddenFromAI === true;
   const thinking = extra.thinking as string | undefined;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
+  const canCreateNextSwipe = Boolean(onRegenerate && !isUser);
   const proseGuardianOriginalText =
     !isUser &&
     typeof extra.proseGuardianOriginalText === "string" &&
@@ -2242,12 +2243,13 @@ export const ChatMessage = memo(function ChatMessage({
             )}
 
             {/* Swipes */}
-            {hasSwipes && (
+            {(hasSwipes || canCreateNextSwipe) && (
               <SwipeJumpControl
                 messageId={message.id}
                 activeSwipeIndex={message.activeSwipeIndex}
                 swipeCount={swipeCount}
                 onSetActiveSwipe={handleSetActiveSwipe}
+                onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
                 className="px-1 text-[0.75rem] text-white/40"
                 buttonClassName="rounded-md p-[0.25em] transition-colors hover:bg-white/10 disabled:opacity-30"
                 inputClassName="border-white/10 bg-white/5 text-white/70 [color-scheme:dark]"
@@ -2692,12 +2694,13 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Swipes */}
-          {hasSwipes && (
+          {(hasSwipes || canCreateNextSwipe) && (
             <SwipeJumpControl
               messageId={message.id}
               activeSwipeIndex={message.activeSwipeIndex}
               swipeCount={swipeCount}
               onSetActiveSwipe={handleSetActiveSwipe}
+              onCreateNextSwipe={canCreateNextSwipe ? () => onRegenerate?.(message.id) : undefined}
               className="px-2 text-[0.75rem] text-[var(--muted-foreground)]"
               buttonClassName="rounded p-[0.25em] transition-colors hover:bg-[var(--accent)] disabled:opacity-30"
               iconSize={MESSAGE_SWIPE_ICON_SIZE}

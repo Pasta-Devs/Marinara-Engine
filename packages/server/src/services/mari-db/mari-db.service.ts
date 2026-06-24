@@ -2074,16 +2074,19 @@ export class MariDbService {
       case "messages": {
         const chatId = parsed.positionals[0];
         if (!chatId) throw new Error("Usage: mari chats messages <chat-id> [--limit <n>] [--tail]");
-        const limit = normalizeLimit(flagString(flags, "limit"), 20, 200);
+        const limitFlag = flagString(flags, "limit");
+        const limit = limitFlag !== undefined ? normalizeLimit(limitFlag, 20, 200) : null;
         const tail = hasFlag(flags, "tail");
         let messages = (await this.rawRows("messages")).filter((m) => m.chatId === chatId);
         messages.sort((a, b) => String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")));
-        messages = tail ? messages.slice(-limit) : messages.slice(0, limit);
+        if (limit !== null) {
+          messages = tail ? messages.slice(-limit) : messages.slice(0, limit);
+        }
         const result = messages.map((row) => ({
           id: row.id,
           role: row.role,
           characterId: row.characterId ?? null,
-          content: typeof row.content === "string" ? truncateStr(row.content, 500) : "",
+          content: typeof row.content === "string" ? row.content : "",
           createdAt: row.createdAt,
         }));
         return { ok: true, mode: "read", command: context.command, output: result };

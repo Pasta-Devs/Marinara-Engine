@@ -119,6 +119,7 @@ import {
 import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
 import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
+import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import { useUIStore } from "../../stores/ui.store";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import {
@@ -593,6 +594,13 @@ function getChatActiveLorebookIds(chat: Chat): string[] {
   return Array.isArray(activeIds) ? activeIds.filter((id): id is string => typeof id === "string") : [];
 }
 
+function getChatExcludedLorebookIds(chat: Chat): string[] {
+  const metadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+  const excludedIds =
+    metadata && typeof metadata === "object" ? (metadata as { excludedLorebookIds?: unknown }).excludedLorebookIds : [];
+  return Array.isArray(excludedIds) ? excludedIds.filter((id): id is string => typeof id === "string") : [];
+}
+
 export function ChatSettingsDrawer({
   chat,
   open,
@@ -828,11 +836,20 @@ export function ChatSettingsDrawer({
     const latestChat = qc.getQueryData<Chat>(chatKeys.detail(chat.id));
     return latestChat ? getChatActiveLorebookIds(latestChat) : [...activeLorebookIds];
   }, [activeLorebookIds, chat.id, qc]);
+  const excludedLorebookIds = useMemo<string[]>(
+    () => (Array.isArray(metadata.excludedLorebookIds) ? metadata.excludedLorebookIds : []),
+    [metadata.excludedLorebookIds],
+  );
+  const readLatestExcludedLorebookIds = useCallback(() => {
+    const latestChat = qc.getQueryData<Chat>(chatKeys.detail(chat.id));
+    return latestChat ? getChatExcludedLorebookIds(latestChat) : [...excludedLorebookIds];
+  }, [chat.id, excludedLorebookIds, qc]);
   const gameLorebookKeeperEnabled = metadata.gameLorebookKeeperEnabled === true;
   const gameLorebookKeeperLorebookId =
     typeof metadata.gameLorebookKeeperLorebookId === "string" ? metadata.gameLorebookKeeperLorebookId : null;
   const activeLorebooks = useMemo<ActiveLorebookView[]>(() => {
     const pinnedIds = new Set(activeLorebookIds);
+    const excludedIds = new Set(excludedLorebookIds);
     const lorebookList = (lorebooks ?? []) as Lorebook[];
 
     return lorebookList.flatMap((lorebook) => {
@@ -865,10 +882,13 @@ export function ChatSettingsDrawer({
         if (lorebook.chatId === chat.id && !reasons.includes("Chat")) reasons.push("Chat");
       }
 
-      return reasons.length > 0 ? [{ ...lorebook, activeReasons: reasons, isPinned }] : [];
+      return reasons.length > 0
+        ? [{ ...lorebook, activeReasons: reasons, isPinned, isExcluded: excludedIds.has(lorebook.id) }]
+        : [];
     });
   }, [
     activeLorebookIds,
+    excludedLorebookIds,
     chat.id,
     chat.personaId,
     chatCharIds,
@@ -1609,11 +1629,7 @@ export function ChatSettingsDrawer({
     });
     // Add alternate greetings as swipes on the first message
     if (msg?.id && firstMesConfirm.alternateGreetings.length > 0) {
-      for (const greeting of firstMesConfirm.alternateGreetings) {
-        if (greeting.trim()) {
-          await api.post(`/chats/${chat.id}/messages/${msg.id}/swipes`, { content: greeting, silent: true });
-        }
-      }
+      await addSilentGreetingSwipes(chat.id, msg.id, firstMesConfirm.alternateGreetings);
       qc.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
     }
     setFirstMesConfirm(null);
@@ -1920,10 +1936,15 @@ export function ChatSettingsDrawer({
     updateMeta.mutate({ id: chat.id, activeLorebookIds: current });
   };
 
-  const pinLorebookToChat = (lbId: string) => {
-    const current = readLatestActiveLorebookIds();
-    if (current.includes(lbId)) return;
-    updateMeta.mutate({ id: chat.id, activeLorebookIds: [...current, lbId] });
+  // Disable / re-enable an auto-activated (character/global/persona) lorebook for
+  // this chat. Unlike unpinning, this does not touch activeLorebookIds — it adds
+  // the book to excludedLorebookIds so the scope filter drops it before injection.
+  const setLorebookExcluded = (lbId: string, excluded: boolean) => {
+    const current = readLatestExcludedLorebookIds();
+    const has = current.includes(lbId);
+    if (excluded === has) return;
+    const next = excluded ? [...current, lbId] : current.filter((id) => id !== lbId);
+    updateMeta.mutate({ id: chat.id, excludedLorebookIds: next });
   };
 
   const hasSecretPlotMemory = (memory: Record<string, unknown> | null | undefined) => {
@@ -5106,9 +5127,9 @@ export function ChatSettingsDrawer({
               onLorebookTokenBudgetChange={(lorebookTokenBudget) =>
                 updateMeta.mutate({ id: chat.id, lorebookTokenBudget })
               }
-              onPinLorebook={pinLorebookToChat}
               onShowLorebookPickerChange={setShowLbPicker}
               onToggleLorebook={toggleLorebook}
+              onSetLorebookExcluded={setLorebookExcluded}
             />
           </div>
 

@@ -21,7 +21,7 @@ import { createLorebooksStorage } from "../../services/storage/lorebooks.storage
 import { createRegexScriptsStorage } from "../../services/storage/regex-scripts.storage.js";
 import { buildImpersonateInstruction } from "../../services/conversation/impersonate-prompt.js";
 import { processLorebooks } from "../../services/lorebook/index.js";
-import { resolveGameLorebookScopeExclusions } from "../../services/lorebook/game-lorebook-scope.js";
+import { resolveLorebookScopeExclusions } from "../../services/lorebook/game-lorebook-scope.js";
 import { injectAtDepth } from "../../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
 import { getLocalSidecarProvider } from "../../services/llm/local-sidecar.js";
@@ -683,7 +683,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       userMessage,
       attachments: body.attachments,
     });
-    const lorebookScopeExclusions = resolveGameLorebookScopeExclusions(chatMode, chatMeta);
+    const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
     const lorebookTokenBudget = resolveDryRunLorebookTokenBudget(chatMeta);
     if (!impersonate && userMessage.trim()) {
       chatMessages = [

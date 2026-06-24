@@ -32,7 +32,7 @@ import {
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
 import { useChatStore } from "../../stores/chat.store";
-import { useUIStore } from "../../stores/ui.store";
+import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
@@ -45,6 +45,7 @@ import {
   Check,
   Copy,
   Search,
+  ArrowUpDown,
   Code2,
   Hash,
   Star,
@@ -58,6 +59,7 @@ import {
   Upload,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { sortBasicPanelItems } from "../../lib/panel-sort";
 import { downloadJsonFile } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import { getFolderImportEntries } from "@marinara-engine/shared";
@@ -91,6 +93,8 @@ type PresetRow = {
   isDefault?: string | boolean;
   author?: string;
   sectionOrder?: string | string[];
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -211,6 +215,8 @@ export function PresetsPanel() {
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
   const openToolDetail = useUIStore((s) => s.openToolDetail);
+  const sort = useUIStore((s) => s.presetPanelSort);
+  const setSort = useUIStore((s) => s.setPresetPanelSort);
   const activeChat = useChatStore((s) => s.activeChat);
   const updateChat = useUpdateChat();
   const updateMetadata = useUpdateChatMetadata();
@@ -246,9 +252,19 @@ export function PresetsPanel() {
         (p.author ?? "").toLowerCase().includes(q),
     );
   }, [presets, search]);
+  const sortedPresets = useMemo(
+    () =>
+      sortBasicPanelItems(
+        filteredPresets,
+        sort,
+        (preset) => preset.name,
+        (preset) => preset.createdAt || preset.updatedAt,
+      ),
+    [filteredPresets, sort],
+  );
   const presetSearchActive = search.trim().length > 0;
 
-  const presetById = useMemo(() => new Map(filteredPresets.map((preset) => [preset.id, preset])), [filteredPresets]);
+  const presetById = useMemo(() => new Map(sortedPresets.map((preset) => [preset.id, preset])), [sortedPresets]);
 
   const folderedPresetIds = useMemo(() => {
     const ids = new Set<string>();
@@ -259,8 +275,8 @@ export function PresetsPanel() {
   }, [presetFolders]);
 
   const rootPresets = useMemo(
-    () => filteredPresets.filter((preset) => !folderedPresetIds.has(preset.id)),
-    [filteredPresets, folderedPresetIds],
+    () => sortedPresets.filter((preset) => !folderedPresetIds.has(preset.id)),
+    [sortedPresets, folderedPresetIds],
   );
 
   // Presets shows GLOBAL regex scripts only. Character-scoped scripts (non-empty
@@ -821,19 +837,39 @@ export function PresetsPanel() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search
-          size="0.8125rem"
-          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-        />
-        <input
-          type="text"
-          placeholder="Search presets…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-        />
+      {/* Search + Sort */}
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <Search
+            size="0.8125rem"
+            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+          />
+          <input
+            type="text"
+            placeholder="Search presets…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as ResourcePanelSort)}
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            title="Sort order"
+            aria-label="Sort presets"
+          >
+            <option value="name-asc">A-Z</option>
+            <option value="name-desc">Z-A</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+          </select>
+          <ArrowUpDown
+            size="0.625rem"
+            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-0.5">
@@ -853,9 +889,12 @@ export function PresetsPanel() {
         <div className="flex flex-col gap-0.5">
           {presetFolders.map((folder) => {
             const isEditing = editingFolderId === folder.id;
-            const folderItems = folder.itemIds
-              .map((id) => presetById.get(id))
-              .filter((item): item is PresetRow => Boolean(item));
+            const folderItems = sortBasicPanelItems(
+              folder.itemIds.map((id) => presetById.get(id)).filter((item): item is PresetRow => Boolean(item)),
+              sort,
+              (preset) => preset.name,
+              (preset) => preset.createdAt || preset.updatedAt,
+            );
             if (presetSearchActive && folderItems.length === 0) return null;
             const isExpanded = (presetSearchActive && folderItems.length > 0) || expandedFolderId === folder.id;
             return (

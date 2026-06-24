@@ -18,9 +18,10 @@ import {
   Check,
   FolderPlus,
   FolderOpen,
+  ArrowUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useUIStore } from "../../stores/ui.store";
+import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import {
   useAgentConfigs,
   useCreateAgent,
@@ -43,6 +44,7 @@ import {
 } from "@marinara-engine/shared";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
+import { sortBasicPanelItems } from "../../lib/panel-sort";
 import { downloadZipFile } from "../../lib/download-zip";
 import {
   createAgentFolderPackageFilename,
@@ -257,6 +259,8 @@ export function AgentsPanel() {
   const deleteAgentFolder = useDeleteLibraryFolder("agents");
   const moveAgentItem = useMoveLibraryItem("agents");
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
+  const sort = useUIStore((s) => s.agentPanelSort);
+  const setSort = useUIStore((s) => s.setAgentPanelSort);
   const [agentSearch, setAgentSearch] = useState("");
   const agentImageInputRef = useRef<HTMLInputElement>(null);
   const agentImportInputRef = useRef<HTMLInputElement>(null);
@@ -316,6 +320,8 @@ export function AgentsPanel() {
           ...agent,
           name: agent.name,
           description: config?.description ?? agent.description,
+          createdAt: config?.createdAt ?? "",
+          updatedAt: config?.updatedAt ?? "",
         };
       }),
     [configByType, visibleBuiltInAgents],
@@ -356,8 +362,8 @@ export function AgentsPanel() {
     { category: "tracker", title: "Tracker Agents", icon: <Radar size="0.8125rem" /> },
     { category: "misc", title: "Misc Agents", icon: <Puzzle size="0.8125rem" /> },
   ];
-  const visibleCustomAgents = customAgents
-    .filter(
+  const visibleCustomAgents = sortBasicPanelItems(
+    customAgents.filter(
       (agent) =>
         !folderedAgentIds.has(agent.id) &&
         matchesAgentSearch({
@@ -365,8 +371,11 @@ export function AgentsPanel() {
           description: agent.description,
           category: "custom",
         }),
-    )
-    .sort((a, b) => a.name.localeCompare(b.name));
+    ),
+    sort,
+    (agent) => agent.name,
+    (agent) => agent.createdAt || agent.updatedAt,
+  );
   const hasVisibleFolderAgents = agentFolders.some((folder) =>
     folder.itemIds.some((id) => {
       const agent = selectableAgentById.get(id);
@@ -803,17 +812,37 @@ export function AgentsPanel() {
         <div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-xs text-emerald-500">{agentImportSuccess}</div>
       )}
 
-      <div className="relative">
-        <Search
-          size="0.8125rem"
-          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-        />
-        <input
-          value={agentSearch}
-          onChange={(event) => setAgentSearch(event.target.value)}
-          placeholder="Search agents"
-          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-        />
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <Search
+            size="0.8125rem"
+            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+          />
+          <input
+            value={agentSearch}
+            onChange={(event) => setAgentSearch(event.target.value)}
+            placeholder="Search agents"
+            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ResourcePanelSort)}
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            title="Sort order"
+            aria-label="Sort agents"
+          >
+            <option value="name-asc">A-Z</option>
+            <option value="name-desc">Z-A</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+          </select>
+          <ArrowUpDown
+            size="0.625rem"
+            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+          />
+        </div>
       </div>
 
       {isLoading && <div className="mari-chrome-text-muted py-4 text-center text-xs">Loading...</div>}
@@ -852,10 +881,15 @@ export function AgentsPanel() {
         )}
         {agentFolders.map((folder) => {
           const isEditing = editingFolderId === folder.id;
-          const folderAgents = folder.itemIds
-            .map((id) => selectableAgentById.get(id))
-            .filter((agent): agent is AgentConfigRow => Boolean(agent))
-            .filter((agent) => matchesAgentSearch(getAgentSearchData(agent)));
+          const folderAgents = sortBasicPanelItems(
+            folder.itemIds
+              .map((id) => selectableAgentById.get(id))
+              .filter((agent): agent is AgentConfigRow => Boolean(agent))
+              .filter((agent) => matchesAgentSearch(getAgentSearchData(agent))),
+            sort,
+            (agent) => agent.name,
+            (agent) => agent.createdAt || agent.updatedAt,
+          );
           if (agentSearchActive && folderAgents.length === 0) return null;
           const isExpanded = (agentSearchActive && folderAgents.length > 0) || expandedFolderId === folder.id;
           return (
@@ -977,9 +1011,14 @@ export function AgentsPanel() {
       </div>
 
       {agentCategorySections.map((section) => {
-        const visibleAgents = visibleBuiltInDisplayAgents.filter(
-          (agent) =>
-            !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+        const visibleAgents = sortBasicPanelItems(
+          visibleBuiltInDisplayAgents.filter(
+            (agent) =>
+              !folderedAgentIds.has(agent.id) && agent.category === section.category && matchesAgentSearch(agent),
+          ),
+          sort,
+          (agent) => agent.name,
+          (agent) => agent.createdAt || agent.updatedAt,
         );
         if (visibleAgents.length === 0 && agentSearchQuery) return null;
         return (

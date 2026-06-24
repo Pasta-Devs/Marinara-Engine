@@ -18,7 +18,7 @@ import {
 import type { ExportEnvelope } from "@marinara-engine/shared";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { assemblePrompt, type AssemblerInput } from "../services/prompt/index.js";
-import { resolveGameLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
+import { resolveLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
@@ -301,7 +301,7 @@ export async function promptsRoutes(app: FastifyInstance) {
     } catch {
       chatMeta = {};
     }
-    const lorebookScopeExclusions = resolveGameLorebookScopeExclusions(chat.mode, chatMeta);
+    const lorebookScopeExclusions = resolveLorebookScopeExclusions(chat.mode, chatMeta);
     const mappedMessages = chatMessages.map((m: any) => ({
       role: m.role === "narrator" ? ("system" as const) : (m.role as "user" | "assistant" | "system"),
       content: m.content as string,

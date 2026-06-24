@@ -270,6 +270,7 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
 
   return (
     <div
+      data-chat-floating-panel
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
       onClick={onClose}
     >

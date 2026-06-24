@@ -5,9 +5,10 @@ import { useState, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import { useCharacters, useDeleteCharacter } from "../../hooks/use-characters";
 import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
-import { useUIStore } from "../../stores/ui.store";
-import { Search, User, Globe, Wand2, MessageCircle, Trash2 } from "lucide-react";
+import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
+import { Search, User, Globe, Wand2, MessageCircle, Trash2, ArrowUpDown } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { sortBasicPanelItems } from "../../lib/panel-sort";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 
@@ -21,6 +22,8 @@ export function BotBrowserPanel() {
   const closeCharacterDetail = useUIStore((s) => s.closeCharacterDetail);
   const openBotBrowser = useUIStore((s) => s.openBotBrowser);
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
+  const sort = useUIStore((s) => s.botBrowserPanelSort);
+  const setSort = useUIStore((s) => s.setBotBrowserPanelSort);
   const { startChatFromCharacter } = useStartChatFromCharacter();
   const [search, setSearch] = useState("");
   const [deletingCharacterId, setDeletingCharacterId] = useState<string | null>(null);
@@ -36,11 +39,17 @@ export function BotBrowserPanel() {
   const parsed = useMemo(() => {
     if (!characters) return [];
     return (characters as CharacterRow[]).reduce<
-      { id: string; name: string; avatarPath: string | null; createdAt: string }[]
+      { id: string; name: string; avatarPath: string | null; createdAt: string; updatedAt: string }[]
     >((acc, c) => {
       const d = JSON.parse(c.data);
       if (d.extensions?.botBrowserSource) {
-        acc.push({ id: c.id, name: d.name ?? "Unnamed", avatarPath: c.avatarPath, createdAt: c.createdAt });
+        acc.push({
+          id: c.id,
+          name: d.name ?? "Unnamed",
+          avatarPath: c.avatarPath,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+        });
       }
       return acc;
     }, []);
@@ -51,6 +60,11 @@ export function BotBrowserPanel() {
     const q = search.toLowerCase();
     return parsed.filter((c) => c.name.toLowerCase().includes(q));
   }, [parsed, search]);
+
+  const sorted = useMemo(
+    () => sortBasicPanelItems(filtered, sort, (char) => char.name, (char) => char.createdAt || char.updatedAt),
+    [filtered, sort],
+  );
 
   const getCharacterGreeting = useCallback(
     (charId: string): { firstMes?: string; altGreetings: string[] } => {
@@ -104,19 +118,39 @@ export function BotBrowserPanel() {
         Browse Online
       </button>
 
-      {/* Search */}
-      <div className="relative">
-        <Search
-          size="0.8125rem"
-          className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
-        />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search imported..."
-          className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
-        />
+      {/* Search + Sort */}
+      <div className="flex gap-1.5">
+        <div className="relative flex-1">
+          <Search
+            size="0.8125rem"
+            className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search imported..."
+            className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as ResourcePanelSort)}
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            title="Sort order"
+            aria-label="Sort imported characters"
+          >
+            <option value="name-asc">A-Z</option>
+            <option value="name-desc">Z-A</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+          </select>
+          <ArrowUpDown
+            size="0.625rem"
+            className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+          />
+        </div>
       </div>
 
       {/* Character list */}
@@ -128,7 +162,7 @@ export function BotBrowserPanel() {
         </div>
       ) : (
         <div className="flex flex-col gap-0.5">
-          {filtered.map((char) => (
+          {sorted.map((char) => (
             <div
               key={char.id}
               onContextMenu={(e) => {

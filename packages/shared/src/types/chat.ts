@@ -330,6 +330,11 @@ export interface ChatMetadata {
   entryTimingStates?: Record<string, import("./lorebook.js").LorebookEntryTimingState>;
   /** Per-chat global lorebook token budget. Missing uses app default; 0 means unlimited. */
   lorebookTokenBudget?: number | null;
+  /** Lorebook IDs the user has explicitly disabled for THIS chat. Auto-activated
+   *  books (bound to a present character / global / the active persona) that the
+   *  user turned off via the chat Lorebooks panel land here; the scope filter
+   *  drops them before injection without unbinding the book. */
+  excludedLorebookIds?: string[];
   /** ID of the chat preset most recently applied to this chat (drives the preset bar dropdown). */
   appliedChatPresetId?: string | null;
   /** Custom prompt prefix used by the /impersonate slash command. */

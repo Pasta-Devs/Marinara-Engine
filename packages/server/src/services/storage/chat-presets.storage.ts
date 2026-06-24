@@ -259,7 +259,7 @@ export function createChatPresetsStorage(db: DB) {
      * specify. Selecting the Default preset therefore resets the chat's
      * preset-controlled settings to their system defaults.
      */
-    async applyToChat(presetId: string, chatId: string) {
+    async applyToChat(presetId: string, chatId: string, options: { connectionId?: string | null } = {}) {
       return withChatMetadataPatchQueue(chatId, async () => {
         const preset = await storage.getById(presetId);
         if (!preset) return null;
@@ -305,12 +305,14 @@ export function createChatPresetsStorage(db: DB) {
           ...preserved,
           appliedChatPresetId: preset.id,
         };
+        const nextConnectionId =
+          options.connectionId !== undefined ? options.connectionId : (preset.settings.connectionId ?? null);
 
         const ts = now();
         await db
           .update(chats)
           .set({
-            connectionId: preset.settings.connectionId ?? null,
+            connectionId: nextConnectionId,
             promptPresetId: preset.settings.promptPresetId ?? null,
             metadata: JSON.stringify(newMetadata),
             updatedAt: ts,

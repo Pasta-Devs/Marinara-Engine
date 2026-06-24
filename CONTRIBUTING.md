@@ -82,9 +82,17 @@ Useful follow-up checks:
 
 ```bash
 pnpm version:check
+pnpm regression:prompt
+pnpm smoke:ui
 ```
 
-There is not a meaningful automated repo test suite yet. Do not present `pnpm test` as a reliable gate in docs or PR descriptions. When you change behavior, include the manual verification you performed.
+Regression guards:
+
+- `pnpm regression:prompt` runs fast deterministic checks for prompt assembly, lorebook keyword matching, macros, summaries, and mode-specific generation gates.
+- `pnpm smoke:ui` runs the Playwright browser smoke suite against isolated temporary app data.
+- `pnpm regression` runs both lanes.
+
+These checks are intentionally small and do not replace manual verification. When you change behavior, include the manual verification you performed and add or update a regression guard for the bug class when practical.
 
 ## Logging
 

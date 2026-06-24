@@ -7,6 +7,7 @@ interface SwipeJumpControlProps {
   activeSwipeIndex: number;
   swipeCount: number;
   onSetActiveSwipe: (index: number) => void;
+  onCreateNextSwipe?: () => void;
   className?: string;
   buttonClassName?: string;
   inputClassName?: string;
@@ -18,6 +19,7 @@ export function SwipeJumpControl({
   activeSwipeIndex,
   swipeCount,
   onSetActiveSwipe,
+  onCreateNextSwipe,
   className,
   buttonClassName,
   inputClassName,
@@ -29,12 +31,15 @@ export function SwipeJumpControl({
     setInputValue(String(activeSwipeIndex + 1));
   }, [activeSwipeIndex]);
 
-  if (swipeCount <= 1) return null;
+  if (swipeCount <= 1 && !onCreateNextSwipe) return null;
 
   const inputId = `swipe-jump-${messageId}`;
+  const displaySwipeCount = Math.max(1, swipeCount);
+  const hasNextSwipe = activeSwipeIndex < displaySwipeCount - 1;
+  const canCreateNextSwipe = !hasNextSwipe && Boolean(onCreateNextSwipe);
 
   const setSwipeByDisplayIndex = (displayIndex: number) => {
-    const nextIndex = Math.min(Math.max(displayIndex, 1), swipeCount) - 1;
+    const nextIndex = Math.min(Math.max(displayIndex, 1), displaySwipeCount) - 1;
     setInputValue(String(nextIndex + 1));
     if (nextIndex !== activeSwipeIndex) {
       onSetActiveSwipe(nextIndex);
@@ -46,7 +51,7 @@ export function SwipeJumpControl({
     setInputValue(value);
     if (value === "") return;
     const displayIndex = Number.parseInt(value, 10);
-    if (Number.isNaN(displayIndex) || displayIndex < 1 || displayIndex > swipeCount) return;
+    if (Number.isNaN(displayIndex) || displayIndex < 1 || displayIndex > displaySwipeCount) return;
     setSwipeByDisplayIndex(displayIndex);
   };
 
@@ -89,20 +94,24 @@ export function SwipeJumpControl({
           "h-[1.375rem] w-9 rounded-full border border-transparent bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-center tabular-nums text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-panel-muted)] outline-none transition-[background-color,border-color,box-shadow,color] focus:border-[var(--marinara-chat-chrome-button-border-active)] focus:bg-[var(--marinara-chat-chrome-button-bg-active)]",
           inputClassName,
         )}
-        aria-label={`Jump to swipe, 1 through ${swipeCount}`}
-        title={`Jump to swipe 1-${swipeCount}`}
+        aria-label={`Jump to swipe, 1 through ${displaySwipeCount}`}
+        title={`Jump to swipe 1-${displaySwipeCount}`}
       />
-      <span className="tabular-nums">/{swipeCount}</span>
+      <span className="tabular-nums">/{displaySwipeCount}</span>
       <button
         type="button"
         className={buttonClassName}
         onClick={(event) => {
           event.stopPropagation();
-          setSwipeByDisplayIndex(activeSwipeIndex + 2);
+          if (hasNextSwipe) {
+            setSwipeByDisplayIndex(activeSwipeIndex + 2);
+            return;
+          }
+          onCreateNextSwipe?.();
         }}
-        disabled={activeSwipeIndex >= swipeCount - 1}
-        aria-label="Next swipe"
-        title="Next swipe"
+        disabled={!hasNextSwipe && !canCreateNextSwipe}
+        aria-label={hasNextSwipe ? "Next swipe" : "Generate next swipe"}
+        title={hasNextSwipe ? "Next swipe" : "Generate next swipe"}
       >
         <ChevronRight size={iconSize} />
       </button>

@@ -13,6 +13,7 @@ import {
 } from "@marinara-engine/shared";
 import { isCssGradient, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
 import { announceChatFloatingUiDismiss } from "../lib/chat-floating-ui-events";
+import { BASIC_PANEL_SORT_OPTIONS, normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
 
 type Panel =
   | "chat"
@@ -41,6 +42,8 @@ export const LOREBOOK_PANEL_CATEGORY_OPTIONS = [
 export type LorebookPanelCategory = (typeof LOREBOOK_PANEL_CATEGORY_OPTIONS)[number];
 export const LOREBOOK_PANEL_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "tokens"] as const;
 export type LorebookPanelSort = (typeof LOREBOOK_PANEL_SORT_OPTIONS)[number];
+export const RESOURCE_PANEL_SORT_OPTIONS = BASIC_PANEL_SORT_OPTIONS;
+export type ResourcePanelSort = BasicPanelSort;
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22;
 export type VisualTheme = "default" | "sillytavern";
 export type ConversationMessageStyle = "classic" | "bubble";
@@ -472,6 +475,14 @@ interface UIState {
   lorebookPanelActiveTag: string | null;
   /** Whether the compact Lorebooks panel tag/category shelf is expanded */
   lorebookPanelTagsExpanded: boolean;
+  /** Sort order for imported characters in the Browser panel */
+  botBrowserPanelSort: ResourcePanelSort;
+  /** Sort order for the compact Presets panel */
+  presetPanelSort: ResourcePanelSort;
+  /** Sort order for the compact Connections panel */
+  connectionPanelSort: ResourcePanelSort;
+  /** Sort order for the compact Agents panel */
+  agentPanelSort: ResourcePanelSort;
   /** True when any open detail editor has unsaved changes */
   editorDirty: boolean;
   /** Mobile-only return target for detail editors opened from a right panel */
@@ -740,6 +751,10 @@ interface UIState {
   setLorebookPanelSort: (sort: LorebookPanelSort) => void;
   setLorebookPanelActiveTag: (tag: string | null) => void;
   setLorebookPanelTagsExpanded: (expanded: boolean) => void;
+  setBotBrowserPanelSort: (sort: ResourcePanelSort) => void;
+  setPresetPanelSort: (sort: ResourcePanelSort) => void;
+  setConnectionPanelSort: (sort: ResourcePanelSort) => void;
+  setAgentPanelSort: (sort: ResourcePanelSort) => void;
   openCharacterDetail: (id: string, options?: { preserveCharacterLibrary?: boolean }) => void;
   closeCharacterDetail: () => void;
   openLorebookDetail: (id: string) => void;
@@ -1129,6 +1144,10 @@ export const useUIStore = create<UIState>()(
       lorebookPanelSort: "name-asc" as LorebookPanelSort,
       lorebookPanelActiveTag: null,
       lorebookPanelTagsExpanded: false,
+      botBrowserPanelSort: "name-asc" as ResourcePanelSort,
+      presetPanelSort: "name-asc" as ResourcePanelSort,
+      connectionPanelSort: "name-asc" as ResourcePanelSort,
+      agentPanelSort: "name-asc" as ResourcePanelSort,
       editorDirty: false,
       detailReturnRightPanel: null,
 
@@ -1364,6 +1383,10 @@ export const useUIStore = create<UIState>()(
       setLorebookPanelSort: (sort) => set({ lorebookPanelSort: normalizeLorebookPanelSort(sort) }),
       setLorebookPanelActiveTag: (tag) => set({ lorebookPanelActiveTag: tag ? tag.trim() || null : null }),
       setLorebookPanelTagsExpanded: (expanded) => set({ lorebookPanelTagsExpanded: expanded }),
+      setBotBrowserPanelSort: (sort) => set({ botBrowserPanelSort: normalizeBasicPanelSort(sort) }),
+      setPresetPanelSort: (sort) => set({ presetPanelSort: normalizeBasicPanelSort(sort) }),
+      setConnectionPanelSort: (sort) => set({ connectionPanelSort: normalizeBasicPanelSort(sort) }),
+      setAgentPanelSort: (sort) => set({ agentPanelSort: normalizeBasicPanelSort(sort) }),
       openCharacterDetail: (id, options) =>
         set((s) => {
           const preserveCharacterLibrary = options?.preserveCharacterLibrary ?? s.characterLibraryOpen;
@@ -2370,6 +2393,10 @@ export const useUIStore = create<UIState>()(
             ? persisted.lorebookPanelActiveTag.trim()
             : null;
         persisted.lorebookPanelTagsExpanded = persisted.lorebookPanelTagsExpanded === true;
+        persisted.botBrowserPanelSort = normalizeBasicPanelSort(persisted.botBrowserPanelSort);
+        persisted.presetPanelSort = normalizeBasicPanelSort(persisted.presetPanelSort);
+        persisted.connectionPanelSort = normalizeBasicPanelSort(persisted.connectionPanelSort);
+        persisted.agentPanelSort = normalizeBasicPanelSort(persisted.agentPanelSort);
         normalizePersistedMainSurface(persisted);
         if (Array.isArray(persisted.recentUserActivities)) {
           persisted.recentUserActivities = persisted.recentUserActivities
@@ -2433,6 +2460,10 @@ export const useUIStore = create<UIState>()(
         lorebookPanelSort: state.lorebookPanelSort,
         lorebookPanelActiveTag: state.lorebookPanelActiveTag,
         lorebookPanelTagsExpanded: state.lorebookPanelTagsExpanded,
+        botBrowserPanelSort: state.botBrowserPanelSort,
+        presetPanelSort: state.presetPanelSort,
+        connectionPanelSort: state.connectionPanelSort,
+        agentPanelSort: state.agentPanelSort,
         trackerPanelEnabled: state.trackerPanelEnabled,
         trackerPanelOpen: state.trackerPanelOpen,
         trackerPanelSide: state.trackerPanelSide,

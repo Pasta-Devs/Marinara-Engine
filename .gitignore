@@ -1,5 +1,6 @@
 # Scratch / planning files
 .work/
+.tmp/
 
 # Dependencies
 node_modules/
@@ -40,6 +41,10 @@ packages/server/data/
 
 # Logs
 *.log
+
+# Browser smoke-test artifacts
+playwright-report/
+test-results/
 
 # Temporary tests
 *.test.ts

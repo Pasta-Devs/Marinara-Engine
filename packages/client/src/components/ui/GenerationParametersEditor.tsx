@@ -9,6 +9,7 @@ import {
 } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { DraftTextarea } from "./DraftTextarea";
 import { HelpTooltip } from "./HelpTooltip";
 
 export type EditableGenerationParameters = Pick<
@@ -286,9 +287,9 @@ export function GenerationParametersFields({
               size="0.625rem"
             />
           </span>
-          <textarea
-            value={value.assistantPrefill}
-            onChange={(e) => set("assistantPrefill", e.target.value)}
+          <DraftTextarea
+            value={value.assistantPrefill ?? ""}
+            onCommit={(nextValue) => set("assistantPrefill", nextValue)}
             rows={3}
             className={PARAM_TEXTAREA_CLASS}
             placeholder="<thinking>"
