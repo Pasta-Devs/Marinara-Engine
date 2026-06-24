@@ -55,6 +55,12 @@ export function ExpandedTextarea({
     <AnimatePresence>
       {open && (
         <motion.div
+          // This overlay portals to <body> and sits above any chat drawer that
+          // opened it. Mark it as a chat floating panel so the drawer's
+          // outside-pointerdown close handler treats clicks inside the editor as
+          // "inside" — otherwise the first click (including the Collapse button)
+          // closes the drawer, unmounting the editor before its edit can commit.
+          data-chat-floating-panel="true"
           className={cn(
             "fixed inset-0 z-[100] flex flex-col max-md:pt-[env(safe-area-inset-top)]",
             isChatSurface
