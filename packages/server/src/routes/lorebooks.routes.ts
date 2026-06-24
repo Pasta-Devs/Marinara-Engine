@@ -28,7 +28,7 @@ import { createCharactersStorage } from "../services/storage/characters.storage.
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { processLorebooks } from "../services/lorebook/index.js";
-import { resolveGameLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
+import { resolveLorebookScopeExclusions } from "../services/lorebook/game-lorebook-scope.js";
 import {
   buildPromptMacroContext,
   resolveMacrosWithVariableSnapshot,
@@ -861,7 +861,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       }
     }
 
-    const lorebookScopeExclusions = resolveGameLorebookScopeExclusions(chat?.mode, chatMeta);
+    const lorebookScopeExclusions = resolveLorebookScopeExclusions(chat?.mode, chatMeta);
     const scanSourceMessages = selectMessagesForLastGenerationScan(chatMessages);
     const scanMessages = scanSourceMessages.map((m) => ({
       role: (m.role === "narrator" ? "system" : m.role) as string,

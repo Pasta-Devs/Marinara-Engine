@@ -75,7 +75,7 @@ import {
 } from "./generate/generate-route-utils.js";
 import {
   filterGameInternalAgentIds,
-  resolveGameLorebookScopeExclusions,
+  resolveLorebookScopeExclusions,
 } from "../services/lorebook/game-lorebook-scope.js";
 import {
   isMemoryRecallVectorizerAvailable,
@@ -570,6 +570,15 @@ export async function chatsRoutes(app: FastifyInstance) {
       incoming.inactiveCharacterIds = Array.from(
         new Set((incoming.inactiveCharacterIds as string[]).filter((id) => validIds.has(id))),
       );
+    }
+    if (incoming.excludedLorebookIds !== undefined) {
+      if (
+        !Array.isArray(incoming.excludedLorebookIds) ||
+        !incoming.excludedLorebookIds.every((id) => typeof id === "string")
+      ) {
+        return reply.status(400).send({ error: "excludedLorebookIds must be an array of strings" });
+      }
+      incoming.excludedLorebookIds = Array.from(new Set(incoming.excludedLorebookIds as string[]));
     }
     if (incoming.conversationSchedulesEnabled === false) {
       await clearConversationScheduleState(chat);
@@ -1876,7 +1885,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             };
           }
           const entryStateOverrides = resolveEntryStateOverrides(chatMeta.entryStateOverrides);
-          const lorebookScopeExclusions = resolveGameLorebookScopeExclusions(chatMode, chatMeta);
+          const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
           const promptActiveAgentIds = Array.isArray(chatMeta.activeAgentIds)
             ? (chatMeta.activeAgentIds as string[])
             : [];

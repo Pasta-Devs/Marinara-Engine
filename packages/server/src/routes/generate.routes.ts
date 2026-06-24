@@ -72,7 +72,7 @@ import { resolveConversationSelfieSystemPrompt } from "../services/conversation/
 import { filterRelevantLorebooks, processLorebooks, type LorebookScanResult } from "../services/lorebook/index.js";
 import {
   filterGameInternalAgentIds,
-  resolveGameLorebookScopeExclusions,
+  resolveLorebookScopeExclusions,
 } from "../services/lorebook/game-lorebook-scope.js";
 import { lorebookEntryPassesContextFilters, type GameStateForScanning } from "../services/lorebook/keyword-scanner.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
@@ -1946,7 +1946,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const chatActiveLorebookIds: string[] = Array.isArray(chatMeta.activeLorebookIds)
           ? (chatMeta.activeLorebookIds as string[])
           : [];
-        const gameLorebookScopeExclusions = resolveGameLorebookScopeExclusions(chatMode, chatMeta);
+        const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
         let lorebookScanSnapshot: LorebookScanSnapshot = emptyLorebookScanSnapshot();
         let presetHandledLorebooks = false;
         const presetHasLorebookMarker = (sections: Array<{ isMarker: string; markerConfig: string | null }>) =>
@@ -2109,8 +2109,8 @@ export async function generateRoutes(app: FastifyInstance) {
               characterIds: promptCharacterIds,
               personaId,
               activeLorebookIds: chatActiveLorebookIds,
-              excludedLorebookIds: gameLorebookScopeExclusions.excludedLorebookIds,
-              excludedSourceAgentIds: gameLorebookScopeExclusions.excludedSourceAgentIds,
+              excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+              excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
             });
             return new Set(relevantLorebooks.map((lorebook) => lorebook.id));
           })();
@@ -2138,8 +2138,8 @@ export async function generateRoutes(app: FastifyInstance) {
             characterIds: promptCharacterIds,
             personaId,
             activeLorebookIds: chatActiveLorebookIds,
-            excludedLorebookIds: gameLorebookScopeExclusions.excludedLorebookIds,
-            excludedSourceAgentIds: gameLorebookScopeExclusions.excludedSourceAgentIds,
+            excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+            excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
           })) as LorebookEntry[];
           const hasVectorizedEntries = activeEntries.some(
             (entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0,
@@ -2229,8 +2229,8 @@ export async function generateRoutes(app: FastifyInstance) {
             enableAgents: chatEnableAgents,
             activeAgentIds: chatActiveAgentIds,
             activeLorebookIds: chatActiveLorebookIds,
-            excludedLorebookIds: gameLorebookScopeExclusions.excludedLorebookIds,
-            excludedLorebookSourceAgentIds: gameLorebookScopeExclusions.excludedSourceAgentIds,
+            excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+            excludedLorebookSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
             lorebookTokenBudget: resolveLorebookTokenBudget(chatMeta),
             chatEmbedding: chatContextEmbedding,
             entryStateOverrides:
@@ -3474,8 +3474,8 @@ export async function generateRoutes(app: FastifyInstance) {
               characterIds: promptCharacterIds,
               personaId,
               activeLorebookIds: chatActiveLorebookIds,
-              excludedLorebookIds: gameLorebookScopeExclusions.excludedLorebookIds,
-              excludedSourceAgentIds: gameLorebookScopeExclusions.excludedSourceAgentIds,
+              excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+              excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
               tokenBudget: resolveLorebookTokenBudget(chatMeta),
               chatEmbedding: chatContextEmbedding,
               entryStateOverrides:
@@ -3531,8 +3531,8 @@ export async function generateRoutes(app: FastifyInstance) {
             characterIds: promptCharacterIds,
             personaId,
             activeLorebookIds: chatActiveLorebookIds,
-            excludedLorebookIds: gameLorebookScopeExclusions.excludedLorebookIds,
-            excludedSourceAgentIds: gameLorebookScopeExclusions.excludedSourceAgentIds,
+            excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+            excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
             tokenBudget: resolveLorebookTokenBudget(chatMeta),
             chatEmbedding: chatContextEmbedding,
             entryStateOverrides:
@@ -4218,8 +4218,8 @@ export async function generateRoutes(app: FastifyInstance) {
                 characterIds,
                 personaId,
                 activeLorebookIds: chatActiveLorebookIds,
-                excludedLorebookIds: gameLorebookScopeExclusions.excludedLorebookIds,
-                excludedSourceAgentIds: gameLorebookScopeExclusions.excludedSourceAgentIds,
+                excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+                excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
                 tokenBudget: resolveLorebookTokenBudget(chatMeta),
                 chatEmbedding: chatContextEmbedding,
                 entryStateOverrides:
@@ -5201,8 +5201,8 @@ export async function generateRoutes(app: FastifyInstance) {
           promptCharacterIds,
           personaId,
           activeLorebookIds: chatActiveLorebookIds,
-          excludedLorebookIds: gameLorebookScopeExclusions.excludedLorebookIds,
-          excludedSourceAgentIds: gameLorebookScopeExclusions.excludedSourceAgentIds,
+          excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+          excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
           gameState,
           gameSpotifyMusicEnabled,
           agentContext,
