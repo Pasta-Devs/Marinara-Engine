@@ -18,7 +18,7 @@ import {
 import { api } from "../../../lib/api-client";
 import { useGameStateStore } from "../../../stores/game-state.store";
 import type { GameStatePatchField } from "../../../hooks/use-game-state-patcher";
-import { getCharacterFeatureKey } from "../lib/character-tracker-data";
+import { getCharacterFeatureKey, resolveCharacterTargetIndex } from "../lib/character-tracker-data";
 import { useTrackerFieldLockUpdater } from "./use-tracker-field-lock-updater";
 
 function makeManualTrackerId() {
@@ -126,7 +126,7 @@ export function useTrackerMutations({
   patchPlayerStats: (field: keyof PlayerStats, value: unknown) => void;
   removeFeaturedCharacterCard: (key: string) => void;
 }) {
-  const [avatarUploadCharacterId, setAvatarUploadCharacterId] = useState<string | null>(null);
+  const [avatarUpload, setAvatarUpload] = useState<{ characterId: string; index: number } | null>(null);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const avatarUploadSerialRef = useRef(0);
   const avatarUploadTokenByCharacterRef = useRef(new Map<string, number>());
@@ -158,17 +158,18 @@ export function useTrackerMutations({
     (index: number) => {
       const characterId = presentCharacters[index]?.characterId ?? readPresentCharacters()[index]?.characterId ?? null;
       if (!characterId) return;
-      setAvatarUploadCharacterId(characterId);
+      setAvatarUpload({ characterId, index });
       avatarFileInputRef.current?.click();
     },
     [presentCharacters, readPresentCharacters],
   );
 
   const handleAvatarUpload = useCallback(
-    (characterId: string, file: File) => {
+    (characterId: string, fallbackIndex: number, file: File) => {
       if (!activeChatId) return;
       const currentCharacters = readPresentCharacters();
-      const character = currentCharacters.find((candidate) => candidate.characterId === characterId);
+      const initialIndex = resolveCharacterTargetIndex(currentCharacters, characterId, fallbackIndex);
+      const character = initialIndex >= 0 ? currentCharacters[initialIndex] : undefined;
       if (!character) return;
 
       const uploadToken = avatarUploadSerialRef.current + 1;
@@ -194,7 +195,7 @@ export function useTrackerMutations({
           if (avatarUploadTokenByCharacterRef.current.get(characterId) !== uploadToken) return;
 
           const latestCharacters = readPresentCharacters();
-          const targetIndex = latestCharacters.findIndex((candidate) => candidate.characterId === characterId);
+          const targetIndex = resolveCharacterTargetIndex(latestCharacters, characterId, fallbackIndex);
           if (targetIndex < 0) return;
 
           const nextCharacters = [...latestCharacters];
@@ -221,12 +222,12 @@ export function useTrackerMutations({
   const handleAvatarFileInputChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      const characterId = avatarUploadCharacterId;
-      setAvatarUploadCharacterId(null);
-      if (file && characterId) handleAvatarUpload(characterId, file);
+      const pending = avatarUpload;
+      setAvatarUpload(null);
+      if (file && pending) handleAvatarUpload(pending.characterId, pending.index, file);
       event.target.value = "";
     },
-    [avatarUploadCharacterId, handleAvatarUpload],
+    [avatarUpload, handleAvatarUpload],
   );
 
   const updateCharacter = useCallback(
@@ -234,10 +235,8 @@ export function useTrackerMutations({
       const liveCharacters = readPresentCharacters();
       const renderedCharacter = presentCharacters[index];
       const targetCharacterId = character.characterId || renderedCharacter?.characterId;
-      const targetIndex = targetCharacterId
-        ? liveCharacters.findIndex((candidate) => candidate.characterId === targetCharacterId)
-        : index;
-      if (targetIndex < 0 || targetIndex >= liveCharacters.length) return;
+      const targetIndex = resolveCharacterTargetIndex(liveCharacters, targetCharacterId, index);
+      if (targetIndex < 0) return;
 
       const previous = liveCharacters[targetIndex];
       const nextCharacter = mergeChangedRecord(
@@ -265,10 +264,8 @@ export function useTrackerMutations({
     (index: number) => {
       const liveCharacters = readPresentCharacters();
       const renderedCharacter = presentCharacters[index];
-      const targetIndex = renderedCharacter?.characterId
-        ? liveCharacters.findIndex((candidate) => candidate.characterId === renderedCharacter.characterId)
-        : index;
-      if (targetIndex < 0 || targetIndex >= liveCharacters.length) return;
+      const targetIndex = resolveCharacterTargetIndex(liveCharacters, renderedCharacter?.characterId, index);
+      if (targetIndex < 0) return;
 
       const removed = liveCharacters[targetIndex];
       if (removed) {
