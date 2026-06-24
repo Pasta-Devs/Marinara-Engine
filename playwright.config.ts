@@ -1,8 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 function parsePort(name: string, fallback: number) {
-  const parsed = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isFinite(parsed) ? parsed : fallback;
+  const raw = process.env[name]?.trim();
+  if (!raw || !/^\d+$/.test(raw)) return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535 ? parsed : fallback;
 }
 
 const clientPort = parsePort("PLAYWRIGHT_CLIENT_PORT", 5178);

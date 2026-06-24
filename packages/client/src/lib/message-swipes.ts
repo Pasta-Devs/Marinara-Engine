@@ -1,4 +1,4 @@
-import { api } from "./api-client";
+import { api, ApiError } from "./api-client";
 
 export function normalizeGreetingSwipes(greetings: readonly string[] | null | undefined) {
   if (!Array.isArray(greetings)) return [];
@@ -15,8 +15,11 @@ export async function addSilentGreetingSwipes(chatId: string, messageId: string,
       silent: true,
     });
     return;
-  } catch {
+  } catch (error) {
     // Older servers will not have the bulk endpoint; keep imports/updates usable.
+    if (!(error instanceof ApiError) || ![404, 405, 501].includes(error.status)) {
+      throw error;
+    }
   }
 
   for (const content of contents) {

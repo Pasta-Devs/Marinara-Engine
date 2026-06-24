@@ -273,7 +273,7 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
       </div>
 
       {/* Swipe controls — separate row so avatar never drifts */}
-      {!hideActions && hasSwipes && (
+      {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
         <div className={cn("mt-1", isUser ? "flex justify-end" : "pl-12")}>
           <ConversationMessageSwipes
             messageId={message.id}

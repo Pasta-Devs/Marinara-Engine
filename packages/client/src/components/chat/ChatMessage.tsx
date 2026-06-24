@@ -2243,7 +2243,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
 
             {/* Swipes */}
-            {hasSwipes && (
+            {(hasSwipes || canCreateNextSwipe) && (
               <SwipeJumpControl
                 messageId={message.id}
                 activeSwipeIndex={message.activeSwipeIndex}
@@ -2694,7 +2694,7 @@ export const ChatMessage = memo(function ChatMessage({
           )}
 
           {/* Swipes */}
-          {hasSwipes && (
+          {(hasSwipes || canCreateNextSwipe) && (
             <SwipeJumpControl
               messageId={message.id}
               activeSwipeIndex={message.activeSwipeIndex}

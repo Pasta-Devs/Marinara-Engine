@@ -94,8 +94,11 @@ export function useImportChatPreset() {
 export function useApplyChatPreset() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ presetId, chatId }: { presetId: string; chatId: string }) =>
-      api.post<Chat>(`/chat-presets/${presetId}/apply/${chatId}`),
+    mutationFn: ({ presetId, chatId, connectionId }: { presetId: string; chatId: string; connectionId?: string | null }) =>
+      api.post<Chat>(
+        `/chat-presets/${presetId}/apply/${chatId}`,
+        connectionId !== undefined ? { connectionId } : undefined,
+      ),
     onSuccess: (data, variables) => {
       if (data) syncCachedChat(qc, data);
       qc.invalidateQueries({ queryKey: chatKeys.detail(variables.chatId) });

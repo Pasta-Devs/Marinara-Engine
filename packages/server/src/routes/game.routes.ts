@@ -2591,6 +2591,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
   replaceExistingSessionEntries?: boolean;
   streaming?: boolean;
   signal?: AbortSignal;
+  onToken?: () => void;
 }): Promise<GameLorebookKeeperRunResult> {
   const chats = createChatsStorage(args.app.db);
   const chat = await chats.getById(args.chatId);
@@ -2648,7 +2649,7 @@ async function runGameLorebookKeeperAfterConclusion(args: {
         temperature: 0.35,
         stream: streaming,
         signal: args.signal,
-        ...(streaming ? { onToken: () => {} } : {}),
+        ...(streaming ? { onToken: args.onToken ?? (() => {}) } : {}),
       },
       generationParameters,
       conn.provider,
@@ -4690,7 +4691,7 @@ export async function gameRoutes(app: FastifyInstance) {
         conn.maxTokensOverride,
       );
 
-      const conclusionAbortSignal = createResponseAbortSignal(
+      const conclusionAbort = createResponseAbortTracker(
         reply,
         GAME_GENERATION_TIMEOUT_MS,
         "Game session conclusion",
@@ -4701,8 +4702,8 @@ export async function gameRoutes(app: FastifyInstance) {
           maxTokens: Math.max(SESSION_CONCLUSION_MIN_OUTPUT_TOKENS, conclusionGenerationParameters?.maxTokens ?? 0),
           temperature: 0.45,
           stream: streaming,
-          signal: conclusionAbortSignal,
-          ...(streaming ? { onToken: () => {} } : {}),
+          signal: conclusionAbort.signal,
+          ...(streaming ? { onToken: () => conclusionAbort.touch() } : {}),
         },
         conclusionGenerationParameters,
         conn.provider,
@@ -5075,6 +5076,11 @@ export async function gameRoutes(app: FastifyInstance) {
     const summary = summaries[sessionNumber - 1];
     if (!summary) throw new Error("Session summary not found");
 
+    const lorebookKeeperAbort = createResponseAbortTracker(
+      reply,
+      GAME_GENERATION_TIMEOUT_MS,
+      "Game lorebook keeper regeneration",
+    );
     const result = await runGameLorebookKeeperAfterConclusion({
       app,
       chatId,
@@ -5083,7 +5089,8 @@ export async function gameRoutes(app: FastifyInstance) {
       sessionSummary: summary,
       replaceExistingSessionEntries: true,
       streaming,
-      signal: createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Game lorebook keeper regeneration"),
+      signal: lorebookKeeperAbort.signal,
+      onToken: () => lorebookKeeperAbort.touch(),
     });
 
     if (result.status === "failed") {
@@ -5239,7 +5246,7 @@ export async function gameRoutes(app: FastifyInstance) {
       conn.openrouterProvider,
       conn.maxTokensOverride,
     );
-    const conclusionAbortSignal = createResponseAbortSignal(
+    const conclusionAbort = createResponseAbortTracker(
       reply,
       GAME_GENERATION_TIMEOUT_MS,
       "Game session conclusion regeneration",
@@ -5250,8 +5257,8 @@ export async function gameRoutes(app: FastifyInstance) {
         maxTokens: Math.max(SESSION_CONCLUSION_MIN_OUTPUT_TOKENS, conclusionGenerationParameters?.maxTokens ?? 0),
         temperature: 0.45,
         stream: streaming,
-        signal: conclusionAbortSignal,
-        ...(streaming ? { onToken: () => {} } : {}),
+        signal: conclusionAbort.signal,
+        ...(streaming ? { onToken: () => conclusionAbort.touch() } : {}),
       },
       conclusionGenerationParameters,
       conn.provider,
@@ -5497,7 +5504,7 @@ export async function gameRoutes(app: FastifyInstance) {
       conn.openrouterProvider,
       conn.maxTokensOverride,
     );
-    const progressionAbortSignal = createResponseAbortSignal(
+    const progressionAbort = createResponseAbortTracker(
       reply,
       GAME_GENERATION_TIMEOUT_MS,
       "Game campaign progression update",
@@ -5508,8 +5515,8 @@ export async function gameRoutes(app: FastifyInstance) {
         maxTokens: Math.max(CAMPAIGN_PROGRESSION_MIN_OUTPUT_TOKENS, progressionGenerationParameters?.maxTokens ?? 0),
         temperature: 0.35,
         stream: streaming,
-        signal: progressionAbortSignal,
-        ...(streaming ? { onToken: () => {} } : {}),
+        signal: progressionAbort.signal,
+        ...(streaming ? { onToken: () => progressionAbort.touch() } : {}),
       },
       progressionGenerationParameters,
       conn.provider,

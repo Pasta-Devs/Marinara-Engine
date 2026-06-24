@@ -315,7 +315,7 @@ export function ConversationMessageGrouped({
             />
           </div>
 
-          {!hideActions && hasSwipes && (
+          {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
             <div className="ml-14 mt-1.5">
               <ConversationMessageSwipes
                 messageId={message.id}

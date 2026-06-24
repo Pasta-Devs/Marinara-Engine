@@ -96,7 +96,10 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   /** Apply a preset's settings to an existing chat (replaces preset-controlled settings). */
   app.post<{ Params: { id: string; chatId: string } }>("/:id/apply/:chatId", async (req, reply) => {
-    const updated = await storage.applyToChat(req.params.id, req.params.chatId);
+    const body = (req.body ?? {}) as { connectionId?: unknown };
+    const connectionId =
+      typeof body.connectionId === "string" ? body.connectionId : body.connectionId === null ? null : undefined;
+    const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId });
     if (!updated) return reply.status(404).send({ error: "Preset or chat not found" });
     return updated;
   });

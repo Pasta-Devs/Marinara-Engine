@@ -183,7 +183,7 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
               onRemove={onRemoveAttachment}
             />
 
-            {!hideActions && hasSwipes && (
+            {!hideActions && (hasSwipes || (canRegenerate && onRegenerate)) && (
               <div className="mt-1.5">
                 <ConversationMessageSwipes
                   messageId={message.id}
