@@ -53,6 +53,9 @@ export interface SlashCommandContext {
   characters?: Array<{ id: string; name: string }>;
   /** Latest assistant message, used when /continue appends to an unfinished reply */
   latestAssistantMessageId?: string | null;
+  /** Role of the last message in the chat. /continue only appends to a trailing
+   *  assistant reply; otherwise it generates a fresh response. */
+  lastMessageRole?: string | null;
   /** Apply a manual sprite expression override */
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
 }
@@ -396,10 +399,19 @@ const COMMANDS: SlashCommand[] = [
     description: "Continue the AI response without sending a message",
     usage: "/continue",
     async execute(_args, ctx) {
-      if (!ctx.latestAssistantMessageId) {
+      // Only append to the latest assistant message when it is actually the last
+      // message in the chat. When the user has posted a newer message (e.g. via
+      // /impersonate), there is no trailing reply to continue, so generate a
+      // fresh response instead of appending to an earlier message such as the
+      // scenario / first message.
+      if (ctx.lastMessageRole === "assistant" && ctx.latestAssistantMessageId) {
+        await ctx.generate({ chatId: ctx.chatId, connectionId: null, continueMessageId: ctx.latestAssistantMessageId });
+        return { handled: true };
+      }
+      if (!ctx.lastMessageRole) {
         return { handled: true, feedback: "There is no assistant message to continue." };
       }
-      await ctx.generate({ chatId: ctx.chatId, connectionId: null, continueMessageId: ctx.latestAssistantMessageId });
+      await ctx.generate({ chatId: ctx.chatId, connectionId: null });
       return { handled: true };
     },
   },

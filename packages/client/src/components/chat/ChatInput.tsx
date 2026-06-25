@@ -557,6 +557,7 @@ export const ChatInput = memo(function ChatInput({
       characterNames: activeCharacterNames,
       characters: activeChatCharacters,
       latestAssistantMessageId: latestAssistantMessage?.id ?? null,
+      lastMessageRole,
       setSpriteExpression: onExpressionChange
         ? (characterId, expression) => onExpressionChange(characterId, expression, { immediate: true })
         : undefined,
@@ -569,6 +570,7 @@ export const ChatInput = memo(function ChatInput({
     activeCharacterNames,
     activeChatCharacters,
     latestAssistantMessage,
+    lastMessageRole,
     onExpressionChange,
     qc,
   ]);
