@@ -131,6 +131,7 @@ export function ChatToolbarMenu({
   const btnRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
   const neededDesktopWidthRef = useRef(0);
+  const lastViewportWidthRef = useRef(typeof window === "undefined" ? 0 : window.innerWidth);
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const resolvedDesktopChildren = desktopChildren ?? children;
   const resolvedMobileChildren = mobileChildren ?? children;
@@ -141,9 +142,15 @@ export function ChatToolbarMenu({
 
     const mobileQuery = window.matchMedia("(max-width: 767px)");
     const measure = () => {
+      const widthChanged = window.innerWidth !== lastViewportWidthRef.current;
+      lastViewportWidthRef.current = window.innerWidth;
       if (mobileQuery.matches) {
         setOverflowCollapsed(false);
-        setOpen(false);
+        // Close the overflow menu only when the viewport WIDTH changes (orientation
+        // or window resize). The on-screen keyboard shrinks only the height and also
+        // fires resize; closing here would unmount an open child panel — the Author's
+        // Notes or Summary editor — mid-edit (#2868).
+        if (widthChanged) setOpen(false);
         return;
       }
 
