@@ -851,16 +851,20 @@ function AuthorNotesButton({
     const handle = (e: MouseEvent) => {
       const target = e.target as Node;
       if (ref.current?.contains(target) || panelRef.current?.contains(target)) return;
-      // Don't dismiss while a field inside the panel is focused. On mobile the
-      // virtual keyboard opening can synthesise a pointer/mouse event outside the
-      // panel that would otherwise close it mid-edit (see SummaryPopover).
-      const active = document.activeElement;
-      if (active instanceof Node && panelRef.current?.contains(active)) return;
+      // On mobile, the virtual keyboard opening can synthesise a pointer/mouse
+      // event outside the panel that would otherwise close it mid-edit; don't
+      // dismiss while a field inside the panel is focused. Mobile-only: on desktop
+      // a mousedown fires before focus moves, so guarding there would swallow the
+      // first outside click (see SummaryPopover, which only runs on touch).
+      if (useMobilePanel) {
+        const active = document.activeElement;
+        if (active instanceof Node && panelRef.current?.contains(active)) return;
+      }
       onOpenChange(false);
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
-  }, [onOpenChange, open, renderPanel]);
+  }, [onOpenChange, open, renderPanel, useMobilePanel]);
 
   useLayoutEffect(() => {
     if (!open || !renderPanel || !useMobilePanel) {
