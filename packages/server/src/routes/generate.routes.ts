@@ -7433,7 +7433,11 @@ export async function generateRoutes(app: FastifyInstance) {
           if (messagesSinceLastSummary < interval) return;
 
           const contextSize = clampRoleplaySummaryContextSize(chatMeta.summaryContextSize);
-          const selectedMessages = selectRollingSummaryMessages({ messages: freshMessages, contextSize });
+          const selectedMessages = selectRollingSummaryMessages({
+            messages: freshMessages,
+            contextSize,
+            summaryEntries: chatMeta.summaryEntries as ChatSummaryEntry[] | undefined,
+          });
           if (selectedMessages.length === 0) return;
 
           const resolvedSummaryConnection = await resolveChatSummaryConnection({

@@ -516,17 +516,25 @@ export function computeSummaryHideIds(args: {
 /**
  * Select the messages a non-range rolling summary should cover. Normally the most
  * recent `contextSize` *visible* messages (the historical `visible.slice(-contextSize)`
- * behavior). When a previous summary has already hidden earlier messages, the window
- * is extended back to that summary's hidden boundary, so a protected tail that has
- * drifted beyond the last `contextSize` visible messages is re-summarized and hidden
- * on this run instead of staying visible forever and accumulating (#2879). Because the
- * hide window for each entry is `entryMessageIds` minus the tail, the LLM-facing batch
- * and the hide set share this selection; extending it is what lets a stranded tail be
- * reclaimed. Pure: `messages` must be chat-ordered (ascending).
+ * behavior). When a previous summary has already hidden earlier messages, the window is
+ * extended back to that summary's hidden boundary, so a protected tail that has drifted
+ * beyond the last `contextSize` visible messages is re-summarized and hidden on this run
+ * instead of staying visible forever and accumulating (#2879). Because each entry's hide
+ * window is `entryMessageIds` minus the tail, the LLM-facing batch and the hide set share
+ * this selection; extending it is what lets a stranded tail be reclaimed.
+ *
+ * The boundary is identified ONLY by ids recorded in a live summary entry's
+ * `hiddenMessageIds` — NOT by the bare `hiddenFromAI` flag. That flag is ambiguous: the
+ * user's manual "Hide from AI" toggle writes the same flag, so keying off it would let a
+ * stray manual hide on an early message be misread as a summary boundary and balloon the
+ * window to (nearly) the whole chat. With no summary-hidden message before the window
+ * (e.g. the first summary, or only manual hides), the plain last-`size` window is used.
+ * Pure: `messages` must be chat-ordered (ascending).
  */
 export function selectRollingSummaryMessages<T extends { id: string; extra?: unknown }>(args: {
   messages: T[];
   contextSize: number;
+  summaryEntries?: ReadonlyArray<{ enabled?: boolean; hiddenMessageIds?: string[] }>;
 }): T[] {
   const { messages, contextSize } = args;
   const size = Number.isFinite(contextSize) ? Math.max(0, Math.floor(contextSize)) : 0;
@@ -534,20 +542,30 @@ export function selectRollingSummaryMessages<T extends { id: string; extra?: unk
   const visible = messages.filter((message) => !isMessageHiddenFromAI(message));
   // Fewer visible messages than the window — nothing can have drifted out of it.
   if (visible.length <= size) return visible;
-  // The previous summary's boundary: the most recent already-hidden message.
-  let lastHiddenIndex = -1;
+  // Messages hidden by a live (enabled) summary entry — the only hides that mark a real
+  // summary boundary. A manual "Hide from AI" never appears here, so it can't expand the
+  // window.
+  const summaryHidden = new Set<string>();
+  for (const entry of Array.isArray(args.summaryEntries) ? args.summaryEntries : []) {
+    if (entry?.enabled !== false && Array.isArray(entry?.hiddenMessageIds)) {
+      for (const id of entry.hiddenMessageIds) summaryHidden.add(id);
+    }
+  }
+  if (summaryHidden.size === 0) return visible.slice(-size);
+  // The previous summary's boundary: the most recent summary-hidden message.
+  let lastBoundaryIndex = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (isMessageHiddenFromAI(messages[i]!)) {
-      lastHiddenIndex = i;
+    if (summaryHidden.has(messages[i]!.id)) {
+      lastBoundaryIndex = i;
       break;
     }
   }
-  // No prior summary boundary (first summary) — the plain last-`size` window is correct.
-  if (lastHiddenIndex < 0) return visible.slice(-size);
+  // No summary-hidden message precedes the window — keep the plain last-`size` window.
+  if (lastBoundaryIndex < 0) return visible.slice(-size);
   // Visible messages accumulated since that boundary. Extend the window to cover all of
   // them when they exceed `size`, pulling a drifted protected tail back into the batch.
   const sinceBoundary = messages
-    .slice(lastHiddenIndex + 1)
+    .slice(lastBoundaryIndex + 1)
     .filter((message) => !isMessageHiddenFromAI(message)).length;
   return visible.slice(-Math.max(size, sinceBoundary));
 }

@@ -2823,7 +2823,11 @@ export async function chatsRoutes(app: FastifyInstance) {
           selectedRangeEndIndex = to + 1;
           return allMessages.slice(from, to + 1).filter((message) => !isMessageHiddenFromAI(message));
         })()
-      : selectRollingSummaryMessages({ messages: allMessages, contextSize });
+      : selectRollingSummaryMessages({
+          messages: allMessages,
+          contextSize,
+          summaryEntries: chatMeta.summaryEntries as ChatSummaryEntry[] | undefined,
+        });
     if (selectedMessages && "error" in selectedMessages) {
       return reply.status(400).send({ error: selectedMessages.error });
     }
