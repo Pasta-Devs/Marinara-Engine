@@ -513,6 +513,45 @@ export function computeSummaryHideIds(args: {
     .map((message) => message.id);
 }
 
+/**
+ * Select the messages a non-range rolling summary should cover. Normally the most
+ * recent `contextSize` *visible* messages (the historical `visible.slice(-contextSize)`
+ * behavior). When a previous summary has already hidden earlier messages, the window
+ * is extended back to that summary's hidden boundary, so a protected tail that has
+ * drifted beyond the last `contextSize` visible messages is re-summarized and hidden
+ * on this run instead of staying visible forever and accumulating (#2879). Because the
+ * hide window for each entry is `entryMessageIds` minus the tail, the LLM-facing batch
+ * and the hide set share this selection; extending it is what lets a stranded tail be
+ * reclaimed. Pure: `messages` must be chat-ordered (ascending).
+ */
+export function selectRollingSummaryMessages<T extends { id: string; extra?: unknown }>(args: {
+  messages: T[];
+  contextSize: number;
+}): T[] {
+  const { messages, contextSize } = args;
+  const size = Number.isFinite(contextSize) ? Math.max(0, Math.floor(contextSize)) : 0;
+  if (size <= 0) return [];
+  const visible = messages.filter((message) => !isMessageHiddenFromAI(message));
+  // Fewer visible messages than the window — nothing can have drifted out of it.
+  if (visible.length <= size) return visible;
+  // The previous summary's boundary: the most recent already-hidden message.
+  let lastHiddenIndex = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (isMessageHiddenFromAI(messages[i]!)) {
+      lastHiddenIndex = i;
+      break;
+    }
+  }
+  // No prior summary boundary (first summary) — the plain last-`size` window is correct.
+  if (lastHiddenIndex < 0) return visible.slice(-size);
+  // Visible messages accumulated since that boundary. Extend the window to cover all of
+  // them when they exceed `size`, pulling a drifted protected tail back into the batch.
+  const sinceBoundary = messages
+    .slice(lastHiddenIndex + 1)
+    .filter((message) => !isMessageHiddenFromAI(message)).length;
+  return visible.slice(-Math.max(size, sinceBoundary));
+}
+
 export function resolveRoleplayChatSummary(chatMode: string, chatMetadata: Record<string, unknown>): string | null {
   if (!isRoleplaySummaryMode(chatMode)) return null;
   return ((chatMetadata.summary as string) ?? "").trim() || null;

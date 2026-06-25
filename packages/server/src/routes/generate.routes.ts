@@ -205,6 +205,7 @@ import {
   extractImageAttachmentDataUrls,
   appendNonLeadingSystemMessagesToLastUser,
   computeSummaryHideIds,
+  selectRollingSummaryMessages,
   injectIntoOutputFormatOrLastUser,
   isManualTrackerCharacterId,
   isMessageHiddenFromAI,
@@ -7426,9 +7427,7 @@ export async function generateRoutes(app: FastifyInstance) {
           if (messagesSinceLastSummary < interval) return;
 
           const contextSize = clampRoleplaySummaryContextSize(chatMeta.summaryContextSize);
-          const selectedMessages = freshMessages
-            .filter((message: any) => !isMessageHiddenFromAI(message))
-            .slice(-contextSize);
+          const selectedMessages = selectRollingSummaryMessages({ messages: freshMessages, contextSize });
           if (selectedMessages.length === 0) return;
 
           const resolvedSummaryConnection = await resolveChatSummaryConnection({

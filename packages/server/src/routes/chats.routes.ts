@@ -62,6 +62,7 @@ import { normalizeTimestampOverrides } from "../services/import/import-timestamp
 import {
   appendNonLeadingSystemMessagesToLastUser,
   computeSummaryHideIds,
+  selectRollingSummaryMessages,
   findTrackerContextInsertIndex,
   isManualTrackerCharacterId,
   parseExtra,
@@ -2822,7 +2823,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           selectedRangeEndIndex = to + 1;
           return allMessages.slice(from, to + 1).filter((message) => !isMessageHiddenFromAI(message));
         })()
-      : allMessages.slice(-contextSize).filter((message) => !isMessageHiddenFromAI(message));
+      : selectRollingSummaryMessages({ messages: allMessages, contextSize });
     if (selectedMessages && "error" in selectedMessages) {
       return reply.status(400).send({ error: selectedMessages.error });
     }
