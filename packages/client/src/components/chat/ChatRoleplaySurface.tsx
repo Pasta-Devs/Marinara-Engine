@@ -851,6 +851,11 @@ function AuthorNotesButton({
     const handle = (e: MouseEvent) => {
       const target = e.target as Node;
       if (ref.current?.contains(target) || panelRef.current?.contains(target)) return;
+      // Don't dismiss while a field inside the panel is focused. On mobile the
+      // virtual keyboard opening can synthesise a pointer/mouse event outside the
+      // panel that would otherwise close it mid-edit (see SummaryPopover).
+      const active = document.activeElement;
+      if (active instanceof Node && panelRef.current?.contains(active)) return;
       onOpenChange(false);
     };
     document.addEventListener("mousedown", handle);
@@ -862,7 +867,14 @@ function AuthorNotesButton({
       setMobileFrame(null);
       return;
     }
-    const update = () => setMobileFrame(getMobileFloatingPanelFrame(buttonRef.current, 288));
+    const update = () => {
+      const next = getMobileFloatingPanelFrame(buttonRef.current, 288);
+      // Keep the last good frame when the anchor button is transiently
+      // unmeasurable (e.g. the mobile keyboard opening collapses the toolbar /
+      // overflow menu so the button's rect is 0) — otherwise the portal panel
+      // unmounts the instant the keyboard appears and the user can't type.
+      if (next) setMobileFrame(next);
+    };
     update();
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
