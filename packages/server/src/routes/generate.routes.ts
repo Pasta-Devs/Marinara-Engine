@@ -108,6 +108,7 @@ import { generateChatBackground } from "../services/game/game-asset-generation.j
 import { sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import {
   parseCharacterCommands,
+  parseCharacterCommandsBySpeaker,
   parseDirectMessageCommands,
   parseDuration,
   type CharacterCommand,
@@ -6114,6 +6115,7 @@ export async function generateRoutes(app: FastifyInstance) {
           savedMsg: Awaited<ReturnType<typeof chats.createMessage>>;
           response: string;
           commands: CharacterCommand[];
+          commandCharacterIds: (string | null)[] | null;
           oocMessages: string[];
           characterId: string | null;
         } | null> => {
@@ -6684,6 +6686,9 @@ export async function generateRoutes(app: FastifyInstance) {
 
           // ── Parse and strip hidden character commands ──
           let parsedCommands: CharacterCommand[] = [];
+          // Parallel to parsedCommands: per-command character attribution for merged
+          // group conversations (null elsewhere — caller falls back to the message char).
+          let parsedCommandCharacterIds: (string | null)[] | null = null;
           let conversationCommandContent: string | null = null;
           let contentReplaced = false;
           if (tailMessages.assistantPrefillInjected && assistantPrefill && fullResponse.startsWith(assistantPrefill)) {
@@ -6725,11 +6730,31 @@ export async function generateRoutes(app: FastifyInstance) {
           }
           if (conversationCommandsEnabled && !input.impersonate) {
             const responseBeforeCommandParsing = fullResponse;
-            const parsed = parseCharacterCommands(fullResponse);
+            // Merged group conversations carry multiple characters' turns in one
+            // response; attribute each command to its speaker so e.g. a [selfie]
+            // renders the character that took it, not always the first one.
+            const useSpeakerAttribution =
+              isGroupChat && groupChatMode === "merged" && chatMode === "conversation";
+            const parsed = useSpeakerAttribution
+              ? parseCharacterCommandsBySpeaker(fullResponse, charInfo, targetCharId)
+              : parseCharacterCommands(fullResponse);
+            const speakerIdByCommand =
+              "commandCharacterIds" in parsed
+                ? new Map(
+                    parsed.commands.map(
+                      (command, index) => [command, parsed.commandCharacterIds[index] ?? targetCharId] as const,
+                    ),
+                  )
+                : null;
             if (parsed.commands.length > 0) {
               parsedCommands = filterEnabledConversationCommands(parsed.commands, chatMeta);
               if (parsedCommands.length > 0) {
                 conversationCommandContent = responseBeforeCommandParsing.trim();
+                if (speakerIdByCommand) {
+                  parsedCommandCharacterIds = parsedCommands.map(
+                    (command) => speakerIdByCommand.get(command) ?? targetCharId,
+                  );
+                }
               }
               fullResponse = parsed.cleanContent;
               contentReplaced = true;
@@ -6751,6 +6776,9 @@ export async function generateRoutes(app: FastifyInstance) {
             });
             if (recoveredSelfieCommand) {
               parsedCommands = [...parsedCommands, recoveredSelfieCommand];
+              // Recovered (implicit) selfies have no speaker prefix to attribute to;
+              // fall back to the generation's character.
+              if (parsedCommandCharacterIds) parsedCommandCharacterIds = [...parsedCommandCharacterIds, targetCharId];
               logger.info("[generate] Recovered implicit selfie command for chat %s", input.chatId);
             }
           }
@@ -6928,6 +6956,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 savedMsg: anchoredMsg,
                 response: "",
                 commands: parsedCommands,
+                commandCharacterIds: parsedCommandCharacterIds,
                 oocMessages,
                 characterId: targetCharId,
               };
@@ -7139,6 +7168,7 @@ export async function generateRoutes(app: FastifyInstance) {
             savedMsg,
             response: fullResponse,
             commands: parsedCommands,
+            commandCharacterIds: parsedCommandCharacterIds,
             oocMessages,
             characterId: targetCharId,
           };
@@ -7299,10 +7329,12 @@ export async function generateRoutes(app: FastifyInstance) {
             firstSavedMsg ??= genResult.savedMsg;
             lastSavedMsg = genResult.savedMsg;
             recordExpressionTarget(genResult.savedMsg, genResult.characterId);
-            for (const cmd of genResult.commands) {
+            for (let cmdIndex = 0; cmdIndex < genResult.commands.length; cmdIndex++) {
               collectedCommands.push({
-                command: cmd,
-                characterId: genResult.characterId,
+                command: genResult.commands[cmdIndex]!,
+                // Merged group responses attribute each command to its speaker; fall
+                // back to the generation's character when no attribution is available.
+                characterId: genResult.commandCharacterIds?.[cmdIndex] ?? genResult.characterId,
                 messageId: genResult.savedMsg?.id ?? "",
                 swipeIndex: genResult.savedMsg?.activeSwipeIndex ?? 0,
               });

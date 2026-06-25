@@ -32,6 +32,8 @@
 // - [navigate: panel="...", tab="..."]
 // - [fetch: type="character|persona|lorebook|chat|preset", name="..."]
 
+import { normalizeTextForMatch } from "@marinara-engine/shared";
+
 import { stripConversationPromptTimestamps } from "./transcript-sanitize.js";
 
 export interface ScheduleUpdateCommand {
@@ -1077,6 +1079,81 @@ export function parseCharacterCommands(content: string): {
     .trim();
 
   return { cleanContent, commands };
+}
+
+/**
+ * Parse character commands from a merged group response, attributing each command
+ * to the character whose `Name:` line-prefixed segment it appears in.
+ *
+ * Conversation-mode group chats use "merged" generation: a single response carries
+ * multiple characters' turns, each introduced by a `CharacterName: ` line prefix
+ * (the same format the client splits on for display — see parseNamePrefixFormat).
+ * The base parseCharacterCommands() attributes every command to one character, so a
+ * command emitted by, say, the third character (e.g. `[selfie]`) is wrongly executed
+ * for the first. This segments the response the same way and matches each parsed
+ * command back to its segment so it is attributed to its actual speaker.
+ *
+ * The authoritative command list and cleaned content come from a single whole-response
+ * parse, so no command is dropped or reordered even if one spans a name boundary;
+ * only the attribution is layered on. Commands with no matching segment (and text
+ * before the first recognised name prefix) fall back to `fallbackCharacterId`.
+ */
+export function parseCharacterCommandsBySpeaker(
+  content: string,
+  knownCharacters: ReadonlyArray<{ id: string; name: string }>,
+  fallbackCharacterId: string | null,
+): { commands: CharacterCommand[]; commandCharacterIds: (string | null)[]; cleanContent: string } {
+  const base = parseCharacterCommands(content);
+
+  const nameToId = new Map<string, string>();
+  for (const character of knownCharacters) {
+    const key = normalizeTextForMatch(character.name);
+    if (key && !nameToId.has(key)) nameToId.set(key, character.id);
+  }
+
+  // Segment the response by leading "Name: " line prefixes, mirroring the client's
+  // parseNamePrefixFormat so server-side attribution matches the rendered split.
+  const segments: Array<{ characterId: string | null; text: string }> = [];
+  let currentId: string | null = fallbackCharacterId;
+  let currentLines: string[] = [];
+  const flush = () => {
+    if (currentLines.length > 0) segments.push({ characterId: currentId, text: currentLines.join("\n") });
+    currentLines = [];
+  };
+  for (const line of content.split("\n")) {
+    const colonIdx = line.indexOf(": ");
+    if (colonIdx > 0) {
+      const mappedId = nameToId.get(normalizeTextForMatch(line.slice(0, colonIdx)));
+      if (mappedId) {
+        flush();
+        currentId = mappedId;
+        currentLines = [line.slice(colonIdx + 2)];
+        continue;
+      }
+    }
+    currentLines.push(line);
+  }
+  flush();
+
+  // Build a per-command attribution queue keyed by command shape, consumed in
+  // segment order so duplicate commands attribute left-to-right.
+  const attributionQueue = new Map<string, (string | null)[]>();
+  for (const segment of segments) {
+    for (const command of parseCharacterCommands(segment.text).commands) {
+      const key = JSON.stringify(command);
+      const queue = attributionQueue.get(key) ?? [];
+      queue.push(segment.characterId);
+      attributionQueue.set(key, queue);
+    }
+  }
+
+  const commandCharacterIds = base.commands.map((command) => {
+    const queue = attributionQueue.get(JSON.stringify(command));
+    const matched = queue?.shift();
+    return matched === undefined ? fallbackCharacterId : matched;
+  });
+
+  return { commands: base.commands, commandCharacterIds, cleanContent: base.cleanContent };
 }
 
 /** Parse Roleplay-only direct-message commands without enabling the wider Conversation command set. */
