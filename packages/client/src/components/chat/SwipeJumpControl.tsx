@@ -31,7 +31,7 @@ export function SwipeJumpControl({
     setInputValue(String(activeSwipeIndex + 1));
   }, [activeSwipeIndex]);
 
-  if (swipeCount <= 1 && !onCreateNextSwipe) return null;
+  if (swipeCount <= 1) return null;
 
   const inputId = `swipe-jump-${messageId}`;
   const displaySwipeCount = Math.max(1, swipeCount);
