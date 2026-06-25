@@ -949,6 +949,7 @@ export function ConversationInput({
   }, [
     activeChatId,
     activeChatCharacters,
+    lastMessageRole,
     attachments,
     canRetry,
     isReadingAttachments,
@@ -1053,6 +1054,7 @@ export function ConversationInput({
       activeChatId,
       activeChatCharacters,
       activeCharacterNames,
+      lastMessageRole,
       clearInputDraft,
       completions,
       _mentionQuery,
