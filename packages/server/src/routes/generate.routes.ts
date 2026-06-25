@@ -6735,17 +6735,17 @@ export async function generateRoutes(app: FastifyInstance) {
             // renders the character that took it, not always the first one.
             const useSpeakerAttribution =
               isGroupChat && groupChatMode === "merged" && chatMode === "conversation";
-            const parsed = useSpeakerAttribution
+            const speakerParse = useSpeakerAttribution
               ? parseCharacterCommandsBySpeaker(fullResponse, charInfo, targetCharId)
-              : parseCharacterCommands(fullResponse);
-            const speakerIdByCommand =
-              "commandCharacterIds" in parsed
-                ? new Map(
-                    parsed.commands.map(
-                      (command, index) => [command, parsed.commandCharacterIds[index] ?? targetCharId] as const,
-                    ),
-                  )
-                : null;
+              : null;
+            const parsed = speakerParse ?? parseCharacterCommands(fullResponse);
+            const speakerIdByCommand = speakerParse
+              ? new Map(
+                  speakerParse.commands.map(
+                    (command, index) => [command, speakerParse.commandCharacterIds[index] ?? targetCharId] as const,
+                  ),
+                )
+              : null;
             if (parsed.commands.length > 0) {
               parsedCommands = filterEnabledConversationCommands(parsed.commands, chatMeta);
               if (parsedCommands.length > 0) {
