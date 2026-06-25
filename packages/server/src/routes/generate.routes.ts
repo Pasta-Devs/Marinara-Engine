@@ -3092,8 +3092,14 @@ export async function generateRoutes(app: FastifyInstance) {
           // conversation asset context below. Whether
           // to react — and how warmly or dryly — is emergent from personality, not
           // dictated here.
-          conversationSystemPrompt +=
-            '\n\nYou can react to the user\'s most recent message with a single emoji by writing [react: emoji="😂"] on its own line — any standard emoji, or a custom one you have access to as [react: emoji=":name:"]. It posts as a small badge on their message, the way you\'d react in a chat app. Use it only when it genuinely fits how your character feels in the moment; it is optional, may stand alone or sit alongside your reply, and choosing a flat reaction or none at all is itself a valid choice.';
+          // Gated on `conversationCommandsEnabled`: the `[react: …]` tag is parsed,
+          // stripped, and applied inside the command pipeline, which only runs when
+          // Character Commands are enabled. Advertising the syntax while that pipeline
+          // is off leaves the raw tag in the visible message with no badge (#2877).
+          if (conversationCommandsEnabled) {
+            conversationSystemPrompt +=
+              '\n\nYou can react to the user\'s most recent message with a single emoji by writing [react: emoji="😂"] on its own line — any standard emoji, or a custom one you have access to as [react: emoji=":name:"]. It posts as a small badge on their message, the way you\'d react in a chat app. Use it only when it genuinely fits how your character feels in the moment; it is optional, may stand alone or sit alongside your reply, and choosing a flat reaction or none at all is itself a valid choice.';
+          }
           // ── Home Professor Mari: inject assistant knowledge & commands ──
           if (isHomeProfessorMariAssistantChat) {
             conversationSystemPrompt += "\n\n" + MARI_ASSISTANT_PROMPT;
