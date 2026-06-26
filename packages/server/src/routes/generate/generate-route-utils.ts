@@ -523,18 +523,18 @@ export function computeSummaryHideIds(args: {
  * window is `entryMessageIds` minus the tail, the LLM-facing batch and the hide set share
  * this selection; extending it is what lets a stranded tail be reclaimed.
  *
- * The boundary is identified ONLY by ids recorded in a live summary entry's
- * `hiddenMessageIds` — NOT by the bare `hiddenFromAI` flag. That flag is ambiguous: the
- * user's manual "Hide from AI" toggle writes the same flag, so keying off it would let a
- * stray manual hide on an early message be misread as a summary boundary and balloon the
- * window to (nearly) the whole chat. With no summary-hidden message before the window
- * (e.g. the first summary, or only manual hides), the plain last-`size` window is used.
- * Pure: `messages` must be chat-ordered (ascending).
+ * The boundary is identified ONLY by messages a live summary entry actually summarized
+ * (its `messageIds` / `hiddenMessageIds`) — NOT by the bare `hiddenFromAI` flag. That
+ * flag is ambiguous: the user's manual "Hide from AI" toggle writes the same flag, so
+ * keying off it would let a stray manual hide on an early message be misread as a summary
+ * boundary and balloon the window to (nearly) the whole chat. With no summary-owned
+ * hidden message before the window (e.g. the first summary, or only manual hides), the
+ * plain last-`size` window is used. Pure: `messages` must be chat-ordered (ascending).
  */
 export function selectRollingSummaryMessages<T extends { id: string; extra?: unknown }>(args: {
   messages: T[];
   contextSize: number;
-  summaryEntries?: ReadonlyArray<{ enabled?: boolean; hiddenMessageIds?: string[] }>;
+  summaryEntries?: ReadonlyArray<{ enabled?: boolean; hiddenMessageIds?: string[]; messageIds?: string[] }>;
 }): T[] {
   const { messages, contextSize } = args;
   const size = Number.isFinite(contextSize) ? Math.max(0, Math.floor(contextSize)) : 0;
@@ -542,20 +542,22 @@ export function selectRollingSummaryMessages<T extends { id: string; extra?: unk
   const visible = messages.filter((message) => !isMessageHiddenFromAI(message));
   // Fewer visible messages than the window — nothing can have drifted out of it.
   if (visible.length <= size) return visible;
-  // Messages hidden by a live (enabled) summary entry — the only hides that mark a real
-  // summary boundary. A manual "Hide from AI" never appears here, so it can't expand the
-  // window.
-  const summaryHidden = new Set<string>();
+  // Ids owned by a live (enabled) summary entry — what it summarized. A manual "Hide from
+  // AI" never appears here, so it can't be mistaken for a boundary. We include both
+  // `hiddenMessageIds` and `messageIds` so entries created before `hiddenMessageIds`
+  // existed (see ChatSummaryEntry) still anchor a boundary; the hidden check in the scan
+  // keeps the protected tail (also in `messageIds`, but visible) from being chosen.
+  const summaryOwned = new Set<string>();
   for (const entry of Array.isArray(args.summaryEntries) ? args.summaryEntries : []) {
-    if (entry?.enabled !== false && Array.isArray(entry?.hiddenMessageIds)) {
-      for (const id of entry.hiddenMessageIds) summaryHidden.add(id);
-    }
+    if (entry?.enabled === false) continue;
+    for (const id of Array.isArray(entry?.hiddenMessageIds) ? entry.hiddenMessageIds : []) summaryOwned.add(id);
+    for (const id of Array.isArray(entry?.messageIds) ? entry.messageIds : []) summaryOwned.add(id);
   }
-  if (summaryHidden.size === 0) return visible.slice(-size);
-  // The previous summary's boundary: the most recent summary-hidden message.
+  if (summaryOwned.size === 0) return visible.slice(-size);
+  // The previous summary's boundary: the most recent hidden message owned by a summary.
   let lastBoundaryIndex = -1;
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (summaryHidden.has(messages[i]!.id)) {
+    if (isMessageHiddenFromAI(messages[i]!) && summaryOwned.has(messages[i]!.id)) {
       lastBoundaryIndex = i;
       break;
     }
