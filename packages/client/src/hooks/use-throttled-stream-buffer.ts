@@ -22,11 +22,20 @@ import { rafThrottle } from "../lib/raf-throttle";
 // unaffected. The committed message is rendered from the React Query cache once
 // streaming ends, so a growth frame being up to ~16ms behind is never visible.
 
-// True when `next` is the previous buffer plus more tokens (ongoing growth) and
-// should be throttled; false for resets, the first token after a clear, and
-// shrinks, which are delivered immediately. Exported for unit testing.
+// True when `next` is the previous buffer plus more appended tokens (ongoing
+// growth) and should be throttled; false for resets, the first token after a
+// clear, shrinks, and any non-append change, which are delivered immediately.
+//
+// The `startsWith` prefix check is what makes a non-append swap a reset: a
+// per-token stream always appends (`next === lastSeen + token`), but switching
+// the active chat into a *different* chat that is also streaming replaces the
+// buffer with unrelated text. Without the prefix check, if that other chat's
+// buffer happened to be longer it would be misclassified as growth and held a
+// frame, briefly showing the previous chat's text in the new chat. Requiring
+// the prefix delivers cross-chat swaps synchronously instead. Exported for
+// unit testing.
 export function isOngoingStreamGrowth(lastSeen: string, next: string): boolean {
-  return lastSeen.length > 0 && next.length > lastSeen.length;
+  return lastSeen.length > 0 && next.length > lastSeen.length && next.startsWith(lastSeen);
 }
 
 export function useThrottledStreamBuffer(): string {
