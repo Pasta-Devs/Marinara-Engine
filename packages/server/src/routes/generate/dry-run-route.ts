@@ -1307,6 +1307,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             : null,
         lastGenerationType: promptLastGenerationType,
         idleDuration: promptIdleDuration,
+        impersonate,
       };
 
       const assembled = await assemblePrompt(assemblerInput);

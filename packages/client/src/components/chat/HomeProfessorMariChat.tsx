@@ -1843,12 +1843,12 @@ export function HomeProfessorMariChat({
   const handleRestart = useCallback(async () => {
     const chat = await ensureProfessorMariChat(effectiveConnectionId);
     const currentMessages = await api.get<Message[]>(`/chats/${chat.id}/messages`);
+    await api.post("/professor-mari/workspace/reset", { clearHistory: true });
     if (currentMessages.length > 0) {
       await api.post(`/chats/${chat.id}/messages/bulk-delete`, {
         messageIds: currentMessages.map((message) => message.id),
       });
     }
-    await api.post("/professor-mari/workspace/reset", { clearHistory: true });
     setMessages([]);
     setDraft("");
     setWorkspaceActive(false);

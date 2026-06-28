@@ -5,7 +5,9 @@ import {
   resolveMacros,
   testPrimaryKeys,
   testSecondaryKeys,
+  type ChatMLMessage,
 } from "../../packages/shared/src/index.js";
+import type { DB } from "../../packages/server/src/db/connection.js";
 import {
   appendNonLeadingSystemMessagesToLastUser,
   appendSeparateAgentInjectionMessage,
@@ -14,10 +16,11 @@ import {
   type SimpleMessage,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
+import { assemblePrompt, type AssemblerInput } from "../../packages/server/src/services/prompt/index.js";
 
 type RegressionCase = {
   name: string;
-  run: () => void;
+  run: () => void | Promise<void>;
 };
 
 const keywordOptions = {
@@ -154,6 +157,83 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "impersonate assembly skips regular preset instructions but keeps markers",
+    async run() {
+      const chatMessages: ChatMLMessage[] = [
+        { role: "user", content: "Can you answer as me?" },
+        { role: "assistant", content: "I can help." },
+      ];
+      const baseInput: AssemblerInput = {
+        db: undefined as unknown as DB,
+        preset: {
+          id: "preset-impersonate",
+          name: "Impersonate Fixture",
+          sectionOrder: JSON.stringify(["main", "history"]),
+          groupOrder: JSON.stringify([]),
+          wrapFormat: "xml",
+          parameters: JSON.stringify({}),
+          variableGroups: JSON.stringify([]),
+          variableValues: JSON.stringify({}),
+        },
+        sections: [
+          {
+            id: "main",
+            presetId: "preset-impersonate",
+            identifier: "main",
+            name: "Main Prompt",
+            content: "You are {{char}}. Never answer as {{user}}.",
+            role: "system",
+            enabled: "true",
+            isMarker: "false",
+            groupId: null,
+            markerConfig: null,
+            injectionPosition: "ordered",
+            injectionDepth: 0,
+            injectionOrder: 0,
+            forbidOverrides: "false",
+          },
+          {
+            id: "history",
+            presetId: "preset-impersonate",
+            identifier: "chatHistory",
+            name: "Chat History",
+            content: "",
+            role: "system",
+            enabled: "true",
+            isMarker: "true",
+            groupId: null,
+            markerConfig: JSON.stringify({
+              type: "chat_history",
+              chatHistoryOptions: { includeSystemMessages: false },
+            }),
+            injectionPosition: "ordered",
+            injectionDepth: 0,
+            injectionOrder: 1,
+            forbidOverrides: "false",
+          },
+        ],
+        groups: [],
+        choiceBlocks: [],
+        chatChoices: {},
+        chatId: "chat-impersonate",
+        characterIds: [],
+        personaName: "Mari",
+        personaDescription: "The current user.",
+        chatMessages,
+      };
+
+      const normal = await assemblePrompt(baseInput);
+      const impersonate = await assemblePrompt({ ...baseInput, impersonate: true });
+      const normalText = normal.messages.map((message) => message.content).join("\n");
+      const impersonateText = impersonate.messages.map((message) => message.content).join("\n");
+
+      assert.match(normalText, /Never answer as Mari/);
+      assert.equal(impersonateText.includes("Never answer as Mari"), false);
+      assert.match(impersonateText, /Can you answer as me\?/);
+      assert.match(impersonateText, /I can help\./);
+    },
+  },
+  {
     name: "separate agent injections survive long-history context fitting",
     run() {
       const messages: SimpleMessage[] = [{ role: "system", content: "Stable system prompt." }];
@@ -217,7 +297,7 @@ let failed = 0;
 
 for (const regression of cases) {
   try {
-    regression.run();
+    await regression.run();
     console.log(`ok - ${regression.name}`);
   } catch (error) {
     failed += 1;

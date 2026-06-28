@@ -14,6 +14,7 @@ import {
   type LLMUsage,
 } from "../base-provider.js";
 import { shouldSuppressUnknownModelParameters } from "@marinara-engine/shared";
+import { getEmbeddingRequestTimeoutMs } from "../../../config/runtime-config.js";
 import { decodePossiblyCompressedBody } from "../../../utils/security.js";
 
 /** A single Gemini response part (text, thought summary, or signature-only). */
@@ -59,6 +60,12 @@ interface GeminiResponsePayload {
   promptFeedback?: GeminiPromptFeedback;
   error?: GeminiApiError;
   usageMetadata?: GeminiUsageMetadata;
+}
+
+interface GeminiEmbeddingPayload {
+  embedding?: { values?: unknown };
+  embeddings?: Array<{ values?: unknown }>;
+  error?: GeminiApiError;
 }
 
 type GoogleProviderKind = "google" | "google_vertex";
@@ -174,11 +181,14 @@ export async function googleAuthHeadersForVertex(apiKey: string): Promise<Record
 export function buildGoogleVertexModelUrl(
   baseUrl: string,
   model: string,
-  endpoint: "generateContent" | "streamGenerateContent" | "models",
+  endpoint: "generateContent" | "streamGenerateContent" | "embedContent" | "models",
 ): string {
   const base = baseUrl
     .replace(/\/+$/, "")
-    .replace(/\/publishers\/google\/models(?:\/[^/:]+(?::(?:generateContent|streamGenerateContent))?)?$/i, "");
+    .replace(
+      /\/publishers\/google\/models(?:\/[^/:]+(?::(?:generateContent|streamGenerateContent|embedContent))?)?$/i,
+      "",
+    );
   if (endpoint === "models") {
     return `${base}/publishers/google/models`;
   }
@@ -206,6 +216,26 @@ function formatGeminiApiError(error: GeminiApiError | undefined): string | null 
   if (status) return status;
   if (code !== null) return `code ${code}`;
   return "unknown Gemini API error";
+}
+
+function parseGeminiEmbeddingResponse(payload: GeminiEmbeddingPayload): number[] {
+  const apiError = formatGeminiApiError(payload.error);
+  if (apiError) throw new Error(`Gemini embedding API error: ${apiError}`);
+
+  const values = payload.embedding?.values ?? payload.embeddings?.[0]?.values;
+  if (!Array.isArray(values)) {
+    throw new Error("Gemini embedding response did not include an embedding vector.");
+  }
+  const embedding = values.map((value) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new Error("Gemini embedding response contained a non-numeric vector value.");
+    }
+    return value;
+  });
+  if (embedding.length === 0) {
+    throw new Error("Gemini embedding response contained an empty vector.");
+  }
+  return embedding;
 }
 
 function formatGeminiPromptBlock(feedback: GeminiPromptFeedback | undefined): string | null {
@@ -822,10 +852,45 @@ export class GoogleProvider extends BaseLLMProvider {
     if (streamUsage) return { ...streamUsage, finishReason: normalizeGeminiFinishReason(lastFinishReason) };
   }
 
-  override async embed(_texts: string[], _model: string, _signal?: AbortSignal): Promise<number[][]> {
-    const label = this.providerKind === "google_vertex" ? "Vertex AI Gemini" : "Google Gemini";
-    throw new Error(
-      `${label} connections do not support embeddings through Marinara's OpenAI-compatible /embeddings path. Configure a dedicated OpenAI-compatible or local embedding connection.`,
-    );
+  override async embed(texts: string[], model: string, signal?: AbortSignal): Promise<number[][]> {
+    if (texts.length === 0) return [];
+
+    const label = this.providerKind === "google_vertex" ? "Vertex AI Gemini" : "Gemini API";
+    const requestModel = model.replace(/^models\//, "") || "gemini-embedding-001";
+    const timeoutMs = getEmbeddingRequestTimeoutMs();
+    let base = normalizeGoogleBaseUrl(this.baseUrl);
+    if (this.providerKind === "google" && !/\/v\d/.test(base)) base += "/v1beta";
+    const url =
+      this.providerKind === "google_vertex"
+        ? buildGoogleVertexModelUrl(base, requestModel, "embedContent")
+        : `${base}/models/${requestModel}:embedContent`;
+    const authHeaders =
+      this.providerKind === "google_vertex"
+        ? await googleAuthHeadersForVertex(this.apiKey)
+        : this.apiKey.trim()
+          ? { "x-goog-api-key": this.apiKey.trim() }
+          : {};
+
+    const embeddings: number[][] = [];
+    for (const text of texts) {
+      const timeoutSignal = AbortSignal.timeout(timeoutMs);
+      const response = await llmFetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          content: { parts: [{ text: text.trim() ? text : " " }] },
+        }),
+        signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
+        agentOptions: { bodyTimeout: timeoutMs, headersTimeout: timeoutMs },
+        bufferResponse: true,
+      });
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(`${label} embedding request failed (${response.status}): ${sanitizeApiError(body)}`);
+      }
+      embeddings.push(parseGeminiEmbeddingResponse((await response.json()) as GeminiEmbeddingPayload));
+    }
+    return embeddings;
   }
 }

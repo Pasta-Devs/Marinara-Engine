@@ -186,6 +186,8 @@ export interface AssemblerInput {
   idleDuration?: string;
   /** IANA timezone used by date/time macros. */
   timeZone?: string;
+  /** Skip regular preset instructions that would conflict with user impersonation. */
+  impersonate?: boolean;
   /** Preserve character-scoped macros for a later known-speaker finalization pass. */
   deferCharacterMacros?: boolean;
 }
@@ -340,6 +342,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     const section = sectionMap.get(sectionId);
     if (!section) continue;
     if (section.enabled !== "true") continue;
+    if (input.impersonate === true && section.isMarker !== "true") continue;
 
     // Check if group is enabled
     if (section.groupId) {

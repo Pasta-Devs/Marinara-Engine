@@ -2250,6 +2250,7 @@ export async function generateRoutes(app: FastifyInstance) {
             lastGenerationType: promptLastGenerationType,
             idleDuration: promptIdleDuration,
             timeZone: promptTimeZone,
+            impersonate: input.impersonate === true,
             deferCharacterMacros,
           };
 
