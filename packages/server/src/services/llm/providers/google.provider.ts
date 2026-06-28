@@ -218,11 +218,11 @@ function formatGeminiApiError(error: GeminiApiError | undefined): string | null 
   return "unknown Gemini API error";
 }
 
-function parseGeminiEmbeddingResponse(payload: GeminiEmbeddingPayload): number[] {
-  const apiError = formatGeminiApiError(payload.error);
-  if (apiError) throw new Error(`Gemini embedding API error: ${apiError}`);
+function geminiEmbeddingContent(text: string): { parts: Array<{ text: string }> } {
+  return { parts: [{ text: text.trim() ? text : " " }] };
+}
 
-  const values = payload.embedding?.values ?? payload.embeddings?.[0]?.values;
+function parseGeminiEmbeddingValues(values: unknown): number[] {
   if (!Array.isArray(values)) {
     throw new Error("Gemini embedding response did not include an embedding vector.");
   }
@@ -236,6 +236,29 @@ function parseGeminiEmbeddingResponse(payload: GeminiEmbeddingPayload): number[]
     throw new Error("Gemini embedding response contained an empty vector.");
   }
   return embedding;
+}
+
+function parseGeminiEmbeddingResponse(payload: GeminiEmbeddingPayload): number[] {
+  const apiError = formatGeminiApiError(payload.error);
+  if (apiError) throw new Error(`Gemini embedding API error: ${apiError}`);
+
+  const values = payload.embedding?.values ?? payload.embeddings?.[0]?.values;
+  return parseGeminiEmbeddingValues(values);
+}
+
+function parseGeminiBatchEmbeddingResponse(payload: GeminiEmbeddingPayload, expectedCount: number): number[][] {
+  const apiError = formatGeminiApiError(payload.error);
+  if (apiError) throw new Error(`Gemini embedding API error: ${apiError}`);
+
+  if (!Array.isArray(payload.embeddings)) {
+    throw new Error("Gemini batch embedding response did not include embedding vectors.");
+  }
+  if (payload.embeddings.length !== expectedCount) {
+    throw new Error(
+      `Gemini batch embedding response returned ${payload.embeddings.length} vectors for ${expectedCount} inputs.`,
+    );
+  }
+  return payload.embeddings.map((embedding) => parseGeminiEmbeddingValues(embedding.values));
 }
 
 function formatGeminiPromptBlock(feedback: GeminiPromptFeedback | undefined): string | null {
@@ -871,6 +894,29 @@ export class GoogleProvider extends BaseLLMProvider {
           ? { "x-goog-api-key": this.apiKey.trim() }
           : {};
 
+    if (this.providerKind === "google" && texts.length > 1) {
+      const timeoutSignal = AbortSignal.timeout(timeoutMs);
+      const response = await llmFetch(`${base}/models/${requestModel}:batchEmbedContents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          requests: texts.map((text) => ({
+            model: `models/${requestModel}`,
+            content: geminiEmbeddingContent(text),
+          })),
+        }),
+        signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
+        agentOptions: { bodyTimeout: timeoutMs, headersTimeout: timeoutMs },
+        bufferResponse: true,
+      });
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(`${label} batch embedding request failed (${response.status}): ${sanitizeApiError(body)}`);
+      }
+      return parseGeminiBatchEmbeddingResponse((await response.json()) as GeminiEmbeddingPayload, texts.length);
+    }
+
     const embeddings: number[][] = [];
     for (const text of texts) {
       const timeoutSignal = AbortSignal.timeout(timeoutMs);
@@ -878,7 +924,7 @@ export class GoogleProvider extends BaseLLMProvider {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
-          content: { parts: [{ text: text.trim() ? text : " " }] },
+          content: geminiEmbeddingContent(text),
         }),
         signal: signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal,
         agentOptions: { bodyTimeout: timeoutMs, headersTimeout: timeoutMs },
