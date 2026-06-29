@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // App: Root component with layout
 // ──────────────────────────────────────────────
-import { Component, lazy, Suspense, useEffect, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, type ErrorInfo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { AppShell } from "./components/layout/AppShell";
@@ -68,7 +68,7 @@ const APP_ACCENT_CUSTOM_VARIABLES = [
 const ACCENT_RGB_TICK_MS = 500;
 const ACCENT_RGB_SOLID_CYCLE_MS = 7_200;
 const ACCENT_RGB_GRADIENT_STOP_MS = 6_000;
-const CUSTOM_CURSOR_OVERLAY_SCROLL_MS = 220;
+const CUSTOM_CURSOR_RECOLOR_SCROLL_FREEZE_MS = 360;
 const TOAST_DURATION_MS = 6_000;
 const TOAST_VISIBLE_LIMIT = 3;
 const THEME_ACCENT_PULSE_VARIABLE = "--marinara-theme-accent-pulse";
@@ -340,12 +340,14 @@ function applyAppAccentVariables({
   gradient,
   surfaceAccent,
   theme,
+  updateCursor = true,
 }: {
   root: HTMLElement;
   accent: string;
   gradient: string;
   surfaceAccent: string;
   theme: "dark" | "light";
+  updateCursor?: boolean;
 }) {
   root.style.setProperty("--primary", accent);
   root.style.setProperty("--ring", accent);
@@ -357,7 +359,7 @@ function applyAppAccentVariables({
   root.style.setProperty("--marinara-app-accent-gradient", gradient);
   root.style.setProperty("--marinara-chat-chrome-accent", accent);
   root.style.setProperty("--marinara-chat-chrome-accent-gradient", gradient);
-  setAccentCursorVariable(root, accent, theme);
+  if (updateCursor) setAccentCursorVariable(root, accent, theme);
 }
 
 function getSolidRgbAccent(accent: string) {
@@ -388,167 +390,6 @@ function clearCustomAppAccentVariables(root: HTMLElement) {
 
 function canRunAccentAnimation(reducedMotionQuery: MediaQueryList, forcePaused = false) {
   return document.visibilityState === "visible" && document.hasFocus() && !reducedMotionQuery.matches && !forcePaused;
-}
-
-function CustomCursorOverlay({ enabled }: { enabled: boolean }) {
-  const cursorRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!enabled) return;
-    const root = document.documentElement;
-    const cursor = cursorRef.current;
-    if (!cursor) return;
-
-    const finePointerQuery = window.matchMedia("(pointer: fine)");
-    if (!finePointerQuery.matches) {
-      cursor.dataset.visible = "false";
-      return;
-    }
-
-    let latestX = -100;
-    let latestY = -100;
-    let hasPointerPosition = false;
-    let overlayTimer: ReturnType<typeof window.setTimeout> | null = null;
-
-    const paintCursor = (x: number, y: number) => {
-      cursor.style.transform = `translate3d(${x - 3}px, ${y - 3}px, 0)`;
-    };
-
-    const hideOverlay = () => {
-      if (overlayTimer !== null) {
-        window.clearTimeout(overlayTimer);
-        overlayTimer = null;
-      }
-      delete root.dataset.marinaraCustomCursorOverlay;
-      cursor.dataset.visible = "false";
-      cursor.dataset.pressed = "false";
-    };
-
-    const showOverlay = (x = latestX, y = latestY) => {
-      if (!hasPointerPosition) return;
-      paintCursor(x, y);
-      root.dataset.marinaraCustomCursorOverlay = "enabled";
-      cursor.dataset.visible = "true";
-      if (overlayTimer !== null) {
-        window.clearTimeout(overlayTimer);
-      }
-      overlayTimer = window.setTimeout(() => {
-        overlayTimer = null;
-        delete root.dataset.marinaraCustomCursorOverlay;
-        cursor.dataset.visible = "false";
-      }, CUSTOM_CURSOR_OVERLAY_SCROLL_MS);
-    };
-
-    const rememberPointer = (x: number, y: number) => {
-      latestX = x;
-      latestY = y;
-      hasPointerPosition = true;
-      if (root.dataset.marinaraCustomCursorOverlay === "enabled") {
-        paintCursor(x, y);
-      }
-    };
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerType && event.pointerType !== "mouse") {
-        hideOverlay();
-        return;
-      }
-      rememberPointer(event.clientX, event.clientY);
-    };
-
-    const handleMouseMove = (event: MouseEvent) => {
-      rememberPointer(event.clientX, event.clientY);
-    };
-
-    const handleWheel = (event: WheelEvent) => {
-      rememberPointer(event.clientX, event.clientY);
-      showOverlay(event.clientX, event.clientY);
-    };
-
-    const handleScroll = () => {
-      showOverlay();
-    };
-
-    const handlePress = () => {
-      if (root.dataset.marinaraCustomCursorOverlay === "enabled") {
-        cursor.dataset.pressed = "true";
-      }
-    };
-
-    const handleRelease = () => {
-      cursor.dataset.pressed = "false";
-    };
-
-    const hideCursor = () => {
-      hideOverlay();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        hideCursor();
-      }
-    };
-
-    const passiveOptions: AddEventListenerOptions = { passive: true };
-    const supportsPointerEvents = "PointerEvent" in window;
-    if (supportsPointerEvents) {
-      document.addEventListener("pointermove", handlePointerMove, passiveOptions);
-      document.addEventListener("pointerdown", handlePress, passiveOptions);
-      document.addEventListener("pointerup", handleRelease, passiveOptions);
-      document.addEventListener("pointercancel", hideCursor, passiveOptions);
-    } else {
-      document.addEventListener("mousemove", handleMouseMove, passiveOptions);
-      document.addEventListener("mousedown", handlePress, passiveOptions);
-      document.addEventListener("mouseup", handleRelease, passiveOptions);
-    }
-    window.addEventListener("wheel", handleWheel, { capture: true, passive: true });
-    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
-    document.addEventListener("mouseleave", hideCursor, passiveOptions);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", hideCursor, passiveOptions);
-
-    return () => {
-      if (supportsPointerEvents) {
-        document.removeEventListener("pointermove", handlePointerMove, passiveOptions);
-        document.removeEventListener("pointerdown", handlePress, passiveOptions);
-        document.removeEventListener("pointerup", handleRelease, passiveOptions);
-        document.removeEventListener("pointercancel", hideCursor, passiveOptions);
-      } else {
-        document.removeEventListener("mousemove", handleMouseMove, passiveOptions);
-        document.removeEventListener("mousedown", handlePress, passiveOptions);
-        document.removeEventListener("mouseup", handleRelease, passiveOptions);
-      }
-      window.removeEventListener("wheel", handleWheel, { capture: true });
-      window.removeEventListener("scroll", handleScroll, { capture: true });
-      document.removeEventListener("mouseleave", hideCursor, passiveOptions);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", hideCursor, passiveOptions);
-      hideOverlay();
-    };
-  }, [enabled]);
-
-  if (!enabled) return null;
-
-  return (
-    <div ref={cursorRef} className="mari-custom-cursor-overlay" aria-hidden="true" data-visible="false">
-      <svg
-        className="mari-custom-cursor-overlay__svg"
-        width="24"
-        height="24"
-        viewBox="0 0 24 24"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        focusable="false"
-      >
-        <path
-          d="M3 3L10 20L12 12L20 10L3 3Z"
-          fill="currentColor"
-          stroke="var(--marinara-custom-cursor-stroke)"
-          strokeWidth="1"
-        />
-      </svg>
-    </div>
-  );
 }
 
 async function recoverFromVersionSkew(serverVersion: string) {
@@ -713,6 +554,45 @@ export function App() {
     const accentAnimationEnabled = appAccentRgbMode || appAccentPulseMode || themeAccentPulseConfig.enabled;
 
     let accentAnimationTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let cursorRecolorFreezeTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let cursorRecolorFrozen = false;
+    let pendingCursorAccent: string | null = null;
+
+    const applyCursorAccent = (cursorAccent: string) => {
+      if (customCursorEnabled && cursorRecolorFrozen) {
+        pendingCursorAccent = cursorAccent;
+        return;
+      }
+      pendingCursorAccent = null;
+      setAccentCursorVariable(root, cursorAccent, theme);
+    };
+
+    const unfreezeCursorRecolor = () => {
+      if (cursorRecolorFreezeTimer !== null) {
+        window.clearTimeout(cursorRecolorFreezeTimer);
+        cursorRecolorFreezeTimer = null;
+      }
+      cursorRecolorFrozen = false;
+      delete root.dataset.marinaraCursorRecolorFrozen;
+      if (pendingCursorAccent !== null) {
+        const nextCursorAccent = pendingCursorAccent;
+        pendingCursorAccent = null;
+        setAccentCursorVariable(root, nextCursorAccent, theme);
+      }
+    };
+
+    const freezeCursorRecolorDuringScroll = () => {
+      if (!customCursorEnabled) return;
+      cursorRecolorFrozen = true;
+      root.dataset.marinaraCursorRecolorFrozen = "true";
+      if (cursorRecolorFreezeTimer !== null) {
+        window.clearTimeout(cursorRecolorFreezeTimer);
+      }
+      cursorRecolorFreezeTimer = window.setTimeout(
+        unfreezeCursorRecolor,
+        CUSTOM_CURSOR_RECOLOR_SCROLL_FREEZE_MS,
+      );
+    };
 
     const setAccentModeDataset = () => {
       if (accentIsGradient) {
@@ -725,7 +605,7 @@ export function App() {
     const applyStaticAccent = () => {
       if (!accent) {
         clearCustomAppAccentVariables(root);
-        setAccentCursorVariable(root, "var(--primary)", theme);
+        applyCursorAccent("var(--primary)");
         setAccentModeDataset();
         return;
       }
@@ -736,7 +616,9 @@ export function App() {
         gradient: accentIsGradient ? accentSource : getSolidAccentGradient(solidAccent),
         surfaceAccent: solidAccent,
         theme,
+        updateCursor: false,
       });
+      applyCursorAccent(solidAccent);
       setAccentModeDataset();
     };
 
@@ -752,7 +634,9 @@ export function App() {
         gradient: getSolidAccentGradient(liveAccent),
         surfaceAccent: accentIsGradient ? solidAccent : liveAccent,
         theme,
+        updateCursor: false,
       });
+      applyCursorAccent(liveAccent);
       setAccentModeDataset();
     };
 
@@ -808,6 +692,7 @@ export function App() {
     window.addEventListener("blur", syncAccentAnimationState);
     window.addEventListener("pageshow", syncAccentAnimationState);
     window.addEventListener("pagehide", syncAccentAnimationState);
+    window.addEventListener("wheel", freezeCursorRecolorDuringScroll, { capture: true, passive: true });
     reducedMotionQuery.addEventListener("change", syncAccentAnimationState);
 
     return () => {
@@ -816,16 +701,22 @@ export function App() {
       window.removeEventListener("blur", syncAccentAnimationState);
       window.removeEventListener("pageshow", syncAccentAnimationState);
       window.removeEventListener("pagehide", syncAccentAnimationState);
+      window.removeEventListener("wheel", freezeCursorRecolorDuringScroll, true);
       reducedMotionQuery.removeEventListener("change", syncAccentAnimationState);
       if (accentAnimationTimer !== null) {
         window.clearTimeout(accentAnimationTimer);
       }
+      if (cursorRecolorFreezeTimer !== null) {
+        window.clearTimeout(cursorRecolorFreezeTimer);
+      }
       delete root.dataset.marinaraAccentAnimation;
+      delete root.dataset.marinaraCursorRecolorFrozen;
     };
   }, [
     appAccentColor,
     appAccentPulseMode,
     appAccentRgbMode,
+    customCursorEnabled,
     pauseChromeEffectsForAppearance,
     theme,
     themeAccentPulseConfig.enabled,
@@ -1011,7 +902,6 @@ export function App() {
           }}
         />
       </div>
-      <CustomCursorOverlay enabled={customCursorEnabled} />
     </>
   );
 }
