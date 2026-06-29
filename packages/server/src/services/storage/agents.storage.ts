@@ -366,19 +366,23 @@ export function createAgentsStorage(db: DB) {
 
     /** Get recent custom-agent runs for a chat, newest first. */
     async listCustomRunsForChat(chatId: string, limit = 50) {
-      const normalizedLimit = Math.max(1, Math.min(limit, 200));
+      const finiteLimit = Number.isFinite(limit) ? limit : 50;
+      const normalizedLimit = Math.max(1, Math.min(finiteLimit, 200));
       const rows = await db
         .select()
         .from(agentRuns)
         .innerJoin(agentConfigs, eq(agentRuns.agentConfigId, agentConfigs.id))
         .where(and(eq(agentRuns.chatId, chatId), eq(agentRuns.success, "true")))
-        .orderBy(desc(agentRuns.createdAt))
-        .limit(200);
+        .orderBy(desc(agentRuns.createdAt));
 
-      return rows
-        .filter((row) => !isBuiltInAgentType(row.agent_configs.type))
-        .slice(0, normalizedLimit)
-        .map((row) => serializeRunWithConfig(row));
+      const customRows: typeof rows = [];
+      for (const row of rows) {
+        if (isBuiltInAgentType(row.agent_configs.type)) continue;
+        customRows.push(row);
+        if (customRows.length >= normalizedLimit) break;
+      }
+
+      return customRows.map((row) => serializeRunWithConfig(row));
     },
 
     async getRunWithConfig(id: string) {

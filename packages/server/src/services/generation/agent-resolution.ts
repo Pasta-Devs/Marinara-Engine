@@ -318,6 +318,14 @@ export async function resolveAgentPipelineAgents({
     ) {
       settings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
     }
+    if (
+      cfg.type !== "spotify" &&
+      BUILT_IN_AGENTS.some((agent) => agent.id === cfg.type) &&
+      !Array.isArray(settings.enabledTools) &&
+      (DEFAULT_AGENT_TOOLS[cfg.type as string]?.length ?? 0) > 0
+    ) {
+      settings.enabledTools = [...DEFAULT_AGENT_TOOLS[cfg.type as string]!];
+    }
     let selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: cfg.type as string,
       promptTemplate: normalizeProseGuardianPromptTemplate(cfg.type as string, cfg.promptTemplate),
@@ -452,6 +460,13 @@ export async function resolveAgentPipelineAgents({
       (!Array.isArray(builtInSettings.enabledTools) || builtInSettings.enabledTools.length === 0)
     ) {
       builtInSettings.enabledTools = DEFAULT_AGENT_TOOLS.spotify ?? [];
+    }
+    if (
+      builtIn.id !== "spotify" &&
+      !Array.isArray(builtInSettings.enabledTools) &&
+      (DEFAULT_AGENT_TOOLS[builtIn.id]?.length ?? 0) > 0
+    ) {
+      builtInSettings.enabledTools = [...DEFAULT_AGENT_TOOLS[builtIn.id]!];
     }
     let selectedPromptTemplate = resolveAgentPromptTemplate({
       agentType: builtIn.id,

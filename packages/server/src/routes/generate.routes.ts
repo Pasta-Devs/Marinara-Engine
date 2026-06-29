@@ -5776,18 +5776,21 @@ export async function generateRoutes(app: FastifyInstance) {
                   r.agentType !== "knowledge-router" &&
                   r.agentType !== "secret-plot-driver",
               );
-              const failedRegen = regenPreGenResults.filter((r) => !r.success);
-              if (failedRegen.length > 0) {
-                const failedNames = failedRegen.map((r) => r.agentType).join(", ");
-                const firstError = failedRegen[0]!.error ?? "unknown error";
-                logger.error(
-                  `[pre-gen] FATAL: ${failedRegen.length} agent(s) failed on regen (${failedNames}) — aborting generation`,
-                );
+              const criticalFailedRegen = regenPreGenResults.filter((r) => !r.success && r.type === "secret_plot");
+              const nonCriticalFailedRegen = regenPreGenResults.filter((r) => !r.success && r.type !== "secret_plot");
+              if (criticalFailedRegen.length > 0) {
+                const failedNames = criticalFailedRegen.map((r) => r.agentType).join(", ");
+                const firstError = criticalFailedRegen[0]!.error ?? "unknown error";
+                logger.error(`[pre-gen] FATAL: critical agent(s) failed on regen (${failedNames}) — aborting generation`);
                 sendSseEvent(reply, {
                   type: "error",
-                  data: `Pre-generation agent${failedRegen.length > 1 ? "s" : ""} failed (${failedNames}): ${firstError}. Please try again.`,
+                  data: `Critical pre-generation agent failed (${failedNames}): ${firstError}. Please try again.`,
                 });
                 return;
+              }
+              if (nonCriticalFailedRegen.length > 0) {
+                const failedNames = nonCriticalFailedRegen.map((r) => r.agentType).join(", ");
+                logger.warn(`[pre-gen] Non-critical agent(s) failed on regen (${failedNames}) — continuing generation`);
               }
             }
           }

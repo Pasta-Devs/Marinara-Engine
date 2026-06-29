@@ -295,6 +295,8 @@ export const useAgentStore = create<AgentState>((set) => ({
       cyoaChoicesChatId: null,
       youtubePlay: null,
       youtubeVolume: null,
+      localMusicPlay: null,
+      localMusicVolume: null,
       pendingCardUpdates: [],
       pendingAgentWriteApprovals: [],
     }),

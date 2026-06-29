@@ -1122,34 +1122,67 @@ type ExtractedResultBlock = {
 };
 
 function extractResultBlocks(responseText: string): ExtractedResultBlock[] {
-  const openRegex = /<result\b([^>]*)>/gi;
-  const opens = Array.from(responseText.matchAll(openRegex));
+  const tokenRegex = /<result\b([^>]*)>|<\/result\s*>/gi;
+  type Token = { index: number; length: number; isClose: boolean; attributes: string };
+  const tokens: Token[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = tokenRegex.exec(responseText))) {
+    const isClose = match[0][1] === "/";
+    tokens.push({
+      index: match.index,
+      length: match[0].length,
+      isClose,
+      attributes: isClose ? "" : (match[1] ?? ""),
+    });
+  }
+
   const blocks: ExtractedResultBlock[] = [];
 
-  for (let i = 0; i < opens.length; i++) {
-    const open = opens[i]!;
-    const agent = readResultAgentAttribute(open[1] ?? "");
-    if (!agent) continue;
-
-    const contentStart = open.index + open[0].length;
-    const nextStart = opens[i + 1]?.index ?? responseText.length;
-    const closeRegex = /<\/result\s*>/gi;
-    closeRegex.lastIndex = contentStart;
-
-    let selectedClose: RegExpExecArray | null = null;
-    let closeMatch: RegExpExecArray | null;
-    while ((closeMatch = closeRegex.exec(responseText))) {
-      if (closeMatch.index >= nextStart) break;
-      selectedClose = closeMatch;
+  let i = 0;
+  while (i < tokens.length) {
+    const open = tokens[i]!;
+    if (open.isClose) {
+      i++;
+      continue;
     }
-    if (!selectedClose) continue;
+    const agent = readResultAgentAttribute(open.attributes);
+    if (!agent) {
+      i++;
+      continue;
+    }
 
+    const contentStart = open.index + open.length;
+    let depth = 1;
+    let selectedCloseIdx = -1;
+    let j = i + 1;
+    while (j < tokens.length) {
+      const token = tokens[j]!;
+      if (token.isClose) {
+        depth--;
+        if (depth <= 0) {
+          selectedCloseIdx = j;
+          depth = 0;
+          const next = tokens[j + 1];
+          if (!next || !next.isClose) break;
+        }
+      } else {
+        depth++;
+      }
+      j++;
+    }
+    if (selectedCloseIdx === -1) {
+      i++;
+      continue;
+    }
+
+    const close = tokens[selectedCloseIdx]!;
     blocks.push({
       agent,
-      content: responseText.slice(contentStart, selectedClose.index),
+      content: responseText.slice(contentStart, close.index),
       start: open.index,
-      end: selectedClose.index + selectedClose[0].length,
+      end: close.index + close.length,
     });
+    i = selectedCloseIdx + 1;
   }
 
   return blocks;
@@ -1253,6 +1286,7 @@ function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type" | "sett
     config.type === "expression" ||
     config.type === "illustrator" ||
     config.type === "lorebook-keeper" ||
+    resolveAgentResultType(config) === "text_rewrite" ||
     musicDjUsesJsonOnlyProvider(config)
   );
 }
@@ -2368,8 +2402,44 @@ function repairJson(str: string): string {
     JSON.parse(str);
     return str;
   } catch {
-    return stripJsonRepairTokens(str).replace(/,\s*([\]\}])/g, "$1");
+    return stripTrailingCommas(stripJsonRepairTokens(str));
   }
+}
+
+function stripTrailingCommas(str: string): string {
+  let repaired = "";
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < str.length; index++) {
+    const char = str[index] ?? "";
+    if (inString) {
+      repaired += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      repaired += char;
+      continue;
+    }
+
+    if (char === ",") {
+      let lookahead = index + 1;
+      while (lookahead < str.length && /\s/.test(str[lookahead] ?? "")) lookahead++;
+      const nextSignificant = str[lookahead];
+      if (nextSignificant === "}" || nextSignificant === "]") continue;
+    }
+
+    repaired += char;
+  }
+  return repaired;
 }
 
 function stripJsonRepairTokens(str: string): string {

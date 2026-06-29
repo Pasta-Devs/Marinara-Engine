@@ -152,7 +152,8 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   /** Get editable custom-agent outputs for a roleplay chat. */
   app.get<{ Params: { chatId: string }; Querystring: { limit?: string } }>("/runs/:chatId/custom", async (req) => {
-    const parsedLimit = req.query.limit ? Number.parseInt(req.query.limit, 10) : undefined;
+    const parsed = req.query.limit ? Number.parseInt(req.query.limit, 10) : undefined;
+    const parsedLimit = Number.isFinite(parsed) ? parsed : undefined;
     return storage.listCustomRunsForChat(req.params.chatId, parsedLimit);
   });
 

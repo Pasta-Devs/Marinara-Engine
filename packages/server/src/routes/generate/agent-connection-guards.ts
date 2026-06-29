@@ -20,7 +20,7 @@ export function resolveAgentConnectionId(args: {
   localSidecarAvailable: boolean;
 }): string | null | "skip-local-sidecar" {
   if (isLocalSidecarConnectionId(args.requestedConnectionId) && !args.localSidecarAvailable) {
-    return args.defaultAgentConnectionId ?? "skip-local-sidecar";
+    return "skip-local-sidecar";
   }
 
   return args.requestedConnectionId ?? args.defaultAgentConnectionId ?? null;

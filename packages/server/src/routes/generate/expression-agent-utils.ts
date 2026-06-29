@@ -200,10 +200,13 @@ function resolveExpression(expression: string, availableExpressions: string[]): 
   const lower = trimmed.toLowerCase();
 
   const prefixMatches = availableExpressions.filter((entry) => getExpressionPrefixVariant(entry, trimmed));
-  const randomPrefixMatch = prefixMatches.length > 1 ? pickRandomExpression(prefixMatches) : null;
-  if (randomPrefixMatch) return randomPrefixMatch;
-
   const exact = availableExpressions.find((entry) => entry.toLowerCase() === lower);
+  if (prefixMatches.length > 1) {
+    const groupPool = exact ? [exact, ...prefixMatches] : prefixMatches;
+    const randomGroupMatch = pickRandomExpression(groupPool);
+    if (randomGroupMatch) return randomGroupMatch;
+  }
+
   if (exact) return exact;
 
   const normalized = normalizeExpressionToken(trimmed);
