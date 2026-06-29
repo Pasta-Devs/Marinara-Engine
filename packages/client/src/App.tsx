@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // App: Root component with layout
 // ──────────────────────────────────────────────
-import { Component, lazy, Suspense, useEffect, useMemo, type ErrorInfo, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, useRef, type ErrorInfo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { AppShell } from "./components/layout/AppShell";
@@ -68,7 +68,6 @@ const APP_ACCENT_CUSTOM_VARIABLES = [
 const ACCENT_RGB_TICK_MS = 500;
 const ACCENT_RGB_SOLID_CYCLE_MS = 7_200;
 const ACCENT_RGB_GRADIENT_STOP_MS = 6_000;
-const CUSTOM_CURSOR_SCROLL_ACTIVE_MS = 900;
 const TOAST_DURATION_MS = 6_000;
 const TOAST_VISIBLE_LIMIT = 3;
 const THEME_ACCENT_PULSE_VARIABLE = "--marinara-theme-accent-pulse";
@@ -262,16 +261,24 @@ function resolveCursorColor(color: string, fallback: string) {
   return normalizeCursorColorForSvg(getComputedStyle(cursorColorProbe).color, fallback);
 }
 
-function getAccentCursorValue(accent: string, theme: "dark" | "light") {
+function getAccentCursorColors(accent: string, theme: "dark" | "light") {
   const fill = resolveCursorColor(accent, theme === "light" ? "#e0709a" : "#d4acfb");
   const stroke = theme === "light" ? "#1a1025" : "#050312";
+
+  return { fill, stroke };
+}
+
+function getAccentCursorValue(fill: string, stroke: string) {
   const svg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3L10 20L12 12L20 10L3 3Z" fill="${escapeSvgAttribute(fill)}" stroke="${stroke}" stroke-width="1"/></svg>`;
 
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 3`;
 }
 
 function setAccentCursorVariable(root: HTMLElement, accent: string, theme: "dark" | "light") {
-  root.style.setProperty("--cursor-pink", getAccentCursorValue(accent, theme));
+  const { fill, stroke } = getAccentCursorColors(accent, theme);
+  root.style.setProperty("--marinara-custom-cursor-fill", fill);
+  root.style.setProperty("--marinara-custom-cursor-stroke", stroke);
+  root.style.setProperty("--cursor-pink", getAccentCursorValue(fill, stroke));
 }
 
 function getSolidAccentGradient(accent: string) {
@@ -382,6 +389,113 @@ function canRunAccentAnimation(reducedMotionQuery: MediaQueryList, forcePaused =
   return document.visibilityState === "visible" && document.hasFocus() && !reducedMotionQuery.matches && !forcePaused;
 }
 
+function CustomCursorOverlay({ enabled }: { enabled: boolean }) {
+  const cursorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const cursor = cursorRef.current;
+    if (!cursor) return;
+
+    const finePointerQuery = window.matchMedia("(pointer: fine)");
+    if (!finePointerQuery.matches) {
+      cursor.dataset.visible = "false";
+      return;
+    }
+
+    const paintCursor = (x: number, y: number) => {
+      cursor.style.transform = `translate3d(${x - 3}px, ${y - 3}px, 0)`;
+      cursor.dataset.visible = "true";
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType && event.pointerType !== "mouse") {
+        cursor.dataset.visible = "false";
+        return;
+      }
+      paintCursor(event.clientX, event.clientY);
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      paintCursor(event.clientX, event.clientY);
+    };
+
+    const handlePress = () => {
+      cursor.dataset.pressed = "true";
+    };
+
+    const handleRelease = () => {
+      cursor.dataset.pressed = "false";
+    };
+
+    const hideCursor = () => {
+      cursor.dataset.visible = "false";
+      cursor.dataset.pressed = "false";
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        hideCursor();
+      }
+    };
+
+    const passiveOptions: AddEventListenerOptions = { passive: true };
+    const supportsPointerEvents = "PointerEvent" in window;
+    if (supportsPointerEvents) {
+      document.addEventListener("pointermove", handlePointerMove, passiveOptions);
+      document.addEventListener("pointerdown", handlePress, passiveOptions);
+      document.addEventListener("pointerup", handleRelease, passiveOptions);
+      document.addEventListener("pointercancel", hideCursor, passiveOptions);
+    } else {
+      document.addEventListener("mousemove", handleMouseMove, passiveOptions);
+      document.addEventListener("mousedown", handlePress, passiveOptions);
+      document.addEventListener("mouseup", handleRelease, passiveOptions);
+    }
+    document.addEventListener("mouseleave", hideCursor, passiveOptions);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", hideCursor, passiveOptions);
+
+    return () => {
+      if (supportsPointerEvents) {
+        document.removeEventListener("pointermove", handlePointerMove, passiveOptions);
+        document.removeEventListener("pointerdown", handlePress, passiveOptions);
+        document.removeEventListener("pointerup", handleRelease, passiveOptions);
+        document.removeEventListener("pointercancel", hideCursor, passiveOptions);
+      } else {
+        document.removeEventListener("mousemove", handleMouseMove, passiveOptions);
+        document.removeEventListener("mousedown", handlePress, passiveOptions);
+        document.removeEventListener("mouseup", handleRelease, passiveOptions);
+      }
+      document.removeEventListener("mouseleave", hideCursor, passiveOptions);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", hideCursor, passiveOptions);
+    };
+  }, [enabled]);
+
+  if (!enabled) return null;
+
+  return (
+    <div ref={cursorRef} className="mari-custom-cursor-overlay" aria-hidden="true" data-visible="false">
+      <svg
+        className="mari-custom-cursor-overlay__svg"
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        focusable="false"
+      >
+        <path
+          d="M3 3L10 20L12 12L20 10L3 3Z"
+          fill="currentColor"
+          stroke="var(--marinara-custom-cursor-stroke)"
+          strokeWidth="1"
+        />
+      </svg>
+    </div>
+  );
+}
+
 async function recoverFromVersionSkew(serverVersion: string) {
   if (sessionStorage.getItem(VERSION_RECOVERY_KEY) === serverVersion) {
     return;
@@ -484,49 +598,6 @@ export function App() {
     } else {
       delete root.dataset.marinaraCustomCursor;
     }
-  }, [customCursorEnabled]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    let scrollActiveTimer: ReturnType<typeof window.setTimeout> | null = null;
-
-    const clearScrollActive = () => {
-      if (scrollActiveTimer !== null) {
-        window.clearTimeout(scrollActiveTimer);
-        scrollActiveTimer = null;
-      }
-      delete root.dataset.marinaraScrollActive;
-    };
-
-    if (!customCursorEnabled) {
-      clearScrollActive();
-      return clearScrollActive;
-    }
-
-    const markScrollActive = () => {
-      if (root.dataset.marinaraScrollActive !== "true") {
-        root.dataset.marinaraScrollActive = "true";
-      }
-      if (scrollActiveTimer !== null) {
-        window.clearTimeout(scrollActiveTimer);
-      }
-      scrollActiveTimer = window.setTimeout(() => {
-        scrollActiveTimer = null;
-        delete root.dataset.marinaraScrollActive;
-      }, CUSTOM_CURSOR_SCROLL_ACTIVE_MS);
-    };
-
-    const scrollOptions: AddEventListenerOptions = { capture: true, passive: true };
-    window.addEventListener("scroll", markScrollActive, scrollOptions);
-    window.addEventListener("wheel", markScrollActive, scrollOptions);
-    window.addEventListener("touchmove", markScrollActive, scrollOptions);
-
-    return () => {
-      window.removeEventListener("scroll", markScrollActive, scrollOptions);
-      window.removeEventListener("wheel", markScrollActive, scrollOptions);
-      window.removeEventListener("touchmove", markScrollActive, scrollOptions);
-      clearScrollActive();
-    };
   }, [customCursorEnabled]);
 
   useEffect(() => {
@@ -885,6 +956,7 @@ export function App() {
           }}
         />
       </div>
+      <CustomCursorOverlay enabled={customCursorEnabled} />
     </>
   );
 }
