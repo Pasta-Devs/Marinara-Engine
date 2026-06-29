@@ -9,7 +9,7 @@ import { nameToXmlTag } from "@marinara-engine/shared";
  * "World Info (Before)" → "World Info Before"
  */
 function nameToMarkdownHeading(name: string): string {
-  return name.replace(/[^a-zA-Z0-9\s_-]/g, "").trim();
+  return name.replace(/[^a-zA-Z0-9\s_-]/g, "").replace(/\s+/g, " ").trim();
 }
 
 /**

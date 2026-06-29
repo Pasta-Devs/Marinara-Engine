@@ -3,6 +3,7 @@ import { logger } from "../../lib/logger.js";
 import { recallMemories } from "../memory-recall.js";
 import type { MemoryRecallEmbeddingSource } from "../memory-recall.js";
 import { packRecalledMemories } from "./memory-recall-pack.js";
+import { escapeXmlText } from "../prompt/prompt-escaping.js";
 
 type PromptMessage = {
   role: "system" | "user" | "assistant";
@@ -13,7 +14,10 @@ export function buildMemoryRecallBlock(lines: string[], resolveMacros?: (value: 
   return [
     `<memories>`,
     `The following are recalled fragments from earlier in this conversation. Use them to maintain continuity, remember past events, and stay in character — but do not explicitly reference "remembering" unless it's natural.`,
-    ...lines.map((line, index) => `--- Memory ${index + 1} ---\n${resolveMacros ? resolveMacros(line) : line}`),
+    ...lines.map((line, index) => {
+      const resolved = resolveMacros ? resolveMacros(line) : line;
+      return `--- Memory ${index + 1} ---\n${escapeXmlText(resolved)}`;
+    }),
     `</memories>`,
   ].join("\n");
 }

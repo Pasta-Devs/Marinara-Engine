@@ -1,5 +1,6 @@
 import { nameToXmlTag, resolveMacros, type CharacterMacroProfile, type MacroContext } from "@marinara-engine/shared";
 import { wrapContent } from "../prompt/format-engine.js";
+import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { cardPromptText } from "./generation-text-utils.js";
 
 export type CharacterPromptInfo = {
@@ -109,7 +110,7 @@ export function buildCharacterMacroProfilesById(charInfo: CharacterPromptInfo[])
 function wrapFields(fields: Record<string, string>, format: WrapFormat): string[] {
   return Object.entries(fields)
     .filter(([, value]) => value.trim().length > 0)
-    .map(([key, value]) => wrapContent(value, key, format, 2));
+    .map(([key, value]) => wrapContent(sanitizePromptLeaf(value, format), key, format, 2));
 }
 
 function hasProfileBlock(content: string, name: string, description: string): boolean {
@@ -201,7 +202,9 @@ export function injectIdentityFallbackMessages(args: {
       for (const attr of rpg.attributes) {
         rpgLines.push(`${attr.name}: ${attr.value}`);
       }
-      fieldParts.push(wrapContent(rpgLines.join("\n"), "rpg_attributes", args.wrapFormat, 2));
+      fieldParts.push(
+        wrapContent(sanitizePromptLeaf(rpgLines.join("\n"), args.wrapFormat), "rpg_attributes", args.wrapFormat, 2),
+      );
     }
   }
 

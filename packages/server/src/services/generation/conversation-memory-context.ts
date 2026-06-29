@@ -1,4 +1,5 @@
 import { logger } from "../../lib/logger.js";
+import { escapeXmlText } from "../prompt/prompt-escaping.js";
 
 type CharactersStore = {
   getById(id: string): Promise<{ data: unknown } | null>;
@@ -43,7 +44,7 @@ export async function mergeConversationCharacterMemories({
     const validMemories = memories.filter((memory) => new Date(memory.createdAt) >= today);
 
     for (const memory of validMemories) {
-      memoryLines.push(`Memory from ${memory.from}: ${memory.summary}`);
+      memoryLines.push(`Memory from ${escapeXmlText(memory.from)}: ${escapeXmlText(memory.summary)}`);
     }
   }
 

@@ -11,6 +11,7 @@ import type { DB } from "../../db/connection.js";
 import { chats, messages } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { formatZonedConversationDate, formatZonedConversationTime, isSameZonedLogicalDay } from "./timezone.js";
+import { escapeXmlText } from "../prompt/prompt-escaping.js";
 
 // ── Temporal keyword patterns ──
 // Maps regex patterns in the user's message to time windows to pull from.
@@ -261,7 +262,7 @@ export async function buildAwarenessBlock(
 
   for (const [, data] of chatMessages) {
     const bursts = groupIntoBursts(data.messages);
-    const header = `\n## ${data.chatName} (${data.members.join(", ")})\n`;
+    const header = `\n## ${escapeXmlText(data.chatName)} (${data.members.map(escapeXmlText).join(", ")})\n`;
 
     if (charCount + header.length > maxChars) break;
     block += header;
@@ -290,7 +291,7 @@ export async function buildAwarenessBlock(
             : msg.characterId
               ? (characterNames.get(msg.characterId) ?? "Unknown")
               : "Unknown";
-        const line = `[${fmtTime(msg.createdAt, timeZone)}] ${senderName}: ${msg.content}\n`;
+        const line = `[${fmtTime(msg.createdAt, timeZone)}] ${escapeXmlText(senderName)}: ${escapeXmlText(msg.content)}\n`;
 
         if (charCount + line.length > maxChars) break;
         block += line;

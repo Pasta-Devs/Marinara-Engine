@@ -20,6 +20,7 @@ import type {
 } from "@marinara-engine/shared";
 import { DEFAULT_GENERATION_PARAMS, generationParametersSchema, resolveMacros } from "@marinara-engine/shared";
 import { wrapContent, wrapGroup } from "./format-engine.js";
+import { sanitizePromptLeaf } from "./prompt-escaping.js";
 import { expandMarker, type MarkerContext } from "./marker-expander.js";
 import { mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
@@ -345,6 +346,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     previewOnly: input.previewOnly === true,
     resolveLorebookContent: (value) => resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions),
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
+    macroCtx,
   };
 
   // ── Phase 1: Resolve sections in preset order ──
@@ -514,7 +516,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // A chat_summary marker owns placement when present. Without one, enabled
   // summaries belong at the end of the system prompt block, before history.
   if (!hasChatSummaryMarker) {
-    finalMessages = appendFallbackChatSummaryToSystemPrompt(finalMessages, markerCtx.chatSummary, wrapFormat);
+    finalMessages = appendFallbackChatSummaryToSystemPrompt(finalMessages, markerCtx.chatSummary, wrapFormat, macroCtx);
   }
 
   // ── Phase 8: Single user message mode ──
@@ -609,7 +611,7 @@ async function resolveSection(
             startToken: runtimeAgentData?.startToken,
             endToken: runtimeAgentData?.endToken,
           };
-    runtimeAgentText = normalizedRuntimeAgentData.text;
+    runtimeAgentText = sanitizePromptLeaf(normalizedRuntimeAgentData.text, ctx.wrapFormat);
     runtimeAgentStartToken = normalizedRuntimeAgentData.startToken;
     runtimeAgentEndToken = normalizedRuntimeAgentData.endToken;
     const hasRuntimeAgentData =
@@ -624,10 +626,7 @@ async function resolveSection(
         id: section.id,
         groupId: section.groupId,
         role,
-        messages: expanded.messages.map((message) => ({
-          ...message,
-          content: resolveMacros(message.content, ctx.macroCtx),
-        })),
+        messages: expanded.messages,
         depth: section.injectionDepth,
         isChatHistory: true,
       };
@@ -649,6 +648,11 @@ async function resolveSection(
       // Other markers return content to be wrapped
       content = expanded.content;
       contentMacrosResolved =
+        markerConfig.type === "character" ||
+        markerConfig.type === "persona" ||
+        markerConfig.type === "chat_summary" ||
+        markerConfig.type === "dialogue_examples" ||
+        markerConfig.type === "agent_data" ||
         markerConfig.type === "world_info_before" ||
         markerConfig.type === "world_info_after" ||
         markerConfig.type === "lorebook";
@@ -767,8 +771,9 @@ function appendFallbackChatSummaryToSystemPrompt(
   messages: ChatMLMessage[],
   chatSummary: string | null,
   wrapFormat: WrapFormat,
+  macroCtx: MacroContext,
 ): ChatMLMessage[] {
-  const summary = chatSummary?.trim();
+  const summary = sanitizePromptLeaf(resolveMacros(chatSummary ?? "", macroCtx), wrapFormat).trim();
   if (!summary) return messages;
 
   const wrapped = wrapContent(summary, "Chat Summary", wrapFormat).trim();

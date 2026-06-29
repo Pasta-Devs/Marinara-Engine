@@ -1,4 +1,5 @@
 import type { CharacterPromptInfo } from "./character-prompt-context.js";
+import { escapeXmlText } from "../prompt/prompt-escaping.js";
 
 type GenerationPromptMessage = {
   role: "system" | "user" | "assistant";
@@ -16,49 +17,50 @@ export function injectSceneContextMessages({
   charInfo: CharacterPromptInfo[];
   personaName: string;
 }): void {
-  const charNames = charInfo.map((character) => character.name);
+  const charNames = charInfo.map((character) => escapeXmlText(character.name));
+  const safePersonaName = escapeXmlText(personaName);
   const isGroup = charNames.length > 1;
 
   const roleText = isGroup
     ? [
         `<role>`,
-        `You are ${charNames.join(", ")}; real and autonomous people, roleplaying with the user called ${personaName} in a scene.`,
+        `You are ${charNames.join(", ")}; real and autonomous people, roleplaying with the user called ${safePersonaName} in a scene.`,
         `</role>`,
       ].join("\n")
     : [
         `<role>`,
-        `You are ${charNames[0] ?? "the character"}, a real and autonomous person, roleplaying with the user called ${personaName} in a scene.`,
+        `You are ${charNames[0] ?? "the character"}, a real and autonomous person, roleplaying with the user called ${safePersonaName} in a scene.`,
         `</role>`,
       ].join("\n");
 
   const sceneScenario = chatMetadata.sceneScenario as string | undefined;
-  const scenarioText = sceneScenario ? [`<scenario>`, sceneScenario, `</scenario>`].join("\n") : "";
+  const scenarioText = sceneScenario ? [`<scenario>`, escapeXmlText(sceneScenario), `</scenario>`].join("\n") : "";
 
   const sceneConvoCtx = chatMetadata.sceneConversationContext as string | undefined;
   const sceneRelHistory = chatMetadata.sceneRelationshipHistory as string | undefined;
   const awarenessLines: string[] = [];
   if (sceneRelHistory) {
-    awarenessLines.push(`## Relationship History`, sceneRelHistory, ``);
+    awarenessLines.push(`## Relationship History`, escapeXmlText(sceneRelHistory), ``);
   }
   if (sceneConvoCtx) {
     awarenessLines.push(
       `## Conversation Context`,
       `The following is a transcript of the conversation that led up to this scene:`,
-      sceneConvoCtx,
+      escapeXmlText(sceneConvoCtx),
     );
   }
   const awarenessText = awarenessLines.length > 0 ? [`<awareness>`, ...awarenessLines, `</awareness>`].join("\n") : "";
 
   const sceneSystemPrompt = chatMetadata.sceneSystemPrompt as string | undefined;
   const sceneSysText = sceneSystemPrompt
-    ? [`<scene_instructions>`, sceneSystemPrompt, `</scene_instructions>`].join("\n")
+    ? [`<scene_instructions>`, escapeXmlText(sceneSystemPrompt), `</scene_instructions>`].join("\n")
     : "";
 
   const outputFormatText = [
     `<output_format>`,
     `When you respond in the conversation:`,
     `- Think about it first and internalize your instructions.`,
-    `- Continue directly with new content from the final line of the last message. You don't have to address everything from it; this is a creative freeform piece, so prioritize organic flow. Favor characterizations driven by the chat history over the static character descriptions. Explicit content is allowed, no plot armor. Don't play for ${personaName}.`,
+    `- Continue directly with new content from the final line of the last message. You don't have to address everything from it; this is a creative freeform piece, so prioritize organic flow. Favor characterizations driven by the chat history over the static character descriptions. Explicit content is allowed, no plot armor. Don't play for ${safePersonaName}.`,
     `- The response length should be flexible, based on the current scene. During a conversation between you and the user, you have two options:`,
     `  (1) ONLY respond with a dialogue line plus an optional dialogue tag/action beat, and stop, creating space for a dynamic back-and-forth.`,
     `  (2) Continue into a longer response provided the conversation is concluded, interrupted, includes a longer monologue, or an exchange between multiple NPCs.`,
