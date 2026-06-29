@@ -36,6 +36,7 @@ const TOOL_ORDER = [
   "set-expression",
   "trigger-event",
   "search-lorebook",
+  "web-search",
   "save-lorebook-entry",
   "read-chat-summary",
   "append-chat-summary",

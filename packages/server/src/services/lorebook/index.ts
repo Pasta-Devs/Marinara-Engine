@@ -14,6 +14,7 @@ import type {
 } from "@marinara-engine/shared";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
+import { GAME_LOREBOOK_KEEPER_SOURCE_ID } from "./game-lorebook-scope.js";
 import {
   scanForActivatedEntries,
   type ScanMessage,
@@ -137,6 +138,7 @@ function resolveLorebookPersonaIds(book: Pick<RelevantLorebook, "personaId" | "p
 
 function activeLorebookMatchesFilters(book: RelevantLorebook, filters: LorebookFilters): boolean {
   if (!filters.activeLorebookIds?.includes(book.id)) return false;
+  if (book.sourceAgentId === GAME_LOREBOOK_KEEPER_SOURCE_ID) return true;
 
   const characterIds = resolveLorebookCharacterIds(book);
   if (characterIds.length > 0) return characterIds.some((id) => filters.characterIds?.includes(id));
