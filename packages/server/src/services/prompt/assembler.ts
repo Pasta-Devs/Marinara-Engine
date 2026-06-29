@@ -447,26 +447,6 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     }
   }
 
-  // ── Phase 2b: Fallback chat summary injection ──
-  // If the preset has no chat_summary marker but a summary exists, append it
-  // to the bottom of the first system message so it's always included.
-  if (!hasChatSummaryMarker && markerCtx.chatSummary) {
-    const wrapped = wrapContent(markerCtx.chatSummary, "Chat Summary", wrapFormat);
-    if (wrapped) {
-      const firstSystemIdx = messages.findIndex((m) => m.role === "system");
-      if (firstSystemIdx >= 0) {
-        messages[firstSystemIdx] = {
-          ...messages[firstSystemIdx]!,
-          content: `${messages[firstSystemIdx]!.content}\n\n${wrapped}`,
-          contextKind: "prompt",
-        };
-      } else {
-        // No system message at all — prepend one
-        messages.unshift({ role: "system", content: wrapped, contextKind: "prompt" });
-      }
-    }
-  }
-
   // ── Phase 3: Adjacent same-role merging ──
   let finalMessages = mergeAdjacentMessages(messages);
 
@@ -530,7 +510,14 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     finalMessages = enforceStrictRoles(finalMessages);
   }
 
-  // ── Phase 7: Single user message mode ──
+  // ── Phase 7: Fallback chat summary injection ──
+  // A chat_summary marker owns placement when present. Without one, enabled
+  // summaries belong at the end of the system prompt block, before history.
+  if (!hasChatSummaryMarker) {
+    finalMessages = appendFallbackChatSummaryToSystemPrompt(finalMessages, markerCtx.chatSummary, wrapFormat);
+  }
+
+  // ── Phase 8: Single user message mode ──
   // Collapses entire prompt into one user message.
   if (parameters.singleUserMessage) {
     const combined = finalMessages
@@ -774,6 +761,38 @@ function findHistoryBounds(messages: ChatMLMessage[]): { start: number; end: num
     }
   }
   return start >= 0 ? { start, end } : null;
+}
+
+function appendFallbackChatSummaryToSystemPrompt(
+  messages: ChatMLMessage[],
+  chatSummary: string | null,
+  wrapFormat: WrapFormat,
+): ChatMLMessage[] {
+  const summary = chatSummary?.trim();
+  if (!summary) return messages;
+
+  const wrapped = wrapContent(summary, "Chat Summary", wrapFormat).trim();
+  if (!wrapped) return messages;
+
+  const next = messages.map((message) => ({ ...message }));
+  let lastLeadingSystemIdx = -1;
+  for (let i = 0; i < next.length; i++) {
+    const message = next[i]!;
+    if (message.role !== "system" || message.contextKind === "history") break;
+    lastLeadingSystemIdx = i;
+  }
+
+  if (lastLeadingSystemIdx >= 0) {
+    const target = next[lastLeadingSystemIdx]!;
+    next[lastLeadingSystemIdx] = {
+      ...target,
+      content: `${target.content}\n\n${wrapped}`,
+      contextKind: target.contextKind ?? "prompt",
+    };
+    return next;
+  }
+
+  return [{ role: "system", content: wrapped, contextKind: "prompt" }, ...next];
 }
 
 function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {

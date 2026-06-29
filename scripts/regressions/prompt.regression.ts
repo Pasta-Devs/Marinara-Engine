@@ -32,6 +32,27 @@ type RegressionCase = {
   run: () => void | Promise<void>;
 };
 
+type RegressionPromptSection = AssemblerInput["sections"][number];
+
+function promptSection(
+  overrides: Pick<RegressionPromptSection, "id" | "identifier" | "name"> & Partial<RegressionPromptSection>,
+): RegressionPromptSection {
+  return {
+    presetId: "preset-regression",
+    content: "",
+    role: "system",
+    enabled: "true",
+    isMarker: "false",
+    groupId: null,
+    markerConfig: null,
+    injectionPosition: "ordered",
+    injectionDepth: 0,
+    injectionOrder: 0,
+    forbidOverrides: "false",
+    ...overrides,
+  };
+}
+
 const keywordOptions = {
   useRegex: false,
   matchWholeWords: false,
@@ -406,6 +427,129 @@ const cases: RegressionCase[] = [
       ]);
 
       assert.equal(compiled, "The previous scene was summarized.");
+    },
+  },
+  {
+    name: "chat summary without marker appends to the system prompt block",
+    async run() {
+      const result = await assemblePrompt({
+        db: undefined as unknown as DB,
+        preset: {
+          id: "preset-summary-fallback",
+          name: "Summary Fallback Fixture",
+          sectionOrder: JSON.stringify(["main", "history"]),
+          groupOrder: JSON.stringify([]),
+          wrapFormat: "xml",
+          parameters: JSON.stringify({}),
+          variableGroups: JSON.stringify([]),
+          variableValues: JSON.stringify({}),
+        },
+        sections: [
+          promptSection({
+            id: "main",
+            identifier: "main",
+            name: "Main Prompt",
+            content: "Main instructions.",
+            injectionOrder: 0,
+          }),
+          promptSection({
+            id: "history",
+            identifier: "chatHistory",
+            name: "Chat History",
+            isMarker: "true",
+            markerConfig: JSON.stringify({
+              type: "chat_history",
+              chatHistoryOptions: { includeSystemMessages: false },
+            }),
+            injectionOrder: 1,
+          }),
+        ],
+        groups: [],
+        choiceBlocks: [],
+        chatChoices: {},
+        chatId: "chat-summary-fallback",
+        characterIds: [],
+        personaName: "Mari",
+        personaDescription: "The current user.",
+        chatMessages: [
+          { role: "user", content: "Hello." },
+          { role: "assistant", content: "Hi." },
+        ],
+        chatSummary: "The previous scene was summarized.",
+      });
+
+      const firstMessage = result.messages[0]!;
+      assert.equal(firstMessage.role, "system");
+      assert.match(firstMessage.content, /Main instructions\./);
+      assert.match(firstMessage.content, /<chat_summary>/);
+      assert.match(firstMessage.content, /The previous scene was summarized\./);
+      assert.equal(firstMessage.content.indexOf("Main instructions.") < firstMessage.content.indexOf("<chat_summary>"), true);
+      assert.equal(result.messages[1]?.contextKind, "history");
+    },
+  },
+  {
+    name: "chat summary marker keeps explicit preset placement",
+    async run() {
+      const result = await assemblePrompt({
+        db: undefined as unknown as DB,
+        preset: {
+          id: "preset-summary-marker",
+          name: "Summary Marker Fixture",
+          sectionOrder: JSON.stringify(["main", "history", "summary"]),
+          groupOrder: JSON.stringify([]),
+          wrapFormat: "xml",
+          parameters: JSON.stringify({}),
+          variableGroups: JSON.stringify([]),
+          variableValues: JSON.stringify({}),
+        },
+        sections: [
+          promptSection({
+            id: "main",
+            identifier: "main",
+            name: "Main Prompt",
+            content: "Main instructions.",
+            injectionOrder: 0,
+          }),
+          promptSection({
+            id: "history",
+            identifier: "chatHistory",
+            name: "Chat History",
+            isMarker: "true",
+            markerConfig: JSON.stringify({
+              type: "chat_history",
+              chatHistoryOptions: { includeSystemMessages: false },
+            }),
+            injectionOrder: 1,
+          }),
+          promptSection({
+            id: "summary",
+            identifier: "chatSummary",
+            name: "Chat Summary",
+            isMarker: "true",
+            markerConfig: JSON.stringify({ type: "chat_summary" }),
+            injectionOrder: 2,
+          }),
+        ],
+        groups: [],
+        choiceBlocks: [],
+        chatChoices: {},
+        chatId: "chat-summary-marker",
+        characterIds: [],
+        personaName: "Mari",
+        personaDescription: "The current user.",
+        chatMessages: [
+          { role: "user", content: "Hello." },
+          { role: "assistant", content: "Hi." },
+        ],
+        chatSummary: "The previous scene was summarized.",
+      });
+
+      const summaryIndex = result.messages.findIndex((message) => message.content.includes("<chat_summary>"));
+      const lastHistoryIndex = result.messages.findLastIndex((message) => message.contextKind === "history");
+
+      assert.equal(result.messages[0]?.content.includes("The previous scene was summarized."), false);
+      assert.equal(summaryIndex > lastHistoryIndex, true);
+      assert.match(result.messages[summaryIndex]?.content ?? "", /The previous scene was summarized\./);
     },
   },
   {

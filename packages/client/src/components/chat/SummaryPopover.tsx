@@ -21,10 +21,10 @@ import {
   useUpdateSummaryEntry,
 } from "../../hooks/use-chats";
 import {
-  AlertTriangle,
   Check,
   ChevronRight,
   Copy,
+  Info,
   Loader2,
   PenLine,
   Plus,
@@ -912,8 +912,8 @@ export function SummaryPopover({
             </div>
 
             {showSummaryInjectionHint && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-2 text-[0.6875rem] leading-snug text-amber-100">
-                <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0" />
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/25 px-2.5 py-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+                <Info size="0.75rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
                 <span>{summaryInjectionHint}</span>
               </div>
             )}
