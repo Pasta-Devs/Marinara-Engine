@@ -2592,6 +2592,14 @@ strong {
   cursor: none !important;
 }
 
+:where(
+  :root[data-marinara-custom-cursor="enabled"]:not([data-marinara-custom-cursor-overlay="enabled"]),
+  :root[data-marinara-custom-cursor="enabled"]:not([data-marinara-custom-cursor-overlay="enabled"]) body,
+  :root[data-marinara-custom-cursor="enabled"]:not([data-marinara-custom-cursor-overlay="enabled"]) *
+) {
+  cursor: var(--cursor-pink), auto !important;
+}
+
 /* ─────────────────────────────────────────────
    7. SCROLLBARS
    ───────────────────────────────────────────── */

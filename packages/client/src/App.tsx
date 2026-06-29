@@ -68,6 +68,7 @@ const APP_ACCENT_CUSTOM_VARIABLES = [
 const ACCENT_RGB_TICK_MS = 500;
 const ACCENT_RGB_SOLID_CYCLE_MS = 7_200;
 const ACCENT_RGB_GRADIENT_STOP_MS = 6_000;
+const CUSTOM_CURSOR_OVERLAY_SCROLL_MS = 220;
 const TOAST_DURATION_MS = 6_000;
 const TOAST_VISIBLE_LIMIT = 3;
 const THEME_ACCENT_PULSE_VARIABLE = "--marinara-theme-accent-pulse";
@@ -394,6 +395,7 @@ function CustomCursorOverlay({ enabled }: { enabled: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
+    const root = document.documentElement;
     const cursor = cursorRef.current;
     if (!cursor) return;
 
@@ -403,25 +405,74 @@ function CustomCursorOverlay({ enabled }: { enabled: boolean }) {
       return;
     }
 
+    let latestX = -100;
+    let latestY = -100;
+    let hasPointerPosition = false;
+    let overlayTimer: ReturnType<typeof window.setTimeout> | null = null;
+
     const paintCursor = (x: number, y: number) => {
       cursor.style.transform = `translate3d(${x - 3}px, ${y - 3}px, 0)`;
+    };
+
+    const hideOverlay = () => {
+      if (overlayTimer !== null) {
+        window.clearTimeout(overlayTimer);
+        overlayTimer = null;
+      }
+      delete root.dataset.marinaraCustomCursorOverlay;
+      cursor.dataset.visible = "false";
+      cursor.dataset.pressed = "false";
+    };
+
+    const showOverlay = (x = latestX, y = latestY) => {
+      if (!hasPointerPosition) return;
+      paintCursor(x, y);
+      root.dataset.marinaraCustomCursorOverlay = "enabled";
       cursor.dataset.visible = "true";
+      if (overlayTimer !== null) {
+        window.clearTimeout(overlayTimer);
+      }
+      overlayTimer = window.setTimeout(() => {
+        overlayTimer = null;
+        delete root.dataset.marinaraCustomCursorOverlay;
+        cursor.dataset.visible = "false";
+      }, CUSTOM_CURSOR_OVERLAY_SCROLL_MS);
+    };
+
+    const rememberPointer = (x: number, y: number) => {
+      latestX = x;
+      latestY = y;
+      hasPointerPosition = true;
+      if (root.dataset.marinaraCustomCursorOverlay === "enabled") {
+        paintCursor(x, y);
+      }
     };
 
     const handlePointerMove = (event: PointerEvent) => {
       if (event.pointerType && event.pointerType !== "mouse") {
-        cursor.dataset.visible = "false";
+        hideOverlay();
         return;
       }
-      paintCursor(event.clientX, event.clientY);
+      rememberPointer(event.clientX, event.clientY);
     };
 
     const handleMouseMove = (event: MouseEvent) => {
-      paintCursor(event.clientX, event.clientY);
+      rememberPointer(event.clientX, event.clientY);
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      rememberPointer(event.clientX, event.clientY);
+      showOverlay(event.clientX, event.clientY);
+    };
+
+    const handleScroll = () => {
+      showOverlay();
     };
 
     const handlePress = () => {
-      cursor.dataset.pressed = "true";
+      if (root.dataset.marinaraCustomCursorOverlay === "enabled") {
+        cursor.dataset.pressed = "true";
+      }
     };
 
     const handleRelease = () => {
@@ -429,8 +480,7 @@ function CustomCursorOverlay({ enabled }: { enabled: boolean }) {
     };
 
     const hideCursor = () => {
-      cursor.dataset.visible = "false";
-      cursor.dataset.pressed = "false";
+      hideOverlay();
     };
 
     const handleVisibilityChange = () => {
@@ -451,6 +501,8 @@ function CustomCursorOverlay({ enabled }: { enabled: boolean }) {
       document.addEventListener("mousedown", handlePress, passiveOptions);
       document.addEventListener("mouseup", handleRelease, passiveOptions);
     }
+    window.addEventListener("wheel", handleWheel, { capture: true, passive: true });
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     document.addEventListener("mouseleave", hideCursor, passiveOptions);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", hideCursor, passiveOptions);
@@ -466,9 +518,12 @@ function CustomCursorOverlay({ enabled }: { enabled: boolean }) {
         document.removeEventListener("mousedown", handlePress, passiveOptions);
         document.removeEventListener("mouseup", handleRelease, passiveOptions);
       }
+      window.removeEventListener("wheel", handleWheel, { capture: true });
+      window.removeEventListener("scroll", handleScroll, { capture: true });
       document.removeEventListener("mouseleave", hideCursor, passiveOptions);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", hideCursor, passiveOptions);
+      hideOverlay();
     };
   }, [enabled]);
 
