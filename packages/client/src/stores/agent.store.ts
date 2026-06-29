@@ -165,26 +165,55 @@ interface AgentState {
   reset: () => void;
 }
 
+type AgentDataState = Pick<
+  AgentState,
+  | "activeAgents"
+  | "lastResults"
+  | "debugLog"
+  | "isProcessing"
+  | "failedAgentTypes"
+  | "failedAgentFailures"
+  | "thoughtBubbles"
+  | "echoMessages"
+  | "echoVisibleCount"
+  | "echoBaseline"
+  | "echoLoadedChatId"
+  | "cyoaChoices"
+  | "cyoaChoicesChatId"
+  | "youtubePlay"
+  | "youtubeVolume"
+  | "localMusicPlay"
+  | "localMusicVolume"
+  | "pendingCardUpdates"
+  | "pendingAgentWriteApprovals"
+>;
+
+function createInitialAgentDataState(): AgentDataState {
+  return {
+    activeAgents: [],
+    lastResults: new Map(),
+    debugLog: [],
+    isProcessing: false,
+    failedAgentTypes: [],
+    failedAgentFailures: [],
+    thoughtBubbles: [],
+    echoMessages: [],
+    echoVisibleCount: 0,
+    echoBaseline: 0,
+    echoLoadedChatId: null,
+    cyoaChoices: [],
+    cyoaChoicesChatId: null,
+    youtubePlay: null,
+    youtubeVolume: null,
+    localMusicPlay: null,
+    localMusicVolume: null,
+    pendingCardUpdates: [],
+    pendingAgentWriteApprovals: [],
+  };
+}
+
 export const useAgentStore = create<AgentState>((set) => ({
-  activeAgents: [],
-  lastResults: new Map(),
-  debugLog: [],
-  isProcessing: false,
-  failedAgentTypes: [],
-  failedAgentFailures: [],
-  thoughtBubbles: [],
-  echoMessages: [],
-  echoVisibleCount: 0,
-  echoBaseline: 0,
-  echoLoadedChatId: null,
-  cyoaChoices: [],
-  cyoaChoicesChatId: null,
-  youtubePlay: null,
-  youtubeVolume: null,
-  localMusicPlay: null,
-  localMusicVolume: null,
-  pendingCardUpdates: [],
-  pendingAgentWriteApprovals: [],
+  ...createInitialAgentDataState(),
 
   setActiveAgents: (agents) => set({ activeAgents: agents }),
   setProcessing: (processing) => set({ isProcessing: processing }),
@@ -278,26 +307,5 @@ export const useAgentStore = create<AgentState>((set) => ({
     })),
   clearPendingAgentWriteApprovals: () => set({ pendingAgentWriteApprovals: [] }),
 
-  reset: () =>
-    set({
-      activeAgents: [],
-      lastResults: new Map(),
-      debugLog: [],
-      isProcessing: false,
-      failedAgentTypes: [],
-      failedAgentFailures: [],
-      thoughtBubbles: [],
-      echoMessages: [],
-      echoVisibleCount: 0,
-      echoBaseline: 0,
-      echoLoadedChatId: null,
-      cyoaChoices: [],
-      cyoaChoicesChatId: null,
-      youtubePlay: null,
-      youtubeVolume: null,
-      localMusicPlay: null,
-      localMusicVolume: null,
-      pendingCardUpdates: [],
-      pendingAgentWriteApprovals: [],
-    }),
+  reset: () => set(createInitialAgentDataState()),
 }));

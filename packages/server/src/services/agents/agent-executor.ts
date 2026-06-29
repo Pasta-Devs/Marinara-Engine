@@ -1161,9 +1161,7 @@ function extractResultBlocks(responseText: string): ExtractedResultBlock[] {
         depth--;
         if (depth <= 0) {
           selectedCloseIdx = j;
-          depth = 0;
-          const next = tokens[j + 1];
-          if (!next || !next.isClose) break;
+          break;
         }
       } else {
         depth++;

@@ -1121,6 +1121,23 @@ export function createChatsStorage(db: DB) {
       });
     },
 
+    /** Append an attachment to the message mirror only when the expected swipe is still active. */
+    async appendMessageAttachmentForActiveSwipe(id: string, swipeIndex: number, attachment: Record<string, unknown>) {
+      return withPatchQueue(messageExtraPatchQueues, id, async () => {
+        const msg = await this.getMessage(id);
+        if (!msg || (msg.activeSwipeIndex ?? 0) !== swipeIndex) return null;
+        const existing = parseExtraRecord(msg.extra);
+        const attachments = Array.isArray(existing.attachments) ? existing.attachments : [];
+        const merged = { ...existing, attachments: [...attachments, attachment] };
+        await db
+          .update(messages)
+          .set({ extra: JSON.stringify(merged) })
+          .where(and(eq(messages.id, id), eq(messages.activeSwipeIndex, swipeIndex)));
+        const next = await this.getMessage(id);
+        return next && (next.activeSwipeIndex ?? 0) === swipeIndex ? next : null;
+      });
+    },
+
     async removeMessage(id: string) {
       const existing = await this.getMessage(id);
       if (existing) await deleteGameStateForMessages([id]);

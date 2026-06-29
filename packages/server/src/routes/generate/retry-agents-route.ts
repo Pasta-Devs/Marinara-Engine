@@ -1001,7 +1001,11 @@ async function resolveRetryAgents(args: {
   );
   const resolvedTypeSet = new Set(enabledConfigs.map((config: any) => config.type));
   const builtInFallbackConfigs = BUILT_IN_AGENTS.filter(
-    (agent) => agentTypeSet.has(agent.id) && !resolvedTypeSet.has(agent.id) && !isBuiltInAgentRuntimeDisabled(agent.id),
+    (agent) =>
+      agentTypeSet.has(agent.id) &&
+      !resolvedTypeSet.has(agent.id) &&
+      !isBuiltInAgentRuntimeDisabled(agent.id) &&
+      !isRetiredBuiltInAgentId(agent.id),
   );
 
   const setupConfig = parseSettingsRecord(chatMeta.gameSetupConfig);
@@ -1581,15 +1585,22 @@ async function attachRetryEditChatMessageToolContexts(args: {
   if (!tool) return;
 
   const replaceChatMessageContent = async (input: { messageId: string; content: string; reason?: string }) => {
-    const message = await chats.getMessage(input.messageId);
+    if (!input || typeof input.messageId !== "string" || !input.messageId.trim()) {
+      return { error: "messageId is required and must be a string." };
+    }
+    if (typeof input.content !== "string") {
+      return { error: "content is required and must be a string.", messageId: input.messageId };
+    }
+    const messageId = input.messageId.trim();
+    const message = await chats.getMessage(messageId);
     if (!message || message.chatId !== chatId) {
-      return { error: "Message not found in this chat.", messageId: input.messageId };
+      return { error: "Message not found in this chat.", messageId };
     }
     if (message.role !== "user" && message.role !== "assistant") {
-      return { error: "Only user or assistant messages can be edited.", messageId: input.messageId };
+      return { error: "Only user or assistant messages can be edited.", messageId };
     }
-    await chats.updateMessageContent(input.messageId, input.content);
-    return { applied: true, messageId: input.messageId, role: message.role, reason: input.reason ?? null };
+    await chats.updateMessageContent(messageId, input.content);
+    return { applied: true, messageId, role: message.role, reason: input.reason ?? null };
   };
 
   for (const entry of resolvedAgents) {
@@ -2268,52 +2279,71 @@ async function executeLorebookKeeperRetries(args: {
 
   const results: Array<{ messageId: string; result: AgentResult }> = [];
   for (const target of targets) {
-    const retryContext = buildHistoricalLorebookKeeperContext(baseContext, messages, target.id);
-    if (!retryContext) continue;
+    const startedAt = Date.now();
+    try {
+      const retryContext = buildHistoricalLorebookKeeperContext(baseContext, messages, target.id);
+      if (!retryContext) continue;
 
-    if (preferredTargetLorebookId) {
-      retryContext.memory._lorebookKeeperTargetLorebookId = preferredTargetLorebookId;
-    }
-    const existingEntries = await loadLorebookKeeperExistingEntries(lorebooksStore, preferredTargetLorebookId);
-    if (existingEntries.length > 0) {
-      retryContext.memory._existingLorebookEntries = existingEntries;
-    }
-
-    const rawResult = await executeAgent(
-      lorebookKeeperAgent.resolved,
-      retryContext,
-      lorebookKeeperAgent.agentProvider,
-      lorebookKeeperAgent.agentModel,
-    );
-    const result = requireApproval
-      ? markRetryLorebookResultForApproval({
-          result: rawResult,
-          chatId,
-          agentContext: retryContext,
-          resolvedAgents: [lorebookKeeperAgent],
-        })
-      : rawResult;
-    results.push({ messageId: target.id, result });
-
-    if (
-      result.success &&
-      result.type === "lorebook_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      !isAgentWriteApprovalEnvelope(result.data)
-    ) {
-      const lkData = result.data as Record<string, unknown>;
-      const updates = (lkData.updates as Array<Record<string, unknown>>) ?? [];
-      if (updates.length > 0) {
-        preferredTargetLorebookId = await persistLorebookKeeperUpdates({
-          lorebooksStore,
-          chatId,
-          chatName,
-          preferredTargetLorebookId,
-          writableLorebookIds: retryContext.writableLorebookIds,
-          updates,
-        });
+      if (preferredTargetLorebookId) {
+        retryContext.memory._lorebookKeeperTargetLorebookId = preferredTargetLorebookId;
       }
+      const existingEntries = await loadLorebookKeeperExistingEntries(lorebooksStore, preferredTargetLorebookId);
+      if (existingEntries.length > 0) {
+        retryContext.memory._existingLorebookEntries = existingEntries;
+      }
+
+      const rawResult = await executeAgent(
+        lorebookKeeperAgent.resolved,
+        retryContext,
+        lorebookKeeperAgent.agentProvider,
+        lorebookKeeperAgent.agentModel,
+      );
+      const result = requireApproval
+        ? markRetryLorebookResultForApproval({
+            result: rawResult,
+            chatId,
+            agentContext: retryContext,
+            resolvedAgents: [lorebookKeeperAgent],
+          })
+        : rawResult;
+
+      if (
+        result.success &&
+        result.type === "lorebook_update" &&
+        result.data &&
+        typeof result.data === "object" &&
+        !isAgentWriteApprovalEnvelope(result.data)
+      ) {
+        const lkData = result.data as Record<string, unknown>;
+        const updates = (lkData.updates as Array<Record<string, unknown>>) ?? [];
+        if (updates.length > 0) {
+          preferredTargetLorebookId = await persistLorebookKeeperUpdates({
+            lorebooksStore,
+            chatId,
+            chatName,
+            preferredTargetLorebookId,
+            writableLorebookIds: retryContext.writableLorebookIds,
+            updates,
+          });
+        }
+      }
+
+      results.push({ messageId: target.id, result });
+    } catch (err) {
+      logger.error(err, "[retry-agents] Lorebook Keeper retry failed for target message %s", target.id);
+      results.push({
+        messageId: target.id,
+        result: {
+          agentId: lorebookKeeperAgent.resolved.id,
+          agentType: lorebookKeeperAgent.resolved.type,
+          type: "lorebook_update",
+          data: null,
+          tokensUsed: 0,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          error: err instanceof Error ? err.message : "Lorebook Keeper failed",
+        },
+      });
     }
   }
 
@@ -2975,10 +3005,7 @@ async function applyRetryResultEffects(args: {
                 galleryId: (galleryEntry as any)?.id,
               };
               await chatsDb.appendSwipeAttachment(retryMessageId, retrySwipeIndex, attachment);
-              const msgRow = await chatsDb.getMessage(retryMessageId);
-              if (msgRow && (msgRow.activeSwipeIndex ?? 0) === retrySwipeIndex) {
-                await chatsDb.appendMessageAttachment(retryMessageId, attachment);
-              }
+              await chatsDb.appendMessageAttachmentForActiveSwipe(retryMessageId, retrySwipeIndex, attachment);
             }
 
             sendSseEvent(reply, {

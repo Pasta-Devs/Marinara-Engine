@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Agent Configs, Runs & Memory
 // ──────────────────────────────────────────────
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, notInArray } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
 import { agentConfigs, agentRuns, agentMemory } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -372,17 +372,17 @@ export function createAgentsStorage(db: DB) {
         .select()
         .from(agentRuns)
         .innerJoin(agentConfigs, eq(agentRuns.agentConfigId, agentConfigs.id))
-        .where(and(eq(agentRuns.chatId, chatId), eq(agentRuns.success, "true")))
-        .orderBy(desc(agentRuns.createdAt));
+        .where(
+          and(
+            eq(agentRuns.chatId, chatId),
+            eq(agentRuns.success, "true"),
+            notInArray(agentConfigs.type, Array.from(BUILT_IN_AGENT_TYPES)),
+          ),
+        )
+        .orderBy(desc(agentRuns.createdAt))
+        .limit(normalizedLimit);
 
-      const customRows: typeof rows = [];
-      for (const row of rows) {
-        if (isBuiltInAgentType(row.agent_configs.type)) continue;
-        customRows.push(row);
-        if (customRows.length >= normalizedLimit) break;
-      }
-
-      return customRows.map((row) => serializeRunWithConfig(row));
+      return rows.map((row) => serializeRunWithConfig(row));
     },
 
     async getRunWithConfig(id: string) {
