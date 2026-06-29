@@ -649,7 +649,8 @@ function decodeHtmlEntities(value: string): string {
     if (entity[0] === "#") {
       const isHex = entity[1]?.toLowerCase() === "x";
       const codePoint = Number.parseInt(entity.slice(isHex ? 2 : 1), isHex ? 16 : 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
+      if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return match;
+      return String.fromCodePoint(codePoint);
     }
     return named[entity.toLowerCase()] ?? match;
   });
@@ -711,7 +712,7 @@ async function webSearch(args: Record<string, unknown>): Promise<Record<string, 
   try {
     const res = await safeFetch(url, {
       headers: {
-        Accept: "text/html,application/xhtml+xml",
+        Accept: "text/html",
         "User-Agent": "Marinara Engine web_search tool",
       },
       signal: AbortSignal.timeout(10_000),
