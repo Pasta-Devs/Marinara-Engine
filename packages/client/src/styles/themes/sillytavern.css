@@ -224,42 +224,42 @@
   --app-font-size: 0.875rem;
 }
 
-/* ─── Disable custom cursors ─── */
-[data-visual-theme="sillytavern"] *,
-[data-visual-theme="sillytavern"] a,
-[data-visual-theme="sillytavern"] button,
-[data-visual-theme="sillytavern"] input,
-[data-visual-theme="sillytavern"] select,
-[data-visual-theme="sillytavern"] textarea,
-[data-visual-theme="sillytavern"] .cursor-pointer,
-[data-visual-theme="sillytavern"] .cursor-grab,
-[data-visual-theme="sillytavern"] .cursor-help,
-[data-visual-theme="sillytavern"] .cursor-default,
-[data-visual-theme="sillytavern"] .cursor-text,
-[data-visual-theme="sillytavern"] .cursor-move,
-[data-visual-theme="sillytavern"] .cursor-not-allowed,
-[data-visual-theme="sillytavern"] input[type="color"] {
+/* ─── Restore native cursors when the Marinara custom pointer is off ─── */
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] *),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] a),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] button),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] input),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] select),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] textarea),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-pointer),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-grab),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-help),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-default),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-text),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-move),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-not-allowed),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] input[type="color"]) {
   cursor: unset !important;
 }
-[data-visual-theme="sillytavern"] a,
-[data-visual-theme="sillytavern"] button,
-[data-visual-theme="sillytavern"] .cursor-pointer,
-[data-visual-theme="sillytavern"] .cursor-grab,
-[data-visual-theme="sillytavern"] label[class*="cursor-pointer"],
-[data-visual-theme="sillytavern"] input[type="color"] {
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] a),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] button),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-pointer),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-grab),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] label[class*="cursor-pointer"]),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] input[type="color"]) {
   cursor: pointer !important;
 }
-[data-visual-theme="sillytavern"] .cursor-not-allowed,
-[data-visual-theme="sillytavern"] .disabled\:cursor-not-allowed:disabled {
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-not-allowed),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .disabled\:cursor-not-allowed:disabled) {
   cursor: not-allowed !important;
 }
-[data-visual-theme="sillytavern"] .cursor-grab {
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-grab) {
   cursor: grab !important;
 }
-[data-visual-theme="sillytavern"] .active\:cursor-grabbing:active {
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .active\:cursor-grabbing:active) {
   cursor: grabbing !important;
 }
-[data-visual-theme="sillytavern"] .cursor-help {
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="sillytavern"] .cursor-help) {
   cursor: help !important;
 }
 

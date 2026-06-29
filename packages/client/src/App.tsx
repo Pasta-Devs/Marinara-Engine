@@ -68,6 +68,7 @@ const APP_ACCENT_CUSTOM_VARIABLES = [
 const ACCENT_RGB_TICK_MS = 500;
 const ACCENT_RGB_SOLID_CYCLE_MS = 7_200;
 const ACCENT_RGB_GRADIENT_STOP_MS = 6_000;
+const CUSTOM_CURSOR_SCROLL_ACTIVE_MS = 900;
 const TOAST_DURATION_MS = 6_000;
 const TOAST_VISIBLE_LIMIT = 3;
 const THEME_ACCENT_PULSE_VARIABLE = "--marinara-theme-accent-pulse";
@@ -181,6 +182,63 @@ function escapeSvgAttribute(value: string) {
 }
 
 let cursorColorProbe: HTMLSpanElement | null = null;
+let cursorCanvasContext: CanvasRenderingContext2D | null | undefined;
+
+function clampCursorColorByte(value: number) {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function parseCursorColorChannel(value: string, scaleUnit: boolean) {
+  const clean = value.trim();
+  if (!clean) return null;
+
+  if (clean.endsWith("%")) {
+    const percent = Number(clean.slice(0, -1));
+    return Number.isFinite(percent) ? clampCursorColorByte((percent / 100) * 255) : null;
+  }
+
+  const channel = Number(clean);
+  if (!Number.isFinite(channel)) return null;
+  return clampCursorColorByte(scaleUnit ? channel * 255 : channel);
+}
+
+function parseCursorColorChannels(value: string, scaleUnit: boolean) {
+  const clean = value.replace(/\s*\/\s*[^,\s)]+/g, " ").trim();
+  const channels = clean.split(/\s*,\s*|\s+/).filter(Boolean);
+  if (channels.length < 3) return null;
+
+  const red = parseCursorColorChannel(channels[0], scaleUnit);
+  const green = parseCursorColorChannel(channels[1], scaleUnit);
+  const blue = parseCursorColorChannel(channels[2], scaleUnit);
+  if (red === null || green === null || blue === null) return null;
+
+  return `rgb(${red} ${green} ${blue})`;
+}
+
+function normalizeCursorColorWithCanvas(color: string) {
+  if (typeof document === "undefined") return "";
+  if (cursorCanvasContext === undefined) {
+    cursorCanvasContext = document.createElement("canvas").getContext("2d");
+  }
+  if (!cursorCanvasContext) return "";
+
+  cursorCanvasContext.fillStyle = "#010203";
+  cursorCanvasContext.fillStyle = color;
+  return cursorCanvasContext.fillStyle === "#010203" ? "" : cursorCanvasContext.fillStyle;
+}
+
+function normalizeCursorColorForSvg(color: string, fallback: string) {
+  const clean = color.trim();
+  if (!clean) return fallback;
+
+  const rgbMatch = clean.match(/^rgba?\(\s*(.*?)\s*\)$/i);
+  if (rgbMatch) return parseCursorColorChannels(rgbMatch[1], false) ?? fallback;
+
+  const srgbMatch = clean.match(/^color\(\s*srgb\s+(.*?)\s*\)$/i);
+  if (srgbMatch) return parseCursorColorChannels(srgbMatch[1], true) ?? fallback;
+
+  return normalizeCursorColorWithCanvas(clean) || clean;
+}
 
 function resolveCursorColor(color: string, fallback: string) {
   if (typeof document === "undefined") return fallback;
@@ -201,7 +259,7 @@ function resolveCursorColor(color: string, fallback: string) {
   cursorColorProbe.style.color = color;
   if (!cursorColorProbe.style.color) return fallback;
 
-  return getComputedStyle(cursorColorProbe).color.trim() || fallback;
+  return normalizeCursorColorForSvg(getComputedStyle(cursorColorProbe).color, fallback);
 }
 
 function getAccentCursorValue(accent: string, theme: "dark" | "light") {
@@ -426,6 +484,49 @@ export function App() {
     } else {
       delete root.dataset.marinaraCustomCursor;
     }
+  }, [customCursorEnabled]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    let scrollActiveTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+    const clearScrollActive = () => {
+      if (scrollActiveTimer !== null) {
+        window.clearTimeout(scrollActiveTimer);
+        scrollActiveTimer = null;
+      }
+      delete root.dataset.marinaraScrollActive;
+    };
+
+    if (!customCursorEnabled) {
+      clearScrollActive();
+      return clearScrollActive;
+    }
+
+    const markScrollActive = () => {
+      if (root.dataset.marinaraScrollActive !== "true") {
+        root.dataset.marinaraScrollActive = "true";
+      }
+      if (scrollActiveTimer !== null) {
+        window.clearTimeout(scrollActiveTimer);
+      }
+      scrollActiveTimer = window.setTimeout(() => {
+        scrollActiveTimer = null;
+        delete root.dataset.marinaraScrollActive;
+      }, CUSTOM_CURSOR_SCROLL_ACTIVE_MS);
+    };
+
+    const scrollOptions: AddEventListenerOptions = { capture: true, passive: true };
+    window.addEventListener("scroll", markScrollActive, scrollOptions);
+    window.addEventListener("wheel", markScrollActive, scrollOptions);
+    window.addEventListener("touchmove", markScrollActive, scrollOptions);
+
+    return () => {
+      window.removeEventListener("scroll", markScrollActive, scrollOptions);
+      window.removeEventListener("wheel", markScrollActive, scrollOptions);
+      window.removeEventListener("touchmove", markScrollActive, scrollOptions);
+      clearScrollActive();
+    };
   }, [customCursorEnabled]);
 
   useEffect(() => {

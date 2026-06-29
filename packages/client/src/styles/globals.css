@@ -1926,6 +1926,10 @@
 /* ─────────────────────────────────────────────
    5. BASE RESET & BODY
    ───────────────────────────────────────────── */
+:where(:root[data-marinara-custom-cursor="enabled"], :root[data-marinara-custom-cursor="enabled"] body) {
+  cursor: var(--cursor-pink), auto;
+}
+
 :where(:root[data-marinara-custom-cursor="enabled"] *) {
   cursor: var(--cursor-pink), auto;
 }
@@ -1965,6 +1969,14 @@ input[type="range"] {
 
 :where(:root[data-marinara-custom-cursor="enabled"] input[type="range"]) {
   cursor: var(--cursor-pink), auto;
+}
+
+:where(
+  :root[data-marinara-custom-cursor="enabled"][data-marinara-scroll-active="true"],
+  :root[data-marinara-custom-cursor="enabled"][data-marinara-scroll-active="true"] body,
+  :root[data-marinara-custom-cursor="enabled"][data-marinara-scroll-active="true"] *
+) {
+  cursor: var(--cursor-pink), auto !important;
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
@@ -2481,11 +2493,14 @@ strong {
 :where(
   :root[data-marinara-custom-cursor="enabled"] .cursor-pointer,
   :root[data-marinara-custom-cursor="enabled"] .cursor-grab,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-grabbing,
   :root[data-marinara-custom-cursor="enabled"] .cursor-help,
   :root[data-marinara-custom-cursor="enabled"] .cursor-default,
   :root[data-marinara-custom-cursor="enabled"] .cursor-text,
   :root[data-marinara-custom-cursor="enabled"] .cursor-move,
   :root[data-marinara-custom-cursor="enabled"] .cursor-crosshair,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-zoom-in,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-zoom-out,
   :root[data-marinara-custom-cursor="enabled"] .cursor-wait,
   :root[data-marinara-custom-cursor="enabled"] .cursor-progress,
   :root[data-marinara-custom-cursor="enabled"] label[class*="cursor-pointer"],
@@ -2494,18 +2509,55 @@ strong {
 ) {
   cursor: var(--cursor-pink), auto !important;
 }
-.cursor-not-allowed,
-.disabled\:cursor-not-allowed:disabled {
+:where(.cursor-not-allowed, .disabled\:cursor-not-allowed:disabled) {
   cursor: not-allowed !important;
+}
+:where(
+  :root[data-marinara-custom-cursor="enabled"] .cursor-not-allowed,
+  :root[data-marinara-custom-cursor="enabled"] .disabled\:cursor-not-allowed:disabled
+) {
+  cursor: var(--cursor-pink), not-allowed !important;
 }
 :where(:root[data-marinara-custom-cursor="enabled"] .active\:cursor-grabbing:active) {
   cursor: var(--cursor-pink), auto !important;
 }
-.mari-resize-x {
+:where(.mari-resize-x) {
   cursor: ew-resize !important;
 }
-.mari-resize-y {
+:where(.mari-resize-y) {
   cursor: ns-resize !important;
+}
+:where(
+  :root[data-marinara-custom-cursor="enabled"] .cursor-col-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-ew-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-e-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-w-resize,
+  :root[data-marinara-custom-cursor="enabled"] .mari-resize-x
+) {
+  cursor: var(--cursor-pink), ew-resize !important;
+}
+:where(
+  :root[data-marinara-custom-cursor="enabled"] .cursor-row-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-ns-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-n-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-s-resize,
+  :root[data-marinara-custom-cursor="enabled"] .mari-resize-y
+) {
+  cursor: var(--cursor-pink), ns-resize !important;
+}
+:where(
+  :root[data-marinara-custom-cursor="enabled"] .cursor-nwse-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-nw-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-se-resize
+) {
+  cursor: var(--cursor-pink), nwse-resize !important;
+}
+:where(
+  :root[data-marinara-custom-cursor="enabled"] .cursor-nesw-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-ne-resize,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-sw-resize
+) {
+  cursor: var(--cursor-pink), nesw-resize !important;
 }
 
 /* ─────────────────────────────────────────────
@@ -2518,6 +2570,13 @@ strong {
 
 ::-webkit-scrollbar {
   width: 0.625rem;
+}
+
+:root[data-marinara-custom-cursor="enabled"] ::-webkit-scrollbar,
+:root[data-marinara-custom-cursor="enabled"] ::-webkit-scrollbar-track,
+:root[data-marinara-custom-cursor="enabled"] ::-webkit-scrollbar-thumb,
+:root[data-marinara-custom-cursor="enabled"] ::-webkit-scrollbar-corner {
+  cursor: var(--cursor-pink), auto !important;
 }
 
 ::-webkit-scrollbar-track {
