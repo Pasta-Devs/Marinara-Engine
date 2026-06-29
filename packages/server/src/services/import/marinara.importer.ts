@@ -33,6 +33,19 @@ function resolveNativePosition(value: unknown): number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 2 ? value : 0;
 }
 
+function normalizeDefaultChoices(value: unknown): Record<string, string | string[]> {
+  if (!isJsonRecord(value)) return {};
+  const normalized: Record<string, string | string[]> = {};
+  for (const [key, choice] of Object.entries(value)) {
+    if (typeof choice === "string") {
+      normalized[key] = choice;
+    } else if (Array.isArray(choice) && choice.every((item): item is string => typeof item === "string")) {
+      normalized[key] = choice;
+    }
+  }
+  return normalized;
+}
+
 // Decode a base64 data URL into validated image bytes. Returns null if the
 // payload is missing, malformed, or not a recognized image type — so callers
 // can treat optional images as "skip this one" rather than failing the whole
@@ -648,10 +661,11 @@ async function importPreset(data: unknown, db: DB) {
   const newSectionOrder = oldSectionOrder.map((sid) => sectionMap.get(sid)).filter(Boolean) as string[];
   const oldGroupOrder = safeParseJson(p.groupOrder, []) as string[];
   const newGroupOrder = oldGroupOrder.map((gid) => groupMap.get(gid)).filter(Boolean) as string[];
+  const defaultChoices = safeParseJson<unknown>(p.defaultChoices, {});
   await storage.update(newPreset.id, {
     sectionOrder: newSectionOrder,
     groupOrder: newGroupOrder,
-    defaultChoices: safeParseJson(p.defaultChoices, {}),
+    defaultChoices: normalizeDefaultChoices(defaultChoices),
   });
 
   return {

@@ -349,16 +349,24 @@ export async function seedDefaultPreset(db: DB) {
   const appliedHash = await appSettings.get(MARINARA_PRESET_SEED_HASH_KEY);
   const appliedSnapshotHash = await appSettings.get(MARINARA_PRESET_SNAPSHOT_KEY);
   if (existingMarinaraPreset && appliedHash !== bundled.hash) {
-    if (appliedSnapshotHash) {
-      const currentSnapshotHash = await computePresetSnapshotHash(storage, existingMarinaraPreset.id);
-      if (currentSnapshotHash && currentSnapshotHash !== appliedSnapshotHash) {
-        await appSettings.set(MARINARA_PRESET_SEED_HASH_KEY, bundled.hash);
-        logger.info(
-          "[seed] Preserved customized Marinara universal preset while recording bundled hash %s",
-          bundled.hash.slice(0, 12),
-        );
-        return;
-      }
+    if (!appliedSnapshotHash) {
+      await appSettings.set(MARINARA_PRESET_SEED_HASH_KEY, bundled.hash);
+      await appSettings.set(MARINARA_PRESET_SNAPSHOT_KEY, computeBundledPresetSnapshotHash(bundled.envelope));
+      logger.info(
+        "[seed] Preserved existing Marinara universal preset without prior snapshot while recording bundled hash %s",
+        bundled.hash.slice(0, 12),
+      );
+      return;
+    }
+
+    const currentSnapshotHash = await computePresetSnapshotHash(storage, existingMarinaraPreset.id);
+    if (currentSnapshotHash && currentSnapshotHash !== appliedSnapshotHash) {
+      await appSettings.set(MARINARA_PRESET_SEED_HASH_KEY, bundled.hash);
+      logger.info(
+        "[seed] Preserved customized Marinara universal preset while recording bundled hash %s",
+        bundled.hash.slice(0, 12),
+      );
+      return;
     }
 
     const wasDefault = existingMarinaraPreset.isDefault === "true";

@@ -231,7 +231,7 @@ function parsePresetParameters(raw: string): GenerationParameters {
 
   const out: GenerationParameters = { ...DEFAULT_GENERATION_PARAMS };
   const source = merged as Record<string, unknown>;
-  for (const key of Object.keys(DEFAULT_GENERATION_PARAMS) as Array<keyof GenerationParameters>) {
+  for (const key of Object.keys(generationParametersSchema.shape) as Array<keyof GenerationParameters>) {
     const fieldSchema = generationParametersSchema.shape[key];
     const field = fieldSchema.safeParse(source[key]);
     if (field.success) {
@@ -421,10 +421,9 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
 
       for (let j = i + 1; j < orderedSections.length; j++) {
         const next = orderedSections[j]!;
-        if (next.groupId === section.groupId && !next.isChatHistory) {
-          groupSections.push(next);
-          processedSections.add(next.id);
-        }
+        if (next.isChatHistory || next.groupId !== section.groupId) break;
+        groupSections.push(next);
+        processedSections.add(next.id);
       }
 
       // Get group info for wrapping

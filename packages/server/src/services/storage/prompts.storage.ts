@@ -27,7 +27,7 @@ function resolveTimestamps(overrides?: TimestampOverrides | null) {
   };
 }
 
-function parseGenerationParameters(raw: unknown): Record<string, unknown> {
+function parseJsonRecord(raw: unknown): Record<string, unknown> {
   if (!raw) return {};
   if (typeof raw === "string") {
     try {
@@ -38,6 +38,23 @@ function parseGenerationParameters(raw: unknown): Record<string, unknown> {
     }
   }
   return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+}
+
+function parseGenerationParameters(raw: unknown): Record<string, unknown> {
+  return parseJsonRecord(raw);
+}
+
+function parseDefaultChoices(raw: unknown): Record<string, string | string[]> {
+  const parsed = parseJsonRecord(raw);
+  const normalized: Record<string, string | string[]> = {};
+  for (const [key, choice] of Object.entries(parsed)) {
+    if (typeof choice === "string") {
+      normalized[key] = choice;
+    } else if (Array.isArray(choice) && choice.every((item): item is string => typeof item === "string")) {
+      normalized[key] = choice;
+    }
+  }
+  return normalized;
 }
 
 export function createPromptsStorage(db: DB) {
@@ -208,7 +225,7 @@ export function createPromptsStorage(db: DB) {
       await this.update(newPreset.id, {
         sectionOrder: newSectionOrder,
         groupOrder: newGroupOrder,
-        defaultChoices: JSON.parse((preset.defaultChoices as string) || "{}"),
+        defaultChoices: parseDefaultChoices(preset.defaultChoices),
       });
 
       return this.getById(newPreset.id);
