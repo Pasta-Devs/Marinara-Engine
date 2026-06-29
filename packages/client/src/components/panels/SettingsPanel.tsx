@@ -5073,6 +5073,8 @@ function AdvancedSettings() {
   const setShowQuickReplyGuide = useUIStore((s) => s.setShowQuickReplyGuide);
   const showQuickReplyImpersonate = useUIStore((s) => s.showQuickReplyImpersonate);
   const setShowQuickReplyImpersonate = useUIStore((s) => s.setShowQuickReplyImpersonate);
+  const includeReasoningInExports = useUIStore((s) => s.includeReasoningInExports);
+  const setIncludeReasoningInExports = useUIStore((s) => s.setIncludeReasoningInExports);
   const debugMode = useUIStore((s) => s.debugMode);
   const setDebugMode = useUIStore((s) => s.setDebugMode);
   const clearAllData = useClearAllData();
@@ -5859,6 +5861,12 @@ function AdvancedSettings() {
             checked={guideGenerations}
             onChange={setGuideGenerations}
             help="Uses the current draft as direction when regenerating a message or manually triggering a character response."
+          />
+          <ToggleSetting
+            label="Include reasoning in exports"
+            checked={includeReasoningInExports}
+            onChange={setIncludeReasoningInExports}
+            help="Includes saved hidden thinking/reasoning metadata in JSONL and text chat exports. Keep this off when sharing transcripts."
           />
           <ToggleSetting
             label="Debug mode"

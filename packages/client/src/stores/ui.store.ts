@@ -540,6 +540,8 @@ interface UIState {
   showQuickReplyGuide: boolean;
   showQuickReplyImpersonate: boolean;
   confirmBeforeDelete: boolean;
+  /** When true, chat exports include saved thinking/reasoning metadata. */
+  includeReasoningInExports: boolean;
   /** Number of messages to load per page (0 = load all) */
   messagesPerPage: number;
   /** Bold quoted dialogue in chat messages; color highlighting can still remain when this is off */
@@ -821,6 +823,7 @@ interface UIState {
   setShowQuickReplyGuide: (v: boolean) => void;
   setShowQuickReplyImpersonate: (v: boolean) => void;
   setConfirmBeforeDelete: (v: boolean) => void;
+  setIncludeReasoningInExports: (v: boolean) => void;
   setMessagesPerPage: (n: number) => void;
   setBoldDialogue: (v: boolean) => void;
   setQuoteFormat: (v: QuoteFormat) => void;
@@ -1017,6 +1020,7 @@ export function pickSyncedSettings(state: UIState) {
     showQuickReplyGuide: state.showQuickReplyGuide,
     showQuickReplyImpersonate: state.showQuickReplyImpersonate,
     confirmBeforeDelete: state.confirmBeforeDelete,
+    includeReasoningInExports: state.includeReasoningInExports,
     messagesPerPage: state.messagesPerPage,
     boldDialogue: state.boldDialogue,
     quoteFormat: state.quoteFormat,
@@ -1188,6 +1192,7 @@ export const useUIStore = create<UIState>()(
       showQuickReplyGuide: true,
       showQuickReplyImpersonate: true,
       confirmBeforeDelete: true,
+      includeReasoningInExports: false,
       messagesPerPage: 20,
       boldDialogue: true,
       quoteFormat: "straight" as QuoteFormat,
@@ -1734,6 +1739,7 @@ export const useUIStore = create<UIState>()(
       setShowQuickReplyGuide: (v) => set({ showQuickReplyGuide: v }),
       setShowQuickReplyImpersonate: (v) => set({ showQuickReplyImpersonate: v }),
       setConfirmBeforeDelete: (v) => set({ confirmBeforeDelete: v }),
+      setIncludeReasoningInExports: (v) => set({ includeReasoningInExports: v }),
       setMessagesPerPage: (n) => set({ messagesPerPage: n }),
       setBoldDialogue: (v) => set({ boldDialogue: v }),
       setQuoteFormat: (v) => set({ quoteFormat: normalizeQuoteFormat(v) }),
@@ -1941,7 +1947,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 65,
+      version: 66,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2303,6 +2309,10 @@ export const useUIStore = create<UIState>()(
         if (version <= 64 && persisted.queueImageGenerationRequests === undefined) {
           persisted.queueImageGenerationRequests = true;
         }
+
+        if (version <= 65 && persisted.includeReasoningInExports === undefined) {
+          persisted.includeReasoningInExports = false;
+        }
         // v42 -> v44: reconcile parallel v43 UI preference additions.
         if (version <= 43 && persisted.youtubePlayerEnabled === undefined) {
           persisted.youtubePlayerEnabled = true;
@@ -2423,6 +2433,7 @@ export const useUIStore = create<UIState>()(
           }
         }
         persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
+        persisted.includeReasoningInExports = persisted.includeReasoningInExports === true;
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
@@ -2521,6 +2532,7 @@ export const useUIStore = create<UIState>()(
         showQuickReplyGuide: state.showQuickReplyGuide,
         showQuickReplyImpersonate: state.showQuickReplyImpersonate,
         confirmBeforeDelete: state.confirmBeforeDelete,
+        includeReasoningInExports: state.includeReasoningInExports,
         messagesPerPage: state.messagesPerPage,
         boldDialogue: state.boldDialogue,
         quoteFormat: state.quoteFormat,

@@ -13,7 +13,7 @@ import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { isCustomToolScriptEnabled } from "../config/runtime-config.js";
 
 const SCRIPT_TOOL_DISABLED_MESSAGE =
-  "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true in your .env and restart Marinara to enable local script tools.";
+  "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true in your .env and restart Marinara only for trusted in-process script tools.";
 
 function isReservedBuiltInToolName(name: string): boolean {
   return BUILT_IN_TOOLS.some((tool) => tool.name === name);

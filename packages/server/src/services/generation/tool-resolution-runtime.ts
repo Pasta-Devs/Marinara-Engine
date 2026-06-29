@@ -573,7 +573,7 @@ export async function resolveGenerationTools({
   let toolDefs = loadedTools.toolDefs;
 
   const resolvedToolNames = new Set(allToolDefs.map((toolDef) => toolDef.function.name));
-  const chatResolvedToolNames = new Set((toolDefs ?? []).map((toolDef) => toolDef.function.name));
+  let chatResolvedToolNames = new Set((toolDefs ?? []).map((toolDef) => toolDef.function.name));
   const spotifyToolNames = new Set(DEFAULT_AGENT_TOOLS.spotify ?? []);
   const agentResolvedSpotifyToolGroups = resolvedAgents.map((agent) => {
     const agentSettings = parseSettings(agent.settings);
@@ -609,6 +609,7 @@ export async function resolveGenerationTools({
   if (!spotifyToolsAvailable && toolDefs) {
     const beforeCount = toolDefs.length;
     toolDefs = toolDefs.filter((toolDef) => !spotifyToolNames.has(toolDef.function.name));
+    chatResolvedToolNames = new Set((toolDefs ?? []).map((toolDef) => toolDef.function.name));
     if (beforeCount !== toolDefs.length && spotifyAvailabilityRequest.shouldLogUnavailableToolOmission) {
       logger.debug("[spotify] Omitted unavailable Spotify tools from main generation");
     }

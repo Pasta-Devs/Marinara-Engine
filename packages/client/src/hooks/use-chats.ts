@@ -1056,8 +1056,10 @@ export function useExportChat() {
   return useMutation({
     mutationFn: async ({ chatId, format = "jsonl" }: { chatId: string; format?: "jsonl" | "text" }) => {
       const ext = format === "text" ? ".txt" : ".jsonl";
+      const includeReasoning = useUIStore.getState().includeReasoningInExports;
+      const reasoningParam = includeReasoning ? "&includeReasoning=true" : "";
       await api.download(
-        `/chats/${encodeURIComponent(chatId)}/export?format=${encodeURIComponent(format)}`,
+        `/chats/${encodeURIComponent(chatId)}/export?format=${encodeURIComponent(format)}${reasoningParam}`,
         `chat-${chatId}${ext}`,
       );
     },
@@ -1078,7 +1080,12 @@ export function useBulkExportChats() {
       chatIds?: string[];
       format?: "jsonl" | "text";
       scope?: "selected" | "all";
-    }) => api.downloadPost("/chats/export/bulk", { chatIds, format, scope }, `chat-transcripts-${format}.zip`),
+    }) =>
+      api.downloadPost(
+        "/chats/export/bulk",
+        { chatIds, format, scope, includeReasoning: useUIStore.getState().includeReasoningInExports },
+        `chat-transcripts-${format}.zip`,
+      ),
   });
 }
 

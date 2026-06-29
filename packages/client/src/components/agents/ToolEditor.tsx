@@ -42,7 +42,7 @@ const EXEC_TYPES = [
 ] as const;
 
 const SCRIPT_TOOLS_DISABLED_MESSAGE =
-  "Script tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true in your .env and restart Marinara to enable local script tools.";
+  "Script tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true in your .env and restart Marinara only for trusted in-process script tools.";
 
 // ═══════════════════════════════════════════════
 //  Main Editor
@@ -574,8 +574,8 @@ export function ToolEditor() {
                   <div className="font-medium">Script tools are disabled on this server.</div>
                   <div className="mt-1 text-amber-100/80">
                     Set <code className="rounded bg-black/20 px-1">CUSTOM_TOOL_SCRIPT_ENABLED=true</code> in{" "}
-                    <code className="rounded bg-black/20 px-1">.env</code> and restart Marinara before saving Script
-                    tools.
+                    <code className="rounded bg-black/20 px-1">.env</code> and restart Marinara only for trusted
+                    in-process Script tools.
                   </div>
                 </div>
               </div>

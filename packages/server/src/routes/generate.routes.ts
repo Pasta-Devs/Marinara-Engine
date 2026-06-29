@@ -6120,10 +6120,20 @@ export async function generateRoutes(app: FastifyInstance) {
             );
           } catch (error) {
             if (abortController.signal.aborted) return [];
-            logger.warn({ err: error, chatId: input.chatId }, "[group-smart] Selector failed; aborting generation");
+            logger.warn({ err: error, chatId: input.chatId }, "[group-smart] Selector failed; using fallback");
           }
 
           return [];
+        };
+
+        const selectFallbackSmartGroupResponder = (): string[] => {
+          const lastAssistantCharacterId = [...chatMessages]
+            .reverse()
+            .find((message: any) => message.role === "assistant" && typeof message.characterId === "string")
+            ?.characterId as string | undefined;
+          const fallback =
+            charInfo.find((character) => character.id !== lastAssistantCharacterId)?.id ?? charInfo[0]?.id ?? null;
+          return fallback ? [fallback] : [];
         };
 
         // ── Determine characters to generate for ──
@@ -6140,10 +6150,22 @@ export async function generateRoutes(app: FastifyInstance) {
               )
             : [];
 
-        const smartResponseQueue =
+        const needsSmartResponseQueue = useIndividualLoop && groupResponseOrder === "smart" && !input.forCharacterId;
+        let smartResponseQueue =
           useIndividualLoop && groupResponseOrder === "smart" && !input.forCharacterId
             ? await selectSmartGroupResponders()
             : null;
+
+        if (needsSmartResponseQueue && (!smartResponseQueue || smartResponseQueue.length === 0)) {
+          smartResponseQueue = selectFallbackSmartGroupResponder();
+          if (smartResponseQueue.length > 0) {
+            logger.warn(
+              "[group-smart] Falling back to %s for chat %s after selector produced no queue",
+              charInfo.find((character) => character.id === smartResponseQueue?.[0])?.name ?? smartResponseQueue[0],
+              input.chatId,
+            );
+          }
+        }
 
         if (smartResponseQueue && smartResponseQueue.length > 0) {
           sendSseEvent(reply, {
@@ -9962,10 +9984,14 @@ export async function generateRoutes(app: FastifyInstance) {
                           .trim()
                           .slice(0, 4000)
                       : "";
-                    const ensureSourceUserMessage = async (targetChatId: string, dedupePerTarget: boolean) => {
+                    const ensureSourceUserMessage = async (
+                      targetChatId: string,
+                      dedupePerTarget: boolean,
+                      chatStorage: typeof chats = chats,
+                    ) => {
                       if (!sourceUserMessage?.id || !sourceUserText) return null;
 
-                      const targetMessages = await chats.listMessages(targetChatId);
+                      const targetMessages = await chatStorage.listMessages(targetChatId);
                       const alreadyMirrored = targetMessages.some((m: any) => {
                         const extra = parseExtra(m.extra) as Record<string, unknown>;
                         if (
@@ -9978,14 +10004,14 @@ export async function generateRoutes(app: FastifyInstance) {
                       });
                       if (alreadyMirrored) return null;
 
-                      const userMsg = await chats.createMessage({
+                      const userMsg = await chatStorage.createMessage({
                         chatId: targetChatId,
                         role: "user",
                         characterId: null,
                         content: sourceUserText,
                       });
                       if (userMsg?.id) {
-                        await chats.updateMessageExtra(userMsg.id, {
+                        await chatStorage.updateMessageExtra(userMsg.id, {
                           roleplayDmSourceChatId: input.chatId,
                           roleplayDmSourceUserMessageId: sourceUserMessage.id,
                           roleplayDmTargetCharacterId: targetCharId,
@@ -10046,6 +10072,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       return parseChatCharacterIdsForDm(candidate.characterIds).includes(targetCharId);
                     });
 
+                    const createdNewChat = !existingDmChat;
                     const targetChat =
                       existingDmChat ??
                       (await chats.create({
@@ -10059,24 +10086,43 @@ export async function generateRoutes(app: FastifyInstance) {
                       }));
                     if (!targetChat) throw new Error("Failed to create DM conversation");
 
-                    await chats.patchMetadata(targetChat.id, {
-                      dmOriginChatId: input.chatId,
-                      dmOriginChatName: chat.name ?? null,
-                      dmOriginMessageId: messageId || null,
-                      dmSourceUserMessageId: sourceUserMessage?.id ?? null,
-                      dmTargetCharacterId: targetCharId,
-                      roleplayDmThread: true,
-                    });
-                    const sourceUserDmMessage = await ensureSourceUserMessage(targetChat.id, true);
-                    const dmMessage = await chats.createMessage({
-                      chatId: targetChat.id,
-                      role: "assistant",
-                      characterId: targetCharId,
-                      content: messageText,
-                    });
-                    recordAssistantActivity(targetChat.id, targetCharId);
-
-                    const createdNewChat = !existingDmChat;
+                    let sourceUserDmMessage: Awaited<ReturnType<typeof chats.createMessage>> | null = null;
+                    let dmMessage: Awaited<ReturnType<typeof chats.createMessage>> | null = null;
+                    try {
+                      await chats.patchMetadata(targetChat.id, {
+                        dmOriginChatId: input.chatId,
+                        dmOriginChatName: chat.name ?? null,
+                        dmOriginMessageId: messageId || null,
+                        dmSourceUserMessageId: sourceUserMessage?.id ?? null,
+                        dmTargetCharacterId: targetCharId,
+                        roleplayDmThread: true,
+                      });
+                      sourceUserDmMessage = await ensureSourceUserMessage(targetChat.id, true);
+                      dmMessage = await chats.createMessage({
+                        chatId: targetChat.id,
+                        role: "assistant",
+                        characterId: targetCharId,
+                        content: messageText,
+                      });
+                      recordAssistantActivity(targetChat.id, targetCharId);
+                    } catch (dmWriteErr) {
+                      if (createdNewChat) {
+                        try {
+                          await chats.remove(targetChat.id);
+                          logger.warn(
+                            "[commands] Removed incomplete Roleplay DM conversation %s after failed setup",
+                            targetChat.id,
+                          );
+                        } catch (cleanupErr) {
+                          logger.error(
+                            cleanupErr,
+                            "[commands] Failed to remove incomplete Roleplay DM conversation %s",
+                            targetChat.id,
+                          );
+                        }
+                      }
+                      throw dmWriteErr;
+                    }
 
                     reply.raw.write(
                       `data: ${JSON.stringify({

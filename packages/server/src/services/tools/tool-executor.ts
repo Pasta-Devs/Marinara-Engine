@@ -335,29 +335,28 @@ async function executeCustomTool(
     case "script": {
       if (!isCustomToolScriptEnabled()) {
         return {
-          error: "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true to allow local code execution.",
+          error:
+            "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true to enable trusted in-process script tools.",
         };
       }
       if (!tool.scriptBody) return { error: "No script body configured" };
       try {
-        // Sandboxed execution using vm.runInNewContext
-        // The script only has access to the explicitly provided sandbox objects
-        const sandbox = {
-          args,
-          context: hiddenContext ?? null,
-          JSON: { parse: JSON.parse, stringify: JSON.stringify },
-          Math,
-          String,
-          Number,
-          Date,
-          Array,
-          parseInt,
-          parseFloat,
-          isNaN,
-          isFinite,
-          console: { log: () => {} },
-        };
-        const result = vm.runInNewContext(`"use strict"; (function() { ${tool.scriptBody} })()`, sandbox, {
+        // Keep host-realm objects out of the VM context. Script inputs cross the
+        // boundary as JSON so built-ins stay in the VM realm where process,
+        // require, Buffer, and native bindings are not exposed.
+        const sandbox = vm.createContext(Object.create(null));
+        (sandbox as Record<string, unknown>).__argsJson = JSON.stringify(args ?? {});
+        (sandbox as Record<string, unknown>).__ctxJson = JSON.stringify(hiddenContext ?? null);
+        const wrappedScript = [
+          `"use strict";`,
+          `globalThis.args = JSON.parse(__argsJson);`,
+          `globalThis.context = JSON.parse(__ctxJson);`,
+          `globalThis.console = { log: function () {} };`,
+          `(function() {`,
+          `${tool.scriptBody}`,
+          `})();`,
+        ].join("\n");
+        const result = vm.runInContext(wrappedScript, sandbox, {
           timeout: customToolTimeoutMs,
           breakOnSigint: true,
         });

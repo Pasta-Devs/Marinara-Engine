@@ -458,6 +458,23 @@ function resolveEntryStateOverrides(value: unknown): EntryStateOverrides | undef
 export async function chatsRoutes(app: FastifyInstance) {
   const storage = createChatsStorage(app.db);
 
+  const cleanupEmptyRoleplayDmChats = async () => {
+    const allChats = await storage.list();
+    let removed = 0;
+    for (const chat of allChats) {
+      const metadata = parseChatMetadata(chat.metadata);
+      const isRoleplayDmThread = metadata.roleplayDmThread === true || typeof metadata.dmOriginChatId === "string";
+      if (!isRoleplayDmThread) continue;
+      if ((await storage.countMessages(chat.id)) > 0) continue;
+
+      await storage.remove(chat.id);
+      removed += 1;
+    }
+    if (removed > 0) {
+      logger.warn("[chats] Removed %d empty orphaned Roleplay DM chat(s)", removed);
+    }
+  };
+
   const clearConversationScheduleState = async (chat: Awaited<ReturnType<typeof storage.getById>>) => {
     if (!chat) return;
     const characterIds: string[] =
@@ -490,6 +507,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   // List all chats
   app.get("/", async () => {
+    await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
     return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(sanitizeChatGameNpcAvatars);
   });
@@ -2629,6 +2647,9 @@ export async function chatsRoutes(app: FastifyInstance) {
   const normalizeExportFormat = (value: unknown): ExportFormat =>
     typeof value === "string" && value.toLowerCase() === "text" ? "text" : "jsonl";
 
+  const normalizeExportBoolean = (value: unknown): boolean =>
+    value === true || value === "true" || value === "1" || value === 1;
+
   const parseExportCharacterIds = (raw: unknown): string[] => {
     if (Array.isArray(raw)) return raw.filter((id): id is string => typeof id === "string");
     if (typeof raw !== "string") return [];
@@ -2654,10 +2675,25 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   const getExportThinking = (extra: Record<string, unknown>): string | null => {
     const value = extra.thinking ?? extra.reasoning ?? extra.reasoning_content;
-    return typeof value === "string" && value.trim().length > 0 ? value : null;
+    if (typeof value === "string" && value.trim().length > 0) return value;
+
+    if (Array.isArray(extra.reasoning_details)) {
+      const details = extra.reasoning_details
+        .map((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+          const detailRecord = item as Record<string, unknown>;
+          const detail = detailRecord.text ?? detailRecord.summary ?? detailRecord.thinking ?? detailRecord.content;
+          return typeof detail === "string" && detail.trim().length > 0 ? detail.trim() : null;
+        })
+        .filter((detail): detail is string => detail !== null)
+        .join("\n\n");
+      return details || null;
+    }
+
+    return null;
   };
 
-  const EXPORT_REASONING_EXTRA_KEYS = new Set(["thinking", "reasoning", "reasoning_content"]);
+  const EXPORT_REASONING_EXTRA_KEYS = new Set(["thinking", "reasoning", "reasoning_content", "reasoning_details"]);
 
   const INTERNAL_EXPORT_EXTRA_KEYS = new Set([
     "cachedPrompt",
@@ -2787,7 +2823,12 @@ export async function chatsRoutes(app: FastifyInstance) {
     );
   };
 
-  const serializeChatTranscript = async (chat: ChatRow, format: ExportFormat) => {
+  const serializeChatTranscript = async (
+    chat: ChatRow,
+    format: ExportFormat,
+    options: { includeReasoning?: boolean } = {},
+  ) => {
+    const includeReasoning = options.includeReasoning === true;
     const msgs = await storage.listMessages(chat.id);
     const charIds = parseExportCharacterIds(chat.characterIds);
     const metadata = parseExportMetadata(chat.metadata);
@@ -2854,7 +2895,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         .map((msg) => {
           const name = getDisplayName(msg);
           const ts = msg.createdAt ? new Date(msg.createdAt).toLocaleString() : "";
-          const thinking = getExportThinking(parseExportMetadata(msg.extra));
+          const thinking = includeReasoning ? getExportThinking(parseExportMetadata(msg.extra)) : null;
           const parts = [`[${name}]${ts ? ` (${ts})` : ""}`, resolveExportMessageContent(msg)];
           if (thinking) parts.push(`[Thinking]\n${thinking}`);
           return parts.join("\n");
@@ -2890,7 +2931,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     for (const msg of msgs) {
       const rawMessageExtra = parseExportMetadata(msg.extra);
       const messageExtra = sanitizeJsonlMessageExtra(rawMessageExtra);
-      const thinking = getExportThinking(rawMessageExtra);
+      const thinking = includeReasoning ? getExportThinking(rawMessageExtra) : null;
       const swipes = await storage.getSwipes(msg.id);
       const activeContent = resolveExportMessageContent(msg);
       const exportSwipes =
@@ -2970,9 +3011,10 @@ export async function chatsRoutes(app: FastifyInstance) {
   };
 
   app.post<{
-    Body: { chatIds?: string[]; format?: string; scope?: "selected" | "all" };
+    Body: { chatIds?: string[]; format?: string; scope?: "selected" | "all"; includeReasoning?: boolean | string };
   }>("/export/bulk", async (req, reply) => {
     const format = normalizeExportFormat(req.body?.format);
+    const includeReasoning = normalizeExportBoolean(req.body?.includeReasoning);
     const scope = req.body?.scope === "all" ? "all" : "selected";
     const uniqueIds = [...new Set((req.body?.chatIds ?? []).filter((id): id is string => typeof id === "string"))];
 
@@ -2992,7 +3034,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     for (let index = 0; index < chatsToExport.length; index++) {
       const chat = chatsToExport[index]!;
-      const serialized = await serializeChatTranscript(chat, format);
+      const serialized = await serializeChatTranscript(chat, format, { includeReasoning });
       const file = buildBulkExportFilename(
         chat,
         index,
@@ -3022,6 +3064,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           {
             exportedAt: new Date().toISOString(),
             format,
+            includeReasoning,
             scope,
             count: chatsToExport.length,
             chats: manifest,
@@ -3041,18 +3084,22 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // Export chat — supports JSONL (default, SillyTavern-compatible) and plain text
-  app.get<{ Params: { id: string }; Querystring: { format?: string } }>("/:id/export", async (req, reply) => {
-    const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+  app.get<{ Params: { id: string }; Querystring: { format?: string; includeReasoning?: string } }>(
+    "/:id/export",
+    async (req, reply) => {
+      const chat = await storage.getById(req.params.id);
+      if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
-    const format = normalizeExportFormat(req.query.format);
-    const serialized = await serializeChatTranscript(chat as ChatRow, format);
+      const format = normalizeExportFormat(req.query.format);
+      const includeReasoning = normalizeExportBoolean(req.query.includeReasoning);
+      const serialized = await serializeChatTranscript(chat as ChatRow, format, { includeReasoning });
 
-    return reply
-      .header("Content-Type", serialized.contentType)
-      .header("Content-Disposition", `attachment; filename="${encodeURIComponent(chat.name)}.${serialized.extension}"`)
-      .send(serialized.content);
-  });
+      return reply
+        .header("Content-Type", serialized.contentType)
+        .header("Content-Disposition", `attachment; filename="${encodeURIComponent(chat.name)}.${serialized.extension}"`)
+        .send(serialized.content);
+    },
+  );
 
   // ── Branch (duplicate) ──
 
