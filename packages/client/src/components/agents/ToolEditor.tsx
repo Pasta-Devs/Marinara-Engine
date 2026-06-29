@@ -74,6 +74,7 @@ export function ToolEditor() {
   const [localScriptBody, setLocalScriptBody] = useState("");
   const [localIncludeHiddenContext, setLocalIncludeHiddenContext] = useState(false);
   const [localParams, setLocalParams] = useState<ParamDef[]>([]);
+  const [rawParamsSchema, setRawParamsSchema] = useState<Record<string, unknown>>({});
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {
@@ -94,21 +95,33 @@ export function ToolEditor() {
       setLocalIncludeHiddenContext(dbTool.includeHiddenContext === "true" || dbTool.includeHiddenContext === "1");
       // Parse params from schema
       try {
-        const schema = JSON.parse(dbTool.parametersSchema || "{}");
-        const props = schema.properties ?? {};
-        const req: string[] = schema.required ?? [];
+        const parsed = JSON.parse(dbTool.parametersSchema || "{}");
+        const schema =
+          parsed && typeof parsed === "object" && !Array.isArray(parsed)
+            ? (parsed as Record<string, unknown>)
+            : {};
+        const props =
+          schema.properties && typeof schema.properties === "object" && !Array.isArray(schema.properties)
+            ? (schema.properties as Record<string, unknown>)
+            : {};
+        const req = Array.isArray(schema.required)
+          ? schema.required.filter((entry): entry is string => typeof entry === "string")
+          : [];
+        setRawParamsSchema(schema);
         setLocalParams(
           Object.entries(props).map(([name, p]) => {
-            const prop = p as { type?: string; description?: string };
+            const prop = p && typeof p === "object" && !Array.isArray(p) ? (p as Record<string, unknown>) : {};
             return {
               name,
-              type: prop.type ?? "string",
-              description: prop.description ?? "",
+              type: typeof prop.type === "string" ? prop.type : "string",
+              description: typeof prop.description === "string" ? prop.description : "",
               required: req.includes(name),
+              raw: prop,
             };
           }),
         );
       } catch {
+        setRawParamsSchema({});
         setLocalParams([]);
       }
     } else if (isNew) {
@@ -119,6 +132,7 @@ export function ToolEditor() {
       setLocalStaticResult("");
       setLocalScriptBody("");
       setLocalIncludeHiddenContext(false);
+      setRawParamsSchema({});
       setLocalParams([]);
     }
     setDirty(false);
@@ -138,15 +152,16 @@ export function ToolEditor() {
   const openToolDetail = useUIStore((s) => s.openToolDetail);
 
   const buildParamsSchema = useCallback(() => {
-    const properties: Record<string, { type: string; description: string }> = {};
+    const properties: Record<string, Record<string, unknown>> = {};
     const required: string[] = [];
     for (const p of localParams) {
       if (!p.name.trim()) continue;
-      properties[p.name] = { type: p.type, description: p.description };
+      properties[p.name] = { ...(p.raw ?? {}), type: p.type, description: p.description };
       if (p.required) required.push(p.name);
     }
-    return { type: "object", properties, required };
-  }, [localParams]);
+    const { properties: _properties, required: _required, ...rootRest } = rawParamsSchema;
+    return { ...rootRest, type: "object", properties, required };
+  }, [localParams, rawParamsSchema]);
 
   const currentEnabled = dbTool ? dbTool.enabled === "true" || dbTool.enabled === "1" : true;
 
@@ -170,13 +185,21 @@ export function ToolEditor() {
       setSaveError(SCRIPT_TOOLS_DISABLED_MESSAGE);
       return;
     }
+    if (localExecType === "webhook" && !localWebhookUrl.trim()) {
+      setSaveError("Webhook URL is required.");
+      return;
+    }
+    if (localExecType === "script" && !localScriptBody.trim()) {
+      setSaveError("Script body is required.");
+      return;
+    }
 
     const payload = {
       name: localName,
       description: localDesc,
       parametersSchema: buildParamsSchema(),
       executionType: localExecType,
-      webhookUrl: localExecType === "webhook" ? localWebhookUrl || null : null,
+      webhookUrl: localExecType === "webhook" ? localWebhookUrl.trim() || null : null,
       staticResult: localExecType === "static" ? localStaticResult || null : null,
       scriptBody: localExecType === "script" ? localScriptBody || null : null,
       includeHiddenContext: localIncludeHiddenContext,
@@ -452,7 +475,7 @@ export function ToolEditor() {
                         value={param.type}
                         onChange={(e) => {
                           const next = [...localParams];
-                          next[idx] = { ...next[idx], type: e.target.value };
+                          next[idx] = { ...next[idx], type: e.target.value, raw: undefined };
                           setLocalParams(next);
                           markDirty();
                         }}
@@ -664,6 +687,7 @@ interface ParamDef {
   type: string;
   description: string;
   required: boolean;
+  raw?: Record<string, unknown>;
 }
 
 function FieldGroup({

@@ -564,17 +564,21 @@ async function writeChatVariable(
     return { error: "Chat metadata updates are not available in this context" };
   }
 
-  const existingVariables = normalizeAgentVariables(context.chatMeta?.agentVariables);
-  const existed = Object.prototype.hasOwnProperty.call(existingVariables, keyResult.key);
-  if (!existed && Object.keys(existingVariables).length >= MAX_CHAT_VARIABLES) {
-    return { error: `chat variable limit reached (${MAX_CHAT_VARIABLES})` };
-  }
-
   const value = trimToUtf8Bytes(args.value, MAX_CHAT_VARIABLE_VALUE_BYTES);
+  let existed = false;
+  let limitReached = false;
   const updated = await context.onUpdateMetadata((currentMeta) => {
     const variables = normalizeAgentVariables(currentMeta.agentVariables);
+    existed = Object.prototype.hasOwnProperty.call(variables, keyResult.key);
+    if (!existed && Object.keys(variables).length >= MAX_CHAT_VARIABLES) {
+      limitReached = true;
+      return {};
+    }
     return { agentVariables: { ...variables, [keyResult.key]: value } };
   });
+  if (limitReached) {
+    return { error: `chat variable limit reached (${MAX_CHAT_VARIABLES})` };
+  }
   const variables = normalizeAgentVariables(updated.agentVariables);
   return {
     key: keyResult.key,
@@ -622,16 +626,20 @@ async function searchLorebook(
 
 function normalizeLorebookEntryKeys(value: unknown, fallbackName: string): string[] {
   const raw = Array.isArray(value) ? value : [];
-  const keys = raw
-    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-    .filter((entry) => entry.length > 0)
-    .slice(0, MAX_LOREBOOK_ENTRY_KEYS);
-  if (keys.length > 0) return Array.from(new Set(keys));
+  const keys = Array.from(
+    new Set(
+      raw
+        .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+        .filter((entry) => entry.length > 0),
+    ),
+  ).slice(0, MAX_LOREBOOK_ENTRY_KEYS);
+  if (keys.length > 0) return keys;
   return fallbackName ? [fallbackName] : [];
 }
 
-function normalizeLorebookWriteMode(value: unknown): "create" | "replace" | "append" {
-  return value === "create" || value === "append" || value === "replace" ? value : "replace";
+function normalizeLorebookWriteMode(value: unknown): "create" | "replace" | "append" | "invalid" {
+  if (value === undefined || value === null || value === "") return "replace";
+  return value === "create" || value === "append" || value === "replace" ? value : "invalid";
 }
 
 async function saveLorebookEntry(
@@ -655,6 +663,10 @@ async function saveLorebookEntry(
       ? trimToUtf8Bytes(args.description.trim(), MAX_LOREBOOK_ENTRY_DESCRIPTION_BYTES)
       : undefined;
   const tag = typeof args.tag === "string" && args.tag.trim() ? args.tag.trim().slice(0, 80) : undefined;
+  const mode = normalizeLorebookWriteMode(args.mode);
+  if (mode === "invalid") {
+    return { error: "save_lorebook_entry mode must be one of create|replace|append" };
+  }
 
   return saveFn({
     name,
@@ -662,7 +674,7 @@ async function saveLorebookEntry(
     description,
     keys: normalizeLorebookEntryKeys(args.keys, name),
     tag,
-    mode: normalizeLorebookWriteMode(args.mode),
+    mode,
   });
 }
 
@@ -682,7 +694,7 @@ async function editChatMessage(
 
   return replaceFn({
     messageId: args.messageId.trim(),
-    content: trimToUtf8Bytes(args.content.trim(), MAX_APPEND_BYTES),
+    content: args.content.trim(),
     reason: typeof args.reason === "string" ? args.reason.trim().slice(0, 240) : undefined,
   });
 }
@@ -1782,7 +1794,7 @@ async function spotifySetVolume(
   if (!creds?.accessToken) {
     return { error: "Spotify not configured. Please add your Spotify access token in the Music DJ agent settings." };
   }
-  const volume = Math.max(0, Math.min(100, Number(args.volume ?? 50)));
+  const volume = clampNumber(args.volume ?? 50, 50, 0, 100);
   const reason = String(args.reason ?? "");
 
   try {

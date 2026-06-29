@@ -63,38 +63,77 @@ function rawToolCalls(payload: Record<string, unknown>): unknown[] {
 
 type ParsedTaggedSnippet = {
   text: string;
+  recoveryText?: string;
   allowCommandFallback: boolean;
   allowAnonymousJsonPayload: boolean;
 };
+
+function extractBalancedJson(text: string): string | null {
+  const brace = text.indexOf("{");
+  const bracket = text.indexOf("[");
+  const start = brace === -1 ? bracket : bracket === -1 ? brace : Math.min(brace, bracket);
+  if (start < 0) return null;
+  const open = text[start];
+  const close = open === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === open) {
+      depth += 1;
+    } else if (char === close) {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+  return null;
+}
 
 function parseTaggedSnippets(content: string): ParsedTaggedSnippet[] {
   const snippets: ParsedTaggedSnippet[] = [];
   const patterns: Array<{ re: RegExp; allowCommandFallback: boolean; allowAnonymousJsonPayload: boolean }> = [
     {
-      re: /<\|tool_call\|?>([\s\S]*?)(?:<tool_call\|>|<\|\/tool_call\|>|<\/tool_call>|$)/gi,
+      re: /(<\|tool_call\|?>)([\s\S]*?)(?:<tool_call\|>|<\|\/tool_call\|>|<\/tool_call>|$)/gi,
       allowCommandFallback: true,
       allowAnonymousJsonPayload: true,
     },
     {
-      re: /<tool_call>([\s\S]*?)(?:<\/tool_call>|<\/arg_value>|$)/gi,
+      re: /(<tool_call>)([\s\S]*?)(?:<\/tool_call>|<\/arg_value>|$)/gi,
       allowCommandFallback: true,
       allowAnonymousJsonPayload: true,
     },
-    { re: /<tool_code>([\s\S]*?)<\/tool_code>/gi, allowCommandFallback: true, allowAnonymousJsonPayload: true },
-    { re: /```(?:json)?\s*([\s\S]*?)\s*```/gi, allowCommandFallback: false, allowAnonymousJsonPayload: false },
+    { re: /(<tool_code>)([\s\S]*?)<\/tool_code>/gi, allowCommandFallback: true, allowAnonymousJsonPayload: true },
+    { re: /(```(?:json)?\s*)([\s\S]*?)\s*```/gi, allowCommandFallback: false, allowAnonymousJsonPayload: false },
     // Meta Llama 3.1+ uses <|python_tag|> to delimit tool calls in content
     {
-      re: /<\|python_tag\|>([\s\S]*?)(?:<\|eom_id\|>|<\|eot_id\|>|<\|end_header_id\|>|$)/gi,
+      re: /(<\|python_tag\|>)([\s\S]*?)(?:<\|eom_id\|>|<\|eot_id\|>|<\|end_header_id\|>|$)/gi,
       allowCommandFallback: false,
       allowAnonymousJsonPayload: false,
     },
   ];
   for (const pattern of patterns) {
     for (const match of content.matchAll(pattern.re)) {
-      const snippet = match[1]?.trim();
+      const opening = match[1] ?? "";
+      const snippet = match[2]?.trim();
       if (snippet) {
         snippets.push({
           text: snippet,
+          recoveryText: opening ? content.slice((match.index ?? 0) + opening.length) : undefined,
           allowCommandFallback: pattern.allowCommandFallback,
           allowAnonymousJsonPayload: pattern.allowAnonymousJsonPayload,
         });
@@ -106,6 +145,31 @@ function parseTaggedSnippets(content: string): ParsedTaggedSnippet[] {
     snippets.push({ text: trimmed, allowCommandFallback: false, allowAnonymousJsonPayload: false });
   }
   return snippets;
+}
+
+function normalizeSnippetText(text: string): string {
+  return text.includes('<|"|>') ? normalizeGemma4Delimiters(text) : text;
+}
+
+function appendArrayToolCalls(
+  text: string,
+  calls: LLMToolCall[],
+  knownTools: Set<string>,
+  hasBashTool: boolean,
+): boolean {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("[")) return false;
+  try {
+    const parsed = JSON.parse(normalizeSnippetText(trimmed));
+    if (!Array.isArray(parsed)) return false;
+    parsed.forEach((raw) => {
+      const call = toolCallFromRaw(raw, calls.length, knownTools, hasBashTool);
+      if (call) calls.push(call);
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function snippetToPayload(snippet: string, options: Omit<ParsedTaggedSnippet, "text">): Record<string, unknown> | null {
@@ -200,26 +264,29 @@ export function parseTextualToolCalls(content: string | null | undefined, tools:
   // Try the whole content as a top-level JSON array of tool calls
   const trimmed = content.trim();
   if (trimmed.startsWith("[")) {
-    try {
-      const arr = JSON.parse(trimmed.includes('<|"|>') ? normalizeGemma4Delimiters(trimmed) : trimmed);
-      if (Array.isArray(arr)) {
-        arr.forEach((raw, index) => {
-          const call = toolCallFromRaw(raw, index, knownTools, hasBashTool);
-          if (call) calls.push(call);
-        });
-      }
-    } catch {
-      /* not a valid JSON array */
-    }
+    appendArrayToolCalls(trimmed, calls, knownTools, hasBashTool);
     if (calls.length > 0) return calls;
   }
 
   parseTaggedSnippets(content).forEach((snippet, index) => {
-    const snippetText = snippet.text.includes('<|"|>') ? normalizeGemma4Delimiters(snippet.text) : snippet.text;
-    const payload = snippetToPayload(snippetText, {
+    const snippetText = normalizeSnippetText(snippet.text);
+    if (appendArrayToolCalls(snippetText, calls, knownTools, hasBashTool)) return;
+
+    const options = {
       allowCommandFallback: snippet.allowCommandFallback,
       allowAnonymousJsonPayload: snippet.allowAnonymousJsonPayload,
-    });
+    };
+    let payload = snippetToPayload(snippetText, options);
+    if (!payload && snippet.recoveryText) {
+      const recovered = extractBalancedJson(snippet.recoveryText);
+      if (recovered) {
+        const recoveredText = normalizeSnippetText(recovered);
+        if (parseJsonishObject(recoveredText) || recoveredText.trim().startsWith("[")) {
+          if (appendArrayToolCalls(recoveredText, calls, knownTools, hasBashTool)) return;
+          payload = snippetToPayload(recoveredText, options);
+        }
+      }
+    }
     const call = toolCallFromRaw(payload, index, knownTools, hasBashTool);
     if (call) calls.push(call);
   });

@@ -240,14 +240,17 @@ function validateToolSchema(schema: unknown): Record<string, unknown> {
   if (schemaType !== undefined && schemaType !== "object") {
     throw new Error('parametersSchema root "type" must be "object"');
   }
+  if (schemaType === undefined) {
+    schemaObject.type = "object";
+  }
   if (
     schemaProperties !== undefined &&
     (!schemaProperties || typeof schemaProperties !== "object" || Array.isArray(schemaProperties))
   ) {
     throw new Error('parametersSchema "properties" must be an object');
   }
-  if (schemaType === undefined && (!schemaProperties || typeof schemaProperties !== "object")) {
-    throw new Error('parametersSchema must define root "type": "object" or include object "properties"');
+  if (schemaProperties === undefined) {
+    schemaObject.properties = {};
   }
   if (
     schemaRequired !== undefined &&
@@ -255,8 +258,43 @@ function validateToolSchema(schema: unknown): Record<string, unknown> {
   ) {
     throw new Error('parametersSchema "required" must be an array of strings');
   }
+  const normalizedProperties = schemaObject.properties as Record<string, unknown>;
+  for (const [name, prop] of Object.entries(normalizedProperties)) {
+    validateParameterProperty(prop, `properties.${name}`);
+  }
 
   return schemaObject;
+}
+
+const VALID_PARAMETER_TYPES = new Set(["string", "number", "integer", "boolean", "array", "object"]);
+
+function validateParameterProperty(prop: unknown, path: string): void {
+  if (!prop || typeof prop !== "object" || Array.isArray(prop)) {
+    throw new Error(`parametersSchema ${path} must be an object`);
+  }
+  const record = prop as Record<string, unknown>;
+  if (record.type !== undefined && (typeof record.type !== "string" || !VALID_PARAMETER_TYPES.has(record.type))) {
+    throw new Error(`parametersSchema ${path}.type must be a valid JSON Schema primitive type`);
+  }
+  if (record.enum !== undefined && !Array.isArray(record.enum)) {
+    throw new Error(`parametersSchema ${path}.enum must be an array`);
+  }
+  if (record.required !== undefined) {
+    if (!Array.isArray(record.required) || record.required.some((entry) => typeof entry !== "string")) {
+      throw new Error(`parametersSchema ${path}.required must be an array of strings`);
+    }
+  }
+  if (record.items !== undefined) {
+    validateParameterProperty(record.items, `${path}.items`);
+  }
+  if (record.properties !== undefined) {
+    if (!record.properties || typeof record.properties !== "object" || Array.isArray(record.properties)) {
+      throw new Error(`parametersSchema ${path}.properties must be an object`);
+    }
+    for (const [name, nested] of Object.entries(record.properties as Record<string, unknown>)) {
+      validateParameterProperty(nested, `${path}.properties.${name}`);
+    }
+  }
 }
 
 async function loadToolDefinitions(args: {
