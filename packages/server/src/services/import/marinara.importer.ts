@@ -648,7 +648,11 @@ async function importPreset(data: unknown, db: DB) {
   const newSectionOrder = oldSectionOrder.map((sid) => sectionMap.get(sid)).filter(Boolean) as string[];
   const oldGroupOrder = safeParseJson(p.groupOrder, []) as string[];
   const newGroupOrder = oldGroupOrder.map((gid) => groupMap.get(gid)).filter(Boolean) as string[];
-  await storage.update(newPreset.id, { sectionOrder: newSectionOrder, groupOrder: newGroupOrder });
+  await storage.update(newPreset.id, {
+    sectionOrder: newSectionOrder,
+    groupOrder: newGroupOrder,
+    defaultChoices: safeParseJson(p.defaultChoices, {}),
+  });
 
   return {
     success: true,

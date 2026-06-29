@@ -1961,7 +1961,7 @@ function VariableCard({
 
   const moveOptionByOffset = (optionIdx: number, offset: number) => {
     if (optionOrderIsAlphabetical) return;
-    const next = reorderItems(opts, optionIdx, optionIdx + offset);
+    const next = reorderItems(currentOpts(), optionIdx, optionIdx + offset);
     if (next) updateOpts(next);
   };
 
@@ -2320,11 +2320,7 @@ function VariableCard({
                     </span>
                     <OptionFieldInput
                       value={opt.label}
-                      onCommit={(v) => {
-                        const next = [...opts];
-                        next[oi] = { ...next[oi], label: v };
-                        updateOpts(next);
-                      }}
+                      onCommit={(v) => updateOptionField(opt.id, "label", v)}
                       className="mari-editor-field min-w-[7rem] flex-[1_1_7rem] px-1.5 py-0.5 text-xs sm:min-w-0 sm:flex-1"
                       placeholder="Label…"
                     />

@@ -45,6 +45,7 @@ import {
   resolveModelAccessPolicy,
   resolveStoredModelContextLimit,
 } from "../../services/generation/model-access-policy.js";
+import { normalizeChatTopP } from "../../services/generation/generation-parameters.js";
 import { applyAllSegmentEdits } from "../../services/game/segment-edits.js";
 import { applyRegexScriptsToPromptMessages } from "../../services/regex/regex-application.js";
 import { sendSseEvent, startSseReply } from "./sse.js";
@@ -460,12 +461,6 @@ function parsePresetChoices(value: unknown): Record<string, string | string[]> |
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function normalizeChatTopP(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-  if (value <= 0) return 1;
-  return Math.min(value, 1);
 }
 
 export async function registerDryRunRoute(app: FastifyInstance) {

@@ -18,7 +18,7 @@ import type {
   MacroContext,
   ResolveMacroOptions,
 } from "@marinara-engine/shared";
-import { DEFAULT_GENERATION_PARAMS, resolveMacros } from "@marinara-engine/shared";
+import { DEFAULT_GENERATION_PARAMS, generationParametersSchema, resolveMacros } from "@marinara-engine/shared";
 import { wrapContent, wrapGroup } from "./format-engine.js";
 import { expandMarker, type MarkerContext } from "./marker-expander.js";
 import { mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
@@ -215,15 +215,29 @@ export interface AssemblerOutput {
 }
 
 function parsePresetParameters(raw: string): GenerationParameters {
+  let parsed: unknown = null;
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return { ...DEFAULT_GENERATION_PARAMS, ...(parsed as Partial<GenerationParameters>) };
-    }
+    parsed = JSON.parse(raw) as unknown;
   } catch {
     // Malformed legacy rows should not leave generation parameters undefined.
   }
-  return { ...DEFAULT_GENERATION_PARAMS };
+  const merged =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? { ...DEFAULT_GENERATION_PARAMS, ...(parsed as Partial<GenerationParameters>) }
+      : { ...DEFAULT_GENERATION_PARAMS };
+  const result = generationParametersSchema.safeParse(merged);
+  if (result.success) return result.data;
+
+  const out: GenerationParameters = { ...DEFAULT_GENERATION_PARAMS };
+  const source = merged as Record<string, unknown>;
+  for (const key of Object.keys(DEFAULT_GENERATION_PARAMS) as Array<keyof GenerationParameters>) {
+    const fieldSchema = generationParametersSchema.shape[key];
+    const field = fieldSchema.safeParse(source[key]);
+    if (field.success) {
+      (out as Record<keyof GenerationParameters, unknown>)[key] = field.data;
+    }
+  }
+  return out;
 }
 
 // ═══════════════════════════════════════════════
@@ -398,14 +412,14 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     const section = orderedSections[i]!;
     if (processedSections.has(section.id)) continue;
 
-    if (section.groupId) {
+    if (section.groupId && !section.isChatHistory) {
       // Collect all consecutive sections in the same group
       const groupSections: ResolvedSection[] = [section];
       processedSections.add(section.id);
 
       for (let j = i + 1; j < orderedSections.length; j++) {
         const next = orderedSections[j]!;
-        if (next.groupId === section.groupId) {
+        if (next.groupId === section.groupId && !next.isChatHistory) {
           groupSections.push(next);
           processedSections.add(next.id);
         }

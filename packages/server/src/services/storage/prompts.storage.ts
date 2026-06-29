@@ -205,7 +205,11 @@ export function createPromptsStorage(db: DB) {
       const newSectionOrder = oldSectionOrder.map((sid) => sectionMap.get(sid)).filter(Boolean) as string[];
       const oldGroupOrder = JSON.parse(preset.groupOrder as string) as string[];
       const newGroupOrder = oldGroupOrder.map((gid) => groupMap.get(gid)).filter(Boolean) as string[];
-      await this.update(newPreset.id, { sectionOrder: newSectionOrder, groupOrder: newGroupOrder });
+      await this.update(newPreset.id, {
+        sectionOrder: newSectionOrder,
+        groupOrder: newGroupOrder,
+        defaultChoices: JSON.parse((preset.defaultChoices as string) || "{}"),
+      });
 
       return this.getById(newPreset.id);
     },
