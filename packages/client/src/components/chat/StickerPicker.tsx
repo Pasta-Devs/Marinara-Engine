@@ -55,7 +55,7 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [pos, setPos] = useState<{ bottom: number; right?: number; left?: number }>({ bottom: 0 });
+  const [pos, setPos] = useState<{ bottom: number; right?: number; left?: number; maxHeight?: number }>({ bottom: 0 });
 
   // Position the popover above the input bar (skipped when embedded).
   useLayoutEffect(() => {
@@ -64,15 +64,17 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
     const barRect = containerRef?.current?.getBoundingClientRect();
     const pad = 8;
     const pickerWidth = 336;
+    const pickerHeight = 352;
     const refTop = barRect ? barRect.top : btnRect.top;
     const bottom = window.innerHeight - refTop + pad;
+    const maxHeight = Math.min(pickerHeight, Math.max(0, refTop - 2 * pad));
     const vw = window.innerWidth;
     if (vw < 480) {
       const left = Math.max(8, (vw - Math.min(pickerWidth, vw - 16)) / 2);
-      setPos({ bottom, left });
+      setPos({ bottom, left, maxHeight });
     } else {
       const right = Math.max(8, window.innerWidth - btnRect.right);
-      setPos({ bottom, right });
+      setPos({ bottom, right, maxHeight });
     }
   }, [open, anchorRef, containerRef, embedded]);
 
@@ -404,6 +406,7 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
         bottom: pos.bottom,
         ...(pos.right != null ? { right: pos.right } : {}),
         ...(pos.left != null ? { left: pos.left } : {}),
+        ...(pos.maxHeight != null ? { maxHeight: pos.maxHeight } : {}),
       }}
     >
       {content}

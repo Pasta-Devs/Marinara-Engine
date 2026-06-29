@@ -1511,12 +1511,12 @@ export const ChatInput = memo(function ChatInput({
         />
 
         {/* Emoji picker */}
-        <div className="relative hidden sm:block">
+        <div className="relative shrink-0">
           <button
             ref={emojiButtonRef}
             onClick={() => setEmojiOpen((v) => !v)}
             className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+              "flex h-11 w-11 items-center justify-center rounded-xl transition-colors active:scale-90 sm:h-8 sm:w-8 sm:rounded-full",
               emojiOpen
                 ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",

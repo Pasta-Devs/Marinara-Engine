@@ -659,7 +659,7 @@ function ConnectionRow({
           </div>
         )}
       </button>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 pr-24">
         <div className="truncate text-sm font-medium" title={conn.name}>
           {conn.name}
         </div>

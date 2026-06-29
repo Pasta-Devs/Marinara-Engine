@@ -242,39 +242,47 @@ function clampMobilePosition(x: number, y: number, collapsed: boolean) {
 function getMobileWidgetStyle(
   position: { x: number; y: number },
   collapsed: boolean,
+  viewportWidth?: number,
+  viewportHeight?: number,
 ): Pick<CSSProperties, "left" | "top"> {
   if (typeof window === "undefined") {
     return { left: position.x, top: position.y };
   }
+  const width = viewportWidth ?? window.innerWidth;
+  const height = viewportHeight ?? window.innerHeight;
 
   return {
     left: Math.max(
       MOBILE_WIDGET_VIEWPORT_PADDING,
-      Math.min(window.innerWidth - MOBILE_WIDGET_COLLAPSED_SIZE - MOBILE_WIDGET_VIEWPORT_PADDING, position.x),
+      Math.min(width - MOBILE_WIDGET_COLLAPSED_SIZE - MOBILE_WIDGET_VIEWPORT_PADDING, position.x),
     ),
     top: collapsed
       ? position.y
       : Math.max(
           MOBILE_WIDGET_VIEWPORT_PADDING,
-          Math.min(window.innerHeight - MOBILE_WIDGET_EXPANDED_HEIGHT - MOBILE_WIDGET_VIEWPORT_PADDING, position.y),
+          Math.min(height - MOBILE_WIDGET_EXPANDED_HEIGHT - MOBILE_WIDGET_VIEWPORT_PADDING, position.y),
         ),
   };
 }
 
-function getMobileExpandedPanelStyle(position: { x: number; y: number }): CSSProperties {
+function getMobileExpandedPanelStyle(
+  position: { x: number; y: number },
+  viewportWidth?: number,
+): CSSProperties {
   if (typeof window === "undefined") return {};
+  const availableWidth = viewportWidth ?? window.innerWidth;
 
   const width = Math.min(
     MOBILE_WIDGET_EXPANDED_MAX_WIDTH,
-    window.innerWidth - MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER,
+    availableWidth - MOBILE_WIDGET_EXPANDED_HORIZONTAL_GUTTER,
   );
   const opensLeft =
-    position.x + width > window.innerWidth - MOBILE_WIDGET_VIEWPORT_PADDING ||
-    position.x + MOBILE_WIDGET_COLLAPSED_SIZE / 2 > window.innerWidth / 2;
+    position.x + width > availableWidth - MOBILE_WIDGET_VIEWPORT_PADDING ||
+    position.x + MOBILE_WIDGET_COLLAPSED_SIZE / 2 > availableWidth / 2;
   const preferredLeft = opensLeft ? position.x + MOBILE_WIDGET_COLLAPSED_SIZE - width : position.x;
   const clampedLeft = Math.max(
     MOBILE_WIDGET_VIEWPORT_PADDING,
-    Math.min(window.innerWidth - width - MOBILE_WIDGET_VIEWPORT_PADDING, preferredLeft),
+    Math.min(availableWidth - width - MOBILE_WIDGET_VIEWPORT_PADDING, preferredLeft),
   );
 
   return {
@@ -319,6 +327,10 @@ export function SpotifyMiniPlayer({
   const [browserPlaybackRequested, setBrowserPlaybackRequested] = useState(false);
   const [volumeDraft, setVolumeDraft] = useState(50);
   const [volumeUnsupportedDeviceKey, setVolumeUnsupportedDeviceKey] = useState<string | null>(null);
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window === "undefined" ? 0 : window.innerWidth,
+    h: typeof window === "undefined" ? 0 : window.innerHeight,
+  }));
   const previousVolumeRef = useRef(50);
   const previousPlaybackRef = useRef<SpotifyPlaybackState | null>(null);
   const repeatReplayRef = useRef<{ key: string; at: number } | null>(null);
@@ -333,6 +345,26 @@ export function SpotifyMiniPlayer({
   } | null>(null);
   const floating = mobile || forceFloating;
   const wasForceFloatingRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let frame = 0;
+    const updateViewport = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        setViewport({ w: window.innerWidth, h: window.innerHeight });
+      });
+    };
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    window.addEventListener("orientationchange", updateViewport);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updateViewport);
+      window.removeEventListener("orientationchange", updateViewport);
+    };
+  }, []);
 
   const statusQuery = useQuery({
     queryKey: spotifyKeys.status,
@@ -844,8 +876,16 @@ export function SpotifyMiniPlayer({
     }),
     [volumeDraft],
   );
-  const mobileWidgetStyle = useMemo(() => getMobileWidgetStyle(mobilePosition, collapsed), [collapsed, mobilePosition]);
-  const mobileExpandedPanelStyle = useMemo(() => getMobileExpandedPanelStyle(mobilePosition), [mobilePosition]);
+  const viewportWidth = viewport.w;
+  const viewportHeight = viewport.h;
+  const mobileWidgetStyle = useMemo(
+    () => getMobileWidgetStyle(mobilePosition, collapsed, viewportWidth, viewportHeight),
+    [collapsed, mobilePosition, viewportHeight, viewportWidth],
+  );
+  const mobileExpandedPanelStyle = useMemo(
+    () => getMobileExpandedPanelStyle(mobilePosition, viewportWidth),
+    [mobilePosition, viewportWidth],
+  );
   const volumeControls = useMemo(() => {
     const stopPointer = (event: ReactPointerEvent<HTMLElement>) => event.stopPropagation();
 
@@ -1084,7 +1124,7 @@ export function SpotifyMiniPlayer({
   if (floating) {
     return (
       <div
-        className={cn("fixed z-[60] touch-none select-none", mobile && "md:hidden")}
+        className={cn("fixed z-[35] touch-none select-none", mobile && "md:hidden")}
         style={mobileWidgetStyle}
         onPointerDown={startDrag}
         onPointerMove={moveDrag}

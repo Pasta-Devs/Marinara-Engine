@@ -41,7 +41,7 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef, em
   const fetchingRef = useRef(false);
 
   // Position state for portal
-  const [pos, setPos] = useState<{ bottom: number; right?: number; left?: number }>({ bottom: 0 });
+  const [pos, setPos] = useState<{ bottom: number; right?: number; left?: number; maxHeight?: number }>({ bottom: 0 });
 
   useLayoutEffect(() => {
     if (!open || !anchorRef?.current) return;
@@ -49,18 +49,20 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef, em
     const barRect = containerRef?.current?.getBoundingClientRect();
     const pad = 8;
     const pickerWidth = 384; // w-96 = 24rem
+    const pickerHeight = 416; // h-[26rem]
 
     // Vertical: pin bottom edge above the input bar's top edge
     const refTop = barRect ? barRect.top : btnRect.top;
     const bottom = window.innerHeight - refTop + pad;
+    const maxHeight = Math.min(pickerHeight, Math.max(0, refTop - 2 * pad));
     // Horizontal: on small screens center it, on larger screens align right edge to button
     const vw = window.innerWidth;
     if (vw < 480) {
       const left = Math.max(8, (vw - Math.min(pickerWidth, vw - 16)) / 2);
-      setPos({ bottom, left });
+      setPos({ bottom, left, maxHeight });
     } else {
       const right = Math.max(8, window.innerWidth - btnRect.right);
-      setPos({ bottom, right });
+      setPos({ bottom, right, maxHeight });
     }
   }, [open, anchorRef, containerRef]);
 
@@ -283,6 +285,7 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef, em
         bottom: pos.bottom,
         ...(pos.right != null ? { right: pos.right } : {}),
         ...(pos.left != null ? { left: pos.left } : {}),
+        ...(pos.maxHeight != null ? { maxHeight: pos.maxHeight } : {}),
       }}
     >
       {content}

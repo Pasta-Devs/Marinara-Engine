@@ -1049,7 +1049,7 @@ export function PersonasPanel() {
               </button>
 
               {/* Info */}
-              <div className="min-w-0 flex-1">
+              <div className={cn("min-w-0 flex-1", !selectionMode && "pr-24")}>
                 <div className="truncate text-sm font-medium">{persona.name}</div>
                 {persona.comment && (
                   <div className="truncate text-[0.625rem] italic text-[var(--muted-foreground)]">

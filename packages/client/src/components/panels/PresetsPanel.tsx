@@ -818,7 +818,7 @@ export function PresetsPanel() {
                 </div>
               )}
             </div>
-            <div className="min-w-0 flex-1">
+            <div className={cn("min-w-0 flex-1", !selectionMode && "pr-32")}>
               <div className="flex items-center gap-1.5">
                 <span className="truncate text-sm font-medium">{preset.name}</span>
                 {isDefault && (

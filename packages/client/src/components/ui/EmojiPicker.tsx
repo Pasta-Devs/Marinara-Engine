@@ -1187,13 +1187,14 @@ export function EmojiPicker({ open, onClose, onSelect, anchorRef, containerRef, 
     if (containerRef?.current) {
       const barRect = containerRef.current.getBoundingClientRect();
       const bottom = vh - barRect.top + pad;
+      const maxHeight = Math.min(pickerHeight, Math.max(0, barRect.top - 2 * pad));
       if (vw < 480) {
         // Center horizontally on mobile
         const left = Math.max(pad, (vw - Math.min(pickerWidth, vw - 2 * pad)) / 2);
-        setPos({ bottom, left });
+        setPos({ bottom, left, maxHeight });
       } else {
         const right = Math.max(pad, vw - btnRect.right);
-        setPos({ bottom, right });
+        setPos({ bottom, right, maxHeight });
       }
       return;
     }

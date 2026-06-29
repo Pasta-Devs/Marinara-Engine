@@ -20,6 +20,17 @@ import {
 import { cn } from "../../lib/utils";
 import { SearchInput } from "./SearchInput";
 
+const TOOLBAR_MENU_MARGIN = 8;
+const TOOLBAR_MENU_WIDTH = 176;
+
+function clampToolbarMenuX(left: number) {
+  if (typeof window === "undefined") return left;
+  return Math.max(
+    TOOLBAR_MENU_MARGIN,
+    Math.min(left, window.innerWidth - TOOLBAR_MENU_WIDTH - TOOLBAR_MENU_MARGIN),
+  );
+}
+
 /**
  * Props for the Toolbar component.
  */
@@ -124,13 +135,13 @@ export function Toolbar({
 
   const openNew = () => {
     const rect = newBtnRef.current?.getBoundingClientRect();
-    if (rect) setNewPos({ x: rect.left, y: rect.bottom + 4 });
+    if (rect) setNewPos({ x: clampToolbarMenuX(rect.left), y: rect.bottom + 4 });
     setNewOpen((prev) => !prev);
   };
 
   const openCols = () => {
     const rect = colsBtnRef.current?.getBoundingClientRect();
-    if (rect) setColsPos({ x: rect.left, y: rect.bottom + 4 });
+    if (rect) setColsPos({ x: clampToolbarMenuX(rect.left), y: rect.bottom + 4 });
     setColsOpen((prev) => !prev);
   };
 

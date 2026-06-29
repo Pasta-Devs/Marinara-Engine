@@ -3652,7 +3652,7 @@ export function GameNarration({
         onClick={() => {
           void handleCopyMessage(activeCopyKey, activeCopyText);
         }}
-        className={cn(ACTIVE_SEGMENT_ACTION_BTN, "hidden md:inline-flex")}
+        className={ACTIVE_SEGMENT_ACTION_BTN}
         title="Copy"
       >
         {copiedMessageKey === activeCopyKey ? <Check size={11} /> : <Copy size={11} />}
@@ -4487,7 +4487,7 @@ export function GameNarration({
                               : active.partyType === "whisper"
                                 ? "border-rose-400/10 bg-rose-950/20"
                                 : "border-[var(--border)] bg-[var(--muted)]/20 dark:border-white/10 dark:bg-black/35",
-                            activeSegmentActionButtons && "pr-9 md:pr-16",
+                            activeSegmentActionButtons && "pr-16",
                           )}
                         >
                           {editingContent !== null ? (
@@ -4585,7 +4585,7 @@ export function GameNarration({
                 onPointerUp={(event) => handleMobileSegmentTapToEdit(event, active)}
                 className={cn(
                   "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2.5 sm:max-h-48 dark:border-white/10 dark:bg-black/35",
-                  activeSegmentActionButtons && "pr-9 md:pr-16",
+                  activeSegmentActionButtons && "pr-16",
                 )}
               >
                 {editingContent !== null ? (
@@ -4657,7 +4657,10 @@ export function GameNarration({
 
               <div
                 ref={activeSegmentScrollRef}
-                className="relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48"
+                className={cn(
+                  "relative game-narration-prose max-h-40 overflow-y-auto rounded-xl border border-amber-400/20 bg-amber-950/20 px-3 py-2.5 sm:max-h-48",
+                  activeCopyKey && "pr-9",
+                )}
               >
                 <div
                   className={cn(
@@ -4679,7 +4682,7 @@ export function GameNarration({
                     onClick={() => {
                       void handleCopyMessage(activeCopyKey, activeCopyText);
                     }}
-                    className="absolute right-1.5 top-1.5 hidden rounded p-1 text-amber-200/45 transition-colors hover:bg-amber-100/10 hover:text-amber-100/70 md:block"
+                    className="absolute right-1.5 top-1.5 rounded p-1 text-amber-200/45 transition-colors hover:bg-amber-100/10 hover:text-amber-100/70"
                     title="Copy"
                   >
                     {copiedMessageKey === activeCopyKey ? <Check size={11} /> : <Copy size={11} />}
