@@ -712,12 +712,12 @@ async function webSearch(args: Record<string, unknown>): Promise<Record<string, 
   try {
     const res = await safeFetch(url, {
       headers: {
-        Accept: "text/html",
+        Accept: "text/html,application/xhtml+xml",
         "User-Agent": "Marinara Engine web_search tool",
       },
       signal: AbortSignal.timeout(10_000),
       policy: { allowedProtocols: ["https:"], maxRedirects: 2 },
-      allowedContentTypes: ["text/html"],
+      allowedContentTypes: ["text/html", "application/xhtml+xml"],
       maxResponseBytes: WEB_SEARCH_RESPONSE_MAX_BYTES,
     });
     if (!res.ok) {
