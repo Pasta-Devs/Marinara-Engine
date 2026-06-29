@@ -60,8 +60,8 @@
    • Change rainbow chrome accents → edit --marinara-chat-chrome-accent-gradient in §2
    • Change the background color   → edit --background in §2
    • Change the font               → edit --font-y2k in §2
-   • Change the cursor SVG         → edit --cursor-pink in §2
-   • Disable the custom cursor     → delete or comment out §6
+   • Change the cursor SVG         → edit --cursor-pink in §2 or disable it in Appearance
+   • Disable the custom cursor     → Settings → Appearance → App Style
    • Disable glow / scanlines      → delete or comment out §9 + §11
    • Tweak chat bubble look        → §13 (glimmer), §14 (texting), §15 (RPG)
    • Add/change breakpoints        → §18
@@ -1382,6 +1382,10 @@
 }
 
 .mari-editor-avatar-tile {
+  cursor: pointer;
+}
+
+:where(:root[data-marinara-custom-cursor="enabled"] .mari-editor-avatar-tile) {
   cursor: var(--cursor-pink), pointer;
 }
 
@@ -1922,7 +1926,7 @@
 /* ─────────────────────────────────────────────
    5. BASE RESET & BODY
    ───────────────────────────────────────────── */
-* {
+:where(:root[data-marinara-custom-cursor="enabled"] *) {
   cursor: var(--cursor-pink), auto;
 }
 
@@ -1935,10 +1939,13 @@
 input,
 select,
 textarea {
-  cursor: var(--cursor-pink), auto;
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
+}
+
+:where(:root[data-marinara-custom-cursor="enabled"] input, :root[data-marinara-custom-cursor="enabled"] select, :root[data-marinara-custom-cursor="enabled"] textarea) {
+  cursor: var(--cursor-pink), auto;
 }
 
 input[type="range"] {
@@ -1954,6 +1961,9 @@ input[type="range"] {
   height: 1rem;
   background: transparent;
   accent-color: var(--range-fill-color);
+}
+
+:where(:root[data-marinara-custom-cursor="enabled"] input[type="range"]) {
   cursor: var(--cursor-pink), auto;
 }
 
@@ -2464,31 +2474,31 @@ strong {
 /* ─────────────────────────────────────────────
    6. CUSTOM CURSORS
    ───────────────────────────────────────────── */
-a,
-button,
-input[type="color"] {
+:where(:root[data-marinara-custom-cursor="enabled"] a, :root[data-marinara-custom-cursor="enabled"] button, :root[data-marinara-custom-cursor="enabled"] input[type="color"]) {
   cursor: var(--cursor-pink), auto;
 }
 
-.cursor-pointer,
-.cursor-grab,
-.cursor-help,
-.cursor-default,
-.cursor-text,
-.cursor-move,
-.cursor-crosshair,
-.cursor-wait,
-.cursor-progress,
-label[class*="cursor-pointer"],
-summary[class*="cursor-pointer"],
-[class*="cursor-pointer"] {
+:where(
+  :root[data-marinara-custom-cursor="enabled"] .cursor-pointer,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-grab,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-help,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-default,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-text,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-move,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-crosshair,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-wait,
+  :root[data-marinara-custom-cursor="enabled"] .cursor-progress,
+  :root[data-marinara-custom-cursor="enabled"] label[class*="cursor-pointer"],
+  :root[data-marinara-custom-cursor="enabled"] summary[class*="cursor-pointer"],
+  :root[data-marinara-custom-cursor="enabled"] [class*="cursor-pointer"]
+) {
   cursor: var(--cursor-pink), auto !important;
 }
 .cursor-not-allowed,
 .disabled\:cursor-not-allowed:disabled {
   cursor: not-allowed !important;
 }
-.active\:cursor-grabbing:active {
+:where(:root[data-marinara-custom-cursor="enabled"] .active\:cursor-grabbing:active) {
   cursor: var(--cursor-pink), auto !important;
 }
 .mari-resize-x {

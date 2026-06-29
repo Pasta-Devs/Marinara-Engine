@@ -1829,6 +1829,8 @@ function AppearanceSettings() {
   const setAppAccentPulseMode = useUIStore((s) => s.setAppAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
   const setAppAccentRgbMode = useUIStore((s) => s.setAppAccentRgbMode);
+  const customCursorEnabled = useUIStore((s) => s.customCursorEnabled);
+  const setCustomCursorEnabled = useUIStore((s) => s.setCustomCursorEnabled);
   const defaultAppBackgroundColor = getDefaultAppBackgroundColor(theme);
   const displayedAppBackgroundColor =
     appBackgroundColor.trim().toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : appBackgroundColor;
@@ -2126,6 +2128,13 @@ function AppearanceSettings() {
               <option value="light">Light</option>
             </select>
           </label>
+
+          <ToggleSetting
+            label="Custom Mouse Pointer"
+            checked={customCursorEnabled}
+            onChange={setCustomCursorEnabled}
+            help="Uses Marinara's accent-colored cursor across the app. Turn this off to use the system cursor or let a custom CSS theme control cursor styles."
+          />
 
           <ColorPicker
             value={displayedAppBackgroundColor}

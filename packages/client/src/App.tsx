@@ -176,6 +176,46 @@ function syncRangeSliderProgress(input: HTMLInputElement) {
   input.style.setProperty("--range-progress", `${Math.max(0, Math.min(100, percent))}%`);
 }
 
+function escapeSvgAttribute(value: string) {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+let cursorColorProbe: HTMLSpanElement | null = null;
+
+function resolveCursorColor(color: string, fallback: string) {
+  if (typeof document === "undefined") return fallback;
+  if (!cursorColorProbe) {
+    cursorColorProbe = document.createElement("span");
+    cursorColorProbe.setAttribute("aria-hidden", "true");
+    cursorColorProbe.style.position = "fixed";
+    cursorColorProbe.style.pointerEvents = "none";
+    cursorColorProbe.style.visibility = "hidden";
+    cursorColorProbe.style.width = "0";
+    cursorColorProbe.style.height = "0";
+    document.body.appendChild(cursorColorProbe);
+  } else if (!cursorColorProbe.isConnected) {
+    document.body.appendChild(cursorColorProbe);
+  }
+
+  cursorColorProbe.style.color = "";
+  cursorColorProbe.style.color = color;
+  if (!cursorColorProbe.style.color) return fallback;
+
+  return getComputedStyle(cursorColorProbe).color.trim() || fallback;
+}
+
+function getAccentCursorValue(accent: string, theme: "dark" | "light") {
+  const fill = resolveCursorColor(accent, theme === "light" ? "#e0709a" : "#d4acfb");
+  const stroke = theme === "light" ? "#1a1025" : "#050312";
+  const svg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3L10 20L12 12L20 10L3 3Z" fill="${escapeSvgAttribute(fill)}" stroke="${stroke}" stroke-width="1"/></svg>`;
+
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 3 3`;
+}
+
+function setAccentCursorVariable(root: HTMLElement, accent: string, theme: "dark" | "light") {
+  root.style.setProperty("--cursor-pink", getAccentCursorValue(accent, theme));
+}
+
 function getSolidAccentGradient(accent: string) {
   return `linear-gradient(90deg, color-mix(in srgb, ${accent} 72%, var(--background) 28%), ${accent}, color-mix(in srgb, ${accent} 76%, var(--foreground) 24%), ${accent})`;
 }
@@ -251,6 +291,7 @@ function applyAppAccentVariables({
   root.style.setProperty("--marinara-app-accent-gradient", gradient);
   root.style.setProperty("--marinara-chat-chrome-accent", accent);
   root.style.setProperty("--marinara-chat-chrome-accent-gradient", gradient);
+  setAccentCursorVariable(root, accent, theme);
 }
 
 function getSolidRgbAccent(accent: string) {
@@ -306,6 +347,7 @@ export function App() {
   const appAccentColor = useUIStore((s) => s.appAccentColor);
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
+  const customCursorEnabled = useUIStore((s) => s.customCursorEnabled);
   const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -379,6 +421,15 @@ export function App() {
 
   useEffect(() => {
     const root = document.documentElement;
+    if (customCursorEnabled) {
+      root.dataset.marinaraCustomCursor = "enabled";
+    } else {
+      delete root.dataset.marinaraCustomCursor;
+    }
+  }, [customCursorEnabled]);
+
+  useEffect(() => {
+    const root = document.documentElement;
     const background = appBackgroundColor.trim();
     const defaultBackground = getDefaultAppBackgroundColor(theme);
 
@@ -447,6 +498,7 @@ export function App() {
     const applyStaticAccent = () => {
       if (!accent) {
         clearCustomAppAccentVariables(root);
+        setAccentCursorVariable(root, "var(--primary)", theme);
         setAccentModeDataset();
         return;
       }

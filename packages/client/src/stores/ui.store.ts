@@ -414,6 +414,7 @@ interface UIState {
   appAccentColorBeforeRgbMode: string | null;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
+  customCursorEnabled: boolean;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -736,6 +737,7 @@ interface UIState {
   setAppAccentColorBeforeRgbMode: (color: string | null) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
+  setCustomCursorEnabled: (enabled: boolean) => void;
   setChatBackground: (url: string | null) => void;
   setDefaultRoleplayBackground: (url: string) => void;
   setChatBackgroundBlur: (v: number) => void;
@@ -1117,6 +1119,7 @@ export const useUIStore = create<UIState>()(
       appAccentColorBeforeRgbMode: null,
       appAccentPulseMode: false,
       appAccentRgbMode: false,
+      customCursorEnabled: true,
       chatBackground: null,
       defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
       chatBackgroundBlur: 0,
@@ -1370,6 +1373,7 @@ export const useUIStore = create<UIState>()(
         set({ appAccentColorBeforeRgbMode: color === null ? null : normalizeAppAccentColor(color) }),
       setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
       setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
+      setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
       setChatBackground: (url) => set({ chatBackground: url }),
       setDefaultRoleplayBackground: (url) => set({ defaultRoleplayBackground: normalizeDefaultRoleplayBackground(url) }),
       setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
@@ -1826,6 +1830,7 @@ export const useUIStore = create<UIState>()(
           appBackgroundColor: "",
           appAccentColor: "",
           appAccentRgbMode: false,
+          customCursorEnabled: true,
           chatBackground: null,
           defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
           chatBackgroundBlur: 0,
@@ -1947,7 +1952,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 66,
+      version: 67,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2432,7 +2437,11 @@ export const useUIStore = create<UIState>()(
             persisted.appAccentRgbMode = false;
           }
         }
+        if (version <= 66 && persisted.customCursorEnabled === undefined) {
+          persisted.customCursorEnabled = true;
+        }
         persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
+        persisted.customCursorEnabled = persisted.customCursorEnabled !== false;
         persisted.includeReasoningInExports = persisted.includeReasoningInExports === true;
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
@@ -2493,6 +2502,7 @@ export const useUIStore = create<UIState>()(
         appAccentColorBeforeRgbMode: state.appAccentColorBeforeRgbMode,
         appAccentPulseMode: state.appAccentPulseMode,
         appAccentRgbMode: state.appAccentRgbMode,
+        customCursorEnabled: state.customCursorEnabled,
         chatBackground: state.chatBackground,
         defaultRoleplayBackground: state.defaultRoleplayBackground,
         chatBackgroundBlur: state.chatBackgroundBlur,
