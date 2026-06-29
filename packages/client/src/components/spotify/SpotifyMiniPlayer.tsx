@@ -256,12 +256,13 @@ function getMobileWidgetStyle(
       MOBILE_WIDGET_VIEWPORT_PADDING,
       Math.min(width - MOBILE_WIDGET_COLLAPSED_SIZE - MOBILE_WIDGET_VIEWPORT_PADDING, position.x),
     ),
-    top: collapsed
-      ? position.y
-      : Math.max(
-          MOBILE_WIDGET_VIEWPORT_PADDING,
-          Math.min(height - MOBILE_WIDGET_EXPANDED_HEIGHT - MOBILE_WIDGET_VIEWPORT_PADDING, position.y),
-        ),
+    top: Math.max(
+      MOBILE_WIDGET_VIEWPORT_PADDING,
+      Math.min(
+        height - (collapsed ? MOBILE_WIDGET_COLLAPSED_SIZE : MOBILE_WIDGET_EXPANDED_HEIGHT) - MOBILE_WIDGET_VIEWPORT_PADDING,
+        position.y,
+      ),
+    ),
   };
 }
 

@@ -57,26 +57,50 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
   const [showSettings, setShowSettings] = useState(false);
   const [pos, setPos] = useState<{ bottom: number; right?: number; left?: number; maxHeight?: number }>({ bottom: 0 });
 
-  // Position the popover above the input bar (skipped when embedded).
-  useLayoutEffect(() => {
-    if (!open || !anchorRef?.current || embedded) return;
+  const updatePosition = useCallback(() => {
+    if (!anchorRef?.current) return;
     const btnRect = anchorRef.current.getBoundingClientRect();
     const barRect = containerRef?.current?.getBoundingClientRect();
     const pad = 8;
     const pickerWidth = 336;
     const pickerHeight = 352;
+    const viewport = window.visualViewport;
+    const vw = viewport?.width ?? window.innerWidth;
+    const vh = viewport?.height ?? window.innerHeight;
     const refTop = barRect ? barRect.top : btnRect.top;
-    const bottom = window.innerHeight - refTop + pad;
+    const bottom = vh - refTop + pad;
     const maxHeight = Math.min(pickerHeight, Math.max(0, refTop - 2 * pad));
-    const vw = window.innerWidth;
     if (vw < 480) {
       const left = Math.max(8, (vw - Math.min(pickerWidth, vw - 16)) / 2);
       setPos({ bottom, left, maxHeight });
     } else {
-      const right = Math.max(8, window.innerWidth - btnRect.right);
+      const right = Math.max(8, vw - btnRect.right);
       setPos({ bottom, right, maxHeight });
     }
-  }, [open, anchorRef, containerRef, embedded]);
+  }, [anchorRef, containerRef]);
+
+  // Position the popover above the input bar (skipped when embedded).
+  useLayoutEffect(() => {
+    if (!open || embedded) return;
+    updatePosition();
+    let frame = 0;
+    const scheduleUpdate = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        updatePosition();
+      });
+    };
+    window.addEventListener("resize", scheduleUpdate);
+    window.visualViewport?.addEventListener("resize", scheduleUpdate);
+    window.visualViewport?.addEventListener("scroll", scheduleUpdate);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
+      window.visualViewport?.removeEventListener("scroll", scheduleUpdate);
+    };
+  }, [embedded, open, updatePosition]);
 
   // Close on outside click / Escape (popover only; embedded dismissal is owned by the sheet).
   useEffect(() => {

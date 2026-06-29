@@ -3654,6 +3654,7 @@ export function GameNarration({
         }}
         className={ACTIVE_SEGMENT_ACTION_BTN}
         title="Copy"
+        aria-label="Copy"
       >
         {copiedMessageKey === activeCopyKey ? <Check size={11} /> : <Copy size={11} />}
       </button>
@@ -4684,6 +4685,7 @@ export function GameNarration({
                     }}
                     className="absolute right-1.5 top-1.5 rounded p-1 text-amber-200/45 transition-colors hover:bg-amber-100/10 hover:text-amber-100/70"
                     title="Copy"
+                    aria-label="Copy"
                   >
                     {copiedMessageKey === activeCopyKey ? <Check size={11} /> : <Copy size={11} />}
                   </button>

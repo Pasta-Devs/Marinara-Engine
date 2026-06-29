@@ -1522,6 +1522,7 @@ export const ChatInput = memo(function ChatInput({
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
             )}
             title="Emoji"
+            aria-label="Emoji"
           >
             <Smile size="1.125rem" />
           </button>
