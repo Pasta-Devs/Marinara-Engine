@@ -266,7 +266,7 @@ function validateToolSchema(schema: unknown): Record<string, unknown> {
   return schemaObject;
 }
 
-const VALID_PARAMETER_TYPES = new Set(["string", "number", "integer", "boolean", "array", "object"]);
+const VALID_PARAMETER_TYPES = new Set(["string", "number", "integer", "boolean", "array", "object", "null"]);
 
 function validateParameterProperty(prop: unknown, path: string): void {
   if (!prop || typeof prop !== "object" || Array.isArray(prop)) {

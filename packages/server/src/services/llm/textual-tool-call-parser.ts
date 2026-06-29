@@ -268,7 +268,7 @@ export function parseTextualToolCalls(content: string | null | undefined, tools:
     if (calls.length > 0) return calls;
   }
 
-  parseTaggedSnippets(content).forEach((snippet, index) => {
+  parseTaggedSnippets(content).forEach((snippet) => {
     const snippetText = normalizeSnippetText(snippet.text);
     if (appendArrayToolCalls(snippetText, calls, knownTools, hasBashTool)) return;
 
@@ -287,7 +287,7 @@ export function parseTextualToolCalls(content: string | null | undefined, tools:
         }
       }
     }
-    const call = toolCallFromRaw(payload, index, knownTools, hasBashTool);
+    const call = toolCallFromRaw(payload, calls.length, knownTools, hasBashTool);
     if (call) calls.push(call);
   });
   return calls;
