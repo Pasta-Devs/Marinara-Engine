@@ -92,6 +92,7 @@ export * from "./utils/quest-state.js";
 export * from "./utils/quote-format.js";
 export * from "./utils/image-prompt-compiler.js";
 export * from "./utils/thinking-tags.js";
+export * from "./utils/rpg-stats.js";
 export * from "./utils/lorebook-folder-tree.js";
 export * from "./utils/text-matching.js";
 export * from "./utils/sprite-labels.js";

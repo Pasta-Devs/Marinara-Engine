@@ -19,6 +19,7 @@ import {
   MIN_AGENT_MAX_TOKENS,
   normalizeCustomAgentCapabilities,
   getDefaultAgentPrompt,
+  normalizeRpgStatPools,
   resolveMacros,
 } from "@marinara-engine/shared";
 import { getMaxToolRounds, isDebugAgentsEnabled } from "../../config/runtime-config.js";
@@ -1957,7 +1958,15 @@ function buildLoreBlock(context: AgentContext): string {
     if (context.persona.rpgStats?.enabled) {
       const rpg = context.persona.rpgStats;
       parts.push(`RPG Stats:`);
-      parts.push(`- Max HP: ${rpg.hp.max}`);
+      const pools = normalizeRpgStatPools(rpg);
+      if (pools.length > 0) {
+        parts.push(`Pools:`);
+        for (const pool of pools) {
+          parts.push(`- ${pool.name}: ${pool.value}/${pool.max}`);
+        }
+      } else {
+        parts.push(`- Max HP: ${rpg.hp.max}`);
+      }
       if (rpg.attributes.length > 0) {
         parts.push(`Attributes:`);
         for (const attr of rpg.attributes) {

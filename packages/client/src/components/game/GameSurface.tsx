@@ -110,6 +110,7 @@ import type { SceneSegmentEffect } from "@marinara-engine/shared";
 import {
   PROFESSOR_MARI_ID,
   formatTextQuotes,
+  normalizeRpgStatPools,
   normalizeTextForMatch,
   scoreMusic,
   scoreAmbient,
@@ -7063,6 +7064,7 @@ function GameSurfaceComponent({
           rpgStats?: {
             attributes: Array<{ name: string; value: number }>;
             hp: { value: number; max: number };
+            pools?: import("@marinara-engine/shared").RPGStatPool[];
           };
         };
       }
@@ -7102,7 +7104,11 @@ function GameSurfaceComponent({
               weaknesses: (gc.weaknesses as string[]) || [],
               extra: (gc.extra as Record<string, string>) || {},
               rpgStats: gc.rpgStats as
-                | { attributes: Array<{ name: string; value: number }>; hp: { value: number; max: number } }
+                | {
+                    attributes: Array<{ name: string; value: number }>;
+                    hp: { value: number; max: number };
+                    pools?: import("@marinara-engine/shared").RPGStatPool[];
+                  }
                 | undefined,
             }
           : undefined,
@@ -7248,6 +7254,7 @@ function GameSurfaceComponent({
                       value: Math.max(0, Number(gameCard.rpgStats.hp.value) || 0),
                       max: Math.max(1, Number(gameCard.rpgStats.hp.max) || 1),
                     },
+                    pools: normalizeRpgStatPools(gameCard.rpgStats),
                   },
                 }
               : {}),

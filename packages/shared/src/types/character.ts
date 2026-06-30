@@ -52,6 +52,13 @@ export interface CharacterExtensions {
 }
 
 /** RPG stats configuration attached to a character card. */
+export interface RPGStatPool {
+  name: string;
+  value: number;
+  max: number;
+  color: string;
+}
+
 export interface RPGStatsConfig {
   /** Whether RPG stats are enabled for this character */
   enabled: boolean;
@@ -59,6 +66,8 @@ export interface RPGStatsConfig {
   attributes: Array<{ name: string; value: number }>;
   /** Hit Points */
   hp: { value: number; max: number };
+  /** HP-like bars such as HP, MP, EP, Sanity, etc. */
+  pools?: RPGStatPool[];
 }
 
 /** Depth-injected prompt attached to a character. */

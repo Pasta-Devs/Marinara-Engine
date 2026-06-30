@@ -90,9 +90,13 @@ import { EditorTabRail } from "../ui/EditorTabRail";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
+  createDefaultRpgStatPools,
   normalizeSpriteExpressionLabel,
+  normalizeRpgStatPools,
+  syncRpgHpFromPools,
   type CharacterCardVersion,
   type CharacterData,
+  type RPGStatPool,
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
 import { parseTrackerCardColorConfig, serializeTrackerCardColorConfig } from "../../lib/tracker-card-colors";
@@ -2786,7 +2790,18 @@ const DEFAULT_RPG_STATS: RPGStatsConfig = {
     { name: "CHA", value: 10 },
   ],
   hp: { value: 100, max: 100 },
+  pools: createDefaultRpgStatPools(),
 };
+
+function createNewRpgPool(existing: readonly RPGStatPool[]): RPGStatPool {
+  const used = new Set(existing.map((pool) => pool.name.trim().toLowerCase()).filter(Boolean));
+  let index = existing.length + 1;
+  let name = `Pool ${index}`;
+  while (used.has(name.toLowerCase())) {
+    name = `Pool ${++index}`;
+  }
+  return { name, value: 100, max: 100, color: "#a78bfa" };
+}
 
 function StatsTab({
   formData,
@@ -2796,9 +2811,22 @@ function StatsTab({
   updateExtension: (key: string, value: unknown) => void;
 }) {
   const stats: RPGStatsConfig = (formData.extensions.rpgStats as RPGStatsConfig) ?? DEFAULT_RPG_STATS;
+  const pools = normalizeRpgStatPools(stats);
 
   const update = (patch: Partial<RPGStatsConfig>) => {
     updateExtension("rpgStats", { ...stats, ...patch });
+  };
+
+  const updatePools = (nextPools: RPGStatPool[]) => {
+    update({
+      pools: nextPools,
+      hp: syncRpgHpFromPools(nextPools, stats.hp),
+    });
+  };
+
+  const updatePool = (index: number, patch: Partial<RPGStatPool>) => {
+    const nextPools = pools.map((pool, poolIndex) => (poolIndex === index ? { ...pool, ...patch } : pool));
+    updatePools(nextPools);
   };
 
   const updateAttribute = (index: number, field: string, value: string | number) => {
@@ -2835,21 +2863,64 @@ function StatsTab({
 
       {stats.enabled && (
         <>
-          {/* HP */}
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-red-500" />
-              <span className="text-xs font-semibold">Hit Points (HP)</span>
+          {/* Pools */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Pools</h3>
+              <button
+                type="button"
+                onClick={() => updatePools([...pools, createNewRpgPool(pools)])}
+                className="mari-chrome-accent-surface mari-accent-animated flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.6875rem] font-medium transition-colors"
+              >
+                <Plus size="0.75rem" />
+                Add
+              </button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[var(--muted-foreground)]">Max:</span>
-              <input
-                type="number"
-                value={stats.hp.max}
-                onChange={(e) => update({ hp: { ...stats.hp, max: parseInt(e.target.value) || 1 } })}
-                className="w-20 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1.5 text-center text-sm"
-                min={1}
-              />
+            <div className="space-y-2">
+              {pools.map((pool, i) => (
+                <div
+                  key={i}
+                  className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
+                >
+                  <input
+                    type="color"
+                    value={pool.color}
+                    onChange={(e) => updatePool(i, { color: e.target.value })}
+                    className="h-8 w-8 rounded border border-[var(--border)] bg-transparent p-0.5"
+                    aria-label={`${pool.name || "Pool"} color`}
+                  />
+                  <input
+                    value={pool.name}
+                    onChange={(e) => updatePool(i, { name: e.target.value })}
+                    className="min-w-0 rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-xs font-medium"
+                    placeholder="Name"
+                  />
+                  <input
+                    type="number"
+                    value={pool.value}
+                    onChange={(e) => updatePool(i, { value: Math.max(0, parseInt(e.target.value) || 0) })}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
+                    min={0}
+                    aria-label={`${pool.name || "Pool"} value`}
+                  />
+                  <input
+                    type="number"
+                    value={pool.max}
+                    onChange={(e) => updatePool(i, { max: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--input)] px-2 py-1 text-center text-xs"
+                    min={1}
+                    aria-label={`${pool.name || "Pool"} max`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updatePools(pools.filter((_, poolIndex) => poolIndex !== i))}
+                    className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-red-500/15 hover:text-red-400"
+                    aria-label={`Remove ${pool.name || "pool"}`}
+                  >
+                    <X size="0.75rem" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 

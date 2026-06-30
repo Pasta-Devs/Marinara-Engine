@@ -27,6 +27,11 @@ const DEFAULTS: Required<PatternSafetyOptions> = {
 
 const INVALID_QUANTIFIER = Symbol("invalid-quantifier");
 
+interface ConsumedQuantifier {
+  end: number;
+  addsStarHeight: boolean;
+}
+
 /**
  * Decide whether a regex source string is safe to compile and run against
  * untrusted input. Returns false for patterns likely to cause catastrophic
@@ -42,11 +47,11 @@ export function isPatternSafe(source: string, options: PatternSafetyOptions = {}
   // Walk the source once, tracking:
   //   - whether we are inside a character class (where quantifier semantics differ)
   //   - whether the previous character is escaped
-  //   - the stack of group "has-quantifier-after-close" markers, to compute star height
+  //   - the stack of group "has-repetition-quantifier-after-close" markers, to compute star height
   //
   // Star height here is the maximum number of nested groups whose closing `)`
-  // is followed by a quantifier (`*`, `+`, `?`, `{n,m}`), counted along with
-  // immediate-quantifier atoms. A bare `a+` has star height 1; `(a+)+` has 2.
+  // is followed by a repeating quantifier (`*`, `+`, `{n,m}`), counted along with
+  // immediate repeating-quantifier atoms. A bare `a+` has star height 1; `(a+)+` has 2.
   //
   // The walker is deliberately conservative — it does not need to be a full
   // regex parser to catch the common ReDoS shapes.
@@ -75,8 +80,8 @@ export function isPatternSafe(source: string, options: PatternSafetyOptions = {}
       if (atomEnd === null) return false;
       const consumed = consumeQuantifier(source, atomEnd, maxRepetition);
       if (consumed === INVALID_QUANTIFIER) return false;
-      recordAtomHeight(consumed === null ? 0 : 1);
-      i = consumed ?? atomEnd;
+      recordAtomHeight(consumed?.addsStarHeight ? 1 : 0);
+      i = consumed?.end ?? atomEnd;
       continue;
     }
 
@@ -88,8 +93,8 @@ export function isPatternSafe(source: string, options: PatternSafetyOptions = {}
       const atomEnd = closeIdx + 1;
       const consumed = consumeQuantifier(source, atomEnd, maxRepetition);
       if (consumed === INVALID_QUANTIFIER) return false;
-      recordAtomHeight(consumed === null ? 0 : 1);
-      i = consumed ?? atomEnd;
+      recordAtomHeight(consumed?.addsStarHeight ? 1 : 0);
+      i = consumed?.end ?? atomEnd;
       continue;
     }
 
@@ -110,12 +115,12 @@ export function isPatternSafe(source: string, options: PatternSafetyOptions = {}
       groupDepth -= 1;
       const consumed = consumeQuantifier(source, i + 1, maxRepetition);
       if (consumed === INVALID_QUANTIFIER) return false;
-      const quantified = consumed !== null;
+      const quantified = consumed?.addsStarHeight === true;
       if (quantified && hasUnsafeQuantifiedAlternation(source.slice(bodyStart, i))) return false;
       const groupHeight = innerHeight + (quantified ? 1 : 0);
       if (groupHeight > maxStarHeight) return false;
       recordAtomHeight(groupHeight);
-      i = consumed ?? i + 1;
+      i = consumed?.end ?? i + 1;
       continue;
     }
 
@@ -123,8 +128,8 @@ export function isPatternSafe(source: string, options: PatternSafetyOptions = {}
     const atomEnd = i + 1;
     const consumed = consumeQuantifier(source, atomEnd, maxRepetition);
     if (consumed === INVALID_QUANTIFIER) return false;
-    recordAtomHeight(consumed === null ? 0 : 1);
-    i = consumed ?? atomEnd;
+    recordAtomHeight(consumed?.addsStarHeight ? 1 : 0);
+    i = consumed?.end ?? atomEnd;
   }
 
   if (groupDepth !== 0) return false; // Unbalanced
@@ -137,13 +142,16 @@ function consumeQuantifier(
   source: string,
   i: number,
   maxRepetition: number,
-): number | null | typeof INVALID_QUANTIFIER {
+): ConsumedQuantifier | null | typeof INVALID_QUANTIFIER {
   const c = source[i];
   if (c === "*" || c === "+" || c === "?") {
     // JS has lazy quantifiers, not possessive quantifiers.
     const next = source[i + 1];
     if (next === "+") return INVALID_QUANTIFIER;
-    return next === "?" ? i + 2 : i + 1;
+    return {
+      end: next === "?" ? i + 2 : i + 1,
+      addsStarHeight: c !== "?",
+    };
   }
   if (c === "{") {
     const close = source.indexOf("}", i + 1);
@@ -160,7 +168,7 @@ function consumeQuantifier(
     let next = close + 1;
     if (source[next] === "+") return INVALID_QUANTIFIER;
     if (source[next] === "?") next += 1;
-    return next;
+    return { end: next, addsStarHeight: true };
   }
   return null;
 }

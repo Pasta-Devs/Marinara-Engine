@@ -53,6 +53,10 @@ const DEFAULT_ICONS: Record<HudWidgetType, string> = {
 const WIDGET_NUMBER_INPUT_CLASS =
   "w-full rounded-lg border border-transparent bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/40";
 
+interface NormalizeGameHudWidgetsOptions {
+  mode?: "persisted" | "draft";
+}
+
 function isHudWidgetType(value: unknown): value is HudWidgetType {
   return (
     value === "progress_bar" ||
@@ -175,9 +179,14 @@ function defaultWidgetConfig(type: HudWidgetType): HudWidgetConfig {
   }
 }
 
-function normalizeConfig(type: HudWidgetType, config: unknown): HudWidgetConfig {
+function normalizeConfig(
+  type: HudWidgetType,
+  config: unknown,
+  options: NormalizeGameHudWidgetsOptions = {},
+): HudWidgetConfig {
   const source = config && typeof config === "object" && !Array.isArray(config) ? (config as HudWidgetConfig) : {};
   const fallback = defaultWidgetConfig(type);
+  const draftMode = options.mode === "draft";
 
   if (type === "progress_bar" || type === "gauge" || type === "relationship_meter") {
     const max = parseNumber(source.max, fallback.max ?? 100, 1);
@@ -200,11 +209,13 @@ function normalizeConfig(type: HudWidgetType, config: unknown): HudWidgetConfig 
           .map((stat) => {
             const rawValue = (stat as { value?: unknown }).value;
             return {
-              name: String((stat as { name?: unknown }).name ?? "").trim(),
+              name: draftMode
+                ? String((stat as { name?: unknown }).name ?? "")
+                : String((stat as { name?: unknown }).name ?? "").trim(),
               value: typeof rawValue === "number" || typeof rawValue === "string" ? rawValue : "",
             };
           })
-          .filter((stat) => stat.name)
+          .filter((stat) => draftMode || stat.name)
       : (fallback.stats ?? []);
     return { ...source, stats };
   }
@@ -248,16 +259,18 @@ export function createDefaultGameHudWidget(type: HudWidgetType, widgets: readonl
   };
 }
 
-export function normalizeGameHudWidgets(value: unknown): HudWidget[] {
+export function normalizeGameHudWidgets(value: unknown, options: NormalizeGameHudWidgetsOptions = {}): HudWidget[] {
   if (!Array.isArray(value)) return [];
   const normalized: HudWidget[] = [];
   const usedIds = new Set<string>();
+  const draftMode = options.mode === "draft";
 
   for (const entry of value) {
     if (!entry || typeof entry !== "object" || normalized.length >= MAX_GAME_SETUP_WIDGETS) continue;
     const raw = entry as Partial<HudWidget>;
     const type = isHudWidgetType(raw.type) ? raw.type : "progress_bar";
-    const label = typeof raw.label === "string" && raw.label.trim() ? raw.label.trim() : formatWidgetTypeLabel(type);
+    const rawLabel = typeof raw.label === "string" ? raw.label : "";
+    const label = draftMode ? rawLabel : rawLabel.trim() || formatWidgetTypeLabel(type);
     const preferredId = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : nextWidgetId(label, normalized);
     const id = usedIds.has(preferredId) ? nextWidgetId(label, normalized) : preferredId;
     usedIds.add(id);
@@ -268,7 +281,7 @@ export function normalizeGameHudWidgets(value: unknown): HudWidget[] {
       icon: typeof raw.icon === "string" ? raw.icon.slice(0, 8) : DEFAULT_ICONS[type],
       position: raw.position === "hud_right" ? "hud_right" : "hud_left",
       accent: typeof raw.accent === "string" && raw.accent.trim() ? raw.accent.trim() : DEFAULT_ACCENTS[type],
-      config: normalizeConfig(type, raw.config),
+      config: normalizeConfig(type, raw.config, options),
     });
   }
 
@@ -347,7 +360,7 @@ export function GameWidgetFileControls({
   importSuccessMessage,
 }: GameWidgetFileControlsProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const normalizedWidgets = useMemo(() => normalizeGameHudWidgets(widgets), [widgets]);
+  const normalizedWidgets = useMemo(() => normalizeGameHudWidgets(widgets, { mode: "draft" }), [widgets]);
   const canExport = normalizedWidgets.length > 0 && !disabled;
 
   const handleImport = async (file: File | undefined) => {
@@ -427,7 +440,7 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
     onChange(
       normalizedWidgets.map((widget) =>
         widget.id === widgetId
-          ? { ...widget, config: normalizeConfig(widget.type, { ...widget.config, ...patch }) }
+          ? { ...widget, config: normalizeConfig(widget.type, { ...widget.config, ...patch }, { mode: "draft" }) }
           : widget,
       ),
     );
@@ -517,7 +530,7 @@ export function GameWidgetSetupEditor({ widgets, onChange, disabled, className }
                   onClick={() => onChange(normalizedWidgets.filter((entry) => entry.id !== widget.id))}
                   disabled={disabled}
                   className="inline-flex h-9 items-center justify-center rounded-lg border border-[var(--destructive)]/25 px-3 text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
-                  aria-label={`Remove ${widget.label}`}
+                  aria-label={`Remove ${widget.label.trim() || formatWidgetTypeLabel(widget.type)}`}
                 >
                   <Trash2 size="0.875rem" />
                 </button>

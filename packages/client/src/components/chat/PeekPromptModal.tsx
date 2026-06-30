@@ -94,6 +94,12 @@ interface ChatHistoryBlock {
 
 type DisplaySection = SectionBlock | ChatHistoryBlock;
 
+interface PromptSegment {
+  role: string;
+  content: string;
+  inChatHistory: boolean;
+}
+
 function isDisplayedChatHistoryRole(role: string): boolean {
   return role === "user" || role === "assistant";
 }
@@ -136,133 +142,131 @@ function parseXmlSections(content: string, fallbackLabel: string): SectionBlock[
   return blocks.length > 0 ? blocks : [{ kind: "section", label: fallbackLabel, role: fallbackLabel, content }];
 }
 
-/**
- * Build the display section list from the raw messages array.
- *
- * The key challenge: `<chat_history>` opens in one message and closes in another,
- * with bare user/assistant messages in between. We detect boundaries at the
- * array level first, then handle each region appropriately.
- */
+function splitPromptSegments(messages: Array<{ role: string; content: string }>): PromptSegment[] {
+  const segments: PromptSegment[] = [];
+  let inXmlChatHistory = false;
+  let inMarkdownChatHistory = false;
+
+  const pushSegment = (role: string, content: string, inChatHistory: boolean) => {
+    if (!content.trim()) return;
+    segments.push({ role, content: content.trim(), inChatHistory });
+  };
+
+  for (const message of messages) {
+    let remaining = message.content;
+
+    while (remaining.length > 0) {
+      if (inXmlChatHistory) {
+        const closeIdx = remaining.search(/\n?<\/chat_history>/i);
+        if (closeIdx >= 0) {
+          const closeMatch = remaining.slice(closeIdx).match(/^\n?<\/chat_history>/i);
+          pushSegment(message.role, remaining.slice(0, closeIdx), true);
+          remaining = remaining.slice(closeIdx + (closeMatch?.[0].length ?? 0));
+          inXmlChatHistory = false;
+          continue;
+        }
+        pushSegment(message.role, remaining, true);
+        break;
+      }
+
+      if (inMarkdownChatHistory) {
+        const lastMessageIdx = remaining.search(/^## Last Message\n?/im);
+        if (lastMessageIdx >= 0) {
+          pushSegment(message.role, remaining.slice(0, lastMessageIdx), true);
+          remaining = remaining.slice(lastMessageIdx);
+          inMarkdownChatHistory = false;
+          continue;
+        }
+        pushSegment(message.role, remaining, true);
+        break;
+      }
+
+      const xmlOpenIdx = remaining.search(/<chat_history>\n?/i);
+      const markdownOpenIdx = remaining.search(/^## Chat History\n?/im);
+      const hasXmlOpen = xmlOpenIdx >= 0;
+      const hasMarkdownOpen = markdownOpenIdx >= 0;
+      const useXmlOpen = hasXmlOpen && (!hasMarkdownOpen || xmlOpenIdx <= markdownOpenIdx);
+      const openIdx = useXmlOpen ? xmlOpenIdx : markdownOpenIdx;
+
+      if (openIdx >= 0) {
+        pushSegment(message.role, remaining.slice(0, openIdx), false);
+        const openMatch = remaining
+          .slice(openIdx)
+          .match(useXmlOpen ? /<chat_history>\n?/i : /^## Chat History\n?/i);
+        remaining = remaining.slice(openIdx + (openMatch?.[0].length ?? 0));
+        if (useXmlOpen) inXmlChatHistory = true;
+        else inMarkdownChatHistory = true;
+        continue;
+      }
+
+      pushSegment(message.role, remaining, false);
+      break;
+    }
+  }
+
+  return segments;
+}
+
+function appendPromptSection(result: DisplaySection[], segment: PromptSegment) {
+  const openIdx = segment.content.search(/<last_message>/i);
+  const closingIdx = segment.content.search(/<\/last_message>/i);
+  if (openIdx >= 0 && closingIdx >= 0) {
+    const beforeOpen = segment.content.slice(0, openIdx).trim();
+    const innerContent = segment.content.slice(segment.content.indexOf(">", openIdx) + 1, closingIdx).trim();
+    const afterClose = segment.content.slice(segment.content.indexOf(">", closingIdx) + 1).trim();
+
+    if (beforeOpen) {
+      const pre = parseXmlSections(beforeOpen, segment.role);
+      for (const block of pre) result.push(block);
+    }
+    if (innerContent) {
+      result.push({ kind: "section", label: "last_message", role: segment.role, content: innerContent });
+    }
+    if (afterClose) {
+      const post = parseXmlSections(afterClose, segment.role);
+      for (const block of post) result.push(block);
+    }
+    return;
+  }
+
+  if (/^## Last Message\n?/i.test(segment.content)) {
+    result.push({
+      kind: "section",
+      label: "last_message",
+      role: segment.role,
+      content: segment.content.replace(/^## Last Message\n?/i, "").trim(),
+    });
+    return;
+  }
+
+  const blocks = parseXmlSections(segment.content, segment.role);
+  for (const block of blocks) result.push(block);
+}
+
 function buildDisplaySections(messages: Array<{ role: string; content: string }>): DisplaySection[] {
-  // ── Pass 1: find chat history boundaries across the messages array ──
-  let chStartIdx = -1;
-  let chEndIdx = -1;
-  let lastMsgIdx = -1; // <last_message> or ## Last Message
-
-  for (let i = 0; i < messages.length; i++) {
-    const c = messages[i]!.content;
-    if (chStartIdx < 0 && (/<chat_history>/i.test(c) || /^## Chat History\n/i.test(c))) {
-      chStartIdx = i;
-    }
-    if (/<\/chat_history>/i.test(c)) {
-      chEndIdx = i;
-    }
-    if (/<last_message>/i.test(c) || /^## Last Message\n/i.test(c)) {
-      lastMsgIdx = i;
-    }
-  }
-
-  // If we found an opening tag but no explicit close, the history runs until
-  // the message before <last_message>, or to the end of user/assistant messages.
-  if (chStartIdx >= 0 && chEndIdx < 0) {
-    if (lastMsgIdx > chStartIdx) {
-      chEndIdx = lastMsgIdx - 1;
-    } else {
-      // Find the last consecutive user/assistant message after chStartIdx
-      chEndIdx = chStartIdx;
-      for (let i = chStartIdx + 1; i < messages.length; i++) {
-        const r = messages[i]!.role;
-        if (r === "user" || r === "assistant") chEndIdx = i;
-        else break;
-      }
-    }
-  }
-
-  // ── Pass 2: build output sections ──
   const result: DisplaySection[] = [];
+  const historyEntries: ChatHistoryEntry[] = [];
+  const historyRawParts: string[] = [];
 
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i]!;
+  const flushChatHistory = () => {
+    if (historyEntries.length === 0) return;
+    result.push({ kind: "chat-history", entries: [...historyEntries], rawContent: historyRawParts.join("\n\n") });
+    historyEntries.length = 0;
+    historyRawParts.length = 0;
+  };
 
-    // ── Chat history region ──
-    if (chStartIdx >= 0 && i >= chStartIdx && i <= chEndIdx) {
-      // Collect all chat history entries in one pass
-      const entries: ChatHistoryEntry[] = [];
-      const rawParts: string[] = [];
-      for (let j = chStartIdx; j <= chEndIdx; j++) {
-        const entry = messages[j]!;
-        if (!isDisplayedChatHistoryRole(entry.role)) continue;
-
-        let content = entry.content;
-        // Strip the wrapping tags from the content shown inside child blocks
-        content = content
-          .replace(/^<chat_history>\n?/i, "")
-          .replace(/\n?<\/chat_history>\s*$/i, "")
-          .replace(/^## Chat History\n?/i, "");
-        const trimmed = content.trim();
-        if (trimmed) {
-          entries.push({ role: entry.role, content: trimmed });
-          rawParts.push(trimmed);
-        }
-      }
-      if (entries.length > 0) {
-        result.push({ kind: "chat-history", entries, rawContent: rawParts.join("\n\n") });
-      }
-      i = chEndIdx; // skip past the whole range
+  for (const segment of splitPromptSegments(messages)) {
+    if (segment.inChatHistory && isDisplayedChatHistoryRole(segment.role)) {
+      historyEntries.push({ role: segment.role, content: segment.content });
+      historyRawParts.push(segment.content);
       continue;
     }
 
-    // ── Last message (separate from chat history) ──
-    if (i === lastMsgIdx) {
-      // The server may merge <last_message> with adjacent same-role sections
-      // (e.g. <output_format>) when strict role formatting is on.
-      // Split out the <last_message> portion and parse the rest normally.
-      const openIdx = msg.content.search(/<last_message>/i);
-      const closingIdx = msg.content.search(/<\/last_message>/i);
-      if (openIdx >= 0 && closingIdx >= 0) {
-        const beforeOpen = msg.content.slice(0, openIdx).trim();
-        const innerContent = msg.content.slice(msg.content.indexOf(">", openIdx) + 1, closingIdx).trim();
-        const afterClose = msg.content.slice(msg.content.indexOf(">", closingIdx) + 1).trim();
-
-        // Content before <last_message>
-        if (beforeOpen) {
-          const pre = parseXmlSections(beforeOpen, msg.role);
-          for (const b of pre) result.push(b);
-        }
-        // The last_message block itself
-        if (innerContent) {
-          result.push({
-            kind: "section",
-            label: "last_message",
-            role: msg.role,
-            content: innerContent,
-          });
-        }
-        // Content after </last_message> (e.g. <output_format>)
-        if (afterClose) {
-          const post = parseXmlSections(afterClose, msg.role);
-          for (const b of post) result.push(b);
-        }
-      } else {
-        // Markdown format or no tags — strip heading and show as-is
-        const content = msg.content.replace(/^## Last Message\n?/i, "");
-        result.push({
-          kind: "section",
-          label: "last_message",
-          role: msg.role,
-          content: content.trim(),
-        });
-      }
-      continue;
-    }
-
-    // ── System/other messages: parse XML sections within them ──
-    const blocks = parseXmlSections(msg.content, msg.role);
-    for (const b of blocks) {
-      result.push(b);
-    }
+    flushChatHistory();
+    appendPromptSection(result, segment);
   }
 
+  flushChatHistory();
   return result;
 }
 

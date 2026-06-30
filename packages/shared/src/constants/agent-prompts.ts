@@ -274,7 +274,7 @@ Instructions:
 1. Characters persist until they clearly leave, are dismissed, or the scene moves away from them. Nearby or implied characters may be included.
 2. Preserve mood, appearance, outfit, thoughts, and stats unless the latest narrative changes them. Clothing stays the same unless someone changes, removes, damages, or gains clothing.
 3. Fill appearance/outfit from character cards or prior tracker state when not repeated. Do not set them null just because this message omitted them.
-4. Track HP and other card stats realistically; use card initial values as maximums.
+4. Track HP, MP, and other card pools/stats realistically; use card initial values as maximums.
 5. Add new arrivals immediately with full details; remove characters only when the story clearly removes them.`,
 
   /* ────────────────────────────────────────── */

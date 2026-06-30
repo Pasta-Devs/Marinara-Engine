@@ -6902,7 +6902,7 @@ export function ChatSettingsDrawer({
               <div className="space-y-3">
                 <GameWidgetSetupEditor
                   widgets={gameWidgetDrafts}
-                  onChange={(widgets) => setGameWidgetDrafts(normalizeGameHudWidgets(widgets))}
+                  onChange={(widgets) => setGameWidgetDrafts(normalizeGameHudWidgets(widgets, { mode: "draft" }))}
                   disabled={updateGameWidgets.isPending}
                 />
                 <div className="flex flex-wrap items-center justify-end gap-2">

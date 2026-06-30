@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
-import { resolveMacros, stripMacroComments } from "@marinara-engine/shared";
+import { formatRpgStatsForPrompt, resolveMacros, stripMacroComments } from "@marinara-engine/shared";
 import type {
   CharacterMacroProfile,
   MarkerConfig,
@@ -169,7 +169,7 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
 
     // Auto-include RPG attributes if enabled and not already in fields
     if (!fields.includes("stats") && !fields.includes("rpg_attributes")) {
-      const statsText = formatRPGStats(data.extensions?.rpgStats as RPGStatsConfig | undefined);
+      const statsText = formatRpgStatsForPrompt(data.extensions?.rpgStats as RPGStatsConfig | undefined);
       if (statsText) {
         charParts.push(
           wrapContent(resolveSanitizedPromptLeaf(statsText, ctx), "rpg_attributes", ctx.wrapFormat, 2),
@@ -252,21 +252,10 @@ function getCharacterField(data: CharacterData, field: string): string {
     case "appearance":
       return data.extensions?.appearance ?? "";
     case "stats":
-      return formatRPGStats(data.extensions?.rpgStats as RPGStatsConfig | undefined);
+      return formatRpgStatsForPrompt(data.extensions?.rpgStats as RPGStatsConfig | undefined);
     default:
       return "";
   }
-}
-
-/** Format RPG stats into a readable block for the prompt. */
-function formatRPGStats(rpgStats: RPGStatsConfig | undefined): string {
-  if (!rpgStats?.enabled) return "";
-  const lines: string[] = [];
-  lines.push(`Max HP: ${rpgStats.hp.max}`);
-  if (rpgStats.attributes.length > 0) {
-    lines.push(rpgStats.attributes.map((a) => `${a.name}: ${a.value}`).join(", "));
-  }
-  return lines.join("\n");
 }
 
 // ── Persona ────────────────────────────────────
@@ -304,7 +293,7 @@ async function expandPersona(_config: MarkerConfig, ctx: MarkerContext): Promise
   // Include RPG attributes if enabled
   if (ctx.personaStats?.rpgStats?.enabled) {
     const rpg = ctx.personaStats.rpgStats as RPGStatsConfig;
-    const statsText = formatRPGStats(rpg);
+    const statsText = formatRpgStatsForPrompt(rpg);
     if (statsText) {
       parts.push(wrapContent(resolveSanitizedPromptLeaf(statsText, ctx), "rpg_attributes", ctx.wrapFormat, 2));
     }

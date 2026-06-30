@@ -280,22 +280,25 @@ export function AuthorNotesPanel({
   const [depthStr, setDepthStr] = useState(String((chatMeta.authorNotesDepth as number) ?? 4));
   const updateMeta = useUpdateChatMetadata();
 
-  const latestRef = useRef({ notes, depthStr });
-  latestRef.current = { notes, depthStr };
-  const baselineRef = useRef({
+  const initialBaseline = {
     notes: (chatMeta.authorNotes as string) ?? "",
     depth: (chatMeta.authorNotesDepth as number) ?? 4,
-  });
+  };
+  const latestByChatRef = useRef(new Map<string, { notes: string; depthStr: string }>([[chatId, { notes, depthStr }]]));
+  latestByChatRef.current.set(chatId, { notes, depthStr });
+  const baselineByChatRef = useRef(new Map<string, { notes: string; depth: number }>([[chatId, initialBaseline]]));
   const mutateRef = useRef(updateMeta.mutate);
   mutateRef.current = updateMeta.mutate;
 
   useEffect(() => {
-    setNotes((chatMeta.authorNotes as string) ?? "");
-    setDepthStr(String((chatMeta.authorNotesDepth as number) ?? 4));
-    baselineRef.current = {
+    const nextBaseline = {
       notes: (chatMeta.authorNotes as string) ?? "",
       depth: (chatMeta.authorNotesDepth as number) ?? 4,
     };
+    setNotes(nextBaseline.notes);
+    setDepthStr(String(nextBaseline.depth));
+    baselineByChatRef.current.set(chatId, nextBaseline);
+    latestByChatRef.current.set(chatId, { notes: nextBaseline.notes, depthStr: String(nextBaseline.depth) });
   }, [chatId, chatMeta.authorNotes, chatMeta.authorNotesDepth]);
 
   // Outside-click closes the popover via mousedown, which unmounts the
@@ -303,13 +306,19 @@ export function AuthorNotesPanel({
   // the pending edit from the unmount cleanup so typed content survives.
   useEffect(() => {
     const capturedChatId = chatId;
+    const latestByChat = latestByChatRef.current;
+    const baselineByChat = baselineByChatRef.current;
+    const snapshot = latestByChat.get(capturedChatId) ?? { notes: "", depthStr: "4" };
+    const baselineSnapshot = baselineByChat.get(capturedChatId) ?? { notes: "", depth: 4 };
     return () => {
-      const { notes: n, depthStr: d } = latestRef.current;
+      const { notes: n, depthStr: d } = latestByChat.get(capturedChatId) ?? snapshot;
       const nextDepth = Math.max(0, parseInt(d, 10) || 0);
-      const base = baselineRef.current;
+      const base = baselineByChat.get(capturedChatId) ?? baselineSnapshot;
       if (n !== base.notes || nextDepth !== base.depth) {
         mutateRef.current({ id: capturedChatId, authorNotes: n, authorNotesDepth: nextDepth });
       }
+      latestByChat.delete(capturedChatId);
+      baselineByChat.delete(capturedChatId);
     };
   }, [chatId]);
 

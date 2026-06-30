@@ -26,6 +26,7 @@ import {
   normalizeTrackerFieldLocks,
   parseTrackerFieldLocks,
   normalizeTextForMatch,
+  formatRpgStatsForPrompt,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -37,6 +38,7 @@ import type {
   ExportEnvelope,
   GameNpc,
   LorebookEntryTimingState,
+  RPGStatsConfig,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
@@ -2425,15 +2427,14 @@ export async function chatsRoutes(app: FastifyInstance) {
                 fieldParts.push(wrapContent(resolvePromptMacros(personaFields.scenario), "scenario", wrapFormat, 2));
               // Include enabled RPG attributes
               if (personaStats?.rpgStats?.enabled) {
-                const rpg = personaStats.rpgStats as {
-                  attributes: Array<{ name: string; value: number }>;
-                  hp: { value: number; max: number };
-                };
-                const rpgLines = [`Max HP: ${rpg.hp.max}`];
-                for (const attr of rpg.attributes) {
-                  rpgLines.push(`${attr.name}: ${attr.value}`);
-                }
-                fieldParts.push(wrapContent(rpgLines.join("\n"), "rpg_attributes", wrapFormat, 2));
+                fieldParts.push(
+                  wrapContent(
+                    formatRpgStatsForPrompt(personaStats.rpgStats as RPGStatsConfig),
+                    "rpg_attributes",
+                    wrapFormat,
+                    2,
+                  ),
+                );
               }
               if (fieldParts.length > 0) {
                 const block = wrapContent(fieldParts.join("\n"), personaName, wrapFormat, 1);

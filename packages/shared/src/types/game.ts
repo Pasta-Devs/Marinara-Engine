@@ -99,6 +99,7 @@ export interface GameCharacterCard {
   rpgStats?: {
     attributes: Array<{ name: string; value: number }>;
     hp: { value: number; max: number };
+    pools?: import("./character.js").RPGStatPool[];
   };
 }
 

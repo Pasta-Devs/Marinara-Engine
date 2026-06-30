@@ -6,7 +6,6 @@ import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
-import { useAgentStore } from "../../stores/agent.store";
 import { cn } from "../../lib/utils";
 import { SpotifyMiniPlayer } from "../spotify/SpotifyMiniPlayer";
 import { YouTubePlayer } from "../chat/YouTubePlayer";
@@ -92,7 +91,6 @@ export function TopBar() {
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
-  const failedAgentCount = useAgentStore((s) => s.failedAgentTypes.length);
   const headerRef = useRef<HTMLElement | null>(null);
   const leftControlsRef = useRef<HTMLDivElement | null>(null);
   const rightNavRef = useRef<HTMLElement | null>(null);
@@ -377,9 +375,6 @@ export function TopBar() {
                     underlineClass ?? cn("mari-panel-gradient-surface", gradientClass),
                   )}
                 />
-              )}
-              {panel === "agents" && failedAgentCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-1 ring-[var(--card)]" />
               )}
             </button>
           );

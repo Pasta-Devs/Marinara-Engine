@@ -364,6 +364,7 @@ export interface AgentContext {
       enabled: boolean;
       attributes: Array<{ name: string; value: number }>;
       hp: { value: number; max: number };
+      pools?: import("./character.js").RPGStatPool[];
     };
   } | null;
   /** The agent's own persistent memory (key-value) */

@@ -21,6 +21,12 @@ import {
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
+import {
+  createDefaultRpgStatPools,
+  normalizeRpgStatPools,
+  syncRpgHpFromPools,
+  type RPGStatPool,
+} from "@marinara-engine/shared";
 
 export interface GameCharacterSheetGameCard {
   shortDescription: string;
@@ -32,6 +38,7 @@ export interface GameCharacterSheetGameCard {
   rpgStats?: {
     attributes: Array<{ name: string; value: number }>;
     hp: { value: number; max: number };
+    pools?: RPGStatPool[];
   };
 }
 
@@ -65,6 +72,7 @@ interface GameCardDraft {
   weaknesses: string[];
   extraEntries: Array<{ key: string; value: string }>;
   rpgStatsEnabled: boolean;
+  pools: RPGStatPool[];
   attributes: Array<{ name: string; value: number }>;
   hpValue: number;
   hpMax: number;
@@ -80,6 +88,16 @@ const DEFAULT_ATTRIBUTES = [
   { name: "WIS", value: 10 },
   { name: "CHA", value: 10 },
 ];
+
+function createNewRpgPool(existing: readonly RPGStatPool[]): RPGStatPool {
+  const used = new Set(existing.map((pool) => pool.name.trim().toLowerCase()).filter(Boolean));
+  let index = existing.length + 1;
+  let name = `Pool ${index}`;
+  while (used.has(name.toLowerCase())) {
+    name = `Pool ${++index}`;
+  }
+  return { name, value: 100, max: 100, color: "#a78bfa" };
+}
 
 // Mirrors server's attributeModifier in skill-check.service.ts: floor((score - 10) / 2).
 function formatAttributeModifier(score: number): string {
@@ -156,6 +174,13 @@ function createDraft(gameCard?: GameCharacterSheetGameCard): GameCardDraft {
     rawRpgStats?.hp && typeof rawRpgStats.hp === "object" && !Array.isArray(rawRpgStats.hp)
       ? (rawRpgStats.hp as Record<string, unknown>)
       : undefined;
+  const pools = rawRpgStats
+    ? normalizeRpgStatPools(rawRpgStats as unknown as GameCharacterSheetGameCard["rpgStats"])
+    : createDefaultRpgStatPools();
+  const hp = syncRpgHpFromPools(pools, {
+    value: normalizeNumberValue(rawHp?.value, 100),
+    max: Math.max(1, normalizeNumberValue(rawHp?.max, 100)),
+  });
 
   return {
     shortDescription: normalizeTextValue(rawGameCard?.shortDescription).trim(),
@@ -165,9 +190,10 @@ function createDraft(gameCard?: GameCharacterSheetGameCard): GameCardDraft {
     weaknesses: normalizeDraftListSource(rawGameCard?.weaknesses),
     extraEntries: normalizeDraftExtraEntries(rawGameCard?.extra),
     rpgStatsEnabled: !!rawRpgStats,
+    pools,
     attributes: normalizeDraftAttributes(rawRpgStats?.attributes),
-    hpValue: normalizeNumberValue(rawHp?.value, 100),
-    hpMax: Math.max(1, normalizeNumberValue(rawHp?.max, 100)),
+    hpValue: hp.value,
+    hpMax: hp.max,
   };
 }
 
@@ -201,13 +227,17 @@ function normalizeDraft(draft: GameCardDraft): GameCharacterSheetGameCard | unde
     .filter((attr) => attr.name);
 
   const rpgStats = draft.rpgStatsEnabled
-    ? {
-        attributes,
-        hp: {
-          value: Math.max(0, draft.hpValue),
-          max: Math.max(1, draft.hpMax),
-        },
-      }
+    ? (() => {
+        const pools = normalizeRpgStatPools({
+          hp: { value: Math.max(0, draft.hpValue), max: Math.max(1, draft.hpMax) },
+          pools: draft.pools,
+        });
+        return {
+          attributes,
+          hp: syncRpgHpFromPools(pools, { value: Math.max(0, draft.hpValue), max: Math.max(1, draft.hpMax) }),
+          pools,
+        };
+      })()
     : undefined;
 
   const hasContent =
@@ -280,11 +310,9 @@ export function GameCharacterSheet({
     previewGameCard?.rpgStats &&
     Array.isArray(previewGameCard.rpgStats.attributes) &&
     previewGameCard.rpgStats.attributes.length > 0;
-  const hasRpgHp =
-    previewGameCard?.rpgStats?.hp &&
-    (Number.isFinite(Number(previewGameCard.rpgStats.hp.value)) ||
-      Number.isFinite(Number(previewGameCard.rpgStats.hp.max)));
-  const hasRpgStats = Boolean(hasRpgAttributes || hasRpgHp);
+  const previewRpgPools = previewGameCard?.rpgStats ? normalizeRpgStatPools(previewGameCard.rpgStats) : [];
+  const hasRpgPools = previewRpgPools.length > 0;
+  const hasRpgStats = Boolean(hasRpgAttributes || hasRpgPools);
   const hasPersistentSheetData = hasGameData(previewGameCard) || hasRpgStats;
   const hasAnyData =
     hasPersistentSheetData ||
@@ -358,6 +386,27 @@ export function GameCharacterSheet({
     setDraft((prev) => {
       const next = prev.attributes.filter((_, attrIndex) => attrIndex !== index);
       return { ...prev, attributes: next.length > 0 ? next : DEFAULT_ATTRIBUTES.map((attr) => ({ ...attr })) };
+    });
+  };
+
+  const updatePool = (index: number, patch: Partial<RPGStatPool>) => {
+    setDraft((prev) => {
+      const pools = prev.pools.map((pool, poolIndex) => (poolIndex === index ? { ...pool, ...patch } : pool));
+      const hp = syncRpgHpFromPools(pools, { value: prev.hpValue, max: prev.hpMax });
+      return { ...prev, pools, hpValue: hp.value, hpMax: hp.max };
+    });
+  };
+
+  const addPool = () => {
+    setDraft((prev) => ({ ...prev, pools: [...prev.pools, createNewRpgPool(prev.pools)] }));
+  };
+
+  const removePool = (index: number) => {
+    setDraft((prev) => {
+      const pools = prev.pools.filter((_, poolIndex) => poolIndex !== index);
+      const nextPools = pools.length > 0 ? pools : createDefaultRpgStatPools();
+      const hp = syncRpgHpFromPools(nextPools, { value: prev.hpValue, max: prev.hpMax });
+      return { ...prev, pools: nextPools, hpValue: hp.value, hpMax: hp.max };
     });
   };
 
@@ -569,27 +618,61 @@ export function GameCharacterSheet({
                 </div>
                 {draft.rpgStatsEnabled ? (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block space-y-1.5">
-                        <span className={FIELD_LABEL_CLASS}>Current HP</span>
-                        <DraftNumberInput
-                          value={draft.hpValue}
-                          onCommit={(value) => setDraft((prev) => ({ ...prev, hpValue: value }))}
-                          min={0}
-                          selectOnFocus
-                          className={NUMBER_INPUT_CLASS}
-                        />
-                      </label>
-                      <label className="block space-y-1.5">
-                        <span className={FIELD_LABEL_CLASS}>Max HP</span>
-                        <DraftNumberInput
-                          value={draft.hpMax}
-                          min={1}
-                          onCommit={(value) => setDraft((prev) => ({ ...prev, hpMax: Math.max(1, value) }))}
-                          selectOnFocus
-                          className={NUMBER_INPUT_CLASS}
-                        />
-                      </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={FIELD_LABEL_CLASS}>Pools</span>
+                        <button
+                          onClick={addPool}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--marinara-chat-chrome-panel-border)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]"
+                        >
+                          <Plus size={13} />
+                          Add Pool
+                        </button>
+                      </div>
+                      {draft.pools.map((pool, index) => (
+                        <div
+                          key={`${pool.name}-${index}`}
+                          className="grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] gap-2 max-sm:grid-cols-1"
+                        >
+                          <input
+                            type="color"
+                            value={pool.color}
+                            onChange={(e) => updatePool(index, { color: e.target.value })}
+                            className="h-9 w-8 rounded border border-[var(--marinara-chat-chrome-panel-border)] bg-transparent p-0.5 max-sm:w-full"
+                            aria-label={`${pool.name || "Pool"} color`}
+                          />
+                          <input
+                            type="text"
+                            value={pool.name}
+                            onChange={(e) => updatePool(index, { name: e.target.value })}
+                            placeholder="HP"
+                            className={TEXT_INPUT_CLASS}
+                          />
+                          <DraftNumberInput
+                            value={pool.value}
+                            onCommit={(value) => updatePool(index, { value: Math.max(0, value) })}
+                            min={0}
+                            selectOnFocus
+                            ariaLabel={`${pool.name || "Pool"} value`}
+                            className={NUMBER_INPUT_CLASS}
+                          />
+                          <DraftNumberInput
+                            value={pool.max}
+                            min={1}
+                            onCommit={(value) => updatePool(index, { max: Math.max(1, value) })}
+                            selectOnFocus
+                            ariaLabel={`${pool.name || "Pool"} max`}
+                            className={NUMBER_INPUT_CLASS}
+                          />
+                          <button
+                            onClick={() => removePool(index)}
+                            className="inline-flex items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] px-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-red-400 max-sm:h-9"
+                            title="Remove pool"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                     <div className="space-y-2">
                       {draft.attributes.map((attr, index) => (
@@ -823,30 +906,33 @@ export function GameCharacterSheet({
                   ))}
                 </div>
               )}
-              {hasRpgHp &&
-                (() => {
-                  const hpMax = Math.max(1, Number(previewGameCard.rpgStats.hp.max) || 1);
-                  const hpValue = Math.max(0, Math.min(hpMax, Number(previewGameCard.rpgStats.hp.value) || 0));
-                  return (
-                    <div>
-                      <div className="mb-0.5 flex items-center justify-between text-xs">
-                        <span className="font-medium text-[var(--foreground)]/80">HP</span>
-                        <span className="font-mono text-[var(--muted-foreground)]">
-                          {hpValue}/{hpMax}
-                        </span>
+              {hasRpgPools && (
+                <div className="space-y-2">
+                  {previewRpgPools.map((pool) => {
+                    const poolMax = Math.max(1, Number(pool.max) || 1);
+                    const poolValue = Math.max(0, Math.min(poolMax, Number(pool.value) || 0));
+                    return (
+                      <div key={pool.name}>
+                        <div className="mb-0.5 flex items-center justify-between text-xs">
+                          <span className="font-medium text-[var(--foreground)]/80">{pool.name}</span>
+                          <span className="font-mono text-[var(--muted-foreground)]">
+                            {poolValue}/{poolMax}
+                          </span>
+                        </div>
+                        <div className="h-2.5 overflow-hidden rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-panel-border)]">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${(poolValue / poolMax) * 100}%`,
+                              background: pool.color,
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-2.5 overflow-hidden rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-panel-border)]">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{
-                            width: `${(hpValue / hpMax) * 100}%`,
-                            background: "#ef4444",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

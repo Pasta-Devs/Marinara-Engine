@@ -5813,7 +5813,7 @@ export async function generateRoutes(app: FastifyInstance) {
             customPrompt: input.impersonatePromptTemplate || chatMeta.impersonatePrompt,
             direction: input.userMessage,
             personaName,
-            personaDescription,
+            personaDescription: resolvePromptMacros(personaDescription),
           });
           finalMessages.push({ role: "user", content: impersonateInstruction });
         }
