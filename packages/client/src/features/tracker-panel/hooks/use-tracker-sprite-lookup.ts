@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import type { PresentCharacter } from "@marinara-engine/shared";
-import { useCharacters } from "../../../hooks/use-characters";
+import { characterKeys } from "../../../hooks/use-characters";
+import { api } from "../../../lib/api-client";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
 import type { TrackerSpriteLookup } from "../tracker-panel.types";
 import { isSpriteLookupCharacterId } from "../lib/sprite-expressions";
@@ -12,40 +14,72 @@ interface UseTrackerSpriteLookupOptions {
   chatCharacterIds: string[];
 }
 
+interface TrackerLookupCharacterRow {
+  id: string;
+  data: unknown;
+  comment?: string | null;
+  avatarPath?: string | null;
+}
+
+function normalizeLookupCharacterIds(characterIds: string[]) {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const id of characterIds) {
+    const trimmed = id.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  }
+
+  return normalized;
+}
+
+function isTrackerLookupCharacterRow(value: unknown): value is TrackerLookupCharacterRow {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as { id?: unknown }).id === "string" &&
+    (value as { id: string }).id.length > 0
+  );
+}
+
 export function useTrackerSpriteLookup({ enabled, chatCharacterIds }: UseTrackerSpriteLookupOptions) {
-  const { data: charactersData } = useCharacters(enabled);
+  const lookupCharacterIds = useMemo(() => normalizeLookupCharacterIds(chatCharacterIds), [chatCharacterIds]);
+  const characterQueries = useQueries({
+    queries: lookupCharacterIds.map((id) => ({
+      queryKey: characterKeys.detail(id),
+      queryFn: () => api.get<TrackerLookupCharacterRow>(`/characters/${id}`),
+      enabled,
+      retry: false,
+      staleTime: 5 * 60_000,
+    })),
+  });
   const characterSpriteLookup = useMemo<TrackerSpriteLookup>(() => {
-    const rows = (
-      Array.isArray(charactersData)
-        ? (charactersData as Array<{ id: string; data: unknown; comment?: string | null; avatarPath?: string | null }>)
-        : []
-    ).filter((character) => typeof character.id === "string" && character.id.length > 0);
-    const chatIdSet = new Set(chatCharacterIds);
-    const orderedRows = [
-      ...rows.filter((character) => chatIdSet.has(character.id)),
-      ...rows.filter((character) => !chatIdSet.has(character.id)),
-    ];
+    const rows = characterQueries
+      .map((query) => query.data)
+      .filter(isTrackerLookupCharacterRow);
     const knownIds = new Set(rows.map((character) => character.id));
     const idByName = new Map<string, string>();
     const pictureById: Record<string, string> = {};
     const profileColorsById: TrackerSpriteLookup["profileColorsById"] = {};
-    const displayRows = orderedRows.map((character) => ({
+    const displayRows = rows.map((character) => ({
       character,
       display: parseCharacterDisplayData(character),
     }));
-    const chatDisplayRows = displayRows.filter(({ character }) => chatIdSet.has(character.id));
-    const fallbackDisplayRows = displayRows.filter(({ character }) => !chatIdSet.has(character.id));
-    for (const character of orderedRows) {
+
+    for (const character of rows) {
       if (character.avatarPath) pictureById[character.id] = character.avatarPath;
       const profileColors = getCharacterProfileColors(character.data);
       if (profileColors) profileColorsById[character.id] = profileColors;
     }
-    addExactNameLookups(chatDisplayRows, idByName);
-    addAliasLookups(chatDisplayRows, idByName);
-    addExactNameLookups(fallbackDisplayRows, idByName);
-    addAliasLookups(fallbackDisplayRows, idByName);
+
+    addExactNameLookups(displayRows, idByName);
+    addAliasLookups(displayRows, idByName);
+
     return { knownIds, idByName, pictureById, profileColorsById };
-  }, [charactersData, chatCharacterIds]);
+  }, [characterQueries]);
 
   const resolveSpriteCharacterId = useCallback(
     (character: PresentCharacter) => {

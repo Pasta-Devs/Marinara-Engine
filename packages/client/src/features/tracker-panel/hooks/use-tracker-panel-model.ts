@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from "react";
-import type { Persona } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "../../../hooks/use-agents";
-import { usePersonas } from "../../../hooks/use-characters";
+import { usePersona } from "../../../hooks/use-characters";
 import { useChat, useChatMessages } from "../../../hooks/use-chats";
 import type { TrackerDataPanelSection } from "../../../stores/ui.store";
 import { TRACKER_FEATURED_CHARACTER_META_KEY, TRACKER_SECTION_AGENT_TYPES } from "../lib/tracker-panel.constants";
@@ -34,6 +33,10 @@ export function useTrackerPanelModel({
     () => normalizeMaybeJsonStringArray((chat as unknown as { characterIds?: unknown } | undefined)?.characterIds),
     [chat],
   );
+  const chatPersonaId = useMemo(() => {
+    const rawPersonaId = (chat as unknown as { personaId?: unknown } | undefined)?.personaId;
+    return typeof rawPersonaId === "string" && rawPersonaId.trim() ? rawPersonaId.trim() : null;
+  }, [chat]);
   const enabledAgentTypes = useMemo(() => {
     const set = new Set<string>();
     if (!chatMeta.enableAgents) return set;
@@ -67,7 +70,7 @@ export function useTrackerPanelModel({
   const agentConfigLookupEnabled = !!activeChatId && characterTrackerEnabled;
   const { data: messageData } = useChatMessages(activeChatId, 20, spriteExpressionLookupEnabled);
   const { data: agentConfigs } = useAgentConfigs(agentConfigLookupEnabled);
-  const { data: personasData } = usePersonas(personaDataLookupEnabled);
+  const { data: activePersonaData } = usePersona(personaDataLookupEnabled ? chatPersonaId : null);
   const { characterSpriteLookup, resolveSpriteCharacterId } = useTrackerSpriteLookup({
     enabled: characterDataLookupEnabled,
     chatCharacterIds,
@@ -92,16 +95,7 @@ export function useTrackerPanelModel({
     () => new Set(normalizeStringArray(chatMeta[TRACKER_FEATURED_CHARACTER_META_KEY])),
     [chatMeta],
   );
-  const personas = useMemo(() => (Array.isArray(personasData) ? (personasData as Persona[]) : []), [personasData]);
-  const activePersona = useMemo(() => {
-    const chatPersonaId = (chat as unknown as { personaId?: unknown } | undefined)?.personaId;
-    const selectedPersonaId = typeof chatPersonaId === "string" ? chatPersonaId : null;
-    return (
-      (selectedPersonaId ? personas.find((persona) => persona.id === selectedPersonaId) : null) ??
-      personas.find((persona) => persona.isActive) ??
-      null
-    );
-  }, [chat, personas]);
+  const activePersona = activePersonaData ?? null;
   const expressionSpritesEnabled = trackerPanelUseExpressionSprites && expressionAgentEnabled;
 
   return {
