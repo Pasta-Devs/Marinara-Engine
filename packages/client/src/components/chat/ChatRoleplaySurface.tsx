@@ -36,6 +36,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { getConnectedChatDisplayName } from "../../lib/chat-display";
 import { playConfiguredNotificationPing } from "../../lib/notification-sound";
@@ -1232,6 +1233,7 @@ export function ChatRoleplaySurface({
   onSelectAllBelowSelection,
   isGrouped,
 }: RoleplaySurfaceProps) {
+  useRenderTimer("rp-surface"); // [#3104 diagnostic]
   const isStreamCommitted = useChatStore((s) => s.committedStreamChatIds.has(activeChatId));
   const hasDraftInput = useChatStore((s) => s.currentInput.trim().length > 0);
   const hasLiveStream = isStreaming && !isStreamCommitted;

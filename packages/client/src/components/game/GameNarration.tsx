@@ -38,6 +38,7 @@ import {
   GitBranch,
 } from "lucide-react";
 import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
+import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { findNamedMapValue } from "../../lib/game-character-name-match";
 import type { GameSegmentEdit } from "../../lib/game-segment-edits";
 import { parseGmTags, stripGmTagsKeepReadables } from "../../lib/game-tag-parser";
@@ -980,6 +981,7 @@ export function GameNarration({
   nextActionToken,
   onMaxNavOffsetChange,
 }: GameNarrationProps) {
+  useRenderTimer("game-narration"); // [#3104 diagnostic]
   const { translations, translating } = useTranslate();
   const { applyToAIOutput } = useApplyRegex();
   // Parse the chat metadata in a memo (not the store selector) so streaming ticks

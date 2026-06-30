@@ -14,6 +14,7 @@ import type { HudWidget } from "@marinara-engine/shared";
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { cn } from "../../lib/utils";
 import { useGameModeStore } from "../../stores/game-mode.store";
+import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { Modal } from "../ui/Modal";
 import { PanelLockButton, useDraggablePanel } from "./DraggablePanel";
 
@@ -281,6 +282,7 @@ function useWidgetEditor(widgets: HudWidget[], chatId: string) {
 
 /** Renders a panel of model-defined widgets for a given position. */
 export function GameWidgetPanel({ widgets, position, chatId, constraintsRef }: GameWidgetPanelProps) {
+  useRenderTimer("game-hud"); // [#3104 diagnostic]
   const filtered = getVisibleWidgets(widgets, position);
   const { editingWidget, openEditor, closeEditor, saveWidget, isSaving } = useWidgetEditor(widgets, chatId);
 

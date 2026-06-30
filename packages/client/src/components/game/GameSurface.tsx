@@ -62,6 +62,7 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { spriteKeys, type SpriteInfo } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
+import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import { cn, parseAvatarCropJson, type AvatarCrop, type LegacyAvatarCrop, type AvatarCropValue } from "../../lib/utils";
@@ -1982,6 +1983,7 @@ function GameSurfaceComponent({
   selectedMessageIds,
   isMessagesLoading,
 }: GameSurfaceProps) {
+  useRenderTimer("game-surface"); // [#3104 diagnostic]
   // Sync game metadata → store
   useSyncGameState(activeChatId, chatMeta);
 

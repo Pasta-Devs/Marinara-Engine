@@ -21,6 +21,7 @@ import {
   type ReactNode,
 } from "react";
 import { cn } from "../../lib/utils";
+import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { audioManager } from "../../lib/game-audio";
 import { getOrCreateCachedTTSAudioBlob } from "../../lib/tts-audio-cache";
 import { normalizeTTSCharacterName, resolveTTSVoiceForSpeaker, splitTTSChunks } from "../../lib/tts-dialogue";
@@ -650,6 +651,7 @@ export function GameCombatUI({
   onSpriteSuggestionChange,
   _isStreaming,
 }: GameCombatUIProps) {
+  useRenderTimer("game-combat"); // [#3104 diagnostic]
   // Combat state
   const [phase, setPhase] = useState<CombatPhase>("intro");
   const [round, setRound] = useState(1);

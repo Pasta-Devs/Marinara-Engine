@@ -29,6 +29,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useUnoGameStore } from "../../stores/uno-game.store";
 import { useUIStore } from "../../stores/ui.store";
 import { playConfiguredNotificationPing } from "../../lib/notification-sound";
+import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { messageHasPendingPostProcessing } from "../../lib/chat-message-extra";
 import { getTranscriptRenderWindow, TRANSCRIPT_RENDER_WINDOW_STEP } from "../../lib/transcript-render-window";
 import { useThrottledStreamBuffer } from "../../hooks/use-throttled-stream-buffer";
@@ -273,6 +274,7 @@ export function ConversationView({
   onConcludeScene,
   onAbandonScene,
 }: ConversationViewProps) {
+  useRenderTimer("convo-messages"); // [#3104 diagnostic]
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreaming = useChatStore((s) => s.isStreaming) && streamingChatId === chatId;
   const unoGameActive = useUnoGameStore((s) => s.current?.chatId === chatId && s.current?.status !== "finished");
