@@ -344,7 +344,7 @@ export function GameInput({
 
   return (
     <div
-      className={cn(inline ? "" : "px-3 pb-3 pt-2")}
+      className={cn(inline ? "" : "px-3 pt-2 pb-3")}
       style={inline ? undefined : { minHeight: 61 }}
     >
       {/* Dice picker */}

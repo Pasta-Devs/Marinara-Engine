@@ -1789,7 +1789,7 @@ export function ConversationInput({
   }
 
   return (
-    <div className="mari-chat-input chat-input-container relative px-2 pb-3 sm:px-3">
+    <div className="mari-chat-input chat-input-container relative px-2 sm:px-3 pb-3">
       {/* Slash command autocomplete */}
       {completions.length > 0 && (
         <div className="absolute bottom-full left-3 right-3 z-40 mb-1 max-h-[min(18rem,45dvh)] overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--card)] shadow-lg [-webkit-overflow-scrolling:touch]">

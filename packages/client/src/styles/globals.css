@@ -4165,9 +4165,19 @@ strong {
     max-height: var(--mari-visual-viewport-height, 100dvh) !important;
   }
 
+  /*
+   * WKWebView native backing color is set by the literal background-color in
+   * index.html <style> (inline critical CSS — not cached by SW, always fresh).
+   * Do NOT set html { background-color } here; a CSS variable would override
+   * the literal and WKWebView cannot resolve variables → shows black instead.
+   */
+  html {
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
   body {
-    /* Safe-area insets handled by AppShell — only apply sides + bottom here */
-    padding-bottom: env(safe-area-inset-bottom);
+    /* Safe-area insets handled by AppShell — only apply sides here */
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }

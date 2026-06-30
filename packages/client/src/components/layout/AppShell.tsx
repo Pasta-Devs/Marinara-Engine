@@ -795,7 +795,7 @@ export function AppShell() {
     <div
       data-component="AppShell"
       className={cn(
-        "mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden max-md:h-screen max-md:max-h-screen max-md:pb-[env(safe-area-inset-bottom)] max-md:pt-[env(safe-area-inset-top)] supports-[height:100dvh]:max-md:h-[100dvh] supports-[height:100dvh]:max-md:max-h-[100dvh]",
+        "mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden",
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
@@ -870,6 +870,8 @@ export function AppShell() {
         aria-label="Main content"
         className="@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden"
       >
+        {/* iOS safe area spacer — pushes TopBar below status bar and fills that gap with topbar bg */}
+        <div className="flex-shrink-0 md:hidden h-[env(safe-area-inset-top)] bg-[var(--marinara-topbar-surface)] backdrop-blur-sm" />
         <TopBar />
         <div className="mari-app-background-paint relative flex flex-1 flex-col overflow-hidden">
           {/* Bot Browser — kept mounted once opened so state persists across close/reopen */}
