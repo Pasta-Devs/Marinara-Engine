@@ -1138,6 +1138,15 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
     return clampMacroOutput(template, options);
   }
   getMacroBudget(options);
+  // #3104: content with no macro syntax has nothing to resolve. Every step below
+  // is triggered by either "{{" (live macros) or the "\x1e" deferred-character
+  // token sentinel, so a template containing neither is returned unchanged —
+  // skipping the comment strip, bracket/conditional expansion, the global
+  // substitution passes, and the persona-field build. Output is identical.
+  if (!template.includes("{{") && !template.includes("\x1e")) {
+    const passthrough = options.trimResult !== false ? template.trim() : template;
+    return clampMacroOutput(passthrough, options);
+  }
   let result = template;
   const fieldResolutionDepth = options.fieldResolutionDepth ?? 0;
   const resolveNestedFieldMacros = (value: string): string => {
@@ -1150,16 +1159,6 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
       fieldResolutionDepth: fieldResolutionDepth + 1,
     });
   };
-  const personaText = [
-    ctx.personaFields?.description,
-    ctx.personaFields?.personality,
-    ctx.personaFields?.backstory,
-    ctx.personaFields?.appearance,
-    ctx.personaFields?.scenario,
-  ]
-    .map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part))
-    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
-    .join("\n");
   const deferCharacterMacros = options.deferCharacterMacros;
   const characterReplacement = (field: keyof typeof DEFERRED_CHARACTER_MACRO_TOKENS): string => {
     if (deferCharacterMacros === "all" || (deferCharacterMacros === "names" && field === "char")) {
@@ -1184,7 +1183,23 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
 
   // ── Static substitutions ──
   result = result.replace(/\{\{user(?:Name)?\}\}/gi, ctx.user);
-  result = result.replace(/\{\{persona\}\}/gi, personaText);
+  // #3104: build the persona field text lazily — only when {{persona}} is actually
+  // present — so the recursive 5-field resolution is not paid on every message
+  // (it used to run unconditionally on every resolveMacros call). String form is
+  // kept so $-sequences in persona text substitute exactly as before.
+  if (/\{\{persona\}\}/i.test(result)) {
+    const personaText = [
+      ctx.personaFields?.description,
+      ctx.personaFields?.personality,
+      ctx.personaFields?.backstory,
+      ctx.personaFields?.appearance,
+      ctx.personaFields?.scenario,
+    ]
+      .map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part))
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+      .join("\n");
+    result = result.replace(/\{\{persona\}\}/gi, personaText);
+  }
   result = result.replace(/\{\{personaDescription\}\}/gi, () =>
     resolveNestedFieldMacros(ctx.personaFields?.description ?? ""),
   );
