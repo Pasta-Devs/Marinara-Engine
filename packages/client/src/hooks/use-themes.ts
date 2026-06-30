@@ -61,10 +61,8 @@ export function useThemes() {
   return useQuery({
     queryKey: themeKeys.list(),
     queryFn: () => api.get<Theme[]>("/themes"),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
     refetchOnReconnect: true,
-    refetchInterval: () => (document.hidden ? false : 15_000),
   });
 }
 

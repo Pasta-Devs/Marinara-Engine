@@ -39,7 +39,6 @@ import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { api, ApiError } from "../../lib/api-client";
 import { getChatDisplayName, getConnectedChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
 import { getChatCharacterIds } from "../../lib/chat-macros";
-import { resolveCurrentGameSessionChatId } from "../../lib/game-session-resolution";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -589,8 +588,12 @@ export function ChatArea() {
   const setActiveSwipe = useSetActiveSwipe(activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const pendingNewChatMode = useChatStore((s) => s.pendingNewChatMode);
-  const failedAgentTypes = useAgentStore((s) => s.failedAgentTypes);
-  const agentProcessing = useAgentStore((s) => s.isProcessing);
+  const failedAgentTypes = useAgentStore((s) =>
+    activeChatId && s.failedAgentChatId && s.failedAgentChatId !== activeChatId ? [] : s.failedAgentTypes,
+  );
+  const agentProcessing = useAgentStore((s) =>
+    activeChatId ? s.processingChatIds.includes(activeChatId) : s.isProcessing,
+  );
 
   useEffect(() => {
     if (!activeChatId || !(chatError instanceof ApiError) || chatError.status !== 404) return;
@@ -602,13 +605,6 @@ export function ChatArea() {
     if (listedActiveChat) return;
     setActiveChatId(null);
   }, [activeChatId, allChats, listedActiveChat, setActiveChatId]);
-
-  const currentGameSessionChatId = useMemo(() => resolveCurrentGameSessionChatId(chat, allChats), [allChats, chat]);
-
-  useEffect(() => {
-    if (!currentGameSessionChatId || currentGameSessionChatId === activeChatId) return;
-    setActiveChatId(currentGameSessionChatId);
-  }, [activeChatId, currentGameSessionChatId, setActiveChatId]);
 
   useEffect(() => {
     const handleReviewRequest = (event: Event) => {

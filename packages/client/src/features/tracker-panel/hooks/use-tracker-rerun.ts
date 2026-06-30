@@ -17,7 +17,9 @@ export function useTrackerRerun({
 }) {
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
-  const isAgentProcessing = useAgentStore((s) => s.isProcessing);
+  const isAgentProcessing = useAgentStore((s) =>
+    activeChatId ? s.processingChatIds.includes(activeChatId) : s.isProcessing,
+  );
   const { retryAgents } = useGenerate();
   const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
   const trackerRetryBusy = isAgentProcessing || isStreaming || gameStateRefreshing;

@@ -277,6 +277,9 @@ const cases: RegressionCase[] = [
       assert.equal(isPatternSafe("(a|a)+$"), false);
       assert.equal(isPatternSafe("(a|ab)*c"), false);
       assert.equal(isPatternSafe("a++"), false);
+      assert.equal(isPatternSafe(".*.*.*Q"), false);
+      assert.equal(isPatternSafe(".*foo.*bar.*baz"), false);
+      assert.equal(isPatternSafe(String.raw`.*\*[^*]+\*.*\*[^*]+\*.*`), false);
     },
   },
   {

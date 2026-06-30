@@ -30,6 +30,8 @@ const INVALID_QUANTIFIER = Symbol("invalid-quantifier");
 interface ConsumedQuantifier {
   end: number;
   addsStarHeight: boolean;
+  unbounded: boolean;
+  required: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function isPatternSafe(source: string, options: PatternSafetyOptions = {}
   if (typeof source !== "string") return false;
   if (source.length === 0) return true;
   if (source.length > maxLength) return false;
+  if (hasPolynomialBacktrackingRisk(source, maxRepetition)) return false;
 
   // Walk the source once, tracking:
   //   - whether we are inside a character class (where quantifier semantics differ)
@@ -151,6 +154,8 @@ function consumeQuantifier(
     return {
       end: next === "?" ? i + 2 : i + 1,
       addsStarHeight: c !== "?",
+      unbounded: c !== "?",
+      required: c === "+",
     };
   }
   if (c === "{") {
@@ -168,7 +173,7 @@ function consumeQuantifier(
     let next = close + 1;
     if (source[next] === "+") return INVALID_QUANTIFIER;
     if (source[next] === "?") next += 1;
-    return { end: next, addsStarHeight: true };
+    return { end: next, addsStarHeight: true, unbounded: !Number.isFinite(hi), required: lo > 0 };
   }
   return null;
 }
@@ -295,4 +300,91 @@ function tokenizeAlternative(alternative: string): string[] {
 function isTokenPrefix(prefix: string[], candidate: string[]): boolean {
   if (prefix.length > candidate.length) return false;
   return prefix.every((token, index) => candidate[index] === token);
+}
+
+function hasPolynomialBacktrackingRisk(source: string, maxRepetition: number): boolean {
+  let broadUnboundedCount = 0;
+  let adjacentBroadUnboundedCount = 0;
+
+  for (let i = 0; i < source.length; ) {
+    const c = source[i]!;
+
+    if (c === "\\") {
+      const atomEnd = consumeEscapedAtom(source, i);
+      if (atomEnd === null) return true;
+      const consumed = consumeQuantifier(source, atomEnd, maxRepetition);
+      if (consumed === INVALID_QUANTIFIER) return true;
+      const broadUnbounded = consumed?.unbounded === true && isBroadEscapedAtom(source[i + 1]);
+      if (broadUnbounded) {
+        broadUnboundedCount += 1;
+        adjacentBroadUnboundedCount += 1;
+        if (adjacentBroadUnboundedCount >= 2 || broadUnboundedCount >= 3) return true;
+      } else if (isRequiredLiteralAtom(consumed)) {
+        adjacentBroadUnboundedCount = 0;
+      }
+      i = consumed?.end ?? atomEnd;
+      continue;
+    }
+
+    if (c === "[") {
+      const closeIdx = findCharClassClose(source, i);
+      if (closeIdx === -1) return true;
+      const atomEnd = closeIdx + 1;
+      const consumed = consumeQuantifier(source, atomEnd, maxRepetition);
+      if (consumed === INVALID_QUANTIFIER) return true;
+      const broadUnbounded = consumed?.unbounded === true && isBroadCharacterClass(source.slice(i, atomEnd));
+      if (broadUnbounded) {
+        broadUnboundedCount += 1;
+        adjacentBroadUnboundedCount += 1;
+        if (adjacentBroadUnboundedCount >= 2 || broadUnboundedCount >= 3) return true;
+      } else if (isRequiredLiteralAtom(consumed)) {
+        adjacentBroadUnboundedCount = 0;
+      }
+      i = consumed?.end ?? atomEnd;
+      continue;
+    }
+
+    if (c === ".") {
+      const atomEnd = i + 1;
+      const consumed = consumeQuantifier(source, atomEnd, maxRepetition);
+      if (consumed === INVALID_QUANTIFIER) return true;
+      if (consumed?.unbounded) {
+        broadUnboundedCount += 1;
+        adjacentBroadUnboundedCount += 1;
+        if (adjacentBroadUnboundedCount >= 2 || broadUnboundedCount >= 3) return true;
+      } else if (isRequiredLiteralAtom(consumed)) {
+        adjacentBroadUnboundedCount = 0;
+      }
+      i = consumed?.end ?? atomEnd;
+      continue;
+    }
+
+    if (c === "(" || c === ")" || c === "|" || c === "^" || c === "$") {
+      i += 1;
+      continue;
+    }
+
+    const atomEnd = i + 1;
+    const consumed = consumeQuantifier(source, atomEnd, maxRepetition);
+    if (consumed === INVALID_QUANTIFIER) return true;
+    if (isRequiredLiteralAtom(consumed)) adjacentBroadUnboundedCount = 0;
+    i = consumed?.end ?? atomEnd;
+  }
+
+  return false;
+}
+
+function isRequiredLiteralAtom(consumed: ConsumedQuantifier | null): boolean {
+  return consumed === null || consumed.required;
+}
+
+function isBroadEscapedAtom(atom: string | undefined): boolean {
+  return atom === "s" || atom === "S" || atom === "w" || atom === "W" || atom === "d" || atom === "D";
+}
+
+function isBroadCharacterClass(source: string): boolean {
+  const body = source.slice(1, -1);
+  if (!body) return false;
+  if (body.startsWith("^")) return true;
+  return body.includes("\\s") || body.includes("\\S") || body.includes("\\w") || body.includes("\\W");
 }

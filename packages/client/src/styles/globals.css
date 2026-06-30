@@ -4328,13 +4328,15 @@ strong {
     padding: 0.25em 2% max(0.5em, env(safe-area-inset-bottom)) !important;
     scroll-margin-bottom: max(4.5rem, env(safe-area-inset-bottom));
   }
-  .chat-input-container .rounded-2xl {
-    padding-left: 0.75em !important;
-    padding-right: 0.5em !important;
+  .chat-input-container .marinara-chat-input-shell {
+    gap: 0.25rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.375rem !important;
   }
 
   .mari-chat-input-textarea {
-    max-height: min(12.5rem, calc(var(--mari-visual-viewport-height, 100dvh) * 0.32)) !important;
+    max-height: min(8rem, calc(var(--mari-visual-viewport-height, 100dvh) * 0.24)) !important;
+    overflow-y: auto;
   }
 }
 
@@ -4364,7 +4366,7 @@ strong {
     white-space: nowrap;
   }
 
-  .chat-input-container .rounded-2xl {
+  .chat-input-container .marinara-chat-input-shell {
     border-radius: 1em !important;
   }
 }

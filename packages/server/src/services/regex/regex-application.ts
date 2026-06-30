@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { applyRegexReplacement, isPatternSafe, resolveRegexPatternLiteralMacros } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
+import { vmRegexReplaceGuard } from "../lorebook/regex-timeout.js";
 
 type RegexPlacement = "ai_output" | "user_input";
 type RegexApplyMode = "prompt" | "display" | "both";
@@ -24,6 +25,7 @@ type RegexScriptLike = {
 };
 
 const warnedInvalidPlacementScripts = new Set<string>();
+const REGEX_REPLACE_TIMEOUT_MIN_LENGTH = 256;
 
 export type RegexMessageLike = {
   id?: string | null;
@@ -163,6 +165,7 @@ export function applyRegexScriptsToPromptText(
       const flags = typeof script.flags === "string" ? script.flags : "";
       const re = new RegExp(findRegex, flags);
       const replacement = typeof script.replaceString === "string" ? script.replaceString : "";
+      if (result.length >= REGEX_REPLACE_TIMEOUT_MIN_LENGTH && !vmRegexReplaceGuard(re, result)) continue;
       result = applyRegexReplacement(result, re, replacement, (value) => resolveScriptString(value, options));
       for (const trim of parseTrimStrings(script.trimStrings)) {
         const resolvedTrim = resolveScriptString(trim, options);

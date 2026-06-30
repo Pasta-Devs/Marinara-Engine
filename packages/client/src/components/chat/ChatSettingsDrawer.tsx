@@ -633,7 +633,7 @@ export function ChatSettingsDrawer({
   const connectChat = useConnectChat();
   const disconnectChat = useDisconnectChat();
   const { retryAgents } = useGenerate();
-  const agentProcessing = useAgentStore((s) => s.isProcessing);
+  const agentProcessing = useAgentStore((s) => s.processingChatIds.includes(chat.id));
   const scheduleGenerationPreferences = useUIStore((s) => s.scheduleGenerationPreferences);
   const setScheduleGenerationPreferences = useUIStore((s) => s.setScheduleGenerationPreferences);
   const roleplaySpriteScale = useUIStore((s) => s.roleplaySpriteScale);

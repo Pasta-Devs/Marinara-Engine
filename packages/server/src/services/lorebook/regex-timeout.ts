@@ -56,3 +56,33 @@ export function createTimeoutRegexExecutor(timeoutMs: number = DEFAULT_REGEX_TIM
 
 /** Default executor used by keyword-scanner.ts. */
 export const vmRegexExecutor = createTimeoutRegexExecutor();
+
+/** Build a guard that proves `text.replace(regex, "")` returns within a vm timeout. */
+export function createTimeoutRegexReplaceGuard(timeoutMs: number = DEFAULT_REGEX_TIMEOUT_MS) {
+  return function vmRegexReplaceGuard(regex: RegExp, text: string): boolean {
+    const context = vm.createContext({ __pattern: regex.source, __flags: regex.flags, __text: text });
+    try {
+      vm.runInContext("__text.replace(new RegExp(__pattern, __flags), '')", context, {
+        timeout: timeoutMs,
+        displayErrors: false,
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes("timed out")) {
+        logger.warn(
+          "Regex script /%s/%s exceeded %dms replace timeout against prompt text (length=%d) — script will be skipped",
+          regex.source,
+          regex.flags,
+          timeoutMs,
+          text.length,
+        );
+        return false;
+      }
+      throw err;
+    }
+  };
+}
+
+/** Default replacement guard used by regex-application.ts. */
+export const vmRegexReplaceGuard = createTimeoutRegexReplaceGuard();

@@ -4,6 +4,24 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+## [2.0.9]
+
+### Fixed
+
+- Fixed migrated default agent prompts causing roleplay lag by keeping compatible agents batched with a raw JSON result map instead of wrapping JSON-only prompts in `<result>` tags, and made the default-prompt migration stop rewriting already-current named prompt options on every startup.
+- Fixed agent UI flicker by scoping agent processing and failure badges to the chat that owns the run, and stopped ChatArea from repeatedly auto-switching Game chats to the newest session during chat-list refreshes.
+- Reduced background request churn by stopping synced themes/extensions from polling every 15 seconds and slowing Professor Mari workspace status refreshes outside explicit workspace actions.
+- Fixed rewrite-agent notification timing so held assistant messages keep their post-processing marker until the final rewritten text lands.
+- Fixed failed send/generation recovery so timeout-style failures restore the submitted draft, completions, and attachments for retry.
+- Hardened prompt regex scripts against polynomial ReDoS by rejecting chained broad unbounded patterns and guarding long server-side replacement runs with a VM timeout.
+- Improved profile/backup ZIP import diagnostics when the selected archive does not contain `marinara-profile.json`.
+- Tightened Android Firefox chat input sizing so the mobile composer grows less rigidly and leaves more room for typed text.
+
+### Platform Notes
+
+- Android `versionName` is `2.0.9` with `versionCode 28`.
+- Windows, macOS/Linux, Termux, Docker, APK, and PWA users can update through the usual v2 updater paths once release assets are published.
+
 ## [2.0.8]
 
 ### Fixed

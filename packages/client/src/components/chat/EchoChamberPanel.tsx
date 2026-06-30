@@ -146,10 +146,12 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const toggleEchoChamber = useUIStore((s) => s.toggleEchoChamber);
   const setEchoChamberSide = useUIStore((s) => s.setEchoChamberSide);
   const echoMessages = useAgentStore((s) => s.echoMessages);
-  const isAgentProcessing = useAgentStore((s) => s.isProcessing);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const activeChatId = useChatStore((s) => s.activeChatId);
+  const isAgentProcessing = useAgentStore((s) =>
+    activeChatId ? s.processingChatIds.includes(activeChatId) : s.isProcessing,
+  );
   const isStreaming = useChatStore((s) => s.isStreaming);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const { data: chat } = useChat(activeChatId);

@@ -110,6 +110,19 @@ function isSupportedChatAttachment(file: File): boolean {
   return TEXT_ATTACHMENT_EXTENSIONS.has(getFileExtension(file.name));
 }
 
+function getChatInputTextareaMaxHeightPx() {
+  if (typeof window === "undefined") return 200;
+  const isMobile = window.matchMedia("(max-width: 767px)").matches;
+  if (!isMobile) return 200;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  return Math.max(56, Math.min(128, Math.floor(viewportHeight * 0.24)));
+}
+
+function resizeChatInputTextarea(el: HTMLTextAreaElement) {
+  el.style.height = "auto";
+  el.style.height = `${Math.min(el.scrollHeight, getChatInputTextareaMaxHeightPx())}px`;
+}
+
 function readFileAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -269,8 +282,7 @@ export const ChatInput = memo(function ChatInput({
       const cursor = start + text.length;
       el.value = nextValue;
       el.selectionStart = el.selectionEnd = cursor;
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+      resizeChatInputTextarea(el);
       syncInputState(nextValue);
       setInputDraft(activeChatId, nextValue);
       el.focus();
@@ -354,8 +366,7 @@ export const ChatInput = memo(function ChatInput({
       textareaRef.current.value = draft;
       syncInputState(draft);
       // Resize textarea to fit content
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+      resizeChatInputTextarea(textareaRef.current);
       const restoredAttachments = pendingAttachmentDraftsRef.current.get(activeChatId) ?? [];
       replaceAttachments(restoredAttachments);
       pendingAttachmentDraftsRef.current.delete(activeChatId);
@@ -740,6 +751,33 @@ export const ChatInput = memo(function ChatInput({
 
     message = resolveInputMacros(message);
 
+    const submittingChatId = activeChatId;
+    const submittedDraft = textareaRef.current?.value ?? "";
+    const submittedHeight = textareaRef.current?.style.height ?? "auto";
+    const submittedAttachments = attachments;
+    const submittedCompletions = completions;
+    const restoreSubmittedDraft = () => {
+      const activeChatIdAfterFailure = useChatStore.getState().activeChatId;
+      const currentValue = textareaRef.current?.value ?? "";
+      const canRestoreVisibleDraft = activeChatIdAfterFailure === submittingChatId && currentValue.length === 0;
+      if (canRestoreVisibleDraft && textareaRef.current) {
+        textareaRef.current.value = submittedDraft;
+        textareaRef.current.style.height = submittedHeight;
+        syncInputState(submittedDraft);
+        setCompletions(submittedCompletions);
+      }
+      if (submittedAttachments.length > 0) {
+        if (activeChatIdAfterFailure === submittingChatId) {
+          updateAttachments((current) => (current.length === 0 ? submittedAttachments : current));
+        } else {
+          pendingAttachmentDraftsRef.current.set(submittingChatId, submittedAttachments);
+        }
+      }
+      if (submittedDraft && (canRestoreVisibleDraft || activeChatIdAfterFailure !== submittingChatId)) {
+        setInputDraft(submittingChatId, submittedDraft);
+      }
+    };
+
     if (textareaRef.current) {
       textareaRef.current.value = "";
       textareaRef.current.style.height = "auto";
@@ -767,6 +805,7 @@ export const ChatInput = memo(function ChatInput({
           });
         }
       } catch (error) {
+        restoreSubmittedDraft();
         const msg = error instanceof Error ? error.message : "Failed to send message";
         toast.error(msg);
       }
@@ -774,13 +813,17 @@ export const ChatInput = memo(function ChatInput({
     }
 
     try {
-      await generateWithNarrativeDirector({
+      const succeeded = await generateWithNarrativeDirector({
         chatId: activeChatId,
         connectionId: null,
         userMessage: message,
         ...(pendingAttachments.length ? { attachments: pendingAttachments } : {}),
       });
+      if (succeeded === false) {
+        restoreSubmittedDraft();
+      }
     } catch (error) {
+      restoreSubmittedDraft();
       const msg = error instanceof Error ? error.message : "Generation failed";
       toast.error(msg);
       console.error("Send failed:", error);
@@ -1163,8 +1206,7 @@ export const ChatInput = memo(function ChatInput({
     if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
     resizeRafRef.current = requestAnimationFrame(() => {
       if (!el) return;
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+      resizeChatInputTextarea(el);
     });
 
     // Slash command autocomplete
@@ -1288,8 +1330,7 @@ export const ChatInput = memo(function ChatInput({
       if (!translated || !textareaRef.current) return;
       const formatted = formatTextQuotes(translated, quoteFormat);
       textareaRef.current.value = formatted;
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + "px";
+      resizeChatInputTextarea(textareaRef.current);
       syncInputState(formatted);
       setInputDraft(activeChatId, formatted);
       textareaRef.current.focus();
@@ -1313,8 +1354,7 @@ export const ChatInput = memo(function ChatInput({
 
       el.value = nextValue;
       el.setSelectionRange(nextCursor, nextCursor);
-      el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 200) + "px";
+      resizeChatInputTextarea(el);
       syncInputState(nextValue);
       if (activeChatId) setInputDraft(activeChatId, nextValue);
       el.focus();

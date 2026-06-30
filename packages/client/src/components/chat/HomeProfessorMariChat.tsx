@@ -1891,8 +1891,9 @@ export function HomeProfessorMariChat({
       }
     });
     const timer = window.setInterval(() => {
+      if (document.hidden) return;
       void refreshWorkspaceStatus().catch(() => undefined);
-    }, 2000);
+    }, 15_000);
     return () => window.clearInterval(timer);
   }, [refreshWorkspaceStatus]);
 

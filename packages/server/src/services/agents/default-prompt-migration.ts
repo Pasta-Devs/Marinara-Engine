@@ -64,6 +64,7 @@ function migratePromptTemplateOptions(agentType: string, settings: unknown) {
     const defaultOption = defaultOptions.get(option.id);
     if (!defaultOption) return option;
     if (!isKnownDefaultPrompt(agentType, option.promptTemplate, defaultOption.promptTemplate)) return option;
+    if (option.promptTemplate === defaultOption.promptTemplate) return option;
     changed = true;
     return { ...option, promptTemplate: defaultOption.promptTemplate };
   });

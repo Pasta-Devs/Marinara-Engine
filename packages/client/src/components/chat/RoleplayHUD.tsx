@@ -130,9 +130,13 @@ export function RoleplayHUD({
   const enabledAgentTypes = enabledAgentTypesProp ?? EMPTY_AGENT_TYPE_SET;
 
   const thoughtBubbles = useAgentStore((s) => s.thoughtBubbles);
-  const isAgentProcessing = useAgentStore((s) => s.isProcessing);
-  const failedAgentTypes = useAgentStore((s) => s.failedAgentTypes);
-  const failedAgentFailures = useAgentStore((s) => s.failedAgentFailures);
+  const isAgentProcessing = useAgentStore((s) => s.processingChatIds.includes(chatId));
+  const failedAgentTypes = useAgentStore((s) =>
+    s.failedAgentChatId && s.failedAgentChatId !== chatId ? [] : s.failedAgentTypes,
+  );
+  const failedAgentFailures = useAgentStore((s) =>
+    s.failedAgentChatId && s.failedAgentChatId !== chatId ? [] : s.failedAgentFailures,
+  );
   const dismissThoughtBubble = useAgentStore((s) => s.dismissThoughtBubble);
   const clearThoughtBubbles = useAgentStore((s) => s.clearThoughtBubbles);
   const resetAgentStore = useAgentStore((s) => s.reset);

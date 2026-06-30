@@ -47,10 +47,8 @@ export function useExtensions() {
   return useQuery({
     queryKey: extensionKeys.list(),
     queryFn: () => api.get<InstalledExtension[]>("/extensions"),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
     refetchOnReconnect: true,
-    refetchInterval: () => (document.hidden ? false : 15_000),
   });
 }
 

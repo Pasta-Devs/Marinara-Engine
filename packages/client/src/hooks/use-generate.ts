@@ -969,7 +969,7 @@ export function useGenerate() {
         clearStreamBuffer(params.chatId);
         clearThoughtBubbles();
         clearCyoaChoices();
-        clearFailedAgentTypes();
+        clearFailedAgentTypes(params.chatId);
         setRegenerateMessageId(params.regenerateMessageId ?? null);
       }
       if (useUIStore.getState().debugMode) {
@@ -1344,7 +1344,7 @@ export function useGenerate() {
             }
 
             case "agent_start": {
-              if (isActiveChat()) setProcessing(true);
+              setProcessing(true, params.chatId);
               break;
             }
 
@@ -1889,7 +1889,6 @@ export function useGenerate() {
                   pendingPostProcessingAgentType === "text-rewrite")
               ) {
                 const heldExtra = { ...savedExtra };
-                delete heldExtra.postProcessingPending;
                 flushThinkingStreamFilter();
                 flushLeadingSpeakerPrefix();
                 thinkingStreamFilter.reset();
@@ -2025,7 +2024,7 @@ export function useGenerate() {
             case "agent_error": {
               const errData = event.data as { agentType: string; agentName?: string | null; error: string };
               const failure = toAgentFailure(errData);
-              setFailedAgentFailures([failure]);
+              setFailedAgentFailures([failure], params.chatId);
               showAgentFailuresError([failure], () => {
                 void retryAgentsRef.current?.(params.chatId, [failure.agentType]);
               });
@@ -2140,7 +2139,7 @@ export function useGenerate() {
                   setStreaming(false);
                   clearStreamBuffer(params.chatId);
                 }
-                setProcessing(false);
+                setProcessing(false, params.chatId);
               }
               clearMariPhaseForThisChat();
               break;
@@ -2186,7 +2185,7 @@ export function useGenerate() {
               const names = (event as any).characters as string[] | undefined;
               const label = names?.length === 1 ? names[0] : "Characters";
               toast(`${label} is offline. They'll respond when they're back online.`, { icon: "💤" });
-              if (isActiveChat()) setProcessing(false);
+              setProcessing(false, params.chatId);
               break;
             }
 
@@ -2204,7 +2203,7 @@ export function useGenerate() {
               // Flush pending text so the user sees what arrived before the error
               flushLeadingSpeakerPrefix();
               flushTypewriterBuffer();
-              if (isActiveChat()) setProcessing(false);
+              setProcessing(false, params.chatId);
               clearMariPhaseForThisChat();
               showError((event.data as string) || "Generation failed");
               window.dispatchEvent(new CustomEvent("marinara:generation-error", { detail: { chatId: params.chatId } }));
@@ -2218,7 +2217,7 @@ export function useGenerate() {
                 error: string | null;
               }>;
               const failures = failedList.map(toAgentFailure);
-              setFailedAgentFailures(failures);
+              setFailedAgentFailures(failures, params.chatId);
               showAgentFailuresError(failures, () => {
                 void retryAgentsRef.current?.(
                   params.chatId,
@@ -2397,7 +2396,7 @@ export function useGenerate() {
             clearStreamBuffer(params.chatId);
           }
           if (isActiveChat()) {
-            setProcessing(false);
+            setProcessing(false, params.chatId);
             setRegenerateMessageId(null);
             setStreamingCharacterId(null);
             setTypingCharacterName(null);
@@ -2523,10 +2522,10 @@ export function useGenerate() {
       const isTrackerRetry = agentTypes.some(
         (agentType) => BUILT_IN_TRACKER_AGENT_TYPE_SET.has(agentType) || !BUILT_IN_AGENT_TYPE_SET.has(agentType),
       );
-      setProcessing(true);
+      setProcessing(true, chatId);
       if (isTrackerRetry) useGameStateStore.getState().setRefreshingChat(chatId);
-      clearFailedAgentTypes();
-      clearThoughtBubbles();
+      clearFailedAgentTypes(chatId);
+      if (isActiveChat()) clearThoughtBubbles();
       let hasError = false;
 
       try {
@@ -2641,7 +2640,7 @@ export function useGenerate() {
                 ? (formatAgentBubble(result.agentType, result.agentName, result.data) ??
                   formatRetryAgentActivityBubble(result, isTrackerRetry))
                 : null;
-              if (bubble) addThoughtBubble(result.agentType, result.agentName, bubble);
+              if (isActiveChat() && bubble) addThoughtBubble(result.agentType, result.agentName, bubble);
 
               if (result.success && result.data) {
                 if (result.agentType === "echo-chamber") {
@@ -2718,7 +2717,7 @@ export function useGenerate() {
                 hasError = true;
                 const failure = toAgentFailure(result);
                 failedRetryFailures.push(failure);
-                setFailedAgentFailures(failedRetryFailures);
+                setFailedAgentFailures(failedRetryFailures, chatId);
                 showAgentFailuresError([failure], () => {
                   void retryAgentsRef.current?.(chatId, [failure.agentType], options);
                 });
@@ -2741,7 +2740,7 @@ export function useGenerate() {
                 error: string | null;
               }>;
               const failures = failedList.map(toAgentFailure);
-              setFailedAgentFailures(failures);
+              setFailedAgentFailures(failures, chatId);
               showAgentFailuresError(failures, () => {
                 void retryAgentsRef.current?.(
                   chatId,
@@ -2793,7 +2792,7 @@ export function useGenerate() {
               const errData = event.data as { agentType: string; agentName?: string | null; error: string };
               hasError = true;
               const failure = toAgentFailure(errData);
-              setFailedAgentFailures([failure]);
+              setFailedAgentFailures([failure], chatId);
               showAgentFailuresError([failure], () => {
                 void retryAgentsRef.current?.(chatId, [failure.agentType], options);
               });
@@ -2834,7 +2833,7 @@ export function useGenerate() {
             : "Agent retry failed";
         showError(msg);
       } finally {
-        setProcessing(false);
+        setProcessing(false, chatId);
         if (useChatStore.getState().abortControllers.get(chatId) === abortController) {
           useChatStore.getState().setAbortController(chatId, null);
         }
