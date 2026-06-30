@@ -1670,6 +1670,16 @@ export function GameNarration({
     sourceMessagesById,
   ]);
 
+  // Fast O(1) segment-id → index lookup, rebuilt only when `segments` changes.
+  // The per-segment log renderers below previously each called
+  // `segments.findIndex(...)`, making stacked-log rendering O(n²) in segment
+  // count — the root of the #3104 game-mode freeze on long chats.
+  const segmentIndexById = useMemo(() => {
+    const map = new Map<string, number>();
+    segments.forEach((segment, index) => map.set(segment.id, index));
+    return map;
+  }, [segments]);
+
   // Clamp activeIndex when segments shrink (e.g. new party chat clears old dialogue)
   useEffect(() => {
     if (segments.length > 0 && activeIndex >= segments.length) {
@@ -3705,7 +3715,7 @@ export function GameNarration({
     const sourceMessageRole = sourceMessageId ? (sourceMessagesById.get(sourceMessageId)?.role ?? null) : null;
     const sourceRole = seg.sourceRole ?? sourceMessageRole;
     const isUserAuthoredSource = sourceRole === "user" || sourceMessageRole === "user";
-    const liveSegmentIndex = segments.findIndex((candidate) => candidate.id === seg.id);
+    const liveSegmentIndex = segmentIndexById.get(seg.id) ?? -1;
     const canEditMessage = !!onEditMessage && !!sourceMessageId && isUserAuthoredSource;
     const canEditSegment =
       !!onEditSegment &&
@@ -4865,7 +4875,7 @@ export function GameNarration({
                       const sourceRole = seg.sourceRole ?? sourceMessageRole;
                       const isUserAuthoredSource = sourceRole === "user" || sourceMessageRole === "user";
                       const isActiveSeg = active?.id === seg.id;
-                      const liveSegmentIndex = segments.findIndex((s) => s.id === seg.id);
+                      const liveSegmentIndex = segmentIndexById.get(seg.id) ?? -1;
                       const canJumpToSeg =
                         !!latestAssistant &&
                         sourceMessageId === latestAssistant.id &&
