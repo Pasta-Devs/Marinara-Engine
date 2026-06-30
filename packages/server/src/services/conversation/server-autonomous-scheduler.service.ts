@@ -105,8 +105,8 @@ function parseSsePayload(payload: string): { done: boolean; error: string | null
 }
 
 function isHardGenerationFailure(error: string, statusCode?: number): boolean {
-  if (statusCode !== undefined && statusCode >= 400 && statusCode < 500 && statusCode !== 408 && statusCode !== 409 && statusCode !== 429) {
-    return true;
+  if (statusCode !== undefined) {
+    return statusCode >= 400 && statusCode < 500 && statusCode !== 408 && statusCode !== 409 && statusCode !== 429;
   }
   return /\b(?:400|401|403|404|405|410|422)\b/u.test(error);
 }

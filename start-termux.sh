@@ -184,6 +184,15 @@ elif [ -d ".git" ]; then
     TARGET_BRANCH="main"
     if [ "$CURRENT_BRANCH" = "staging" ]; then
         TARGET_BRANCH="staging"
+    elif [ -z "$CURRENT_BRANCH" ]; then
+        git fetch origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/heads/staging:refs/remotes/origin/staging" \
+            --quiet 2>/dev/null || true
+        if git merge-base --is-ancestor HEAD origin/staging 2>/dev/null \
+            && ! git merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
+            TARGET_BRANCH="staging"
+        fi
     fi
     TARGET_REF="origin/${TARGET_BRANCH}"
     if ! git fetch origin "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}" --quiet 2>/dev/null; then

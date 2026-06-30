@@ -1567,7 +1567,7 @@ export class MariDbService {
           ok: !!row,
           mode: "read",
           command: context.command,
-          output: row ? summarizeLorebookEntryRow(row) : null,
+          output: row ? parseRow("lorebook_entries", row) : null,
         };
       }
       case "search": {
@@ -2666,7 +2666,7 @@ export class MariDbService {
           ok: !!row,
           mode: "read",
           command: context.command,
-          output: row ? summarizeLorebookEntryRow(row) : null,
+          output: row ? parseRow("lorebook_entries", row) : null,
         };
       }
       case "search": {

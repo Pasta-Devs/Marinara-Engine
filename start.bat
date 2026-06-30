@@ -105,6 +105,14 @@ set "CURRENT_BRANCH="
 for /f "tokens=*" %%i in ('git branch --show-current 2^>nul') do set "CURRENT_BRANCH=%%i"
 set "TARGET_BRANCH=main"
 if /I "!CURRENT_BRANCH!"=="staging" set "TARGET_BRANCH=staging"
+if "!CURRENT_BRANCH!"=="" (
+    git fetch origin "+refs/heads/main:refs/remotes/origin/main" "+refs/heads/staging:refs/remotes/origin/staging" --quiet >nul 2>&1
+    git merge-base --is-ancestor HEAD origin/staging >nul 2>&1
+    if not errorlevel 1 (
+        git merge-base --is-ancestor HEAD origin/main >nul 2>&1
+        if errorlevel 1 set "TARGET_BRANCH=staging"
+    )
+)
 set "TARGET_REF=origin/!TARGET_BRANCH!"
 git fetch origin "+refs/heads/!TARGET_BRANCH!:refs/remotes/origin/!TARGET_BRANCH!" --quiet >nul 2>&1
 if errorlevel 1 (

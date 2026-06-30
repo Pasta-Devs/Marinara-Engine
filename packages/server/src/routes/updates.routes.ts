@@ -128,14 +128,42 @@ function getGitLauncherCommand(platform: ServerPlatform) {
   }
 }
 
-function getUpdateChannelForBranch(branch: string | null | undefined) {
-  return branch === UPDATE_CHANNELS.staging.branch ? UPDATE_CHANNELS.staging : UPDATE_CHANNELS.stable;
+async function gitCommandSucceeds(root: string, args: string[]): Promise<boolean> {
+  try {
+    await execFileAsync("git", args, { cwd: root, timeout: 5_000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function isDetachedStagingCheckout(root: string): Promise<boolean> {
+  const isOnStagingHistory = await gitCommandSucceeds(root, [
+    "merge-base",
+    "--is-ancestor",
+    "HEAD",
+    UPDATE_CHANNELS.staging.targetRef,
+  ]);
+  if (!isOnStagingHistory) return false;
+  const isOnStableHistory = await gitCommandSucceeds(root, [
+    "merge-base",
+    "--is-ancestor",
+    "HEAD",
+    UPDATE_CHANNELS.stable.targetRef,
+  ]);
+  return !isOnStableHistory;
+}
+
+async function getUpdateChannelForCheckout(root: string, branch: string | null | undefined) {
+  if (branch === UPDATE_CHANNELS.staging.branch) return UPDATE_CHANNELS.staging;
+  if (!branch && (await isDetachedStagingCheckout(root))) return UPDATE_CHANNELS.staging;
+  return UPDATE_CHANNELS.stable;
 }
 
 function getManualGitApplyCommand(channel = UPDATE_CHANNELS.stable) {
   const checkoutCommand =
     channel.id === "staging"
-      ? `git checkout -B ${channel.branch} ${channel.targetRef}`
+      ? `git show-ref --verify --quiet refs/heads/${channel.branch} && (git checkout ${channel.branch} && git merge --ff-only ${channel.targetRef}) || git checkout -b ${channel.branch} ${channel.targetRef}`
       : `(git merge --ff-only ${channel.targetRef} || git checkout --detach ${channel.targetRef})`;
   return `git fetch ${UPDATE_REMOTE} ${channel.fetchRef} && ${checkoutCommand} && pnpm install --frozen-lockfile && pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build`;
 }
@@ -198,6 +226,26 @@ async function getCurrentBranch(root: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+async function checkoutOrCreateUpdateBranch(root: string, channel: UpdateChannelInfo): Promise<void> {
+  const branchRef = `refs/heads/${channel.branch}`;
+  const branchExists = await gitCommandSucceeds(root, ["show-ref", "--verify", "--quiet", branchRef]);
+  if (branchExists) {
+    await execFileAsync("git", ["checkout", channel.branch], {
+      cwd: root,
+      timeout: 60_000,
+    });
+    await execFileAsync("git", ["merge", "--ff-only", channel.targetRef], {
+      cwd: root,
+      timeout: 60_000,
+    });
+    return;
+  }
+  await execFileAsync("git", ["checkout", "-b", channel.branch, channel.targetRef], {
+    cwd: root,
+    timeout: 60_000,
+  });
 }
 
 async function hasTrackedChanges(root: string): Promise<boolean> {
@@ -429,10 +477,14 @@ type ApplyUpdateBody = {
   targetCommit?: string;
 };
 
-function readUpdateChannel(value: unknown, currentBranch?: string | null): UpdateChannelInfo {
+async function resolveUpdateChannel(
+  root: string,
+  value: unknown,
+  currentBranch?: string | null,
+): Promise<UpdateChannelInfo> {
   if (value === "staging") return UPDATE_CHANNELS.staging;
   if (value === "stable") return UPDATE_CHANNELS.stable;
-  return getUpdateChannelForBranch(currentBranch);
+  return getUpdateChannelForCheckout(root, currentBranch);
 }
 
 function serializeUpdateChannels() {
@@ -510,7 +562,11 @@ export async function updatesRoutes(app: FastifyInstance) {
     const clientPlatform = getClientPlatform(req.headers["user-agent"]);
     const root = getMonorepoRoot();
     const currentBranch = gitInstall ? await getCurrentBranch(root) : null;
-    const channel = readUpdateChannel((req.query as { channel?: unknown } | undefined)?.channel, currentBranch);
+    const channel = await resolveUpdateChannel(
+      root,
+      (req.query as { channel?: unknown } | undefined)?.channel,
+      currentBranch,
+    );
     const applyAvailability = getApplyAvailability(installType, serverPlatform, channel);
 
     // Check commits behind for git installs
@@ -609,7 +665,7 @@ export async function updatesRoutes(app: FastifyInstance) {
     const serverPlatform = getServerPlatform();
     const root = getMonorepoRoot();
     const currentBranch = gitInstall ? await getCurrentBranch(root) : null;
-    const channel = readUpdateChannel(req.body?.channel, currentBranch);
+    const channel = await resolveUpdateChannel(root, req.body?.channel, currentBranch);
 
     if (!gitInstall) {
       const manualUpdateCommand = getManualUpdateCommand(installType, serverPlatform, channel);
@@ -699,15 +755,20 @@ export async function updatesRoutes(app: FastifyInstance) {
       // Installer-created release checkouts are shallow detached HEADs, so
       // they cannot reliably merge a remote-tracking branch. A detached
       // checkout is expected there; normal main-branch clones still fast-forward.
-      if (oldHead !== targetHead) {
+      const shouldAttachStagingBranch = channel.id === "staging" && currentBranch !== channel.branch;
+      if (oldHead !== targetHead || shouldAttachStagingBranch) {
         try {
-          if (currentBranch === channel.branch) {
+          if (channel.id === "staging") {
+            if (currentBranch === channel.branch) {
+              await execFileAsync("git", ["merge", "--ff-only", channel.targetRef], {
+                cwd: root,
+                timeout: 60_000,
+              });
+            } else {
+              await checkoutOrCreateUpdateBranch(root, channel);
+            }
+          } else if (currentBranch === channel.branch) {
             await execFileAsync("git", ["merge", "--ff-only", channel.targetRef], {
-              cwd: root,
-              timeout: 60_000,
-            });
-          } else if (channel.id === "staging") {
-            await execFileAsync("git", ["checkout", "-B", channel.branch, channel.targetRef], {
               cwd: root,
               timeout: 60_000,
             });

@@ -462,6 +462,7 @@ export function GameInput({
         />
         <button
           onClick={() => fileInputRef.current?.click()}
+          aria-label="Attach files"
           className={cn(
             "shrink-0 rounded-lg p-1 transition-all active:scale-90 sm:p-1.5",
             attachments.length

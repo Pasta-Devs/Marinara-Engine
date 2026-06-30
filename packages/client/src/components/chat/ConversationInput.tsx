@@ -266,12 +266,12 @@ function readFileAsDataUrl(file: Blob): Promise<string> {
 
 function useIsMobileComposerViewport() {
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(max-width: 767px)").matches,
+    typeof window === "undefined" ? false : window.matchMedia("(max-width: 639px)").matches,
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const media = window.matchMedia("(max-width: 767px)");
+    const media = window.matchMedia("(max-width: 639px)");
     const update = () => setIsMobileViewport(media.matches);
     update();
     media.addEventListener("change", update);
@@ -389,12 +389,15 @@ export function ConversationInput({
   );
   const requiresManualGuideTarget = groupResponseOrder === "manual" && activeCharacterNames.length > 1;
   const inputPlaceholder = useMemo(() => {
-    if (isMobileComposerViewport) return "Message… /cmds";
     if (groupResponseOrder === "manual") {
+      if (isMobileComposerViewport) {
+        return activeCharacterNames.length > 0 ? `Message… @${activeCharacterNames[0]}` : "Message freely…";
+      }
       return activeCharacterNames.length > 0
         ? `Message freely; @${activeCharacterNames[0]} to get a reply`
         : "Message freely...";
     }
+    if (isMobileComposerViewport) return "Message… /cmds";
     if (activeCharacterNames.length > 1 && chatName) return `Message ${chatName}, / for commands`;
     if (activeCharacterNames.length > 0) return `Message @${activeCharacterNames[0]}, / for commands`;
     return "Message...";

@@ -68,6 +68,11 @@ const MAX_SUMMARY_CHUNKS_PER_DAY = 12;
 const SUMMARY_TRANSIENT_RETRY_BASE_MS = 5 * 60_000;
 const SUMMARY_TRANSIENT_RETRY_MAX_MS = 60 * 60_000;
 const SUMMARY_PERMANENT_RETRY_MS = 24 * 60 * 60_000;
+const MAX_STORED_SUMMARY_FAILURE_ERROR_CHARS = 240;
+
+function createSummaryFailureMap(): Record<string, ConversationSummaryFailureRecord> {
+  return Object.create(null) as Record<string, ConversationSummaryFailureRecord>;
+}
 
 function coerceFailureRecord(value: unknown): ConversationSummaryFailureRecord | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -87,7 +92,7 @@ function coerceFailureRecord(value: unknown): ConversationSummaryFailureRecord |
 }
 
 export function normalizeConversationSummaryFailures(raw: unknown): ConversationSummaryFailures {
-  const empty: ConversationSummaryFailures = { days: {}, weeks: {} };
+  const empty: ConversationSummaryFailures = { days: createSummaryFailureMap(), weeks: createSummaryFailureMap() };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return empty;
   const record = raw as Record<string, unknown>;
   for (const [bucketName, target] of [
@@ -384,6 +389,14 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function storedSummaryFailureError(error: string): string {
+  const sanitized = error.replace(/[\u0000-\u001f\u007f]+/gu, " ").replace(/\s+/gu, " ").trim();
+  if (!sanitized) return "Summary generation failed";
+  return sanitized.length > MAX_STORED_SUMMARY_FAILURE_ERROR_CHARS
+    ? `${sanitized.slice(0, MAX_STORED_SUMMARY_FAILURE_ERROR_CHARS - 1)}…`
+    : sanitized;
+}
+
 function isPermanentSummaryFailure(error: string): boolean {
   return /\b(?:400|401|403|404|405|410|422)\b/u.test(error);
 }
@@ -413,7 +426,7 @@ function recordSummaryFailure(
   return {
     attempts: previous && previous.model === model ? previous.attempts + 1 : 1,
     lastAttemptAt: now.toISOString(),
-    lastError: error,
+    lastError: storedSummaryFailureError(error),
     model,
     permanent: isPermanentSummaryFailure(error),
   };

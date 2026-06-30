@@ -125,12 +125,12 @@ function resizeChatInputTextarea(el: HTMLTextAreaElement) {
 
 function useIsMobileComposerViewport() {
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(max-width: 767px)").matches,
+    typeof window === "undefined" ? false : window.matchMedia("(max-width: 639px)").matches,
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const media = window.matchMedia("(max-width: 767px)");
+    const media = window.matchMedia("(max-width: 639px)");
     const update = () => setIsMobileViewport(media.matches);
     update();
     media.addEventListener("change", update);
