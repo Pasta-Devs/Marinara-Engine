@@ -561,6 +561,12 @@ function normalizeLimit(value: unknown, fallback: number, max: number) {
   return Math.min(max, Math.floor(parsed));
 }
 
+function normalizeOffset(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.floor(parsed);
+}
+
 function makeEmptyValidation(): MariDbValidationResult {
   return { status: "passed", errors: [], notices: [], infos: [] };
 }
@@ -650,6 +656,8 @@ function normalizeAppDataActionName(action: string): string {
     "lorebook.entry.create": "lorebook.addentry",
     "lorebook.entries.add": "lorebook.addentry",
     "lorebook.entries.create": "lorebook.addentry",
+    "lorebook.entry.get": "lorebook.getentry",
+    "lorebook.entries.get": "lorebook.getentry",
     "lorebook.entry.update": "lorebook.updateentry",
     "lorebook.entries.update": "lorebook.updateentry",
     "theme.set": "theme.setactive",
@@ -884,6 +892,24 @@ function summarizeLorebookRow(row: Row): Row {
     vectorMaxResults: row.vectorMaxResults,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+function summarizeLorebookEntryRow(row: Row): Row {
+  const parsed = parseRow("lorebook_entries", row);
+  return {
+    id: parsed.id,
+    lorebookId: parsed.lorebookId,
+    name: parsed.name,
+    description: typeof parsed.description === "string" ? parsed.description : "",
+    tag: typeof parsed.tag === "string" ? parsed.tag : "",
+    enabled: parsed.enabled,
+    constant: parsed.constant,
+    keys: parsed.keys,
+    content: typeof parsed.content === "string" ? truncateStr(parsed.content, 200) : "",
+    order: parsed.order,
+    createdAt: parsed.createdAt,
+    updatedAt: parsed.updatedAt,
   };
 }
 
@@ -1480,6 +1506,7 @@ export class MariDbService {
     changed = assignStringField(target, source, ["name"], "name") || changed;
     changed = assignStringField(target, source, ["content"], "content") || changed;
     changed = assignStringField(target, source, ["description"], "description") || changed;
+    changed = assignStringField(target, source, ["tag"], "tag") || changed;
     changed = assignListField(target, source, ["keys"], "keys") || changed;
     changed = assignListField(target, source, ["secondaryKeys", "secondary_keys"], "secondaryKeys") || changed;
     changed = assignBooleanTextField(target, source, ["enabled"], "enabled") || changed;
@@ -1523,27 +1550,25 @@ export class MariDbService {
       }
       case "entries": {
         const lorebookId = requiredString(args, ["lorebookId", "id"], "lorebook id");
+        const entryId = firstString(args, ["entryId"]);
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 100, 2000);
         const entries = (await this.rawRows("lorebook_entries"))
           .filter((entry) => entry.lorebookId === lorebookId)
+          .filter((entry) => !entryId || entry.id === entryId)
           .sort((a, b) => Number(a.order ?? 100) - Number(b.order ?? 100))
           .slice(0, limit)
-          .map((row) => {
-            const parsed = parseRow("lorebook_entries", row);
-            return {
-              id: parsed.id,
-              lorebookId: parsed.lorebookId,
-              name: parsed.name,
-              enabled: parsed.enabled,
-              constant: parsed.constant,
-              keys: parsed.keys,
-              content: typeof parsed.content === "string" ? truncateStr(parsed.content, 200) : "",
-              order: parsed.order,
-              createdAt: parsed.createdAt,
-              updatedAt: parsed.updatedAt,
-            };
-          });
+          .map(summarizeLorebookEntryRow);
         return { ok: true, mode: "read", command: context.command, output: entries };
+      }
+      case "getentry": {
+        const entryId = requiredString(args, ["entryId", "id"], "lorebook entry id");
+        const row = await this.getRawById(getMeta("lorebook_entries"), entryId);
+        return {
+          ok: !!row,
+          mode: "read",
+          command: context.command,
+          output: row ? summarizeLorebookEntryRow(row) : null,
+        };
       }
       case "search": {
         const query = requiredString(args, ["query", "search"], "lorebook search query").toLowerCase();
@@ -1669,6 +1694,7 @@ export class MariDbService {
           "name",
           "content",
           "description",
+          "tag",
           "keys",
           "secondaryKeys",
           "enabled",
@@ -1688,6 +1714,7 @@ export class MariDbService {
           name: entryName,
           content: "",
           description: "",
+          tag: "",
           keys: [],
           secondaryKeys: [],
           enabled: "true",
@@ -1717,7 +1744,6 @@ export class MariDbService {
           delayUntilRecursion: "false",
           excludeFromVectorization: "false",
           locked: "false",
-          tag: "",
           createdAt: timestamp,
           updatedAt: timestamp,
         };
@@ -1746,6 +1772,7 @@ export class MariDbService {
           "name",
           "content",
           "description",
+          "tag",
           "keys",
           "secondaryKeys",
           "enabled",
@@ -2620,26 +2647,27 @@ export class MariDbService {
       }
       case "entries": {
         const lorebookId = parsed.positionals[0];
-        if (!lorebookId) throw new Error("Usage: mari lorebooks entries <lorebook-id> [--limit <n>]");
+        if (!lorebookId) throw new Error("Usage: mari lorebooks entries <lorebook-id> [--limit <n>] [--entry-id <entry-id>]");
         const limit = normalizeLimit(flagString(flags, "limit"), 100, 2000);
+        const entryId = flagString(flags, "entry-id") ?? flagString(flags, "entryId");
         const entries = (await this.rawRows("lorebook_entries"))
           .filter((e) => e.lorebookId === lorebookId)
+          .filter((e) => !entryId || e.id === entryId)
           .sort((a, b) => Number(a.order ?? 100) - Number(b.order ?? 100))
           .slice(0, limit)
-          .map((row) => {
-            const p = parseRow("lorebook_entries", row);
-            return {
-              id: p.id,
-              name: p.name,
-              enabled: p.enabled,
-              constant: p.constant,
-              keys: p.keys,
-              content: typeof p.content === "string" ? truncateStr(p.content, 200) : "",
-              order: p.order,
-              createdAt: p.createdAt,
-            };
-          });
+          .map(summarizeLorebookEntryRow);
         return { ok: true, mode: "read", command: context.command, output: entries };
+      }
+      case "get-entry": {
+        const entryId = parsed.positionals[0] ?? flagString(flags, "entry-id") ?? flagString(flags, "entryId");
+        if (!entryId) throw new Error("Usage: mari lorebooks get-entry <entry-id>");
+        const row = await this.getRawById(getMeta("lorebook_entries"), entryId);
+        return {
+          ok: !!row,
+          mode: "read",
+          command: context.command,
+          output: row ? summarizeLorebookEntryRow(row) : null,
+        };
       }
       case "search": {
         const query = parsed.positionals[0];
@@ -2733,7 +2761,7 @@ export class MariDbService {
         const lorebookId = parsed.positionals[0];
         if (!lorebookId) {
           throw new Error(
-            "Usage: mari lorebooks add-entry <lorebook-id> --name <name> [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--apply] [--reason <text>]",
+            "Usage: mari lorebooks add-entry <lorebook-id> --name <name> [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--tag <tag>] [--apply] [--reason <text>]",
           );
         }
         const entryName = flagString(flags, "name")?.trim();
@@ -2754,6 +2782,7 @@ export class MariDbService {
           name: entryName,
           content: flagString(flags, "content") ?? "",
           description: flagString(flags, "description") ?? "",
+          tag: flagString(flags, "tag") ?? "",
           keys,
           secondaryKeys: [],
           enabled: "true",
@@ -2783,7 +2812,6 @@ export class MariDbService {
           delayUntilRecursion: "false",
           excludeFromVectorization: "false",
           locked: "false",
-          tag: "",
           createdAt: timestamp,
           updatedAt: timestamp,
         };
@@ -2803,7 +2831,7 @@ export class MariDbService {
         const entryId = parsed.positionals[0];
         if (!entryId) {
           throw new Error(
-            "Usage: mari lorebooks update-entry <entry-id> [--name <name>] [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--enable] [--disable] [--constant] [--no-constant] [--order <n>] [--apply] [--reason <text>]",
+            "Usage: mari lorebooks update-entry <entry-id> [--name <name>] [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--tag <tag>] [--enable] [--disable] [--constant] [--no-constant] [--order <n>] [--apply] [--reason <text>]",
           );
         }
         const entryExists = await this.getRawById(getMeta("lorebook_entries"), entryId);
@@ -2813,6 +2841,7 @@ export class MariDbService {
           ["name", "name"],
           ["content", "content"],
           ["description", "description"],
+          ["tag", "tag"],
         ];
         for (const [flagName, fieldName] of entryFieldMap) {
           const val = flagString(flags, flagName);
@@ -2836,7 +2865,7 @@ export class MariDbService {
         if (hasFlag(flags, "no-constant")) entryPatch.constant = "false";
         if (Object.keys(entryPatch).length <= 1) {
           throw new Error(
-            "Provide at least one field to update (--name, --content, --keys, --description, --enable, --disable, --constant, --no-constant, --order)",
+            "Provide at least one field to update (--name, --content, --keys, --description, --tag, --enable, --disable, --constant, --no-constant, --order)",
           );
         }
         const updateEntryRequest: ParsedMutationRequest = {
@@ -2963,14 +2992,18 @@ export class MariDbService {
       }
       case "messages": {
         const chatId = parsed.positionals[0];
-        if (!chatId) throw new Error("Usage: mari chats messages <chat-id> [--limit <n>] [--tail]");
+        if (!chatId) throw new Error("Usage: mari chats messages <chat-id> [--limit <n>] [--offset <n>] [--tail]");
         const limitFlag = flagString(flags, "limit");
         const limit = limitFlag !== undefined ? normalizeLimit(limitFlag, 20, 200) : null;
+        const offset = normalizeOffset(flagString(flags, "offset"));
         const tail = hasFlag(flags, "tail");
         let messages = (await this.rawRows("messages")).filter((m) => m.chatId === chatId);
         messages.sort((a, b) => String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")));
-        if (limit !== null) {
-          messages = tail ? messages.slice(-limit) : messages.slice(0, limit);
+        if (tail) {
+          const offsetMessages = offset > 0 ? messages.slice(0, Math.max(0, messages.length - offset)) : messages;
+          messages = limit !== null ? offsetMessages.slice(-limit) : offsetMessages;
+        } else {
+          messages = messages.slice(offset, limit !== null ? offset + limit : undefined);
         }
         const result = messages.map((row) => ({
           id: row.id,
@@ -3879,7 +3912,7 @@ export class MariDbService {
       "Images/media:        mari images connections|preview|generate|edit|assign|delete|list",
       "Creative data:       mari characters list|get|search|create|update|delete",
       "Creative data:       mari personas list|active|get|search|create|update|delete",
-      "Creative data:       mari lorebooks list|get|entries <lorebook-id>|search|create|update <lorebook-id>|add-entry <lorebook-id>|update-entry <entry-id>|delete-entry <entry-id>|link-character|unlink-character|delete",
+      "Creative data:       mari lorebooks list|get|get-entry <entry-id>|entries <lorebook-id>|search|create|update <lorebook-id>|add-entry <lorebook-id>|update-entry <entry-id>|delete-entry <entry-id>|link-character|unlink-character|delete",
       "Chats (read-only):   mari chats list|get|messages|search",
       "Fandom/wiki reads:   mari wiki find-wikis|search-all|search|get-page|sections|category|site-info",
       "Discovery:           mari <group> --help or mari <group> <command> --help",
@@ -3920,12 +3953,13 @@ export class MariDbService {
       "Usage: mari lorebooks <command>",
       "Read:  list [--limit <n>] [--global] [--character <id>]",
       "Read:  get <id>",
-      "Read:  entries <lorebook-id> [--limit <n>]",
+      "Read:  entries <lorebook-id> [--limit <n>] [--entry-id <entry-id>]",
+      "Read:  get-entry <entry-id>",
       "Read:  search <query> [--limit <n>]",
       "Write: create --name <name> [--description <text>] [--category <text>] [--global] [--apply] [--reason <text>]",
       "Write: update <id> [--name <name>] [--description <text>] [--category <text>] [--tags <t1,t2,...>] [--global] [--enable] [--disable] [--apply] [--reason <text>]",
-      "Write: add-entry <lorebook-id> --name <name> [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--apply] [--reason <text>]",
-      "Write: update-entry <entry-id> [--name <name>] [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--enable] [--disable] [--constant] [--no-constant] [--order <n>] [--apply] [--reason <text>]",
+      "Write: add-entry <lorebook-id> --name <name> [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--tag <tag>] [--apply] [--reason <text>]",
+      "Write: update-entry <entry-id> [--name <name>] [--content <text>] [--keys <k1,k2,...>] [--description <text>] [--tag <tag>] [--enable] [--disable] [--constant] [--no-constant] [--order <n>] [--apply] [--reason <text>]",
       "Write: delete-entry <entry-id> [--apply] [--reason <text>]",
       "Write: link-character <lorebook-id> --character <character-id> [--apply] [--reason <text>]",
       "Write: unlink-character <lorebook-id> --character <character-id> [--apply] [--reason <text>]",
@@ -3939,7 +3973,7 @@ export class MariDbService {
       "Usage: mari chats <command>",
       "Read:  list [--limit <n>] [--character <id>]",
       "Read:  get <id>",
-      "Read:  messages <chat-id> [--limit <n>] [--tail]",
+      "Read:  messages <chat-id> [--limit <n>] [--offset <n>] [--tail]",
       "Read:  search <query> [--limit <n>]",
       "All chat commands are read-only.",
     ].join("\n");

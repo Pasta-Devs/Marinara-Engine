@@ -2709,7 +2709,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const hasNewSummaries =
             Object.keys(summaryRun.newlyGeneratedDays).length > 0 ||
             Object.keys(summaryRun.newlyConsolidatedWeeks).length > 0;
-          if (hasNewSummaries) {
+          if (hasNewSummaries || summaryRun.summaryFailureMetadataChanged) {
             await chats.patchMetadata(input.chatId, (freshMeta) => {
               const existingDaySummaries = (freshMeta.daySummaries as Record<string, unknown> | undefined) ?? {};
               const existingWeekSummaries = (freshMeta.weekSummaries as Record<string, unknown> | undefined) ?? {};
@@ -2717,6 +2717,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 ...freshMeta,
                 daySummaries: { ...existingDaySummaries, ...summaryRun.newlyGeneratedDays },
                 weekSummaries: { ...existingWeekSummaries, ...summaryRun.newlyConsolidatedWeeks },
+                conversationSummaryFailures: summaryRun.summaryFailures,
               };
             });
             chatMeta.daySummaries = {
@@ -2727,6 +2728,7 @@ export async function generateRoutes(app: FastifyInstance) {
               ...((chatMeta.weekSummaries as Record<string, unknown> | undefined) ?? {}),
               ...summaryRun.newlyConsolidatedWeeks,
             };
+            chatMeta.conversationSummaryFailures = summaryRun.summaryFailures;
           }
 
           const daySummaries = summaryRun.daySummaries;
@@ -5839,6 +5841,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let fullThinking = "";
         let providerThinking = "";
         let allResponses: string[] = [];
+        let continuedMessageRewriteSource: string | null = null;
         const generatedExpressionTargetIds = new Set<string>();
         const recordExpressionTarget = (savedMsg: any, fallbackCharacterId: string | null) => {
           const savedRole =
@@ -7026,10 +7029,8 @@ export async function generateRoutes(app: FastifyInstance) {
             savedMsg = await chats.getMessage(input.regenerateMessageId);
           } else if (input.continueMessageId) {
             const targetMessage = (await chats.getMessage(input.continueMessageId)) ?? continueTargetMessage;
-            savedMsg = await chats.updateMessageContent(
-              input.continueMessageId,
-              appendContinuationMessageContent(targetMessage?.content, fullResponse),
-            );
+            continuedMessageRewriteSource = appendContinuationMessageContent(targetMessage?.content, fullResponse);
+            savedMsg = await chats.updateMessageContent(input.continueMessageId, continuedMessageRewriteSource);
             savedSwipeIndex =
               typeof savedMsg?.activeSwipeIndex === "number" && Number.isInteger(savedMsg.activeSwipeIndex)
                 ? savedMsg.activeSwipeIndex
@@ -9205,8 +9206,8 @@ export async function generateRoutes(app: FastifyInstance) {
 
           // ── Text rewrite/editing agents: run after ALL other agents ──
           if (textRewriteRunAgents.length > 0 && messageId && !abortController.signal.aborted) {
-            let currentResponseForRewrite = combinedResponse;
-            const originalResponseBeforeRewrite = combinedResponse;
+            let currentResponseForRewrite = continuedMessageRewriteSource ?? combinedResponse;
+            const originalResponseBeforeRewrite = currentResponseForRewrite;
             let textRewriteApplied = false;
 
             for (const textRewriteAgent of textRewriteRunAgents) {

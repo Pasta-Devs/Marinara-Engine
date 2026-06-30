@@ -1508,7 +1508,7 @@ export const ChatInput = memo(function ChatInput({
           onClick={() => fileInputRef.current?.click()}
           disabled={!activeChatId}
           className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:h-8 sm:w-8",
+            "flex h-9 w-9 items-center justify-center rounded-xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:text-foreground/25 disabled:opacity-50 sm:h-8 sm:w-8",
             attachments.length
               ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
               : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
@@ -1551,12 +1551,12 @@ export const ChatInput = memo(function ChatInput({
         />
 
         {/* Emoji picker */}
-        <div className="relative shrink-0">
+        <div className="relative hidden shrink-0 sm:block">
           <button
             ref={emojiButtonRef}
             onClick={() => setEmojiOpen((v) => !v)}
             className={cn(
-              "flex h-11 w-11 items-center justify-center rounded-xl transition-colors active:scale-90 sm:h-8 sm:w-8 sm:rounded-full",
+              "flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-90",
               emojiOpen
                 ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20"
                 : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
@@ -1637,7 +1637,7 @@ export const ChatInput = memo(function ChatInput({
             !activeChatId
           }
           className={cn(
-            "mari-chat-send-btn flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all duration-200 sm:h-8 sm:w-8",
+            "mari-chat-send-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-200 sm:h-8 sm:w-8",
             isStreaming
               ? "text-foreground/75 hover:bg-foreground/10 hover:text-foreground/90"
               : (hasInput || attachments.length || canRetry || canContinue) && activeChatId && !isReadingAttachments

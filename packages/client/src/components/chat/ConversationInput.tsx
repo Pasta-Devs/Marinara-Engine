@@ -8,7 +8,7 @@ import {
   Sticker,
   StopCircle,
   X,
-  Plus,
+  Paperclip,
   ImagePlay,
   Keyboard,
   AtSign,
@@ -1914,7 +1914,7 @@ export function ConversationInput({
           )}
           title="Attach file"
         >
-          <Plus size="1rem" />
+          <Paperclip size="1rem" />
         </button>
 
         {/* Quick Switchers — desktop: inline, mobile: chevron */}

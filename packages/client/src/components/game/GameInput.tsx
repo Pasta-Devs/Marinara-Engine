@@ -451,7 +451,28 @@ export function GameInput({
         })}
         style={forceInterruptStyle}
       >
-        {/* Left: Address selector + Attach files */}
+        {/* Left: Attach files + address selector */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,audio/*,.pdf,.txt,.md,.json,.csv"
+          multiple
+          className="hidden"
+          onChange={handleFileUpload}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            "shrink-0 rounded-lg p-1 transition-all active:scale-90 sm:p-1.5",
+            attachments.length
+              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
+              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
+          )}
+          title="Attach files"
+        >
+          <Paperclip size={18} />
+        </button>
+
         <div className="relative shrink-0">
           {addressMenuOpen && (
             <div
@@ -492,7 +513,7 @@ export function GameInput({
             ref={addressButtonRef}
             onClick={() => setAddressMenuOpen((open) => !open)}
             className={cn(
-              "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
+              "shrink-0 rounded-lg p-1 transition-all active:scale-90 sm:p-1.5",
               addressMode === "party"
                 ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
                 : addressMode === "gm"
@@ -512,27 +533,6 @@ export function GameInput({
             <MessageSquare size={18} />
           </button>
         </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*,audio/*,.pdf,.txt,.md,.json,.csv"
-          multiple
-          className="hidden"
-          onChange={handleFileUpload}
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className={cn(
-            "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
-            attachments.length
-              ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
-              : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
-          )}
-          title="Attach files"
-        >
-          <Paperclip size={18} />
-        </button>
 
         <textarea
           ref={inputRef}
@@ -598,7 +598,7 @@ export function GameInput({
           type="button"
           onClick={() => setShowDice(!showDice)}
           className={cn(
-            "shrink-0 rounded-lg p-1.5 transition-all active:scale-90",
+            "shrink-0 rounded-lg p-1 transition-all active:scale-90 sm:p-1.5",
             showDice
               ? "bg-foreground/10 text-foreground/75 ring-1 ring-foreground/20 hover:bg-foreground/15"
               : "text-foreground/40 hover:bg-foreground/10 hover:text-foreground/70",
