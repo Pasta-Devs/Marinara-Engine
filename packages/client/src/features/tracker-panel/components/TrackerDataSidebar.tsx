@@ -4,6 +4,7 @@ import { TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR, useUIStore } from "../../../sto
 import { useChatStore } from "../../../stores/chat.store";
 import { useGameStatePatcher } from "../../../hooks/use-game-state-patcher";
 import { getCssBackgroundStyle, getCssColorFallback, isCssGradient } from "../../../lib/css-colors";
+import { useRenderTimer } from "../../../lib/perf-diagnostics";
 import { cn } from "../../../lib/utils";
 import { useTrackerGameState } from "../hooks/use-tracker-game-state";
 import { useTrackerFieldLockUpdater } from "../hooks/use-tracker-field-lock-updater";
@@ -47,6 +48,7 @@ class TrackerPanelErrorBoundary extends Component<
 }
 
 export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolean } = {}) {
+  useRenderTimer("tracker-panel"); // [#3104 diagnostic]
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { patchField, patchPlayerStats, flushPatch } = useGameStatePatcher(activeChatId, "tracker-data-sidebar");
   const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
