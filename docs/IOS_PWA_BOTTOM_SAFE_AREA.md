@@ -8,13 +8,14 @@ The result is a visible "chin" strip below the chat input box that shows a diffe
 
 ## The Fix (What We Ship)
 
-**`packages/client/index.html`** uses `content="black"` instead of `content="black-translucent"`:
+**`packages/client/index.html`** uses `content="black"` instead of `content="black-translucent"`, and adds `interactive-widget=resizes-content` to the viewport meta:
 
 ```html
 <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="viewport" content="..., viewport-fit=cover, interactive-widget=resizes-content" />
 ```
 
-In `black` mode, iOS does not apply the bottom restriction. `position: fixed; inset: 0` on AppShell reaches the physical screen bottom, covering the chin zone with the app background.
+In `black` mode, iOS does not apply the bottom restriction. AppShell uses `fixed top-0 left-0 right-0 h-dvh` — no explicit `bottom: 0`, height controlled by the `dvh` unit. With `interactive-widget=resizes-content`, `dvh` shrinks when the keyboard opens (iOS resizes the viewport instead of scrolling it), so the layout compresses cleanly above the keyboard without the UI shooting upward.
 
 **Trade-off:** The status bar is a solid dark bar instead of a transparent glass overlay. `black-translucent` gives a prettier top (glass effect under the status bar) but makes the bottom chin unfixable. This is a hard iOS limitation — you cannot have both.
 
@@ -34,7 +35,7 @@ Switching to `black` mode turned the chin dark (AppShell covers it). That's the 
 
 **Check 1:** Has `apple-mobile-web-app-status-bar-style` been changed back to `black-translucent` in `packages/client/index.html`? Change it back to `black`.
 
-**Check 2:** Is the AppShell `className` still `"mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden"` in `packages/client/src/components/layout/AppShell.tsx`? No extra `bottom-*` or `h-*` overrides should be on it for mobile — `inset-0` is sufficient in `black` mode.
+**Check 2:** Is the AppShell `className` still `"mari-app mari-app-background-paint fixed top-0 left-0 right-0 h-dvh flex overflow-hidden"` in `packages/client/src/components/layout/AppShell.tsx`? Do not add `bottom-0` or `inset-0` — that creates an over-constrained layout that makes the UI shoot up when the keyboard opens.
 
 **Check 3:** Run the red/green diagnostic to confirm which layer is painting the chin:
 
