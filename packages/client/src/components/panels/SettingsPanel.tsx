@@ -5305,13 +5305,14 @@ function AdvancedSettings() {
   }, [adminSecret]);
 
   type UpdateChannelId = "stable" | "staging";
-  const [updateChannel, setUpdateChannel] = useState<UpdateChannelId>("stable");
+  const [updateChannel, setUpdateChannel] = useState<UpdateChannelId | null>(null);
   const updateCheck = useQuery<{
     currentVersion: string;
     currentCommit: string | null;
     currentBuild: string;
     channel: UpdateChannelId;
     channelLabel: string;
+    currentBranch?: string | null;
     channels: Array<{
       id: UpdateChannelId;
       label: string;
@@ -5341,17 +5342,20 @@ function AdvancedSettings() {
     manualUpdateCommand?: string | null;
     manualUpdateHint?: string | null;
   }>({
-    queryKey: ["update-check", updateChannel],
-    queryFn: () => api.get(`/updates/check?channel=${encodeURIComponent(updateChannel)}`),
+    queryKey: ["update-check", updateChannel ?? "current"],
+    queryFn: () =>
+      api.get(updateChannel ? `/updates/check?channel=${encodeURIComponent(updateChannel)}` : "/updates/check"),
     enabled: false,
     retry: false,
   });
+
+  const selectedUpdateChannelId = updateChannel ?? updateCheck.data?.channel ?? "stable";
 
   const applyUpdate = useMutation({
     mutationFn: () =>
       api.post<{ status: string; message: string }>("/updates/apply", {
         confirm: true,
-        channel: updateChannel,
+        channel: selectedUpdateChannelId,
         currentVersion: updateCheck.data?.currentVersion ?? health.data?.version ?? APP_VERSION,
         currentCommit: updateCheck.data?.currentCommit ?? health.data?.commit ?? null,
         currentBuild: updateCheck.data?.currentBuild ?? health.data?.build ?? null,
@@ -5390,7 +5394,7 @@ function AdvancedSettings() {
       warning: "Staging builds are pre-release tester builds. Back up your app data before applying them.",
     },
   ];
-  const selectedUpdateChannel = updateChannelOptions.find((channel) => channel.id === updateChannel);
+  const selectedUpdateChannel = updateChannelOptions.find((channel) => channel.id === selectedUpdateChannelId);
   const currentReleaseLabel = `v${health.data?.version ?? updateCheck.data?.currentVersion ?? APP_VERSION}`;
   const currentCommit = health.data?.commit ?? updateCheck.data?.currentCommit ?? null;
   const currentBuildLabel = currentCommit ? `Build: ${currentCommit.slice(0, 7)}` : "Build: unavailable";
@@ -5484,7 +5488,7 @@ function AdvancedSettings() {
             <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
               Release Channel
               <select
-                value={updateChannel}
+                value={selectedUpdateChannelId}
                 onChange={(event) => setUpdateChannel(event.target.value as UpdateChannelId)}
                 className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs font-medium normal-case tracking-normal text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)]"
               >
@@ -5515,6 +5519,7 @@ function AdvancedSettings() {
             <div className="flex flex-col px-1 text-[0.6875rem] text-[var(--muted-foreground)]">
               <span>Release: {currentReleaseLabel}</span>
               <span>{currentBuildLabel}</span>
+              {updateCheck.data?.currentBranch && <span>Branch: {updateCheck.data.currentBranch}</span>}
             </div>
           </div>
 

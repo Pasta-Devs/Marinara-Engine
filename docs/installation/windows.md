@@ -81,7 +81,7 @@ Want to use Marinara Engine from your phone, tablet, or another computer? See th
 
 When you launch Marinara Engine via the Start Menu shortcut or `start.bat` from a git checkout, the launcher automatically:
 
-1. Fetches the latest code from GitHub into `origin/main`, then fast-forwards normal clones or moves installer-created release checkouts to that commit
+1. Fetches the latest code for the current update branch, then fast-forwards normal clones or moves installer-created release checkouts to that commit. Local `staging` branches follow `origin/staging`; all other launcher checkouts follow stable `origin/main`.
 2. Detects whether the checkout changed
 3. Temporarily stashes tracked local changes if needed, then reapplies them
 4. Reinstalls dependencies and rebuilds when needed
@@ -102,6 +102,15 @@ If you use a git checkout without the launcher or the in-app updater:
 ```bat
 git fetch origin +refs/heads/main:refs/remotes/origin/main
 git merge --ff-only origin/main || git checkout --detach origin/main
+pnpm install
+pnpm build
+```
+
+For tester builds, use the staging target instead:
+
+```bat
+git fetch origin +refs/heads/staging:refs/remotes/origin/staging
+git checkout -B staging origin/staging
 pnpm install
 pnpm build
 ```

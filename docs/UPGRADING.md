@@ -20,7 +20,7 @@ Close Marinara Engine and run:
 ./start.sh
 ```
 
-The launcher fetches `origin/main`, fast-forwards normal clones or moves detached release checkouts to the released code, reinstalls dependencies when needed, rebuilds, and starts v2.0.0.
+The launcher fetches the current update branch, fast-forwards normal clones or moves detached release checkouts to the released code, reinstalls dependencies when needed, rebuilds, and starts v2.0.0. Local `staging` branches follow `origin/staging`; all other launcher checkouts follow stable `origin/main`.
 
 If it says Node.js is too old, install Node.js 24 LTS or newer, then run `./start.sh` again.
 

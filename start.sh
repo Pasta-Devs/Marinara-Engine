@@ -101,13 +101,18 @@ has_git_worktree_changes() {
 if [ -d ".git" ]; then
     echo "  [..] Checking for updates..."
     OLD_HEAD=$(git rev-parse HEAD 2>/dev/null)
-    if ! git fetch origin +refs/heads/main:refs/remotes/origin/main --quiet 2>/dev/null; then
+    CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
+    TARGET_BRANCH="main"
+    if [ "$CURRENT_BRANCH" = "staging" ]; then
+        TARGET_BRANCH="staging"
+    fi
+    TARGET_REF="origin/${TARGET_BRANCH}"
+    if ! git fetch origin "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}" --quiet 2>/dev/null; then
         echo "  [WARN] Could not check for updates (no internet?). Continuing with current version."
-    elif [ "$OLD_HEAD" = "$(git rev-parse origin/main 2>/dev/null || true)" ]; then
+    elif [ "$OLD_HEAD" = "$(git rev-parse "$TARGET_REF" 2>/dev/null || true)" ]; then
         echo "  [OK] Already up to date"
     else
-        TARGET_HEAD=$(git rev-parse origin/main 2>/dev/null || true)
-        CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
+        TARGET_HEAD=$(git rev-parse "$TARGET_REF" 2>/dev/null || true)
         # Stash local changes, including untracked non-ignored files, so the update doesn't fail
         STASHED=0
         STASH_REF=""
@@ -131,10 +136,10 @@ if [ -d ".git" ]; then
             elif git reset --hard "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
                 UPDATED_TO_TARGET=1
             fi
-        elif git merge --ff-only origin/main >"$UPDATE_LOG" 2>&1; then
+        elif git merge --ff-only "$TARGET_REF" >"$UPDATE_LOG" 2>&1; then
             UPDATED_TO_TARGET=1
-        elif [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
-            echo "  [..] Fast-forward failed; resetting the installed checkout to the released main commit..."
+        elif [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ] || [ "$CURRENT_BRANCH" = "staging" ]; then
+            echo "  [..] Fast-forward failed; resetting the installed checkout to the latest ${TARGET_BRANCH} commit..."
             if git reset --hard "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
                 UPDATED_TO_TARGET=1
             fi
@@ -145,7 +150,7 @@ if [ -d ".git" ]; then
                 restore_stashed_changes || true
             fi
             if [ "$NEW_HEAD" != "$TARGET_HEAD" ]; then
-                echo "  [WARN] Update did not land on origin/main. Continuing with current version."
+                echo "  [WARN] Update did not land on ${TARGET_REF}. Continuing with current version."
             else
                 echo "  [OK] Updated to $(git log -1 --format='%h %s' 2>/dev/null)"
                 echo "  [..] Reinstalling dependencies..."
@@ -155,7 +160,7 @@ if [ -d ".git" ]; then
                 rm -f packages/shared/tsconfig.tsbuildinfo packages/server/tsconfig.tsbuildinfo packages/client/tsconfig.tsbuildinfo
             fi
         elif [ "$SKIP_UPDATE_FOR_LOCAL_CHANGES" != "1" ]; then
-            echo "  [WARN] Could not update to origin/main. Continuing with current version."
+            echo "  [WARN] Could not update to ${TARGET_REF}. Continuing with current version."
             if [ -s "$UPDATE_LOG" ]; then
                 echo "         Git reported:"
                 sed 's/^/         /' "$UPDATE_LOG"

@@ -73,7 +73,7 @@ The Termux launcher binds to `0.0.0.0` by default, so the app is already reachab
 
 The `start-termux.sh` launcher automatically updates Marinara Engine on each run:
 
-1. Fetches the latest code from GitHub into `origin/main`, then fast-forwards normal clones or moves detached release checkouts to that commit
+1. Fetches the latest code for the current update branch, then fast-forwards normal clones or moves detached release checkouts to that commit. Local `staging` branches follow `origin/staging`; all other launcher checkouts follow stable `origin/main`.
 2. Detects whether the checkout changed
 3. Temporarily stashes tracked local changes if needed, then reapplies them
 4. Reinstalls dependencies and rebuilds when needed
