@@ -24,6 +24,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Shortened mobile Roleplay and Conversation composer placeholders so command hints do not wrap and pull the input caret upward.
 - Fixed XML prompt wrapping so user-authored `>` characters, including Markdown blockquotes, reach the model as typed while `<` and `&` remain escaped for prompt-boundary safety (#3108).
 - Converted Immersive HTML from static main-prompt injection into a Roleplay post-processing visual enhancer that can add diegetic HTML/CSS/JS without changing story meaning (#3094).
+- Fixed legacy Immersive HTML built-in configs so stock saved prompts, descriptions, phases, and result settings migrate to the new post-processing defaults instead of showing the old static prompt.
 - Added mobile chat composer minimization while scrolling through older messages, with automatic restore near the bottom, on downward scroll, or when the minimized input is tapped (#3091).
 - Fixed branch switching so a valid selected branch is not cleared just because the flat chat list briefly does not include it while detail/group caches are resolving (#3087).
 - Fixed provider requests so blank custom `model` parameters cannot erase the configured model, and corrected missing-model error guidance for MiMo/OpenAI-compatible endpoints (#3110).

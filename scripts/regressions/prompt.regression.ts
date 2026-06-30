@@ -13,8 +13,10 @@ import {
   testSecondaryKeys,
   type AgentContext,
   type ChatMLMessage,
+  DEFAULT_AGENT_PROMPTS,
 } from "../../packages/shared/src/index.js";
 import { renderAgentPromptTemplate } from "../../packages/server/src/services/agents/agent-executor.js";
+import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/services/agents/default-prompt-migration.js";
 import { buildMemoryRecallBlock } from "../../packages/server/src/services/generation/memory-recall-context.js";
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
@@ -393,6 +395,42 @@ const cases: RegressionCase[] = [
       assert.equal(merged.includes("<system>bad</system>"), false);
       assert.match(merged, /Rana&lt;\/awareness>/);
       assert.match(merged, /&lt;system>bad&lt;\/system>/);
+    },
+  },
+  {
+    name: "legacy Immersive HTML default config migrates to post-processing defaults",
+    run() {
+      const legacyPrompt = `When it genuinely enhances the roleplay, include immersive inline HTML/CSS/JS inside the assistant reply: letters, screens, menus, maps, posters, books, logs, UI panels, magical displays, dossiers, signs, or interactive scene props.
+Match the setting and tone. Keep text readable. Use self-contained HTML with inline CSS/JS only; no external assets, libraries, fonts, network calls, iframes, or code fences.
+Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless the scene naturally calls for a visual artifact.`;
+
+      const update = buildLegacyDefaultAgentConfigUpdate({
+        id: "builtin:html",
+        type: "html",
+        name: "Immersive HTML",
+        description:
+          "Adds immersive HTML/CSS/JS formatting instructions to the last Roleplay user prompt without running a separate agent call.",
+        phase: "pre_generation",
+        enabled: "true",
+        connectionId: null,
+        imagePath: null,
+        promptTemplate: legacyPrompt,
+        settings: JSON.stringify({
+          promptTemplates: [{ id: "legacy-stock-html", name: "Legacy Stock", promptTemplate: legacyPrompt }],
+        }),
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      });
+
+      assert.equal(update.promptTemplate, "");
+      assert.equal(update.phase, "post_processing");
+      assert.match(String(update.description), /Post-processes the latest Roleplay response/);
+      const settings = JSON.parse(String(update.settings)) as Record<string, unknown>;
+      assert.equal(settings.resultType, "text_rewrite");
+      assert.equal(settings.contextSize, 5);
+      assert.equal(settings.maxTokens, 4096);
+      assert.deepEqual(settings.promptTemplates, []);
+      assert.match(DEFAULT_AGENT_PROMPTS.html, /post-processing visual enhancer/);
     },
   },
   {
