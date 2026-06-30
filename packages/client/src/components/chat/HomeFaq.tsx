@@ -19,6 +19,18 @@ const QUICK_FIXES = [
 
 const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
+    id: "connect-model",
+    category: "Top Issue",
+    question: "How do I connect Marinara to a model?",
+    answer: "Create a connection first, test it, then select it for the chat before you send a message.",
+    bullets: [
+      "Open Connections from the top bar, create a new connection, choose your provider, then fill in the API key, base URL if needed, and model name.",
+      "Use Test Connection before saving. If the test fails, check the key, provider route, base URL, and model spelling before changing chat settings.",
+      "After saving, pick that connection from the chains icon on the left side of the chat input, or set it in Chat Settings for that chat.",
+      "For local models, make sure the local server or Marinara Local Model sidecar is running first. The bundled Local Model is best for helpers and trackers, not main roleplay generation.",
+    ],
+  },
+  {
     id: "game-mode-model",
     category: "Top Issue",
     question: "What model should I use for Game Mode?",
