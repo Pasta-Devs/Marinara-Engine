@@ -386,5 +386,12 @@ function isBroadCharacterClass(source: string): boolean {
   const body = source.slice(1, -1);
   if (!body) return false;
   if (body.startsWith("^")) return true;
-  return body.includes("\\s") || body.includes("\\S") || body.includes("\\w") || body.includes("\\W");
+  return (
+    body.includes("\\s") ||
+    body.includes("\\S") ||
+    body.includes("\\w") ||
+    body.includes("\\W") ||
+    body.includes("\\d") ||
+    body.includes("\\D")
+  );
 }

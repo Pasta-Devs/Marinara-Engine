@@ -2134,12 +2134,12 @@ export function useGenerate() {
               if (spriteChangeReceived) {
                 qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
               }
+              setProcessing(false, params.chatId);
               if (isActiveChat()) {
                 if (useChatStore.getState().streamingChatId === params.chatId) {
                   setStreaming(false);
                   clearStreamBuffer(params.chatId);
                 }
-                setProcessing(false, params.chatId);
               }
               clearMariPhaseForThisChat();
               break;

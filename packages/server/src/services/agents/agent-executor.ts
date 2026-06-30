@@ -1127,6 +1127,7 @@ function extractBatchJsonResults(configs: AgentExecConfig[], responseText: strin
     for (const config of configs) {
       if (!Object.prototype.hasOwnProperty.call(container, config.type)) continue;
       const value = container[config.type];
+      if (value === null || value === undefined) continue;
       results.set(config.type, typeof value === "string" ? value : JSON.stringify(value));
     }
     return results.size > 0 ? results : null;

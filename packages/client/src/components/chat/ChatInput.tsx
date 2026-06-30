@@ -767,7 +767,7 @@ export const ChatInput = memo(function ChatInput({
         setCompletions(submittedCompletions);
       }
       if (submittedAttachments.length > 0) {
-        if (activeChatIdAfterFailure === submittingChatId) {
+        if (activeChatIdAfterFailure === submittingChatId && canRestoreVisibleDraft) {
           updateAttachments((current) => (current.length === 0 ? submittedAttachments : current));
         } else {
           pendingAttachmentDraftsRef.current.set(submittingChatId, submittedAttachments);
