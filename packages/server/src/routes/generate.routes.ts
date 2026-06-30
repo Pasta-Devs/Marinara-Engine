@@ -382,7 +382,6 @@ import {
   resolveStoredModelContextLimit,
 } from "../services/generation/model-access-policy.js";
 import { resolveAgentPipelineAgents } from "../services/generation/agent-resolution.js";
-import { applyImmersiveHtmlPromptInjection } from "../services/generation/immersive-html-injection.js";
 import { resolveGenerationTools } from "../services/generation/tool-resolution-runtime.js";
 import {
   buildCharacterMacroProfilesById,
@@ -402,6 +401,7 @@ import {
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
 import {
   getTextRewritePendingState,
+  isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
   PROSE_GUARDIAN_PENDING_MESSAGE,
   shouldHoldForProseGuardianRewrite,
@@ -5786,19 +5786,6 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        // Static injection: Immersive HTML is a prompt directive, not a runtime LLM agent.
-        const immersiveHtmlResult = await applyImmersiveHtmlPromptInjection({
-          chatMode,
-          enableAgents: chatEnableAgents,
-          activeAgentIds: chatActiveAgentIds,
-          wrapFormat,
-          messages: finalMessages,
-          getHtmlAgentConfig: () => agentsStore.getByType("html"),
-        });
-        if (immersiveHtmlResult) {
-          trySendSseEvent(reply, { type: "agent_result", data: immersiveHtmlResult });
-        }
-
         // ── Early exit if client disconnected during knowledge retrieval / injection ──
         if (abortController.signal.aborted) return;
 
@@ -9262,8 +9249,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     ? (edData.changes as Array<{ description: string }>)
                     : [{ description: "Rewrote the assistant response." }];
                   const editNeededValue = edData.editNeeded;
-                  const strictEditNeeded =
-                    editorResult.agentType === "prose-guardian" || editorResult.agentType === "continuity";
+                  const strictEditNeeded = isBuiltInTextRewriteAgentType(editorResult.agentType);
                   const rewriteAllowed =
                     editNeededValue === false ? false : strictEditNeeded ? editNeededValue === true : true;
                   const droppedProtectedMarkup =

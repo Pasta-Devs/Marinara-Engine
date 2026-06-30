@@ -343,7 +343,7 @@ export function applyAgentAddSetupToAgentSettings(
     next.prefer = setup.proseGuardianPrefer.trim();
     next.holdForRewrite = setup.holdForRewrite;
   }
-  if (agentId === "continuity") {
+  if (agentId === "continuity" || agentId === "html") {
     next.holdForRewrite = setup.holdForRewrite;
   }
   if (agentId === "knowledge-retrieval" || agentId === "knowledge-router") {
@@ -401,7 +401,7 @@ export function buildAgentAddMetadataPatch(
     patch.proseGuardianStyleInstructions = setup.proseGuardianPrefer.trim();
     patch.proseGuardianHoldForRewrite = setup.holdForRewrite;
   }
-  if (agentId === "continuity") patch.proseGuardianHoldForRewrite = setup.holdForRewrite;
+  if (agentId === "continuity" || agentId === "html") patch.proseGuardianHoldForRewrite = setup.holdForRewrite;
   if (agentId === "knowledge-retrieval" || agentId === "knowledge-router") {
     const currentSources = isRecord(metadata.knowledgeAgentSources) ? metadata.knowledgeAgentSources : {};
     patch.knowledgeAgentSources = {
@@ -1319,6 +1319,7 @@ export function AgentAddSetupFields({
     agentId === "director" ||
     agentId === "prose-guardian" ||
     agentId === "continuity" ||
+    agentId === "html" ||
     agentId === "lorebook-keeper" ||
     knowledgeAgentType ||
     agentId === "illustrator" ||
@@ -1435,7 +1436,7 @@ export function AgentAddSetupFields({
         </div>
       )}
 
-      {(agentId === "prose-guardian" || agentId === "continuity") && (
+      {(agentId === "prose-guardian" || agentId === "continuity" || agentId === "html") && (
         <SetupToggle
           label="Hold Message Until Rewrite"
           description={

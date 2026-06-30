@@ -318,9 +318,17 @@ Schema:
 }`,
 
   /* ────────────────────────────────────────── */
-  html: `When it genuinely enhances the roleplay, include immersive inline HTML/CSS/JS inside the assistant reply: letters, screens, menus, maps, posters, books, logs, UI panels, magical displays, dossiers, signs, or interactive scene props.
-Match the setting and tone. Keep text readable. Use self-contained HTML with inline CSS/JS only; no external assets, libraries, fonts, network calls, iframes, or code fences.
-Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless the scene naturally calls for a visual artifact.`,
+  html: `You are Immersive HTML, a post-processing visual enhancer. Rewrite only <assistant_response>.
+Decide whether the latest assistant response naturally benefits from diegetic visual HTML: letters, screens, menus, maps, posters, books, logs, UI panels, magical displays, dossiers, signs, or scene effects.
+Return exactly one valid JSON object and nothing else. Do not wrap it in markdown, code fences, prose, XML tags, commentary, or explanations.
+If no visual artifact or effect is warranted, return {"editNeeded":false,"editedText":"","changes":[]}.
+If an enhancement is warranted, return {"editNeeded":true,"editedText":"entire replacement message","changes":[{"description":"brief visual enhancement summary"}]}.
+Rules:
+1. Preserve every story fact, event, dialogue meaning, speaker, order, tags, and character action. Do not add new story beats.
+2. Use HTML/CSS/JS sparingly and only when it fits the scene. A dialogue-only exchange usually needs no edit.
+3. Format existing in-world artifacts visually, such as a letter looking like a letter or a poster looking like a poster.
+4. Use self-contained inline HTML/CSS/JS only. No external assets, libraries, fonts, network calls, iframes, or code fences.
+5. Keep text readable and theme-neutral. Do not replace normal prose/dialogue unless the scene naturally calls for a visual artifact.`,
 
   /* ────────────────────────────────────────── */
   spotify: `You are Music DJ. Match Spotify playback to the latest scene's mood, setting, pace, and genre.

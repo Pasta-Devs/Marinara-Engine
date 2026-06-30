@@ -610,7 +610,19 @@ export abstract class BaseLLMProvider {
 
   protected applyCustomParameters(body: Record<string, unknown>, options: ChatOptions): void {
     if (!options.customParameters || Object.keys(options.customParameters).length === 0) return;
+    const hadStructuralModel = Object.prototype.hasOwnProperty.call(body, "model");
     deepMergeRequestBody(body, options.customParameters);
+    if (
+      hadStructuralModel &&
+      (typeof body.model !== "string" || body.model.trim().length === 0) &&
+      options.model.trim().length > 0
+    ) {
+      logger.warn(
+        "[LLM request] Ignoring customParameters.model because it would remove the configured model %s",
+        options.model,
+      );
+      body.model = options.model;
+    }
   }
 
   protected shouldSendParameter(options: ChatOptions, key: GenerationParameterSendKey): boolean {

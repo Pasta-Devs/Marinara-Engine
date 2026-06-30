@@ -466,7 +466,7 @@ export function ChatArea() {
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set());
   const [selectionAnchorIndex, setSelectionAnchorIndex] = useState<number | null>(null);
 
-  const { data: chatDetail, error: chatError } = useChat(activeChatId);
+  const { data: chatDetail, error: chatError, isFetched: chatDetailFetched } = useChat(activeChatId);
   const { data: allChats } = useChats();
   const listedActiveChat = useMemo(
     () => (activeChatId ? (allChats?.find((candidate) => candidate.id === activeChatId) ?? null) : null),
@@ -605,8 +605,10 @@ export function ChatArea() {
   useEffect(() => {
     if (!activeChatId || !allChats) return;
     if (listedActiveChat) return;
+    if (chatDetail || !chatDetailFetched) return;
+    if (chatError) return;
     setActiveChatId(null);
-  }, [activeChatId, allChats, listedActiveChat, setActiveChatId]);
+  }, [activeChatId, allChats, chatDetail, chatDetailFetched, chatError, listedActiveChat, setActiveChatId]);
 
   useEffect(() => {
     const handleReviewRequest = (event: Event) => {

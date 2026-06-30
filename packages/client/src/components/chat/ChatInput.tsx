@@ -125,12 +125,12 @@ function resizeChatInputTextarea(el: HTMLTextAreaElement) {
 
 function useIsMobileComposerViewport() {
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(max-width: 639px)").matches,
+    typeof window === "undefined" ? false : window.matchMedia("(max-width: 767px)").matches,
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const media = window.matchMedia("(max-width: 639px)");
+    const media = window.matchMedia("(max-width: 767px)");
     const update = () => setIsMobileViewport(media.matches);
     update();
     media.addEventListener("change", update);
@@ -151,6 +151,8 @@ function readFileAsDataUrl(file: Blob): Promise<string> {
 
 interface ChatInputProps {
   mode?: "conversation" | "roleplay";
+  mobileHistoryCollapsed?: boolean;
+  onMobileHistoryCollapsedChange?: (collapsed: boolean) => void;
   characterNames?: string[];
   groupResponseOrder?: string;
   chatCharacters?: Array<{
@@ -171,6 +173,8 @@ interface ChatInputProps {
 
 export const ChatInput = memo(function ChatInput({
   mode = "conversation",
+  mobileHistoryCollapsed = false,
+  onMobileHistoryCollapsedChange,
   characterNames = [],
   groupResponseOrder,
   chatCharacters,
@@ -196,6 +200,7 @@ export const ChatInput = memo(function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
+  const focusAfterMobileRestoreRef = useRef(false);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const attachmentsRef = useRef<Attachment[]>([]);
   const pendingAttachmentDraftsRef = useRef<Map<string, Attachment[]>>(new Map());
@@ -258,6 +263,14 @@ export const ChatInput = memo(function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resizeRafRef = useRef<number>(0);
   const qc = useQueryClient();
+  const shouldShowMobileCollapsedComposer =
+    isMobileComposerViewport &&
+    mobileHistoryCollapsed &&
+    !hasInput &&
+    attachments.length === 0 &&
+    !isStreaming &&
+    !emojiOpen &&
+    !charPickerOpen;
   const activeAgentIds = useMemo(
     () =>
       Array.isArray(chatMetadata.activeAgentIds)
@@ -1393,6 +1406,38 @@ export const ChatInput = memo(function ChatInput({
     requestAnimationFrame(scroll);
     window.setTimeout(scroll, 260);
   }, []);
+
+  useEffect(() => {
+    if (mobileHistoryCollapsed || !focusAfterMobileRestoreRef.current) return;
+    focusAfterMobileRestoreRef.current = false;
+    const focus = () => {
+      textareaRef.current?.focus();
+      ensureInputVisible();
+    };
+    requestAnimationFrame(focus);
+    window.setTimeout(focus, 120);
+  }, [ensureInputVisible, mobileHistoryCollapsed]);
+
+  if (shouldShowMobileCollapsedComposer) {
+    return (
+      <div className="mari-chat-input chat-input-container px-3 pb-3 md:hidden">
+        <button
+          type="button"
+          onClick={() => {
+            focusAfterMobileRestoreRef.current = true;
+            onMobileHistoryCollapsedChange?.(false);
+          }}
+          className={cn(
+            getChatInputShellClass({ dragging: false, hasContent: false, layout: "roleplay" }),
+            "min-h-10 w-full justify-start text-left text-sm text-foreground/55",
+          )}
+          aria-label="Show message input"
+        >
+          <span className="truncate">{mode === "roleplay" ? "Write… /cmds" : "Message… /cmds"}</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mari-chat-input chat-input-container px-3 pb-3">

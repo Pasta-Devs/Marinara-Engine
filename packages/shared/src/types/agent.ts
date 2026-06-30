@@ -30,6 +30,7 @@ export function normalizeAgentPhaseForType(
   if (
     agentType === "prose-guardian" ||
     agentType === "continuity" ||
+    agentType === "html" ||
     agentType === "expression" ||
     agentType === "spotify"
   ) {

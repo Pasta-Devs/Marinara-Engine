@@ -104,7 +104,7 @@ export function buildRuntimeAgentSectionEligibleTypes(input: {
   for (const agent of BUILT_IN_AGENTS) {
     if (!activeAgentIds.has(agent.id)) continue;
     if (input.chatMode && !isAgentAvailableInChatMode(input.chatMode, agent.id)) continue;
-    if (agent.phase !== "pre_generation" || agent.id === "html") continue;
+    if (agent.phase !== "pre_generation") continue;
     if (
       resolveAgentResultType({ type: agent.id, settings: getDefaultBuiltInAgentSettings(agent.id) }) !==
       "context_injection"
@@ -117,7 +117,7 @@ export function buildRuntimeAgentSectionEligibleTypes(input: {
   for (const agent of input.configuredAgents ?? []) {
     if (!activeAgentIds.has(agent.type)) continue;
     if (input.chatMode && !isAgentAvailableInChatMode(input.chatMode, agent.type)) continue;
-    if (agent.phase !== "pre_generation" || agent.type === "html") continue;
+    if (agent.phase !== "pre_generation") continue;
     const settings = parseRuntimeAgentSettings(agent.settings);
     if (resolveAgentResultType({ type: agent.type, settings }) !== "context_injection") continue;
     eligible.add(agent.type);

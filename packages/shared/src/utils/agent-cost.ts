@@ -21,7 +21,6 @@
 // ──────────────────────────────────────────────
 
 import type { AgentPhase } from "../types/agent.js";
-import { BUILT_IN_AGENT_IDS } from "../types/agent.js";
 
 /** Minimal shape needed to estimate an agent's contribution. */
 export interface AgentCostInput {
@@ -50,13 +49,13 @@ export const AGENT_COST_HIGH_TOKENS = 4000;
 
 /**
  * Agents whose template contributes to the main prompt but do NOT trigger an
- * extra LLM call. Currently just `html`, which is statically injected.
+ * extra LLM call.
  *
  * `knowledge-retrieval` and `knowledge-router` ARE separate inference calls
  * (they ask the LLM to pick or summarize lorebook entries), so they are not
  * in this set.
  */
-const NO_EXTRA_CALL_AGENT_TYPES = new Set<string>([BUILT_IN_AGENT_IDS.HTML]);
+const NO_EXTRA_CALL_AGENT_TYPES = new Set<string>();
 
 // TODO: replace chars/4 with a real tokenizer when the project picks one up.
 // Matches the existing `estimateTokens` helpers scattered across the client

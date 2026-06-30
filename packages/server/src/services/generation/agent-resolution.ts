@@ -106,7 +106,7 @@ export type ResolvedAgentPipelineAgents = {
 };
 
 function resolveAgentRuntimePhase(agentType: string, configuredPhase: string): string {
-  if (agentType === "prose-guardian" || agentType === "continuity") return "post_processing";
+  if (agentType === "prose-guardian" || agentType === "continuity" || agentType === "html") return "post_processing";
   if (agentType === "echo-chamber") return "parallel";
   return configuredPhase;
 }

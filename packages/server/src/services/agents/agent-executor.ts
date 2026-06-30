@@ -2289,6 +2289,7 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   "character-tracker": "character_tracker_update",
   "persona-stats": "persona_stats_update",
   "custom-tracker": "custom_tracker_update",
+  html: "text_rewrite",
   spotify: "spotify_control",
   "knowledge-retrieval": "context_injection",
   haptic: "haptic_command",
@@ -2330,6 +2331,7 @@ const TEXT_RESULT_TYPES = new Set<AgentResultType>(["context_injection", "direct
 export function resolveAgentResultType(config: Pick<AgentExecConfig, "type" | "settings">): AgentResultType {
   if (musicDjUsesYoutube(config)) return "youtube_control";
   if (musicDjUsesCustom(config)) return "local_music_control";
+  if (config.type === "html") return "text_rewrite";
   const configured = config.settings?.resultType;
   if (typeof configured === "string" && AGENT_RESULT_TYPES.has(configured as AgentResultType)) {
     return configured as AgentResultType;
@@ -2338,6 +2340,7 @@ export function resolveAgentResultType(config: Pick<AgentExecConfig, "type" | "s
 }
 
 function agentResponseIsJson(config: Pick<AgentExecConfig, "type" | "settings">): boolean {
+  if (config.type === "html") return true;
   const resultType = resolveAgentResultType(config);
   return JSON_AGENTS.has(config.type) || !TEXT_RESULT_TYPES.has(resultType);
 }
@@ -2359,6 +2362,7 @@ const JSON_AGENTS = new Set([
   "character-tracker",
   "persona-stats",
   "custom-tracker",
+  "html",
   "spotify",
   "haptic",
   "cyoa",

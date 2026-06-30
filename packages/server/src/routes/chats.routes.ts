@@ -41,7 +41,6 @@ import type {
   RPGStatsConfig,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
-import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
@@ -87,7 +86,6 @@ import {
 } from "../services/memory-recall-embedding.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
 import { sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
-import { applyImmersiveHtmlPromptInjection } from "../services/generation/immersive-html-injection.js";
 import { buildCommittedTrackerContextBlock } from "../services/generation/committed-tracker-context.js";
 import { parseLorebookWriteApprovalText } from "./generate/agent-write-approval.js";
 import { persistLorebookKeeperUpdates } from "./generate/lorebook-keeper-utils.js";
@@ -2289,18 +2287,6 @@ export async function chatsRoutes(app: FastifyInstance) {
               assembled.messages[idx] = { ...target, content: target.content + "\n\n" + instructionBlock };
             }
           }
-
-          // ── Static injection: Immersive HTML is a prompt directive, not a runtime LLM agent ──
-          const peekAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
-          const previewAgentsStore = createAgentsStorage(app.db);
-          await applyImmersiveHtmlPromptInjection({
-            chatMode,
-            enableAgents: chatMeta.enableAgents === true,
-            activeAgentIds: peekAgentIds,
-            wrapFormat: (preset as any).wrapFormat || "xml",
-            messages: assembled.messages,
-            getHtmlAgentConfig: () => previewAgentsStore.getByType("html"),
-          });
 
           // ── Fallback: inject character & persona info if the preset didn't include them ──
           const wrapFormat = ((preset as any).wrapFormat as "xml" | "markdown" | "none") || "xml";

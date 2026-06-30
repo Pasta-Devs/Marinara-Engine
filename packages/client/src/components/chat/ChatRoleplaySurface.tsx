@@ -1247,12 +1247,41 @@ export function ChatRoleplaySurface({
   const pendingPostProcessingKeysRef = useRef<Set<string>>(new Set());
   const topChromeRef = useRef<HTMLDivElement>(null);
   const inputChromeRef = useRef<HTMLDivElement>(null);
+  const composerScrollTopRef = useRef(0);
   const [chromeHeights, setChromeHeights] = useState({ top: 0, bottom: 0 });
+  const [mobileHistoryComposerCollapsed, setMobileHistoryComposerCollapsed] = useState(false);
   const [authorNotesOpenOwner, setAuthorNotesOpenOwner] = useState<"expanded" | "compact" | null>(null);
   const isMobileToolbarViewport = useIsMobileToolbarViewport();
   const compactToolbarOwnsAuthorNotes = centerCompact || isMobileToolbarViewport;
   const expandedAuthorNotesOpen = authorNotesOpenOwner === "expanded";
   const compactAuthorNotesOpen = authorNotesOpenOwner === "compact";
+  const shouldKeepMobileComposerOpen = hasLiveStream || hasDraftInput || isFetchingNextPage;
+
+  useEffect(() => {
+    if (shouldKeepMobileComposerOpen) setMobileHistoryComposerCollapsed(false);
+  }, [shouldKeepMobileComposerOpen]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const nearBottom = distFromBottom < 150;
+      const currentTop = el.scrollTop;
+      const previousTop = composerScrollTopRef.current;
+      const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+      if (!isMobile || shouldKeepMobileComposerOpen || nearBottom) {
+        setMobileHistoryComposerCollapsed(false);
+      } else if (currentTop > previousTop + 18) {
+        setMobileHistoryComposerCollapsed(false);
+      } else if (currentTop < previousTop - 12 && distFromBottom > 180) {
+        setMobileHistoryComposerCollapsed(true);
+      }
+      composerScrollTopRef.current = currentTop;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [scrollRef, shouldKeepMobileComposerOpen]);
   const setExpandedAuthorNotesOpen = useCallback(
     (open: boolean) => {
       setAuthorNotesOpenOwner(open ? "expanded" : null);
@@ -1919,6 +1948,8 @@ export function ChatRoleplaySurface({
                 <ChatInput
                   key={activeChatId}
                   mode={isRoleplay ? "roleplay" : "conversation"}
+                  mobileHistoryCollapsed={mobileHistoryComposerCollapsed}
+                  onMobileHistoryCollapsedChange={setMobileHistoryComposerCollapsed}
                   combatAgentEnabled={combatAgentEnabled}
                   onStartEncounter={onStartEncounter}
                   characterNames={characterNames}

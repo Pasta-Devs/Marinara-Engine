@@ -116,6 +116,7 @@ import {
 } from "./illustrator-references.js";
 import {
   applyTextRewriteAgentChatSettings,
+  isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
   normalizeProseGuardianPromptTemplate,
 } from "../../services/generation/prose-guardian-settings.js";
@@ -396,6 +397,7 @@ function resolveRetryAgentRuntimePhase(agentType: string, configuredPhase: strin
   if (
     agentType === "prose-guardian" ||
     agentType === "continuity" ||
+    agentType === "html" ||
     agentType === "expression" ||
     agentType === "spotify"
   ) {
@@ -2200,15 +2202,14 @@ async function executeRetryBatches(
 }
 
 function mergeRetryPairedBuiltInRewriteAgents(entries: ResolvedRetryAgent[]): ResolvedRetryAgent[] {
-  const proseGuardian = entries.find((entry) => entry.resolved.type === "prose-guardian");
-  const continuity = entries.find((entry) => entry.resolved.type === "continuity");
-  if (!proseGuardian || !continuity) return entries;
+  const builtInRewriteEntries = entries.filter((entry) => isBuiltInTextRewriteAgentType(entry.resolved.type));
+  if (builtInRewriteEntries.length <= 1) return entries;
 
-  const firstMergeIndex = Math.min(entries.indexOf(proseGuardian), entries.indexOf(continuity));
-  const mergedResolved = mergePairedBuiltInRewriteAgents([proseGuardian.resolved, continuity.resolved])[0];
+  const firstMergeIndex = Math.min(...builtInRewriteEntries.map((entry) => entries.indexOf(entry)));
+  const mergedResolved = mergePairedBuiltInRewriteAgents(builtInRewriteEntries.map((entry) => entry.resolved))[0];
   if (!mergedResolved) return entries;
   const mergedEntry: ResolvedRetryAgent = {
-    ...proseGuardian,
+    ...builtInRewriteEntries[0]!,
     resolved: mergedResolved,
   };
 
@@ -2216,7 +2217,7 @@ function mergeRetryPairedBuiltInRewriteAgents(entries: ResolvedRetryAgent[]): Re
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index]!;
     if (index === firstMergeIndex) merged.push(mergedEntry);
-    if (entry.resolved.type === "prose-guardian" || entry.resolved.type === "continuity") continue;
+    if (isBuiltInTextRewriteAgentType(entry.resolved.type)) continue;
     merged.push(entry);
   }
   return merged;
@@ -2426,7 +2427,7 @@ async function applyRetryResultEffects(args: {
           ? (rewriteData.changes as Array<{ description: string }>)
           : [{ description: "Rewrote the assistant response." }];
         const editNeededValue = rewriteData.editNeeded;
-        const strictEditNeeded = result.agentType === "prose-guardian" || result.agentType === "continuity";
+        const strictEditNeeded = isBuiltInTextRewriteAgentType(result.agentType);
         const rewriteAllowed = editNeededValue === false ? false : strictEditNeeded ? editNeededValue === true : true;
         const droppedProtectedMarkup =
           strictEditNeeded && textRewriteDropsProtectedMarkup(currentResponseForRewrite, editedText);
