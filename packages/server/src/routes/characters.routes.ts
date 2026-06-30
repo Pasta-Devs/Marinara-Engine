@@ -830,6 +830,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     return storage.listPersonas();
   });
 
+  app.get("/personas/active", async () => {
+    const personas = await storage.listPersonas();
+    return personas.find((persona) => String(persona.isActive) === "true") ?? null;
+  });
+
   app.get<{ Params: { id: string } }>("/personas/:id", async (req, reply) => {
     const persona = await storage.getPersona(req.params.id);
     if (!persona) return reply.status(404).send({ error: "Persona not found" });
