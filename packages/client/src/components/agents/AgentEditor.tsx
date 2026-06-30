@@ -2499,7 +2499,7 @@ export function AgentEditor() {
                 description={
                   localInjectAsSection
                     ? `"${localName}" appears as a section option in prompt presets`
-                    : "Agent output is not injected into prompts"
+                    : "Agent output won't be available as a marker in the preset editor."
                 }
                 labelClassName="text-sm"
               />
