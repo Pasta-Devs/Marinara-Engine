@@ -266,12 +266,12 @@ function readFileAsDataUrl(file: Blob): Promise<string> {
 
 function useIsMobileComposerViewport() {
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(max-width: 639px)").matches,
+    typeof window === "undefined" ? false : window.matchMedia("(max-width: 767px)").matches,
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const media = window.matchMedia("(max-width: 639px)");
+    const media = window.matchMedia("(max-width: 767px)");
     const update = () => setIsMobileViewport(media.matches);
     update();
     media.addEventListener("change", update);
@@ -375,6 +375,7 @@ export function ConversationInput({
   const isReadingAttachments = pendingAttachmentReads > 0;
   const hasPendingAttachments = isReadingAttachments || attachments.length > 0;
   const shouldShowMobileCollapsedComposer =
+    isMobileComposerViewport &&
     mobileHistoryCollapsed &&
     !hasInput &&
     attachments.length === 0 &&

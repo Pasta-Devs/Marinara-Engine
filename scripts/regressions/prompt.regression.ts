@@ -16,12 +16,19 @@ import {
   DEFAULT_AGENT_PROMPTS,
 } from "../../packages/shared/src/index.js";
 import { renderAgentPromptTemplate } from "../../packages/server/src/services/agents/agent-executor.js";
+import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/services/agents/default-prompt-migration.js";
 import { buildMemoryRecallBlock } from "../../packages/server/src/services/generation/memory-recall-context.js";
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
 import { injectSceneContextMessages } from "../../packages/server/src/services/generation/scene-context-runtime.js";
 import { buildRuntimeAgentSectionEligibleTypesForTest } from "../../packages/server/src/services/generation/runtime-agent-sections.js";
+import {
+  getTextRewritePendingState,
+  mergePairedBuiltInRewriteAgents,
+  shouldHoldForProseGuardianRewrite,
+  TEXT_REWRITE_PENDING_MESSAGE,
+} from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import type { DB } from "../../packages/server/src/db/connection.js";
 import { escapeXmlText } from "../../packages/server/src/services/prompt/prompt-escaping.js";
 import {
@@ -923,6 +930,52 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       });
 
       assert.equal(eligible.has("html"), false);
+    },
+  },
+  {
+    name: "built-in rewrite agents merge into one held rewrite pass",
+    run() {
+      const rewriteAgents = [
+        {
+          id: "pg",
+          type: "prose-guardian",
+          name: "Prose Guardian",
+          phase: "post_processing",
+          promptTemplate: "STYLE PROMPT",
+          settings: { resultType: "text_rewrite", holdForRewrite: true, contextSize: 5, maxTokens: 1024 },
+        },
+        {
+          id: "cont",
+          type: "continuity",
+          name: "Continuity Checker",
+          phase: "post_processing",
+          promptTemplate: "CONTINUITY PROMPT",
+          settings: { resultType: "text_rewrite", holdForRewrite: true, contextSize: 8, maxTokens: 2048 },
+        },
+        {
+          id: "html",
+          type: "html",
+          name: "Immersive HTML",
+          phase: "post_processing",
+          promptTemplate: "HTML PROMPT",
+          settings: { resultType: "text_rewrite", holdForRewrite: true, contextSize: 5, maxTokens: 4096 },
+        },
+      ] as unknown as ResolvedAgent[];
+
+      const merged = mergePairedBuiltInRewriteAgents(rewriteAgents);
+
+      assert.equal(merged.length, 1);
+      assert.equal(merged[0]?.settings.contextSize, 8);
+      assert.equal(merged[0]?.settings.maxTokens, 4096);
+      assert.match(merged[0]?.name ?? "", /Prose Guardian \+ Continuity Checker \+ Immersive HTML/);
+      assert.match(merged[0]?.promptTemplate ?? "", /<style_editor>/);
+      assert.match(merged[0]?.promptTemplate ?? "", /<continuity_editor>/);
+      assert.match(merged[0]?.promptTemplate ?? "", /<immersive_html_editor>/);
+      assert.equal(shouldHoldForProseGuardianRewrite(rewriteAgents), true);
+      assert.deepEqual(getTextRewritePendingState(rewriteAgents), {
+        agentType: "text-rewrite",
+        message: TEXT_REWRITE_PENDING_MESSAGE,
+      });
     },
   },
   {

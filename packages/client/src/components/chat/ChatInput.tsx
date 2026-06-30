@@ -125,12 +125,12 @@ function resizeChatInputTextarea(el: HTMLTextAreaElement) {
 
 function useIsMobileComposerViewport() {
   const [isMobileViewport, setIsMobileViewport] = useState(() =>
-    typeof window === "undefined" ? false : window.matchMedia("(max-width: 639px)").matches,
+    typeof window === "undefined" ? false : window.matchMedia("(max-width: 767px)").matches,
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const media = window.matchMedia("(max-width: 639px)");
+    const media = window.matchMedia("(max-width: 767px)");
     const update = () => setIsMobileViewport(media.matches);
     update();
     media.addEventListener("change", update);
@@ -264,7 +264,13 @@ export const ChatInput = memo(function ChatInput({
   const resizeRafRef = useRef<number>(0);
   const qc = useQueryClient();
   const shouldShowMobileCollapsedComposer =
-    mobileHistoryCollapsed && !hasInput && attachments.length === 0 && !isStreaming && !emojiOpen && !charPickerOpen;
+    isMobileComposerViewport &&
+    mobileHistoryCollapsed &&
+    !hasInput &&
+    attachments.length === 0 &&
+    !isStreaming &&
+    !emojiOpen &&
+    !charPickerOpen;
   const activeAgentIds = useMemo(
     () =>
       Array.isArray(chatMetadata.activeAgentIds)

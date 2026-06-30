@@ -401,6 +401,7 @@ import {
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
 import {
   getTextRewritePendingState,
+  isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
   PROSE_GUARDIAN_PENDING_MESSAGE,
   shouldHoldForProseGuardianRewrite,
@@ -9248,8 +9249,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     ? (edData.changes as Array<{ description: string }>)
                     : [{ description: "Rewrote the assistant response." }];
                   const editNeededValue = edData.editNeeded;
-                  const strictEditNeeded =
-                    editorResult.agentType === "prose-guardian" || editorResult.agentType === "continuity";
+                  const strictEditNeeded = isBuiltInTextRewriteAgentType(editorResult.agentType);
                   const rewriteAllowed =
                     editNeededValue === false ? false : strictEditNeeded ? editNeededValue === true : true;
                   const droppedProtectedMarkup =

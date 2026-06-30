@@ -1772,9 +1772,9 @@ export function useGenerate() {
               };
               if (rw.editedText) {
                 const rewrittenText = normalizeLineBreakSpacing(rw.editedText);
-                const proseGuardianRewriteApplied =
+                const builtInRewriteApplied =
                   rw.rewriteApplied === true &&
-                  (rw.agentType === "prose-guardian" || rw.agentType === "continuity") &&
+                  (rw.agentType === "prose-guardian" || rw.agentType === "continuity" || rw.agentType === "html") &&
                   typeof rw.originalText === "string";
                 leadingSpeakerPrefixFilter.discard();
                 if (holdingTextRewrite && heldTextRewriteMessage) {
@@ -1795,7 +1795,7 @@ export function useGenerate() {
                   }
                   const heldExtra = parseMessageExtraRecordForMerge(heldTextRewriteMessage.extra);
                   delete heldExtra.postProcessingPending;
-                  if (proseGuardianRewriteApplied) {
+                  if (builtInRewriteApplied) {
                     heldExtra.proseGuardianOriginalText = rw.originalText;
                     heldExtra.proseGuardianRewrittenAt = new Date().toISOString();
                   } else {
@@ -1830,7 +1830,7 @@ export function useGenerate() {
                   const latestSavedMessage = latestAssistantMessage(persistedMessages.values());
                   if (latestSavedMessage) {
                     const nextExtra = parseMessageExtraRecordForMerge(latestSavedMessage.extra);
-                    if (proseGuardianRewriteApplied) {
+                    if (builtInRewriteApplied) {
                       nextExtra.proseGuardianOriginalText = rw.originalText;
                       nextExtra.proseGuardianRewrittenAt = new Date().toISOString();
                     }
@@ -1886,6 +1886,7 @@ export function useGenerate() {
                 !Array.isArray(pendingPostProcessing) &&
                 (pendingPostProcessingAgentType === "prose-guardian" ||
                   pendingPostProcessingAgentType === "continuity" ||
+                  pendingPostProcessingAgentType === "html" ||
                   pendingPostProcessingAgentType === "text-rewrite")
               ) {
                 const heldExtra = { ...savedExtra };

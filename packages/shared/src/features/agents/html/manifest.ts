@@ -13,6 +13,7 @@ export const htmlAgentManifest = {
     resultType: "text_rewrite",
     contextSize: 5,
     maxTokens: 4096,
+    holdForRewrite: true,
   },
   modeAllowlist: ["roleplay"],
   defaultTools: [],
