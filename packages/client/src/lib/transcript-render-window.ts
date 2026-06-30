@@ -1,5 +1,5 @@
-const MAX_MOUNTED_TRANSCRIPT_MESSAGES = 160;
-export const TRANSCRIPT_RENDER_WINDOW_STEP = 80;
+const MAX_MOUNTED_TRANSCRIPT_MESSAGES = 80;
+export const TRANSCRIPT_RENDER_WINDOW_STEP = 40;
 
 export type TranscriptRenderWindow<T> = {
   messages: T[] | undefined;

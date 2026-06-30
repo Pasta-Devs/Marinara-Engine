@@ -33,7 +33,14 @@ import {
 
 import { useChatStore } from "../../stores/chat.store";
 import { useGenerate } from "../../hooks/use-generate";
-import { characterKeys, spriteKeys, useCharacters, usePersonas, type SpriteInfo } from "../../hooks/use-characters";
+import {
+  characterKeys,
+  spriteKeys,
+  useActivePersona,
+  useCharacters,
+  usePersona,
+  type SpriteInfo,
+} from "../../hooks/use-characters";
 import { usePageActivity } from "../../hooks/use-page-activity";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
@@ -284,8 +291,31 @@ type AgentInjectionReviewRequest = {
   injections: AgentInjectionReviewItem[];
 };
 
-type CharacterRow = { id: string; data: unknown; avatarPath: string | null };
+type CharacterRow = { id: string; data: unknown; avatarPath: string | null; comment?: string | null };
 type CharacterMapValue = NonNullable<ReturnType<CharacterMap["get"]>>;
+
+function isCharacterRow(value: unknown): value is CharacterRow {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as { id?: unknown }).id === "string" &&
+    typeof (value as { data?: unknown }).data !== "undefined"
+  );
+}
+
+function resolveChatPersonaId(chat: unknown): string | null {
+  const rawPersonaId = (chat as { personaId?: unknown } | null | undefined)?.personaId;
+  if (typeof rawPersonaId === "string" && rawPersonaId.trim()) return rawPersonaId.trim();
+
+  const metadata = parseChatMetadata((chat as { metadata?: unknown } | null | undefined)?.metadata);
+  const setupConfig = metadata.gameSetupConfig;
+  const rawSetupPersonaId =
+    setupConfig && typeof setupConfig === "object" && !Array.isArray(setupConfig)
+      ? (setupConfig as { personaId?: unknown }).personaId
+      : null;
+  return typeof rawSetupPersonaId === "string" && rawSetupPersonaId.trim() ? rawSetupPersonaId.trim() : null;
+}
 
 function toCharacterMapValue(char: CharacterRow): CharacterMapValue {
   try {
@@ -577,8 +607,10 @@ export function ChatArea() {
     });
     return map;
   }, [messageOffset, messages]);
-  const { data: allCharacters } = useCharacters({ includeBuiltIn: true });
-  const { data: allPersonas } = usePersonas();
+  const { data: gameLibraryCharacters } = useCharacters({
+    enabled: !!chat?.id && chat.id === activeChatId && isGameChat,
+    includeBuiltIn: true,
+  });
   const deleteMessage = useDeleteMessage(activeChatId);
   const deleteMessages = useDeleteMessages(activeChatId);
   const deleteSwipe = useDeleteSwipe(activeChatId);
@@ -644,41 +676,34 @@ export function ChatArea() {
 
   // Character IDs in the active chat
   const chatCharIds = useMemo(() => getChatCharacterIds(chat), [chat]);
+  const chatPersonaId = useMemo(() => resolveChatPersonaId(chat), [chat]);
+  const { data: chatPersona } = usePersona(chatPersonaId);
+  const { data: activePersonaFallback } = useActivePersona(!!chat?.id && !chatPersonaId && !isGameChat);
 
-  const baseCharacterMap: CharacterMap = useMemo(() => {
-    const map: CharacterMap = new Map();
-    if (!allCharacters) return map;
-    for (const char of allCharacters as CharacterRow[]) {
-      map.set(char.id, toCharacterMapValue(char));
-    }
-    return map;
-  }, [allCharacters]);
-
-  const missingChatCharacterIds = useMemo(
-    () => chatCharIds.filter((id) => !baseCharacterMap.has(id)),
-    [baseCharacterMap, chatCharIds],
-  );
-  const missingCharacterQueries = useQueries({
-    queries: missingChatCharacterIds.map((id) => ({
+  const activeCharacterQueries = useQueries({
+    queries: chatCharIds.map((id) => ({
       queryKey: characterKeys.detail(id),
       queryFn: () => api.get<CharacterRow>(`/characters/${id}`),
       enabled: !!chat?.id,
+      retry: false,
       staleTime: 5 * 60_000,
     })),
   });
+  const chatCharacterRows = useMemo(
+    () => activeCharacterQueries.map((query) => query.data).filter(isCharacterRow),
+    [activeCharacterQueries],
+  );
 
   // A 60s-cadence clock so schedule/override-derived presence refreshes when time
   // alone changes the effective status (mirrors the presence pill's refetch).
   const presenceNow = usePresenceClock();
 
-  // Build character lookup map. Cold launches can render chat detail before the
-  // full library list has produced every active character, so merge exact
-  // per-chat character fetches as a rescue path.
+  // Build character lookup map from the active chat's characters only. Library
+  // panels can load the whole catalog; the chat surface should not.
   const characterMap: CharacterMap = useMemo(() => {
-    const map: CharacterMap = new Map(baseCharacterMap);
-    for (const query of missingCharacterQueries) {
-      const char = query.data;
-      if (char?.id) map.set(char.id, toCharacterMapValue(char));
+    const map: CharacterMap = new Map();
+    for (const char of chatCharacterRows) {
+      map.set(char.id, toCharacterMapValue(char));
     }
     const convoMeta = parseChatMetadata(chat?.metadata);
     const archivedSnapshots = convoMeta.archivedCharacterSnapshots as Record<string, unknown> | undefined;
@@ -733,7 +758,7 @@ export function ChatArea() {
       }
     }
     return map;
-  }, [baseCharacterMap, missingCharacterQueries, chat?.metadata, presenceNow]);
+  }, [chatCharacterRows, chat?.metadata, presenceNow]);
 
   const characterNames = useMemo(
     () => chatCharIds.map((id) => characterMap.get(id)?.name).filter((n): n is string => !!n),
@@ -741,9 +766,9 @@ export function ChatArea() {
   );
 
   const gameCharacters = useMemo(() => {
-    if (!allCharacters) return [];
+    if (!isGameChat || !gameLibraryCharacters) return [];
     return (
-      allCharacters as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>
+      gameLibraryCharacters as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>
     ).flatMap((c) => {
       if (c.id === PROFESSOR_MARI_ID) return [];
       try {
@@ -769,34 +794,14 @@ export function ChatArea() {
         return [{ id: c.id, name: "Unknown" }];
       }
     });
-  }, [allCharacters]);
+  }, [gameLibraryCharacters, isGameChat]);
 
   // Active persona info (for user message styling: name, avatar, colors)
   const personaInfo = useMemo(() => {
-    if (!allPersonas) return undefined;
-    const personas = allPersonas as Array<{
-      id: string;
-      isActive: string | boolean;
-      name: string;
-      description?: string;
-      personality?: string;
-      scenario?: string;
-      backstory?: string;
-      appearance?: string;
-      avatarPath?: string | null;
-      avatarCrop?: string;
-      nameColor?: string;
-      dialogueColor?: string;
-      boxColor?: string;
-    }>;
-    // Prefer per-chat personaId, fall back to globally active persona
-    // (Game mode skips the fallback — persona must be explicitly selected)
-    const chatPersonaId = (chat as unknown as { personaId?: string | null })?.personaId;
-    const isGame = (chat as unknown as { mode?: string })?.mode === "game";
-    const persona =
-      (chatPersonaId ? personas.find((p) => p.id === chatPersonaId) : null) ??
-      (!isGame ? personas.find((p) => p.isActive === "true" || p.isActive === true) : null);
+    // Prefer per-chat personaId, fall back to the globally active persona outside Game mode.
+    const persona = chatPersona ?? (!isGameChat ? activePersonaFallback : null);
     if (!persona) return undefined;
+    const avatarCrop = typeof persona.avatarCrop === "string" ? parseAvatarCropJson(persona.avatarCrop) : (persona.avatarCrop ?? null);
     return {
       id: persona.id,
       name: persona.name,
@@ -806,12 +811,12 @@ export function ChatArea() {
       backstory: persona.backstory || undefined,
       appearance: persona.appearance || undefined,
       avatarUrl: persona.avatarPath || undefined,
-      avatarCrop: parseAvatarCropJson(persona.avatarCrop),
+      avatarCrop,
       nameColor: persona.nameColor || undefined,
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
     };
-  }, [allPersonas, chat]);
+  }, [activePersonaFallback, chatPersona, isGameChat]);
 
   const { startEncounter } = useEncounter();
   const { concludeScene, abandonScene, forkScene, isForking } = useScene();
@@ -950,7 +955,7 @@ export function ChatArea() {
   const cardCssInjector = (
     <CreatorNotesCssInjector
       characterIds={chatCharIds}
-      allCharacters={allCharacters as CharacterRow[] | undefined}
+      allCharacters={chatCharacterRows}
       mode={cardCssMode}
       chatMode={cardCssChatMode}
     />
