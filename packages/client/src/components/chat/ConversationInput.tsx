@@ -282,6 +282,8 @@ function useIsMobileComposerViewport() {
 }
 
 interface ConversationInputProps {
+  mobileHistoryCollapsed?: boolean;
+  onMobileHistoryCollapsedChange?: (collapsed: boolean) => void;
   characterNames?: string[];
   groupResponseOrder?: string;
   chatCharacters?: Array<{
@@ -296,6 +298,8 @@ interface ConversationInputProps {
 }
 
 export function ConversationInput({
+  mobileHistoryCollapsed = false,
+  onMobileHistoryCollapsedChange,
   characterNames = [],
   groupResponseOrder,
   chatCharacters,
@@ -336,6 +340,7 @@ export function ConversationInput({
   const charPickerBtnRef = useRef<HTMLButtonElement>(null);
   const charPickerMenuRef = useRef<HTMLDivElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
+  const focusAfterMobileRestoreRef = useRef(false);
   const attachmentsRef = useRef<Attachment[]>([]);
   const pendingAttachmentDraftsRef = useRef<Map<string, Attachment[]>>(new Map());
   const currentInputFrameRef = useRef<number | null>(null);
@@ -369,6 +374,17 @@ export function ConversationInput({
   const pendingAttachmentReads = activeChatId ? (pendingAttachmentReadsByChat[activeChatId] ?? 0) : 0;
   const isReadingAttachments = pendingAttachmentReads > 0;
   const hasPendingAttachments = isReadingAttachments || attachments.length > 0;
+  const shouldShowMobileCollapsedComposer =
+    mobileHistoryCollapsed &&
+    !hasInput &&
+    attachments.length === 0 &&
+    !isReadingAttachments &&
+    !isStreaming &&
+    !mobilePickerOpen &&
+    !emojiOpen &&
+    !gifOpen &&
+    !stickerOpen &&
+    !charPickerOpen;
   const chatMetadata = useMemo(() => parseChatMetadata(activeChat?.metadata), [activeChat?.metadata]);
   const inactiveCharacterIds = useMemo(
     () =>
@@ -1728,6 +1744,17 @@ export function ConversationInput({
     window.setTimeout(scroll, 260);
   }, []);
 
+  useEffect(() => {
+    if (mobileHistoryCollapsed || !focusAfterMobileRestoreRef.current) return;
+    focusAfterMobileRestoreRef.current = false;
+    const focus = () => {
+      textareaRef.current?.focus();
+      ensureInputVisible();
+    };
+    requestAnimationFrame(focus);
+    window.setTimeout(focus, 120);
+  }, [ensureInputVisible, mobileHistoryCollapsed]);
+
   const statusDotClass = (status?: string) =>
     status === "offline"
       ? "bg-gray-400"
@@ -1738,6 +1765,27 @@ export function ConversationInput({
           : "bg-green-500";
   const statusLabel = (status?: string) =>
     status === "offline" ? "Offline" : status === "dnd" ? "Busy" : status === "idle" ? "Away" : null;
+
+  if (shouldShowMobileCollapsedComposer) {
+    return (
+      <div className="mari-chat-input chat-input-container relative px-2 pb-3 sm:px-3 md:hidden">
+        <button
+          type="button"
+          onClick={() => {
+            focusAfterMobileRestoreRef.current = true;
+            onMobileHistoryCollapsedChange?.(false);
+          }}
+          className={cn(
+            getChatInputShellClass({ dragging: false, hasContent: false, layout: "conversation" }),
+            "min-h-10 w-full justify-start text-left text-sm text-foreground/55",
+          )}
+          aria-label="Show message input"
+        >
+          <span className="truncate">Message… /cmds</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mari-chat-input chat-input-container relative px-2 pb-3 sm:px-3">

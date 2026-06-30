@@ -19,6 +19,7 @@ import { buildMemoryRecallBlock } from "../../packages/server/src/services/gener
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
 import { injectSceneContextMessages } from "../../packages/server/src/services/generation/scene-context-runtime.js";
+import { buildRuntimeAgentSectionEligibleTypesForTest } from "../../packages/server/src/services/generation/runtime-agent-sections.js";
 import type { DB } from "../../packages/server/src/db/connection.js";
 import {
   appendNonLeadingSystemMessagesToLastUser,
@@ -857,6 +858,19 @@ const cases: RegressionCase[] = [
 
       assert.equal(promptText.includes("old context 0"), false);
       assert.match(promptText, /ROUTER_SURVIVOR_CONTEXT/);
+    },
+  },
+  {
+    name: "immersive HTML is not a pre-generation runtime injection",
+    run() {
+      const eligible = buildRuntimeAgentSectionEligibleTypesForTest({
+        enableAgents: true,
+        activeAgentIds: ["html"],
+        chatMode: "roleplay",
+        configuredAgents: [{ type: "html", phase: "post_processing", settings: { resultType: "text_rewrite" } }],
+      });
+
+      assert.equal(eligible.has("html"), false);
     },
   },
   {

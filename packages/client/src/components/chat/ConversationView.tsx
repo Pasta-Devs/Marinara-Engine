@@ -391,6 +391,7 @@ export function ConversationView({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [mobileHistoryComposerCollapsed, setMobileHistoryComposerCollapsed] = useState(false);
   const { map: conversationEmojiMap } = useConversationCustomEmojis();
   const { map: conversationStickerMap } = useConversationCustomStickers();
   const prevScrollHeightRef = useRef(0);
@@ -398,7 +399,13 @@ export function ConversationView({
   const isNearBottomRef = useRef(true);
   const userScrolledAwayRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+  const composerScrollTopRef = useRef(0);
   const userScrolledAtRef = useRef(0);
+  const shouldKeepMobileComposerOpen = hasLiveStream || hasDraftInput || isFetchingNextPage;
+
+  useEffect(() => {
+    if (shouldKeepMobileComposerOpen) setMobileHistoryComposerCollapsed(false);
+  }, [shouldKeepMobileComposerOpen]);
 
   // ── Scroll tracking ──
   useEffect(() => {
@@ -407,6 +414,17 @@ export function ConversationView({
     const onScroll = () => {
       const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
       const nearBottom = distFromBottom < 150;
+      const currentTop = el.scrollTop;
+      const previousComposerTop = composerScrollTopRef.current;
+      const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+      if (!isMobile || shouldKeepMobileComposerOpen || nearBottom) {
+        setMobileHistoryComposerCollapsed(false);
+      } else if (currentTop > previousComposerTop + 18) {
+        setMobileHistoryComposerCollapsed(false);
+      } else if (currentTop < previousComposerTop - 12 && distFromBottom > 180) {
+        setMobileHistoryComposerCollapsed(true);
+      }
+      composerScrollTopRef.current = currentTop;
       if (hasLiveStream && el.scrollTop < lastScrollTopRef.current - 10) {
         userScrolledAwayRef.current = true;
       }
@@ -434,7 +452,7 @@ export function ConversationView({
       el.removeEventListener("wheel", onUserScroll);
       el.removeEventListener("touchmove", onUserScroll);
     };
-  }, [hasLiveStream]);
+  }, [hasLiveStream, shouldKeepMobileComposerOpen]);
 
   useEffect(() => {
     if (!hasLiveStream) userScrolledAwayRef.current = false;
@@ -1185,6 +1203,8 @@ export function ConversationView({
       {/* ── Input area ── */}
       <ConversationInput
         key={chatId}
+        mobileHistoryCollapsed={mobileHistoryComposerCollapsed}
+        onMobileHistoryCollapsedChange={setMobileHistoryComposerCollapsed}
         characterNames={characterNames}
         groupResponseOrder={
           chatMeta.groupResponseOrder === "manual"

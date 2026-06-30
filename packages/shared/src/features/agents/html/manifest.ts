@@ -4,11 +4,16 @@ export const htmlAgentManifest = {
   id: "html",
   name: "Immersive HTML",
   description:
-    "Adds immersive HTML/CSS/JS formatting instructions to the last Roleplay user prompt without running a separate agent call.",
-  phase: "pre_generation",
+    "Post-processes the latest Roleplay response with diegetic HTML/CSS/JS visual artifacts without changing the story meaning.",
+  phase: "post_processing",
   enabledByDefault: false,
   category: "misc",
-  runtimeDisabled: true,
+  resultType: "text_rewrite",
+  defaultSettings: {
+    resultType: "text_rewrite",
+    contextSize: 5,
+    maxTokens: 4096,
+  },
   modeAllowlist: ["roleplay"],
   defaultTools: [],
 } satisfies BuiltInAgentManifest;

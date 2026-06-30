@@ -382,7 +382,6 @@ import {
   resolveStoredModelContextLimit,
 } from "../services/generation/model-access-policy.js";
 import { resolveAgentPipelineAgents } from "../services/generation/agent-resolution.js";
-import { applyImmersiveHtmlPromptInjection } from "../services/generation/immersive-html-injection.js";
 import { resolveGenerationTools } from "../services/generation/tool-resolution-runtime.js";
 import {
   buildCharacterMacroProfilesById,
@@ -5784,19 +5783,6 @@ export async function generateRoutes(app: FastifyInstance) {
             const secretPlotBlock = formatSecretPlotSystemBlock(directorSecretPlotArcForPrompt, wrapFormat);
             appendSecretPlotSystemMessage(finalMessages, secretPlotBlock);
           }
-        }
-
-        // Static injection: Immersive HTML is a prompt directive, not a runtime LLM agent.
-        const immersiveHtmlResult = await applyImmersiveHtmlPromptInjection({
-          chatMode,
-          enableAgents: chatEnableAgents,
-          activeAgentIds: chatActiveAgentIds,
-          wrapFormat,
-          messages: finalMessages,
-          getHtmlAgentConfig: () => agentsStore.getByType("html"),
-        });
-        if (immersiveHtmlResult) {
-          trySendSseEvent(reply, { type: "agent_result", data: immersiveHtmlResult });
         }
 
         // ── Early exit if client disconnected during knowledge retrieval / injection ──

@@ -22,6 +22,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Improved profile/backup ZIP import diagnostics when the selected archive does not contain `marinara-profile.json`.
 - Tightened Android Firefox chat input sizing so the mobile composer grows less rigidly and leaves more room for typed text.
 - Shortened mobile Roleplay and Conversation composer placeholders so command hints do not wrap and pull the input caret upward.
+- Converted Immersive HTML from static main-prompt injection into a Roleplay post-processing visual enhancer that can add diegetic HTML/CSS/JS without changing story meaning (#3094).
+- Added mobile chat composer minimization while scrolling through older messages, with automatic restore near the bottom, on downward scroll, or when the minimized input is tapped (#3091).
+- Fixed branch switching so a valid selected branch is not cleared just because the flat chat list briefly does not include it while detail/group caches are resolving (#3087).
 
 ### Platform Notes
 
