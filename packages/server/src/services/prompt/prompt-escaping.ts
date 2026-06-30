@@ -1,7 +1,9 @@
 import type { WrapFormat } from "@marinara-engine/shared";
 
 export function escapeXmlText(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // XML text nodes only require escaping `&` and `<`. Keep plain `>` literal so
+  // user-authored Markdown blockquotes do not become visible `&gt;` tokens.
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 }
 
 function neutralizeMarkdownHeadings(value: string): string {
