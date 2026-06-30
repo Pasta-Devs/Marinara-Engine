@@ -111,15 +111,21 @@ if [ -d ".git" ]; then
         # Stash local changes, including untracked non-ignored files, so the update doesn't fail
         STASHED=0
         STASH_REF=""
+        SKIP_UPDATE_FOR_LOCAL_CHANGES=0
         if has_git_worktree_changes; then
             if git stash push -u -q -m "auto-stash before update" 2>/dev/null; then
                 STASHED=1
                 STASH_REF=$(git stash list -1 --format=%gd 2>/dev/null || true)
+            else
+                SKIP_UPDATE_FOR_LOCAL_CHANGES=1
+                echo "  [WARN] Could not stash local changes. Skipping auto-update to avoid overwriting them."
             fi
         fi
         UPDATE_LOG=$(mktemp "${TMPDIR:-/tmp}/marinara-update.XXXXXX")
         UPDATED_TO_TARGET=0
-        if [ -z "$CURRENT_BRANCH" ]; then
+        if [ "$SKIP_UPDATE_FOR_LOCAL_CHANGES" = "1" ]; then
+            UPDATED_TO_TARGET=0
+        elif [ -z "$CURRENT_BRANCH" ]; then
             if git checkout --detach "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
                 UPDATED_TO_TARGET=1
             elif git reset --hard "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
@@ -148,7 +154,7 @@ if [ -d ".git" ]; then
                 rm -rf packages/shared/dist packages/server/dist packages/client/dist
                 rm -f packages/shared/tsconfig.tsbuildinfo packages/server/tsconfig.tsbuildinfo packages/client/tsconfig.tsbuildinfo
             fi
-        else
+        elif [ "$SKIP_UPDATE_FOR_LOCAL_CHANGES" != "1" ]; then
             echo "  [WARN] Could not update to origin/main. Continuing with current version."
             if [ -s "$UPDATE_LOG" ]; then
                 echo "         Git reported:"

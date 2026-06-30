@@ -279,14 +279,6 @@ function getAccentCursorValue(fill: string, stroke: string) {
 function setAccentCursorVariable(root: HTMLElement, accent: string, theme: "dark" | "light") {
   const { fill, stroke } = getAccentCursorColors(accent, theme);
   const nextCursor = getAccentCursorValue(fill, stroke);
-  const currentCursor =
-    root.style.getPropertyValue("--cursor-pink").trim() ||
-    getComputedStyle(root).getPropertyValue("--cursor-pink").trim();
-  if (currentCursor && currentCursor !== nextCursor) {
-    root.style.setProperty("--cursor-pink-previous", currentCursor);
-  } else if (!root.style.getPropertyValue("--cursor-pink-previous").trim()) {
-    root.style.setProperty("--cursor-pink-previous", nextCursor);
-  }
 
   root.style.setProperty("--marinara-custom-cursor-fill", fill);
   root.style.setProperty("--marinara-custom-cursor-stroke", stroke);
