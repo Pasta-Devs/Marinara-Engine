@@ -101,7 +101,7 @@
 
 ## Latest Release
 
-Current stable release: **[v2.0.7](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.0.7)**.
+Current stable release: **[v2.0.8](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.0.8)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page. Android APKs are Termux bootstrap + WebView shells: they can download Termux from F-Droid, launch Android's installer, start the Termux setup flow after required permission prompts, then open the local Marinara server on the same device.
 
@@ -129,7 +129,7 @@ More detailed public [roadmap](https://github.com/orgs/Pasta-Devs/projects/1).
 | 🤖 Android Manual Termux     | [Android (Termux) Installation Guide](docs/installation/android-termux.md) — manual fallback    |
 | 📱 iOS / iPadOS              | [iOS / iPadOS PWA Guide](docs/installation/ios-pwa.md)                                          |
 
-> **Recommended Android path:** download the Android APK from the latest GitHub Release, open it, then tap **Install / Start Marinara**. The APK can download Termux from F-Droid, hand it to Android's installer, request Termux command permission, start the setup command, and open the local Marinara server when it is ready. Android still shows its required install/permission prompts.
+> **Recommended Android path:** download the Android APK from the latest GitHub Release, open it, then tap **Install / Start Marinara**. The APK can download Termux from F-Droid, hand it to Android's installer, request Termux command permission, start the setup command, and open the local Marinara server when it is ready. If Android blocks that handoff, the APK copies a fresh-Termux setup command that can be pasted into Termux manually. Android still shows its required install/permission prompts.
 
 Each guide covers installation, updating, and LAN access for that platform. See [Configuration Reference](docs/CONFIGURATION.md) for environment variables setup. Having trouble? See [FAQ](docs/FAQ.md) and [Troubleshooting](docs/TROUBLESHOOTING.md).
 

@@ -382,7 +382,9 @@
 
   --marinara-custom-cursor-fill: #d4acfb;
   --marinara-custom-cursor-stroke: #050312;
-  --cursor-pink: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 3L10 20L12 12L20 10L3 3Z' fill='%23D4ACFB' stroke='%23050312' stroke-width='1'/%3E%3C/svg%3E");
+  --cursor-pink: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 3L10 20L12 12L20 10L3 3Z' fill='%23D4ACFB' stroke='%23050312' stroke-width='1'/%3E%3C/svg%3E") 3 3;
+  --cursor-pink-previous: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 3L10 20L12 12L20 10L3 3Z' fill='%23D4ACFB' stroke='%23050312' stroke-width='1'/%3E%3C/svg%3E") 3 3;
+  --marinara-custom-cursor: var(--cursor-pink), var(--cursor-pink-previous), auto;
 
   --y2k-pink: var(--primary);
   --y2k-purple: #d4adfc;
@@ -1388,7 +1390,7 @@
 }
 
 :where(:root[data-marinara-custom-cursor="enabled"] .mari-editor-avatar-tile) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 
 .mari-editor-avatar-tile.mari-avatar-placeholder {
@@ -1929,11 +1931,11 @@
    5. BASE RESET & BODY
    ───────────────────────────────────────────── */
 :where(:root[data-marinara-custom-cursor="enabled"], :root[data-marinara-custom-cursor="enabled"] body) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 
 :where(:root[data-marinara-custom-cursor="enabled"] *) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 
 @layer base {
@@ -1951,7 +1953,7 @@ textarea {
 }
 
 :where(:root[data-marinara-custom-cursor="enabled"] input, :root[data-marinara-custom-cursor="enabled"] select, :root[data-marinara-custom-cursor="enabled"] textarea) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 
 input[type="range"] {
@@ -1970,7 +1972,7 @@ input[type="range"] {
 }
 
 :where(:root[data-marinara-custom-cursor="enabled"] input[type="range"]) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
@@ -2521,7 +2523,7 @@ strong {
   :root[data-marinara-custom-cursor="enabled"] .mari-resize-x,
   :root[data-marinara-custom-cursor="enabled"] .mari-resize-y
 ) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 :where(.cursor-not-allowed, .disabled\:cursor-not-allowed:disabled) {
   cursor: not-allowed !important;
@@ -2530,10 +2532,10 @@ strong {
   :root[data-marinara-custom-cursor="enabled"] .cursor-not-allowed,
   :root[data-marinara-custom-cursor="enabled"] .disabled\:cursor-not-allowed:disabled
 ) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 :where(:root[data-marinara-custom-cursor="enabled"] .active\:cursor-grabbing:active) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 :where(.mari-resize-x) {
   cursor: ew-resize !important;
@@ -2548,7 +2550,7 @@ strong {
   :root[data-marinara-custom-cursor="enabled"] .cursor-w-resize,
   :root[data-marinara-custom-cursor="enabled"] .mari-resize-x
 ) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 :where(
   :root[data-marinara-custom-cursor="enabled"] .cursor-row-resize,
@@ -2557,21 +2559,21 @@ strong {
   :root[data-marinara-custom-cursor="enabled"] .cursor-s-resize,
   :root[data-marinara-custom-cursor="enabled"] .mari-resize-y
 ) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 :where(
   :root[data-marinara-custom-cursor="enabled"] .cursor-nwse-resize,
   :root[data-marinara-custom-cursor="enabled"] .cursor-nw-resize,
   :root[data-marinara-custom-cursor="enabled"] .cursor-se-resize
 ) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 :where(
   :root[data-marinara-custom-cursor="enabled"] .cursor-nesw-resize,
   :root[data-marinara-custom-cursor="enabled"] .cursor-ne-resize,
   :root[data-marinara-custom-cursor="enabled"] .cursor-sw-resize
 ) {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 
 /* ─────────────────────────────────────────────
@@ -2590,7 +2592,7 @@ strong {
 :root[data-marinara-custom-cursor="enabled"] ::-webkit-scrollbar-track,
 :root[data-marinara-custom-cursor="enabled"] ::-webkit-scrollbar-thumb,
 :root[data-marinara-custom-cursor="enabled"] ::-webkit-scrollbar-corner {
-  cursor: var(--cursor-pink), auto !important;
+  cursor: var(--marinara-custom-cursor) !important;
 }
 
 ::-webkit-scrollbar-track {

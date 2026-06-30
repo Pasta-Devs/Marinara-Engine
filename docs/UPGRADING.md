@@ -57,6 +57,8 @@ The Termux launcher updates the repo, upgrades Node.js through `nodejs-lts` when
 6. If Termux blocks external commands, paste the copied `allow-external-apps` command into Termux once, then tap **Install / Start Marinara** again.
 7. Wait for Termux to finish installing/building, then return to Marinara Engine. The APK keeps retrying until the local server is ready.
 
+If Android blocks the Termux setup launch completely, the APK copies a full Marinara setup command. Open Termux, paste that copied command, wait for it to start the server, then return to the APK.
+
 Android does not allow an ordinary APK to silently install Termux or run Termux commands without user confirmation. The v2.0.0 APK reduces the setup to taps and Android permission prompts, but those prompts cannot be removed.
 
 ## iPhone and iPad

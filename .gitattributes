@@ -1,5 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# Generated TypeScript registries are written with LF by the codegen script.
+# Keep Windows checkouts aligned so every launcher build does not dirty them.
+packages/shared/src/features/**/*.generated.ts text eol=lf
+
 # Windows batch files must keep CRLF line endings
 *.bat text eol=crlf

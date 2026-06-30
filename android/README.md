@@ -17,7 +17,7 @@ The Android app is a Termux bootstrap + WebView shell for Marinara Engine. It is
 
 **Fast path:** install the APK, open it, tap **Install / Start Marinara**, approve Android/Termux prompts, wait for the Termux launcher to finish, then return to the Marinara Engine app.
 
-**Manual fallback:** install Termux from F-Droid, run `./start-termux.sh`, then open the Marinara Engine Android app.
+**Manual fallback:** install Termux from F-Droid, paste the fresh-Termux command below so it creates/updates the Marinara folder, then open the Marinara Engine Android app.
 
 ## Features
 
@@ -98,9 +98,16 @@ cd android
 
 ### Manual Path
 
-Start Marinara Engine in Termux:
+On a fresh Termux install, paste this command first:
 
 ```bash
+pkg update -y && pkg install -y git nodejs-lts && ([ -d "$HOME/Marinara-Engine/.git" ] || git clone https://github.com/Pasta-Devs/Marinara-Engine.git "$HOME/Marinara-Engine") && cd "$HOME/Marinara-Engine" && chmod +x start-termux.sh && ./start-termux.sh
+```
+
+After Marinara has been installed once, start it again in Termux:
+
+```bash
+cd "$HOME/Marinara-Engine"
 ./start-termux.sh
 ```
 

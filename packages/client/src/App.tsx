@@ -68,6 +68,7 @@ const APP_ACCENT_CUSTOM_VARIABLES = [
 const ACCENT_RGB_TICK_MS = 500;
 const ACCENT_RGB_SOLID_CYCLE_MS = 7_200;
 const ACCENT_RGB_GRADIENT_STOP_MS = 6_000;
+const CUSTOM_CURSOR_ANIMATED_RECOLOR_MS = 6_000;
 const CUSTOM_CURSOR_RECOLOR_SCROLL_FREEZE_MS = 360;
 const TOAST_DURATION_MS = 6_000;
 const TOAST_VISIBLE_LIMIT = 3;
@@ -277,9 +278,19 @@ function getAccentCursorValue(fill: string, stroke: string) {
 
 function setAccentCursorVariable(root: HTMLElement, accent: string, theme: "dark" | "light") {
   const { fill, stroke } = getAccentCursorColors(accent, theme);
+  const nextCursor = getAccentCursorValue(fill, stroke);
+  const currentCursor =
+    root.style.getPropertyValue("--cursor-pink").trim() ||
+    getComputedStyle(root).getPropertyValue("--cursor-pink").trim();
+  if (currentCursor && currentCursor !== nextCursor) {
+    root.style.setProperty("--cursor-pink-previous", currentCursor);
+  } else if (!root.style.getPropertyValue("--cursor-pink-previous").trim()) {
+    root.style.setProperty("--cursor-pink-previous", nextCursor);
+  }
+
   root.style.setProperty("--marinara-custom-cursor-fill", fill);
   root.style.setProperty("--marinara-custom-cursor-stroke", stroke);
-  root.style.setProperty("--cursor-pink", getAccentCursorValue(fill, stroke));
+  root.style.setProperty("--cursor-pink", nextCursor);
 }
 
 function getSolidAccentGradient(accent: string) {
@@ -557,13 +568,26 @@ export function App() {
     let cursorRecolorFreezeTimer: ReturnType<typeof window.setTimeout> | null = null;
     let cursorRecolorFrozen = false;
     let pendingCursorAccent: string | null = null;
+    let lastCursorRecolorAt = 0;
 
-    const applyCursorAccent = (cursorAccent: string) => {
+    const applyCursorAccent = (cursorAccent: string, options: { slow?: boolean } = {}) => {
+      if (!customCursorEnabled) {
+        pendingCursorAccent = null;
+        return;
+      }
       if (customCursorEnabled && cursorRecolorFrozen) {
         pendingCursorAccent = cursorAccent;
         return;
       }
+      if (customCursorEnabled && options.slow && lastCursorRecolorAt > 0) {
+        const now = performance.now();
+        if (now - lastCursorRecolorAt < CUSTOM_CURSOR_ANIMATED_RECOLOR_MS) {
+          pendingCursorAccent = cursorAccent;
+          return;
+        }
+      }
       pendingCursorAccent = null;
+      lastCursorRecolorAt = performance.now();
       setAccentCursorVariable(root, cursorAccent, theme);
     };
 
@@ -577,7 +601,7 @@ export function App() {
       if (pendingCursorAccent !== null) {
         const nextCursorAccent = pendingCursorAccent;
         pendingCursorAccent = null;
-        setAccentCursorVariable(root, nextCursorAccent, theme);
+        applyCursorAccent(nextCursorAccent, { slow: accentAnimationEnabled });
       }
     };
 
@@ -636,7 +660,7 @@ export function App() {
         theme,
         updateCursor: false,
       });
-      applyCursorAccent(liveAccent);
+      applyCursorAccent(liveAccent, { slow: true });
       setAccentModeDataset();
     };
 
@@ -692,7 +716,9 @@ export function App() {
     window.addEventListener("blur", syncAccentAnimationState);
     window.addEventListener("pageshow", syncAccentAnimationState);
     window.addEventListener("pagehide", syncAccentAnimationState);
-    window.addEventListener("wheel", freezeCursorRecolorDuringScroll, { capture: true, passive: true });
+    if (customCursorEnabled) {
+      window.addEventListener("wheel", freezeCursorRecolorDuringScroll, { capture: true, passive: true });
+    }
     reducedMotionQuery.addEventListener("change", syncAccentAnimationState);
 
     return () => {
@@ -701,7 +727,9 @@ export function App() {
       window.removeEventListener("blur", syncAccentAnimationState);
       window.removeEventListener("pageshow", syncAccentAnimationState);
       window.removeEventListener("pagehide", syncAccentAnimationState);
-      window.removeEventListener("wheel", freezeCursorRecolorDuringScroll, true);
+      if (customCursorEnabled) {
+        window.removeEventListener("wheel", freezeCursorRecolorDuringScroll, true);
+      }
       reducedMotionQuery.removeEventListener("change", syncAccentAnimationState);
       if (accentAnimationTimer !== null) {
         window.clearTimeout(accentAnimationTimer);

@@ -107,7 +107,7 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     question: "Is the Android APK standalone?",
     answer: "No. The APK is only a WebView shell for Marinara Engine running locally in Termux.",
     bullets: [
-      "Install Termux from F-Droid and run Marinara with ./start-termux.sh first.",
+      "Use Install / Start Marinara in the APK, or follow the Android Termux guide so Termux creates the Marinara-Engine folder before running ./start-termux.sh.",
       "The APK opens the same-device local server at 127.0.0.1, so it cannot work if Termux is closed.",
       "If it stays on the connection screen, go back to Termux and start the server.",
     ],

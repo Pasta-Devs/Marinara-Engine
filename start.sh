@@ -91,6 +91,12 @@ restore_stashed_changes() {
     return 1
 }
 
+has_git_worktree_changes() {
+    ! git diff --quiet 2>/dev/null \
+        || ! git diff --cached --quiet 2>/dev/null \
+        || [ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]
+}
+
 # ── Auto-update from Git ──
 if [ -d ".git" ]; then
     echo "  [..] Checking for updates..."
@@ -102,21 +108,32 @@ if [ -d ".git" ]; then
     else
         TARGET_HEAD=$(git rev-parse origin/main 2>/dev/null || true)
         CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || true)
-        # Stash any tracked local changes (e.g. pnpm install modifying package.json) so the update doesn't fail
+        # Stash local changes, including untracked non-ignored files, so the update doesn't fail
         STASHED=0
         STASH_REF=""
-        if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
-            if git stash push -q -m "auto-stash before update" 2>/dev/null; then
+        if has_git_worktree_changes; then
+            if git stash push -u -q -m "auto-stash before update" 2>/dev/null; then
                 STASHED=1
                 STASH_REF=$(git stash list -1 --format=%gd 2>/dev/null || true)
             fi
         fi
+        UPDATE_LOG=$(mktemp "${TMPDIR:-/tmp}/marinara-update.XXXXXX")
+        UPDATED_TO_TARGET=0
         if [ -z "$CURRENT_BRANCH" ]; then
-            UPDATE_COMMAND=(git checkout --detach "$TARGET_HEAD")
-        else
-            UPDATE_COMMAND=(git merge --ff-only origin/main)
+            if git checkout --detach "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
+                UPDATED_TO_TARGET=1
+            elif git reset --hard "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
+                UPDATED_TO_TARGET=1
+            fi
+        elif git merge --ff-only origin/main >"$UPDATE_LOG" 2>&1; then
+            UPDATED_TO_TARGET=1
+        elif [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+            echo "  [..] Fast-forward failed; resetting the installed checkout to the released main commit..."
+            if git reset --hard "$TARGET_HEAD" >"$UPDATE_LOG" 2>&1; then
+                UPDATED_TO_TARGET=1
+            fi
         fi
-        if "${UPDATE_COMMAND[@]}" 2>/dev/null; then
+        if [ "$UPDATED_TO_TARGET" = "1" ]; then
             NEW_HEAD=$(git rev-parse HEAD 2>/dev/null)
             if [ "$STASHED" = "1" ]; then
                 restore_stashed_changes || true
@@ -133,10 +150,15 @@ if [ -d ".git" ]; then
             fi
         else
             echo "  [WARN] Could not update to origin/main. Continuing with current version."
+            if [ -s "$UPDATE_LOG" ]; then
+                echo "         Git reported:"
+                sed 's/^/         /' "$UPDATE_LOG"
+            fi
             if [ "$STASHED" = "1" ]; then
                 restore_stashed_changes || true
             fi
         fi
+        rm -f "$UPDATE_LOG"
     fi
 fi
 

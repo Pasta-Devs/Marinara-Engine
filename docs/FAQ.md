@@ -79,7 +79,7 @@ Fast path:
 5. If Termux blocks external commands, paste the copied `allow-external-apps` command into Termux once.
 6. Wait for Termux to install/build/start Marinara Engine, then return to the APK.
 
-Manual fallback: follow the [Android (Termux) Installation Guide](installation/android-termux.md), run `./start-termux.sh`, then open the APK as a dedicated home-screen shell.
+Manual fallback: follow the [Android (Termux) Installation Guide](installation/android-termux.md) so Termux creates or enters the `Marinara-Engine` folder first, then run `./start-termux.sh` from inside that folder and open the APK as a dedicated home-screen shell.
 
 </details>
 

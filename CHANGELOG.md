@@ -4,6 +4,19 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+## [2.0.8]
+
+### Fixed
+
+- Slowed custom cursor recoloring during Accent Pulse/RGB Mode and kept the previous custom cursor as a fallback so color changes do not flash the native cursor.
+- Hardened Windows, macOS/Linux, and Termux launcher updates so generated feature registries keep LF line endings on Windows, launchers stash untracked local files, main/detached installs reset to the exact fetched `origin/main` commit when a normal fast-forward refuses, and Git's real error prints if updating is still blocked.
+- Fixed the Android APK blocked-Termux fallback so it copies a full Marinara setup command instead of telling fresh Termux users to run a missing `./start-termux.sh`, and made the copied `allow-external-apps` command tolerate Termux builds without `termux-reload-settings`.
+
+### Platform Notes
+
+- Android `versionName` is `2.0.8` with `versionCode 27`.
+- Windows, macOS/Linux, Termux, Docker, APK, and PWA users can update through the usual v2 updater paths once release assets are published.
+
 ## [2.0.7]
 
 ### Added

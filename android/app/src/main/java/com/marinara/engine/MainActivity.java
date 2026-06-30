@@ -59,7 +59,9 @@ public class MainActivity extends Activity {
     private static final String TERMUX_HOME = "/data/data/com.termux/files/home";
     private static final String TERMUX_BASH = "/data/data/com.termux/files/usr/bin/bash";
     private static final String TERMUX_EXTERNAL_APPS_COMMAND =
-            "mkdir -p ~/.termux && grep -qxF 'allow-external-apps=true' ~/.termux/termux.properties 2>/dev/null || echo 'allow-external-apps=true' >> ~/.termux/termux.properties; termux-reload-settings";
+            "mkdir -p ~/.termux; "
+                    + "grep -qxF 'allow-external-apps=true' ~/.termux/termux.properties 2>/dev/null || echo 'allow-external-apps=true' >> ~/.termux/termux.properties; "
+                    + "if command -v termux-reload-settings >/dev/null 2>&1; then termux-reload-settings; else echo 'allow-external-apps=true saved. Fully close and reopen Termux if Marinara still cannot start it.'; fi";
 
     private WebView webView;
     private View splashView;
@@ -594,8 +596,7 @@ public class MainActivity extends Activity {
         } catch (SecurityException e) {
             showTermuxExternalAppsInstructions();
         } catch (IllegalStateException | ActivityNotFoundException e) {
-            showBootstrap("Android blocked the Termux setup launch.\nOpen Termux, run ./start-termux.sh, then return here.", false);
-            openTermux();
+            showManualTermuxSetupInstructions("Android blocked the Termux setup launch.");
         }
     }
 
@@ -626,6 +627,17 @@ public class MainActivity extends Activity {
         }
         pauseConnectionRetryLoop();
         showBootstrap("Termux blocked external setup.\nPaste the copied allow-external-apps command once, then return and tap Install / Start Marinara.", false);
+        openTermux();
+    }
+
+    private void showManualTermuxSetupInstructions(String reason) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard != null) {
+            clipboard.setPrimaryClip(ClipData.newPlainText("Marinara Termux setup", buildTermuxSetupCommand()));
+            Toast.makeText(this, "Copied Marinara setup command", Toast.LENGTH_LONG).show();
+        }
+        pauseConnectionRetryLoop();
+        showBootstrap(reason + "\nOpen Termux, paste the copied setup command, then return here.", false);
         openTermux();
     }
 
