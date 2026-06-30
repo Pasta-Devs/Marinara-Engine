@@ -4160,11 +4160,6 @@ strong {
 }
 
 @media (max-width: 767px) {
-  .mari-app {
-    height: var(--mari-visual-viewport-height, 100dvh) !important;
-    max-height: var(--mari-visual-viewport-height, 100dvh) !important;
-  }
-
   /*
    * WKWebView native backing color is set by the literal background-color in
    * index.html <style> (inline critical CSS — not cached by SW, always fresh).

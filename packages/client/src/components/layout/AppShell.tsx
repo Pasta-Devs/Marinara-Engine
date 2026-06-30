@@ -795,7 +795,7 @@ export function AppShell() {
     <div
       data-component="AppShell"
       className={cn(
-        "mari-app mari-app-background-paint fixed inset-0 flex overflow-hidden",
+        "mari-app mari-app-background-paint fixed top-0 left-0 right-0 h-dvh flex overflow-hidden",
         showAmbientDecor && "retro-scanlines noise-bg geometric-grid",
       )}
     >
