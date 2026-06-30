@@ -609,16 +609,16 @@ export function HomeFaq({
                         aria-expanded={isOpen}
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
+                          <div className="flex items-start gap-1.5">
                             <span
                               className={cn(
-                                "shrink-0 rounded-full border px-1.5 py-0.5 text-[0.5rem] font-medium uppercase tracking-[0.12em]",
+                                "mt-[0.0625rem] shrink-0 rounded-full border px-1.5 py-0.5 text-[0.5rem] font-medium uppercase tracking-[0.12em]",
                                 CATEGORY_STYLES[item.category] ?? CATEGORY_STYLES.Misc,
                               )}
                             >
                               {item.category}
                             </span>
-                            <span className="min-w-0 text-[0.6875rem] font-medium leading-snug text-[var(--foreground)]">
+                            <span className="min-w-0 flex-1 break-words text-[0.6875rem] font-medium leading-snug text-[var(--foreground)]">
                               {item.question}
                             </span>
                           </div>
@@ -785,16 +785,16 @@ export function HomeFaq({
                         aria-expanded={isOpen}
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-start gap-2">
                             <span
                               className={cn(
-                                "shrink-0 rounded-full border px-2 py-0.5 text-[0.5625rem] font-medium uppercase tracking-[0.16em]",
+                                "mt-[0.0625rem] shrink-0 rounded-full border px-2 py-0.5 text-[0.5625rem] font-medium uppercase tracking-[0.16em]",
                                 CATEGORY_STYLES[item.category] ?? CATEGORY_STYLES.Misc,
                               )}
                             >
                               {item.category}
                             </span>
-                            <span className="min-w-0 text-[0.75rem] font-medium leading-relaxed text-[var(--foreground)]">
+                            <span className="min-w-0 flex-1 break-words text-[0.75rem] font-medium leading-relaxed text-[var(--foreground)]">
                               {item.question}
                             </span>
                           </div>
