@@ -264,6 +264,23 @@ function readFileAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
+function useIsMobileComposerViewport() {
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia("(max-width: 767px)").matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobileViewport(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return isMobileViewport;
+}
+
 interface ConversationInputProps {
   characterNames?: string[];
   groupResponseOrder?: string;
@@ -296,6 +313,7 @@ export function ConversationInput({
   const [stickerOpen, setStickerOpen] = useState(false);
   const [mobilePickerOpen, setMobilePickerOpen] = useState(false);
   const [mobilePickerTab, setMobilePickerTab] = useState<"emoji" | "gifs" | "stickers">("emoji");
+  const isMobileComposerViewport = useIsMobileComposerViewport();
   const [isDragging, setIsDragging] = useState(false);
   // @mention autocomplete
   const [_mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -370,6 +388,17 @@ export function ConversationInput({
     [activeChatCharacters, characterNames],
   );
   const requiresManualGuideTarget = groupResponseOrder === "manual" && activeCharacterNames.length > 1;
+  const inputPlaceholder = useMemo(() => {
+    if (isMobileComposerViewport) return "Message… /cmds";
+    if (groupResponseOrder === "manual") {
+      return activeCharacterNames.length > 0
+        ? `Message freely; @${activeCharacterNames[0]} to get a reply`
+        : "Message freely...";
+    }
+    if (activeCharacterNames.length > 1 && chatName) return `Message ${chatName}, / for commands`;
+    if (activeCharacterNames.length > 0) return `Message @${activeCharacterNames[0]}, / for commands`;
+    return "Message...";
+  }, [activeCharacterNames, chatName, groupResponseOrder, isMobileComposerViewport]);
 
   // Read from the existing infinite-message cache so an empty Send can retry
   // after a failed generation without adding a second user message.
@@ -1930,17 +1959,7 @@ export function ConversationInput({
 
         <textarea
           ref={textareaRef}
-          placeholder={
-            groupResponseOrder === "manual"
-              ? activeCharacterNames.length > 0
-                ? `Message freely; @${activeCharacterNames[0]} to get a reply`
-                : "Message freely..."
-              : activeCharacterNames.length > 1 && chatName
-                ? `Message ${chatName}, / for commands`
-                : activeCharacterNames.length > 0
-                  ? `Message @${activeCharacterNames[0]}, / for commands`
-                  : "Message..."
-          }
+          placeholder={inputPlaceholder}
           rows={1}
           onInput={handleInput}
           onKeyDown={handleKeyDown}

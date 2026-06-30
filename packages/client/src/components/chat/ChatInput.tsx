@@ -123,6 +123,23 @@ function resizeChatInputTextarea(el: HTMLTextAreaElement) {
   el.style.height = `${Math.min(el.scrollHeight, getChatInputTextareaMaxHeightPx())}px`;
 }
 
+function useIsMobileComposerViewport() {
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window === "undefined" ? false : window.matchMedia("(max-width: 767px)").matches,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobileViewport(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  return isMobileViewport;
+}
+
 function readFileAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -170,6 +187,7 @@ export const ChatInput = memo(function ChatInput({
   const [pendingAttachmentReadsByChat, setPendingAttachmentReadsByChat] = useState<Record<string, number>>({});
   const [isTranslatingDraft, setIsTranslatingDraft] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const isMobileComposerViewport = useIsMobileComposerViewport();
   const [pushStoryArmed, setPushStoryArmed] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [charPickerOpen, setCharPickerOpen] = useState(false);
@@ -212,6 +230,14 @@ export const ChatInput = memo(function ChatInput({
     () => (activeChatCharacters ? activeChatCharacters.map((character) => character.name) : characterNames),
     [activeChatCharacters, characterNames],
   );
+  const inputPlaceholder = useMemo(() => {
+    if (!activeChatId) return "Select a chat first";
+    if (isMobileComposerViewport) return mode === "roleplay" ? "Write… /cmds" : "Message… /cmds";
+    if (mode === "roleplay") return "Write your response, / for commands";
+    if (activeCharacterNames.length > 1) return `Message @${activeCharacterNames.join(", @")}, / for commands`;
+    if (activeCharacterNames.length === 1) return `Message @${activeCharacterNames[0]}, / for commands`;
+    return "Type here, / for commands.";
+  }, [activeCharacterNames, activeChatId, isMobileComposerViewport, mode]);
   const queuedResponseOrder = useMemo(
     () => new Map(responseQueue.map((characterId, index) => [characterId, index + 1])),
     [responseQueue],
@@ -1532,17 +1558,7 @@ export const ChatInput = memo(function ChatInput({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onFocus={ensureInputVisible}
-          placeholder={
-            activeChatId
-              ? mode === "roleplay"
-                ? "Write your response, / for commands"
-                : activeCharacterNames.length > 0
-                  ? activeCharacterNames.length > 1
-                    ? `Message @${activeCharacterNames.join(", @")}, / for commands`
-                    : `Message @${activeCharacterNames[0]}, / for commands`
-                  : "Type here, / for commands."
-              : "Select a chat first"
-          }
+          placeholder={inputPlaceholder}
           disabled={!activeChatId}
           rows={1}
           spellCheck

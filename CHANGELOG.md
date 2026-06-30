@@ -20,6 +20,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Hardened prompt regex scripts against polynomial ReDoS by rejecting chained broad unbounded patterns and guarding long server-side replacement runs with a VM timeout.
 - Improved profile/backup ZIP import diagnostics when the selected archive does not contain `marinara-profile.json`.
 - Tightened Android Firefox chat input sizing so the mobile composer grows less rigidly and leaves more room for typed text.
+- Shortened mobile Roleplay and Conversation composer placeholders so command hints do not wrap and pull the input caret upward.
 
 ### Platform Notes
 
