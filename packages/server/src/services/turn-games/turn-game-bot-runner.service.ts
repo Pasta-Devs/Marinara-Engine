@@ -48,11 +48,11 @@ function truncate(value: unknown, max: number): string {
 
 /** Map a model-supplied display name on a move onto the matching seatId. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function resolveSeatRefs(move: any, state: { seatOrder: string[]; seatNames: Record<string, string> }): any {
+function resolveSeatRefs(move: any, state: { seatOrder?: string[]; seatNames: Record<string, string> }): any {
   if (!move || typeof move !== "object") return move;
   const map = (ref: unknown): unknown => {
     if (typeof ref !== "string" || !ref) return ref;
-    if (state.seatOrder.includes(ref)) return ref;
+    if (state.seatOrder?.includes(ref)) return ref;
     const lower = ref.toLowerCase();
     for (const [seatId, name] of Object.entries(state.seatNames)) {
       if (String(name).toLowerCase() === lower) return seatId;

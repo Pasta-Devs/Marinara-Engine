@@ -377,7 +377,6 @@ export const chessEngine: TurnGameEngine<ChessState, ChessMove, ChessConfig, Che
       lastMove: null,
       lastAction: null,
       log: [],
-      moveCount: 0,
     };
 
     record(state, {
@@ -426,7 +425,6 @@ export const chessEngine: TurnGameEngine<ChessState, ChessMove, ChessConfig, Che
     s.fen = c.fen();
     s.check = c.inCheck();
     s.lastMove = { from: made.from, to: made.to, san: made.san, seatId };
-    s.moveCount += 1;
     setLast(s, seatId, `plays ${made.san}`);
 
     events.push({

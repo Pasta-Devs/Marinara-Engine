@@ -67,8 +67,6 @@ export interface ChessState {
   lastAction: { seatId: string; summary: string } | null;
   /** Capped ring buffer of recent events (newest last) for the board log. */
   log: GameEvent[];
-  /** Plies played. */
-  moveCount: number;
 }
 
 // ── Public (per-viewer) view rendered by the client board ───────────────────
