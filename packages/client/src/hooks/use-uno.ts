@@ -6,14 +6,11 @@ import { toast } from "sonner";
 import { ApiError, api } from "../lib/api-client";
 import { chatKeys } from "./use-chats";
 import { useGenerate } from "./use-generate";
+import { turnGameKeys } from "./turn-game-keys";
 import { useUnoGameStore } from "../stores/uno-game.store";
 import type { UnoConfig, UnoPublicView } from "@marinara-engine/shared";
 
-export const unoKeys = {
-  all: ["turn-games"] as const,
-  catalog: () => [...unoKeys.all, "catalog"] as const,
-  state: (chatId: string) => [...unoKeys.all, "state", chatId] as const,
-};
+export const unoKeys = turnGameKeys;
 
 interface StateResponse {
   view: UnoPublicView;
