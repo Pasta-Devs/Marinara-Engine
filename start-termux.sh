@@ -113,11 +113,11 @@ PNPM_RUNNER="pnpm"
 
 run_pnpm() {
     if [ "$PNPM_RUNNER" = "corepack" ]; then
-        corepack "pnpm@${PNPM_VERSION}" "$@"
+        corepack "pnpm@${PNPM_VERSION}" --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     elif [ "$PNPM_RUNNER" = "npx" ]; then
-        npx --yes "pnpm@${PNPM_VERSION}" "$@"
+        npx --yes "pnpm@${PNPM_VERSION}" --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     else
-        pnpm "$@"
+        pnpm --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     fi
 }
 
@@ -293,7 +293,7 @@ if [ -f "packages/shared/dist/constants/defaults.js" ]; then
 fi
 
 # ── Install dependencies ──
-if [ ! -d "node_modules" ] || [ "$TERMUX_FORCE_INSTALL" = "1" ]; then
+if [ ! -d "node_modules" ] || [ "$TERMUX_FORCE_INSTALL" = "1" ] || ! node scripts/check-workspace-install.mjs >/dev/null 2>&1; then
     echo ""
     echo "  [..] Installing dependencies${TERMUX_FORCE_INSTALL:+ (refreshing for platform fix)}..."
     echo "       This may take several minutes on mobile."

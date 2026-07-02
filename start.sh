@@ -36,11 +36,11 @@ PNPM_RUNNER="pnpm"
 
 run_pnpm() {
     if [ "$PNPM_RUNNER" = "corepack" ]; then
-        corepack "pnpm@${PNPM_VERSION}" "$@"
+        corepack "pnpm@${PNPM_VERSION}" --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     elif [ "$PNPM_RUNNER" = "npx" ]; then
-        npx --yes "pnpm@${PNPM_VERSION}" "$@"
+        npx --yes "pnpm@${PNPM_VERSION}" --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     else
-        pnpm "$@"
+        pnpm --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     fi
 }
 
@@ -205,9 +205,9 @@ if [ -f "packages/shared/dist/constants/defaults.js" ]; then
 fi
 
 # ── Install dependencies ──
-if [ ! -d "node_modules" ]; then
+if [ ! -d "node_modules" ] || ! node scripts/check-workspace-install.mjs >/dev/null 2>&1; then
     echo ""
-    echo "  [..] Installing dependencies (first run)..."
+    echo "  [..] Installing dependencies..."
     echo "       This may take a few minutes."
     echo ""
     run_pnpm install

@@ -673,15 +673,15 @@ ${APP_URL}"
   DetailPrint ""
   DetailPrint "Running pnpm install (this may take 2-5 minutes and creates dependency folders)..."
   ${If} $PNPM_RUNNER == "corepack"
-    nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} install'
+    nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install'
     Pop $0
   ${EndIf}
   ${If} $PNPM_RUNNER == "npx"
-    nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} install'
+    nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install'
     Pop $0
   ${EndIf}
   ${If} $PNPM_RUNNER == "pnpm"
-    nsExec::ExecToLog 'cmd /c pnpm install'
+    nsExec::ExecToLog 'cmd /c pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install'
     Pop $0
   ${EndIf}
   ${If} $0 != 0
@@ -693,15 +693,15 @@ Would you like to retry?" IDYES retryInstall IDNO skipRetryInstall
     retryInstall:
       DetailPrint "Retrying pnpm install..."
       ${If} $PNPM_RUNNER == "corepack"
-        nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} install'
+        nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install'
         Pop $0
       ${EndIf}
       ${If} $PNPM_RUNNER == "npx"
-        nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} install'
+        nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install'
         Pop $0
       ${EndIf}
       ${If} $PNPM_RUNNER == "pnpm"
-        nsExec::ExecToLog 'cmd /c pnpm install'
+        nsExec::ExecToLog 'cmd /c pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install'
         Pop $0
       ${EndIf}
     skipRetryInstall:

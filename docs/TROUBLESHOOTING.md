@@ -31,6 +31,20 @@ If you run commands manually, use `pnpm install` again after removing those fold
 
 ---
 
+## `ERR_PNPM_TRUST_DOWNGRADE` or Missing `chess.js` During Build
+
+If `pnpm install --frozen-lockfile` fails with `ERR_PNPM_TRUST_DOWNGRADE` for packages such as `pino` or `semver`, pnpm is enforcing dependency trust downgrades while installing older locked versions. Marinara sets the workspace trust policy to `off`, and the launchers also run pnpm with `--config.trustPolicy=off --config.confirmModulesPurge=false`.
+
+If the failed install already created a partial `node_modules`, rerun the launcher so it can repair the workspace dependency links. For manual installs, run:
+
+```bash
+pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile
+```
+
+The `Cannot find module 'chess.js'` shared build error is usually the same partial-install issue: `chess.js` is declared in the shared package, but the aborted install did not link it.
+
+---
+
 ## Data Seems Missing After an Update
 
 If your chats or presets appear to be missing after updating, **do not delete any data folders yet**. Marinara v1.5.7 stores live user data in `DATA_DIR/storage`, and older installs may also have a legacy `marinara-engine.db` file that can be imported.

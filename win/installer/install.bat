@@ -368,11 +368,11 @@ goto :eof
 
 :run_pnpm
 if /I "%PNPM_RUNNER%"=="corepack" (
-    call corepack pnpm@%PNPM_VERSION% %*
+    call corepack pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
 ) else if /I "%PNPM_RUNNER%"=="npx" (
-    call npx --yes pnpm@%PNPM_VERSION% %*
+    call npx --yes pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
 ) else (
-    call pnpm %*
+    call pnpm --config.trustPolicy=off --config.confirmModulesPurge=false %*
 )
 exit /b %errorlevel%
 

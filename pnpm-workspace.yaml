@@ -5,7 +5,12 @@ packages:
 # registry takedowns and advisory systems to catch common compromise waves.
 minimumReleaseAge: 1440
 minimumReleaseAgeIgnoreMissingTime: false
-trustPolicy: no-downgrade
+# Released installs must remain reproducible even when older dependency versions
+# lose trust metadata across pnpm or registry updates.
+trustPolicy: off
+# Updaters and installers run non-interactively; allow pnpm to repair stale or
+# partially created node_modules instead of aborting on its confirmation prompt.
+confirmModulesPurge: false
 blockExoticSubdeps: true
 
 # Native/build dependencies permitted to run install scripts.

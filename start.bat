@@ -243,9 +243,13 @@ if not "!SOURCE_COMMIT!"=="" if /I not "!SOURCE_COMMIT!"=="!DIST_COMMIT!" (
 :skip_version_check
 
 :: Install dependencies if needed
-if exist "node_modules" goto :skip_install
+if not exist "node_modules" goto :install_deps
+node scripts\check-workspace-install.mjs >nul 2>&1
+if errorlevel 1 goto :install_deps
+goto :skip_install
+:install_deps
 echo.
-echo  [..] Installing dependencies (first run)...
+echo  [..] Installing dependencies...
 echo      This may take a few minutes.
 echo.
 call :run_pnpm install
@@ -343,12 +347,12 @@ goto :eof
 
 :run_pnpm
 if /I "%PNPM_RUNNER%"=="corepack" (
-    call corepack pnpm@%PNPM_VERSION% %*
+    call corepack pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
 ) else (
     if /I "%PNPM_RUNNER%"=="npx" (
-        call npx --yes pnpm@%PNPM_VERSION% %*
+        call npx --yes pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
     ) else (
-        call pnpm %*
+        call pnpm --config.trustPolicy=off --config.confirmModulesPurge=false %*
     )
 )
 exit /b %errorlevel%

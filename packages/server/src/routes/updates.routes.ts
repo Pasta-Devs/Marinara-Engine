@@ -52,9 +52,10 @@ const UPDATE_CHANNELS: Record<UpdateChannel, UpdateChannelInfo> = {
   },
 };
 const DEFAULT_PNPM_VERSION = "10.33.2";
+const PNPM_NONINTERACTIVE_ARGS = ["--config.trustPolicy=off", "--config.confirmModulesPurge=false"];
 const DOCKER_IMAGE = "ghcr.io/pasta-devs/marinara-engine";
 const MANUAL_GIT_UPDATE_COMMAND =
-  "git fetch origin +refs/heads/main:refs/remotes/origin/main && (git merge --ff-only origin/main || git checkout --detach origin/main) && pnpm install && pnpm build && pnpm start";
+  "git fetch origin +refs/heads/main:refs/remotes/origin/main && (git merge --ff-only origin/main || git checkout --detach origin/main) && pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install && pnpm build && pnpm start";
 const DOCKER_UPDATE_COMMAND = "docker compose pull && docker compose up -d";
 const ANDROID_APK_NOTICE =
   "> [!IMPORTANT]\n" +
@@ -169,7 +170,7 @@ function getManualGitApplyCommand(channel = UPDATE_CHANNELS.stable, platform: Se
     platform === "android-termux"
       ? "pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server build && pnpm --filter @marinara-engine/client build"
       : "pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build";
-  return `git fetch ${UPDATE_REMOTE} ${channel.fetchRef} && ${checkoutCommand} && pnpm install --frozen-lockfile && ${buildCommand}`;
+  return `git fetch ${UPDATE_REMOTE} ${channel.fetchRef} && ${checkoutCommand} && pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --frozen-lockfile && ${buildCommand}`;
 }
 
 function getManualUpdateCommand(installType: InstallType, platform: ServerPlatform, channel = UPDATE_CHANNELS.stable) {
@@ -410,7 +411,7 @@ async function resolvePinnedPnpmRunner(root: string): Promise<PnpmRunner> {
 
 async function runPinnedPnpm(root: string, args: string[], timeout: number) {
   const runner = await resolvePinnedPnpmRunner(root);
-  await execFileAsync(runner.command, [...runner.prefixArgs, ...args], {
+  await execFileAsync(runner.command, [...runner.prefixArgs, ...PNPM_NONINTERACTIVE_ARGS, ...args], {
     cwd: root,
     timeout,
     shell: process.platform === "win32",
