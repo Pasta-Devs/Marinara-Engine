@@ -8,7 +8,7 @@
 // and check / last-move highlights. The board flips when the human plays black.
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import type { ChessBoardSquare, ChessColor, ChessPieceLetter, PromotionPiece } from "@marinara-engine/shared";
+import type { ChessBoardSquare, ChessPieceLetter, PromotionPiece } from "@marinara-engine/shared";
 import { useChatStore } from "../../stores/chat.store";
 import { useChessGameStore } from "../../stores/chess-game.store";
 import { useChessMove, useChessState, useResignChess } from "../../hooks/use-chess";

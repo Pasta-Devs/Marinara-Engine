@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 // Opened from the "Play UNO" launcher. Lets the player pick which characters
 // play as bots, who goes first, and which house rules are on, then deals.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Gamepad2 } from "lucide-react";
 import { DEFAULT_UNO_CONFIG, type UnoConfig } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
@@ -12,6 +12,7 @@ import { useChats } from "../../hooks/use-chats";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { useStartUno } from "../../hooks/use-uno";
+import { useUnoGameStore } from "../../stores/uno-game.store";
 
 interface Props {
   chatId: string;
@@ -31,6 +32,13 @@ export function UnoSetup({ chatId, open, onClose }: Props) {
   const { data: chats } = useChats();
   const { data: characters } = useCharacters(open);
   const start = useStartUno(chatId);
+
+  // A game can start underneath the open modal — e.g. the user's "let's play
+  // UNO" message opens this setup AND a character accepts via [uno].
+  const activeGame = useUnoGameStore((s) => s.current);
+  useEffect(() => {
+    if (open && activeGame?.chatId === chatId) onClose();
+  }, [open, activeGame, chatId, onClose]);
 
   const chat = useMemo(() => (chats ?? []).find((c) => c.id === chatId), [chats, chatId]);
   const charIds = useMemo(() => getChatCharacterIds(chat), [chat]);

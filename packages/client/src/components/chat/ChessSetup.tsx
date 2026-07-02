@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 // Opened from the /chess command or the natural-language launcher. Chess is
 // strictly one-on-one: pick a single opponent character and your color.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Crown } from "lucide-react";
 import type { ChessColor } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
@@ -12,6 +12,7 @@ import { useChats } from "../../hooks/use-chats";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import { getChatCharacterIds } from "../../lib/chat-macros";
 import { useStartChess } from "../../hooks/use-chess";
+import { useChessGameStore } from "../../stores/chess-game.store";
 
 interface Props {
   chatId: string;
@@ -29,6 +30,13 @@ export function ChessSetup({ chatId, open, onClose }: Props) {
   const { data: chats } = useChats();
   const { data: characters } = useCharacters(open);
   const start = useStartChess(chatId);
+
+  // A game can start underneath the open modal — e.g. the user's "let's play
+  // chess" message opens this setup AND a character accepts via [chess].
+  const activeGame = useChessGameStore((s) => s.current);
+  useEffect(() => {
+    if (open && activeGame?.chatId === chatId) onClose();
+  }, [open, activeGame, chatId, onClose]);
 
   const chat = useMemo(() => (chats ?? []).find((c) => c.id === chatId), [chats, chatId]);
   const charIds = useMemo(() => getChatCharacterIds(chat), [chat]);
