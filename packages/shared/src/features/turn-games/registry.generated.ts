@@ -3,8 +3,10 @@
 import type { AnyTurnGameEngine } from "./engine.types.js";
 
 import { unoGameEngine } from "./uno/engine.manifest.js";
+import { chessGameEngine } from "./chess/engine.manifest.js";
 
 export const TURN_GAME_ENGINES: readonly AnyTurnGameEngine[] = [
   unoGameEngine,
+  chessGameEngine,
 ];
 

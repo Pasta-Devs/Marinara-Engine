@@ -377,6 +377,7 @@ import { useAgentStore } from "../stores/agent.store";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useUnoGameStore } from "../stores/uno-game.store";
+import { useChessGameStore } from "../stores/chess-game.store";
 import { useTranslationStore } from "../stores/translation.store";
 import { useUIStore } from "../stores/ui.store";
 import {
@@ -1724,7 +1725,12 @@ export function useGenerate() {
 
             case "turn_game_state_patch": {
               if (!isActiveChat()) break;
-              useUnoGameStore.getState().setUno(event.data as never, params.chatId);
+              // The payload carries a gameType discriminator — route it to the right board store.
+              if ((event.data as { gameType?: string } | null)?.gameType === "chess") {
+                useChessGameStore.getState().setChess(event.data as never, params.chatId);
+              } else {
+                useUnoGameStore.getState().setUno(event.data as never, params.chatId);
+              }
               break;
             }
 
@@ -2763,7 +2769,12 @@ export function useGenerate() {
             }
             case "turn_game_state_patch": {
               if (!isActiveChat()) break;
-              useUnoGameStore.getState().setUno(event.data as never, chatId);
+              // The payload carries a gameType discriminator — route it to the right board store.
+              if ((event.data as { gameType?: string } | null)?.gameType === "chess") {
+                useChessGameStore.getState().setChess(event.data as never, chatId);
+              } else {
+                useUnoGameStore.getState().setUno(event.data as never, chatId);
+              }
               break;
             }
             case "game_map_update": {

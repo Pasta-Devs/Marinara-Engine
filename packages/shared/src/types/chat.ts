@@ -35,6 +35,7 @@ export const CONVERSATION_COMMAND_KEYS = [
   "memory",
   "scene",
   "uno",
+  "chess",
   "music",
   "haptic",
   "influence",

@@ -12,6 +12,7 @@
 // - [memory: target="CharName", summary="description of the memory"]
 // - [scene: scenario="...", background="...", plan="..."] (initiate a mini-roleplay scene)
 // - [uno] (start a game of UNO at the table; Conversation mode)
+// - [chess] (start a one-on-one chess game against the user; Conversation mode)
 // - [spotify: title="Song title", artist="Artist"] (play a song on the user's active Spotify player)
 // - [youtube: query="Song title Artist"] (play a song on the user's active YouTube player)
 // - [react: emoji="😂"] or [react: emoji=":custom_name:"] (react to the user's latest message; Conversation mode)
@@ -76,6 +77,11 @@ export interface SceneCommand {
 export interface UnoCommand {
   /** Start a game of UNO at the table. Param-less; the system deals + runs the game. */
   type: "uno";
+}
+
+export interface ChessCommand {
+  /** Start a one-on-one chess game against the user. Param-less; the system sets up + runs the board. */
+  type: "chess";
 }
 
 export interface InfluenceCommand {
@@ -327,6 +333,7 @@ export type CharacterCommand =
   | MemoryCommand
   | SceneCommand
   | UnoCommand
+  | ChessCommand
   | InfluenceCommand
   | NoteCommand
   | DirectMessageCommand
@@ -352,6 +359,8 @@ const MEMORY_RE = /\[memory:\s*target="([^"]+)"\s*,\s*summary="([^"]+)"\]/gi;
 const SCENE_RE = new RegExp(`\\[scene:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
 // Param-less UNO trigger. Tolerates a stray `[uno: ...]` so a chatty model can't dodge the match.
 const UNO_RE = /\[uno(?::[^\]\r\n]*)?\]/gi;
+// Param-less chess trigger. Same tolerant shape as UNO_RE.
+const CHESS_RE = /\[chess(?::[^\]\r\n]*)?\]/gi;
 const HAPTIC_RE = new RegExp(`\\[haptic:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
 const SPOTIFY_RE = new RegExp(`\\[spotify:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
 const YOUTUBE_RE = new RegExp(`\\[youtube:\\s*(${QUOTED_PARAM_BLOCK})\\]`, "gi");
@@ -869,6 +878,12 @@ export function parseCharacterCommands(content: string): {
     break;
   }
 
+  // Parse chess command — start a one-on-one chess game. Param-less; only one per message.
+  for (const _chessMatch of content.matchAll(CHESS_RE)) {
+    commands.push({ type: "chess" });
+    break;
+  }
+
   // Parse influence commands (<influence>text</influence>)
   for (const match of content.matchAll(INFLUENCE_RE)) {
     const text = stripConversationPromptTimestamps(match[1]!.trim());
@@ -1058,6 +1073,7 @@ export function parseCharacterCommands(content: string): {
     .replace(MEMORY_RE, "")
     .replace(SCENE_RE, "")
     .replace(UNO_RE, "")
+    .replace(CHESS_RE, "")
     .replace(HAPTIC_RE, "")
     .replace(SPOTIFY_RE, "")
     .replace(YOUTUBE_RE, "")

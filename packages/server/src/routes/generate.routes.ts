@@ -891,6 +891,8 @@ function getConversationCommandKey(command: CharacterCommand): ConversationComma
       return "scene";
     case "uno":
       return "uno";
+    case "chess":
+      return "chess";
     case "spotify":
     case "youtube":
       return "music";
@@ -3056,22 +3058,35 @@ export async function generateRoutes(app: FastifyInstance) {
                 `   - You invite {{user}} somewhere and they accept → trigger a scene for that activity.`,
                 `   - A plan is made (date, trip, hangout, confrontation) and the moment arrives → trigger a scene.`,
                 `   Do NOT wait for {{user}} to explicitly ask for a scene. If the conversation implies you and {{user}} are about to DO something together, initiate the scene yourself.`,
-                `   EXCEPTION: Do NOT start a scene for playing UNO, cards, or other board/table games — those have their own [uno] command. Use [uno], not [scene], for a game of UNO.`,
+                `   EXCEPTION: Do NOT start a scene for playing UNO, chess, cards, or other board/table games — those have their own commands. Use [uno] for UNO and [chess] for chess, not [scene].`,
               );
             }
 
-            // UNO turn-game — conversation mode only, when no game is running yet
+            // Turn-games — conversation mode only, when no game is running yet
             // and at least one other character is present to play with.
-            if (
+            const unoAdvertisable =
               chatMode === "conversation" &&
               isConversationCommandEnabled(chatMeta, "uno") &&
-              characterIds.length >= 1 &&
-              !(await getActiveTurnGame(app.db, input.chatId))
-            ) {
+              characterIds.length >= 1;
+            const chessAdvertisable =
+              chatMode === "conversation" &&
+              isConversationCommandEnabled(chatMeta, "chess") &&
+              characterIds.length >= 1;
+            // One lookup shared by both game commands (only when a game could be offered).
+            const noActiveTurnGame =
+              (unoAdvertisable || chessAdvertisable) && !(await getActiveTurnGame(app.db, input.chatId));
+            if (unoAdvertisable && noActiveTurnGame) {
               addCommandLines(
                 `- [uno] - start a game of UNO at the table. Include this ONLY when ${personaName} proposes playing UNO (or cards) and you are willing to play right now. The system deals the cards and runs the game — you do NOT narrate dealing or describe the hands.`,
                 `   If you are busy, tired, or simply don't feel like it, just say so in character and do NOT include [uno]. Agreeing to play IS including [uno].`,
                 `   Example: ${personaName} says "anyone up for a round of uno?" and you're in → "Oh, you're SO on. [uno]"`,
+              );
+            }
+            if (chessAdvertisable && noActiveTurnGame) {
+              addCommandLines(
+                `- [chess] - start a one-on-one chess game against ${personaName}. Include this ONLY when ${personaName} proposes playing chess and YOU are willing to play right now. Chess seats exactly two players: ${personaName} and you — whichever character includes [chess] takes the opponent's seat. The system sets up the board and runs the game — you do NOT describe the board or narrate setup.`,
+                `   If you'd rather not play, say so in character and do NOT include [chess]. Agreeing to play IS including [chess].`,
+                `   Example: ${personaName} says "up for a game of chess?" and you're in → "Prepare to lose your queen. [chess]"`,
               );
             }
 
@@ -10262,6 +10277,46 @@ export async function generateRoutes(app: FastifyInstance) {
                     }
                   } catch (unoErr) {
                     logger.error(unoErr, "[commands] UNO start failed");
+                  }
+                }
+
+                if (command.type === "chess") {
+                  // ── Chess: a character accepted a one-on-one challenge — set up the board ──
+                  try {
+                    const existingGame = await getActiveTurnGame(app.db, input.chatId);
+                    if (existingGame) {
+                      logger.info("[commands] chess requested but a game is already active in chat %s", input.chatId);
+                    } else if (!characterId) {
+                      logger.warn("[commands] chess requested without an agreeing character in chat %s", input.chatId);
+                    } else {
+                      // Chess seats exactly two players: the human persona and the
+                      // character who agreed (no schedule sweep — nobody else plays).
+                      const outcome = await startTurnGame(app.db, input.chatId, {
+                        gameType: "chess",
+                        botCharacterIds: [characterId],
+                        humanFirst: true,
+                      });
+                      if (outcome.ok) {
+                        reply.raw.write(
+                          `data: ${JSON.stringify({ type: "turn_game_state_patch", data: outcome.view })}\n\n`,
+                        );
+                        logger.info("[commands] chess started in chat %s against %s", input.chatId, characterId);
+                        // The default config assigns colors randomly from the seed — when the
+                        // bot drew white, play its opening move now instead of stalling.
+                        await runTurnGameBotTurns({
+                          db: app.db,
+                          chatId: input.chatId,
+                          conn,
+                          baseUrl,
+                          reply,
+                          signal: abortController.signal,
+                        });
+                      } else {
+                        logger.warn("[commands] chess start failed in chat %s: %s", input.chatId, outcome.error ?? "");
+                      }
+                    }
+                  } catch (chessErr) {
+                    logger.error(chessErr, "[commands] chess start failed");
                   }
                 }
 

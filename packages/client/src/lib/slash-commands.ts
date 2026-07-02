@@ -5,6 +5,7 @@ import { api } from "./api-client";
 import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
 import { useUnoGameStore } from "../stores/uno-game.store";
+import { useChessGameStore } from "../stores/chess-game.store";
 import { toast } from "sonner";
 import {
   SUPPORTED_MACROS,
@@ -362,6 +363,19 @@ const COMMANDS: SlashCommand[] = [
         return { handled: true, feedback: "UNO can only be played in conversation chats." };
       }
       useUnoGameStore.getState().openSetup(ctx.chatId);
+      return { handled: true };
+    },
+  },
+  {
+    name: "chess",
+    description: "Start a one-on-one chess game with a character in this chat",
+    usage: "/chess",
+    local: true,
+    async execute(_args, ctx) {
+      if (ctx.mode === "roleplay") {
+        return { handled: true, feedback: "Chess can only be played in conversation chats." };
+      }
+      useChessGameStore.getState().openSetup(ctx.chatId);
       return { handled: true };
     },
   },

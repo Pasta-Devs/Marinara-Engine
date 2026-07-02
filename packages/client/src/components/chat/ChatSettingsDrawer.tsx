@@ -394,6 +394,11 @@ const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
     label: "UNO",
     description: "Let characters start a game of UNO at the table when you agree to play.",
   },
+  {
+    id: "chess",
+    label: "Chess",
+    description: "Let characters accept a one-on-one chess challenge at the table.",
+  },
 ];
 
 function normalizeSpotifySourceType(value: unknown): SpotifySourceType {
