@@ -33,9 +33,11 @@ export function ChessSetup({ chatId, open, onClose }: Props) {
 
   // A game can start underneath the open modal — e.g. the user's "let's play
   // chess" message opens this setup AND a character accepts via [chess].
+  // Finished games linger in the store, so exclude them or a rematch's setup
+  // modal closes itself on the same frame it opens.
   const activeGame = useChessGameStore((s) => s.current);
   useEffect(() => {
-    if (open && activeGame?.chatId === chatId) onClose();
+    if (open && activeGame?.chatId === chatId && activeGame.status !== "finished") onClose();
   }, [open, activeGame, chatId, onClose]);
 
   const chat = useMemo(() => (chats ?? []).find((c) => c.id === chatId), [chats, chatId]);

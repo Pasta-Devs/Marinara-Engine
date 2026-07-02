@@ -35,9 +35,11 @@ export function UnoSetup({ chatId, open, onClose }: Props) {
 
   // A game can start underneath the open modal — e.g. the user's "let's play
   // UNO" message opens this setup AND a character accepts via [uno].
+  // Finished games linger in the store, so exclude them or a rematch's setup
+  // modal closes itself on the same frame it opens.
   const activeGame = useUnoGameStore((s) => s.current);
   useEffect(() => {
-    if (open && activeGame?.chatId === chatId) onClose();
+    if (open && activeGame?.chatId === chatId && activeGame.status !== "finished") onClose();
   }, [open, activeGame, chatId, onClose]);
 
   const chat = useMemo(() => (chats ?? []).find((c) => c.id === chatId), [chats, chatId]);
