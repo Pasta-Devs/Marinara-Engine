@@ -645,6 +645,8 @@ export interface SceneIllustrationGenRequest {
   size?: ImageGenerationSize;
   promptOverride?: string;
   negativePromptOverride?: string;
+  /** Receives the exact compiled prompt passed to the image provider. */
+  onCompiledPrompt?: (compiled: CompiledGameImagePrompt) => void;
   /** Optional request-scoped abort signal. */
   signal?: AbortSignal;
 }
@@ -959,6 +961,7 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
 
   const compiled = await buildSceneIllustrationProviderPrompt(req);
   const prompt = compiled.prompt;
+  req.onCompiledPrompt?.(compiled);
   const size = resolvedSize(req.size, DEFAULT_GAME_BACKGROUND_SIZE);
   req.debugLog?.(
     "[debug/game/image-generation] scene illustration request slug=%s model=%s source=%s targetSize=%dx%d refs=%d prompt:\n%s",
