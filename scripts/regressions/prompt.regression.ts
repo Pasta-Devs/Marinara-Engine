@@ -169,6 +169,43 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "macro passthrough preserves plain text and deferred sentinels",
+    run() {
+      const context = {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: {},
+      };
+
+      assert.equal(resolveMacros("  plain narration  ", context), "plain narration");
+      assert.equal(resolveMacros("  plain narration  ", context, { trimResult: false }), "  plain narration  ");
+
+      const sentinelText = "literal \x1e sentinel without macro braces";
+      assert.equal(resolveMacros(sentinelText, context, { trimResult: false }), sentinelText);
+    },
+  },
+  {
+    name: "persona aggregate text is lazy when persona macro is absent",
+    run() {
+      const context = {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: {},
+        personaFields: {
+          description: "{{setvar::personaTouched::yes}}Unused persona description",
+        },
+      };
+
+      assert.equal(
+        resolveMacros('{{#if {{getvar::personaTouched}} == "yes"}}touched{{else}}untouched{{/if}}', context),
+        "untouched",
+      );
+      assert.equal(context.variables.personaTouched, undefined);
+    },
+  },
+  {
     name: "macro conditionals support numeric comparisons",
     run() {
       const context = {
