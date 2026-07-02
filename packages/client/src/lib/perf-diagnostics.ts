@@ -83,7 +83,7 @@ function ensureInputTracker(): void {
  * parent or from unwatched state. Inert when disabled. Call once at the top level
  * of a component body (it is a hook).
  */
-export function useWhyRender(label: string, watched: Record<string, unknown>): void {
+export function useWhyRender(label: string, watched: Record<string, unknown> | (() => Record<string, unknown>)): void {
   const previous = useRef<Record<string, unknown> | null>(null);
   const renderCount = useRef(0);
   useLayoutEffect(() => {
@@ -92,7 +92,8 @@ export function useWhyRender(label: string, watched: Record<string, unknown>): v
     renderCount.current += 1;
     const n = renderCount.current;
     const idleTag = performance.now() - lastInputAt > IDLE_MS ? " IDLE" : "";
-    const snapshot: Record<string, unknown> = { ...watched };
+    const rawSnapshot = typeof watched === "function" ? watched() : watched;
+    const snapshot: Record<string, unknown> = { ...rawSnapshot };
     const prior = previous.current;
     previous.current = snapshot;
     if (!prior) {

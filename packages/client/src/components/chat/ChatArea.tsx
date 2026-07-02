@@ -768,7 +768,7 @@ export function ChatArea() {
   // [#3104 diagnostic] Re-render driver probe: names which source input changed
   // on each ChatArea render (and flags IDLE re-renders = a loop). Inert unless
   // localStorage.mariPerfVerbose = "1".
-  useWhyRender("chat-area", {
+  useWhyRender("chat-area", () => ({
     activeChatId,
     chatMode,
     isStreaming,
@@ -789,7 +789,7 @@ export function ChatArea() {
     streamingChatId,
     isPageActive,
     pendingNewChatMode,
-  });
+  }));
 
   const gameCharacters = useMemo(() => {
     if (!isGameChat || !gameLibraryCharacters) return [];
