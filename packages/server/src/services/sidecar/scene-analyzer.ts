@@ -165,7 +165,7 @@ function widgetStateSummary(w: HudWidget): string {
 }
 
 function compactImagePromptInstructions(value: string | null | undefined): string {
-  return (value ?? "").trim().replace(/\s+/g, " ").slice(0, 1200);
+  return (value ?? "").trim().replace(/\s+/g, " ").slice(0, 5000);
 }
 
 function compactPromptLabel(value: string | null | undefined): string {

@@ -726,7 +726,7 @@ async function buildSceneIllustrationRawPrompt(req: SceneIllustrationGenRequest)
   const narrativePurpose = cleanSceneIllustrationContext(req.reason);
   const meaningfulNarrativePurpose = isGenericSceneMomentLabel(narrativePurpose) ? "" : narrativePurpose;
   const imagePromptInstructionsLine = req.imagePromptInstructions?.trim()
-    ? `User image instructions: ${req.imagePromptInstructions.trim().replace(/\s+/g, " ").slice(0, 1200)}`
+    ? `User image instructions: ${req.imagePromptInstructions.trim().replace(/\s+/g, " ").slice(0, 5000)}`
     : "";
   const sceneIllustrationVars = {
     sceneTitleLine: sceneTitle ? `${sceneTitle}.` : "",
@@ -795,7 +795,7 @@ export async function buildSceneIllustrationProviderPrompt(
     req,
     "illustration",
     await buildSceneIllustrationRawPrompt(req),
-    2200,
+    7000,
     GAME_ILLUSTRATION_NEGATIVE_PROMPT,
   );
 }

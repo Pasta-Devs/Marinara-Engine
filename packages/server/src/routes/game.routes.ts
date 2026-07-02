@@ -7221,7 +7221,7 @@ export async function gameRoutes(app: FastifyInstance) {
       canGenerateBackgrounds: z.boolean().optional(),
       canGenerateIllustrations: z.boolean().optional(),
       artStylePrompt: z.string().nullable().optional(),
-      imagePromptInstructions: z.string().max(1200).nullable().optional(),
+      imagePromptInstructions: z.string().max(5000).nullable().optional(),
     }),
     /** Override connection (falls back to scene connection → GM connection). */
     connectionId: z.string().optional(),
@@ -7261,7 +7261,7 @@ export async function gameRoutes(app: FastifyInstance) {
       .catch(() => null);
     const imagePromptInstructions =
       typeof meta.gameImagePromptInstructions === "string"
-        ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
+        ? meta.gameImagePromptInstructions.trim().slice(0, 5000)
         : "";
 
     // Compute approximate turn number: count user messages + 1 (current turn)
@@ -7789,8 +7789,8 @@ export async function gameRoutes(app: FastifyInstance) {
     .array(
       z.object({
         id: z.string().min(1).max(200),
-        prompt: z.string().min(1).max(5000),
-        negativePrompt: z.string().max(5000).optional(),
+        prompt: z.string().min(1).max(7000),
+        negativePrompt: z.string().max(7000).optional(),
       }),
     )
     .max(32)
@@ -7815,7 +7815,7 @@ export async function gameRoutes(app: FastifyInstance) {
     illustration: z
       .object({
         segment: z.number().int().min(0).max(500).optional(),
-        prompt: z.string().min(40).max(1200),
+        prompt: z.string().min(40).max(5000),
         title: z.string().max(160).optional(),
         characters: z.array(z.string().min(1).max(200)).max(6).optional(),
         reason: z.string().max(300).optional(),
@@ -7878,7 +7878,7 @@ export async function gameRoutes(app: FastifyInstance) {
       null;
     const imagePromptInstructions =
       typeof meta.gameImagePromptInstructions === "string"
-        ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
+        ? meta.gameImagePromptInstructions.trim().slice(0, 5000)
         : "";
     const useAvatarReferences = input.useAvatarReferences ?? meta.gameImageUseAvatarReferences !== false;
     const includeCharacterAppearance =
@@ -8197,7 +8197,7 @@ export async function gameRoutes(app: FastifyInstance) {
         null;
       const imagePromptInstructions =
         typeof meta.gameImagePromptInstructions === "string"
-          ? meta.gameImagePromptInstructions.trim().slice(0, 1200)
+          ? meta.gameImagePromptInstructions.trim().slice(0, 5000)
           : "";
       const useAvatarReferences = input.useAvatarReferences ?? meta.gameImageUseAvatarReferences !== false;
       const includeCharacterAppearance =

@@ -4868,7 +4868,7 @@ function GameSurfaceComponent({
     ]
       .filter(Boolean)
       .join("\n")
-      .slice(0, 1200);
+      .slice(0, 5000);
     const slugBase = backgroundOptionKey(
       [gameSnapshot?.location, msg?.id, Date.now().toString(36)].filter(Boolean).join("-"),
     ).slice(0, 72);

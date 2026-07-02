@@ -380,7 +380,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
       canGenerateBackgrounds: z.boolean().optional(),
       canGenerateIllustrations: z.boolean().optional(),
       artStylePrompt: z.string().nullable().optional(),
-      imagePromptInstructions: z.string().max(1200).nullable().optional(),
+      imagePromptInstructions: z.string().max(5000).nullable().optional(),
     }),
     debugMode: z.boolean().optional().default(false),
   });
