@@ -1139,11 +1139,12 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   }
   getMacroBudget(options);
   // #3104: content with no macro syntax has nothing to resolve. Every step below
-  // is triggered by either "{{" (live macros) or the "\x1e" deferred-character
-  // token sentinel, so a template containing neither is returned unchanged —
-  // skipping the comment strip, bracket/conditional expansion, the global
-  // substitution passes, and the persona-field build. Output is identical.
-  if (!template.includes("{{") && !template.includes("\x1e")) {
+  // is triggered by "{{" (live macros), the "\x1e" deferred-character token
+  // sentinel, or the "\x00" trim-marker sentinel, so a template containing none
+  // of them is returned unchanged — skipping the comment strip,
+  // bracket/conditional expansion, the global substitution passes, and the
+  // persona-field build. Output is identical.
+  if (!template.includes("{{") && !template.includes("\x1e") && !template.includes("\x00")) {
     const passthrough = options.trimResult !== false ? template.trim() : template;
     return clampMacroOutput(passthrough, options);
   }
@@ -1171,6 +1172,25 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   // ── Comments — strip first so they don't interfere ──
   result = stripMacroComments(result);
 
+  // #3104: resolve the persona fields lazily — only when {{persona}} can appear
+  // in the output — instead of unconditionally on every call (the root cause of
+  // the freeze). The gated build stays at the original eager build's pipeline
+  // position, before the conditional/variable-op passes, so persona-field side
+  // effects such as {{setvar::…}} still land before conditions that read them.
+  let personaText: string | null = null;
+  const buildPersonaText = (): string =>
+    [
+      ctx.personaFields?.description,
+      ctx.personaFields?.personality,
+      ctx.personaFields?.backstory,
+      ctx.personaFields?.appearance,
+      ctx.personaFields?.scenario,
+    ]
+      .map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part))
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+      .join("\n");
+  if (/\{\{persona\}\}/i.test(result)) personaText = buildPersonaText();
+
   // ── Multi-character bracket blocks — expand before global substitutions ──
   result = expandBracketedCharacterBlocks(result, ctx);
 
@@ -1183,22 +1203,12 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
 
   // ── Static substitutions ──
   result = result.replace(/\{\{user(?:Name)?\}\}/gi, ctx.user);
-  // #3104: build the persona field text lazily — only when {{persona}} is actually
-  // present — so the recursive 5-field resolution is not paid on every message
-  // (it used to run unconditionally on every resolveMacros call). String form is
-  // kept so $-sequences in persona text substitute exactly as before.
+  // The gated build above can be skipped when {{persona}} only materializes
+  // mid-pipeline (e.g. substituted in by an earlier pass), so fall back to
+  // building here. String form is kept so $-sequences in persona text
+  // substitute exactly as before.
   if (/\{\{persona\}\}/i.test(result)) {
-    const personaText = [
-      ctx.personaFields?.description,
-      ctx.personaFields?.personality,
-      ctx.personaFields?.backstory,
-      ctx.personaFields?.appearance,
-      ctx.personaFields?.scenario,
-    ]
-      .map((part) => (typeof part === "string" ? resolveNestedFieldMacros(part) : part))
-      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
-      .join("\n");
-    result = result.replace(/\{\{persona\}\}/gi, personaText);
+    result = result.replace(/\{\{persona\}\}/gi, (personaText ??= buildPersonaText()));
   }
   result = result.replace(/\{\{personaDescription\}\}/gi, () =>
     resolveNestedFieldMacros(ctx.personaFields?.description ?? ""),
