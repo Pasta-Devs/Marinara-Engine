@@ -4,6 +4,25 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+## [2.1.0]
+
+### Changed
+
+- Bumped release metadata to v2.1.0 across packages, the PWA manifest, README release pointer, Windows installer sources, Android APK metadata, and the home-page-visible app version.
+- Made Android/Termux update builds use low-memory build wrappers: server builds transpile runtime JS with esbuild, client builds skip memory-heavy typechecking/PWA generation on Android, and the updater builds shared, server, and client sequentially on Android devices (#3156).
+
+### Fixed
+
+- Fixed Android/Termux git updates aborting during release rebuilds with exit status 134 by making the default package build scripts Android-aware and documenting the low-memory update path (#3156).
+- Fixed `pnpm install --frozen-lockfile` failures with `ERR_PNPM_TRUST_DOWNGRADE` for older locked dependencies such as `pino` and `semver` by disabling trust-downgrade enforcement for released Marinara installs.
+- Fixed partial installs after aborted pnpm runs so launchers detect missing workspace dependencies such as `chess.js` and repair `node_modules` before shared builds run.
+- Fixed non-interactive launcher, installer, and in-app updater installs so pnpm can purge and recreate stale dependency folders without stopping for a TTY confirmation prompt.
+
+### Platform Notes
+
+- Android `versionName` is `2.1.0` with `versionCode 29`.
+- Windows, macOS/Linux, Termux, Docker, APK, and PWA users can update through the usual v2 updater paths once release assets are published.
+
 ## [2.0.9]
 
 ### Added
