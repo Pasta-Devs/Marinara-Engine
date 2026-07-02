@@ -77,6 +77,7 @@ export function useChessState(chatId: string | null) {
       try {
         const res = await api.get<StateResponse>(`/turn-games/${chatId}/state`);
         if (isChessView(res?.view)) useChessGameStore.getState().setChess(res.view, chatId);
+        else if (res?.view) useChessGameStore.getState().clearChess(chatId); // another game type is active
         return res;
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {

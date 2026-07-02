@@ -1725,10 +1725,12 @@ export function useGenerate() {
 
             case "turn_game_state_patch": {
               if (!isActiveChat()) break;
-              // The payload carries a gameType discriminator — route it to the right board store.
-              if ((event.data as { gameType?: string } | null)?.gameType === "chess") {
+              // The payload carries a gameType discriminator — route it to the matching
+              // board store only; a view from one game rendered by another board crashes.
+              const turnGameType = (event.data as { gameType?: string } | null)?.gameType;
+              if (turnGameType === "chess") {
                 useChessGameStore.getState().setChess(event.data as never, params.chatId);
-              } else {
+              } else if (turnGameType === "uno") {
                 useUnoGameStore.getState().setUno(event.data as never, params.chatId);
               }
               break;
@@ -2769,10 +2771,12 @@ export function useGenerate() {
             }
             case "turn_game_state_patch": {
               if (!isActiveChat()) break;
-              // The payload carries a gameType discriminator — route it to the right board store.
-              if ((event.data as { gameType?: string } | null)?.gameType === "chess") {
+              // The payload carries a gameType discriminator — route it to the matching
+              // board store only; a view from one game rendered by another board crashes.
+              const turnGameType = (event.data as { gameType?: string } | null)?.gameType;
+              if (turnGameType === "chess") {
                 useChessGameStore.getState().setChess(event.data as never, chatId);
-              } else {
+              } else if (turnGameType === "uno") {
                 useUnoGameStore.getState().setUno(event.data as never, chatId);
               }
               break;
