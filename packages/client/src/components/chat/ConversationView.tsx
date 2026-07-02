@@ -1205,7 +1205,10 @@ export function ConversationView({
           Keyed by chatId so their internal selection state resets on a chat switch
           (matches ConversationInput below) — otherwise stale selected ids would
           inflate botCount and could deal an empty botCharacterIds list. */}
-      <UnoSetup key={chatId} chatId={chatId} open={unoSetupOpen} onClose={closeUnoSetup} />
+      {/* Keys must be unique across this whole children list — ConversationInput
+          below is also keyed by chatId, and duplicate sibling keys make React
+          duplicate/orphan the setup modals (stuck un-closable "Start UNO"). */}
+      <UnoSetup key={`uno-${chatId}`} chatId={chatId} open={unoSetupOpen} onClose={closeUnoSetup} />
       <ChessSetup key={`chess-${chatId}`} chatId={chatId} open={chessSetupOpen} onClose={closeChessSetup} />
 
       {/* ── Input area ── */}

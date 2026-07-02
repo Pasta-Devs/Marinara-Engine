@@ -82,6 +82,19 @@ export function Modal({
     }
   };
 
+  // Fallback: browsers skip CSS transitions in hidden tabs, so transitionend
+  // may never fire when a modal is closed programmatically while the tab is
+  // backgrounded (e.g. a game starting auto-closes its setup). Without this
+  // the overlay stays mounted forever and blocks clicks.
+  useEffect(() => {
+    if (animating !== "exit") return;
+    const timer = setTimeout(() => {
+      setMounted(false);
+      setAnimating(null);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [animating]);
+
   if (!mounted) return null;
 
   const isEntering = animating === "enter";
