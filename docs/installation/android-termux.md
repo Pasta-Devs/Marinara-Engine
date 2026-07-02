@@ -37,7 +37,7 @@ This one-liner:
 4. Makes the launcher executable
 5. Runs the Termux launcher for the first time
 
-The Termux launcher installs dependencies, builds the app, prepares local file-backed storage, and starts the server at `http://127.0.0.1:<PORT>` using the `PORT` value from `.env` or the default `7860`.
+The Termux launcher installs dependencies, builds the app with Android-friendly low-memory build steps, prepares local file-backed storage, and starts the server at `http://127.0.0.1:<PORT>` using the `PORT` value from `.env` or the default `7860`.
 
 > **Note:** The first run takes a few minutes because it builds the app on your device. Subsequent runs are much faster.
 
@@ -76,7 +76,7 @@ The `start-termux.sh` launcher automatically updates Marinara Engine on each run
 1. Fetches the latest code for the current update branch, then fast-forwards normal clones or moves detached release checkouts to that commit. Local `staging` branches follow `origin/staging`; all other launcher checkouts follow stable `origin/main`.
 2. Detects whether the checkout changed
 3. Temporarily stashes tracked local changes if needed, then reapplies them
-4. Reinstalls dependencies and rebuilds when needed
+4. Reinstalls dependencies and rebuilds when needed, using sequential low-memory server/client builds on Android
 5. Starts the app on the current version
 
 Simply run `./start-termux.sh` to get the latest version each time.

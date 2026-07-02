@@ -160,18 +160,22 @@ async function getUpdateChannelForCheckout(root: string, branch: string | null |
   return UPDATE_CHANNELS.stable;
 }
 
-function getManualGitApplyCommand(channel = UPDATE_CHANNELS.stable) {
+function getManualGitApplyCommand(channel = UPDATE_CHANNELS.stable, platform: ServerPlatform = "unknown") {
   const checkoutCommand =
     channel.id === "staging"
       ? `git show-ref --verify --quiet refs/heads/${channel.branch} && (git checkout ${channel.branch} && git merge --ff-only ${channel.targetRef}) || git checkout -b ${channel.branch} ${channel.targetRef}`
       : `(git merge --ff-only ${channel.targetRef} || git checkout --detach ${channel.targetRef})`;
-  return `git fetch ${UPDATE_REMOTE} ${channel.fetchRef} && ${checkoutCommand} && pnpm install --frozen-lockfile && pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build`;
+  const buildCommand =
+    platform === "android-termux"
+      ? "pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server build && pnpm --filter @marinara-engine/client build"
+      : "pnpm --filter @marinara-engine/shared build && pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build";
+  return `git fetch ${UPDATE_REMOTE} ${channel.fetchRef} && ${checkoutCommand} && pnpm install --frozen-lockfile && ${buildCommand}`;
 }
 
 function getManualUpdateCommand(installType: InstallType, platform: ServerPlatform, channel = UPDATE_CHANNELS.stable) {
   if (installType === "docker") return DOCKER_UPDATE_COMMAND;
   if (installType === "git" && channel.id === "staging") {
-    return getManualGitApplyCommand(channel);
+    return getManualGitApplyCommand(channel, platform);
   }
   if (installType === "git") return getGitLauncherCommand(platform);
   return null;
@@ -416,6 +420,11 @@ async function runPinnedPnpm(root: string, args: string[], timeout: number) {
 
 async function runPinnedBuild(root: string) {
   await runPinnedPnpm(root, ["--filter", "@marinara-engine/shared", "build"], 120_000);
+  if (process.platform === "android") {
+    await runPinnedPnpm(root, ["--filter", "@marinara-engine/server", "build"], 300_000);
+    await runPinnedPnpm(root, ["--filter", "@marinara-engine/client", "build"], 300_000);
+    return;
+  }
   await runPinnedPnpm(
     root,
     ["--filter", "@marinara-engine/server", "--filter", "@marinara-engine/client", "--parallel", "run", "build"],

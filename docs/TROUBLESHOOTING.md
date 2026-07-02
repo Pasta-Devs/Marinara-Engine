@@ -93,6 +93,19 @@ Also confirm the APK and Termux use the same port. The default is `7860`; if you
 
 ---
 
+## Android Update Stops With Exit Status 134
+
+Exit status `134` during `@marinara-engine/server build` usually means Node aborted during a memory-heavy build step on Termux. Update again from the latest launcher:
+
+```bash
+cd "$HOME/Marinara-Engine"
+./start-termux.sh
+```
+
+Recent builds use Android-friendly low-memory server and client build steps. If the update still aborts, close other Android apps, reopen Termux, and run the same command again.
+
+---
+
 ## Server Starts but Browser Shows a Blank Page
 
 - Clear the browser cache or do a hard refresh (`Ctrl+Shift+R` / `Cmd+Shift+R`).
