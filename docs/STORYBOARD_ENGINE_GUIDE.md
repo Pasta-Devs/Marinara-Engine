@@ -56,10 +56,10 @@ When a storyboard starts, Marinara:
 
 1. Takes the selected completed GM message and strips GM command tags.
 2. Sends the GM narration, game context, reader section indices, target keyframe count, aspect ratio, and clip duration to a Prompt Director.
-3. Uses `game.storyboardIllustrationDirector` for image-only storyboards or `game.storyboardDirector` when video prompts are needed.
+3. Uses `game.storyboardIllustrationDirector` to plan still comic-page keyframes.
 4. Saves the storyboard plan, then starts keyframe media generation.
 5. Renders keyframe images through the Game Illustrator image connection.
-6. If animations are enabled and a video connection is selected, renders each keyframe clip from its generated image and director prompt.
+6. If animations are enabled and a video connection is selected, builds a `game.video` prompt from each saved keyframe image, like the Gallery **Animate illustration** action, then renders each keyframe clip from that generated image as the first frame/reference.
 
 The default plan targets 4 keyframes, 16:9 output, and 6-second clips when videos are generated. Very short turns may produce fewer frames, but the engine keeps storyboards between 2 and 6 keyframes.
 
@@ -92,10 +92,10 @@ For advanced tuning, open **Settings -> Advanced -> Game Prompt Templates and Pr
 
 | Key | What it changes |
 | --- | --- |
-| `game.storyboardIllustrationDirector` | How image-only storyboards split GM narration into still keyframes. |
-| `game.storyboardDirector` | How animated storyboards split GM narration and write per-keyframe video prompts. |
+| `game.storyboardIllustrationDirector` | How storyboards split GM narration into still keyframes. |
+| `game.storyboardDirector` | Legacy/full storyboard director for workflows that need director-written per-keyframe video prompts. |
 | `game.sceneIllustration` | How each keyframe image prompt is compiled for the image provider. |
-| `game.video` | How scene-video and storyboard animation prompts are compiled for the video provider. |
+| `game.video` | How scene-video and storyboard animation prompts are compiled from the saved keyframe image for the video provider. |
 
 Keep storyboard and video templates concise. Providers with smaller prompt limits, especially xAI Imagine, reject overly long video prompts.
 
