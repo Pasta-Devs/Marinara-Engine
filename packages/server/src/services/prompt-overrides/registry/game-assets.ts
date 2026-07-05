@@ -124,7 +124,7 @@ export interface GameSceneIllustrationCtx extends Record<string, string | number
 
 export const GAME_SCENE_ILLUSTRATION: PromptOverrideKeyDef<GameSceneIllustrationCtx> = {
   key: "game.sceneIllustration",
-  description: "VN-style first-person POV CG illustration prompt (rare, story-defining moments only).",
+  description: "Comic-page game scene illustration prompt (rare, story-defining moments only).",
   variables: [
     {
       name: "sceneTitleLine",
@@ -172,8 +172,7 @@ export const GAME_SCENE_ILLUSTRATION: PromptOverrideKeyDef<GameSceneIllustration
   ],
   defaultBuilder: (ctx) =>
     [
-      "Image type: polished visual novel/game scene CG for one important current beat, not a selfie, comic page, manga panel, or background-only plate.",
-      "Camera / POV: first-person view from the player protagonist's eyes. Do not show the protagonist except hands or arms when the moment explicitly requires them.",
+      "Style target: colored comic page, 2-6 panels per illustration, cinematic panel flow, expressive speech bubbles, captions, and SFX lettering",
       ctx.sceneTitleLine,
       `Scene moment: ${ctx.scenePrompt}`,
       ctx.narrativePurposeLine,
@@ -182,9 +181,7 @@ export const GAME_SCENE_ILLUSTRATION: PromptOverrideKeyDef<GameSceneIllustration
       ctx.appearanceNotesBlock,
       ctx.artDirectionLine,
       ctx.imagePromptInstructionsLine,
-      "SD/Illustrious tags: visual novel CG, game CG, cinematic composition, full-frame single scene, dramatic lighting, clear focal point.",
-      "Composition: cinematic 16:9 visual novel/game CG, one full-frame illustration, emotionally specific staging, clear focal point, high-quality finished scene art.",
-      "Avoid: UI, subtitles, captions, speech bubbles, dialogue lettering, manga SFX, watermarks, logos, signatures, split panels, collage, contact sheet, character sheet, four-image grid, duplicated faces, and unrelated characters.",
+      "Avoid: watermark, logo, signature, UI chrome, unreadable text, broken lettering, malformed speech bubbles, blurry, low quality.",
     ]
       .filter(Boolean)
       .join("\n"),
@@ -358,14 +355,18 @@ export const GAME_STORYBOARD_ILLUSTRATION_DIRECTOR: PromptOverrideKeyDef<GameSto
   defaultBuilder: (ctx) =>
     [
       "You are Marinara's Game Mode Illustration Storyboard Director.",
-      "Turn exactly one completed GM narration into a concise image-only anime storyboard.",
-      `Create ${ctx.keyframeCount} ordered keyframes unless the narration is too short; never create fewer than 2 or more than 6.`,
-      `Every keyframe is a still ${ctx.aspectRatio} illustration prompt. Do not write animation, video, camera-motion, transition, or continuity-note fields.`,
+      "Turn exactly one completed GM narration into a concise anime storyboard.",
+      "Create keyframes unless the narration is too short; never create fewer than 2.",
+      `Every keyframe is a still ${ctx.aspectRatio} illustration prompt.`,
       "Use only the GM narration as the story source. Do not include the user's CYOA/action, because that action causes the next turn.",
       "Use the supplied turn_sections indices to anchor every keyframe to the story text. Prefer contiguous section ranges that cover the whole turn in order.",
       "For each keyframe, set sectionStartIndex and sectionEndIndex to the first and last covered section indices. Set anchorQuote to a short exact phrase from those sections, and anchorKind to the dominant section kind.",
       "Image prompts must be compact and concrete: visible characters, action, expression, pose, camera angle, composition, setting, lighting, mood, and key props.",
-      "Do not add captions, dialogue lettering, UI, subtitles, logos, watermarks, speech bubbles, manga SFX text, animation directions, or video instructions.",
+      "Generate only for a visually important moment: dramatic action, key emotion, major reveal, transformation, important location, or newly described character.",
+      "Style target: colored comic page, 2-6 panels per illustration, cinematic panel flow, expressive speech bubbles, captions, and SFX lettering",
+      "Rules: Build the prompt as a complete comic page. Include panel count, panel composition, camera framing, mood, lighting, and action flow.",
+      "The prompt must include a short readable text plan: dialogue bubbles for spoken lines, captions for narration/reaction beats, and SFX lettering for action. Draw text from the scene and keep it brief.",
+      "Use the negativePrompt: watermark, logo, signature, UI chrome, unreadable text, broken lettering, malformed speech bubbles, blurry, low quality.",
       "Return strict JSON only with this shape:",
       '{ "title": string, "keyframes": [ { "title": string, "sectionStartIndex": number, "sectionEndIndex": number, "anchorQuote": string, "anchorKind": "narration" | "dialogue" | "readable" | "system", "narrationBeat": string, "imagePrompt": string, "characters": string[] } ] }',
     ].join("\n"),

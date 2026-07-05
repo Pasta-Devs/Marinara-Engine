@@ -187,6 +187,7 @@ import {
   getSceneVideoPromptLimits,
   limitSceneVideoPromptForProvider,
   summarizeVideoNarration,
+  type SceneVideoPromptLimits,
 } from "../services/video/prompt-context.js";
 import { now } from "../utils/id-generator.js";
 import { DATA_DIR } from "../utils/data-dir.js";
@@ -1215,6 +1216,48 @@ function buildOmniSettingLine(
     new Set(parts.map((part) => compactVideoPromptText(part, maxPartLength)).filter(Boolean)),
   );
   return compactParts.length ? compactParts.join("; ") : "Current game scene.";
+}
+
+async function buildStoryboardGalleryAnimatePrompt(args: {
+  promptOverridesStorage: PromptOverridesStorage;
+  galleryImage: ChatGalleryImageRow;
+  plannedFrame: PlannedStoryboardKeyframe;
+  frameIndex: number;
+  messages: Array<{ role?: string | null; content?: string | null }>;
+  setupConfig: Record<string, unknown> | null;
+  latestState: unknown;
+  meta: Record<string, unknown>;
+  artStyle: string;
+  promptLimits: SceneVideoPromptLimits;
+}): Promise<string> {
+  const sourceDescription = `storyboard keyframe ${args.frameIndex + 1} (${args.galleryImage.id})`;
+  const narrationSummary =
+    compactVideoPromptText(args.plannedFrame.narrationBeat, args.promptLimits.narrationSummary) ||
+    latestNarrationSummary(args.messages, args.promptLimits.narrationSummary);
+  const characterNames =
+    args.plannedFrame.characters.length > 0
+      ? args.plannedFrame.characters
+      : collectOmniCharacterNames(args.meta, args.latestState);
+
+  const promptDraft = await loadPrompt(args.promptOverridesStorage, GAME_VIDEO, {
+    sceneTitle: compactVideoPromptText(
+      args.plannedFrame.title || sceneTitleFromGalleryImage(args.galleryImage),
+      args.promptLimits.title,
+    ),
+    narrationSummary,
+    illustrationPrompt:
+      excerptIllustrationPromptForVideo(args.galleryImage.prompt, args.promptLimits.illustrationPrompt) ||
+      `Use the supplied first-frame storyboard illustration for ${sourceDescription}.`,
+    charactersLine: characterNames.length
+      ? characterNames.join(", ")
+      : "preserve any visible characters from the reference image",
+    settingLine: buildOmniSettingLine(args.setupConfig, args.latestState, args.meta, args.promptLimits.artStyle),
+    artStyleLine: compactVideoPromptText(args.artStyle, args.promptLimits.artStyle) || "match the supplied illustration",
+    durationSeconds: args.plannedFrame.durationSeconds,
+    aspectRatio: args.plannedFrame.aspectRatio,
+    sourceIllustrationLine: `Use ${sourceDescription} as the first frame/reference image.`,
+  });
+  return limitSceneVideoPromptForProvider(promptDraft, args.promptLimits.finalPrompt);
 }
 
 function parseDefaultParametersRoot(raw: unknown): Record<string, unknown> {
@@ -9501,6 +9544,7 @@ export async function gameRoutes(app: FastifyInstance) {
         (await createGameStateStorage(app.db)
           .getLatest(input.chatId)
           .catch(() => null));
+      const includeDirectorVideoPrompts = false;
       const directorMessages = await buildStoryboardDirectorMessages({
         promptOverridesStorage,
         meta,
@@ -9511,7 +9555,7 @@ export async function gameRoutes(app: FastifyInstance) {
         keyframeCount: input.keyframeCount,
         durationSeconds: storyboardDurationSeconds,
         aspectRatio: input.aspectRatio,
-        includeVideoPrompts: input.generateVideos,
+        includeVideoPrompts: includeDirectorVideoPrompts,
       });
       if (debugLogsEnabled) {
         debugLog("[debug/game/storyboard-director] messages:\n%s", JSON.stringify(directorMessages.messages, null, 2));
@@ -9520,7 +9564,7 @@ export async function gameRoutes(app: FastifyInstance) {
       let directorErrorMessage: string | null = null;
       let plan: PlannedStoryboard;
       try {
-        const storyboardDirectorMaxTokens = input.generateVideos ? 4000 : 2200;
+        const storyboardDirectorMaxTokens = includeDirectorVideoPrompts ? 4000 : 2200;
         const directorResult = await runGameChatComplete(
           provider,
           directorMessages.messages,
@@ -9547,7 +9591,7 @@ export async function gameRoutes(app: FastifyInstance) {
           keyframeCount: input.keyframeCount,
           durationSeconds: storyboardDurationSeconds,
           aspectRatio: input.aspectRatio,
-          includeVideoPrompts: input.generateVideos,
+          includeVideoPrompts: includeDirectorVideoPrompts,
         });
       } catch (err) {
         directorErrorMessage =
@@ -9561,7 +9605,7 @@ export async function gameRoutes(app: FastifyInstance) {
           keyframeCount: input.keyframeCount,
           durationSeconds: storyboardDurationSeconds,
           aspectRatio: input.aspectRatio,
-          includeVideoPrompts: input.generateVideos,
+          includeVideoPrompts: includeDirectorVideoPrompts,
         });
       }
 
@@ -9659,7 +9703,7 @@ export async function gameRoutes(app: FastifyInstance) {
         model: string;
         resolution?: "480p" | "720p" | "1080p";
         maxDurationSeconds: number;
-        promptLimit: number;
+        promptLimits: SceneVideoPromptLimits;
       } | null = null;
       if (input.generateVideos) {
         const videoConnectionId = await resolveGameVideoConnectionId(meta, connections);
@@ -9706,10 +9750,10 @@ export async function gameRoutes(app: FastifyInstance) {
               : isGoogleVeoVideo
                 ? videoDefaults.googleVeo.resolution
                 : isOpenRouterVideo
-                  ? videoDefaults.openrouter.resolution
-                  : undefined,
+                ? videoDefaults.openrouter.resolution
+                : undefined,
             maxDurationSeconds: isXaiVideo ? 15 : isGoogleVeoVideo ? 8 : 60,
-            promptLimit: promptLimits.finalPrompt ?? 6500,
+            promptLimits,
           };
         }
       }
@@ -9808,7 +9852,19 @@ export async function gameRoutes(app: FastifyInstance) {
               const galleryImagePath = resolveGalleryImagePath(galleryImage);
               if (!galleryImagePath) throw new Error("Storyboard keyframe image file could not be found.");
               const referenceImage = readOmniReferenceImage(galleryImagePath);
-              const prompt = limitSceneVideoPromptForProvider(plannedFrame.videoPrompt, videoRuntime.promptLimit);
+              const prompt = await buildStoryboardGalleryAnimatePrompt({
+                promptOverridesStorage,
+                galleryImage,
+                plannedFrame,
+                frameIndex: frame.index,
+                messages: allMessages,
+                setupConfig: setupCfg,
+                latestState: fallbackState,
+                meta,
+                artStyle,
+                promptLimits: videoRuntime.promptLimits,
+              });
+              await storyboards.updateKeyframe(frame.id, { videoPrompt: prompt });
               if (debugLogsEnabled) {
                 debugLog("[debug/game/storyboard-video] frame=%d prompt:\n%s", frame.index + 1, prompt);
               }

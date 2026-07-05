@@ -69,9 +69,9 @@ The storyboard flow is:
 
 1. The Prompt Director reads the completed turn narration plus stable reader-section indices.
 2. It creates 2-6 ordered manga keyframes, usually 4.
-3. Each keyframe contains a still-image prompt, section anchors, and character context. Animated storyboards also include a video prompt, continuity notes, camera motion, and duration/aspect-ratio settings.
+3. Each keyframe contains a still-image prompt, section anchors, character context, and duration/aspect-ratio settings.
 4. Marinara saves the storyboard metadata, then starts keyframe media generation concurrently once the prompts are ready.
-5. Keyframe illustrations are saved to the Gallery's **Images** tab. Keyframe clips are saved to scene videos and appear in the **Videos** tab.
+5. Keyframe illustrations are saved to the Gallery's **Images** tab. When animations are enabled, Marinara builds the video prompt from each saved keyframe image with the same `game.video` template used by Gallery **Animate illustration**, then saves keyframe clips to scene videos in the **Videos** tab.
 
 The Game Mode **Gallery** panel has a **Create storyboard** button for manual generation. Manual storyboards create still keyframes illustrations by default; they also create clips when **Automatic Storyboard Animations** is enabled and a Video Generation connection is selected. After a storyboard exists, gallery also shows its keyframes and a button to reopen the floating storyboard viewer by clicking on **View storyboard**.
 
@@ -94,14 +94,14 @@ The relevant keys are:
 | Key | Purpose |
 | --- | --- |
 | `game.narrationSummarizer` | Converts completed Game Mode narration into a concise illustration request before scene illustration prompting. |
-| `game.sceneIllustration` | Builds the still visual novel/game scene illustration prompt. |
-| `game.storyboardIllustrationDirector` | Splits one completed GM narration into image-only manga keyframes and section anchors. |
-| `game.storyboardDirector` | Splits one completed GM narration into manga keyframes, section anchors, still-image prompts, and per-keyframe video prompts. |
-| `game.video` | Builds the motion/camera/timing prompt for scene-video generation. |
+| `game.sceneIllustration` | Builds the still game scene/keyframe illustration prompt. |
+| `game.storyboardIllustrationDirector` | Splits one completed GM narration into still keyframes and section anchors. |
+| `game.storyboardDirector` | Legacy/full storyboard director for workflows that need director-written per-keyframe video prompts. |
+| `game.video` | Builds the motion/camera/timing prompt for scene-video generation and storyboard keyframe animation. |
 
 `game.video` receives variables such as scene title, narration summary, source illustration prompt, characters, setting, art style, duration seconds, aspect ratio, and a reminder that the source illustration is used as the first frame/reference. Editing this template is the main way to prompt-engineer different motion outcomes without changing code.
 
-`game.storyboardIllustrationDirector` and `game.storyboardDirector` receive the game context, stripped GM narration, reader section indices, target keyframe count, duration, and aspect ratio. The illustration director is used when the storyboard only needs still images. The full storyboard director is used when animations are requested and controls how each panel's image and video prompts are written.
+`game.storyboardIllustrationDirector` receives the game context, stripped GM narration, reader section indices, target keyframe count, duration, and aspect ratio. Automatic storyboard animations now reuse the saved keyframe image as the first-frame/reference image and build the motion prompt through `game.video`, matching the manual Gallery animation flow.
 
 Before rendering the template, Marinara compacts the video prompt context. The narration variable is a short visible story beat, not the full assistant message, and the illustration prompt variable is a filtered excerpt that drops common still-image boilerplate. xAI receives a stricter final prompt budget than Gemini Omni, Google Veo, and OpenRouter because its video API rejects prompts over its maximum length.
 
@@ -143,7 +143,7 @@ The Prompt Director has its own request window, then each keyframe image/video r
 
 ### Animated Storyboard generation takes a while to load
 
-The process to greate animated storyboards is first the regular GM turn needs to complete. Then the game storyboard director needs to create the image and video prompts. Then image keyframes are created for each section of the game turn. Then each keyframe needs to be animated. It's alot of prompts and api calls. 
+The process to create animated storyboards is first the regular GM turn needs to complete. Then the storyboard illustration director creates still keyframe prompts. Image keyframes are created for each section of the game turn, saved to the Gallery, and animated through the same video prompt path as Gallery **Animate illustration**. It is a lot of prompts and API calls.
 
 ### Veo, xAI, or OpenRouter video requests take a while
 
