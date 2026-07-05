@@ -49,6 +49,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Fixed character library favorites and non-favorites filtering so server-side pagination searches the full library before returning each 100-item page, and separated the **Load more** control from character cards for large libraries (#3286).
 - Fixed Roleplay `/as` so `/as Character "message"` posts the exact message as that character, while bare `/as Character` still asks the model to generate that character's next response.
+- Fixed Roleplay tracker locks so AI tracker updates cannot bypass a locked field by renaming or replacing the locked row at the same position.
 - Fixed Game Mode NPC portrait generation so GM-created NPC profile descriptions from initial world setup take priority over weaker tracker/narration snippets and are sent as canonical visual guidance for portrait prompts.
 - Fixed launcher startup ordering so `.env` values such as `BACKGROUNDREMOVER_AUTO_INSTALL=true` are loaded before optional background-remover setup begins (#3269).
 - Fixed Home Assistant documentation and defaults to point at Marinara's current port, note `WEBHOOK_LOCAL_URLS_ENABLED=true` for local webhooks, and explain that re-syncing updates existing generated tools.

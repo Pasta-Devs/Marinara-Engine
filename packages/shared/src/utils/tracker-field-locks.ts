@@ -615,7 +615,7 @@ function mergeNamedRowsWithLocks<T extends { name?: string }>(
     if (!currentRow) return row;
     if (!match.matchedByIdentity && hasLockWithPrefix(locks, prefixFor(currentRow, currentIndex))) {
       usedCurrent.add(currentIndex);
-      return row;
+      return currentRow;
     }
     usedCurrent.add(currentIndex);
     return mergeRow(row, currentRow, currentIndex);
@@ -706,7 +706,8 @@ function mergeQuestObjectivesWithLocks(
     if (!currentObjective) return objective;
     const currentPrefix = questObjectiveTrackerLockPrefix(quest, questIndex, currentObjective, currentIndex);
     if (byText < 0 && hasLockWithPrefix(locks, `${currentPrefix}.`)) {
-      return objective;
+      usedCurrent.add(currentIndex);
+      return currentObjective;
     }
     usedCurrent.add(currentIndex);
     const next = { ...objective };
@@ -753,7 +754,7 @@ function mergeQuestsWithLocks(
       hasLockWithPrefix(locks, `${questTrackerLockPrefix(currentQuest, currentIndex)}.`)
     ) {
       usedCurrent.add(currentIndex);
-      return quest;
+      return currentQuest;
     }
     usedCurrent.add(currentIndex);
     const next = { ...quest };
@@ -829,7 +830,7 @@ function mergeCharactersWithLocks(
       hasLockWithPrefix(locks, `${characterTrackerLockPrefix(currentCharacter, currentIndex)}.`)
     ) {
       usedCurrent.add(currentIndex);
-      return character;
+      return currentCharacter;
     }
     usedCurrent.add(currentIndex);
     const next = { ...character };
