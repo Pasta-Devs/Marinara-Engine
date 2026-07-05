@@ -1206,6 +1206,11 @@ function mergeSceneAssetNpcCandidates(
     candidates.set(normalizedName, {
       ...existing,
       description: existing.description || description,
+      descriptionSource: existing.description
+        ? existing.descriptionSource
+        : description
+          ? (existing.descriptionSource ?? "narration")
+          : existing.descriptionSource,
       location: existing.location || currentLocation || "",
       avatarUrl: existing.avatarUrl || avatarUrl,
     });
@@ -1221,6 +1226,11 @@ function mergeSceneAssetNpcCandidates(
     candidates.set(normalizedName, {
       ...existing,
       description: existing.description || candidate.description,
+      descriptionSource: existing.description
+        ? existing.descriptionSource
+        : candidate.description
+          ? (existing.descriptionSource ?? "narration")
+          : existing.descriptionSource,
     });
   }
 

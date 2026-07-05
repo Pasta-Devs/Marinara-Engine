@@ -111,7 +111,7 @@ export interface GameNpc {
   name: string;
   emoji: string;
   description: string;
-  /** Origin of the description. Only "model" descriptions should be treated as canonical profile text. */
+  /** Origin of the description. "model", "library", and "user" descriptions are canonical profile text. */
   descriptionSource?: "model" | "library" | "narration" | "user";
   /** Optional presentation hint used for systems like NPC voice matching. */
   gender?: string | null;
