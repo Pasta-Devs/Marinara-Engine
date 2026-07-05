@@ -41,6 +41,7 @@ import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
+import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
@@ -864,7 +865,10 @@ export function ConversationInput({
         chatId: activeChatId,
         mode: "conversation",
         generate,
-        createMessage: (data) => createMessage.mutate(data),
+        createMessage: async (data) => {
+          await createMessage.mutateAsync(data);
+          requestChatScrollToBottom({ chatId: activeChatId, behavior: "auto" });
+        },
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames: activeCharacterNames,
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),
@@ -1044,7 +1048,10 @@ export function ConversationInput({
           if (succeeded !== undefined) generationStatus.succeeded = succeeded;
           return succeeded;
         },
-        createMessage: (data) => createMessage.mutate(data),
+        createMessage: async (data) => {
+          await createMessage.mutateAsync(data);
+          requestChatScrollToBottom({ chatId: submittingChatId, behavior: "auto" });
+        },
         invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
         characterNames: activeCharacterNames,
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),

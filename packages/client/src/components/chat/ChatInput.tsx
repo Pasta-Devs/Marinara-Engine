@@ -616,7 +616,10 @@ export const ChatInput = memo(function ChatInput({
       chatId: activeChatId,
       mode,
       generate: generateWithNarrativeDirector,
-      createMessage: (data) => createMessage.mutate(data),
+      createMessage: async (data) => {
+        await createMessage.mutateAsync(data);
+        requestChatScrollToBottom({ chatId: activeChatId, behavior: "auto" });
+      },
       invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
       characterNames: activeCharacterNames,
       characters: activeChatCharacters,
